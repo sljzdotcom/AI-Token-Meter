@@ -81,6 +81,32 @@ struct AppPresentationTests {
         #expect(summary.accessibilityLabel == "AI Meter, highest usage 92 percent")
     }
 
+    @Test("Carries reset guidance for both quota windows")
+    func formatsResetGuidance() {
+        let snapshot = UsageSnapshot(
+            provider: .claude,
+            primaryMetric: UsageMetric(
+                label: "Current session",
+                current: 73,
+                limit: 100,
+                unit: .percent,
+                resetDescription: "Resets in 51 min"
+            ),
+            secondaryMetric: UsageMetric(
+                label: "All models",
+                current: 7,
+                limit: 100,
+                unit: .percent,
+                resetDescription: "Resets at midnight"
+            )
+        )
+
+        let presentation = ProviderPresentation(snapshot: snapshot)
+
+        #expect(presentation.primaryResetText == "Resets in 51 min")
+        #expect(presentation.secondaryResetText == "Resets at midnight")
+    }
+
     private func usageSnapshot(provider: UsageProvider, fraction: Double) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,

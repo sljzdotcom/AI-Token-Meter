@@ -11,7 +11,10 @@ public struct SnapshotCache: Sendable {
     }
 
     public func save(_ snapshots: [UsageSnapshot]) throws {
-        let envelope = CacheEnvelope(version: 1, snapshots: snapshots)
+        let envelope = CacheEnvelope(
+            version: 1,
+            snapshots: snapshots.map { $0.privacySanitized() }
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(envelope)

@@ -199,3 +199,36 @@
 ### 提交
 
 - 计划提交：`feat: add menu bar floating meter and settings (task 6)`。
+
+## 任务 7：隐私回归、打包与文档
+
+### 红灯与诊断证据
+
+- 隐私回归测试首次编译失败，明确报告 `SensitiveTextRedactor` 不存在；测试覆盖缓存 JSON、展示文本和 Authorization/Bearer 形态。
+- 第一版打包脚本使用项目内 `.build`。当前项目位于 Dropbox 同步目录，release 中间文件读取出现 I/O 错误；将 SwiftPM 构建与状态缓存默认迁移到本机临时目录后通过，最终 App 仍输出到项目 `dist`。
+- 当前桌面在最终签名包视觉复核时处于锁屏状态，自动界面读取被系统拒绝；签名包本身成功启动并稳定运行，停止前无崩溃。相同源码的 debug App 已完成悬浮条、详情、设置和开关实机视觉回归。
+
+### 实现与关键决定
+
+- `SensitiveTextRedactor` 在快照落盘与展示前清除 Bearer Token，以及 `sk-` / `dk-` 常见密钥形态；正常的行动提示保持不变。
+- 正式打包脚本使用严格 shell 选项、隔离的本机构建缓存、release 二进制、固定 Info.plist、临时本机签名和签名自验证；不打印环境变量或凭证。
+- README 记录系统要求、构建、首次配置、指标语义、隐私边界、故障排查、诊断位置和卸载流程。
+- 最终视觉补充主、次额度的重置说明和快照更新时间；悬浮详情保持固定独立面板，避免重新引入动态约束崩溃。
+
+### 最终验收证据
+
+- 隐私专项：3/3 通过；重置说明专项：5/5 通过。
+- 完整测试、production 构建、`scripts/build-app.sh`、Info.plist 校验与 `codesign --verify --deep --strict` 均退出码 0。
+- 最终产物为 arm64 Mach-O：`dist/AI Meter.app`；App 包包含 release 可执行文件、Info.plist 和 `_CodeSignature/CodeResources`。
+- `git diff --check` 通过；仓库工作区和全部 Git 补丁按常见 API Key、Bearer、Telegram Bot Token 形态扫描，不含真实凭证。
+
+### 规格完成审查
+
+- 已实现：三服务采集、5 分钟并发刷新、手动刷新、缓存降级、70%/90% 去重通知、通知点击路由、Keychain、本地月预算、登录启动、睡眠唤醒补刷、菜单栏、右侧悬浮条、设置、深浅色系统外观、可访问标签、本机打包与签名。
+- 有意调整：Codex 使用官方结构化 `app-server` 用量接口，替代解析 `/status` 全屏界面；可靠性高于原设计方案且不读取登录令牌。
+- 部分实现：多显示器和系统缩放已实现重定位但尚无自动化 UI 矩阵；通知权限拒绝与登录项系统错误有非阻塞处理但尚无端到端系统自动化；DeepSeek 第一版显示总余额与本地预算，未单独展示赠送余额和充值余额。
+- 第一版无阻塞项；以上部分项可作为后续增强，不影响已确认的本地用量监控主流程。
+
+### 提交
+
+- 计划提交：`release: package and document AI Meter v0.1.0 (task 7)`。

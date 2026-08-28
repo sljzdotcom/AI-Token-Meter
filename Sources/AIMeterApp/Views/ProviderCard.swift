@@ -26,14 +26,28 @@ struct ProviderCard: View {
                 Text(presentation.detailText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let reset = presentation.primaryResetText {
+                    Text(reset)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
                 if let secondary = snapshot.secondaryMetric {
                     metricLine(secondary)
+                    if let reset = presentation.secondaryResetText {
+                        Text(reset)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                if let status = presentation.statusText {
-                    Text(status)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    if let status = presentation.statusText {
+                        Text(status)
+                    }
+                    Spacer()
+                    Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
                 }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
         }
         .padding(12)

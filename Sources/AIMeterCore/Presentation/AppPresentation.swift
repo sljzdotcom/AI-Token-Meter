@@ -14,6 +14,8 @@ public struct ProviderPresentation: Equatable, Sendable {
     public let valueText: String
     public let detailText: String
     public let statusText: String?
+    public let primaryResetText: String?
+    public let secondaryResetText: String?
     public let fraction: Double?
     public let semantic: UsageSemantic
 
@@ -23,8 +25,12 @@ public struct ProviderPresentation: Equatable, Sendable {
         fraction = [snapshot.primaryMetric, snapshot.secondaryMetric]
             .compactMap { $0?.usedFraction }
             .max()
-        detailText = snapshot.primaryMetric?.label ?? Self.defaultDetail(for: snapshot.collectionStatus)
-        statusText = snapshot.statusMessage
+        detailText = SensitiveTextRedactor.redact(
+            snapshot.primaryMetric?.label ?? Self.defaultDetail(for: snapshot.collectionStatus)
+        )
+        statusText = snapshot.statusMessage.map(SensitiveTextRedactor.redact)
+        primaryResetText = Self.resetText(for: snapshot.primaryMetric)
+        secondaryResetText = Self.resetText(for: snapshot.secondaryMetric)
 
         if let primaryMetric = snapshot.primaryMetric {
             valueText = Self.valueText(for: primaryMetric)
@@ -86,6 +92,17 @@ public struct ProviderPresentation: Equatable, Sendable {
         case .unavailable: "No current data"
         case .fresh, .cached: "Usage"
         }
+    }
+
+    private static func resetText(for metric: UsageMetric?) -> String? {
+        guard let metric else { return nil }
+        if let description = metric.resetDescription {
+            return SensitiveTextRedactor.redact(description)
+        }
+        if let resetAt = metric.resetAt {
+            return "Resets \(resetAt.formatted(date: .abbreviated, time: .shortened))"
+        }
+        return nil
     }
 }
 

@@ -73,7 +73,7 @@ final class FloatingPanelController {
         )
         stripPanel.setFrame(stripFrame, display: true, animate: false)
 
-        let detailSize = NSSize(width: 262, height: 190)
+        let detailSize = NSSize(width: 262, height: 224)
         detailPanel.setFrame(
             NSRect(
                 x: stripFrame.minX - detailSize.width - 10,

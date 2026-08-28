@@ -66,6 +66,11 @@ struct FloatingDetailView: View {
                 Text(presentation.detailText)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
+                if let reset = presentation.primaryResetText {
+                    Text(reset)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
+                }
                 if let secondary = snapshot.secondaryMetric,
                    let fraction = secondary.usedFraction {
                     VStack(alignment: .leading, spacing: 5) {
@@ -76,6 +81,10 @@ struct FloatingDetailView: View {
                         }
                         ProgressView(value: fraction)
                             .tint(presentation.semantic.color)
+                        if let reset = presentation.secondaryResetText {
+                            Text(reset)
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
                     }
                     .font(.caption2)
                 }
@@ -84,6 +93,10 @@ struct FloatingDetailView: View {
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.6))
                 }
+                Spacer(minLength: 0)
+                Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.45))
             }
             .foregroundStyle(.white)
             .padding(16)

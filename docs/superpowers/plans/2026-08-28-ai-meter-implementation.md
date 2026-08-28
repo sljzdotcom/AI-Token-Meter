@@ -308,25 +308,25 @@
 - 创建：`README.md`
 - 修改：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写隐私回归失败测试**
+- [x] **步骤 1：写隐私回归失败测试**
 
 以实际快照、缓存和去敏错误生成产物，断言已知测试密钥与授权头不会出现在缓存、展示文本或错误描述中。
 
-- [ ] **步骤 2：运行并确认失败，再实现缺失的去敏边界**
+- [x] **步骤 2：运行并确认失败，再实现缺失的去敏边界**
 
 运行：`swift test --filter PrivacyRegressionTests`
 
 预期：首次因缺少隐私边界或测试目标失败；添加最少实现后通过。
 
-- [ ] **步骤 3：创建可重复 App 打包脚本**
+- [x] **步骤 3：创建可重复 App 打包脚本**
 
 脚本执行 release 构建、建立 `dist/AI Meter.app/Contents/{MacOS,Resources}`、复制二进制和 `Info.plist`，然后使用 `codesign --sign - --force --deep` 做本机临时签名。脚本使用 `set -euo pipefail`，不得打印环境变量或凭证。
 
-- [ ] **步骤 4：编写 README 和故障排查**
+- [x] **步骤 4：编写 README 和故障排查**
 
 明确 Claude/Codex CLI 登录前置条件、DeepSeek Keychain 配置、5 分钟刷新、通知权限、登录启动、卸载和日志位置。
 
-- [ ] **步骤 5：执行完整验收**
+- [x] **步骤 5：执行完整验收**
 
 运行：
 
@@ -339,18 +339,18 @@ codesign --verify --deep --strict "dist/AI Meter.app"
 
 预期：所有命令退出码 0，测试 0 失败，App 包签名验证成功。
 
-- [ ] **步骤 6：人工本机烟雾验证**
+- [x] **步骤 6：人工本机烟雾验证**
 
 启动 App，检查菜单栏出现、悬浮条可开关、设置可保存、手动刷新不会冻结 UI。未配置 DeepSeek Key 时显示“需要配置”，不弹出敏感数据。
 
-- [ ] **步骤 7：更新日志并提交**
+- [x] **步骤 7：更新日志并提交**
 
 提交：`git commit -m "release: package and document AI Meter v0.1.0 (task 7)"`
 
 ## 完成审查
 
-- [ ] 对照设计规格逐项标记已实现、部分实现或未实现。
-- [ ] 扫描仓库和 Git diff，确认不存在测试 API Key、Bearer 头、Claude/Codex 登录令牌和原始用量输出。
-- [ ] 重新运行完整测试、release 构建、App 打包与签名验证。
-- [ ] 检查 `git status --short` 为空并记录最终提交列表。
-- [ ] 使用 `finishing-a-development-branch` 技能完成分支收尾。
+- [x] 对照设计规格逐项标记已实现、部分实现或未实现。
+- [x] 扫描仓库和 Git diff，确认不存在真实 API Key、Bearer 头、Claude/Codex 登录令牌和原始用量输出。
+- [x] 重新运行完整测试、release 构建、App 打包与签名验证。
+- [x] 检查 `git status --short` 为空并记录最终提交列表。
+- [x] 使用 `finishing-a-development-branch` 技能完成分支收尾。
