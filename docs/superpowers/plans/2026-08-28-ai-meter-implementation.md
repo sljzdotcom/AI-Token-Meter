@@ -229,25 +229,25 @@
 - 创建：`Tests/AIMeterCoreTests/ThresholdEvaluatorTests.swift`
 - 修改：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写缓存失败测试并实现原子 JSON 缓存**
+- [x] **步骤 1：写缓存失败测试并实现原子 JSON 缓存**
 
 在独立临时目录运行真实文件系统测试，验证编码/读取、损坏文件忽略和过期标记。缓存内容不得包含名为 `apiKey`、`token`、`authorization` 的字段。
 
-- [ ] **步骤 2：写刷新协调失败测试并实现**
+- [x] **步骤 2：写刷新协调失败测试并实现**
 
 以轻量 fake collector 控制成功、失败和延迟，断言三个采集器并发、单项失败不阻塞、重复刷新被合并、失败时使用缓存并标记 stale。协调器对外发布按 `.claude/.codex/.deepSeek` 排序的快照。
 
-- [ ] **步骤 3：写阈值失败测试并实现**
+- [x] **步骤 3：写阈值失败测试并实现**
 
 用字面量覆盖 69→70、89→90、65→93、重复刷新、重置时间变化和回落到 10% 以下。一次跨两级只产生 90% 事件。
 
-- [ ] **步骤 4：运行相关测试和完整测试集**
+- [x] **步骤 4：运行相关测试和完整测试集**
 
 运行：`swift test --filter SnapshotCacheTests && swift test --filter RefreshCoordinatorTests && swift test --filter ThresholdEvaluatorTests && swift test`
 
 预期：全部通过。
 
-- [ ] **步骤 5：更新日志并提交**
+- [x] **步骤 5：更新日志并提交**
 
 提交：`git commit -m "feat: coordinate refresh cache and usage alerts (task 5)"`
 
