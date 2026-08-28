@@ -54,7 +54,7 @@
 - 创建：`Tests/AIMeterCoreTests/UsageModelsTests.swift`
 - 创建：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写领域模型失败测试**
+- [x] **步骤 1：写领域模型失败测试**
 
 测试用字面值证明 73% 已用量、过期判断和无上限指标不会伪造比例：
 
@@ -69,23 +69,23 @@
 }
 ```
 
-- [ ] **步骤 2：运行测试并确认因模块或类型缺失失败**
+- [x] **步骤 2：运行测试并确认因模块或类型缺失失败**
 
 运行：`swift test --filter UsageModelsTests`
 
 预期：FAIL，提示 `no such module 'AIMeterCore'` 或领域类型不存在。
 
-- [ ] **步骤 3：创建最小包结构和领域模型**
+- [x] **步骤 3：创建最小包结构和领域模型**
 
 `UsageMetric.usedFraction` 仅在 `limit > 0` 时返回 `min(max(current / limit, 0), 1)`；`UsageSnapshot.isStale(at:)` 使用 `fetchedAt + staleAfter` 判断。
 
-- [ ] **步骤 4：运行领域测试和完整构建**
+- [x] **步骤 4：运行领域测试和完整构建**
 
 运行：`swift test --filter UsageModelsTests && swift build`
 
 预期：测试通过，debug 构建退出码 0。
 
-- [ ] **步骤 5：更新开发日志并提交**
+- [x] **步骤 5：更新开发日志并提交**
 
 记录工具版本、测试红灯/绿灯输出摘要和架构决定。
 
@@ -351,4 +351,3 @@ codesign --verify --deep --strict "dist/AI Meter.app"
 - [ ] 重新运行完整测试、release 构建、App 打包与签名验证。
 - [ ] 检查 `git status --short` 为空并记录最终提交列表。
 - [ ] 使用 `finishing-a-development-branch` 技能完成分支收尾。
-

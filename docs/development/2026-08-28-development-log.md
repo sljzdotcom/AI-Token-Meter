@@ -24,3 +24,28 @@
 - App 最终由可重复脚本封装为本机签名的 `.app`；核心逻辑保持可由 `swift test` 独立验证。
 - 详细计划：`docs/superpowers/plans/2026-08-28-ai-meter-implementation.md`。
 
+## 任务 1：工程骨架与统一领域模型
+
+### 目标
+
+- 建立 `AIMeterCore`、`AIMeterApp` 和 `AIMeterCoreTests` 三个 Swift Package 目标。
+- 定义提供商、指标、快照、采集状态和采集器协议。
+- 证明百分比不会在缺少有效上限时被伪造，并证明快照过期判断有效。
+
+### 红灯证据
+
+- 初次执行被用户级 SwiftPM/Clang 缓存权限阻止；这不是有效的行为测试失败。
+- 将 cache、configuration、security、scratch 和 module cache 改到 `/private/tmp/ai-meter-spm`，并为 SwiftPM 关闭其内部二次沙盒。
+- 有效红灯：`swift test --filter UsageModelsTests` 退出码 1，编译器报告 `cannot find 'UsageMetric' in scope` 和 `cannot find 'UsageSnapshot' in scope`。
+
+### 绿灯证据
+
+- `UsageModelsTests`：3 个测试、0 个失败。
+- `swift build`：退出码 0，`Build complete`。
+
+### 关键决定
+
+- SwiftPM 构建产物放在 `/private/tmp/ai-meter-spm`，避免 Dropbox 目录对高频临时文件出现 I/O 问题。
+- `usedFraction` 仅在 `limit > 0` 时存在，并限制到 `0...1`。
+- 错误状态使用稳定枚举；用户可见的去敏说明单独保存在 `statusMessage`。
+- 提交信息：`feat: scaffold AI Meter domain and app (task 1)`。
