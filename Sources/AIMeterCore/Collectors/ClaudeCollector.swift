@@ -22,6 +22,8 @@ public struct ClaudeCollector: UsageCollector {
             throw UsageCollectionError.notInstalled
         }
 
+        try await verifyAuthentication(executableURL: executableURL)
+
         let result = try await runner.run(CommandRequest(
             executableURL: executableURL,
             inputLines: ["/usage", "/exit"],
@@ -32,6 +34,29 @@ public struct ClaudeCollector: UsageCollector {
         do {
             return try parser.parse(result.output)
         } catch UsageCollectionError.unrecognizedOutput where result.exitCode != 0 {
+            throw UsageCollectionError.transportFailure
+        }
+    }
+
+    private func verifyAuthentication(executableURL: URL) async throws {
+        let result = try await runner.run(CommandRequest(
+            executableURL: executableURL,
+            arguments: ["auth", "status"],
+            inputLines: [],
+            timeout: 5
+        ))
+        let sanitized = ANSITextSanitizer.sanitize(result.output)
+        if let start = sanitized.firstIndex(of: "{"),
+           let end = sanitized.lastIndex(of: "}"),
+           let data = String(sanitized[start...end]).data(using: .utf8),
+           let authStatus = try? JSONDecoder().decode(ClaudeAuthStatus.self, from: data) {
+            if !authStatus.loggedIn {
+                throw UsageCollectionError.authenticationRequired
+            }
+            return
+        }
+
+        if result.exitCode != 0 {
             throw UsageCollectionError.transportFailure
         }
     }
@@ -47,3 +72,6 @@ public struct ClaudeCollector: UsageCollector {
     }
 }
 
+private struct ClaudeAuthStatus: Decodable {
+    let loggedIn: Bool
+}

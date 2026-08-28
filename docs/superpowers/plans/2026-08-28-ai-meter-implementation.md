@@ -145,36 +145,37 @@
 - 创建：`Sources/AIMeterCore/Collectors/ExecutableLocator.swift`
 - 创建：`Sources/AIMeterCore/Collectors/ClaudeCollector.swift`
 - 创建：`Sources/AIMeterCore/Collectors/CodexCollector.swift`
+- 创建：`Sources/AIMeterCore/Collectors/CodexAppServerClient.swift`
 - 创建：`Tests/AIMeterCoreTests/PTYCommandRunnerTests.swift`
 - 创建：`Tests/AIMeterCoreTests/CLICollectorTests.swift`
 - 创建：`Tests/AIMeterCoreTests/Fixtures/fake-interactive-cli.sh`
 - 修改：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写执行器超时和固定输入失败测试**
+- [x] **步骤 1：写执行器超时和固定输入失败测试**
 
 测试真实运行测试脚本，验证 `/usage` 被写入、输出被捕获、退出码保留，并验证挂起进程在设定时限后返回 `.timedOut`。
 
-- [ ] **步骤 2：运行并确认失败**
+- [x] **步骤 2：运行并确认失败**
 
 运行：`swift test --filter PTYCommandRunnerTests`
 
 预期：FAIL，提示执行器类型不存在。
 
-- [ ] **步骤 3：实现受控执行器**
+- [x] **步骤 3：实现受控执行器**
 
-执行器只接受结构化 `CommandRequest(executableURL:arguments:inputLines:timeout:)`；使用 `/usr/bin/script -q /dev/null` 分配终端，环境只继承 `PATH`、`HOME`、`LANG`、`TERM`，超时先 `terminate()` 再在短暂宽限后强制终止。日志中不记录原始输出。
+执行器只接受结构化 `CommandRequest(executableURL:arguments:inputLines:timeout:)`；使用原生 `openpty` 分配 120×40 终端，环境只继承 `PATH`、`HOME`、`LANG`、`LC_ALL`、`TERM`，超时先关闭 PTY 并 `terminate()`，再在短暂宽限后强制终止。日志中不记录原始输出。
 
-- [ ] **步骤 4：写 Claude/Codex 采集器失败测试并实现最小连接**
+- [x] **步骤 4：写 Claude/Codex 采集器失败测试并实现最小连接**
 
-使用真实 fake CLI 和真实解析器。Claude 固定发送 `/usage` 与退出指令；Codex 固定发送 `/status` 与退出指令；执行文件不存在映射为 `.notInstalled`，未登录文本映射为 `.authenticationRequired`。
+使用真实 fake CLI 和真实解析器。Claude 先调用机器可读的 `auth status`，登录后固定发送 `/usage` 与退出指令；Codex 使用官方 `app-server` JSON-RPC 的 `account/rateLimits/read` 接口，避免依赖 TUI 文案和输入时序。执行文件不存在映射为 `.notInstalled`，未登录状态映射为 `.authenticationRequired`。
 
-- [ ] **步骤 5：运行采集器测试与 CLI 本机只读烟雾测试**
+- [x] **步骤 5：运行采集器测试与 CLI 本机只读烟雾测试**
 
 运行：`swift test --filter PTYCommandRunnerTests && swift test --filter CLICollectorTests`
 
 随后运行只读诊断命令验证本机 CLI 版本和可执行路径；若 CLI 输出格式与 fixture 不同，只新增去敏 fixture 和解析测试，不读取登录令牌。
 
-- [ ] **步骤 6：更新日志并提交**
+- [x] **步骤 6：更新日志并提交**
 
 提交：`git commit -m "feat: collect usage through controlled CLI sessions (task 3)"`
 

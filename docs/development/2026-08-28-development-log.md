@@ -76,21 +76,33 @@
 - 重置时间第一版保留官方文本；只有数据源能可靠提供绝对时间时才填 `resetAt`。
 - 提交信息：`feat: parse Claude and Codex usage output (task 2)`。
 
-## 任务 3：CLI 采集器（暂停检查点）
+## 任务 3：受控 CLI 采集器
 
-### 已完成
+### 红灯与诊断证据
 
-- 原生 `openpty` 执行器已通过真实测试脚本验证：固定输入、子进程退出码和超时终止均有效。
-- Claude/Codex 采集器与真实解析器的隔离集成测试通过。
-- `/usr/bin/script` 方案已根据真实失败证据弃用：它在非交互管道中会先向子进程发送 EOF。
+- `/usr/bin/script` 在非交互管道中先向子进程发送 EOF，无法稳定驱动全屏 CLI，因此改用原生 `openpty`。
+- Codex TUI 在初版 PTY 下逐字竖排。测试脚本确认终端尺寸为 `0 0`；为 PTY 显式设置 120 列 × 40 行后恢复正常。
+- 只关闭父进程不能回收继承 PTY 的子进程；专用 fixture 会忽略 `TERM/HUP` 并保持描述符打开，初次测试耗时约 3.97 秒，超过 1.5 秒上限。
+- 本机 Codex 在受限测试环境中报告 `state_5.sqlite` 只读；提升为正常用户环境后证实数据库完好，问题是沙盒权限而非用户数据损坏。
+- Claude `auth status` 在未登录时仍输出有效 JSON，但退出码为 1。初版只在退出码 0 时解析，导致误入交互模式并超时；新增非零退出码 fixture 后测试准确复现为 `.transportFailure`。
 
-### 重启后继续处理
+### 实现与关键决定
 
-- 本机 Claude CLI 的真实烟雾测试在 10 秒后超时，原因是 `/usage` 弹层需要分阶段关闭后再退出。
-- 本机 Codex CLI 的真实烟雾测试快速返回非零状态，需要确认启动参数、当前工作区信任状态或 `/status` 输入时序。
-- 下一步为 `CommandRequest` 增加带延时的输入事件，或者采用 CLI/app-server 已提供的只读状态接口；保持不发送模型提示、不读取令牌。
+- `PTYCommandRunner` 使用原生 `openpty`、固定 120×40 窗口、非阻塞读取和 10 ms 轮询；超时关闭 PTY、终止父进程，并在 0.5 秒宽限后强制回收。
+- Claude 先调用 `claude auth status`。只要机器可读 JSON 明确 `loggedIn: false`，无论命令退出码是否为零，都返回 `.authenticationRequired`；不会启动聊天或发送模型提示。
+- Codex 不再依赖 `/status` 的全屏界面，改用官方 `codex app-server` JSON-RPC：依次完成 `initialize`、`initialized`、`account/rateLimits/read`，直接读取 primary/secondary 的 `usedPercent` 与重置时间。
+- 保留旧的 Codex 文本解析器用于兼容性测试，但默认采集路径使用结构化接口。
+- 所有诊断和测试日志只记录状态与计数，不记录 CLI 原始账户信息、API Key 或登录令牌。
 
-### 验证状态
+### 绿灯证据
 
-- 隔离执行器与 fake CLI：5/5 测试通过。
-- 本机真实 CLI 烟雾测试：0/2，通过前不得把任务 3 标记完成。
+- 子进程持有 PTY 的超时测试：约 0.66 秒通过。
+- 执行器与隔离 CLI 采集器：8/8 测试通过。
+- 本机只读烟雾测试：3/3 通过；Claude 认证状态可读，未登录被识别为可行动状态，Codex 成功返回额度快照。
+- 全量测试：21 个测试、7 个测试组通过，0 个失败；3 个需显式启用的本机烟雾测试在常规测试中按设计跳过。
+- 完整 debug 构建：退出码 0，`Build complete`。
+- `git diff --check`：退出码 0；针对常见 API Key、Bearer Token 与 Telegram Bot Token 形态的源码/测试/文档扫描无匹配。
+
+### 提交
+
+- 计划提交：`feat: collect usage through authenticated CLI interfaces (task 3)`。

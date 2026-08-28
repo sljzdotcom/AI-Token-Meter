@@ -31,10 +31,14 @@ public struct PTYCommandRunner: CommandRunning {
     ) async throws -> CommandResult {
         var masterDescriptor: Int32 = -1
         var slaveDescriptor: Int32 = -1
-        guard openpty(&masterDescriptor, &slaveDescriptor, nil, nil, nil) == 0 else {
+        var windowSize = winsize(ws_row: 40, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
+        guard openpty(&masterDescriptor, &slaveDescriptor, nil, nil, &windowSize) == 0 else {
             throw UsageCollectionError.transportFailure
         }
         let activeMasterDescriptor = masterDescriptor
+        let descriptorBox = ClosableDescriptor(activeMasterDescriptor)
+        let currentFlags = fcntl(activeMasterDescriptor, F_GETFL)
+        _ = fcntl(activeMasterDescriptor, F_SETFL, currentFlags | O_NONBLOCK)
 
         let process = Process()
         let startedAt = Date()
@@ -55,7 +59,7 @@ public struct PTYCommandRunner: CommandRunning {
             throw error
         }
 
-        processBox.set(process)
+        processBox.set(process, descriptorBox: descriptorBox)
         close(slaveDescriptor)
         slaveDescriptor = -1
 
@@ -85,7 +89,7 @@ public struct PTYCommandRunner: CommandRunning {
 
         processBox.clear(process)
         let outputData = await reader.value
-        close(activeMasterDescriptor)
+        descriptorBox.close()
         let output = String(decoding: outputData, as: UTF8.self)
 
         return CommandResult(
@@ -103,6 +107,8 @@ public struct PTYCommandRunner: CommandRunning {
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
+            } else if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(10_000)
             } else {
                 break
             }
@@ -127,10 +133,12 @@ public struct PTYCommandRunner: CommandRunning {
 private final class RunningProcessBox: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
+    private var descriptorBox: ClosableDescriptor?
 
-    func set(_ process: Process) {
+    func set(_ process: Process, descriptorBox: ClosableDescriptor) {
         lock.withLock {
             self.process = process
+            self.descriptorBox = descriptorBox
         }
     }
 
@@ -138,12 +146,15 @@ private final class RunningProcessBox: @unchecked Sendable {
         lock.withLock {
             if self.process === process {
                 self.process = nil
+                self.descriptorBox = nil
             }
         }
     }
 
     func stop() {
-        let runningProcess = lock.withLock { process }
+        let state = lock.withLock { (process, descriptorBox) }
+        state.1?.close()
+        let runningProcess = state.0
         guard let runningProcess, runningProcess.isRunning else { return }
 
         runningProcess.terminate()
@@ -152,6 +163,25 @@ private final class RunningProcessBox: @unchecked Sendable {
             if runningProcess.isRunning {
                 kill(processIdentifier, SIGKILL)
             }
+        }
+    }
+}
+
+private final class ClosableDescriptor: @unchecked Sendable {
+    private let lock = NSLock()
+    private var descriptor: Int32?
+
+    init(_ descriptor: Int32) {
+        self.descriptor = descriptor
+    }
+
+    func close() {
+        let descriptorToClose = lock.withLock { () -> Int32? in
+            defer { descriptor = nil }
+            return descriptor
+        }
+        if let descriptorToClose {
+            Darwin.close(descriptorToClose)
         }
     }
 }
