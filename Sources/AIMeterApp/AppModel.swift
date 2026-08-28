@@ -9,6 +9,7 @@ final class AppModel {
         static let showFloatingStrip = "showFloatingStrip"
         static let notificationsEnabled = "notificationsEnabled"
         static let monthlyBudget = "monthlyBudget"
+        static let thresholdEvaluator = "thresholdEvaluator"
     }
 
     private let coordinator: RefreshCoordinator
@@ -17,7 +18,7 @@ final class AppModel {
     private let launchAtLoginService: LaunchAtLoginService
     private let defaults: UserDefaults
     private let isDemoMode: Bool
-    private var thresholdEvaluator = ThresholdEvaluator()
+    private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
 
     private(set) var snapshots: [UsageSnapshot] = []
@@ -45,6 +46,12 @@ final class AppModel {
         self.launchAtLoginService = launchAtLoginService
         self.budgetTracker = DeepSeekBudgetTracker(defaults: defaults)
         self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
+        if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
+           let restored = try? JSONDecoder().decode(ThresholdEvaluator.self, from: data) {
+            self.thresholdEvaluator = restored
+        } else {
+            self.thresholdEvaluator = ThresholdEvaluator()
+        }
 
         if defaults.object(forKey: DefaultsKey.showFloatingStrip) == nil {
             showFloatingStrip = true
@@ -119,6 +126,7 @@ final class AppModel {
 
         guard notificationsEnabled else { return }
         let events = snapshots.flatMap { thresholdEvaluator.evaluate($0) }
+        persistThresholdEvaluator()
         if !events.isEmpty {
             notificationHandler?(events)
         }
@@ -221,6 +229,11 @@ final class AppModel {
         case .usd: .usd
         default: nil
         }
+    }
+
+    private func persistThresholdEvaluator() {
+        guard let data = try? JSONEncoder().encode(thresholdEvaluator) else { return }
+        defaults.set(data, forKey: DefaultsKey.thresholdEvaluator)
     }
 
     private static var demoSnapshots: [UsageSnapshot] {

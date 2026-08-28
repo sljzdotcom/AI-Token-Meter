@@ -59,6 +59,22 @@ struct PTYCommandRunnerTests {
         #expect(Date().timeIntervalSince(startedAt) < 1.5)
     }
 
+    @Test("A parent exit cannot leave the runner waiting on a descendant PTY")
+    func parentExitClosesReader() async throws {
+        let runner = PTYCommandRunner()
+        let startedAt = Date()
+
+        let result = try await runner.run(CommandRequest(
+            executableURL: parentExitExecutable,
+            inputLines: [],
+            timeout: 0.75
+        ))
+
+        #expect(result.exitCode == 0)
+        #expect(result.output.contains("parent-exited"))
+        #expect(Date().timeIntervalSince(startedAt) < 1.5)
+    }
+
     private var fixtureExecutable: URL {
         Bundle.module.url(forResource: "fake-interactive-cli", withExtension: "sh")!
     }
@@ -69,5 +85,9 @@ struct PTYCommandRunnerTests {
 
     private var descendantHangExecutable: URL {
         Bundle.module.url(forResource: "fake-descendant-hang", withExtension: "sh")!
+    }
+
+    private var parentExitExecutable: URL {
+        Bundle.module.url(forResource: "fake-parent-exits", withExtension: "sh")!
     }
 }

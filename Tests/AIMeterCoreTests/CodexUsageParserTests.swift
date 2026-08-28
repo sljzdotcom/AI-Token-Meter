@@ -36,4 +36,3 @@ struct CodexUsageParserTests {
         return try String(contentsOf: url, encoding: .utf8)
     }
 }
-

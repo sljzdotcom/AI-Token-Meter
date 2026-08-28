@@ -24,7 +24,7 @@ public struct ThresholdEvent: Equatable, Sendable {
     }
 }
 
-public struct ThresholdEvaluator: Sendable {
+public struct ThresholdEvaluator: Codable, Sendable {
     private var states: [String: ThresholdState] = [:]
 
     public init() {}
@@ -92,7 +92,7 @@ public struct ThresholdEvaluator: Sendable {
     }
 }
 
-private struct ThresholdState: Sendable {
+private struct ThresholdState: Codable, Sendable {
     let cycleIdentifier: String?
     var lastNotified: ThresholdLevel?
 }

@@ -5,4 +5,3 @@ public struct ClaudeUsageParser: Sendable {
         try TerminalUsageParser.parse(text, provider: .claude)
     }
 }
-

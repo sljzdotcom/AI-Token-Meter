@@ -5,4 +5,3 @@ public struct CodexUsageParser: Sendable {
         try TerminalUsageParser.parse(text, provider: .codex)
     }
 }
-

@@ -87,9 +87,13 @@ public struct PTYCommandRunner: CommandRunning {
             return process.terminationStatus
         }.value
 
-        processBox.clear(process)
-        let outputData = await reader.value
+        // Give the nonblocking reader one final turn to drain bytes already
+        // queued by a short-lived command, then close our side even if an
+        // orphaned descendant still owns the slave descriptor.
+        try? await Task.sleep(for: .milliseconds(50))
         descriptorBox.close()
+        let outputData = await reader.value
+        processBox.clear(process)
         let output = String(decoding: outputData, as: UTF8.self)
 
         return CommandResult(

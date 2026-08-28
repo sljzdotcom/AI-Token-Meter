@@ -140,6 +140,17 @@ struct DeepSeekClientTests {
         #expect(recorder.lastRequest == nil)
     }
 
+    @Test("Balance requests enforce the ten second collection deadline")
+    func requestUsesTenSecondTimeout() async throws {
+        let recorder = RequestRecorder(response: .json(200, """
+        {"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"1","granted_balance":"0","topped_up_balance":"1"}]}
+        """))
+
+        _ = try await DeepSeekClient(session: recorder.session).collect(apiKey: "test-key")
+
+        #expect(recorder.lastRequest?.timeoutInterval == 10)
+    }
+
     @Test("Collector uses the Keychain abstraction without exposing it to callers")
     func collectorUsesSecretStore() async throws {
         let recorder = RequestRecorder(response: .json(200, """

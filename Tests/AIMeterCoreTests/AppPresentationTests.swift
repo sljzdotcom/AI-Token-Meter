@@ -107,6 +107,27 @@ struct AppPresentationTests {
         #expect(presentation.secondaryResetText == "Resets at midnight")
     }
 
+    @Test("An officially unavailable account never appears healthy")
+    func formatsUnavailableAccount() {
+        let snapshot = UsageSnapshot(
+            provider: .deepSeek,
+            primaryMetric: UsageMetric(
+                label: "Available balance",
+                current: 0,
+                limit: nil,
+                unit: .cny,
+                kind: .balance
+            ),
+            availability: .unavailable,
+            collectionStatus: .fresh
+        )
+
+        let presentation = ProviderPresentation(snapshot: snapshot)
+
+        #expect(presentation.semantic == .unavailable)
+        #expect(presentation.statusText == "Account unavailable")
+    }
+
     private func usageSnapshot(provider: UsageProvider, fraction: Double) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,

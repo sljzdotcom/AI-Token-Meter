@@ -119,4 +119,3 @@ enum TerminalUsageParser {
         }
     }
 }
-

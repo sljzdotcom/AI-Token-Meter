@@ -39,12 +39,15 @@ struct CodexAppServerClient: Sendable {
         process.standardError = FileHandle.nullDevice
 
         try process.run()
-        processBox.set(process: process, input: input.fileHandleForWriting)
+        processBox.set(
+            process: process,
+            input: input.fileHandleForWriting,
+            output: output.fileHandleForReading
+        )
         defer {
-            processBox.clear(process: process)
-            try? input.fileHandleForWriting.close()
-            if process.isRunning { process.terminate() }
+            processBox.stop()
             process.waitUntilExit()
+            processBox.clear(process: process)
         }
 
         try writeJSON([
@@ -171,11 +174,13 @@ private final class CodexProcessBox: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
     private var input: FileHandle?
+    private var output: FileHandle?
 
-    func set(process: Process, input: FileHandle) {
+    func set(process: Process, input: FileHandle, output: FileHandle) {
         lock.withLock {
             self.process = process
             self.input = input
+            self.output = output
         }
     }
 
@@ -184,16 +189,22 @@ private final class CodexProcessBox: @unchecked Sendable {
             if self.process === process {
                 self.process = nil
                 self.input = nil
+                self.output = nil
             }
         }
     }
 
     func stop() {
-        let state = lock.withLock { (process, input) }
+        let state = lock.withLock { (process, input, output) }
         try? state.1?.close()
-        if state.0?.isRunning == true {
-            state.0?.terminate()
+        try? state.2?.close()
+        guard let process = state.0, process.isRunning else { return }
+        process.terminate()
+        let processIdentifier = process.processIdentifier
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
+            if process.isRunning {
+                kill(processIdentifier, SIGKILL)
+            }
         }
     }
 }
-

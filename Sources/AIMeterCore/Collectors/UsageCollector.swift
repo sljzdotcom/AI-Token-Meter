@@ -14,4 +14,3 @@ public enum UsageCollectionError: Error, Equatable, Sendable {
     case invalidResponse
     case rateLimited
 }
-

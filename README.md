@@ -13,7 +13,7 @@ AI Meter 是一个完全在 Mac 本机运行的原生菜单栏 App，用一个�
 
 ## 系统要求
 
-- macOS 14 或更新版本。
+- Apple Silicon Mac（M1 或更新）与 macOS 14 或更新版本。
 - Xcode Command Line Tools（从源码构建时需要）。
 - Claude Code CLI 与 Codex CLI 已安装；需要查看哪项服务，就先在相应 CLI 中完成正常登录。
 - DeepSeek 为可选项；未配置 API Key 时只显示“需要配置”，不会发起余额请求。
@@ -28,6 +28,8 @@ open "dist/AI Meter.app"
 ```
 
 脚本会执行 release 构建，生成 `dist/AI Meter.app`，进行本机临时签名并验证签名。若希望日常使用，可退出 AI Meter 后把 App 拖入“应用程序”文件夹，再从那里启动。
+
+当前脚本面向这台 Apple Silicon Mac 的本机使用，产物为 arm64 且采用 ad-hoc 临时签名，不是面向互联网公开分发的 Developer ID 版本。若以后需要发给其他用户，应增加 universal 构建（如需 Intel 支持）、Hardened Runtime、Developer ID Application 签名和 Apple 公证。
 
 ## 首次配置
 

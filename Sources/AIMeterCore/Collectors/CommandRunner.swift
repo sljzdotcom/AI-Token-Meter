@@ -34,4 +34,3 @@ public struct CommandResult: Equatable, Sendable {
 public protocol CommandRunning: Sendable {
     func run(_ request: CommandRequest) async throws -> CommandResult
 }
-

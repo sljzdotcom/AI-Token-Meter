@@ -49,6 +49,7 @@ public struct DeepSeekClient: Sendable {
         }
 
         var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 10
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(normalizedAPIKey)", forHTTPHeaderField: "Authorization")

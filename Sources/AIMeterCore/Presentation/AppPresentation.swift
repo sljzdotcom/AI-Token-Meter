@@ -28,7 +28,13 @@ public struct ProviderPresentation: Equatable, Sendable {
         detailText = SensitiveTextRedactor.redact(
             snapshot.primaryMetric?.label ?? Self.defaultDetail(for: snapshot.collectionStatus)
         )
-        statusText = snapshot.statusMessage.map(SensitiveTextRedactor.redact)
+        if let statusMessage = snapshot.statusMessage {
+            statusText = SensitiveTextRedactor.redact(statusMessage)
+        } else if snapshot.availability == .unavailable {
+            statusText = "Account unavailable"
+        } else {
+            statusText = nil
+        }
         primaryResetText = Self.resetText(for: snapshot.primaryMetric)
         secondaryResetText = Self.resetText(for: snapshot.secondaryMetric)
 
@@ -40,6 +46,8 @@ public struct ProviderPresentation: Equatable, Sendable {
 
         if snapshot.collectionStatus == .cached {
             semantic = .stale
+        } else if snapshot.availability != .available {
+            semantic = .unavailable
         } else if snapshot.collectionStatus != .fresh {
             semantic = .unavailable
         } else if let fraction, fraction >= 0.90 {
@@ -113,7 +121,10 @@ public struct MenuBarSummary: Equatable, Sendable {
 
     public init(snapshots: [UsageSnapshot]) {
         let presentations = snapshots.map(ProviderPresentation.init(snapshot:))
-        if let highest = presentations.compactMap(\.fraction).max() {
+        let availablePresentations = zip(snapshots, presentations)
+            .filter { snapshot, _ in snapshot.availability == .available }
+            .map(\.1)
+        if let highest = availablePresentations.compactMap(\.fraction).max() {
             let percent = Int((highest * 100).rounded())
             valueText = "\(percent)%"
             accessibilityLabel = "AI Meter, highest usage \(percent) percent"

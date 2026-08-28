@@ -39,4 +39,3 @@ struct ClaudeUsageParserTests {
         return try String(contentsOf: url, encoding: .utf8)
     }
 }
-

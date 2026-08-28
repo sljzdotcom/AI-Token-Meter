@@ -61,4 +61,3 @@ struct UsageModelsTests {
         #expect(snapshot.isStale(at: Date(timeIntervalSince1970: 401)))
     }
 }
-

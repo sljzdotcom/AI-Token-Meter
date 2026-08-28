@@ -111,4 +111,3 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         date >= fetchedAt.addingTimeInterval(staleAfter)
     }
 }
-

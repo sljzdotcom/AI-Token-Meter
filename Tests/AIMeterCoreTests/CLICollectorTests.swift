@@ -55,12 +55,30 @@ struct CLICollectorTests {
         }
     }
 
+    @Test("Codex app server timeout kills a process that ignores termination")
+    func codexTimeoutIsBounded() async {
+        let startedAt = Date()
+
+        await #expect(throws: UsageCollectionError.timedOut) {
+            try await CodexAppServerClient().readRateLimits(
+                executableURL: ignoredTerminationCodexExecutable,
+                timeout: 0.1
+            )
+        }
+
+        #expect(Date().timeIntervalSince(startedAt) < 1.5)
+    }
+
     private var fixtureExecutable: URL {
         Bundle.module.url(forResource: "fake-interactive-cli", withExtension: "sh")!
     }
 
     private var loggedOutClaudeExecutable: URL {
         Bundle.module.url(forResource: "fake-logged-out-claude", withExtension: "sh")!
+    }
+
+    private var ignoredTerminationCodexExecutable: URL {
+        Bundle.module.url(forResource: "fake-codex-ignore-term", withExtension: "sh")!
     }
 }
 

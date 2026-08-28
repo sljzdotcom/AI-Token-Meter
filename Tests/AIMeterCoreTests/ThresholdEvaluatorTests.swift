@@ -80,6 +80,18 @@ struct ThresholdEvaluatorTests {
         #expect(evaluator.evaluate(snapshot).isEmpty)
     }
 
+    @Test("Persisted state keeps the current quota cycle deduplicated after restart")
+    func persistsDeduplicationState() throws {
+        var evaluator = ThresholdEvaluator()
+        #expect(evaluator.evaluate(snapshot(0.75)).map(\.level) == [.warning])
+
+        let data = try JSONEncoder().encode(evaluator)
+        var restored = try JSONDecoder().decode(ThresholdEvaluator.self, from: data)
+
+        #expect(restored.evaluate(snapshot(0.76)).isEmpty)
+        #expect(restored.evaluate(snapshot(0.91)).map(\.level) == [.critical])
+    }
+
     private func snapshot(
         _ fraction: Double,
         resetAt: Date? = nil,

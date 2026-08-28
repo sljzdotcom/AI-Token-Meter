@@ -36,4 +36,3 @@ public struct ExecutableLocator: ExecutableLocating {
         return nil
     }
 }
-

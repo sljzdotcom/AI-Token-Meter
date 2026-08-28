@@ -12,4 +12,3 @@ struct ANSITextSanitizerTests {
         #expect(result == "Current session\n73% used\n")
     }
 }
-
