@@ -232,15 +232,26 @@
 ### 独立代码审查与修复
 
 - 独立审查最初判定“修完再合”，指出 PTY 父进程提前退出、Codex 忽略 SIGTERM、DeepSeek 未设置请求超时、通知状态未持久化，以及官方账户不可用却显示正常等问题。
-- PTY 现在在直接子进程结束后先短暂排空已到达输出，再主动关闭 master descriptor；新增父进程立即退出、独立后代继续持有 slave 3 秒的回归 fixture，采集约 0.14–0.18 秒返回，不再等到后代退出或整体超时。
+- PTY 现在在直接子进程结束后发出停止读取请求，并有界排空已到达的输出，再关闭 master descriptor；新增父进程立即退出、独立后代继续持有 slave 6 秒的回归 fixture，采集约 0.05–0.10 秒返回，不再等到后代退出或整体超时。
 - Codex 进程控制器同时持有输入/输出管道；超时关闭管道、发送 TERM，并在 0.5 秒后对仍运行进程发送 KILL。忽略 TERM 的 fixture 在约 0.11 秒返回超时错误，后台强制回收由有界宽限执行。
 - DeepSeek 请求明确设置 `timeoutInterval = 10`；测试直接检查生产请求对象的 10 秒限制。
 - `ThresholdEvaluator` 支持 Codable；AppModel 从 UserDefaults 恢复并在每次启用通知的评估后保存，因此同一额度周期在重启后仍保持去重。
 - 展示语义现在优先尊重官方 `availability`；`is_available=false` 会保留余额但显示不可用颜色与提示，菜单栏最高风险不再使用不可用账户的百分比。
 - 清理全部历史变更中的 EOF 多余空行，`git diff --check d9bc9a8` 退出码 0。
 - 审查确认当前打包方式只适合本机：README 已明确 Apple Silicon、arm64 与 ad-hoc 签名范围；正式外部分发需另做 Developer ID、Hardened Runtime、公证和可选 universal binary。
-- 修复后的最终全量套件为 61 个测试、15 个测试组，0 个失败；另外显式启用的 3 项真实 CLI 烟雾测试与 1 项隔离 Keychain 生命周期测试为 4/4 通过。
+- 首轮修复后的全量套件为 61 个测试、15 个测试组，0 个失败；另外显式启用的 3 项真实 CLI 烟雾测试与 1 项隔离 Keychain 生命周期测试为 4/4 通过。
 - 最终 production 重建、App 打包、Info.plist 校验、严格签名验证及从基础提交开始的完整 `git diff --check` 均通过。
+
+### 超时竞态的追加稳定性修复
+
+- 提高父进程退出测试的调度容差后进行重复验证，测试进程再次无输出停滞。进程采样明确显示线程永久停在 `PTYCommandRunner.swift` 的 `Process.waitUntilExit()`；系统进程表中对应子进程已经消失，因此问题不是 fixture 仍在运行。
+- 进一步定位到两个独立竞态：其一是超时任务可能早于 `RunningProcessBox.set` / `CodexProcessBox.set`，导致停止请求被永久遗漏；其二是极短生命周期子进程可能在 `waitUntilExit()` 建立有效等待前已经退出。
+- 两个进程控制器现在先持久记录停止意图；如果进程随后才登记，会立即重放关闭管道、TERM 和有界 KILL 流程。清理时不会重置停止意图，避免迟到登记重新失效。
+- 新增 `ProcessTerminationWaiter`，在 `Process.run()` 之前登记 termination handler，再通过一次性同步信号等待退出状态；PTY 与 Codex 都不再依赖会遗漏瞬时退出的 `waitUntilExit()`。
+- 新增确定性登记屏障：PTY 与 Codex 测试均在 `Process.run()` 后、控制器登记前阻塞 0.2 秒，并在 0.05 秒触发超时；随后释放屏障，验证此前停止意图被重放并在 1 秒内有界返回，不再依赖微秒级调度概率。
+- Codex 忽略信号 fixture 在 `exec` 前设置 `trap '' TERM HUP`，确保 Python 进程继承忽略状态；fixture 通过仅供测试的环境覆盖写出唯一 PID。普通超时和登记前超时两项测试都轮询至 `kill(pid, 0)` 返回 `ESRCH`，分别证明 0.5 秒 KILL 兜底与迟到登记后的停止重放最终回收了后台进程。
+- 最终全量套件连续 3 次通过：每次 63 个测试、15 个测试组、0 个失败；显式真实集成测试再次 4/4 通过。
+- 追加修复后重新完成 production 构建、App 打包、Info.plist 校验、arm64 架构检查、严格签名验证和从基础提交开始的完整 `git diff --check`，全部退出码为 0。
 
 ### 提交
 

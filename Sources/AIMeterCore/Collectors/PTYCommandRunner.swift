@@ -2,7 +2,15 @@ import Darwin
 import Foundation
 
 public struct PTYCommandRunner: CommandRunning {
-    public init() {}
+    private let beforeProcessRegistration: (@Sendable () -> Void)?
+
+    public init() {
+        beforeProcessRegistration = nil
+    }
+
+    init(beforeProcessRegistration: @escaping @Sendable () -> Void) {
+        self.beforeProcessRegistration = beforeProcessRegistration
+    }
 
     public func run(_ request: CommandRequest) async throws -> CommandResult {
         let processBox = RunningProcessBox()
@@ -41,6 +49,7 @@ public struct PTYCommandRunner: CommandRunning {
         _ = fcntl(activeMasterDescriptor, F_SETFL, currentFlags | O_NONBLOCK)
 
         let process = Process()
+        let terminationWaiter = ProcessTerminationWaiter()
         let startedAt = Date()
         let slaveHandle = FileHandle(fileDescriptor: slaveDescriptor, closeOnDealloc: false)
 
@@ -50,6 +59,7 @@ public struct PTYCommandRunner: CommandRunning {
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
         process.environment = controlledEnvironment()
+        terminationWaiter.attach(to: process)
 
         do {
             try process.run()
@@ -59,12 +69,13 @@ public struct PTYCommandRunner: CommandRunning {
             throw error
         }
 
+        beforeProcessRegistration?()
         processBox.set(process, descriptorBox: descriptorBox)
         close(slaveDescriptor)
         slaveDescriptor = -1
 
         let reader = Task.detached(priority: .utility) {
-            Self.readPTY(activeMasterDescriptor)
+            Self.readPTY(activeMasterDescriptor, controller: descriptorBox)
         }
 
         let input = request.inputLines.joined(separator: "\n") + "\n"
@@ -82,17 +93,11 @@ public struct PTYCommandRunner: CommandRunning {
             }
         }
 
-        let exitCode = await Task.detached(priority: .utility) {
-            process.waitUntilExit()
-            return process.terminationStatus
-        }.value
+        let exitCode = await terminationWaiter.value()
 
-        // Give the nonblocking reader one final turn to drain bytes already
-        // queued by a short-lived command, then close our side even if an
-        // orphaned descendant still owns the slave descriptor.
-        try? await Task.sleep(for: .milliseconds(50))
-        descriptorBox.close()
+        descriptorBox.requestStop()
         let outputData = await reader.value
+        descriptorBox.close()
         processBox.clear(process)
         let output = String(decoding: outputData, as: UTF8.self)
 
@@ -103,15 +108,28 @@ public struct PTYCommandRunner: CommandRunning {
         )
     }
 
-    private static func readPTY(_ descriptor: Int32) -> Data {
+    private static func readPTY(
+        _ descriptor: Int32,
+        controller: ClosableDescriptor
+    ) -> Data {
         var result = Data()
         var buffer = [UInt8](repeating: 0, count: 4_096)
+        var remainingStopDrainBytes: Int?
 
         while true {
+            if remainingStopDrainBytes == nil, controller.stopRequested {
+                remainingStopDrainBytes = 256 * 1_024
+            }
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
+                if let remaining = remainingStopDrainBytes {
+                    let updated = remaining - count
+                    remainingStopDrainBytes = updated
+                    if updated <= 0 { break }
+                }
             } else if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if controller.stopRequested { break }
                 usleep(10_000)
             } else {
                 break
@@ -134,16 +152,51 @@ public struct PTYCommandRunner: CommandRunning {
     }
 }
 
+final class ProcessTerminationWaiter: @unchecked Sendable {
+    private let group = DispatchGroup()
+    private let lock = NSLock()
+    private var exitCode: Int32?
+
+    init() {
+        group.enter()
+    }
+
+    func attach(to process: Process) {
+        process.terminationHandler = { [self] process in
+            let shouldSignal = lock.withLock {
+                guard exitCode == nil else { return false }
+                exitCode = process.terminationStatus
+                return true
+            }
+            if shouldSignal { group.leave() }
+        }
+    }
+
+    func value() async -> Int32 {
+        await Task.detached(priority: .utility) { [self] in
+            wait()
+        }.value
+    }
+
+    func wait() -> Int32 {
+        group.wait()
+        return lock.withLock { exitCode ?? -1 }
+    }
+}
+
 private final class RunningProcessBox: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
     private var descriptorBox: ClosableDescriptor?
+    private var isStopRequested = false
 
     func set(_ process: Process, descriptorBox: ClosableDescriptor) {
-        lock.withLock {
+        let stopImmediately = lock.withLock {
             self.process = process
             self.descriptorBox = descriptorBox
+            return isStopRequested
         }
+        if stopImmediately { stop() }
     }
 
     func clear(_ process: Process) {
@@ -156,8 +209,11 @@ private final class RunningProcessBox: @unchecked Sendable {
     }
 
     func stop() {
-        let state = lock.withLock { (process, descriptorBox) }
-        state.1?.close()
+        let state = lock.withLock {
+            isStopRequested = true
+            return (process, descriptorBox)
+        }
+        state.1?.requestStop()
         let runningProcess = state.0
         guard let runningProcess, runningProcess.isRunning else { return }
 
@@ -174,9 +230,18 @@ private final class RunningProcessBox: @unchecked Sendable {
 private final class ClosableDescriptor: @unchecked Sendable {
     private let lock = NSLock()
     private var descriptor: Int32?
+    private var isStopRequested = false
 
     init(_ descriptor: Int32) {
         self.descriptor = descriptor
+    }
+
+    var stopRequested: Bool {
+        lock.withLock { isStopRequested }
+    }
+
+    func requestStop() {
+        lock.withLock { isStopRequested = true }
     }
 
     func close() {

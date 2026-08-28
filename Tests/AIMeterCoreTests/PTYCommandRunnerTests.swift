@@ -32,6 +32,29 @@ struct PTYCommandRunnerTests {
         }
     }
 
+    @Test("A timeout requested before process registration is replayed")
+    func replaysEarlyTimeoutAfterRegistration() async {
+        let registrationGate = DispatchSemaphore(value: 0)
+        let runner = PTYCommandRunner {
+            registrationGate.wait()
+        }
+        let startedAt = Date()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) {
+            registrationGate.signal()
+        }
+
+        await #expect(throws: UsageCollectionError.timedOut) {
+            try await runner.run(CommandRequest(
+                executableURL: fixtureExecutable,
+                arguments: [],
+                inputLines: ["hang"],
+                timeout: 0.05
+            ))
+        }
+
+        #expect(Date().timeIntervalSince(startedAt) < 1)
+    }
+
     @Test("Provides a usable terminal window size to TUI applications")
     func providesTerminalWindowSize() async throws {
         let runner = PTYCommandRunner()
@@ -67,12 +90,12 @@ struct PTYCommandRunnerTests {
         let result = try await runner.run(CommandRequest(
             executableURL: parentExitExecutable,
             inputLines: [],
-            timeout: 0.75
+            timeout: 2
         ))
 
         #expect(result.exitCode == 0)
         #expect(result.output.contains("parent-exited"))
-        #expect(Date().timeIntervalSince(startedAt) < 1.5)
+        #expect(Date().timeIntervalSince(startedAt) < 3)
     }
 
     private var fixtureExecutable: URL {

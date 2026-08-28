@@ -1,6 +1,17 @@
 import Foundation
 
 struct CodexAppServerClient: Sendable {
+    private let beforeProcessRegistration: (@Sendable () -> Void)?
+    private let environmentOverrides: [String: String]
+
+    init(
+        beforeProcessRegistration: (@Sendable () -> Void)? = nil,
+        environmentOverrides: [String: String] = [:]
+    ) {
+        self.beforeProcessRegistration = beforeProcessRegistration
+        self.environmentOverrides = environmentOverrides
+    }
+
     func readRateLimits(executableURL: URL, timeout: TimeInterval = 10) async throws -> UsageSnapshot {
         let processBox = CodexProcessBox()
 
@@ -29,6 +40,7 @@ struct CodexAppServerClient: Sendable {
         processBox: CodexProcessBox
     ) throws -> UsageSnapshot {
         let process = Process()
+        let terminationWaiter = ProcessTerminationWaiter()
         let input = Pipe()
         let output = Pipe()
 
@@ -37,8 +49,16 @@ struct CodexAppServerClient: Sendable {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
+        if !environmentOverrides.isEmpty {
+            process.environment = ProcessInfo.processInfo.environment.merging(
+                environmentOverrides,
+                uniquingKeysWith: { _, override in override }
+            )
+        }
+        terminationWaiter.attach(to: process)
 
         try process.run()
+        beforeProcessRegistration?()
         processBox.set(
             process: process,
             input: input.fileHandleForWriting,
@@ -46,7 +66,7 @@ struct CodexAppServerClient: Sendable {
         )
         defer {
             processBox.stop()
-            process.waitUntilExit()
+            _ = terminationWaiter.wait()
             processBox.clear(process: process)
         }
 
@@ -175,13 +195,16 @@ private final class CodexProcessBox: @unchecked Sendable {
     private var process: Process?
     private var input: FileHandle?
     private var output: FileHandle?
+    private var isStopRequested = false
 
     func set(process: Process, input: FileHandle, output: FileHandle) {
-        lock.withLock {
+        let stopImmediately = lock.withLock {
             self.process = process
             self.input = input
             self.output = output
+            return isStopRequested
         }
+        if stopImmediately { stop() }
     }
 
     func clear(process: Process) {
@@ -195,7 +218,10 @@ private final class CodexProcessBox: @unchecked Sendable {
     }
 
     func stop() {
-        let state = lock.withLock { (process, input, output) }
+        let state = lock.withLock {
+            isStopRequested = true
+            return (process, input, output)
+        }
         try? state.1?.close()
         try? state.2?.close()
         guard let process = state.0, process.isRunning else { return }
