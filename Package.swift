@@ -12,7 +12,10 @@ let package = Package(
     targets: [
         .target(name: "AIMeterCore"),
         .executableTarget(name: "AIMeterApp", dependencies: ["AIMeterCore"]),
-        .testTarget(name: "AIMeterCoreTests", dependencies: ["AIMeterCore"]),
+        .testTarget(
+            name: "AIMeterCoreTests",
+            dependencies: ["AIMeterCore"],
+            resources: [.process("Fixtures")]
+        ),
     ]
 )
-

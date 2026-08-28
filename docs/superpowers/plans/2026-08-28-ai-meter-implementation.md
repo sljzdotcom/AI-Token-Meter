@@ -16,6 +16,7 @@
 - `Sources/AIMeterCore/Domain/UsageModels.swift`：提供商、指标、状态和统一快照模型。
 - `Sources/AIMeterCore/Collectors/UsageCollector.swift`：采集器协议与采集错误。
 - `Sources/AIMeterCore/Collectors/ANSITextSanitizer.swift`：清除终端控制字符并归一化文本。
+- `Sources/AIMeterCore/Collectors/TerminalUsageParser.swift`：共享的百分比、方向、标签与重置描述解析内核。
 - `Sources/AIMeterCore/Collectors/CommandRunner.swift`：受控命令请求、结果与执行协议。
 - `Sources/AIMeterCore/Collectors/PTYCommandRunner.swift`：固定命令的伪终端执行与超时终止。
 - `Sources/AIMeterCore/Collectors/ClaudeUsageParser.swift`：解析 Claude `/usage` 输出。
@@ -105,7 +106,7 @@
 - 创建：`Tests/AIMeterCoreTests/Fixtures/codex-status-en.txt`
 - 修改：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写净化器和解析器失败测试**
+- [x] **步骤 1：写净化器和解析器失败测试**
 
 测试必须抓住 ANSI 残留、`73% used`、`27% remaining` 换算、重置时间缺失和中文百分比行解析错误：
 
@@ -116,23 +117,23 @@
 }
 ```
 
-- [ ] **步骤 2：分别运行测试并确认功能缺失导致失败**
+- [x] **步骤 2：分别运行测试并确认功能缺失导致失败**
 
 运行：`swift test --filter ANSITextSanitizerTests; swift test --filter ClaudeUsageParserTests; swift test --filter CodexUsageParserTests`
 
 预期：三个测试组均 FAIL，原因是净化器或解析器类型缺失。
 
-- [ ] **步骤 3：实现最小净化和面向标签的解析**
+- [x] **步骤 3：实现最小净化和面向标签的解析**
 
 解析器先清除 CSI/OSC/回车覆盖，再按行识别百分比、`used/remaining/已使用/剩余` 方向、指标标签和重置描述。不能识别任何指标时返回 `.unrecognizedOutput`，不得返回伪造的 0%。
 
-- [ ] **步骤 4：运行解析器测试**
+- [x] **步骤 4：运行解析器测试**
 
 运行：`swift test --filter ANSITextSanitizerTests && swift test --filter ClaudeUsageParserTests && swift test --filter CodexUsageParserTests`
 
 预期：全部通过。
 
-- [ ] **步骤 5：更新日志并提交**
+- [x] **步骤 5：更新日志并提交**
 
 提交：`git commit -m "feat: parse Claude and Codex usage output (task 2)"`
 

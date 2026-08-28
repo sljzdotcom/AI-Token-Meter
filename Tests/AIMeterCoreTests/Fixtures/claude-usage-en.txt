@@ -1,0 +1,8 @@
+[1mCurrent session[0m
+██████████████░░░░░░ 73% used
+Resets in 51 min
+
+All models
+█░░░░░░░░░░░░░░░░░░ 7% used
+Resets Thu 12:00 AM
+

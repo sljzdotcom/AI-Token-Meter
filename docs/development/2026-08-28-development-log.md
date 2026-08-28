@@ -49,3 +49,29 @@
 - `usedFraction` 仅在 `limit > 0` 时存在，并限制到 `0...1`。
 - 错误状态使用稳定枚举；用户可见的去敏说明单独保存在 `statusMessage`。
 - 提交信息：`feat: scaffold AI Meter domain and app (task 1)`。
+
+## 任务 2：终端净化与 Claude/Codex 解析器
+
+### 红灯证据
+
+- 解析器测试首次运行退出码 1。
+- 编译器分别报告 `ANSITextSanitizer`、`ClaudeUsageParser` 和 `CodexUsageParser` 不存在，证明测试针对尚未实现的行为。
+
+### 绿灯证据
+
+- 第一轮最小实现后 6 个解析行为通过，ANSI 测试准确抓住 `CRLF` 被展开成两个换行的问题。
+- 将连续终端换行归一化后，相关测试 7/7 通过。
+
+### 覆盖边界
+
+- ANSI CSI、OSC、回车覆盖和退格字符。
+- Claude 英文与中文已使用比例。
+- `remaining`、`left`、`剩余` 向已使用比例的反向换算。
+- 行内和后继行重置说明。
+- 不含额度指标的输出必须抛出 `unrecognizedOutput`，不能伪造 0%。
+
+### 关键决定
+
+- Claude 与 Codex 使用独立公开入口，共享内部 `TerminalUsageParser`，保证解析规则一致且 UI 不接触原始文本。
+- 重置时间第一版保留官方文本；只有数据源能可靠提供绝对时间时才填 `resetAt`。
+- 提交信息：`feat: parse Claude and Codex usage output (task 2)`。
