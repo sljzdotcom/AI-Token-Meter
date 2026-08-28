@@ -171,3 +171,31 @@
 ### 提交
 
 - 计划提交：`feat: coordinate refresh cache and usage alerts (task 5)`。
+
+## 任务 6：菜单栏、悬浮条与系统设置
+
+### 红灯与诊断证据
+
+- 展示模型测试首次编译失败，明确报告 `ProviderPresentation`、`MenuBarSummary` 和颜色语义不存在。
+- DeepSeek 本地预算测试先覆盖余额减少、充值和跨月重置，再实现持久追踪器；避免把余额本身错误地显示为“本月已用”。
+- 初版在同一个 `NSPanel` 中动态改变悬浮条和详情卡尺寸；点击圆环时 AppKit 在 `_postWindowNeedsUpdateConstraints` 触发 `SIGTRAP`。崩溃报告和稳定复现共同定位到非激活透明面板的动态约束更新。
+- 改为固定 84×300 悬浮条与固定 262×190 详情卡两个独立面板后，重复展开、收起未再复现崩溃。
+
+### 实现与关键决定
+
+- `MenuBarExtra` 提供三服务摘要、手动刷新、更新时间、设置和退出入口；菜单栏值使用所有有界指标中的最高风险。
+- 右侧悬浮条使用三个高对比细圆环；Claude、Codex 展示用量百分比，DeepSeek 展示真实余额，点击后在左侧展开独立详情卡。
+- 设置保存悬浮条、通知、登录启动与本地月预算等非敏感偏好；DeepSeek API Key 只经 `SecretStore` 写入 Keychain。
+- 5 分钟自动刷新在唤醒后立即补刷；重叠刷新仍由核心协调器合并。
+- 通知载荷只保存提供商标识，用户点击后路由至对应详情卡；不把原始响应或凭证写进通知。
+- 增加只读 `AI_METER_DEMO_MODE=1` 视觉验收入口：仅装载固定示例快照，不读取 Keychain、不调用 CLI、也不访问网络。
+
+### 绿灯与界面证据
+
+- 展示模型与本地预算新增测试全部通过；完整套件为 52 个测试、14 个测试组，0 个失败。
+- 完整 debug 构建退出码 0，`git diff --check` 退出码 0，源码与文档的常见 API Key、Bearer 和 Telegram Token 形态扫描无匹配。
+- 原生 App 演示模式实机验证通过：设置页全部内容可见；悬浮条开关可即时隐藏并恢复；三个圆环具备可访问名称；Claude 详情可反复展开与收起且进程稳定。
+
+### 提交
+
+- 计划提交：`feat: add menu bar floating meter and settings (task 6)`。

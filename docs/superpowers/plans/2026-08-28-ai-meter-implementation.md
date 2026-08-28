@@ -267,35 +267,35 @@
 - 创建：`Tests/AIMeterCoreTests/AppPresentationTests.swift`
 - 修改：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写展示模型失败测试**
+- [x] **步骤 1：写展示模型失败测试**
 
 测试每种状态的标题、辅助说明、颜色语义和菜单栏最高风险汇总。测试只断言展示模型行为，不断言 SwiftUI 内部层级。
 
-- [ ] **步骤 2：运行并确认失败**
+- [x] **步骤 2：运行并确认失败**
 
 运行：`swift test --filter AppPresentationTests`
 
 预期：FAIL，提示展示模型不存在。
 
-- [ ] **步骤 3：实现菜单栏和统一服务卡片**
+- [x] **步骤 3：实现菜单栏和统一服务卡片**
 
 使用 `MenuBarExtra` 展示三项服务、刷新按钮、最后更新时间和设置入口；错误状态显示可行动文案，不显示原始错误或凭证。
 
-- [ ] **步骤 4：实现右侧悬浮条**
+- [x] **步骤 4：实现右侧悬浮条**
 
 使用无标题透明 `NSPanel`，固定在可见屏幕右侧，支持多屏变化；视觉采用黑色有机胶囊、三个细圆环和点击展开卡片。设置关闭时销毁面板但不停止菜单栏刷新。
 
-- [ ] **步骤 5：实现通知、登录启动与设置**
+- [x] **步骤 5：实现通知、登录启动与设置**
 
 通知服务消费 `ThresholdEvent`；设置通过 `AppStorage` 保存非敏感选项，API Key 通过 `SecretStore`；登录启动使用 `SMAppService.mainApp` 并把系统错误显示为非阻塞状态。
 
-- [ ] **步骤 6：运行测试和构建**
+- [x] **步骤 6：运行测试和构建**
 
 运行：`swift test && swift build`
 
 预期：全部通过且无 Swift 编译错误。
 
-- [ ] **步骤 7：更新日志并提交**
+- [x] **步骤 7：更新日志并提交**
 
 提交：`git commit -m "feat: add menu bar floating meter and settings (task 6)"`
 

@@ -11,7 +11,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "AIMeterCore"),
-        .executableTarget(name: "AIMeterApp", dependencies: ["AIMeterCore"]),
+        .executableTarget(
+            name: "AIMeterApp",
+            dependencies: ["AIMeterCore"],
+            exclude: ["Resources"]
+        ),
         .testTarget(
             name: "AIMeterCoreTests",
             dependencies: ["AIMeterCore"],
