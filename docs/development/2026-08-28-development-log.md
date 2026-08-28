@@ -106,3 +106,37 @@
 ### 提交
 
 - 计划提交：`feat: collect usage through authenticated CLI interfaces (task 3)`。
+
+## 任务 4：DeepSeek 余额与 Keychain
+
+### 协议核对
+
+- 以 DeepSeek 官方余额文档为准：`GET https://api.deepseek.com/user/balance`，Bearer 认证，响应包含 `is_available` 与 `balance_infos`。
+- 官方文档：`https://api-docs.deepseek.com/api/get-user-balance/`。
+- 官方错误码文档：`https://api-docs.deepseek.com/quick_start/error_codes/`；401 映射认证失败，429 映射限流，500/503 等映射传输失败。
+
+### 红灯证据
+
+- 首次运行新增测试时编译失败，明确报告 `DeepSeekClient`、`DeepSeekBudget` 与 `KeychainStore` 不存在。
+- 为采集器补充测试后再次编译失败，明确报告 `DeepSeekCollector` 不存在。
+- 受限执行环境中的真实 Keychain 调用返回 `errSecParam (-50)`；相同测试在正常用户权限环境通过，证明是测试沙盒限制而非查询实现错误。真实 Keychain 生命周期测试因此改为通过 `AI_METER_RUN_KEYCHAIN_TESTS=1` 显式启用。
+
+### 实现与安全边界
+
+- 余额客户端只向固定官方地址发 GET 请求，并只读取官方 JSON 字段；错误响应正文不进入错误或日志。
+- 多币种响应按设置选择 CNY 或 USD。官方余额使用 `.balance` 且没有 `limit`，因此不会伪造“已使用百分比”。
+- 可选月度预算必须同时提供本地累计消费，生成独立 `.localBudget` 指标；余额变化不会被当成本月消费。
+- `DeepSeekCollector` 通过 `SecretStore` 读取密钥；缺失或空密钥直接返回 `.authenticationRequired`，不会产生网络请求。
+- 生产 Keychain service 固定为 `com.millerpan.AIMeter.deepseek`，使用 `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`，密钥不随 iCloud Keychain 同步。
+- Keychain 生命周期测试使用随机 service 名，覆盖新增、替换、读取和删除，并在测试结束时清理。
+
+### 绿灯证据
+
+- DeepSeek HTTP、预算和采集器：9/9 测试通过；包含空密钥在发起网络请求前即被拒绝的回归测试。
+- 正常用户权限下的 Keychain 隔离集成测试：1/1 通过。
+- 全量测试：31 个测试、9 个测试组通过，0 个失败；Keychain 和 3 个本机 CLI 集成测试在普通测试中按设计跳过。
+- 完整 debug 构建：退出码 0，`Build complete`。
+
+### 提交
+
+- 计划提交：`feat: add DeepSeek balance and secure key storage (task 4)`。

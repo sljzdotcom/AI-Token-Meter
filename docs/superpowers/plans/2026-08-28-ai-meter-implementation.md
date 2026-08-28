@@ -183,37 +183,38 @@
 
 **文件：**
 - 创建：`Sources/AIMeterCore/DeepSeek/DeepSeekClient.swift`
+- 创建：`Sources/AIMeterCore/Collectors/DeepSeekCollector.swift`
 - 创建：`Sources/AIMeterCore/Security/SecretStore.swift`
 - 创建：`Sources/AIMeterCore/Security/KeychainStore.swift`
 - 创建：`Tests/AIMeterCoreTests/DeepSeekClientTests.swift`
 - 创建：`Tests/AIMeterCoreTests/KeychainStoreTests.swift`
 - 修改：`docs/development/2026-08-28-development-log.md`
 
-- [ ] **步骤 1：写 HTTP 响应和预算计算失败测试**
+- [x] **步骤 1：写 HTTP 响应和预算计算失败测试**
 
 使用自定义 `URLProtocol` 运行真实 `URLSession`，完整模拟官方余额 JSON。测试成功、多币种、空余额、401、429、500 和超时映射；100 CNY 月预算、余额变化不能伪装成官方已用量，预算指标必须标注 `.localBudget`。
 
-- [ ] **步骤 2：运行并确认失败**
+- [x] **步骤 2：运行并确认失败**
 
 运行：`swift test --filter DeepSeekClientTests`
 
 预期：FAIL，提示客户端类型不存在。
 
-- [ ] **步骤 3：实现 DeepSeek 客户端**
+- [x] **步骤 3：实现 DeepSeek 客户端**
 
 固定请求 `GET https://api.deepseek.com/user/balance`，使用 `Authorization: Bearer <key>`，只解析官方字段；HTTP 错误映射为去敏错误，响应正文不进入日志。
 
-- [ ] **步骤 4：写 Keychain 失败测试并实现**
+- [x] **步骤 4：写 Keychain 失败测试并实现**
 
 以专用测试 service/account 写入临时 Keychain 项目，验证新增、替换、读取和删除。生产服务名固定为 `com.millerpan.AIMeter.deepseek`，API Key 不进入 UserDefaults 或快照。
 
-- [ ] **步骤 5：运行 DeepSeek 与 Keychain 测试**
+- [x] **步骤 5：运行 DeepSeek 与 Keychain 测试**
 
 运行：`swift test --filter DeepSeekClientTests && swift test --filter KeychainStoreTests`
 
 预期：全部通过，测试清理专用 Keychain 数据。
 
-- [ ] **步骤 6：更新日志并提交**
+- [x] **步骤 6：更新日志并提交**
 
 提交：`git commit -m "feat: add DeepSeek balance and secure key storage (task 4)"`
 
