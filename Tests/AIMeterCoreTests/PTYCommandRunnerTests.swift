@@ -18,6 +18,17 @@ struct PTYCommandRunnerTests {
         #expect(result.exitCode == 7)
     }
 
+    @Test("Preserves the current user identity for credential lookup")
+    func preservesUserIdentity() async throws {
+        let result = try await PTYCommandRunner().run(CommandRequest(
+            executableURL: fixtureExecutable,
+            inputLines: ["identity"],
+            timeout: 2
+        ))
+
+        #expect(result.output.contains("user:\(NSUserName())"))
+    }
+
     @Test("Terminates an interactive command after its deadline")
     func terminatesAfterDeadline() async {
         let runner = PTYCommandRunner()

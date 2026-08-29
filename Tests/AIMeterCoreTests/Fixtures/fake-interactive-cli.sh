@@ -25,6 +25,9 @@ case "$ai_meter_command" in
   hang)
     sleep 5
     ;;
+  identity)
+    printf 'user:%s\n' "${USER:-missing}"
+    ;;
   /usage)
     printf 'Current session\n73%% used\nResets in 51 min\nAll models\n7%% used\nResets Thu 12:00 AM\n'
     ;;

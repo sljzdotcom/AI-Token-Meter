@@ -256,3 +256,19 @@
 ### 提交
 
 - 计划提交：`release: package and document AI Meter v0.1.0 (task 7)`。
+
+## 2026-08-29：Claude 登录后仍显示未登录
+
+### 根因证据
+
+- 用户在 Claude Code 2.1.241 中完成 OAuth 登录后，正常用户环境的 `claude auth status` 返回 `loggedIn: true`，且系统仅发现 `~/.local/bin/claude` 这一份安装。
+- AI-Meter 于登录后自动刷新，Codex 与 DeepSeek 同次更新成功，但成功缓存中仍没有 Claude；界面继续显示 `Sign in`，排除旧版本、未刷新和全局刷新故障。
+- 用 AI-Meter 的最小子进程环境直接调用同一 Claude CLI，稳定返回 `loggedIn: false`。逐项恢复非敏感环境变量时，仅加入 `USER=millerpan` 即恢复 `loggedIn: true`；`LOGNAME`、`TMPDIR` 或 locale 单独加入均无效。
+- Finder 启动的 AI-Meter 父进程实际包含 `USER=millerpan`，断点因此明确位于 `PTYCommandRunner.controlledEnvironment()`：安全白名单在启动 Claude 子进程时丢弃了 `USER`，导致 Claude 无法找到当前用户的 OAuth 凭据。
+
+### 测试驱动修复与验证
+
+- 先增加真实 PTY fixture 行为测试，要求子进程看到 `USER`。修复前测试失败并输出 `user:missing`，证明测试能够捕获本次缺陷。
+- 最小修复只把 `USER` 加入现有环境白名单，不扩大到完整父进程环境，也不改变凭据、缓存或网络逻辑；修复后同一测试输出当前用户名并通过。
+- 完整套件更新为 64 个测试、15 个测试组，0 个失败；production App 重新构建并通过打包脚本的严格签名验证。
+- 修复版已替换 `/Applications/AI Meter.app`。自动启动会同时触发已配置 DeepSeek 的真实余额请求，按敏感凭据外发规则等待用户明确授权后再完成界面验收。

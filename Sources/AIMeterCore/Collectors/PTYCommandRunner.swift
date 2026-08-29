@@ -141,7 +141,7 @@ public struct PTYCommandRunner: CommandRunning {
     private func controlledEnvironment() -> [String: String] {
         let source = ProcessInfo.processInfo.environment
         var environment: [String: String] = [:]
-        for key in ["PATH", "HOME", "LANG", "LC_ALL", "TERM"] {
+        for key in ["PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM"] {
             if let value = source[key] {
                 environment[key] = value
             }
