@@ -1,7 +1,7 @@
 # Codex 详情与 DeepSeek 自动同步开发日志
 
 日期：2026-08-31
-分支：`codex/codex-deepseek-details`
+开发分支：`codex/codex-deepseek-details`（已合入 `main`）
 
 ## 背景与目标
 
@@ -57,7 +57,9 @@
 
 - `827ff87`：设计规格与实施计划；
 - `be5a778`：Codex 本机详情与 DeepSeek 分片同步功能；
-- 文档、最终安装与合并节点见 [提交历史](commit-history.md)。
+- `7fcd5a3`–`1307b80`：验证证据与文档收尾；
+- `5a47756`：合并到 `main`；
+- 后续文档索引维护节点见 [提交历史](commit-history.md)。
 
 ## 已知边界
 
