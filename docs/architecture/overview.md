@@ -13,7 +13,7 @@ AI Meter 的架构围绕四个约束设计：
 
 ```text
 Claude CLI ─┐
-Codex CLI ──┼─> Collectors ─> RefreshCoordinator ─> UsageSnapshot ─> AppModel ─> SwiftUI
+Codex CLI/DB┼─> Collectors ─> RefreshCoordinator ─> UsageSnapshot ─> AppModel ─> SwiftUI
 DeepSeek API┘            │             │                    │
                          │             └─ SnapshotCache     ├─ Menu bar panel
 DeepSeek WebKit ─> Normalizer ─> DeepSeekHistoryStore       └─ Floating panel
@@ -29,7 +29,7 @@ UserDefaults ────────────> UI preferences / threshold st
 ### Collectors
 
 - `ClaudeCollector`：定位 CLI、检查认证、在隔离工作区通过 PTY 执行 `/usage`。
-- `CodexCollector`：启动 `codex app-server`，读取 JSON-RPC 速率限制。
+- `CodexCollector`：启动 `codex app-server` 读取 JSON-RPC 速率限制，并以只读 SQLite 查询补充本机线程活动聚合；本地查询失败不会拖累官方额度。
 - `DeepSeekCollector`：从 `SecretStore` 取得 Keychain 密钥并调用余额 API。
 - `ClaudeUsageParser`、`CodexUsageParser`：把外部格式转换成统一指标。
 - `CommandRunner`、`PTYCommandRunner`：负责超时、进程终止和输出收集。
@@ -43,6 +43,7 @@ UserDefaults ────────────> UI preferences / threshold st
 - 可用性与采集状态；
 - 获取时间、过期时间和来源版本；
 - Codex 重置额度摘要；
+- Codex 本机 30 天活动摘要；
 - DeepSeek 标准化历史用量。
 
 ### Coordination
@@ -77,7 +78,7 @@ UserDefaults ────────────> UI preferences / threshold st
 
 ### DeepSeekWebSession
 
-负责隔离 WebKit 会话、官方域名限制、页面状态和相关 JSON 的标准化入口。网页层与 API Key 余额采集相互独立；网页历史失败不会让余额失效。
+负责隔离 WebKit 会话、官方域名限制、页面状态和相关 JSON 的标准化入口。它分别接收官网每日 Token/请求与每日费用响应，只在两类数据都存在时合并并写入完整 30 天缓存。网页层与 API Key 余额采集相互独立；网页历史失败不会让余额失效。
 
 ## 状态与降级
 

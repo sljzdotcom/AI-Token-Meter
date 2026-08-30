@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 100 个测试、22 个测试组、0 个失败。普通测试中有 4 个环境相关检查按设计跳过：1 个 Keychain 生命周期测试和 3 个真实 CLI 冒烟测试。
+当前基线为 110 个测试、25 个测试组、0 个失败。普通测试中有 4 个环境相关检查按设计跳过：1 个 Keychain 生命周期测试和 3 个真实 CLI 冒烟测试。
 
 普通测试覆盖：
 
@@ -19,7 +19,8 @@ bash scripts/test.sh
 - 菜单栏与圆环展示计算；
 - 自动隐藏、外部点击和交互暂停；
 - Codex 重置额度映射；
-- DeepSeek 30 天补零、缓存与网页负载解析。
+- Codex 本机 SQLite 数值行解析、30 天窗口、连续天数、最长会话与紧凑文案；
+- DeepSeek 30 天补零、缓存、当前官网 amount/cost 分片解析与完整性合并。
 
 ## Keychain 集成测试
 
@@ -43,7 +44,7 @@ AI_METER_RUN_CLI_SMOKE=1 bash scripts/test.sh --filter CLIIntegrationSmokeTests
 
 1. Claude 认证状态；
 2. Claude 隔离工作区 `/usage`；
-3. Codex `app-server` 速率限制。
+3. Codex `app-server` 速率限制与本机聚合活动。
 
 这些测试读取真实账户的当前用量，因此不应在未授权的 CI、共享机器或日志会被公开保存的环境中运行。测试结果只能记录成功/失败与耗时，不能提交原始账户输出。
 

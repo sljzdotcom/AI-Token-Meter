@@ -63,6 +63,9 @@ struct FloatingDetailView: View {
                     isDemoMode: model.isRunningDemoMode,
                     onInteractionChange: onInteractionChange
                 )
+            } else if provider == .codex {
+                CodexDetailView(snapshot: snapshot)
+                    .onHover(perform: onInteractionChange)
             } else {
                 compactDetail(snapshot)
                     .onHover(perform: onInteractionChange)
@@ -105,10 +108,6 @@ struct FloatingDetailView: View {
                         }
                     }
                     .font(.caption2)
-                }
-                if snapshot.provider == .codex,
-                   let resetCredits = snapshot.codexResetCredits {
-                    CodexResetCreditsView(summary: resetCredits)
                 }
                 if let status = presentation.statusText {
                     Text(status)

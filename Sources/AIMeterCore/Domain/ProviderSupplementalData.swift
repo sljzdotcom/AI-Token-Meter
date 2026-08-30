@@ -26,6 +26,25 @@ public struct CodexResetCreditsSummary: Codable, Equatable, Sendable {
     }
 }
 
+public struct CodexLocalActivitySummary: Codable, Equatable, Sendable {
+    public let tokenCount: Int64
+    public let currentStreakDays: Int
+    public let longestSessionDuration: TimeInterval
+    public let dayCount: Int
+
+    public init(
+        tokenCount: Int64,
+        currentStreakDays: Int,
+        longestSessionDuration: TimeInterval,
+        dayCount: Int = 30
+    ) {
+        self.tokenCount = max(tokenCount, 0)
+        self.currentStreakDays = max(currentStreakDays, 0)
+        self.longestSessionDuration = max(longestSessionDuration, 0)
+        self.dayCount = max(dayCount, 1)
+    }
+}
+
 public struct DeepSeekDailyUsage: Codable, Equatable, Identifiable, Sendable {
     public var id: Date { date }
 

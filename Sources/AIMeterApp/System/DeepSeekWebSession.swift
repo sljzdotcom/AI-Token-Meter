@@ -19,6 +19,7 @@ final class DeepSeekWebSession: NSObject, WKNavigationDelegate, WKScriptMessageH
     private let historyStore: DeepSeekHistoryStore
     private let parser = DeepSeekWebsitePayloadParser()
     private let normalizer = DeepSeekHistoryNormalizer()
+    private var usageAccumulator = DeepSeekUsageFacetAccumulator()
     private var staleTask: Task<Void, Never>?
 
     private(set) var state: SyncState
@@ -69,6 +70,7 @@ final class DeepSeekWebSession: NSObject, WKNavigationDelegate, WKScriptMessageH
             return
         }
         state = .loading
+        usageAccumulator = DeepSeekUsageFacetAccumulator()
         webView.load(URLRequest(url: Self.usageURL))
         scheduleStaleFallback()
     }
@@ -86,12 +88,14 @@ final class DeepSeekWebSession: NSObject, WKNavigationDelegate, WKScriptMessageH
               let body = payload["body"] as? String,
               let data = body.data(using: .utf8),
               data.count <= 2 * 1_024 * 1_024,
-              let records = try? parser.parse(data) else {
+              let facet = DeepSeekUsageFacet(responseURL: sourceURL),
+              let records = try? parser.parse(data),
+              let completeRecords = usageAccumulator.replace(facet, rows: records) else {
             return
         }
 
         let normalized = normalizer.normalize(
-            records: records,
+            records: completeRecords,
             endingAt: Date(),
             updatedAt: Date(),
             statusMessage: "Synced from DeepSeek"
