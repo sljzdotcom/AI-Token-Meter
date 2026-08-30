@@ -1,91 +1,101 @@
 # AI Meter
 
-AI Meter 是一个完全在 Mac 本机运行的原生菜单栏 App，用一个界面查看 Claude、Codex 和 DeepSeek 的使用状态。它提供右侧悬浮用量环、菜单栏详情、5 分钟自动刷新、本地缓存，以及 70% / 90% 两级提醒。
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
+![Tests 100](https://img.shields.io/badge/tests-100%20passed-2ea44f)
 
-## 当前能力
+AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
-- Claude：通过已安装并登录的 Claude Code CLI 读取当前会话和全局额度。
-- Codex：通过 Codex CLI 官方 `app-server` 接口读取主、次额度窗口。
-- DeepSeek：调用官方余额接口；API Key 只保存在本机 Keychain。
-- 右侧悬浮条：默认开启；点击任一圆环展开详情，默认会在 8 秒后收起。可在“设置 > Appearance > Detail auto-hide”改为 3、5、8、15 或 30 秒；点击悬浮条和详情卡以外的位置会立即关闭详情，也可在设置中关闭整个悬浮条。
-- 弱网与故障降级：刷新失败时保留最近一次成功缓存，并显示可行动状态。
-- 本地预算：根据 AI Meter 观察到的 DeepSeek 余额减少量累计，充值不会被记为负消费。
+> 项目状态：个人本地工具，当前应用版本为 `0.1.0`（build `1`）。`0.1.0` 之后已经合入但尚未正式发布的改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+
+<p align="center">
+  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="118" alt="AI Meter 右侧悬浮条，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
+</p>
+
+## 主要功能
+
+- 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
+- 右侧悬浮条只显示三个大尺寸品牌 Logo 与用量环，节省屏幕空间。
+- Claude：读取当前会话与周额度，显示重置时间。
+- Codex：读取官方通用速率限制，并显示可用重置额度及到期日。
+- DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
+- DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。
+- 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停与登录操作期间暂停倒计时。
+- 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
+- API Key 存入 macOS Keychain；缓存前会清理常见 Token 与密钥形态。
+
+## 数据来源一览
+
+| 服务 | 数据来源 | 主要显示内容 | 首次准备 |
+| --- | --- | --- | --- |
+| Claude | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage` | 当前会话、周额度、重置时间 | 安装并登录 Claude Code；首次可能需批准 AI Meter 私有工作区 |
+| Codex | Codex CLI 官方 `app-server` JSON-RPC | 通用用量窗口、重置时间、可用重置额度及到期日 | 安装并登录 Codex CLI |
+| DeepSeek | 官方余额 API + App 内隔离的 `platform.deepseek.com` WebKit 会话 | 余额、基准消耗环、近 30 天成本/请求/Token 图表 | 在设置中保存 API Key；历史图表首次需登录官网 |
+
+详细的数据口径、降级行为与限制见 [服务与指标说明](docs/user-guide/providers.md)。
 
 ## 系统要求
 
-- Apple Silicon Mac（M1 或更新）与 macOS 14 或更新版本。
-- Xcode Command Line Tools（从源码构建时需要）。
-- Claude Code CLI 与 Codex CLI 已安装；需要查看哪项服务，就先在相应 CLI 中完成正常登录。
-- DeepSeek 为可选项；未配置 API Key 时只显示“需要配置”，不会发起余额请求。
+- Apple Silicon Mac（M1 或更新机型）。
+- macOS 14 Sonoma 或更新版本。
+- 从源码构建时需要 Xcode Command Line Tools 与 Swift 6 工具链。
+- Claude 与 Codex 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。
+- DeepSeek 是可选服务；余额需要 API Key，30 天用量图表需要在 App 的隔离网页中登录 DeepSeek 平台。
 
-## 构建与运行
-
-在项目目录执行：
+## 从源码安装
 
 ```bash
+git clone <repository-url>
+cd AI-Meter
 bash scripts/build-app.sh
 open "dist/AI Meter.app"
 ```
 
-脚本会执行 release 构建，生成 `dist/AI Meter.app`，进行本机临时签名并验证签名。若希望日常使用，可退出 AI Meter 后把 App 拖入“应用程序”文件夹，再从那里启动。
+构建脚本会生成 `dist/AI Meter.app`、执行 ad-hoc 本机签名并验证签名。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
 
-当前脚本面向这台 Apple Silicon Mac 的本机使用，产物为 arm64 且采用 ad-hoc 临时签名，不是面向互联网公开分发的 Developer ID 版本。若以后需要发给其他用户，应增加 universal 构建（如需 Intel 支持）、Hardened Runtime、Developer ID Application 签名和 Apple 公证。
+日常使用时，退出 AI Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
 
-## 首次配置
+完整步骤见 [安装与首次使用](docs/user-guide/getting-started.md)。
 
-1. 启动后，屏幕右侧会出现三个圆环，菜单栏也会出现 AI Meter。
-2. 在菜单栏面板点击齿轮，或按 `⌘,` 打开设置。
-3. 如需 DeepSeek 余额，在设置中填写 API Key 并保存。输入值写入 macOS Keychain，不进入偏好、缓存或日志。
-4. 按需开启 70% / 90% 提醒；macOS 首次会请求通知权限。
-5. 按需开启“登录时启动”。本机临时签名版本若移动路径，建议先关闭该开关，移动后重新开启。
+## 第一次使用
 
-## 指标说明
+1. 启动 AI Meter。屏幕右侧出现三个用量环，菜单栏出现 AI Meter 图标。
+2. 点击菜单栏图标，再点击齿轮，或按 `⌘,` 打开设置。
+3. 确认 Claude Code 与 Codex CLI 已分别登录；如 Claude 提示工作区设置，点击一次性设置按钮并在终端批准。
+4. 如需 DeepSeek，在设置中保存 API Key，并把“Balance baseline”设为希望参考的余额（默认 ¥100）。
+5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
+6. 按需开启 70% / 90% 提醒、登录时启动，并选择详情自动隐藏时间。
 
-- Claude/Codex 的百分比来自各自 CLI 当前账户返回的额度窗口。
-- DeepSeek 的 `Available balance` 是官方账户余额，不是使用百分比。
-- DeepSeek 的 `Local monthly budget` 是本机估算值：仅在 AI Meter 成功刷新时比较余额差异。因此 App 未运行期间发生的充值和消费无法被精确拆分，它不等同于官方账单。
-- 菜单栏百分比取所有有上限指标中的最高使用率；余额本身不会参与阈值提醒。
+## 如何理解圆环
 
-## 隐私与安全
+- **Claude / Codex**：圆环表示官方额度已经使用的比例，越接近一整圈，剩余额度越少。
+- **DeepSeek**：圆环表示参考余额已经消耗的比例。基准为 ¥100、余额为 ¥77.99 时，圆环约为 `22.01%`。
+- 圆环中的 Logo 只表示服务；百分比、余额、重置时间和明细在点击后的详情中显示。
+- 菜单栏汇总采用可用额度指标中的最高使用比例；余额金额本身不直接触发额度提醒。
 
-- 不接管浏览器 Cookie，不读取 Claude/Codex 凭证文件，也不模拟网页登录。
-- Claude 与 Codex 只使用其已登录 CLI 的本机接口。
-- DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别存入 Keychain，不随 iCloud Keychain 同步。
-- 缓存仅保存统一用量快照；保存和展示前会再次清除 Bearer Token 与常见 API Key 形态。
-- App 不上传分析数据，也不会把原始 CLI 输出、HTTP 错误正文或授权头写入通知。
+## 项目结构
 
-## 故障排查
+```text
+AI-Meter/
+├── Sources/
+│   ├── AIMeterApp/              # SwiftUI App、系统集成与界面
+│   └── AIMeterCore/             # 采集、领域模型、缓存、安全与协调逻辑
+├── Tests/AIMeterCoreTests/      # 单元、解析器、协调与真实 CLI 冒烟测试
+├── docs/
+│   ├── user-guide/              # 安装、服务配置、设置和排障
+│   ├── architecture/            # 架构与源码目录说明
+│   ├── development/             # 开发、测试、发布和逐日开发日志
+│   └── design/                  # 历史设计规格与实施计划
+├── scripts/build-app.sh         # Release 构建、App 打包与签名验证
+├── CHANGELOG.md                 # 面向版本的变更记录
+├── CONTRIBUTING.md              # 贡献规范
+└── SECURITY.md                  # 安全问题报告方式
+```
 
-### Claude 显示需要登录或未安装
+完整目录职责见 [代码库结构](docs/architecture/repository-structure.md)。
 
-先在终端确认 Claude Code CLI 可以启动，并在官方 CLI 中完成登录。AI Meter 不会替你打开交互式登录，也不会保存 Claude 凭证。
-
-### Codex 显示需要登录、不可用或格式变化
-
-先直接启动 Codex CLI 并完成登录，再回到 AI Meter 手动刷新。如果安装了很旧的 Codex CLI，请先升级；AI Meter 使用结构化 `app-server` 用量接口，而不是解析全屏界面。
-
-### DeepSeek 没有余额
-
-打开设置确认 API Key 已显示“Stored securely in Keychain”。401 会显示需要重新配置，429 会提示稍后再试。API Key 为空时不会联网。
-
-### 悬浮条不见了
-
-菜单栏功能始终保留。打开 AI Meter 设置，重新开启“Show right-side floating meter”。多显示器变化后面板会自动重新定位到当前可见屏幕右侧。
-
-### 查看诊断信息
-
-- 开发过程与每个 Git 节点的验证记录：`docs/development/2026-08-28-development-log.md`。
-- macOS 崩溃报告：`~/Library/Logs/DiagnosticReports/AIMeterApp-*.ips`。
-- 实时系统诊断：打开“控制台”App，以进程名 `AIMeterApp` 筛选。AI Meter 的设计不会记录凭证或原始账户响应。
-
-## 卸载
-
-1. 从菜单栏面板退出 AI Meter。
-2. 若启用了登录启动，建议先在设置中关闭。
-3. 删除 `AI Meter.app`。
-4. 如需同时删除 DeepSeek Key，可在卸载前从设置中点击 Remove；其他偏好和非敏感缓存可按需保留。
-
-## 开发验证
+## 开发与验证
 
 ```bash
 swift test
@@ -94,4 +104,39 @@ bash scripts/build-app.sh
 codesign --verify --deep --strict "dist/AI Meter.app"
 ```
 
-部分真实 CLI 与 Keychain 集成测试默认跳过，避免普通测试读取本机账户状态。它们只在显式设置相应测试环境变量时运行。
+普通测试不会主动读取本机账户状态。真实 CLI 冒烟测试必须显式开启对应环境变量，具体方法见 [测试指南](docs/development/testing.md)。
+
+## 文档
+
+- [文档总览](docs/README.md)
+- [安装与首次使用](docs/user-guide/getting-started.md)
+- [服务与指标说明](docs/user-guide/providers.md)
+- [设置参考](docs/user-guide/settings.md)
+- [故障排查](docs/user-guide/troubleshooting.md)
+- [架构概览](docs/architecture/overview.md)
+- [代码库结构](docs/architecture/repository-structure.md)
+- [隐私与安全](docs/security-and-privacy.md)
+- [开发环境](docs/development/setup.md)
+- [测试指南](docs/development/testing.md)
+- [发布流程](docs/development/release-process.md)
+- [提交历史](docs/development/commit-history.md)
+- [开发日志](docs/development/README.md)
+- [版本变更](CHANGELOG.md)
+- [贡献指南](CONTRIBUTING.md)
+
+## 隐私与安全摘要
+
+- Claude 与 Codex 凭证由各自 CLI 管理，AI Meter 不读取或保存它们的凭证文件。
+- DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
+- DeepSeek 历史用量使用 App 自己的隔离 WebKit 会话，不读取 Safari、Chrome 或其他浏览器 Cookie。
+- 历史页面的原始响应不会进入业务缓存；AI Meter 只保存标准化后的逐日成本、请求数和 Token 总数。
+- 缓存、状态消息与通知会先经过敏感文本清理。
+
+完整说明见 [隐私与安全](docs/security-and-privacy.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+
+## 版本与许可
+
+- 当前应用版本：`0.1.0`（build `1`）。
+- 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
+- Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
+- 本仓库目前尚未声明开源许可证。源代码可见不等于获得复制、修改或再分发授权；在许可证确定前请勿擅自分发。

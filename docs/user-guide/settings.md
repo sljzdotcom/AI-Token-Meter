@@ -1,0 +1,62 @@
+# 设置参考
+
+使用菜单栏齿轮或 `⌘,` 打开设置。
+
+## Appearance
+
+### Show right-side floating meter
+
+- 默认：开启。
+- 作用：显示或隐藏屏幕右侧悬浮条。
+- 关闭后：菜单栏入口仍然可用。
+
+### Detail auto-hide
+
+- 可选：3、5、8、15、30 秒。
+- 默认：8 秒。
+- 作用：点击某个圆环后，详情面板在无交互时自动收起。
+- 例外：鼠标悬停、DeepSeek 登录交互期间暂停倒计时；点击悬浮条和详情以外的区域会立即关闭。
+
+## Monitoring
+
+### Refresh interval
+
+- 固定：5 分钟。
+- 启动时会先刷新一次，也可从菜单栏手动刷新。
+
+### Usage alerts at 70% and 90%
+
+- 默认：关闭。
+- 开启时 macOS 会请求通知权限。
+- 只对有明确上限的额度比例生效，并抑制同一周期的重复通知。
+
+### Open AI Meter at login
+
+- 默认：关闭。
+- 使用 macOS 登录项服务注册当前应用。
+- 移动应用位置后应关闭再开启一次，以刷新路径。
+
+## DeepSeek
+
+### Balance baseline
+
+- 默认：¥100。
+- 最小有效值：¥1。
+- 作用：决定 DeepSeek 圆环的参考起点，不会影响账户、充值或消费。
+
+### DeepSeek API Key
+
+- **Save**：去除首尾空白后写入 macOS Keychain，并立即刷新。
+- **Remove**：从 Keychain 删除密钥并刷新状态。
+- 设置页只显示是否已安全保存，不回显密钥内容。
+
+## 本地持久化
+
+| 内容 | 保存位置/机制 | 敏感性 |
+| --- | --- | --- |
+| DeepSeek API Key | macOS Keychain | 敏感，不进入普通偏好或缓存 |
+| 外观、通知、基准与自动隐藏时间 | `UserDefaults` | 非敏感 |
+| 最近一次统一用量快照 | `Application Support/AI Meter` | 非敏感，写入前清理敏感文本 |
+| DeepSeek 标准化每日用量 | `Application Support/AI Meter` | 非敏感聚合数据 |
+| DeepSeek 官网登录会话 | App 隔离 WebKit 数据存储 | 敏感会话，由 WebKit 管理，不写入业务缓存 |
+

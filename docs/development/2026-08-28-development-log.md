@@ -22,7 +22,7 @@
 - 已读取并执行 `writing-plans`、`test-driven-development`、`using-git-worktrees` 与 `verification-before-completion` 流程。
 - 采用 Swift Package + SwiftUI 可执行程序，避免依赖未安装的 XcodeGen。
 - App 最终由可重复脚本封装为本机签名的 `.app`；核心逻辑保持可由 `swift test` 独立验证。
-- 详细计划：`docs/superpowers/plans/2026-08-28-ai-meter-implementation.md`。
+- 详细计划：`docs/design/implementation-plans/2026-08-28-ai-meter-implementation.md`。
 
 ## 任务 1：工程骨架与统一领域模型
 

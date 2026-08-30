@@ -1,0 +1,87 @@
+# 隐私与安全
+
+## 安全目标
+
+AI Meter 是本地状态查看器，不是账户代理。它遵循最小权限原则：只读取展示所需的用量数据，不替用户登录、不执行充值或重置操作，也不把账户数据上传到自建服务。
+
+## 凭证处理
+
+### Claude 与 Codex
+
+- 登录与凭证生命周期由官方 CLI 管理；
+- AI Meter 调用已登录 CLI，不读取、复制或保存凭证文件；
+- CLI 标准输出会在解析后转换为统一字段，原始账户输出不写入业务缓存；
+- 一次性 Claude 工作区批准由用户在终端确认。
+
+### DeepSeek API Key
+
+- 只通过设置界面接收；
+- 使用 macOS Keychain 保存；
+- Keychain 可访问级别为 `AfterFirstUnlockThisDeviceOnly`；
+- 不写入 `UserDefaults`、普通文件、通知、截图或日志；
+- 设置界面不回显已保存的 Key。
+
+## DeepSeek 网页会话
+
+近 30 天用量使用 AI Meter 自己的 WebKit 会话：
+
+- 不读取 Safari、Chrome 或其他浏览器 Cookie；
+- 只允许官方 DeepSeek 平台来源参与用量捕获；
+- 登录 Cookie 由 WebKit 自己的数据存储管理；
+- 业务缓存不保存 Cookie、授权头、登录字段或网页原始响应；
+- 单个被处理的响应受大小限制，防止无限负载进入应用；
+- 仅标准化保存日期、成本、请求数、Token 数和更新时间。
+
+App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSeek 官方条款约束。共享设备上应使用独立的 macOS 用户账户，并在不再使用时退出登录或清理应用数据。
+
+## 本地数据
+
+| 数据 | 位置/机制 | 生命周期 |
+| --- | --- | --- |
+| DeepSeek API Key | macOS Keychain | 用户点击 Remove 或删除对应 Keychain 项目 |
+| 界面与监控偏好 | `UserDefaults` | 直到用户清理偏好 |
+| 最近成功用量快照 | `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
+| DeepSeek 每日聚合 | `Application Support/AI Meter` | 新数据覆盖或用户删除缓存 |
+| DeepSeek 登录会话 | App WebKit 数据存储 | 退出登录或清理应用网站数据 |
+
+## 敏感文本清理
+
+进入缓存、状态消息或通知前，文本会清理常见敏感形态，包括：
+
+- `Authorization: Bearer ...`；
+- 常见 API Key 前缀和长 Token；
+- 可能随 HTTP 错误返回的授权内容。
+
+清理是纵深防御，不应取代“不记录原始敏感响应”的设计原则。
+
+## 网络边界
+
+- Claude：由 Claude Code CLI 连接其官方服务；
+- Codex：由 Codex CLI 及其 `app-server` 提供本地结构化账户数据；
+- DeepSeek 余额：直接访问官方 API；
+- DeepSeek 历史：App 内 WebKit 访问官方平台；
+- AI Meter 没有自建遥测、广告或分析服务。
+
+## 日志
+
+系统日志用于记录可行动的运行状态，不应包含：
+
+- API Key、Bearer Token、Cookie；
+- 原始网页响应或完整 CLI 输出；
+- 登录表单内容；
+- 可识别个人身份的账户字段。
+
+提交问题时仍应人工检查日志与截图并删除个人信息。
+
+## 威胁与限制
+
+- 本机已被恶意软件或高权限账户控制时，任何本地应用都无法完全保护会话；
+- 上游 CLI 或官网接口变化可能导致暂时无法识别数据；
+- ad-hoc 签名只用于本机开发，不提供公开发行所需的身份保证；
+- 当前没有自动更新机制；升级必须由用户重新构建或替换应用；
+- 项目尚未进行第三方安全审计。
+
+## 报告安全问题
+
+不要在公开 Issue 中粘贴密钥、Cookie、账户响应或可复现的未修复漏洞。请遵循仓库根目录的 [SECURITY.md](../SECURITY.md)。
+
