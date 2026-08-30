@@ -17,6 +17,7 @@ final class AppModel {
     private let budgetTracker: DeepSeekBudgetTracker
     private let launchAtLoginService: LaunchAtLoginService
     private let defaults: UserDefaults
+    private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
     private let isDemoMode: Bool
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
@@ -31,6 +32,7 @@ final class AppModel {
     var showFloatingStrip: Bool
     var notificationsEnabled: Bool
     var monthlyBudget: Double
+    var detailAutoHideSeconds: Int
 
     var floatingVisibilityHandler: ((Bool) -> Void)?
     var notificationHandler: (([ThresholdEvent]) -> Void)?
@@ -45,6 +47,7 @@ final class AppModel {
         self.secretStore = secretStore
         self.launchAtLoginService = launchAtLoginService
         self.budgetTracker = DeepSeekBudgetTracker(defaults: defaults)
+        self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
         self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
            let restored = try? JSONDecoder().decode(ThresholdEvaluator.self, from: data) {
@@ -61,6 +64,7 @@ final class AppModel {
         notificationsEnabled = defaults.bool(forKey: DefaultsKey.notificationsEnabled)
         let storedBudget = defaults.double(forKey: DefaultsKey.monthlyBudget)
         monthlyBudget = storedBudget > 0 ? storedBudget : 100
+        detailAutoHideSeconds = detailAutoHidePreferenceStore.load().rawValue
 
         let cacheDirectory = FileManager.default.urls(
             for: .applicationSupportDirectory,
@@ -150,6 +154,12 @@ final class AppModel {
         monthlyBudget = max(value, 1)
         defaults.set(monthlyBudget, forKey: DefaultsKey.monthlyBudget)
         snapshots = snapshots.map(applyingLocalBudget)
+    }
+
+    func setDetailAutoHideSeconds(_ seconds: Int) {
+        let interval = DetailAutoHideInterval(storedSeconds: seconds)
+        detailAutoHideSeconds = interval.rawValue
+        detailAutoHidePreferenceStore.save(interval)
     }
 
     func setLaunchAtLogin(_ isEnabled: Bool) {

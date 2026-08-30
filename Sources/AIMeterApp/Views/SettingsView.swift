@@ -1,3 +1,4 @@
+import AIMeterCore
 import SwiftUI
 
 struct SettingsView: View {
@@ -17,6 +18,17 @@ struct SettingsView: View {
                 Text("The menu bar meter remains available when the floating meter is hidden.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Picker(
+                    "Detail auto-hide",
+                    selection: Binding(
+                        get: { model.detailAutoHideSeconds },
+                        set: { model.setDetailAutoHideSeconds($0) }
+                    )
+                ) {
+                    ForEach(DetailAutoHideInterval.allCases) { interval in
+                        Text("\(interval.rawValue) seconds").tag(interval.rawValue)
+                    }
+                }
             }
 
             Section("Monitoring") {
