@@ -5,9 +5,11 @@ import SwiftUI
 @MainActor
 final class FloatingPanelController {
     private let model: AppModel
+    private let session = FloatingDetailSession()
     private let stripPanel: NSPanel
     private let detailPanel: NSPanel
-    private var selectedProvider: UsageProvider?
+    private var localMouseMonitor: Any?
+    private var globalMouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
 
     init(model: AppModel) {
@@ -15,11 +17,18 @@ final class FloatingPanelController {
         stripPanel = Self.makePanel()
         detailPanel = Self.makePanel()
 
-        let stripHost = NSHostingView(rootView: FloatingStripView(model: model) { [weak self] provider in
-            self?.select(provider)
+        let stripHost = NSHostingView(rootView: FloatingStripView(model: model, session: session) { [weak self] provider in
+            guard let self else { return }
+            session.toggle(
+                provider,
+                autoHideAfter: .seconds(model.detailAutoHideSeconds)
+            )
         })
         stripHost.sizingOptions = []
         stripPanel.contentView = stripHost
+        session.onSelectionChange = { [weak self] provider in
+            self?.renderSelection(provider)
+        }
         positionPanels()
 
         screenObserver = NotificationCenter.default.addObserver(
@@ -29,27 +38,57 @@ final class FloatingPanelController {
         ) { [weak self] _ in
             Task { @MainActor in self?.positionPanels() }
         }
+
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] event in
+            self?.dismissForOutsideClick(at: NSEvent.mouseLocation)
+            return event
+        }
+
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.dismissForOutsideClick(at: NSEvent.mouseLocation)
+            }
+        }
+    }
+
+    isolated deinit {
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+        }
+        if let globalMouseMonitor {
+            NSEvent.removeMonitor(globalMouseMonitor)
+        }
+        if let screenObserver {
+            NotificationCenter.default.removeObserver(screenObserver)
+        }
     }
 
     func show() {
         positionPanels()
         stripPanel.orderFrontRegardless()
-        if selectedProvider != nil {
+        if session.selectedProvider != nil {
             detailPanel.orderFrontRegardless()
         }
     }
 
     func hide() {
+        session.dismiss()
         stripPanel.orderOut(nil)
         detailPanel.orderOut(nil)
     }
 
     func showDetail(for provider: UsageProvider) {
-        select(provider)
+        session.present(
+            provider,
+            autoHideAfter: .seconds(model.detailAutoHideSeconds)
+        )
     }
 
-    private func select(_ provider: UsageProvider?) {
-        selectedProvider = provider
+    private func renderSelection(_ provider: UsageProvider?) {
         guard let provider else {
             detailPanel.orderOut(nil)
             return
@@ -59,6 +98,16 @@ final class FloatingPanelController {
         detailPanel.contentView = detailHost
         positionPanels()
         detailPanel.orderFrontRegardless()
+    }
+
+    private func dismissForOutsideClick(at point: CGPoint) {
+        guard session.selectedProvider != nil else { return }
+        guard FloatingPanelHitPolicy.isOutside(
+            point,
+            strip: stripPanel.frame,
+            detail: detailPanel.frame
+        ) else { return }
+        session.dismiss()
     }
 
     private func positionPanels() {

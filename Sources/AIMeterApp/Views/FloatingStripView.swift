@@ -3,24 +3,23 @@ import SwiftUI
 
 struct FloatingStripView: View {
     @Bindable var model: AppModel
-    let onSelectionChange: (UsageProvider?) -> Void
-
-    @State private var selectedProvider: UsageProvider?
+    @Bindable var session: FloatingDetailSession
+    let onProviderTap: (UsageProvider) -> Void
 
     var body: some View {
         VStack(spacing: 14) {
             ForEach(presentations, id: \.provider) { presentation in
                 Button {
-                    selectedProvider = selectedProvider == presentation.provider
-                        ? nil
-                        : presentation.provider
-                    onSelectionChange(selectedProvider)
+                    onProviderTap(presentation.provider)
                 } label: {
                     UsageRing(presentation: presentation, size: 58)
-                        .scaleEffect(selectedProvider == presentation.provider ? 1.06 : 1)
+                        .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                 }
                 .buttonStyle(.plain)
-                .animation(.spring(response: 0.28, dampingFraction: 0.8), value: selectedProvider)
+                .animation(
+                    .spring(response: 0.28, dampingFraction: 0.8),
+                    value: session.selectedProvider
+                )
             }
         }
         .padding(.vertical, 18)
