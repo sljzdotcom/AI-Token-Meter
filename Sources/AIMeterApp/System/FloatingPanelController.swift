@@ -56,6 +56,7 @@ final class FloatingPanelController {
     }
 
     isolated deinit {
+        session.shutdown()
         if let localMouseMonitor {
             NSEvent.removeMonitor(localMouseMonitor)
         }

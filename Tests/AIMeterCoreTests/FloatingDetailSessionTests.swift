@@ -118,4 +118,93 @@ struct FloatingDetailSessionTests {
         ))
         session.dismiss()
     }
+
+    @Test("Shutdown immediately cancels auto-hide and invalidates the session")
+    @MainActor
+    func shutdownCancelsAndInvalidates() async {
+        let probe = AutoHideSleepProbe()
+        let session = FloatingDetailSession { duration in
+            try await probe.sleep(for: duration)
+        }
+        var selections: [UsageProvider?] = []
+        session.onSelectionChange = { selections.append($0) }
+        session.present(.claude, autoHideAfter: .seconds(30))
+
+        #expect(await eventually { await probe.hasStarted })
+        session.shutdown()
+
+        #expect(session.selectedProvider == nil)
+        #expect(selections == [.claude, nil])
+        #expect(await eventually { await probe.wasCancelled })
+
+        session.present(.codex, autoHideAfter: .seconds(30))
+        #expect(session.selectedProvider == nil)
+        #expect(selections == [.claude, nil])
+    }
+
+    @Test("Dismiss cancels auto-hide while keeping the session reusable")
+    @MainActor
+    func dismissCancelsAndAllowsReuse() async {
+        let probe = AutoHideSleepProbe()
+        let session = FloatingDetailSession { duration in
+            try await probe.sleep(for: duration)
+        }
+        session.present(.claude, autoHideAfter: .seconds(30))
+
+        #expect(await eventually { await probe.hasStarted })
+        session.dismiss()
+
+        #expect(session.selectedProvider == nil)
+        #expect(await eventually { await probe.wasCancelled })
+        session.present(.codex, autoHideAfter: .seconds(30))
+        #expect(session.selectedProvider == .codex)
+        session.dismiss()
+    }
+
+    @Test("Shutdown reentered from selection callback prevents auto-hide from starting")
+    @MainActor
+    func callbackShutdownPreventsTaskStart() async {
+        let probe = AutoHideSleepProbe()
+        let session = FloatingDetailSession { duration in
+            try await probe.sleep(for: duration)
+        }
+        session.onSelectionChange = { provider in
+            if provider != nil {
+                session.shutdown()
+            }
+        }
+
+        session.present(.claude, autoHideAfter: .seconds(30))
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        #expect(session.selectedProvider == nil)
+        #expect(!(await probe.hasStarted))
+    }
+}
+
+private actor AutoHideSleepProbe {
+    private(set) var hasStarted = false
+    private(set) var wasCancelled = false
+
+    func sleep(for duration: Duration) async throws {
+        hasStarted = true
+        do {
+            try await Task.sleep(for: duration)
+        } catch {
+            wasCancelled = true
+            throw error
+        }
+    }
+}
+
+private func eventually(
+    _ condition: @escaping @Sendable () async -> Bool
+) async -> Bool {
+    for _ in 0..<1_000 {
+        if await condition() { return true }
+        await Task.yield()
+    }
+    return false
 }
