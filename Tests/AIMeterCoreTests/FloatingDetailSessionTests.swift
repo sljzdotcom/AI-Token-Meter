@@ -66,6 +66,19 @@ struct FloatingDetailSessionTests {
         #expect(session.selectedProvider == nil)
     }
 
+    @Test("Paused detail does not auto-hide until resumed")
+    @MainActor
+    func pauseAndResume() async throws {
+        let session = FloatingDetailSession()
+        session.present(.deepSeek, autoHideAfter: .milliseconds(30))
+        session.setAutoHidePaused(true)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(session.selectedProvider == .deepSeek)
+        session.setAutoHidePaused(false, restartAfter: .milliseconds(20))
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(session.selectedProvider == nil)
+    }
+
     @Test("Only clicks outside both panels request dismissal")
     func hitPolicy() {
         let strip = CGRect(x: 300, y: 100, width: 84, height: 300)

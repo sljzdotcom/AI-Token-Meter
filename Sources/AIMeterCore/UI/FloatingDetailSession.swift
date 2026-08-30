@@ -14,7 +14,10 @@ public final class FloatingDetailSession {
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
     @ObservationIgnored private var autoHideTask: Task<Void, Never>?
     @ObservationIgnored private var generation: UInt64 = 0
+    @ObservationIgnored private var timerGeneration: UInt64 = 0
     @ObservationIgnored private var selectionPresentedAtUptime: TimeInterval?
+    @ObservationIgnored private var lastAutoHideDuration: Duration?
+    @ObservationIgnored private var isAutoHidePaused = false
     @ObservationIgnored private var isShutdown = false
 
     public init() {
@@ -52,26 +55,36 @@ public final class FloatingDetailSession {
         guard !isShutdown else { return }
         autoHideTask?.cancel()
         generation &+= 1
-        let taskGeneration = generation
+        timerGeneration &+= 1
         selectionPresentedAtUptime = ProcessInfo.processInfo.systemUptime
+        lastAutoHideDuration = duration
+        isAutoHidePaused = false
         setSelection(provider)
-        guard !isShutdown,
-              generation == taskGeneration,
-              selectedProvider == provider else { return }
-        let sleep = sleep
-        autoHideTask = Task { [weak self] in
-            do { try await sleep(duration) } catch { return }
-            guard self?.generation == taskGeneration else { return }
-            guard self?.selectedProvider == provider else { return }
-            self?.dismiss()
-        }
+        scheduleAutoHide(for: provider, after: duration)
+    }
+
+    public func setAutoHidePaused(
+        _ isPaused: Bool,
+        restartAfter duration: Duration? = nil
+    ) {
+        guard !isShutdown, let provider = selectedProvider else { return }
+        isAutoHidePaused = isPaused
+        timerGeneration &+= 1
+        autoHideTask?.cancel()
+        autoHideTask = nil
+        guard !isPaused, let duration = duration ?? lastAutoHideDuration else { return }
+        lastAutoHideDuration = duration
+        scheduleAutoHide(for: provider, after: duration)
     }
 
     public func dismiss() {
         autoHideTask?.cancel()
         autoHideTask = nil
         generation &+= 1
+        timerGeneration &+= 1
         selectionPresentedAtUptime = nil
+        lastAutoHideDuration = nil
+        isAutoHidePaused = false
         setSelection(nil)
     }
 
@@ -86,7 +99,10 @@ public final class FloatingDetailSession {
         autoHideTask?.cancel()
         autoHideTask = nil
         generation &+= 1
+        timerGeneration &+= 1
         selectionPresentedAtUptime = nil
+        lastAutoHideDuration = nil
+        isAutoHidePaused = false
         if selectedProvider != nil {
             setSelection(nil)
         }
@@ -96,5 +112,18 @@ public final class FloatingDetailSession {
     private func setSelection(_ provider: UsageProvider?) {
         selectedProvider = provider
         onSelectionChange?(provider)
+    }
+
+    private func scheduleAutoHide(for provider: UsageProvider, after duration: Duration) {
+        guard !isShutdown, !isAutoHidePaused, selectedProvider == provider else { return }
+        let taskTimerGeneration = timerGeneration
+        let sleep = sleep
+        autoHideTask = Task { [weak self] in
+            do { try await sleep(duration) } catch { return }
+            guard self?.timerGeneration == taskTimerGeneration else { return }
+            guard self?.selectedProvider == provider else { return }
+            guard self?.isAutoHidePaused == false else { return }
+            self?.dismiss()
+        }
     }
 }

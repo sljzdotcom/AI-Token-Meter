@@ -51,11 +51,28 @@ struct FloatingDetailView: View {
     @Bindable var model: AppModel
     let provider: UsageProvider
     let onClaudeSetup: () -> Void
+    let onInteractionChange: (Bool) -> Void
 
+    @ViewBuilder
     var body: some View {
         if let snapshot = model.snapshots.first(where: { $0.provider == provider }) {
-            let presentation = ProviderPresentation(snapshot: snapshot)
-            VStack(alignment: .leading, spacing: 10) {
+            if provider == .deepSeek {
+                DeepSeekAnalyticsView(
+                    snapshot: snapshot,
+                    webSession: model.deepSeekWebSession,
+                    isDemoMode: model.isRunningDemoMode,
+                    onInteractionChange: onInteractionChange
+                )
+            } else {
+                compactDetail(snapshot)
+                    .onHover(perform: onInteractionChange)
+            }
+        }
+    }
+
+    private func compactDetail(_ snapshot: UsageSnapshot) -> some View {
+        let presentation = ProviderPresentation(snapshot: snapshot)
+        return VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Label(presentation.title, systemImage: snapshot.provider.symbolName)
                         .font(.headline)
@@ -118,6 +135,5 @@ struct FloatingDetailView: View {
                     .shadow(color: .black.opacity(0.24), radius: 18, x: -4, y: 8)
             )
             .padding(5)
-        }
     }
 }

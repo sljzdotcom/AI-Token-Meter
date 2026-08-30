@@ -27,7 +27,7 @@ struct ProviderLogo: View {
     private static func image(for provider: UsageProvider) -> NSImage? {
         guard let url = Bundle.module.url(
             forResource: provider.logoResourceName,
-            withExtension: "svg",
+            withExtension: provider.logoResourceExtension,
             subdirectory: "Logos"
         ) else {
             return nil
@@ -43,5 +43,9 @@ private extension UsageProvider {
         case .codex: "codex"
         case .deepSeek: "deepseek"
         }
+    }
+
+    var logoResourceExtension: String {
+        self == .claude ? "png" : "svg"
     }
 }

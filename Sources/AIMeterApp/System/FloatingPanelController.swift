@@ -14,8 +14,8 @@ final class FloatingPanelController {
 
     init(model: AppModel) {
         self.model = model
-        stripPanel = Self.makePanel()
-        detailPanel = Self.makePanel()
+        stripPanel = Self.makePanel(nonactivating: true)
+        detailPanel = Self.makePanel(nonactivating: false)
 
         let stripHost = NSHostingView(rootView: FloatingStripView(model: model, session: session) { [weak self] provider in
             guard let self else { return }
@@ -97,12 +97,24 @@ final class FloatingPanelController {
         let detailHost = NSHostingView(rootView: FloatingDetailView(
             model: model,
             provider: provider,
-            onClaudeSetup: model.openClaudeWorkspaceSetup
+            onClaudeSetup: model.openClaudeWorkspaceSetup,
+            onInteractionChange: { [weak self] isInteracting in
+                guard let self else { return }
+                session.setAutoHidePaused(
+                    isInteracting,
+                    restartAfter: .seconds(model.detailAutoHideSeconds)
+                )
+            }
         ))
         detailHost.sizingOptions = []
         detailPanel.contentView = detailHost
         positionPanels()
-        detailPanel.orderFrontRegardless()
+        if provider == .deepSeek {
+            NSApp.activate(ignoringOtherApps: true)
+            detailPanel.makeKeyAndOrderFront(nil)
+        } else {
+            detailPanel.orderFrontRegardless()
+        }
     }
 
     private func handleMonitoredClick(_ event: NSEvent) {
@@ -141,11 +153,22 @@ final class FloatingPanelController {
         )
         stripPanel.setFrame(stripFrame, display: true, animate: false)
 
-        let detailSize = NSSize(width: 262, height: 224)
+        let detailSize: NSSize
+        switch session.selectedProvider {
+        case .deepSeek: detailSize = NSSize(width: 620, height: 520)
+        case .codex: detailSize = NSSize(width: 340, height: 360)
+        case .claude, .none: detailSize = NSSize(width: 300, height: 260)
+        }
+        let detailOriginX = max(visibleFrame.minX + 8, stripFrame.minX - detailSize.width - 10)
+        let centeredY = stripFrame.midY - detailSize.height / 2
+        let detailOriginY = min(
+            max(centeredY, visibleFrame.minY + 8),
+            visibleFrame.maxY - detailSize.height - 8
+        )
         detailPanel.setFrame(
             NSRect(
-                x: stripFrame.minX - detailSize.width - 10,
-                y: stripFrame.midY - detailSize.height / 2,
+                x: detailOriginX,
+                y: detailOriginY,
                 width: detailSize.width,
                 height: detailSize.height
             ),
@@ -154,10 +177,14 @@ final class FloatingPanelController {
         )
     }
 
-    private static func makePanel() -> NSPanel {
+    private static func makePanel(nonactivating: Bool) -> NSPanel {
+        var styleMask: NSWindow.StyleMask = [.borderless]
+        if nonactivating {
+            styleMask.insert(.nonactivatingPanel)
+        }
         let panel = NSPanel(
             contentRect: .zero,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false
         )

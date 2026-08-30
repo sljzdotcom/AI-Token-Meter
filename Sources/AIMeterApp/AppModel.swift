@@ -23,6 +23,8 @@ final class AppModel {
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
 
+    let deepSeekWebSession: DeepSeekWebSession
+
     private(set) var snapshots: [UsageSnapshot] = []
     private(set) var isRefreshing = false
     private(set) var lastUpdatedAt: Date?
@@ -75,6 +77,9 @@ final class AppModel {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0].appendingPathComponent("AI Meter", isDirectory: true)
+        deepSeekWebSession = DeepSeekWebSession(
+            historyStore: DeepSeekHistoryStore(directoryURL: cacheDirectory)
+        )
         coordinator = RefreshCoordinator(
             collectors: isDemoMode
                 ? []
@@ -97,6 +102,9 @@ final class AppModel {
 
     func start() {
         guard refreshLoop == nil else { return }
+        deepSeekWebSession.onHistoryChange = { [weak self] history in
+            self?.attachDeepSeekHistory(history)
+        }
         if isDemoMode {
             snapshots = Self.demoSnapshots
             lastUpdatedAt = Date()
@@ -130,7 +138,7 @@ final class AppModel {
         defer { isRefreshing = false }
 
         let collected = await coordinator.refresh()
-        snapshots = collected.map(applyingLocalBudget)
+        snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         lastUpdatedAt = Date()
 
         guard notificationsEnabled else { return }
@@ -244,6 +252,18 @@ final class AppModel {
         )
     }
 
+    private func applyingDeepSeekHistory(to snapshot: UsageSnapshot) -> UsageSnapshot {
+        guard snapshot.provider == .deepSeek,
+              let history = deepSeekWebSession.history else { return snapshot }
+        return snapshot.withDeepSeekHistory(history)
+    }
+
+    private func attachDeepSeekHistory(_ history: DeepSeekUsageHistory) {
+        snapshots = snapshots.map { snapshot in
+            snapshot.provider == .deepSeek ? snapshot.withDeepSeekHistory(history) : snapshot
+        }
+    }
+
     private func persistThresholdEvaluator() {
         guard let data = try? JSONEncoder().encode(thresholdEvaluator) else { return }
         defaults.set(data, forKey: DefaultsKey.thresholdEvaluator)
@@ -283,6 +303,20 @@ final class AppModel {
                     limit: 100,
                     unit: .percent,
                     resetDescription: "Resets Friday"
+                ),
+                codexResetCredits: CodexResetCreditsSummary(
+                    availableCount: 2,
+                    credits: [
+                        CodexResetCreditDisplay(
+                            title: "Usage reset",
+                            expiresAt: Calendar.current.date(byAdding: .day, value: 4, to: Date())
+                        ),
+                        CodexResetCreditDisplay(
+                            title: "Bonus reset",
+                            expiresAt: Calendar.current.date(byAdding: .day, value: 12, to: Date())
+                        ),
+                    ],
+                    hasCompleteDetails: true
                 )
             ),
             UsageSnapshot(
@@ -300,8 +334,38 @@ final class AppModel {
                     limit: 100,
                     unit: .cny,
                     kind: .localBudget
+                ),
+                deepSeekUsageHistory: DeepSeekUsageHistory(
+                    days: (0..<30).map { offset in
+                        DeepSeekDailyUsage(
+                            date: Calendar.current.date(byAdding: .day, value: offset - 29, to: Date()) ?? Date(),
+                            costCNY: offset.isMultiple(of: 5) ? Double((offset % 7) + 1) * 0.42 : 0.08,
+                            requestCount: offset.isMultiple(of: 5) ? 18 + offset : 2,
+                            tokenCount: offset.isMultiple(of: 5) ? 120_000 + offset * 1_000 : 8_000
+                        )
+                    },
+                    updatedAt: Date(),
+                    statusMessage: "Demo usage"
                 )
             ),
         ]
+    }
+}
+
+private extension UsageSnapshot {
+    func withDeepSeekHistory(_ history: DeepSeekUsageHistory) -> UsageSnapshot {
+        UsageSnapshot(
+            provider: provider,
+            primaryMetric: primaryMetric,
+            secondaryMetric: secondaryMetric,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            deepSeekUsageHistory: history
+        )
     }
 }
