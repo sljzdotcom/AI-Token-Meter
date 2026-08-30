@@ -19,14 +19,23 @@ public struct ProviderPresentation: Equatable, Sendable {
     public let fraction: Double?
     public let semantic: UsageSemantic
 
+    public var ringFraction: Double? {
+        guard let fraction, fraction > 0 else { return nil }
+        return fraction
+    }
+
     public init(snapshot: UsageSnapshot) {
         provider = snapshot.provider
         title = Self.title(for: snapshot.provider)
-        fraction = [snapshot.primaryMetric, snapshot.secondaryMetric]
-            .compactMap { $0?.usedFraction }
-            .max()
+        let percentageMetrics = [snapshot.primaryMetric, snapshot.secondaryMetric]
+            .compactMap { $0 }
+            .filter { $0.kind == .officialLimit && $0.unit == .percent }
+        let summaryMetric = percentageMetrics.max {
+            ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0)
+        } ?? snapshot.primaryMetric
+        fraction = summaryMetric?.unit == .percent ? summaryMetric?.usedFraction : nil
         detailText = SensitiveTextRedactor.redact(
-            snapshot.primaryMetric?.label ?? Self.defaultDetail(for: snapshot.collectionStatus)
+            summaryMetric?.label ?? Self.defaultDetail(for: snapshot.collectionStatus)
         )
         if let statusMessage = snapshot.statusMessage {
             statusText = SensitiveTextRedactor.redact(statusMessage)
@@ -38,8 +47,8 @@ public struct ProviderPresentation: Equatable, Sendable {
         primaryResetText = Self.resetText(for: snapshot.primaryMetric)
         secondaryResetText = Self.resetText(for: snapshot.secondaryMetric)
 
-        if let primaryMetric = snapshot.primaryMetric {
-            valueText = Self.valueText(for: primaryMetric)
+        if let summaryMetric {
+            valueText = Self.valueText(for: summaryMetric)
         } else {
             valueText = Self.stateValue(for: snapshot.collectionStatus)
         }

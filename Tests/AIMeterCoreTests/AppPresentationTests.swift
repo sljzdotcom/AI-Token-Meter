@@ -44,6 +44,49 @@ struct AppPresentationTests {
         #expect(presentation.semantic == .normal)
     }
 
+    @Test("Uses the same highest window for summary text and ring")
+    func summarizesHighestWindowConsistently() {
+        let snapshot = UsageSnapshot(
+            provider: .claude,
+            primaryMetric: UsageMetric(
+                label: "Current session",
+                current: 0,
+                limit: 100,
+                unit: .percent
+            ),
+            secondaryMetric: UsageMetric(
+                label: "Weekly limit",
+                current: 10,
+                limit: 100,
+                unit: .percent
+            )
+        )
+
+        let presentation = ProviderPresentation(snapshot: snapshot)
+
+        #expect(presentation.valueText == "10%")
+        #expect(presentation.fraction == 0.10)
+        #expect(presentation.ringFraction == 0.10)
+    }
+
+    @Test("Zero and unbounded metrics do not draw progress")
+    func hidesFalseProgress() {
+        let zero = ProviderPresentation(snapshot: usageSnapshot(provider: .codex, fraction: 0))
+        let balance = ProviderPresentation(snapshot: UsageSnapshot(
+            provider: .deepSeek,
+            primaryMetric: UsageMetric(
+                label: "Balance",
+                current: 77.99,
+                limit: nil,
+                unit: .cny,
+                kind: .balance
+            )
+        ))
+
+        #expect(zero.ringFraction == nil)
+        #expect(balance.ringFraction == nil)
+    }
+
     @Test("Turns account and cached states into actionable copy")
     func formatsNonFreshStates() {
         let authentication = ProviderPresentation(snapshot: UsageSnapshot(

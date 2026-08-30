@@ -335,3 +335,25 @@
 - 构建产物与 `/Applications/AI Meter.app` 的 `AIMeterApp` 均为 arm64 Mach-O，SHA-256 一致：`2c17ee35bfe16e97d66e2e988c2819396966dd8710787c5022db32c0f1cd0fca`。
 - 安装前版本已可恢复地移动到 `/private/tmp/AI Meter.app.pre-cr-fix-20260830-1529`。
 - 新 ad-hoc 构建首次读取既有 DeepSeek Keychain 项目时，macOS 重新要求用户确认访问；最终三卡界面验收在该系统确认完成后记录。
+
+## 2026-08-30：Claude、Codex 与圆环用量准确性
+
+### 根因证据
+
+- Claude 2.1.251 的真实 `/usage` 页面在两个 0% 用量窗口之后包含 `+50% weekly limits promo`。通用解析器接受页面上的任意百分比，并沿用上一额度标签，因此促销数字覆盖了真实周额度，缓存错误保存为 50%。
+- Codex 官方 `account/rateLimits/read` 顶层通用额度返回每周已使用 5%；同一响应的 `rateLimitsByLimitId.codex_bengalfox` 是 Spark 专用的 5 小时 0% 和每周 0%。旧实现因顶层 secondary 为空，错误地用第一个具有 secondary 的模型专用额度整体替换通用额度。
+- `UsageRing` 对 0 或 nil 使用固定的 4% 最小弧长；同时展示模型的弧长取主、次额度最大值，中央文字却固定取主额度，造成视觉与文字可表达不同窗口。
+
+### 测试驱动修复
+
+- Claude 新增脱敏真实结构 fixture。修复前测试明确得到 secondary 0.50；最小修复要求百分比行包含英文 `used/remaining/left` 或中文 `已用/使用/剩余/可用`，促销说明不再生成或覆盖指标。Claude 解析专项 4/4 通过。
+- Codex 新增完整结构化响应 fixture：通用周额度 5%，Spark 0%/0%。修复前返回 `5h limit = 0%` 与 secondary 0%；移除模型专用整体替换后，返回唯一 `Weekly limit = 5%`。采集器专项 9/9 通过。
+- 展示新增最高窗口一致性与零弧测试。修复前 `ringFraction` 不存在且中央文字仍为主额度；修复后只在官方百分比指标中选择最高窗口，`valueText`、`fraction` 与 `ringFraction` 共用该指标。0%、nil 和余额型指标不绘制前景弧。
+- 展示专项 9/9 通过；完整套件 89 个测试、18 个测试组通过，0 个失败。4 个环境相关测试按设计跳过；显式真实 CLI 集成 3/3 通过。
+
+### 构建与安装
+
+- release 构建、ad-hoc 签名、Info.plist 校验和 arm64 架构检查通过。
+- 构建产物与 `/Applications/AI Meter.app` 的 SHA-256 均为 `ee68057b88f353b345905942abc044aa73e42f44e903097c38563b5fa58645e5`。
+- 安装前版本已移动到 `/private/tmp/AI Meter.app.pre-usage-accuracy-20260830-1547`，可用于恢复。
+- 新签名版本首次读取既有 DeepSeek Keychain 项目时由 macOS 要求用户再次确认；确认后执行新鲜快照和三卡视觉验收。
