@@ -20,6 +20,7 @@ enum TerminalUsageParser {
                 }
                 continue
             }
+            guard isUsagePercentLine(line) else { continue }
 
             let percentToken = line[percentRange]
                 .replacingOccurrences(of: "%", with: "")
@@ -84,6 +85,12 @@ enum TerminalUsageParser {
 
     private static func isResetLine(_ line: String) -> Bool {
         line.range(of: "reset", options: .caseInsensitive) != nil || line.contains("重置")
+    }
+
+    private static func isUsagePercentLine(_ line: String) -> Bool {
+        let lowercased = line.lowercased()
+        return ["used", "remaining", "left"].contains(where: lowercased.contains)
+            || ["已用", "使用", "剩余", "可用"].contains(where: line.contains)
     }
 
     private static func followingResetDescription(lines: [String], after index: Int) -> String? {

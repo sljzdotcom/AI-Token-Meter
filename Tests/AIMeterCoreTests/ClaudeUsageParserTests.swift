@@ -27,6 +27,14 @@ struct ClaudeUsageParserTests {
         #expect(snapshot.secondaryMetric?.usedFraction == 0.80)
     }
 
+    @Test("Ignores Claude promotional percentages")
+    func ignoresPromotionalPercentages() throws {
+        let snapshot = try ClaudeUsageParser().parse(fixture("claude-usage-promo-en"))
+
+        #expect(snapshot.primaryMetric?.usedFraction == 0)
+        #expect(snapshot.secondaryMetric?.usedFraction == 0)
+    }
+
     @Test("Rejects output without a real usage metric")
     func rejectsUnrecognizedOutput() {
         #expect(throws: UsageCollectionError.unrecognizedOutput) {
