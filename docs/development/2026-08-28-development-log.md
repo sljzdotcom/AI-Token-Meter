@@ -388,3 +388,41 @@
 - 真实账号刷新后界面显示 Claude 0%、Codex 周额度 7%、DeepSeek 余额 ¥77.99；Codex 快照同时包含 1 张可用重置券及其到期字段。
 - 屏幕验收确认三个圆心仅显示放大的 Claude、OpenAI/Codex、DeepSeek Logo；Claude 0% 无伪进度，Codex 7% 为小段绿色弧，DeepSeek ¥77.99/¥100 为约 22% 绿色弧。
 - DeepSeek 首次官方登录详情打开 15 秒后仍保持显示，证明登录态暂停自动隐藏；点击其他应用后立即关闭。Codex 普通详情在当前 8 秒设置下等待 10 秒后自动关闭。
+
+## 2026-08-30：公共文档体系与目录整理
+
+### 文档范围
+
+- 重写根目录 README，使项目定位、当前版本、截图、功能、三服务数据来源、安装、首次配置、圆环口径、目录结构、验证命令、隐私和许可状态与当前源码一致。
+- 新增统一文档入口，并按 `user-guide`、`architecture`、`development`、`design` 和 `assets` 划分长期维护职责。
+- 新增安装、服务指标、设置、故障排查、架构、代码库结构、隐私安全、开发环境、测试、发布、提交历史、贡献规范和安全报告文档。
+- 新增 Keep a Changelog 风格的 `CHANGELOG.md`：`0.1.0` 记录 2026-08-28 初始发布；其后已合入但未修改 Bundle 版本的功能明确归入 `Unreleased`，没有伪造 Git tag 或远程 Release。
+- 历史设计规格和实施计划从内部命名的 `docs/superpowers` 移至 `docs/design`。原始决策文字保留，设计索引明确说明它们不等于当前用户配置。
+- 代码目录没有为追求形式而重排；通过 `repository-structure.md` 明确 App、Core、测试、脚本和文档的职责与新增文件放置规则。
+
+### 数据与隐私文档修正
+
+- 删除旧 README 中已经过时的 DeepSeek“本地月预算”说明，改为当前的 ¥100 默认余额基准公式及官方 30 天用量聚合。
+- 明确 DeepSeek 网页历史使用 App 自己的隔离 WebKit 会话，不读取外部浏览器 Cookie；登录会话由 WebKit 管理，业务缓存只保存日期、成本、请求数和 Token 数。
+- 明确 Codex 重置额度为只读展示，不缓存兑换 ID、不自动消耗额度；Claude/Codex 凭证继续由官方 CLI 管理。
+- 没有为仓库擅自选择许可证；README 和贡献指南都说明当前源代码可见不等于获得再分发许可。
+
+### 可移植测试入口的根因与修复
+
+- 文档验收首次直接执行 `swift test` 时，在受限环境稳定失败。错误明确指向 `~/.cache/clang/ModuleCache` 和用户级 SwiftPM cache/configuration/security 不可写；测试二进制尚未开始运行。
+- 同一轮 `scripts/build-app.sh` 成功，因为现有构建脚本已经把 SwiftPM 状态和 Clang module cache 隔离到系统临时目录。对照证明根因是测试命令的缓存路径假设，不是产品代码或测试失败。
+- 用完全相同的隔离参数执行一次最小验证后，100 个测试全部通过。随后新增 `scripts/test.sh`，复用临时目录模式、关闭 SwiftPM 内层沙盒，并把额外过滤参数原样传给 `swift test`。
+- 所有 README、开发、测试、贡献和发布文档改用 `bash scripts/test.sh`；真实 CLI 与 Keychain 环境变量仍可与过滤参数组合使用。
+
+### 验证证据
+
+- 2026-08-30 17:00 +0800，`bash scripts/test.sh`：100 个测试、22 个测试组、0 个失败；1 个 Keychain 与 3 个真实 CLI 检查按设计跳过。
+- `bash scripts/build-app.sh`：release 构建、App Bundle 组装、ad-hoc 签名和脚本内签名验证通过。
+- 2026-08-30 17:01 +0800，独立 `plutil -lint` 与 `codesign --verify --deep --strict --verbose=2` 通过；可执行文件为 arm64 Mach-O，Bundle 版本为 `0.1.0`（build `1`）。
+- 全仓库 Markdown 相对链接检查通过，所有本地目标存在；`bash -n scripts/test.sh` 与 `git diff --check` 通过。
+- README 截图为从安装版 AI Meter 采集的 84 × 300 像素脱敏悬浮条，不包含账户名称、百分比、余额或登录信息。
+
+### Git 节点
+
+- `f6a0b4e docs: establish public project documentation`：建立公共文档体系并整理历史设计目录。
+- `e355af4 chore: add portable test runner`：增加可移植测试入口并统一文档命令。

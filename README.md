@@ -10,7 +10,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 > 项目状态：个人本地工具，当前应用版本为 `0.1.0`（build `1`）。`0.1.0` 之后已经合入但尚未正式发布的改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 <p align="center">
-  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="118" alt="AI Meter 右侧悬浮条，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
+  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="84" alt="AI Meter 右侧悬浮条，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
 </p>
 
 ## 主要功能
