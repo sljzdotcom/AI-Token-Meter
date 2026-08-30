@@ -1,0 +1,48 @@
+import Foundation
+
+public struct CommandRequest: Sendable {
+    public let executableURL: URL
+    public let arguments: [String]
+    public let inputLines: [String]
+    public let inputLineTerminator: String
+    public let inputDelay: TimeInterval
+    public let timeout: TimeInterval
+    public let currentDirectoryURL: URL?
+    public let stopAfterOutputContains: [String]
+
+    public init(
+        executableURL: URL,
+        arguments: [String] = [],
+        inputLines: [String],
+        inputLineTerminator: String = "\n",
+        inputDelay: TimeInterval = 0,
+        timeout: TimeInterval,
+        currentDirectoryURL: URL? = nil,
+        stopAfterOutputContains: [String] = []
+    ) {
+        self.executableURL = executableURL
+        self.arguments = arguments
+        self.inputLines = inputLines
+        self.inputLineTerminator = inputLineTerminator
+        self.inputDelay = inputDelay
+        self.timeout = timeout
+        self.currentDirectoryURL = currentDirectoryURL
+        self.stopAfterOutputContains = stopAfterOutputContains
+    }
+}
+
+public struct CommandResult: Equatable, Sendable {
+    public let output: String
+    public let exitCode: Int32
+    public let duration: TimeInterval
+
+    public init(output: String, exitCode: Int32, duration: TimeInterval) {
+        self.output = output
+        self.exitCode = exitCode
+        self.duration = duration
+    }
+}
+
+public protocol CommandRunning: Sendable {
+    func run(_ request: CommandRequest) async throws -> CommandResult
+}
