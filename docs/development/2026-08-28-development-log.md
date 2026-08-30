@@ -299,5 +299,5 @@
 
 ### 打包与产物验证
 
-- 2026-08-30 11:02 +0800，`./scripts/build-app.sh` 成功完成 release 构建、工作区 `dist/AI Meter.app` 的 ad-hoc 签名和脚本内签名自验证，退出码 0。
+- 2026-08-30 11:01 +0800，`./scripts/build-app.sh` 成功完成 release 构建、工作区 `dist/AI Meter.app` 的 ad-hoc 签名和脚本内签名自验证，退出码 0。
 - 随后独立执行 `codesign --verify --deep --strict --verbose=2`、`plutil -lint`、`file` 与 `git diff --check`，均退出码 0；App 包在磁盘上有效、Info.plist 为 OK、可执行文件为 `Mach-O 64-bit executable arm64`，且无空白差异错误。
