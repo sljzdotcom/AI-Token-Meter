@@ -73,7 +73,7 @@ UserDefaults ────────────> UI preferences / threshold st
 
 ### FloatingPanelController
 
-负责无标题悬浮窗口、屏幕右侧定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。SwiftUI View 不直接管理全局事件监听。
+负责无标题悬浮窗口、屏幕右侧定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。右侧悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude、Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
 
 ### DeepSeekWebSession
 
@@ -110,5 +110,5 @@ UI 必须展示状态含义和更新时间，不能用旧数据覆盖失败而�
 - Keychain 通过 `SecretStore` 抽象；
 - 采集器、缓存和时钟相关逻辑可替换；
 - UI 状态计算放在 Presentation 层；
+- 提供商详情的激活与网页焦点规则放在纯策略中，AppKit 面板能力由独立测试目标验证；
 - 真实 CLI 测试默认跳过，只有显式启用才接触本机账户。
-
