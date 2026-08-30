@@ -85,6 +85,8 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let sourceVersion: String?
     public let collectionStatus: CollectionStatus
     public let statusMessage: String?
+    public let codexResetCredits: CodexResetCreditsSummary?
+    public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
     public init(
         provider: UsageProvider,
@@ -95,7 +97,9 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         staleAfter: TimeInterval = 300,
         sourceVersion: String? = nil,
         collectionStatus: CollectionStatus = .fresh,
-        statusMessage: String? = nil
+        statusMessage: String? = nil,
+        codexResetCredits: CodexResetCreditsSummary? = nil,
+        deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
         self.provider = provider
         self.primaryMetric = primaryMetric
@@ -106,6 +110,8 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.sourceVersion = sourceVersion
         self.collectionStatus = collectionStatus
         self.statusMessage = statusMessage
+        self.codexResetCredits = codexResetCredits
+        self.deepSeekUsageHistory = deepSeekUsageHistory
     }
 
     public func isStale(at date: Date = Date()) -> Bool {
