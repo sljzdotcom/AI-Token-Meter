@@ -33,6 +33,17 @@ struct CLICollectorTests {
         #expect(snapshot.sourceVersion == "codex-app-server")
     }
 
+    @Test("Codex keeps the general limit instead of replacing it with a model limit")
+    func codexPrefersGeneralLimit() async throws {
+        let snapshot = try await CodexAppServerClient().readRateLimits(
+            executableURL: generalAndModelCodexExecutable
+        )
+
+        #expect(snapshot.primaryMetric?.label == "Weekly limit")
+        #expect(snapshot.primaryMetric?.usedFraction == 0.05)
+        #expect(snapshot.secondaryMetric == nil)
+    }
+
     @Test("A missing executable is reported without starting a process")
     func missingExecutableIsReported() async {
         let collector = ClaudeCollector(
@@ -187,6 +198,10 @@ struct CLICollectorTests {
 
     private var ignoredTerminationCodexExecutable: URL {
         Bundle.module.url(forResource: "fake-codex-ignore-term", withExtension: "sh")!
+    }
+
+    private var generalAndModelCodexExecutable: URL {
+        Bundle.module.url(forResource: "fake-codex-general-and-model", withExtension: "sh")!
     }
 }
 

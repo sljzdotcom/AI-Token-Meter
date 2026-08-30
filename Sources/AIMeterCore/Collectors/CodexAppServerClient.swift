@@ -138,14 +138,7 @@ struct CodexAppServerClient: Sendable {
     }
 
     private func snapshot(from result: CodexRateLimitsResult) -> UsageSnapshot {
-        var selected = result.rateLimits
-        if selected.secondary == nil,
-           let richer = result.rateLimitsByLimitId?
-            .sorted(by: { $0.key < $1.key })
-            .map(\.value)
-            .first(where: { $0.secondary != nil }) {
-            selected = richer
-        }
+        let selected = result.rateLimits
 
         return UsageSnapshot(
             provider: .codex,
