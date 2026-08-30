@@ -66,6 +66,21 @@ struct AppPresentationTests {
         #expect(cached.statusText == "Request timed out")
     }
 
+    @Test("Formats Claude workspace setup as a one-time action")
+    func formatsWorkspaceSetup() {
+        let presentation = ProviderPresentation(snapshot: UsageSnapshot(
+            provider: .claude,
+            availability: .unavailable,
+            collectionStatus: .setupRequired,
+            statusMessage: "Approve the private usage workspace once"
+        ))
+
+        #expect(presentation.valueText == "Set up")
+        #expect(presentation.detailText == "One-time Claude workspace approval")
+        #expect(presentation.statusText == "Approve the private usage workspace once")
+        #expect(presentation.semantic == .unavailable)
+    }
+
     @Test("Menu bar summary reflects the highest bounded risk")
     func summarizesHighestRisk() {
         let snapshots = [

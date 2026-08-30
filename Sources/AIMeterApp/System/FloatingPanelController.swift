@@ -94,7 +94,11 @@ final class FloatingPanelController {
             detailPanel.orderOut(nil)
             return
         }
-        let detailHost = NSHostingView(rootView: FloatingDetailView(model: model, provider: provider))
+        let detailHost = NSHostingView(rootView: FloatingDetailView(
+            model: model,
+            provider: provider,
+            onClaudeSetup: model.openClaudeWorkspaceSetup
+        ))
         detailHost.sizingOptions = []
         detailPanel.contentView = detailHost
         positionPanels()

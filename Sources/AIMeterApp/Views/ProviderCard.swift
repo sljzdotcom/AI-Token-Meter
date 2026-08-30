@@ -3,6 +3,12 @@ import SwiftUI
 
 struct ProviderCard: View {
     let snapshot: UsageSnapshot
+    let onClaudeSetup: (() -> Void)?
+
+    init(snapshot: UsageSnapshot, onClaudeSetup: (() -> Void)? = nil) {
+        self.snapshot = snapshot
+        self.onClaudeSetup = onClaudeSetup
+    }
 
     private var presentation: ProviderPresentation {
         ProviderPresentation(snapshot: snapshot)
@@ -48,6 +54,13 @@ struct ProviderCard: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                if snapshot.provider == .claude,
+                   snapshot.collectionStatus == .setupRequired,
+                   let onClaudeSetup {
+                    Button("Open one-time setup", action: onClaudeSetup)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                }
             }
         }
         .padding(12)

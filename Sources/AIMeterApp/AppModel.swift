@@ -16,6 +16,7 @@ final class AppModel {
     private let secretStore: any SecretStore
     private let budgetTracker: DeepSeekBudgetTracker
     private let launchAtLoginService: LaunchAtLoginService
+    private let claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher
     private let defaults: UserDefaults
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
     private let isDemoMode: Bool
@@ -41,11 +42,13 @@ final class AppModel {
     init(
         defaults: UserDefaults = .standard,
         secretStore: any SecretStore = KeychainStore(),
-        launchAtLoginService: LaunchAtLoginService = LaunchAtLoginService()
+        launchAtLoginService: LaunchAtLoginService = LaunchAtLoginService(),
+        claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher = ClaudeWorkspaceSetupLauncher()
     ) {
         self.defaults = defaults
         self.secretStore = secretStore
         self.launchAtLoginService = launchAtLoginService
+        self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
         self.budgetTracker = DeepSeekBudgetTracker(defaults: defaults)
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
         self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
@@ -170,6 +173,15 @@ final class AppModel {
         } catch {
             launchAtLoginEnabled = launchAtLoginService.isEnabled
             settingsMessage = "macOS could not update Login Items."
+        }
+    }
+
+    func openClaudeWorkspaceSetup() {
+        do {
+            try claudeWorkspaceSetupLauncher.open()
+            settingsMessage = "Approve the private AI Meter workspace in Terminal, then refresh."
+        } catch {
+            settingsMessage = "Claude workspace setup could not be opened."
         }
     }
 

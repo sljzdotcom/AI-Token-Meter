@@ -50,6 +50,7 @@ struct FloatingStripView: View {
 struct FloatingDetailView: View {
     @Bindable var model: AppModel
     let provider: UsageProvider
+    let onClaudeSetup: () -> Void
 
     var body: some View {
         if let snapshot = model.snapshots.first(where: { $0.provider == provider }) {
@@ -92,6 +93,12 @@ struct FloatingDetailView: View {
                     Text(status)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.6))
+                }
+                if snapshot.provider == .claude,
+                   snapshot.collectionStatus == .setupRequired {
+                    Button("Open one-time setup", action: onClaudeSetup)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
                 }
                 Spacer(minLength: 0)
                 Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")

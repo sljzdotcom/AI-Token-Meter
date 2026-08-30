@@ -32,6 +32,7 @@ public enum CollectionStatus: String, Codable, Sendable {
     case refreshing
     case notInstalled
     case authenticationRequired
+    case setupRequired
     case unavailable
     case unrecognizedOutput
 }

@@ -95,6 +95,23 @@ struct RefreshCoordinatorTests {
         #expect(snapshot.primaryMetric == nil)
     }
 
+    @Test("Claude workspace approval is distinct from a service outage")
+    func reportsClaudeWorkspaceSetup() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let coordinator = RefreshCoordinator(
+            collectors: [ControlledCollector(provider: .claude, result: .failure(.setupRequired))],
+            cache: SnapshotCache(directoryURL: directory)
+        )
+
+        let snapshot = try #require(await coordinator.refresh().first)
+
+        #expect(snapshot.provider == .claude)
+        #expect(snapshot.collectionStatus == .setupRequired)
+        #expect(snapshot.statusMessage == "Approve the private usage workspace once")
+        #expect(snapshot.primaryMetric == nil)
+    }
+
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("AI-Meter-RefreshTests-\(UUID().uuidString)", isDirectory: true)

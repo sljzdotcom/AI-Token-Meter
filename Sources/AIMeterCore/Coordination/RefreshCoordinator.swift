@@ -118,8 +118,8 @@ public actor RefreshCoordinator {
             status = .authenticationRequired
             message = "Sign in required"
         case .setupRequired:
-            status = .unavailable
-            message = "Service temporarily unavailable"
+            status = .setupRequired
+            message = "Approve the private usage workspace once"
         case .unrecognizedOutput:
             status = .unrecognizedOutput
             message = "Usage format is not recognized"

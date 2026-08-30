@@ -27,7 +27,12 @@ struct MenuBarPanel: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(model.snapshots) { snapshot in
-                        ProviderCard(snapshot: snapshot)
+                        ProviderCard(
+                            snapshot: snapshot,
+                            onClaudeSetup: {
+                                model.openClaudeWorkspaceSetup()
+                            }
+                        )
                     }
                 }
             }
