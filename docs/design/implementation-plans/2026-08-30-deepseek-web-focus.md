@@ -144,15 +144,15 @@
 
 - 修改：`docs/development/2026-08-31-deepseek-focus.md`（仅记录非敏感验收结果）
 
-- [ ] **步骤 1：备份当前安装版**
+- [x] **步骤 1：备份当前安装版**
 
   退出 AI Meter，把 `/Applications/AI Meter.app` 复制到带时间戳的 `/private/tmp/AI Meter.app.pre-deepseek-focus-*`。备份路径写入本次运行记录，但不写入项目文档。
 
-- [ ] **步骤 2：安装并校验构建产物**
+- [x] **步骤 2：安装并校验构建产物**
 
   把 `dist/AI Meter.app` 安装到 `/Applications/AI Meter.app`，比较两处主可执行文件的 SHA-256，确认完全一致后启动。
 
-- [ ] **步骤 3：验证输入焦点**
+- [x] **步骤 3：验证输入焦点**
 
   点击 DeepSeek 圆环，确认详情窗口保持显示；点击手机号输入框，确认出现插入光标并能接受数字输入。
 
