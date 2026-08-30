@@ -17,13 +17,20 @@ struct CodexAppServerClient: Sendable {
 
         return try await withThrowingTaskGroup(of: UsageSnapshot.self) { group in
             group.addTask {
-                try await Task.detached(priority: .utility) {
-                    try readRateLimitsBlocking(executableURL: executableURL, processBox: processBox)
-                }.value
+                do {
+                    return try await Task.detached(priority: .utility) {
+                        try readRateLimitsBlocking(executableURL: executableURL, processBox: processBox)
+                    }.value
+                } catch {
+                    if processBox.timeoutWasRequested {
+                        throw UsageCollectionError.timedOut
+                    }
+                    throw error
+                }
             }
             group.addTask {
                 try await Task.sleep(for: .seconds(timeout))
-                processBox.stop()
+                processBox.stopForTimeout()
                 throw UsageCollectionError.timedOut
             }
 
@@ -196,6 +203,11 @@ private final class CodexProcessBox: @unchecked Sendable {
     private var input: FileHandle?
     private var output: FileHandle?
     private var isStopRequested = false
+    private var didRequestTimeout = false
+
+    var timeoutWasRequested: Bool {
+        lock.withLock { didRequestTimeout }
+    }
 
     func set(process: Process, input: FileHandle, output: FileHandle) {
         let stopImmediately = lock.withLock {
@@ -232,5 +244,10 @@ private final class CodexProcessBox: @unchecked Sendable {
                 kill(processIdentifier, SIGKILL)
             }
         }
+    }
+
+    func stopForTimeout() {
+        lock.withLock { didRequestTimeout = true }
+        stop()
     }
 }
