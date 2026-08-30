@@ -76,6 +76,11 @@ struct CLICollectorTests {
         #expect(requests.count == 2)
         #expect(requests.allSatisfy { $0.currentDirectoryURL == workspace })
         #expect(requests.last?.arguments == ["--ax-screen-reader", "--safe-mode"])
+        #expect(requests.last?.inputLines == ["/usage"])
+        #expect(requests.last?.inputLineTerminator == "\r")
+        #expect(requests.last?.inputDelay == 3)
+        #expect(requests.last?.timeout == 20)
+        #expect(requests.last?.stopAfterOutputContains.contains("Resets") == true)
     }
 
     @Test("Claude trust screen reports setup required")

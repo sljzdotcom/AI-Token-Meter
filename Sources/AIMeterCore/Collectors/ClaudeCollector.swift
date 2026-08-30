@@ -39,10 +39,15 @@ public struct ClaudeCollector: UsageCollector {
         let result = try await runner.run(CommandRequest(
             executableURL: executableURL,
             arguments: ["--ax-screen-reader", "--safe-mode"],
-            inputLines: ["/usage", "/exit"],
-            timeout: 10,
+            inputLines: ["/usage"],
+            inputLineTerminator: "\r",
+            inputDelay: 3,
+            timeout: 20,
             currentDirectoryURL: workspaceURL,
-            stopAfterOutputContains: ["Permission Required: Accessing workspace"]
+            stopAfterOutputContains: [
+                "Resets",
+                "Permission Required: Accessing workspace",
+            ]
         ))
         try detectWorkspaceTrustRequirement(in: result.output)
         try detectAuthenticationFailure(in: result.output)

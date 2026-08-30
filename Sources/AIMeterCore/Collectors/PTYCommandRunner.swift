@@ -84,7 +84,11 @@ public struct PTYCommandRunner: CommandRunning {
             )
         }
 
-        let input = request.inputLines.joined(separator: "\n") + "\n"
+        if request.inputDelay > 0 {
+            try await Task.sleep(for: .seconds(request.inputDelay))
+        }
+        let terminator = request.inputLineTerminator
+        let input = request.inputLines.joined(separator: terminator) + terminator
         let bytes = Array(input.utf8)
         bytes.withUnsafeBytes { buffer in
             var written = 0

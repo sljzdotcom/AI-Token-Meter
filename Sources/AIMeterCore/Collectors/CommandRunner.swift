@@ -4,6 +4,8 @@ public struct CommandRequest: Sendable {
     public let executableURL: URL
     public let arguments: [String]
     public let inputLines: [String]
+    public let inputLineTerminator: String
+    public let inputDelay: TimeInterval
     public let timeout: TimeInterval
     public let currentDirectoryURL: URL?
     public let stopAfterOutputContains: [String]
@@ -12,6 +14,8 @@ public struct CommandRequest: Sendable {
         executableURL: URL,
         arguments: [String] = [],
         inputLines: [String],
+        inputLineTerminator: String = "\n",
+        inputDelay: TimeInterval = 0,
         timeout: TimeInterval,
         currentDirectoryURL: URL? = nil,
         stopAfterOutputContains: [String] = []
@@ -19,6 +23,8 @@ public struct CommandRequest: Sendable {
         self.executableURL = executableURL
         self.arguments = arguments
         self.inputLines = inputLines
+        self.inputLineTerminator = inputLineTerminator
+        self.inputDelay = inputDelay
         self.timeout = timeout
         self.currentDirectoryURL = currentDirectoryURL
         self.stopAfterOutputContains = stopAfterOutputContains
