@@ -90,10 +90,12 @@ final class FloatingPanelController {
     }
 
     private func renderSelection(_ provider: UsageProvider?) {
+        detailPanel.makeFirstResponder(nil)
         guard let provider else {
             detailPanel.orderOut(nil)
             return
         }
+        let interactionPolicy = FloatingDetailInteractionPolicy(provider: provider)
         let detailHost = NSHostingView(rootView: FloatingDetailView(
             model: model,
             provider: provider,
@@ -109,11 +111,20 @@ final class FloatingPanelController {
         detailHost.sizingOptions = []
         detailPanel.contentView = detailHost
         positionPanels()
-        if provider == .deepSeek {
+        if interactionPolicy.activatesApplication {
             NSApp.activate(ignoringOtherApps: true)
             detailPanel.makeKeyAndOrderFront(nil)
         } else {
+            detailPanel.resignKey()
             detailPanel.orderFrontRegardless()
+        }
+        guard interactionPolicy.requestsWebFirstResponder else { return }
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self,
+                  self.session.selectedProvider == provider,
+                  self.model.deepSeekWebSession.webView.window === self.detailPanel else { return }
+            self.detailPanel.makeFirstResponder(self.model.deepSeekWebSession.webView)
         }
     }
 
@@ -182,19 +193,28 @@ final class FloatingPanelController {
         if nonactivating {
             styleMask.insert(.nonactivatingPanel)
         }
-        let panel = NSPanel(
-            contentRect: .zero,
-            styleMask: styleMask,
-            backing: .buffered,
-            defer: false
-        )
+        let panel: NSPanel = if nonactivating {
+            NSPanel(
+                contentRect: .zero,
+                styleMask: styleMask,
+                backing: .buffered,
+                defer: false
+            )
+        } else {
+            InteractivePanel(
+                contentRect: .zero,
+                styleMask: styleMask,
+                backing: .buffered,
+                defer: false
+            )
+        }
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.becomesKeyOnlyIfNeeded = true
+        panel.becomesKeyOnlyIfNeeded = nonactivating
         return panel
     }
 }

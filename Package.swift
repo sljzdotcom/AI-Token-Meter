@@ -22,5 +22,9 @@ let package = Package(
             dependencies: ["AIMeterCore"],
             resources: [.process("Fixtures")]
         ),
+        .testTarget(
+            name: "AIMeterAppTests",
+            dependencies: ["AIMeterApp"]
+        ),
     ]
 )

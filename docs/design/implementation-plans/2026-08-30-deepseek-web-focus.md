@@ -10,47 +10,47 @@
 
 ---
 
-## 任务 1：建立可测试的提供商交互策略
+## 任务 1：建立可测试的提供商交互策略（已完成）
 
 **文件：**
 
 - 新建：`Sources/AIMeterCore/UI/FloatingDetailInteractionPolicy.swift`
 - 新建：`Tests/AIMeterCoreTests/FloatingDetailInteractionPolicyTests.swift`
 
-- [ ] **步骤 1：编写失败测试**
+- [x] **步骤 1：编写失败测试**
 
   新增 `FloatingDetailInteractionPolicyTests`，验证：
 
   - DeepSeek 的 `activatesApplication` 与 `requestsWebFirstResponder` 都为 `true`；
   - Claude、Codex 的两个属性都为 `false`。
 
-- [ ] **步骤 2：运行定向测试并确认失败**
+- [x] **步骤 2：运行定向测试并确认失败**
 
   运行：`bash scripts/test.sh --filter FloatingDetailInteractionPolicyTests`
 
   预期：因为 `FloatingDetailInteractionPolicy` 尚不存在而编译失败。
 
-- [ ] **步骤 3：实现最小纯策略**
+- [x] **步骤 3：实现最小纯策略**
 
   新增 `public struct FloatingDetailInteractionPolicy: Equatable, Sendable`，初始化参数为 `UsageProvider`。只有 `.deepSeek` 返回交互式行为，其他提供商返回只读行为。
 
-- [ ] **步骤 4：运行定向测试并确认通过**
+- [x] **步骤 4：运行定向测试并确认通过**
 
   运行：`bash scripts/test.sh --filter FloatingDetailInteractionPolicyTests`
 
   预期：新增测试全部通过。
 
-- [ ] **步骤 5：运行完整测试**
+- [x] **步骤 5：运行完整测试**
 
   运行：`bash scripts/test.sh`
 
   预期：现有 100 个测试加新增策略测试全部通过，环境依赖测试只允许保持既有跳过状态。
 
-- [ ] **步骤 6：保存版本**
+- [x] **步骤 6：保存版本**
 
   提交：`feat: define floating detail focus policy`
 
-## 任务 2：让无边框详情面板具备键盘交互能力
+## 任务 2：让无边框详情面板具备键盘交互能力（已完成）
 
 **文件：**
 
@@ -59,30 +59,30 @@
 - 新建：`Tests/AIMeterAppTests/InteractivePanelTests.swift`
 - 修改：`Sources/AIMeterApp/System/FloatingPanelController.swift`
 
-- [ ] **步骤 1：为 AppKit 面板能力编写失败测试**
+- [x] **步骤 1：为 AppKit 面板能力编写失败测试**
 
   在 `Package.swift` 增加依赖 `AIMeterApp` 的 `AIMeterAppTests` 测试目标。测试用 `.borderless` 创建 `InteractivePanel`，断言 `canBecomeKey == true` 且 `canBecomeMain == false`。
 
-- [ ] **步骤 2：运行定向测试并确认失败**
+- [x] **步骤 2：运行定向测试并确认失败**
 
   运行：`bash scripts/test.sh --filter InteractivePanelTests`
 
   预期：因为 `InteractivePanel` 尚不存在而编译失败。
 
-- [ ] **步骤 3：实现专用面板类型**
+- [x] **步骤 3：实现专用面板类型**
 
   新增 `@MainActor final class InteractivePanel: NSPanel`：
 
   - 覆盖 `canBecomeKey`，固定返回 `true`；
   - 覆盖 `canBecomeMain`，固定返回 `false`。
 
-- [ ] **步骤 4：运行面板能力测试并确认通过**
+- [x] **步骤 4：运行面板能力测试并确认通过**
 
   运行：`bash scripts/test.sh --filter InteractivePanelTests`
 
   预期：面板能力测试通过。
 
-- [ ] **步骤 5：接入详情控制器**
+- [x] **步骤 5：接入详情控制器**
 
   修改 `FloatingPanelController`：
 
@@ -93,7 +93,7 @@
   - Claude/Codex 只调用 `orderFrontRegardless`，不激活 App，不设置网页 First Responder；
   - 关闭详情或切换提供商之前调用 `makeFirstResponder(nil)`，避免已移除 WebView 留在响应链。
 
-- [ ] **步骤 6：运行定向与完整测试**
+- [x] **步骤 6：运行定向与完整测试**
 
   运行：
 
@@ -103,7 +103,7 @@
 
   预期：所有新增与既有测试通过。
 
-- [ ] **步骤 7：保存版本**
+- [x] **步骤 7：保存版本**
 
   提交：`fix: allow DeepSeek detail web input focus`
 
