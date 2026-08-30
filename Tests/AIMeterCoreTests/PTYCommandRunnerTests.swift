@@ -29,6 +29,37 @@ struct PTYCommandRunnerTests {
         #expect(result.output.contains("user:\(NSUserName())"))
     }
 
+    @Test("Runs the child in the requested working directory")
+    func usesRequestedWorkingDirectory() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ai-meter-cwd-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await PTYCommandRunner().run(CommandRequest(
+            executableURL: fixtureExecutable,
+            inputLines: ["pwd"],
+            timeout: 2,
+            currentDirectoryURL: directory
+        ))
+
+        #expect(ANSITextSanitizer.sanitize(result.output).contains(directory.path))
+    }
+
+    @Test("Returns captured output when a configured stop phrase appears")
+    func stopsOnConfiguredOutput() async throws {
+        let startedAt = Date()
+        let result = try await PTYCommandRunner().run(CommandRequest(
+            executableURL: fixtureExecutable,
+            inputLines: ["trust"],
+            timeout: 2,
+            stopAfterOutputContains: ["Permission Required: Accessing workspace"]
+        ))
+
+        #expect(result.output.contains("Permission Required: Accessing workspace"))
+        #expect(Date().timeIntervalSince(startedAt) < 1.5)
+    }
+
     @Test("Terminates an interactive command after its deadline")
     func terminatesAfterDeadline() async {
         let runner = PTYCommandRunner()

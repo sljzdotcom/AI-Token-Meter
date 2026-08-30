@@ -28,6 +28,13 @@ case "$ai_meter_command" in
   identity)
     printf 'user:%s\n' "${USER:-missing}"
     ;;
+  pwd)
+    printf 'working-directory:%s\n' "$PWD"
+    ;;
+  trust)
+    printf 'Permission Required: Accessing workspace\n'
+    sleep 5
+    ;;
   /usage)
     printf 'Current session\n73%% used\nResets in 51 min\nAll models\n7%% used\nResets Thu 12:00 AM\n'
     ;;

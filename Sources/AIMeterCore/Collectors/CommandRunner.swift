@@ -5,17 +5,23 @@ public struct CommandRequest: Sendable {
     public let arguments: [String]
     public let inputLines: [String]
     public let timeout: TimeInterval
+    public let currentDirectoryURL: URL?
+    public let stopAfterOutputContains: [String]
 
     public init(
         executableURL: URL,
         arguments: [String] = [],
         inputLines: [String],
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        currentDirectoryURL: URL? = nil,
+        stopAfterOutputContains: [String] = []
     ) {
         self.executableURL = executableURL
         self.arguments = arguments
         self.inputLines = inputLines
         self.timeout = timeout
+        self.currentDirectoryURL = currentDirectoryURL
+        self.stopAfterOutputContains = stopAfterOutputContains
     }
 }
 

@@ -59,6 +59,7 @@ public struct PTYCommandRunner: CommandRunning {
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
         process.environment = controlledEnvironment()
+        process.currentDirectoryURL = request.currentDirectoryURL
         terminationWaiter.attach(to: process)
 
         do {
@@ -75,7 +76,12 @@ public struct PTYCommandRunner: CommandRunning {
         slaveDescriptor = -1
 
         let reader = Task.detached(priority: .utility) {
-            Self.readPTY(activeMasterDescriptor, controller: descriptorBox)
+            Self.readPTY(
+                activeMasterDescriptor,
+                controller: descriptorBox,
+                processBox: processBox,
+                stopAfterOutputContains: request.stopAfterOutputContains
+            )
         }
 
         let input = request.inputLines.joined(separator: "\n") + "\n"
@@ -110,11 +116,14 @@ public struct PTYCommandRunner: CommandRunning {
 
     private static func readPTY(
         _ descriptor: Int32,
-        controller: ClosableDescriptor
+        controller: ClosableDescriptor,
+        processBox: RunningProcessBox,
+        stopAfterOutputContains stopPhrases: [String]
     ) -> Data {
         var result = Data()
         var buffer = [UInt8](repeating: 0, count: 4_096)
         var remainingStopDrainBytes: Int?
+        var matchedStopPhrase = false
 
         while true {
             if remainingStopDrainBytes == nil, controller.stopRequested {
@@ -123,6 +132,13 @@ public struct PTYCommandRunner: CommandRunning {
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
+                if !matchedStopPhrase, !stopPhrases.isEmpty {
+                    let output = String(decoding: result, as: UTF8.self)
+                    if stopPhrases.contains(where: output.contains) {
+                        matchedStopPhrase = true
+                        processBox.stop()
+                    }
+                }
                 if let remaining = remainingStopDrainBytes {
                     let updated = remaining - count
                     remainingStopDrainBytes = updated
