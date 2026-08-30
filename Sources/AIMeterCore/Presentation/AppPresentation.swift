@@ -30,10 +30,18 @@ public struct ProviderPresentation: Equatable, Sendable {
         let percentageMetrics = [snapshot.primaryMetric, snapshot.secondaryMetric]
             .compactMap { $0 }
             .filter { $0.kind == .officialLimit && $0.unit == .percent }
-        let summaryMetric = percentageMetrics.max {
+        let officialSummaryMetric = percentageMetrics.max {
             ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0)
-        } ?? snapshot.primaryMetric
-        fraction = summaryMetric?.unit == .percent ? summaryMetric?.usedFraction : nil
+        }
+        let summaryMetric = snapshot.provider == .deepSeek
+            ? snapshot.primaryMetric
+            : (officialSummaryMetric ?? snapshot.primaryMetric)
+        if snapshot.provider == .deepSeek,
+           snapshot.secondaryMetric?.kind == .localBudget {
+            fraction = snapshot.secondaryMetric?.usedFraction
+        } else {
+            fraction = summaryMetric?.unit == .percent ? summaryMetric?.usedFraction : nil
+        }
         detailText = SensitiveTextRedactor.redact(
             summaryMetric?.label ?? Self.defaultDetail(for: snapshot.collectionStatus)
         )

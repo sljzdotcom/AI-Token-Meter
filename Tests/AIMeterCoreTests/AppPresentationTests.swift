@@ -87,6 +87,33 @@ struct AppPresentationTests {
         #expect(balance.ringFraction == nil)
     }
 
+    @Test("DeepSeek ring reports balance depletion against its baseline")
+    func deepSeekBalanceDepletion() {
+        let snapshot = UsageSnapshot(
+            provider: .deepSeek,
+            primaryMetric: UsageMetric(
+                label: "Available balance",
+                current: 77.99,
+                limit: nil,
+                unit: .cny,
+                kind: .balance
+            ),
+            secondaryMetric: UsageMetric(
+                label: "Balance baseline",
+                current: 22.01,
+                limit: 100,
+                unit: .cny,
+                kind: .localBudget
+            )
+        )
+
+        let presentation = ProviderPresentation(snapshot: snapshot)
+
+        #expect(presentation.valueText == "¥77.99")
+        #expect(abs((presentation.ringFraction ?? 0) - 0.2201) < 0.0001)
+        #expect(presentation.semantic == .normal)
+    }
+
     @Test("Turns account and cached states into actionable copy")
     func formatsNonFreshStates() {
         let authentication = ProviderPresentation(snapshot: UsageSnapshot(

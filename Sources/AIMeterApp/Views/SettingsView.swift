@@ -51,13 +51,13 @@ struct SettingsView: View {
 
             Section("DeepSeek") {
                 HStack {
-                    Text("Monthly local budget")
+                    Text("Balance baseline")
                     Spacer()
                     TextField(
                         "CNY",
                         value: Binding(
-                            get: { model.monthlyBudget },
-                            set: { model.setMonthlyBudget($0) }
+                            get: { model.deepSeekBalanceBaseline },
+                            set: { model.setDeepSeekBalanceBaseline($0) }
                         ),
                         format: .number.precision(.fractionLength(0...2))
                     )
@@ -65,7 +65,7 @@ struct SettingsView: View {
                     Text("CNY")
                         .foregroundStyle(.secondary)
                 }
-                Text("Spend is tracked locally from balance decreases observed by AI Meter; top-ups do not reduce tracked spend.")
+                Text("The ring shows how much of this reference balance has been depleted. The default is ¥100.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

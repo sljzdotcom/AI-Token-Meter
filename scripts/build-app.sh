@@ -31,6 +31,10 @@ fi
 mkdir -p "$CONTENTS_DIR/MacOS" "$CONTENTS_DIR/Resources"
 
 install -m 755 "$BIN_DIR/$EXECUTABLE_NAME" "$CONTENTS_DIR/MacOS/$EXECUTABLE_NAME"
+RESOURCE_BUNDLE="$(find "$BIN_DIR" -maxdepth 1 -type d -name '*AIMeterApp*.bundle' -print -quit)"
+if [[ -n "$RESOURCE_BUNDLE" ]]; then
+    cp -R "$RESOURCE_BUNDLE" "$CONTENTS_DIR/Resources/"
+fi
 install -m 644 \
     "$PROJECT_DIR/Sources/AIMeterApp/Resources/Info.plist" \
     "$CONTENTS_DIR/Info.plist"

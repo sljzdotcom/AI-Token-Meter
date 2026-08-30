@@ -9,12 +9,12 @@ final class AppModel {
         static let showFloatingStrip = "showFloatingStrip"
         static let notificationsEnabled = "notificationsEnabled"
         static let monthlyBudget = "monthlyBudget"
+        static let deepSeekBalanceBaseline = "deepSeekBalanceBaseline"
         static let thresholdEvaluator = "thresholdEvaluator"
     }
 
     private let coordinator: RefreshCoordinator
     private let secretStore: any SecretStore
-    private let budgetTracker: DeepSeekBudgetTracker
     private let launchAtLoginService: LaunchAtLoginService
     private let claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher
     private let defaults: UserDefaults
@@ -32,7 +32,7 @@ final class AppModel {
 
     var showFloatingStrip: Bool
     var notificationsEnabled: Bool
-    var monthlyBudget: Double
+    var deepSeekBalanceBaseline: Double
     var detailAutoHideSeconds: Int
 
     var floatingVisibilityHandler: ((Bool) -> Void)?
@@ -49,7 +49,6 @@ final class AppModel {
         self.secretStore = secretStore
         self.launchAtLoginService = launchAtLoginService
         self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
-        self.budgetTracker = DeepSeekBudgetTracker(defaults: defaults)
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
         self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
@@ -65,8 +64,11 @@ final class AppModel {
             showFloatingStrip = defaults.bool(forKey: DefaultsKey.showFloatingStrip)
         }
         notificationsEnabled = defaults.bool(forKey: DefaultsKey.notificationsEnabled)
-        let storedBudget = defaults.double(forKey: DefaultsKey.monthlyBudget)
-        monthlyBudget = storedBudget > 0 ? storedBudget : 100
+        let storedBaseline = defaults.double(forKey: DefaultsKey.deepSeekBalanceBaseline)
+        let legacyBudget = defaults.double(forKey: DefaultsKey.monthlyBudget)
+        let resolvedBaseline = storedBaseline > 0 ? storedBaseline : (legacyBudget > 0 ? legacyBudget : 100)
+        deepSeekBalanceBaseline = resolvedBaseline
+        defaults.set(resolvedBaseline, forKey: DefaultsKey.deepSeekBalanceBaseline)
         detailAutoHideSeconds = detailAutoHidePreferenceStore.load().rawValue
 
         let cacheDirectory = FileManager.default.urls(
@@ -153,9 +155,9 @@ final class AppModel {
         }
     }
 
-    func setMonthlyBudget(_ value: Double) {
-        monthlyBudget = max(value, 1)
-        defaults.set(monthlyBudget, forKey: DefaultsKey.monthlyBudget)
+    func setDeepSeekBalanceBaseline(_ value: Double) {
+        deepSeekBalanceBaseline = max(value, 1)
+        defaults.set(deepSeekBalanceBaseline, forKey: DefaultsKey.deepSeekBalanceBaseline)
         snapshots = snapshots.map(applyingLocalBudget)
     }
 
@@ -215,20 +217,15 @@ final class AppModel {
     private func applyingLocalBudget(to snapshot: UsageSnapshot) -> UsageSnapshot {
         guard snapshot.provider == .deepSeek,
               let balanceMetric = snapshot.primaryMetric,
-              balanceMetric.kind == .balance,
-              let currency = currency(for: balanceMetric.unit) else {
+              balanceMetric.kind == .balance else {
             return snapshot
         }
 
-        let spent = budgetTracker.record(
-            balance: balanceMetric.current,
-            currency: currency,
-            isFresh: snapshot.collectionStatus == .fresh
-        )
+        let depleted = min(max(deepSeekBalanceBaseline - balanceMetric.current, 0), deepSeekBalanceBaseline)
         let budgetMetric = UsageMetric(
-            label: "Local monthly budget",
-            current: spent,
-            limit: monthlyBudget,
+            label: "Balance baseline",
+            current: depleted,
+            limit: deepSeekBalanceBaseline,
             unit: balanceMetric.unit,
             kind: .localBudget
         )
@@ -241,16 +238,10 @@ final class AppModel {
             staleAfter: snapshot.staleAfter,
             sourceVersion: snapshot.sourceVersion,
             collectionStatus: snapshot.collectionStatus,
-            statusMessage: snapshot.statusMessage
+            statusMessage: snapshot.statusMessage,
+            codexResetCredits: snapshot.codexResetCredits,
+            deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
-    }
-
-    private func currency(for unit: UsageUnit) -> DeepSeekCurrency? {
-        switch unit {
-        case .cny: .cny
-        case .usd: .usd
-        default: nil
-        }
     }
 
     private func persistThresholdEvaluator() {
@@ -304,7 +295,7 @@ final class AppModel {
                     kind: .balance
                 ),
                 secondaryMetric: UsageMetric(
-                    label: "Local monthly budget",
+                    label: "Balance baseline",
                     current: 52,
                     limit: 100,
                     unit: .cny,
