@@ -102,6 +102,7 @@ public actor RefreshCoordinator {
             collectionStatus: .cached,
             statusMessage: message,
             codexResetCredits: snapshot.codexResetCredits,
+            codexLocalActivity: snapshot.codexLocalActivity,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }

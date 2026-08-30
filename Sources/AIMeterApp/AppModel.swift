@@ -248,6 +248,7 @@ final class AppModel {
             collectionStatus: snapshot.collectionStatus,
             statusMessage: snapshot.statusMessage,
             codexResetCredits: snapshot.codexResetCredits,
+            codexLocalActivity: snapshot.codexLocalActivity,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
@@ -317,6 +318,11 @@ final class AppModel {
                         ),
                     ],
                     hasCompleteDetails: true
+                ),
+                codexLocalActivity: CodexLocalActivitySummary(
+                    tokenCount: 31_400_000_000,
+                    currentStreakDays: 54,
+                    longestSessionDuration: 6_720
                 )
             ),
             UsageSnapshot(
@@ -365,6 +371,7 @@ private extension UsageSnapshot {
             collectionStatus: collectionStatus,
             statusMessage: statusMessage,
             codexResetCredits: codexResetCredits,
+            codexLocalActivity: codexLocalActivity,
             deepSeekUsageHistory: history
         )
     }

@@ -161,3 +161,45 @@ public struct MenuBarSummary: Equatable, Sendable {
         }
     }
 }
+
+public struct CodexLocalActivityPresentation: Equatable, Sendable {
+    public let tokenText: String
+    public let streakText: String
+    public let longestSessionText: String
+
+    public init(summary: CodexLocalActivitySummary) {
+        tokenText = Self.compactCount(summary.tokenCount)
+        streakText = "\(summary.currentStreakDays) " + (summary.currentStreakDays == 1 ? "day" : "days")
+        longestSessionText = Self.duration(summary.longestSessionDuration)
+    }
+
+    private static func compactCount(_ count: Int64) -> String {
+        let value = Double(max(count, 0))
+        let units: [(threshold: Double, suffix: String)] = [
+            (1_000_000_000, "B"),
+            (1_000_000, "M"),
+            (1_000, "K"),
+        ]
+        guard let unit = units.first(where: { value >= $0.threshold }) else {
+            return count.formatted()
+        }
+        let scaled = value / unit.threshold
+        let digits = scaled >= 100 ? 0 : 1
+        return String(format: "%.*f", digits, scaled)
+            .replacingOccurrences(of: ".0", with: "") + unit.suffix
+    }
+
+    private static func duration(_ duration: TimeInterval) -> String {
+        let minutes = max(Int(duration / 60), 0)
+        let days = minutes / (24 * 60)
+        let hours = (minutes % (24 * 60)) / 60
+        let remainingMinutes = minutes % 60
+        if days > 0 {
+            return hours > 0 ? "\(days)d \(hours)h" : "\(days)d"
+        }
+        if hours > 0 {
+            return remainingMinutes > 0 ? "\(hours)h \(remainingMinutes)m" : "\(hours)h"
+        }
+        return "\(minutes)m"
+    }
+}

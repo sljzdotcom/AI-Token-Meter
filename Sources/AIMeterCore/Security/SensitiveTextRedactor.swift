@@ -49,6 +49,7 @@ extension UsageSnapshot {
             collectionStatus: collectionStatus,
             statusMessage: statusMessage.map(SensitiveTextRedactor.redact),
             codexResetCredits: codexResetCredits?.privacySanitized(),
+            codexLocalActivity: codexLocalActivity,
             deepSeekUsageHistory: deepSeekUsageHistory?.privacySanitized()
         )
     }

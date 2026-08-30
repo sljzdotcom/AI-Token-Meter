@@ -86,6 +86,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let collectionStatus: CollectionStatus
     public let statusMessage: String?
     public let codexResetCredits: CodexResetCreditsSummary?
+    public let codexLocalActivity: CodexLocalActivitySummary?
     public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
     public init(
@@ -99,6 +100,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         collectionStatus: CollectionStatus = .fresh,
         statusMessage: String? = nil,
         codexResetCredits: CodexResetCreditsSummary? = nil,
+        codexLocalActivity: CodexLocalActivitySummary? = nil,
         deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
         self.provider = provider
@@ -111,10 +113,30 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.collectionStatus = collectionStatus
         self.statusMessage = statusMessage
         self.codexResetCredits = codexResetCredits
+        self.codexLocalActivity = codexLocalActivity
         self.deepSeekUsageHistory = deepSeekUsageHistory
     }
 
     public func isStale(at date: Date = Date()) -> Bool {
         date >= fetchedAt.addingTimeInterval(staleAfter)
+    }
+}
+
+public extension UsageSnapshot {
+    func withCodexLocalActivity(_ activity: CodexLocalActivitySummary?) -> UsageSnapshot {
+        UsageSnapshot(
+            provider: provider,
+            primaryMetric: primaryMetric,
+            secondaryMetric: secondaryMetric,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            codexLocalActivity: activity,
+            deepSeekUsageHistory: deepSeekUsageHistory
+        )
     }
 }

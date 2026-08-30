@@ -213,6 +213,19 @@ struct AppPresentationTests {
         #expect(presentation.statusText == "Account unavailable")
     }
 
+    @Test("Formats the three Codex local activity values compactly")
+    func formatsCodexLocalActivity() {
+        let presentation = CodexLocalActivityPresentation(summary: CodexLocalActivitySummary(
+            tokenCount: 31_400_000_000,
+            currentStreakDays: 54,
+            longestSessionDuration: 6_720
+        ))
+
+        #expect(presentation.tokenText == "31.4B")
+        #expect(presentation.streakText == "54 days")
+        #expect(presentation.longestSessionText == "1h 52m")
+    }
+
     private func usageSnapshot(provider: UsageProvider, fraction: Double) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,

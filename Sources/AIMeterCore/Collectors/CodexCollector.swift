@@ -5,12 +5,14 @@ public struct CodexCollector: UsageCollector {
 
     private let locator: any ExecutableLocating
     private let appServerClient: CodexAppServerClient
+    private let localActivityReader: CodexLocalActivityReader
 
     public init(
         locator: any ExecutableLocating = ExecutableLocator()
     ) {
         self.locator = locator
         self.appServerClient = CodexAppServerClient()
+        self.localActivityReader = CodexLocalActivityReader()
     }
 
     public func collect() async throws -> UsageSnapshot {
@@ -18,6 +20,12 @@ public struct CodexCollector: UsageCollector {
             throw UsageCollectionError.notInstalled
         }
 
-        return try await appServerClient.readRateLimits(executableURL: executableURL)
+        async let official = appServerClient.readRateLimits(executableURL: executableURL)
+        async let localActivity = optionalLocalActivity()
+        return try await official.withCodexLocalActivity(localActivity)
+    }
+
+    private func optionalLocalActivity() async -> CodexLocalActivitySummary? {
+        try? await localActivityReader.read()
     }
 }
