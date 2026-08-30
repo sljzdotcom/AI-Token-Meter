@@ -1,6 +1,6 @@
 # Codex Detail and DeepSeek Sync Implementation Plan
 
-Date: 2026-08-31  
+Date: 2026-08-31
 Branch: `codex/codex-deepseek-details`
 
 ## Checkpoint 1 — contracts and tests

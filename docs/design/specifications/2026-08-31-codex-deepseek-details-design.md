@@ -1,6 +1,6 @@
 # Codex Detail and DeepSeek Sync Design
 
-Date: 2026-08-31  
+Date: 2026-08-31
 Status: approved for implementation
 
 ## Goals

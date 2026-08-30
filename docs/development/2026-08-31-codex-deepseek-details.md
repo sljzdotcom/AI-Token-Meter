@@ -1,6 +1,6 @@
 # Codex 详情与 DeepSeek 自动同步开发日志
 
-日期：2026-08-31  
+日期：2026-08-31
 分支：`codex/codex-deepseek-details`
 
 ## 背景与目标
