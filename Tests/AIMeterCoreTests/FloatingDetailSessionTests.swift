@@ -61,4 +61,61 @@ struct FloatingDetailSessionTests {
         #expect(!FloatingPanelHitPolicy.isOutside(CGPoint(x: 100, y: 200), strip: strip, detail: detail))
         #expect(FloatingPanelHitPolicy.isOutside(CGPoint(x: 10, y: 10), strip: strip, detail: detail))
     }
+
+    @Test("A delayed outside click uses its captured point and selection")
+    @MainActor
+    func delayedOutsideClickUsesCapturedState() throws {
+        let strip = CGRect(x: 300, y: 100, width: 84, height: 300)
+        let detail = CGRect(x: 28, y: 138, width: 262, height: 224)
+        let session = FloatingDetailSession()
+        session.present(.claude, autoHideAfter: .seconds(30))
+
+        let clickedSelection = try #require(session.selectionID)
+        let request = FloatingPanelDismissalRequest(
+            screenPoint: CGPoint(x: 10, y: 10),
+            eventTimestamp: .greatestFiniteMagnitude,
+            selectionID: clickedSelection
+        )
+
+        let laterPointerPosition = CGPoint(x: 100, y: 200)
+        #expect(!FloatingPanelHitPolicy.isOutside(laterPointerPosition, strip: strip, detail: detail))
+        #expect(request.requestsDismissal(
+            currentSelectionID: clickedSelection,
+            strip: strip,
+            detail: detail
+        ))
+
+        session.present(.claude, autoHideAfter: .seconds(30))
+        #expect(!request.requestsDismissal(
+            currentSelectionID: session.selectionID,
+            strip: strip,
+            detail: detail
+        ))
+        session.dismiss(ifCurrent: request.selectionID)
+        #expect(session.selectedProvider == .claude)
+        session.dismiss()
+    }
+
+    @Test("A globally delayed click cannot target a selection presented after the click")
+    @MainActor
+    func globallyDelayedClickCannotTargetNewSelection() throws {
+        let strip = CGRect(x: 300, y: 100, width: 84, height: 300)
+        let detail = CGRect(x: 28, y: 138, width: 262, height: 224)
+        let session = FloatingDetailSession()
+        session.present(.claude, autoHideAfter: .seconds(30))
+
+        let newSelection = try #require(session.selectionID)
+        let delayedRequest = FloatingPanelDismissalRequest(
+            screenPoint: CGPoint(x: 10, y: 10),
+            eventTimestamp: 0,
+            selectionID: newSelection
+        )
+
+        #expect(!delayedRequest.requestsDismissal(
+            currentSelectionID: session.selectionID,
+            strip: strip,
+            detail: detail
+        ))
+        session.dismiss()
+    }
 }

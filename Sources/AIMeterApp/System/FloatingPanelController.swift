@@ -42,15 +42,15 @@ final class FloatingPanelController {
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] event in
-            self?.dismissForOutsideClick(at: NSEvent.mouseLocation)
+            self?.handleMonitoredClick(event)
             return event
         }
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.dismissForOutsideClick(at: NSEvent.mouseLocation)
+        ) { [weak self] event in
+            MainActor.assumeIsolated {
+                self?.handleMonitoredClick(event)
             }
         }
     }
@@ -100,14 +100,28 @@ final class FloatingPanelController {
         detailPanel.orderFrontRegardless()
     }
 
-    private func dismissForOutsideClick(at point: CGPoint) {
-        guard session.selectedProvider != nil else { return }
-        guard FloatingPanelHitPolicy.isOutside(
-            point,
+    private func handleMonitoredClick(_ event: NSEvent) {
+        guard let selectionID = session.selectionID else { return }
+        let request = FloatingPanelDismissalRequest(
+            screenPoint: Self.screenPoint(for: event),
+            eventTimestamp: event.timestamp,
+            selectionID: selectionID
+        )
+        dismissForOutsideClick(request)
+    }
+
+    private func dismissForOutsideClick(_ request: FloatingPanelDismissalRequest) {
+        guard request.requestsDismissal(
+            currentSelectionID: session.selectionID,
             strip: stripPanel.frame,
             detail: detailPanel.frame
         ) else { return }
-        session.dismiss()
+        session.dismiss(ifCurrent: request.selectionID)
+    }
+
+    private static func screenPoint(for event: NSEvent) -> CGPoint {
+        guard let window = event.window else { return event.locationInWindow }
+        return window.convertPoint(toScreen: event.locationInWindow)
     }
 
     private func positionPanels() {
