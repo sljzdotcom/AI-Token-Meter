@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 100](https://img.shields.io/badge/tests-100%20passed-2ea44f)
+![Tests 110](https://img.shields.io/badge/tests-110%20passed-2ea44f)
 
 AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -18,7 +18,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
 - 右侧悬浮条只显示三个大尺寸品牌 Logo 与用量环，节省屏幕空间。
 - Claude：读取当前会话与周额度，显示重置时间。
-- Codex：读取官方通用速率限制，并显示可用重置额度及到期日。
+- Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停与登录操作期间暂停倒计时。
@@ -30,7 +30,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 | 服务 | 数据来源 | 主要显示内容 | 首次准备 |
 | --- | --- | --- | --- |
 | Claude | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage` | 当前会话、周额度、重置时间 | 安装并登录 Claude Code；首次可能需批准 AI Meter 私有工作区 |
-| Codex | Codex CLI 官方 `app-server` JSON-RPC | 通用用量窗口、重置时间、可用重置额度及到期日 | 安装并登录 Codex CLI |
+| Codex | Codex CLI 官方 `app-server` JSON-RPC + 本机 Codex 状态库的聚合列 | 通用用量窗口、重置额度、近 30 天本机活动 | 安装并登录 Codex CLI |
 | DeepSeek | 官方余额 API + App 内隔离的 `platform.deepseek.com` WebKit 会话 | 余额、基准消耗环、近 30 天成本/请求/Token 图表 | 在设置中保存 API Key；历史图表首次需登录官网 |
 
 详细的数据口径、降级行为与限制见 [服务与指标说明](docs/user-guide/providers.md)。
@@ -126,6 +126,7 @@ codesign --verify --deep --strict "dist/AI Meter.app"
 ## 隐私与安全摘要
 
 - Claude 与 Codex 凭证由各自 CLI 管理，AI Meter 不读取或保存它们的凭证文件。
+- Codex 本机活动只读取线程表中的 Token 数与创建/更新时间，不读取标题、预览、提示词或回复。
 - DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
 - DeepSeek 历史用量使用 App 自己的隔离 WebKit 会话，不读取 Safari、Chrome 或其他浏览器 Cookie。
 - 历史页面的原始响应不会进入业务缓存；AI Meter 只保存标准化后的逐日成本、请求数和 Token 总数。

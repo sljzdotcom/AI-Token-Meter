@@ -10,6 +10,7 @@ AI Meter 是本地状态查看器，不是账户代理。它遵循最小权限�
 
 - 登录与凭证生命周期由官方 CLI 管理；
 - AI Meter 调用已登录 CLI，不读取、复制或保存凭证文件；
+- Codex 本机活动只查询本地线程表的 `tokens_used`、`created_at`、`updated_at`，不读取标题、预览、提示词、回复或凭证；
 - CLI 标准输出会在解析后转换为统一字段，原始账户输出不写入业务缓存；
 - 一次性 Claude 工作区批准由用户在终端确认。
 
@@ -41,6 +42,7 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 | DeepSeek API Key | macOS Keychain | 用户点击 Remove 或删除对应 Keychain 项目 |
 | 界面与监控偏好 | `UserDefaults` | 直到用户清理偏好 |
 | 最近成功用量快照 | `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
+| Codex 本机活动聚合 | 随统一快照写入 `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
 | DeepSeek 每日聚合 | `Application Support/AI Meter` | 新数据覆盖或用户删除缓存 |
 | DeepSeek 登录会话 | App WebKit 数据存储 | 退出登录或清理应用网站数据 |
 
@@ -84,4 +86,3 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 ## 报告安全问题
 
 不要在公开 Issue 中粘贴密钥、Cookie、账户响应或可复现的未修复漏洞。请遵循仓库根目录的 [SECURITY.md](../SECURITY.md)。
-

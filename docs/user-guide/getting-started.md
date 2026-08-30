@@ -58,7 +58,7 @@ AI Meter 不在用户项目中运行 `/usage`，而是在 `Application Support/A
 2. 使用官方流程完成登录。
 3. 回到 AI Meter 手动刷新。
 
-AI Meter 通过 Codex CLI 的 `app-server` 结构化接口读取账户速率限制，不解析终端全屏界面。
+AI Meter 通过 Codex CLI 的 `app-server` 结构化接口读取账户速率限制，不解析终端全屏界面。详情页下方还会读取本机 Codex 状态库中的三个数值/时间列，计算近 30 天 Token、连续活动天数和最长会话；这些值不包含其他设备活动。
 
 ## 6. 配置 DeepSeek
 
@@ -96,4 +96,3 @@ AI Meter 通过 Codex CLI 的 `app-server` 结构化接口读取账户速率限�
 4. 删除应用。
 
 如需彻底清除非敏感缓存与偏好，可另外删除用户 `Application Support` 中的 `AI Meter` 目录及相关 `UserDefaults`。执行前请先备份需要保留的数据。
-

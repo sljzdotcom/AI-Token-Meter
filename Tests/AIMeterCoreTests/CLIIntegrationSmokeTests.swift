@@ -38,5 +38,6 @@ struct CLIIntegrationSmokeTests {
         let snapshot = try await CodexCollector().collect()
         #expect(snapshot.provider == .codex)
         #expect(snapshot.primaryMetric != nil)
+        #expect(snapshot.codexLocalActivity != nil)
     }
 }

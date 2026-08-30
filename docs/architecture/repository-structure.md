@@ -42,6 +42,7 @@ Sources/AIMeterApp/
 │   └── NotificationService.swift
 └── Views/
     ├── CodexResetCreditsView.swift
+    ├── CodexDetailView.swift
     ├── DeepSeekAnalyticsView.swift
     ├── FloatingStripView.swift
     ├── MenuBarPanel.swift
@@ -82,6 +83,7 @@ Sources/AIMeterCore/
 - `ClaudeUsageParser.swift`：解析 Claude 用量；
 - `ClaudeUsageWorkspace.swift`：管理专用空工作区；
 - `CodexAppServerClient.swift`：Codex JSON-RPC 客户端；
+- `CodexLocalActivityReader.swift`：只读查询本机 Codex 聚合列并计算 30 天活动；
 - `CodexCollector.swift` / `CodexUsageParser.swift`：采集与解析 Codex 数据；
 - `CommandRunner.swift` / `PTYCommandRunner.swift`：普通和伪终端进程执行；
 - `DeepSeekCollector.swift`：余额采集；
@@ -92,13 +94,13 @@ Sources/AIMeterCore/
 ### DeepSeek
 
 - `DeepSeekClient.swift`：官方余额 API；
-- `DeepSeekWebsitePayloadParser.swift`：验证并解析网页负载；
+- `DeepSeekWebsitePayloadParser.swift`：验证、解析并合并官网用量/费用分片；
 - `DeepSeekHistoryNormalizer.swift`：生成固定 30 天逐日聚合。
 
 ### Domain
 
 - `UsageModels.swift`：服务、指标、状态和统一快照；
-- `ProviderSupplementalData.swift`：Codex 重置额度与 DeepSeek 每日历史模型。
+- `ProviderSupplementalData.swift`：Codex 重置额度、本机活动与 DeepSeek 每日历史模型。
 
 ## `Tests/AIMeterCoreTests`
 
