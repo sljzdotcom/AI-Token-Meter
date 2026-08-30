@@ -9,7 +9,8 @@ struct CLICollectorTests {
     func claudeCollectorReturnsSnapshot() async throws {
         let collector = ClaudeCollector(
             runner: PTYCommandRunner(),
-            locator: FixedLocator(url: fixtureExecutable)
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory)
         )
 
         let snapshot = try await collector.collect()
@@ -36,7 +37,8 @@ struct CLICollectorTests {
     func missingExecutableIsReported() async {
         let collector = ClaudeCollector(
             runner: PTYCommandRunner(),
-            locator: FixedLocator(url: nil)
+            locator: FixedLocator(url: nil),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory)
         )
 
         await #expect(throws: UsageCollectionError.notInstalled) {
@@ -48,10 +50,47 @@ struct CLICollectorTests {
     func claudeLoggedOutIsReportedBeforeInteractiveUsage() async {
         let collector = ClaudeCollector(
             runner: PTYCommandRunner(),
-            locator: FixedLocator(url: loggedOutClaudeExecutable)
+            locator: FixedLocator(url: loggedOutClaudeExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory)
         )
 
         await #expect(throws: UsageCollectionError.authenticationRequired) {
+            try await collector.collect()
+        }
+    }
+
+    @Test("Claude collector runs all commands in the isolated workspace")
+    func claudeUsesIsolatedWorkspace() async throws {
+        let workspace = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ai-meter-claude-\(UUID().uuidString)", isDirectory: true)
+        let runner = RecordingClaudeRunner()
+        let collector = ClaudeCollector(
+            runner: runner,
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: workspace)
+        )
+
+        _ = try await collector.collect()
+
+        let requests = await runner.recordedRequests()
+        #expect(requests.count == 2)
+        #expect(requests.allSatisfy { $0.currentDirectoryURL == workspace })
+        #expect(requests.last?.arguments == ["--ax-screen-reader", "--safe-mode"])
+    }
+
+    @Test("Claude trust screen reports setup required")
+    func claudeTrustScreenRequiresSetup() async throws {
+        let workspace = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ai-meter-untrusted-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        let collector = ClaudeCollector(
+            runner: PTYCommandRunner(),
+            locator: FixedLocator(url: untrustedClaudeExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: workspace)
+        )
+
+        await #expect(throws: UsageCollectionError.setupRequired) {
             try await collector.collect()
         }
     }
@@ -137,6 +176,10 @@ struct CLICollectorTests {
         Bundle.module.url(forResource: "fake-logged-out-claude", withExtension: "sh")!
     }
 
+    private var untrustedClaudeExecutable: URL {
+        Bundle.module.url(forResource: "fake-untrusted-claude", withExtension: "sh")!
+    }
+
     private var ignoredTerminationCodexExecutable: URL {
         Bundle.module.url(forResource: "fake-codex-ignore-term", withExtension: "sh")!
     }
@@ -147,5 +190,29 @@ private struct FixedLocator: ExecutableLocating {
 
     func locate(named name: String) -> URL? {
         url
+    }
+}
+
+private struct FixedWorkspaceResolver: ClaudeUsageWorkspaceResolving {
+    let url: URL
+
+    func resolve() throws -> URL {
+        url
+    }
+}
+
+private actor RecordingClaudeRunner: CommandRunning {
+    private var requests: [CommandRequest] = []
+
+    func run(_ request: CommandRequest) async throws -> CommandResult {
+        requests.append(request)
+        let output = request.arguments == ["auth", "status"]
+            ? #"{"loggedIn":true}"#
+            : "Current session\n73% used\nResets in 51 min\nAll models\n7% used\nResets Thu 12:00 AM\n"
+        return CommandResult(output: output, exitCode: 0, duration: 0)
+    }
+
+    func recordedRequests() -> [CommandRequest] {
+        requests
     }
 }

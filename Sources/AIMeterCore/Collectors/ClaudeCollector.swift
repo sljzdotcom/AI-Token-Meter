@@ -6,29 +6,45 @@ public struct ClaudeCollector: UsageCollector {
     private let runner: any CommandRunning
     private let locator: any ExecutableLocating
     private let parser: ClaudeUsageParser
+    private let workspaceResolver: any ClaudeUsageWorkspaceResolving
 
     public init(
         runner: any CommandRunning = PTYCommandRunner(),
         locator: any ExecutableLocating = ExecutableLocator(),
-        parser: ClaudeUsageParser = ClaudeUsageParser()
+        parser: ClaudeUsageParser = ClaudeUsageParser(),
+        workspaceResolver: any ClaudeUsageWorkspaceResolving = ClaudeUsageWorkspaceResolver()
     ) {
         self.runner = runner
         self.locator = locator
         self.parser = parser
+        self.workspaceResolver = workspaceResolver
     }
 
     public func collect() async throws -> UsageSnapshot {
         guard let executableURL = locator.locate(named: "claude") else {
             throw UsageCollectionError.notInstalled
         }
+        let workspaceURL: URL
+        do {
+            workspaceURL = try workspaceResolver.resolve()
+        } catch {
+            throw UsageCollectionError.transportFailure
+        }
 
-        try await verifyAuthentication(executableURL: executableURL)
+        try await verifyAuthentication(
+            executableURL: executableURL,
+            workspaceURL: workspaceURL
+        )
 
         let result = try await runner.run(CommandRequest(
             executableURL: executableURL,
+            arguments: ["--ax-screen-reader", "--safe-mode"],
             inputLines: ["/usage", "/exit"],
-            timeout: 10
+            timeout: 10,
+            currentDirectoryURL: workspaceURL,
+            stopAfterOutputContains: ["Permission Required: Accessing workspace"]
         ))
+        try detectWorkspaceTrustRequirement(in: result.output)
         try detectAuthenticationFailure(in: result.output)
 
         do {
@@ -38,12 +54,16 @@ public struct ClaudeCollector: UsageCollector {
         }
     }
 
-    private func verifyAuthentication(executableURL: URL) async throws {
+    private func verifyAuthentication(
+        executableURL: URL,
+        workspaceURL: URL
+    ) async throws {
         let result = try await runner.run(CommandRequest(
             executableURL: executableURL,
             arguments: ["auth", "status"],
             inputLines: [],
-            timeout: 5
+            timeout: 5,
+            currentDirectoryURL: workspaceURL
         ))
         let sanitized = ANSITextSanitizer.sanitize(result.output)
         if let start = sanitized.firstIndex(of: "{"),
@@ -58,6 +78,13 @@ public struct ClaudeCollector: UsageCollector {
 
         if result.exitCode != 0 {
             throw UsageCollectionError.transportFailure
+        }
+    }
+
+    private func detectWorkspaceTrustRequirement(in output: String) throws {
+        let normalized = ANSITextSanitizer.sanitize(output).lowercased()
+        if normalized.contains("permission required: accessing workspace") {
+            throw UsageCollectionError.setupRequired
         }
     }
 

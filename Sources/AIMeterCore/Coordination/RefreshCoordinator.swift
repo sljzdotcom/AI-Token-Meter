@@ -117,6 +117,9 @@ public actor RefreshCoordinator {
         case .authenticationRequired:
             status = .authenticationRequired
             message = "Sign in required"
+        case .setupRequired:
+            status = .unavailable
+            message = "Service temporarily unavailable"
         case .unrecognizedOutput:
             status = .unrecognizedOutput
             message = "Usage format is not recognized"

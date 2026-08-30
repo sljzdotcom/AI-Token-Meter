@@ -8,6 +8,7 @@ public protocol UsageCollector: Sendable {
 public enum UsageCollectionError: Error, Equatable, Sendable {
     case notInstalled
     case authenticationRequired
+    case setupRequired
     case timedOut
     case unrecognizedOutput
     case transportFailure
