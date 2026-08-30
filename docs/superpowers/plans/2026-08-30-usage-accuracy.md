@@ -103,6 +103,8 @@ git commit -m "fix: ignore promotional usage percentages (task 1/3)"
 
 为 fixture 增加可选响应：顶层 `rateLimits.primary.usedPercent = 5`、窗口 10080 分钟、secondary 为 null；`rateLimitsByLimitId.codex_bengalfox` 返回 0% 的 300 与 10080 分钟窗口。测试通过专用 fixture URL 调用 `CodexAppServerClient.readRateLimits`：
 
+创建 fixture 后运行 `chmod +x Tests/AIMeterCoreTests/Fixtures/fake-codex-general-and-model.sh`，确保 SwiftPM 复制后的资源可作为进程启动。
+
 ```swift
 @Test("Codex keeps the general limit instead of replacing it with a model limit")
 func codexPrefersGeneralLimit() async throws {
