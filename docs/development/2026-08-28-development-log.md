@@ -272,3 +272,32 @@
 - 最小修复只把 `USER` 加入现有环境白名单，不扩大到完整父进程环境，也不改变凭据、缓存或网络逻辑；修复后同一测试输出当前用户名并通过。
 - 完整套件更新为 64 个测试、15 个测试组，0 个失败；production App 重新构建并通过打包脚本的严格签名验证。
 - 修复版已替换 `/Applications/AI Meter.app`。自动启动会同时触发已配置 DeepSeek 的真实余额请求，按敏感凭据外发规则等待用户明确授权后再完成界面验收。
+
+## 2026-08-30：悬浮详情的自动收起与外部点击关闭
+
+### 红灯证据
+
+- 新增“详情自动隐藏时长”测试后，尚未实现的阶段编译器报告 `cannot find 'DetailAutoHideInterval' in scope`；这证明固定选项、默认值和持久化回退的测试先于实现存在。
+- 新增共享详情会话与点击区域测试后，尚未实现的阶段编译器报告 `FloatingDetailSession` 与 `FloatingPanelHitPolicy` 不存在；测试先锁定了单一选中项、失效定时器和两个面板外点击的行为。
+
+### 最小实现与监听策略
+
+- 自动收起设置只接受 3、5、8、15、30 秒，缺失或无效持久化值安全回退到默认 8 秒；`AppModel` 通过 `UserDefaults` 读取并保存该设置，设置页的 Appearance 区域提供选择器。
+- 一个共享 `FloatingDetailSession` 管理圆环与通知打开的详情。每次展示都会更新会话代数并取消旧任务，因此旧定时器或同一服务的旧选择不能关闭新的详情。
+- AppKit 监听同时注册本地和全局左右鼠标按下事件：本地监听覆盖本 App，返回原事件；全局监听补充其他 App 中的点击。两者都先捕获事件时的会话标识、时间戳和屏幕坐标，再仅在坐标同时位于悬浮条和详情卡之外时关闭。
+- 坐标转换对带窗口的本地事件使用 `convertPoint(toScreen:)`；全局事件没有窗口时降级使用其已处于屏幕坐标系的 `locationInWindow`。控制器释放时移除两个 monitor 和屏幕参数观察者。
+
+### 本次自动化验证
+
+- 2026-08-30 11:00 +0800 执行完整 `swift test --disable-sandbox`（隔离 SwiftPM 和 Clang 缓存）：74 个测试、17 个测试组通过，0 个失败。
+- 4 个需显式启用的环境相关检查按设计跳过：1 个 Keychain 生命周期测试和 3 个已安装 CLI 烟雾测试。本次没有启用它们，且没有触发外部 DeepSeek 请求。
+
+### 本机界面验收
+
+- 待用户明确授权，未执行。本次没有替换 `/Applications/AI Meter.app`，没有启动 App，也没有读取或外发已保存的 DeepSeek API Key。
+- 授权后才可验证五项本机界面行为：默认 8 秒收起、设置时长生效、点击任一详情浮层外立即关闭、面板内点击不误关，以及悬浮条隐藏／恢复后的行为。
+
+### 打包与产物验证
+
+- 2026-08-30 11:02 +0800，`./scripts/build-app.sh` 成功完成 release 构建、工作区 `dist/AI Meter.app` 的 ad-hoc 签名和脚本内签名自验证，退出码 0。
+- 随后独立执行 `codesign --verify --deep --strict --verbose=2`、`plutil -lint`、`file` 与 `git diff --check`，均退出码 0；App 包在磁盘上有效、Info.plist 为 OK、可执行文件为 `Mach-O 64-bit executable arm64`，且无空白差异错误。
