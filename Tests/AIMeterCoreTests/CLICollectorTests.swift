@@ -42,6 +42,18 @@ struct CLICollectorTests {
         #expect(snapshot.primaryMetric?.label == "Weekly limit")
         #expect(snapshot.primaryMetric?.usedFraction == 0.05)
         #expect(snapshot.secondaryMetric == nil)
+        #expect(snapshot.codexResetCredits?.availableCount == 2)
+        #expect(snapshot.codexResetCredits?.credits == [
+            CodexResetCreditDisplay(
+                title: "Bonus reset",
+                expiresAt: Date(timeIntervalSince1970: 1_900_000_000)
+            ),
+            CodexResetCreditDisplay(
+                title: nil,
+                expiresAt: Date(timeIntervalSince1970: 1_900_100_000)
+            ),
+        ])
+        #expect(snapshot.codexResetCredits?.hasCompleteDetails == true)
     }
 
     @Test("A missing executable is reported without starting a process")

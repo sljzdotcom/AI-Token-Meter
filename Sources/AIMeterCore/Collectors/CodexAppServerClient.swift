@@ -146,7 +146,29 @@ struct CodexAppServerClient: Sendable {
             secondaryMetric: selected.secondary.map(metric),
             availability: .available,
             sourceVersion: "codex-app-server",
-            collectionStatus: .fresh
+            collectionStatus: .fresh,
+            codexResetCredits: resetCredits(from: result.rateLimitResetCredits)
+        )
+    }
+
+    private func resetCredits(
+        from summary: CodexRateLimitResetCreditsSummary?
+    ) -> CodexResetCreditsSummary? {
+        guard let summary else { return nil }
+        let available = summary.credits?
+            .filter { $0.status == "available" }
+            .map {
+                CodexResetCreditDisplay(
+                    title: $0.title,
+                    expiresAt: $0.expiresAt.map {
+                        Date(timeIntervalSince1970: TimeInterval($0))
+                    }
+                )
+            } ?? []
+        return CodexResetCreditsSummary(
+            availableCount: max(summary.availableCount, 0),
+            credits: available,
+            hasCompleteDetails: summary.credits != nil && available.count >= summary.availableCount
         )
     }
 
@@ -177,6 +199,18 @@ private struct CodexRateLimitsEnvelope: Decodable {
 private struct CodexRateLimitsResult: Decodable {
     let rateLimits: CodexRateLimitSnapshot
     let rateLimitsByLimitId: [String: CodexRateLimitSnapshot]?
+    let rateLimitResetCredits: CodexRateLimitResetCreditsSummary?
+}
+
+private struct CodexRateLimitResetCreditsSummary: Decodable {
+    let availableCount: Int
+    let credits: [CodexRateLimitResetCredit]?
+}
+
+private struct CodexRateLimitResetCredit: Decodable {
+    let status: String
+    let title: String?
+    let expiresAt: Int64?
 }
 
 private struct CodexRateLimitSnapshot: Decodable {

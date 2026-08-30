@@ -100,7 +100,9 @@ public actor RefreshCoordinator {
             staleAfter: snapshot.staleAfter,
             sourceVersion: snapshot.sourceVersion,
             collectionStatus: .cached,
-            statusMessage: message
+            statusMessage: message,
+            codexResetCredits: snapshot.codexResetCredits,
+            deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
 

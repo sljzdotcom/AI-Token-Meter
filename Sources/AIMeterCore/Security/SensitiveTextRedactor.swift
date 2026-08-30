@@ -47,6 +47,33 @@ extension UsageSnapshot {
             staleAfter: staleAfter,
             sourceVersion: sourceVersion.map(SensitiveTextRedactor.redact),
             collectionStatus: collectionStatus,
+            statusMessage: statusMessage.map(SensitiveTextRedactor.redact),
+            codexResetCredits: codexResetCredits?.privacySanitized(),
+            deepSeekUsageHistory: deepSeekUsageHistory?.privacySanitized()
+        )
+    }
+}
+
+private extension CodexResetCreditsSummary {
+    func privacySanitized() -> CodexResetCreditsSummary {
+        CodexResetCreditsSummary(
+            availableCount: availableCount,
+            credits: credits.map {
+                CodexResetCreditDisplay(
+                    title: $0.title.map(SensitiveTextRedactor.redact),
+                    expiresAt: $0.expiresAt
+                )
+            },
+            hasCompleteDetails: hasCompleteDetails
+        )
+    }
+}
+
+private extension DeepSeekUsageHistory {
+    func privacySanitized() -> DeepSeekUsageHistory {
+        DeepSeekUsageHistory(
+            days: days,
+            updatedAt: updatedAt,
             statusMessage: statusMessage.map(SensitiveTextRedactor.redact)
         )
     }

@@ -89,6 +89,10 @@ struct FloatingDetailView: View {
                     }
                     .font(.caption2)
                 }
+                if snapshot.provider == .codex,
+                   let resetCredits = snapshot.codexResetCredits {
+                    CodexResetCreditsView(summary: resetCredits)
+                }
                 if let status = presentation.statusText {
                     Text(status)
                         .font(.caption2)

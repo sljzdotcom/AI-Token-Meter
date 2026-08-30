@@ -45,6 +45,11 @@ struct ProviderCard: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                if snapshot.provider == .codex,
+                   let resetCredits = snapshot.codexResetCredits {
+                    CodexResetCreditsView(summary: resetCredits)
+                        .padding(.top, 2)
+                }
                 HStack(spacing: 6) {
                     if let status = presentation.statusText {
                         Text(status)

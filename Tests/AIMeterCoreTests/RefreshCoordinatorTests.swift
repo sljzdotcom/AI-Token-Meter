@@ -34,7 +34,15 @@ struct RefreshCoordinatorTests {
             primaryMetric: metric(value: 44),
             fetchedAt: Date(timeIntervalSince1970: 100),
             staleAfter: 60,
-            collectionStatus: .fresh
+            collectionStatus: .fresh,
+            codexResetCredits: CodexResetCreditsSummary(
+                availableCount: 1,
+                credits: [CodexResetCreditDisplay(
+                    title: "Bonus reset",
+                    expiresAt: Date(timeIntervalSince1970: 1_900_000_000)
+                )],
+                hasCompleteDetails: true
+            )
         )
         try cache.save([oldCodex])
         let coordinator = RefreshCoordinator(
@@ -54,6 +62,7 @@ struct RefreshCoordinatorTests {
         #expect(codex.primaryMetric?.current == 44)
         #expect(codex.fetchedAt == Date(timeIntervalSince1970: 100))
         #expect(codex.statusMessage == "Sign in required")
+        #expect(codex.codexResetCredits?.availableCount == 1)
     }
 
     @Test("Two overlapping refresh requests share one collection pass")
