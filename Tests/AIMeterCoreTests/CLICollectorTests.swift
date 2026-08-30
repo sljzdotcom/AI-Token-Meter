@@ -115,11 +115,11 @@ struct CLICollectorTests {
         await #expect(throws: UsageCollectionError.timedOut) {
             try await client.readRateLimits(
                 executableURL: ignoredTerminationCodexExecutable,
-                timeout: 0.1
+                timeout: 0.5
             )
         }
 
-        #expect(Date().timeIntervalSince(startedAt) < 1.5)
+        #expect(Date().timeIntervalSince(startedAt) < 2)
         let pid = try await readPID(from: pidFile)
         #expect(await processExited(pid, within: 2))
     }

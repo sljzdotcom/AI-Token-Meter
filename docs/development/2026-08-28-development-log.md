@@ -301,3 +301,37 @@
 
 - 2026-08-30 11:01 +0800，`./scripts/build-app.sh` 成功完成 release 构建、工作区 `dist/AI Meter.app` 的 ad-hoc 签名和脚本内签名自验证，退出码 0。
 - 随后独立执行 `codesign --verify --deep --strict --verbose=2`、`plutil -lint`、`file` 与 `git diff --check`，均退出码 0；App 包在磁盘上有效、Info.plist 为 OK、可执行文件为 `Mach-O 64-bit executable arm64`，且无空白差异错误。
+
+## 2026-08-30：Claude 专属用量工作区与真实 CLI 修复
+
+### 根因证据
+
+- Claude OAuth 登录本身有效，`claude auth status` 能在受控环境返回已登录；AI Meter 失败并非账号或网络问题。
+- Finder 启动的 App 工作目录没有稳定的项目语义。Claude Code 首次进入该目录会展示工作区信任页，原采集器把它当作普通交互并最终超时。
+- 为 AI Meter 建立 `~/Library/Application Support/AI Meter/ClaudeUsageWorkspace` 后，人工完成一次官方 Claude 工作区确认；没有自动回答信任问题，也没有使用跳过权限参数。
+- 信任完成后的首轮真实采集仍超时。真实终端验证显示 Claude Code 2.1.251 的 `/usage` 页面文案仍含 `Current session`、`Resets` 和周额度，解析器规则有效。
+- 最终根因是 PTY 把命令末尾写成 LF；Claude 的全屏输入框需要终端 Enter 对应的 CR。命令文字进入界面但没有提交，因此直到总时限才退出。
+
+### 实现与安全边界
+
+- `CommandRequest` 支持可选工作目录、输入稳定等待、每行终止符和输出停止短语；默认值保持其他调用方原行为。
+- Claude 的认证预检与 `/usage` 都运行在专属空目录；交互启动使用 `--ax-screen-reader --safe-mode`，等待 3 秒后以 CR 提交一次 `/usage`。
+- 捕获首个 `Resets` 后立即结束只读采集，不再提前排队 `/exit`；总时限为 20 秒，兼顾 CLI 初始化与网络读取。
+- 工作区未授权时映射为独立的 `setupRequired` 状态。界面提供一次性设置按钮，生成路径安全转义的本地 `.command` 并交由用户在 Terminal 明确确认。
+- 实现不读取 OAuth URL、登录令牌或 Claude 配置内容；开发日志不保存账号、组织、密钥或完整原始终端输出。
+
+### 测试驱动与真实验收
+
+- 工作目录、工作区信任与设置入口均先建立失败测试，再做最小实现；Claude 请求契约继续锁定专属目录、安全参数、单一 `/usage`、3 秒等待、CR 提交、20 秒总时限和 `Resets` 停止短语。
+- 回归测试先确认旧请求仍发送 `["/usage", "/exit"]`、没有输入等待且没有 CR 终止符，再分别转绿。
+- 修复后 Claude 采集专项 8/8 通过；真实安装 CLI 的 Claude 用量采集在约 4.5–4.7 秒内返回可解析快照。
+- 显式真实 CLI 集成套件 3/3 通过：Claude 认证状态、Claude `/usage` 和 Codex 官方 `app-server` 用量读取均成功。
+- 全量套件一次冷构建并行运行暴露测试替身的 0.1 秒启动窗口过窄：超时先于 PID 文件写入，后续测试辅助读取报错。专项连续 5 次通过确认生产超时映射未回归；测试窗口调整为 0.5 秒并继续验证 0.5 秒 KILL 兜底和最终 PID 回收。
+- 调整后完整套件 85 个测试、18 个测试组通过，0 个失败；4 个需显式环境许可的测试按设计跳过，真实 CLI 另行显式运行并通过。
+
+### 构建、安装与恢复点
+
+- `scripts/build-app.sh` 完成 release 构建、ad-hoc 签名与脚本内验证；独立 `codesign --verify --deep --strict` 和 Info.plist 校验通过。
+- 构建产物与 `/Applications/AI Meter.app` 的 `AIMeterApp` 均为 arm64 Mach-O，SHA-256 一致：`2c17ee35bfe16e97d66e2e988c2819396966dd8710787c5022db32c0f1cd0fca`。
+- 安装前版本已可恢复地移动到 `/private/tmp/AI Meter.app.pre-cr-fix-20260830-1529`。
+- 新 ad-hoc 构建首次读取既有 DeepSeek Keychain 项目时，macOS 重新要求用户确认访问；最终三卡界面验收在该系统确认完成后记录。
