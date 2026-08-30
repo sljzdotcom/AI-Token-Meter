@@ -107,33 +107,34 @@
 
   提交：`fix: allow DeepSeek detail web input focus`
 
-## 任务 3：补齐文档并完成静态验证
+## 任务 3：补齐文档并完成静态验证（已完成）
 
 **文件：**
 
 - 修改：`CHANGELOG.md`
 - 修改：`docs/user-guide/troubleshooting.md`
 - 修改：`docs/architecture/overview.md`
-- 修改：`docs/development/development-log.md`
+- 新建：`docs/development/2026-08-31-deepseek-focus.md`
+- 修改：`docs/development/README.md`
 
-- [ ] **步骤 1：记录用户行为与排障边界**
+- [x] **步骤 1：记录用户行为与排障边界**
 
   文档说明：DeepSeek 详情会短暂激活 AI Meter 以接收网页输入；Claude/Codex 保持只读无抢焦点；出现 CAPTCHA 或额外安全确认时需用户处理。不得记录手机号或验证码。
 
-- [ ] **步骤 2：运行完整自动化验证**
+- [x] **步骤 2：运行完整自动化验证**
 
   运行：
 
   - `bash scripts/test.sh`
   - `bash scripts/build-app.sh`
-  - `plutil -lint "build/AI Meter.app/Contents/Info.plist"`
-  - `codesign --verify --deep --strict --verbose=2 "build/AI Meter.app"`
-  - `file "build/AI Meter.app/Contents/MacOS/AI Meter"`
+  - `plutil -lint "dist/AI Meter.app/Contents/Info.plist"`
+  - `codesign --verify --deep --strict --verbose=2 "dist/AI Meter.app"`
+  - `file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"`
   - `git diff --check`
 
   预期：测试与构建退出码为 0；Info.plist 有效；严格签名通过；可执行文件为 Apple Silicon 原生 Mach-O；没有空白错误。
 
-- [ ] **步骤 3：保存版本**
+- [x] **步骤 3：保存版本**
 
   提交：`docs: document DeepSeek web focus repair`
 
@@ -141,7 +142,7 @@
 
 **文件：**
 
-- 修改：`docs/development/development-log.md`（仅记录非敏感验收结果）
+- 修改：`docs/development/2026-08-31-deepseek-focus.md`（仅记录非敏感验收结果）
 
 - [ ] **步骤 1：备份当前安装版**
 
@@ -149,7 +150,7 @@
 
 - [ ] **步骤 2：安装并校验构建产物**
 
-  把 `build/AI Meter.app` 安装到 `/Applications/AI Meter.app`，比较两处主可执行文件的 SHA-256，确认完全一致后启动。
+  把 `dist/AI Meter.app` 安装到 `/Applications/AI Meter.app`，比较两处主可执行文件的 SHA-256，确认完全一致后启动。
 
 - [ ] **步骤 3：验证输入焦点**
 
