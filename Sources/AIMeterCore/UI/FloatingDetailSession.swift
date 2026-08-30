@@ -36,6 +36,10 @@ public final class FloatingDetailSession {
         )
     }
 
+    public func accessibilityValue(for provider: UsageProvider) -> String {
+        selectedProvider == provider ? "Detail open" : "Detail closed"
+    }
+
     public func toggle(_ provider: UsageProvider, autoHideAfter duration: Duration) {
         if selectedProvider == provider {
             dismiss()

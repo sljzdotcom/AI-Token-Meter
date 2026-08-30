@@ -16,6 +16,7 @@ struct FloatingStripView: View {
                         .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                 }
                 .buttonStyle(.plain)
+                .accessibilityValue(session.accessibilityValue(for: presentation.provider))
                 .animation(
                     .spring(response: 0.28, dampingFraction: 0.8),
                     value: session.selectedProvider

@@ -4,6 +4,19 @@ import Testing
 
 @Suite("Floating detail session", .serialized)
 struct FloatingDetailSessionTests {
+    @Test("Accessibility reports whether each provider detail is open")
+    @MainActor
+    func accessibilityValueTracksSelection() {
+        let session = FloatingDetailSession()
+
+        #expect(session.accessibilityValue(for: .codex) == "Detail closed")
+        session.present(.codex, autoHideAfter: .seconds(30))
+        #expect(session.accessibilityValue(for: .codex) == "Detail open")
+        #expect(session.accessibilityValue(for: .claude) == "Detail closed")
+        session.dismiss()
+        #expect(session.accessibilityValue(for: .codex) == "Detail closed")
+    }
+
     @Test("Tapping providers toggles and switches one shared selection")
     @MainActor
     func togglesSelection() {
