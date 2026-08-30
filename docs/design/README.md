@@ -7,6 +7,10 @@
 - [`specifications/`](specifications/)：需求边界、交互、架构和安全设计。
 - [`implementation-plans/`](implementation-plans/)：按任务拆分的实施与验证计划。
 
+最新规格：
+
+- [DeepSeek 登录输入焦点修复设计](specifications/2026-08-30-deepseek-web-focus-design.md)
+
 ## 阅读顺序
 
 1. 先看根目录 [README](../../README.md) 了解当前产品；
@@ -17,4 +21,3 @@
 ## 历史性说明
 
 早期文档中的功能可能已被后续实现替代。例如第一版 DeepSeek 使用“本地月预算”概念，当前实现已改为“可配置余额基准 + 官方 30 天用量聚合”。这类原始文字会保留，避免改写历史；当前行为以源码、用户指南与 [CHANGELOG](../../CHANGELOG.md) 为准。
-
