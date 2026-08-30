@@ -87,7 +87,7 @@ AI-Meter/
 │   ├── architecture/            # 架构与源码目录说明
 │   ├── development/             # 开发、测试、发布和逐日开发日志
 │   └── design/                  # 历史设计规格与实施计划
-├── scripts/build-app.sh         # Release 构建、App 打包与签名验证
+├── scripts/                     # 可移植测试、Release 构建、App 打包与签名验证
 ├── CHANGELOG.md                 # 面向版本的变更记录
 ├── CONTRIBUTING.md              # 贡献规范
 └── SECURITY.md                  # 安全问题报告方式
@@ -98,8 +98,7 @@ AI-Meter/
 ## 开发与验证
 
 ```bash
-swift test
-swift build -c release
+bash scripts/test.sh
 bash scripts/build-app.sh
 codesign --verify --deep --strict "dist/AI Meter.app"
 ```

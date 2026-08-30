@@ -3,7 +3,7 @@
 ## 普通测试
 
 ```bash
-swift test
+bash scripts/test.sh
 ```
 
 当前基线为 100 个测试、22 个测试组、0 个失败。普通测试中有 4 个环境相关检查按设计跳过：1 个 Keychain 生命周期测试和 3 个真实 CLI 冒烟测试。
@@ -26,7 +26,7 @@ swift test
 Keychain 测试会触及当前 macOS 用户的 Keychain，必须显式开启：
 
 ```bash
-AI_METER_RUN_KEYCHAIN_TESTS=1 swift test --filter KeychainStoreTests
+AI_METER_RUN_KEYCHAIN_TESTS=1 bash scripts/test.sh --filter KeychainStoreTests
 ```
 
 只在确认测试环境允许创建和删除测试项目时运行。
@@ -36,7 +36,7 @@ AI_METER_RUN_KEYCHAIN_TESTS=1 swift test --filter KeychainStoreTests
 真实测试会调用已安装并登录的 Claude/Codex CLI：
 
 ```bash
-AI_METER_RUN_CLI_SMOKE=1 swift test --filter CLIIntegrationSmokeTests
+AI_METER_RUN_CLI_SMOKE=1 bash scripts/test.sh --filter CLIIntegrationSmokeTests
 ```
 
 当前包含：
@@ -50,7 +50,6 @@ AI_METER_RUN_CLI_SMOKE=1 swift test --filter CLIIntegrationSmokeTests
 ## Release 构建
 
 ```bash
-swift build -c release
 bash scripts/build-app.sh
 ```
 
@@ -89,4 +88,3 @@ git diff --check
 - 隐藏/恢复悬浮条与多显示器重定位正常；
 - VoiceOver 能读出服务、数值和详情状态；
 - 退出 App 后无遗留事件监听或刷新任务。
-

@@ -39,7 +39,7 @@ release: package AI Meter v0.2.0
 最少执行：
 
 ```bash
-swift test
+bash scripts/test.sh
 git diff --check
 ```
 
@@ -87,4 +87,3 @@ codesign --verify --deep --strict "dist/AI Meter.app"
 ## 许可
 
 仓库目前尚未声明开源许可证。在许可证确定前，贡献的接受和再分发条件并不明确；请先与维护者确认，再提交计划用于公开再分发的大型改动。
-

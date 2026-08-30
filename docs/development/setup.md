@@ -15,7 +15,7 @@ swift --version
 git --version
 ```
 
-项目采用 Swift Package，不依赖 Xcode 工程文件或第三方包管理器。
+项目采用 Swift Package，不依赖 Xcode 工程文件或第三方包管理器。推荐使用 `scripts/test.sh`，因为它会把 SwiftPM 与 Clang 缓存放入临时目录，在 Dropbox、受限执行环境和用户级缓存不可写时仍能稳定运行。
 
 ## 获取与构建
 
@@ -23,7 +23,7 @@ git --version
 git clone <repository-url>
 cd AI-Meter
 swift build
-swift test
+bash scripts/test.sh
 ```
 
 打包本机应用：
@@ -90,4 +90,3 @@ codex/<topic>
 - `release:` 版本发布。
 
 每个关键节点应保持可构建、可测试，并把验证结果写入开发日志。
-

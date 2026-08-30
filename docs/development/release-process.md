@@ -15,9 +15,9 @@ AI Meter 使用语义化版本思路：
 ### 代码与测试
 
 - [ ] 工作区只有本次发布所需改动；
-- [ ] `swift test` 全部通过；
+- [ ] `bash scripts/test.sh` 全部通过；
 - [ ] 环境允许时，真实 CLI 冒烟测试 3/3 通过；
-- [ ] `swift build -c release` 通过；
+- [ ] `bash scripts/build-app.sh` 完成 release 构建；
 - [ ] `git diff --check` 无错误。
 
 ### 文档
@@ -79,4 +79,3 @@ file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 6. 推送分支与 tag。
 
 只有在版本元数据、Changelog、构建产物和验收同时完成后，才能把 `Unreleased` 宣布为已发布版本。
-

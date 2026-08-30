@@ -7,7 +7,7 @@ AI-Meter/
 ├── Sources/                    # 产品源码
 ├── Tests/                      # 自动化测试与 fixture
 ├── docs/                       # 用户、架构、开发和历史设计文档
-├── scripts/                    # 构建与维护脚本
+├── scripts/                    # 可移植测试、构建与维护脚本
 ├── Package.swift               # Swift Package 清单
 ├── README.md                   # 项目首页
 ├── CHANGELOG.md                # 版本变更
@@ -21,6 +21,8 @@ AI-Meter/
 - `dist/`：打包后的 `.app`；
 - `DerivedData/`：Xcode 派生文件；
 - `.worktrees/`：本地隔离开发工作树。
+
+`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/build-app.sh` 执行 release 构建、App Bundle 组装与 ad-hoc 签名验证。
 
 ## `Sources/AIMeterApp`
 
@@ -125,4 +127,3 @@ Sources/AIMeterCore/
 - 只与界面计算有关的纯逻辑放入 `Presentation/` 或 `UI/`；
 - macOS API、窗口、通知、登录项和 WebKit 生命周期放入 App 的 `System/`；
 - 不把密钥、真实账户响应、生成的 `.app` 或构建缓存提交到仓库。
-
