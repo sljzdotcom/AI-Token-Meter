@@ -97,7 +97,7 @@ Sources/AIMeterCore/
 - `CodexLocalActivityReader.swift`：只读查询本机 Codex 聚合列并计算 30 天活动；
 - `CodexCollector.swift` / `CodexUsageParser.swift`：采集与解析 Codex 数据；
 - `CommandRunner.swift` / `PTYCommandRunner.swift`：普通和伪终端进程执行；
-- `DeepSeekCollector.swift`：余额采集；
+- `DeepSeekCollector.swift`：余额采集、隔离的钥匙串读取超时与单次在途保护；
 - `ExecutableLocator.swift`：定位用户 PATH 之外的常见 CLI 安装路径；
 - `TerminalUsageParser.swift`：终端文本解析共享逻辑；
 - `UsageCollector.swift`：采集器协议。
@@ -121,6 +121,15 @@ Sources/AIMeterCore/
 2. 成功解析测试；
 3. 缺字段或格式变化测试；
 4. 敏感信息清理测试（若涉及错误或缓存）。
+
+## `Tests/AIMeterAppTests`
+
+覆盖只属于 macOS App 层、但可以从窗口和视图中抽离验证的边界逻辑：
+
+- 浮岛玻璃拖动命中区、Logo 排除区和透明肩部排除；
+- AppKit 窗口坐标与 SwiftUI 顶部坐标转换；
+- 指针按下、拖动、松开状态及位置位移；
+- 启动过程不在主线程同步读取 Keychain。
 
 ## `docs`
 

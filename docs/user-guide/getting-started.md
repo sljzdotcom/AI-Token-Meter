@@ -84,7 +84,7 @@ AI Meter 通过 Codex CLI 的 `app-server` 结构化接口读取账户速率限�
 ## 7. 常用操作
 
 - 点击圆环：展开对应服务详情。
-- 拖动顶部短横：调整浮岛上下位置；Automatic 模式还可拖到另一侧。
+- 从三个 Logo 以外的玻璃空白处拖动：调整浮岛上下位置；Automatic 模式还可拖到另一侧。
 - 设置中的 **Screen edge**：选择 Automatic、Left 或 Right。
 - 点击空白处：立即关闭详情。
 - 悬停在详情上：暂停自动隐藏倒计时。
