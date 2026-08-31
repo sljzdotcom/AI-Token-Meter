@@ -203,3 +203,80 @@ public struct CodexLocalActivityPresentation: Equatable, Sendable {
         return "\(minutes)m"
     }
 }
+
+public enum CodexResetCreditExpirationState: Equatable, Sendable {
+    case remaining(days: Int)
+    case today
+    case expired
+    case unavailable
+}
+
+public struct CodexResetCreditRowPresentation: Equatable, Sendable {
+    public let title: String
+    public let expiresAt: Date?
+    public let statusText: String
+    public let expirationState: CodexResetCreditExpirationState
+}
+
+public struct CodexResetCreditsPresentation: Equatable, Sendable {
+    public let availableText: String
+    public let rows: [CodexResetCreditRowPresentation]
+    public let showsIncompleteDetails: Bool
+
+    public init(
+        summary: CodexResetCreditsSummary,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) {
+        availableText = "\(summary.availableCount) available"
+        showsIncompleteDetails = !summary.hasCompleteDetails
+            || summary.availableCount > summary.credits.count
+
+        let ordered = summary.credits.enumerated().sorted { lhs, rhs in
+            switch (lhs.element.expiresAt, rhs.element.expiresAt) {
+            case let (left?, right?) where left != right:
+                return left < right
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            default:
+                return lhs.offset < rhs.offset
+            }
+        }
+        let today = calendar.startOfDay(for: now)
+        rows = ordered.map { _, credit in
+            let expiration = Self.expiration(
+                expiresAt: credit.expiresAt,
+                today: today,
+                calendar: calendar
+            )
+            return CodexResetCreditRowPresentation(
+                title: credit.title ?? "Usage reset",
+                expiresAt: credit.expiresAt,
+                statusText: expiration.text,
+                expirationState: expiration.state
+            )
+        }
+    }
+
+    private static func expiration(
+        expiresAt: Date?,
+        today: Date,
+        calendar: Calendar
+    ) -> (text: String, state: CodexResetCreditExpirationState) {
+        guard let expiresAt else {
+            return ("Expiration unavailable", .unavailable)
+        }
+        let expirationDay = calendar.startOfDay(for: expiresAt)
+        let dayCount = calendar.dateComponents([.day], from: today, to: expirationDay).day ?? 0
+        if dayCount < 0 {
+            return ("Expired", .expired)
+        }
+        if dayCount == 0 {
+            return ("Expires today", .today)
+        }
+        let unit = dayCount == 1 ? "day" : "days"
+        return ("\(dayCount) \(unit) remaining", .remaining(days: dayCount))
+    }
+}
