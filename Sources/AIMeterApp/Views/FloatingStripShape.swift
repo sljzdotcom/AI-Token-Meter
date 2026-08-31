@@ -5,44 +5,34 @@ struct FloatingStripShape: Shape {
     let edge: FloatingStripEdge
 
     func path(in rect: CGRect) -> Path {
-        let shoulder = min(rect.width * 0.31, rect.height * 0.12)
-        let bodyInset = min(rect.width * 0.14, 15)
-        let radius = min(rect.width * 0.32, 35)
+        let widthScale = rect.width / 108
+        let heightScale = rect.height / 356
 
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            let scaledX = x * widthScale
+            let scaledY = y * heightScale
             let resolvedX = switch edge {
-            case .right: rect.minX + x
-            case .left: rect.maxX - x
+            case .right: rect.minX + scaledX
+            case .left: rect.maxX - scaledX
             }
-            return CGPoint(x: resolvedX, y: rect.minY + y)
+            return CGPoint(x: resolvedX, y: rect.minY + scaledY)
         }
 
         var path = Path()
-        path.move(to: point(rect.width, 0))
-        path.addLine(to: point(rect.width, rect.height))
-        path.addCurve(
-            to: point(rect.width - bodyInset, rect.height - shoulder),
-            control1: point(rect.width - shoulder * 0.72, rect.height),
-            control2: point(rect.width - bodyInset, rect.height - shoulder * 0.35)
-        )
-        path.addLine(to: point(radius, rect.height - shoulder))
-        path.addCurve(
-            to: point(0, rect.height - shoulder - radius),
-            control1: point(radius * 0.42, rect.height - shoulder),
-            control2: point(0, rect.height - shoulder - radius * 0.42)
-        )
-        path.addLine(to: point(0, shoulder + radius))
-        path.addCurve(
-            to: point(radius, shoulder),
-            control1: point(0, shoulder + radius * 0.42),
-            control2: point(radius * 0.42, shoulder)
-        )
-        path.addLine(to: point(rect.width - bodyInset, shoulder))
-        path.addCurve(
-            to: point(rect.width, 0),
-            control1: point(rect.width - bodyInset, shoulder * 0.35),
-            control2: point(rect.width - shoulder * 0.72, 0)
-        )
+        path.move(to: point(108, 0))
+        path.addLine(to: point(89, 0))
+        path.addCurve(to: point(58, 31), control1: point(67, 0), control2: point(58, 11))
+        path.addLine(to: point(58, 41))
+        path.addCurve(to: point(28, 68), control1: point(58, 59), control2: point(48, 68))
+        path.addLine(to: point(18, 68))
+        path.addCurve(to: point(0, 89), control1: point(7, 68), control2: point(0, 77))
+        path.addLine(to: point(0, 267))
+        path.addCurve(to: point(18, 288), control1: point(0, 279), control2: point(7, 288))
+        path.addLine(to: point(28, 288))
+        path.addCurve(to: point(58, 315), control1: point(48, 288), control2: point(58, 297))
+        path.addLine(to: point(58, 325))
+        path.addCurve(to: point(89, 356), control1: point(58, 345), control2: point(67, 356))
+        path.addLine(to: point(108, 356))
         path.closeSubpath()
         return path
     }
