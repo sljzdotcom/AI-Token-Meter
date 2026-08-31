@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 137](https://img.shields.io/badge/tests-137%20passed-2ea44f)
+![Tests 148](https://img.shields.io/badge/tests-148%20passed-2ea44f)
 
 AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -83,7 +83,9 @@ AI-Meter/
 ├── Sources/
 │   ├── AIMeterApp/              # SwiftUI App、系统集成与界面
 │   └── AIMeterCore/             # 采集、领域模型、缓存、安全与协调逻辑
-├── Tests/AIMeterCoreTests/      # 单元、解析器、协调与真实 CLI 冒烟测试
+├── Tests/
+│   ├── AIMeterCoreTests/        # 领域、解析器、协调与真实 CLI 冒烟测试
+│   └── AIMeterAppTests/         # 浮岛输入、启动和 AppKit/SwiftUI 边界测试
 ├── docs/
 │   ├── user-guide/              # 安装、服务配置、设置和排障
 │   ├── architecture/            # 架构与源码目录说明

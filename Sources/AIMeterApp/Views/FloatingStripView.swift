@@ -1,4 +1,5 @@
 import AIMeterCore
+import AppKit
 import SwiftUI
 
 struct FloatingStripView: View {
@@ -6,62 +7,60 @@ struct FloatingStripView: View {
     @Bindable var session: FloatingDetailSession
     @Bindable var displayState: FloatingStripDisplayState
     let onProviderTap: (UsageProvider) -> Void
-    let onStripDragChanged: (CGSize) -> Void
-    let onStripDragEnded: (CGSize) -> Void
     let onAccessibilityMove: (FloatingStripAccessibilityCommand) -> Void
     @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
 
     var body: some View {
         ZStack {
             FloatingStripSurface(edge: displayState.resolvedEdge)
-            VStack(spacing: 12) {
-                Capsule()
-                    .fill(Color.white.opacity(displayState.isDragging ? 0.5 : 0.24))
-                    .frame(width: 25, height: 3)
-                    .frame(width: 50, height: 18)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                            .onChanged { value in
-                                displayState.isDragging = true
-                                onStripDragChanged(value.translation)
-                            }
-                            .onEnded { value in
-                                displayState.isDragging = false
-                                onStripDragEnded(value.translation)
-                            }
-                    )
-                    .accessibilityLabel("Move floating meter")
-                    .accessibilityValue(accessibilityPositionValue)
-                    .accessibilityHint("Use up or down to move. Left and right set the edge preference")
-                    .focusable()
-                    .onMoveCommand { direction in
-                        switch direction {
-                        case .up: onAccessibilityMove(.moveUp)
-                        case .down: onAccessibilityMove(.moveDown)
-                        case .left: onAccessibilityMove(.moveToLeftEdge)
-                        case .right: onAccessibilityMove(.moveToRightEdge)
-                        default: break
+                .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge), eoFill: true)
+                .focusable()
+                .accessibilityLabel("Move floating meter")
+                .accessibilityValue(accessibilityPositionValue)
+                .accessibilityHint("Use up or down to move. Left and right set the edge preference")
+                .onMoveCommand { direction in
+                    switch direction {
+                    case .up: onAccessibilityMove(.moveUp)
+                    case .down: onAccessibilityMove(.moveDown)
+                    case .left: onAccessibilityMove(.moveToLeftEdge)
+                    case .right: onAccessibilityMove(.moveToRightEdge)
+                    default: break
+                    }
+                }
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: onAccessibilityMove(.moveUp)
+                    case .decrement: onAccessibilityMove(.moveDown)
+                    @unknown default: break
+                    }
+                }
+                .accessibilityAction(named: "Set edge preference to Left") {
+                    onAccessibilityMove(.moveToLeftEdge)
+                }
+                .accessibilityAction(named: "Set edge preference to Right") {
+                    onAccessibilityMove(.moveToRightEdge)
+                }
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active:
+                        if !displayState.isDragging {
+                            NSCursor.openHand.set()
+                        }
+                    case .ended:
+                        if !displayState.isDragging {
+                            NSCursor.arrow.set()
                         }
                     }
-                    .accessibilityAdjustableAction { direction in
-                        switch direction {
-                        case .increment: onAccessibilityMove(.moveUp)
-                        case .decrement: onAccessibilityMove(.moveDown)
-                        @unknown default: break
-                        }
-                    }
-                    .accessibilityAction(named: "Set edge preference to Left") {
-                        onAccessibilityMove(.moveToLeftEdge)
-                    }
-                    .accessibilityAction(named: "Set edge preference to Right") {
-                        onAccessibilityMove(.moveToRightEdge)
-                    }
+                }
+            VStack(spacing: FloatingStripContentLayout.providerSpacing) {
                 ForEach(presentations, id: \.provider) { presentation in
                     Button {
                         onProviderTap(presentation.provider)
                     } label: {
-                        UsageRing(presentation: presentation, size: 60)
+                        UsageRing(
+                            presentation: presentation,
+                            size: FloatingStripContentLayout.providerButtonSize
+                        )
                             .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                     }
                     .buttonStyle(.plain)
@@ -76,8 +75,8 @@ struct FloatingStripView: View {
                     )
                 }
             }
-            .padding(.vertical, 17)
-            .padding(.horizontal, 11)
+            .padding(.vertical, FloatingStripContentLayout.verticalPadding)
+            .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: session.selectedProvider) { oldValue, newValue in
