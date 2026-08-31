@@ -19,6 +19,7 @@ final class AppModel {
     private let claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher
     private let defaults: UserDefaults
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
+    private let displayFontPreferenceStore: DisplayFontPreferenceStore
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let isDemoMode: Bool
     private var thresholdEvaluator: ThresholdEvaluator
@@ -32,6 +33,7 @@ final class AppModel {
     private(set) var apiKeyConfigured = false
     private(set) var launchAtLoginEnabled = false
     private(set) var settingsMessage: String?
+    private(set) var displayFontChoice: DisplayFontChoice
     private(set) var floatingStripPosition: FloatingStripPosition
 
     var showFloatingStrip: Bool
@@ -55,6 +57,8 @@ final class AppModel {
         self.launchAtLoginService = launchAtLoginService
         self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
+        self.displayFontPreferenceStore = DisplayFontPreferenceStore(defaults: defaults)
+        self.displayFontChoice = self.displayFontPreferenceStore.load()
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
         self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
@@ -214,6 +218,15 @@ final class AppModel {
         let interval = DetailAutoHideInterval(storedSeconds: seconds)
         detailAutoHideSeconds = interval.rawValue
         detailAutoHidePreferenceStore.save(interval)
+    }
+
+    func setDisplayFontChoice(_ choice: DisplayFontChoice) {
+        displayFontChoice = choice
+        displayFontPreferenceStore.save(choice)
+    }
+
+    func restoreDefaultDisplayFont() {
+        setDisplayFontChoice(.system)
     }
 
     func setLaunchAtLogin(_ isEnabled: Bool) {

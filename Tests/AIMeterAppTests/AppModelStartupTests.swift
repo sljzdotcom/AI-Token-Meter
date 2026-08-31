@@ -18,6 +18,25 @@ struct AppModelStartupTests {
         #expect(secretStore.readCount == 0)
         #expect(!model.apiKeyConfigured)
     }
+
+    @Test("Display font defaults, updates, and persists without restarting")
+    @MainActor
+    func displayFontPreference() {
+        let suiteName = "AppModelStartupTests.Font.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let secretStore = ReadCountingSecretStore()
+
+        let model = AppModel(defaults: defaults, secretStore: secretStore)
+        #expect(model.displayFontChoice == .system)
+
+        model.setDisplayFontChoice(.antonio)
+        #expect(model.displayFontChoice == .antonio)
+        #expect(DisplayFontPreferenceStore(defaults: defaults).load() == .antonio)
+
+        model.restoreDefaultDisplayFont()
+        #expect(model.displayFontChoice == .system)
+    }
 }
 
 private final class ReadCountingSecretStore: SecretStore, @unchecked Sendable {
