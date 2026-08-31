@@ -36,6 +36,7 @@ Sources/AIMeterApp/
 │   └── Logos/                  # Claude、Codex、DeepSeek 图标资源
 ├── System/
 │   ├── ClaudeWorkspaceSetupLauncher.swift
+│   ├── CodexDetailPanelLayout.swift
 │   ├── DeepSeekWebSession.swift
 │   ├── FloatingPanelController.swift
 │   ├── LaunchAtLoginService.swift
