@@ -42,7 +42,12 @@ extension UsageProvider {
 
 extension UsageSemantic {
     func accentRole(for provider: UsageProvider) -> AIMeterAccentRole {
-        self == .normal ? .provider(provider) : .semantic(self)
+        // DeepSeek's ring visualizes balance depletion, so its palette must stay
+        // stable while collection state is communicated by text and symbols.
+        if provider == .deepSeek {
+            return .provider(provider)
+        }
+        return self == .normal ? .provider(provider) : .semantic(self)
     }
 
     func accentStyle(for provider: UsageProvider) -> AnyShapeStyle {

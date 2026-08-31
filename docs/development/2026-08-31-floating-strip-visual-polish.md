@@ -30,7 +30,7 @@
 | Codex | `#FF6FAE → #A96DFF` |
 | DeepSeek | `#54EDC6 → #7769FF` |
 
-统一解析器只在 `UsageSemantic.normal` 时返回品牌渐变。warning、critical、stale 和 unavailable 继续使用警告黄、严重红、缓存橙和不可用灰，并保留非颜色状态符号。
+统一解析器在 `UsageSemantic.normal` 时返回品牌渐变。Claude 和 Codex 的 warning、critical、stale 与 unavailable 继续使用警告黄、严重红、缓存橙和不可用灰，并保留非颜色状态符号。DeepSeek 的圆环承担“相对 ¥100 余额基准的已消耗比例”含义，因此始终保留原有 `#54EDC6 → #7769FF` 薄荷紫渐变；采集状态改由详情文字、状态符号和无障碍描述表达，避免缓存超时把品牌和余额进度误显示为橙色。
 
 品牌色已经同步到：
 
@@ -88,6 +88,6 @@ Logo 资源、Logo 光学校正、圆环尺寸、详情布局和所有数据采�
 - 左右轮廓正确镜像，验收后恢复默认 Right；
 - Settings 菜单可正常打开设置窗口，Automatic/Left/Right 与 8 秒自动隐藏选项仍可用；
 - 只读演示模式显示 Claude 黄、Codex 玫红紫、DeepSeek 薄荷紫三个可辨圆环；
-- 演示数据中的 Claude 73% 正确触发 warning 黄，真实数据中的 DeepSeek 缓存超时正确使用 stale 橙，证明语义状态会覆盖品牌色；
+- 演示数据中的 Claude 73% 正确触发 warning 黄；DeepSeek 无论正常、余额告警或缓存超时都保留原薄荷紫渐变，缓存状态通过详情文字和无障碍状态表达；
 - Codex 详情可由 Logo 打开；自动隐藏保持 8 秒设置并由既有会话测试覆盖，三个详情组件均通过编译和共享颜色解析器的真实 SwiftUI 渲染测试；
 - 安装版已恢复真实采集模式，未在日志中保存凭证、OAuth URL、Cookie 或账户原始响应。

@@ -145,17 +145,27 @@ struct VisualSystemTests {
         #expect(Set(UsageProvider.allCases.map(\.accentPalette)).count == 3)
     }
 
-    @Test("Semantic states override provider identity colors")
+    @Test("DeepSeek always keeps its balance palette while other providers use semantic overrides")
     func semanticAccentPrecedence() {
+        for semantic in [
+            UsageSemantic.normal,
+            .warning,
+            .critical,
+            .stale,
+            .unavailable,
+        ] {
+            #expect(semantic.accentRole(for: .deepSeek) == .provider(.deepSeek))
+        }
+
+        #expect(UsageSemantic.normal.accentRole(for: .claude) == .provider(.claude))
         #expect(UsageSemantic.normal.accentRole(for: .codex) == .provider(.codex))
         for semantic in [UsageSemantic.warning, .critical, .stale, .unavailable] {
-            for provider in UsageProvider.allCases {
-                #expect(semantic.accentRole(for: provider) == .semantic(semantic))
-            }
+            #expect(semantic.accentRole(for: .claude) == .semantic(semantic))
+            #expect(semantic.accentRole(for: .codex) == .semantic(semantic))
         }
     }
 
-    @Test("Normal progress bars use provider colors while warnings stay semantic")
+    @Test("DeepSeek progress stays branded while other warning bars stay semantic")
     @MainActor
     func providerProgressBarColors() throws {
         let normalColors = try UsageProvider.allCases.map {
@@ -163,10 +173,15 @@ struct VisualSystemTests {
         }
         #expect(Set(normalColors).count == 3)
 
-        let warningColors = try UsageProvider.allCases.map {
-            try progressBarPixel(provider: $0, semantic: .warning)
-        }
-        #expect(Set(warningColors).count == 1)
+        let claudeWarning = try progressBarPixel(provider: .claude, semantic: .warning)
+        let codexWarning = try progressBarPixel(provider: .codex, semantic: .warning)
+        let deepSeekWarning = try progressBarPixel(provider: .deepSeek, semantic: .warning)
+        #expect(claudeWarning == codexWarning)
+        #expect(deepSeekWarning != claudeWarning)
+
+        let deepSeekNormal = try progressBarPixel(provider: .deepSeek, semantic: .normal)
+        let deepSeekStale = try progressBarPixel(provider: .deepSeek, semantic: .stale)
+        #expect(deepSeekStale == deepSeekNormal)
     }
 
     @MainActor
