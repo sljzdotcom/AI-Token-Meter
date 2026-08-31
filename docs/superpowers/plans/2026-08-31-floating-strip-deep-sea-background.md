@@ -30,7 +30,7 @@
 - 创建：`Sources/AIMeterApp/Views/FloatingStripBackground.swift`
 - 测试：`Tests/AIMeterAppTests/VisualSystemTests.swift`
 
-- [ ] **步骤 1：先编写资源缺失时失败的测试**
+- [x] **步骤 1：先编写资源缺失时失败的测试**
 
 在 `VisualSystemTests` 中引入 AppKit，并添加：
 
@@ -45,7 +45,7 @@ func floatingBackgroundResource() throws {
 }
 ```
 
-- [ ] **步骤 2：运行专项测试并确认红灯**
+- [x] **步骤 2：运行专项测试并确认红灯**
 
 运行：
 
@@ -55,7 +55,7 @@ swift test --filter VisualSystemTests.floatingBackgroundResource
 
 预期：编译失败，提示 `FloatingStripBackgroundAsset` 不存在；不得通过跳过或删除断言绕开失败。
 
-- [ ] **步骤 3：加入最小资源定位器和 SwiftPM 资源声明**
+- [x] **步骤 3：加入最小资源定位器和 SwiftPM 资源声明**
 
 在 `Package.swift` 的 `AIMeterApp` resources 中同时复制 Logo 和背景目录：
 
@@ -89,7 +89,7 @@ enum FloatingStripBackgroundAsset {
 }
 ```
 
-- [ ] **步骤 4：生成不含控件的最终背景资源**
+- [x] **步骤 4：生成不含控件的最终背景资源**
 
 使用已确认的 C 方案作为视觉依据，通过内置图像生成工具制作纯背景：
 
@@ -103,7 +103,7 @@ Constraints: background texture only; no widget silhouette, no logos, no rings, 
 
 将选定输出复制到项目资源目录，并机械裁切/缩放为至少 `324 × 1068` 像素，保持 `108:356` 纵横比。不得覆盖生成工具中的原始输出；项目只保留最终选定版本。
 
-- [ ] **步骤 5：检查资源尺寸、色彩和内容**
+- [x] **步骤 5：检查资源尺寸、色彩和内容**
 
 运行：
 
@@ -114,7 +114,7 @@ sips -g pixelWidth -g pixelHeight -g format \
 
 预期：PNG，宽度至少 324、高度至少 1068；肉眼检查图片只含黑蓝大幅波纹，没有 Logo、圆环、文字和细碎装饰。
 
-- [ ] **步骤 6：运行资源测试确认绿灯**
+- [x] **步骤 6：运行资源测试确认绿灯**
 
 运行：
 
@@ -124,7 +124,7 @@ swift test --filter VisualSystemTests.floatingBackgroundResource
 
 预期：测试通过，SwiftPM 测试资源包能找到并解码背景图片。
 
-- [ ] **步骤 7：提交资源交付物**
+- [x] **步骤 7：提交资源交付物**
 
 ```bash
 git add Package.swift \
@@ -141,7 +141,7 @@ git commit -m "feat: add deep sea floating strip background asset"
 - 修改：`Sources/AIMeterApp/Views/FloatingStripShape.swift`
 - 测试：`Tests/AIMeterAppTests/VisualSystemTests.swift`
 
-- [ ] **步骤 1：编写镜像、回退和外部透明度测试**
+- [x] **步骤 1：编写镜像、回退和外部透明度测试**
 
 在 `VisualSystemTests` 中增加：
 
@@ -170,7 +170,7 @@ func floatingBackgroundFallback() throws {
 
 将现有 `floatingSurfacePaintsAttachedEdgeAndBody` 和 `floatingSurfaceHasNoExteriorShadow` 保留为使用真实资源的集成渲染检查。
 
-- [ ] **步骤 2：运行专项测试并确认红灯**
+- [x] **步骤 2：运行专项测试并确认红灯**
 
 运行：
 
@@ -180,7 +180,7 @@ swift test --filter VisualSystemTests
 
 预期：新增测试因缺少 `FloatingStripBackgroundPresentation` 和可注入的 `backgroundImage` 初始化器而失败；既有短肩测试保持通过。
 
-- [ ] **步骤 3：实现最小镜像策略与背景合成**
+- [x] **步骤 3：实现最小镜像策略与背景合成**
 
 在 `FloatingStripBackground.swift` 中增加：
 
@@ -233,7 +233,7 @@ struct FloatingStripSurface: View {
 
 从 `FloatingStripShape.swift` 删除旧的 `FloatingStripSurface`，该文件只保留几何路径。不得将镜像应用到 `FloatingStripView` 的外层 `ZStack`，否则会错误镜像 Logo 和圆环。
 
-- [ ] **步骤 4：运行视觉专项测试确认绿灯**
+- [x] **步骤 4：运行视觉专项测试确认绿灯**
 
 运行：
 
@@ -245,7 +245,7 @@ swift test --filter FloatingStripPointerDragStateTests
 
 预期：资源、回退、透明肩部、左右策略、短肩轮廓、品牌配色和拖动相关测试全部通过。
 
-- [ ] **步骤 5：渲染左右静态快照并人工检查**
+- [x] **步骤 5：渲染左右静态快照并人工检查**
 
 在测试或临时预览中分别渲染 `.right` 和 `.left` 的 `108 × 356` 表面，检查：
 
@@ -257,7 +257,7 @@ swift test --filter FloatingStripPointerDragStateTests
 
 若可读性不足，只允许微调 `scrimOpacity`，每次改动后重新运行 `VisualSystemTests`；不得改 Provider 颜色补偿背景。
 
-- [ ] **步骤 6：提交合成与镜像交付物**
+- [x] **步骤 6：提交合成与镜像交付物**
 
 ```bash
 git add Sources/AIMeterApp/Views/FloatingStripBackground.swift \
@@ -274,7 +274,7 @@ git commit -m "feat: render mirrored deep sea strip background"
 - 创建：`docs/development/2026-08-31-floating-strip-deep-sea-background.md`
 - 修改：`docs/superpowers/specs/2026-08-31-floating-strip-deep-sea-background-design.md`
 
-- [ ] **步骤 1：运行完整自动化测试**
+- [x] **步骤 1：运行完整自动化测试**
 
 运行：
 
@@ -284,7 +284,7 @@ bash scripts/test.sh
 
 预期：全部非环境门控测试通过，0 失败；记录测试数、测试组数和按设计跳过的真实 CLI/钥匙串集成检查数。
 
-- [ ] **步骤 2：构建并验证发布包**
+- [x] **步骤 2：构建并验证发布包**
 
 运行：
 
@@ -297,11 +297,11 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：构建退出码 0，签名无错误，Info.plist 为 `OK`；记录发布包可执行文件 SHA-256。
 
-- [ ] **步骤 3：安全安装候选版并启动**
+- [x] **步骤 3：安全安装候选版并启动**
 
 完整退出当前 AI Meter，将 `/Applications/AI Meter.app` 移到带时间戳的 `/private/tmp` 备份目录，再使用 `ditto` 安装候选包并启动。安装后再次核对签名、Info.plist，以及候选包与安装包的 SHA-256 完全相同。
 
-- [ ] **步骤 4：完成真实 UI 验收**
+- [x] **步骤 4：完成真实 UI 验收**
 
 使用 macOS Computer Use 与截图依次验证：
 
@@ -315,7 +315,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 8. 浅色与深色桌面壁纸上均无背景溢出、黑色阴影或贴边接缝；
 9. 验收后恢复用户原有贴边方向和垂直位置。
 
-- [ ] **步骤 5：补全文档和变更日志**
+- [x] **步骤 5：补全文档和变更日志**
 
 文档必须记录：
 
@@ -327,7 +327,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 将设计规格状态更新为“已实施并验收”，README 只补充用户可见功能，CHANGELOG 使用一条清晰的 Added/Changed 记录。
 
-- [ ] **步骤 6：提交文档检查点**
+- [x] **步骤 6：提交文档检查点**
 
 ```bash
 git add README.md CHANGELOG.md \
@@ -337,7 +337,7 @@ git add README.md CHANGELOG.md \
 git commit -m "docs: record deep sea strip background acceptance"
 ```
 
-- [ ] **步骤 7：完成前最终验证**
+- [x] **步骤 7：完成前最终验证**
 
 运行：
 
