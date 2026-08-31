@@ -34,7 +34,7 @@
 - 修改：`Sources/AIMeterApp/Views/FloatingStripShape.swift`
 - 必要时修改：`Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`
 
-- [ ] **步骤 1：编写失败的轮廓与无阴影测试**
+- [x] **步骤 1：编写失败的轮廓与无阴影测试**
 
 把 `floatingStripSCurveShoulders()` 的肩部断言补充为新收直区域的内外点，并新增透明像素测试：
 
@@ -70,7 +70,7 @@ func floatingSurfaceHasNoExteriorShadow() throws {
 }
 ```
 
-- [ ] **步骤 2：运行专项测试并验证红灯**
+- [x] **步骤 2：运行专项测试并验证红灯**
 
 运行：
 
@@ -80,7 +80,7 @@ bash scripts/test.sh --filter VisualSystemTests
 
 预期：旧路径在 `y = 94/100` 已进入竖直主体，且旧实现会让 `(0, 94)` 产生 alpha，因此新增断言失败。`(0, 100)` 只用于几何测试，避免把曲线边缘的正常抗锯齿误判成阴影。
 
-- [ ] **步骤 3：实现三段肩部并移除外投影**
+- [x] **步骤 3：实现三段肩部并移除外投影**
 
 把顶部第二段替换为两段曲线：
 
@@ -115,7 +115,7 @@ FloatingStripShape(edge: edge)
     .fill(AIMeterVisualTheme.floatingGlass)
 ```
 
-- [ ] **步骤 4：运行轮廓与拖动专项测试**
+- [x] **步骤 4：运行轮廓与拖动专项测试**
 
 运行：
 
@@ -127,7 +127,7 @@ bash scripts/test.sh --filter FloatingStripPointerDragStateTests
 
 预期：新轮廓、透明外肩、左右镜像、Logo 排除和玻璃拖动全部通过。若旧拖动夹具落在新的透明肩部，只把该采样点移动到新路径内，禁止改变三个 Logo 的排除框尺寸。
 
-- [ ] **步骤 5：提交几何检查点**
+- [x] **步骤 5：提交几何检查点**
 
 ```bash
 git add Sources/AIMeterApp/Views/FloatingStripShape.swift Tests/AIMeterAppTests/VisualSystemTests.swift Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift
@@ -140,7 +140,7 @@ git commit -m "fix: smooth floating strip shoulders"
 - 创建：`Sources/AIMeterApp/Views/ProviderAccentPalette.swift`
 - 修改：`Tests/AIMeterAppTests/VisualSystemTests.swift`
 
-- [ ] **步骤 1：编写失败的品牌色映射测试**
+- [x] **步骤 1：编写失败的品牌色映射测试**
 
 在 `VisualSystemTests` 中新增：
 
@@ -164,7 +164,7 @@ func semanticAccentPrecedence() {
 }
 ```
 
-- [ ] **步骤 2：运行测试并验证编译红灯**
+- [x] **步骤 2：运行测试并验证编译红灯**
 
 运行：
 
@@ -174,7 +174,7 @@ bash scripts/test.sh --filter VisualSystemTests/providerBrandPalettes
 
 预期：编译失败，报告 `accentPalette`、`AIMeterProviderPalette` 或 `accentRole` 尚不存在。
 
-- [ ] **步骤 3：实现可测试的主题 token 和统一解析器**
+- [x] **步骤 3：实现可测试的主题 token 和统一解析器**
 
 创建 `ProviderAccentPalette.swift`：
 
@@ -236,7 +236,7 @@ private extension Color {
 }
 ```
 
-- [ ] **步骤 4：运行映射和语义专项测试**
+- [x] **步骤 4：运行映射和语义专项测试**
 
 运行：
 
@@ -247,7 +247,7 @@ bash scripts/test.sh --filter VisualSystemTests/semanticAccentPrecedence
 
 预期：精确色值、三个唯一配色以及四种异常状态优先级全部通过。
 
-- [ ] **步骤 5：提交主题基础检查点**
+- [x] **步骤 5：提交主题基础检查点**
 
 ```bash
 git add Sources/AIMeterApp/Views/ProviderAccentPalette.swift Tests/AIMeterAppTests/VisualSystemTests.swift
@@ -266,7 +266,7 @@ git commit -m "feat: add provider accent palettes"
 - 修改：`Sources/AIMeterApp/Views/DeepSeekAnalyticsView.swift`
 - 修改：`Tests/AIMeterAppTests/VisualSystemTests.swift`
 
-- [ ] **步骤 1：编写失败的进度条渲染差异与语义覆盖测试**
+- [x] **步骤 1：编写失败的进度条渲染差异与语义覆盖测试**
 
 新增一个返回进度条中心像素 RGB 的测试辅助方法，并新增：
 
@@ -288,7 +288,7 @@ func providerProgressBarColors() throws {
 
 `progressBarPixel` 使用 `ImageRenderer` 绘制 `AIMeterProgressBar(provider:fraction:semantic:)` 的 `120 × 5` 视图，并读取 `(60, 2)` 的 RGB，不包含 alpha。
 
-- [ ] **步骤 2：运行测试并验证编译红灯**
+- [x] **步骤 2：运行测试并验证编译红灯**
 
 运行：
 
@@ -298,7 +298,7 @@ bash scripts/test.sh --filter VisualSystemTests/providerProgressBarColors
 
 预期：编译失败，因为 `AIMeterProgressBar` 还没有 `provider` 参数。
 
-- [ ] **步骤 3：让圆环和通用进度条使用统一解析器**
+- [x] **步骤 3：让圆环和通用进度条使用统一解析器**
 
 把进度条签名改为：
 
@@ -322,11 +322,11 @@ private var ringStyle: AnyShapeStyle {
 }
 ```
 
-- [ ] **步骤 4：同步菜单卡片和 Claude 紧凑详情**
+- [x] **步骤 4：同步菜单卡片和 Claude 紧凑详情**
 
 在 `ProviderCard` 中让标题使用 `snapshot.provider.accentPalette.gradient`，让主值使用 `presentation.semantic.accentStyle(for: snapshot.provider)`。在 `FloatingDetailView.compactDetail` 中同样处理标题与主值，并给 `AIMeterProgressBar` 传入 `snapshot.provider`；次级百分比也使用相同解析后的样式。
 
-- [ ] **步骤 5：同步 Codex 详情和充值券卡片**
+- [x] **步骤 5：同步 Codex 详情和充值券卡片**
 
 在 `CodexDetailView` 中：
 
@@ -336,11 +336,11 @@ private var ringStyle: AnyShapeStyle {
 
 在 `CodexResetCreditsView` 中用 `.codex.accentPalette.startColor/endColor` 替换正常状态的 `mintAccent/violetAccent`；`today`、`expired` 和 `unavailable` 仍保留橙、红、灰状态色。
 
-- [ ] **步骤 6：同步 DeepSeek 详情**
+- [x] **步骤 6：同步 DeepSeek 详情**
 
 在 `DeepSeekAnalyticsView` 中让标题、余额、统计卡关键数值和柱状图使用 `presentation.semantic.accentStyle(for: .deepSeek)`；登录 WebView 描边使用 `.deepSeek.accentPalette.startColor.opacity(0.42)`。不得更改图表数据、登录会话或自动隐藏逻辑。
 
-- [ ] **步骤 7：运行品牌视觉专项测试**
+- [x] **步骤 7：运行品牌视觉专项测试**
 
 运行：
 
@@ -350,7 +350,7 @@ bash scripts/test.sh --filter VisualSystemTests
 
 预期：三个正常进度条颜色不同，三种 warning 进度条颜色相同；精确 palette、语义符号、几何、无阴影和 App Icon 测试全部通过。
 
-- [ ] **步骤 8：提交界面同步检查点**
+- [x] **步骤 8：提交界面同步检查点**
 
 ```bash
 git add Sources/AIMeterApp/Views/AIMeterVisualTheme.swift Sources/AIMeterApp/Views/UsageRing.swift Sources/AIMeterApp/Views/ProviderCard.swift Sources/AIMeterApp/Views/FloatingStripView.swift Sources/AIMeterApp/Views/CodexDetailView.swift Sources/AIMeterApp/Views/CodexResetCreditsView.swift Sources/AIMeterApp/Views/DeepSeekAnalyticsView.swift Tests/AIMeterAppTests/VisualSystemTests.swift
@@ -364,7 +364,7 @@ git commit -m "feat: sync provider colors across the interface"
 - 修改：`CHANGELOG.md`
 - 修改：`docs/design/specifications/2026-08-31-floating-strip-corner-shadow-design.md`
 
-- [ ] **步骤 1：记录开发与用户可见变更**
+- [x] **步骤 1：记录开发与用户可见变更**
 
 开发记录必须包含：旧曲率突然归零与 34% 黑色偏移阴影的根因、方案 A 轮廓坐标、方案 C Codex 配色、三个 palette、红灯和绿灯测试命令、最终测试数量、Release 签名、备份目录、安装哈希和人工验收结果。不得写入 API Key、OAuth URL、账户原始响应或短信内容。
 
@@ -377,7 +377,7 @@ git commit -m "feat: sync provider colors across the interface"
 
 把规格状态改为 `已实施并验收`。
 
-- [ ] **步骤 2：运行完整自动化测试**
+- [x] **步骤 2：运行完整自动化测试**
 
 运行：
 
@@ -387,7 +387,7 @@ bash scripts/test.sh
 
 预期：基线 148 项加本次新增测试全部通过，0 个失败；环境门控的真实 CLI smoke 测试可保持 skip。
 
-- [ ] **步骤 3：构建并验证 Release App**
+- [x] **步骤 3：构建并验证 Release App**
 
 运行：
 
@@ -399,18 +399,18 @@ plutil -lint "dist/AI Meter.app/Contents/Info.plist"
 
 预期：`dist/AI Meter.app` 构建成功、签名有效、Info.plist 有效。
 
-- [ ] **步骤 4：提交文档与发布候选检查点**
+- [x] **步骤 4：提交文档与发布候选检查点**
 
 ```bash
 git add CHANGELOG.md docs/development/2026-08-31-floating-strip-visual-polish.md docs/design/specifications/2026-08-31-floating-strip-corner-shadow-design.md docs/superpowers/plans/2026-08-31-floating-strip-visual-polish.md
 git commit -m "docs: record floating strip visual polish"
 ```
 
-- [ ] **步骤 5：安全替换已安装 App**
+- [x] **步骤 5：安全替换已安装 App**
 
 退出当前 AI Meter，把 `/Applications/AI Meter.app` 移动到带时间戳的 `/private/tmp/AI Meter.app.pre-visual-polish-*` 目录，再把 `dist/AI Meter.app` 复制到 `/Applications`。验证新安装可执行文件与 `dist` 可执行文件的 SHA-256 完全相同，然后启动安装版。
 
-- [ ] **步骤 6：完成真实 UI 验收**
+- [x] **步骤 6：完成真实 UI 验收**
 
 在浅色桌面背景上逐项确认：
 
@@ -422,6 +422,6 @@ git commit -m "docs: record floating strip visual polish"
 6. 上部、圆环间和下部可拖动，Logo 点击只打开详情；
 7. 菜单栏 Settings 可打开设置，Automatic/Left/Right 仍正常。
 
-- [ ] **步骤 7：合并回 `main` 并做合并后验证**
+- [x] **步骤 7：合并回 `main` 并做合并后验证**
 
 确认功能分支干净后，在主工作区快进或无冲突合并 `codex/visual-polish`。随后在 `main` 运行 `bash scripts/test.sh`，确认测试数量与功能分支一致，再记录最终合并提交和安装哈希。

@@ -72,6 +72,8 @@ UserDefaults ────────────> UI preferences / threshold st
 - 保存用户设置；
 - 向窗口、通知和菜单栏发布状态。
 
+视图主题层由 `ProviderAccentPalette` 集中映射 Claude、Codex 和 DeepSeek 的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
+
 ### FloatingPanelController
 
 负责无标题悬浮窗口、屏幕右侧定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。右侧悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude、Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
