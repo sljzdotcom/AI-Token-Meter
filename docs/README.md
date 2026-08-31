@@ -23,6 +23,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [下一阶段需求](next-phase-requirements.md) | 已登记但尚未进入设计与实现的新功能、产品调整与待确认事项 |
 | [开发环境](development/setup.md) | 工具链、运行、Demo 模式和编码约定 |
 | [测试指南](development/testing.md) | 普通测试、真实 CLI 冒烟测试、打包验证 |
 | [发布流程](development/release-process.md) | 版本号、变更日志、构建、签名和发布检查清单 |
@@ -46,4 +47,3 @@
 3. 新增或移动源码目录必须更新 `architecture/repository-structure.md`。
 4. 每个可验收开发阶段应写入按日期命名的开发日志，并在 `development/README.md` 建立入口。
 5. 发布前必须检查所有相对链接、示例命令、版本号和系统要求。
-
