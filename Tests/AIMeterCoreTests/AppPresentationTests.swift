@@ -226,6 +226,53 @@ struct AppPresentationTests {
         #expect(presentation.longestSessionText == "1h 52m")
     }
 
+    @Test("Orders reset credits and explains expiration by local calendar day")
+    func presentsResetCredits() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_788_048_000)
+        let summary = CodexResetCreditsSummary(
+            availableCount: 4,
+            credits: [
+                CodexResetCreditDisplay(title: "Unknown", expiresAt: nil),
+                CodexResetCreditDisplay(title: "Later", expiresAt: now.addingTimeInterval(3 * 86_400)),
+                CodexResetCreditDisplay(title: "Today", expiresAt: now.addingTimeInterval(3_600)),
+                CodexResetCreditDisplay(title: "Expired", expiresAt: now.addingTimeInterval(-86_400)),
+            ],
+            hasCompleteDetails: true
+        )
+
+        let presentation = CodexResetCreditsPresentation(
+            summary: summary,
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(presentation.availableText == "4 available")
+        #expect(presentation.rows.map(\.title) == ["Expired", "Today", "Later", "Unknown"])
+        #expect(presentation.rows.map(\.statusText) == [
+            "Expired",
+            "Expires today",
+            "3 days remaining",
+            "Expiration unavailable",
+        ])
+    }
+
+    @Test("Marks incomplete reset credit details without inventing rows")
+    func identifiesIncompleteResetCredits() {
+        let summary = CodexResetCreditsSummary(
+            availableCount: 2,
+            credits: [CodexResetCreditDisplay(title: nil, expiresAt: nil)],
+            hasCompleteDetails: false
+        )
+
+        let presentation = CodexResetCreditsPresentation(summary: summary)
+
+        #expect(presentation.rows.count == 1)
+        #expect(presentation.rows[0].title == "Usage reset")
+        #expect(presentation.showsIncompleteDetails)
+    }
+
     private func usageSnapshot(provider: UsageProvider, fraction: Double) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,

@@ -167,7 +167,16 @@ final class FloatingPanelController {
         let detailSize: NSSize
         switch session.selectedProvider {
         case .deepSeek: detailSize = NSSize(width: 620, height: 520)
-        case .codex: detailSize = NSSize(width: 390, height: 470)
+        case .codex:
+            let creditCount = model.snapshots.first(where: { $0.provider == .codex })?
+                .codexResetCredits?.credits.count ?? 0
+            detailSize = NSSize(
+                width: 390,
+                height: CodexDetailPanelLayout.height(
+                    creditCount: creditCount,
+                    availableHeight: visibleFrame.height
+                )
+            )
         case .claude, .none: detailSize = NSSize(width: 300, height: 260)
         }
         let detailOriginX = max(visibleFrame.minX + 8, stripFrame.minX - detailSize.width - 10)

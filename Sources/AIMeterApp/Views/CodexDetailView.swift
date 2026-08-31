@@ -13,9 +13,7 @@ struct CodexDetailView: View {
             header
             quotaSection
             if let credits = snapshot.codexResetCredits {
-                CodexResetCreditsView(summary: credits)
-                    .padding(11)
-                    .background(cardBackground)
+                CodexResetCreditsView(summary: credits, mode: .detail)
             }
             Divider().overlay(Color.white.opacity(0.12))
             localSection
