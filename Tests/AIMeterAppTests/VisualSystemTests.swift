@@ -31,11 +31,17 @@ struct VisualSystemTests {
         #expect(!right.contains(CGPoint(x: 45, y: 45)))
         #expect(right.contains(CGPoint(x: 70, y: 348)))
         #expect(!right.contains(CGPoint(x: 45, y: 311)))
+        #expect(right.contains(CGPoint(x: 70, y: 178)))
+        #expect(right.contains(CGPoint(x: 106, y: 178)))
+        #expect(!right.contains(CGPoint(x: 109, y: 178)))
 
         #expect(left.contains(CGPoint(x: 38, y: 8)))
         #expect(!left.contains(CGPoint(x: 63, y: 45)))
         #expect(left.contains(CGPoint(x: 38, y: 348)))
         #expect(!left.contains(CGPoint(x: 63, y: 311)))
+        #expect(left.contains(CGPoint(x: 38, y: 178)))
+        #expect(left.contains(CGPoint(x: 2, y: 178)))
+        #expect(!left.contains(CGPoint(x: -1, y: 178)))
     }
 
     @Test("Panel, card, and capsule geometry forms a strict hierarchy")
