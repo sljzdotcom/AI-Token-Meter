@@ -12,6 +12,7 @@ struct MenuBarLabel: View {
 
 struct MenuBarPanel: View {
     @Bindable var model: AppModel
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 14) {
@@ -81,7 +82,14 @@ struct MenuBarPanel: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            SettingsLink {
+            Button {
+                SettingsPresentationCommand(
+                    activateApplication: {
+                        NSApplication.shared.activate(ignoringOtherApps: true)
+                    },
+                    openSettings: { openSettings() }
+                ).perform()
+            } label: {
                 Image(systemName: "gearshape")
             }
             .buttonStyle(.borderless)
