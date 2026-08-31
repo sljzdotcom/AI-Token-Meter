@@ -2,7 +2,7 @@
 
 **日期：** 2026-08-31
 
-**状态：** 规格已确认，待实施计划
+**状态：** 已实施并验收
 
 **基础分支：** `codex/deep-sea-background`
 
@@ -172,3 +172,11 @@ AI Meter 当前主要使用 SwiftUI 的 macOS 系统字体 San Francisco；部�
 ## 12. 完成标准
 
 Settings 稳定提供 System Default、Antonio、DIN Condensed 三个选择和恢复默认按钮；可用字体切换即时覆盖 AI Meter 全部自绘文字，缺失字体安全回退；新旧用户默认保持系统字体，当前机器最终选择 Antonio；完整自动化、Release 构建、安装和真实 UI 验收通过，相关文档与 Git 记录完整。
+
+## 13. 实施与验收摘要
+
+- 领域、持久化、语义字体环境、全视图迁移和 Settings 控件分别由 `030f69d`、`ddd23f4`、`5685d91` 交付，并保留了逐阶段 TDD 红绿证据。
+- 2026-08-31 的最终验证通过 166 个测试、35 个测试套件、0 失败；4 个依赖本机 Keychain/已安装 CLI 的检查按环境门控跳过。
+- Release App Bundle 构建、ad-hoc 签名和 Info.plist 校验通过；候选版与 `/Applications/AI Meter.app` 的可执行文件 SHA-256 均为 `ca8a83ea29abb5f761dced018e9f664053311d4c28f939546f59200ec1822052`。
+- 旧安装包可从 `/private/tmp/AI-Meter-app-backup-20260831-230934/AI Meter.app` 恢复。
+- 实机依次完成 System Default、Antonio、DIN Condensed、恢复默认、再次选择 Antonio 和重启持久化；最终保持 Antonio，浮岛恢复右侧 97%。Computer Use 能验证 Settings、选择状态、Provider 详情开关和浮岛辅助功能/视觉状态，但其窗口级截图不包含非激活详情 NSPanel 或菜单栏弹窗，因此这些面板的像素级截图未能自动采集；语义字体扫描、布局/视觉回归和可访问性状态作为补充证据。

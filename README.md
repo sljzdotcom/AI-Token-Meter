@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 156](https://img.shields.io/badge/tests-156%20passed-2ea44f)
+![Tests 166](https://img.shields.io/badge/tests-166%20passed-2ea44f)
 
 AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -20,6 +20,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 - Claude、Codex、DeepSeek 分别使用黄橙、玫红紫、薄荷紫强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
+- 全局显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；默认仍为 macOS 系统字体，并可一键恢复。
 - Claude：读取当前会话与周额度，显示重置时间。
 - Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
@@ -68,7 +69,9 @@ open "dist/AI Meter.app"
 3. 确认 Claude Code 与 Codex CLI 已分别登录；如 Claude 提示工作区设置，点击一次性设置按钮并在终端批准。
 4. 如需 DeepSeek，在设置中保存 API Key，并把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
-6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间和浮岛侧边模式。
+6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。
+
+Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。
 
 ## 如何理解圆环
 

@@ -22,6 +22,18 @@
 
 键盘或 VoiceOver 用户可聚焦浮岛玻璃表面：上/下方向键按 10% 步进移动，左/右方向键会明确把侧边偏好设为 Left/Right；VoiceOver 也提供同名自定义动作并朗读当前侧边与垂直位置。
 
+### Display font
+
+- **System Default（默认）**：使用 macOS 系统字体 San Francisco，并保留界面原有的 Rounded 设计请求。
+- **Antonio**：使用本机已经安装的 Antonio 字体家族。
+- **DIN Condensed**：使用本机已经安装的 DIN Condensed 字体家族。
+- 切换会立即应用到当前 Settings、菜单面板、浮岛状态文字和 Provider 详情，不需要退出或重新打开窗口。
+- `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
+- Antonio 或 DIN Condensed 未安装时，对应选项仍会显示 `Not installed`，但不能选择。已保存的自定义字体临时不可用时，AI Meter 会安全回退到系统字体，不会覆盖已保存选择。
+- AI Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。
+
+字体选择只影响 AI Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
+
 ### Detail auto-hide
 
 - 可选：3、5、8、15、30 秒。
@@ -67,7 +79,7 @@
 | 内容 | 保存位置/机制 | 敏感性 |
 | --- | --- | --- |
 | DeepSeek API Key | macOS Keychain | 敏感，不进入普通偏好或缓存 |
-| 外观、通知、基准、自动隐藏时间与浮岛位置 | `UserDefaults` | 非敏感 |
+| 外观（含显示字体）、通知、基准、自动隐藏时间与浮岛位置 | `UserDefaults` | 非敏感 |
 | 最近一次统一用量快照 | `Application Support/AI Meter` | 非敏感，写入前清理敏感文本 |
 | DeepSeek 标准化每日用量 | `Application Support/AI Meter` | 非敏感聚合数据 |
 | DeepSeek 官网登录会话 | App 隔离 WebKit 数据存储 | 敏感会话，由 WebKit 管理，不写入业务缓存 |

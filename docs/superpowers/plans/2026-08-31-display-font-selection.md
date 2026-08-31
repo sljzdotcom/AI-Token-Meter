@@ -39,7 +39,7 @@
 - 修改：`Sources/AIMeterApp/AppModel.swift`
 - 修改：`Tests/AIMeterAppTests/AppModelStartupTests.swift`
 
-- [ ] **步骤 1：编写字体偏好失败测试**
+- [x] **步骤 1：编写字体偏好失败测试**
 
 创建 `DisplayFontPreferenceTests.swift`：
 
@@ -87,7 +87,7 @@ struct DisplayFontPreferenceTests {
 }
 ```
 
-- [ ] **步骤 2：运行测试确认红灯**
+- [x] **步骤 2：运行测试确认红灯**
 
 运行：
 
@@ -97,7 +97,7 @@ swift test --filter DisplayFontPreferenceTests
 
 预期：编译失败，提示 `DisplayFontChoice` 与 `DisplayFontPreferenceStore` 不存在。
 
-- [ ] **步骤 3：实现最小领域与存储**
+- [x] **步骤 3：实现最小领域与存储**
 
 在 `DisplayFontChoice.swift` 实现：
 
@@ -139,7 +139,7 @@ public struct DisplayFontPreferenceStore {
 }
 ```
 
-- [ ] **步骤 4：运行核心测试确认绿灯**
+- [x] **步骤 4：运行核心测试确认绿灯**
 
 运行：
 
@@ -149,7 +149,7 @@ swift test --filter DisplayFontPreferenceTests
 
 预期：3 项测试全部通过。
 
-- [ ] **步骤 5：编写 AppModel 字体状态失败测试**
+- [x] **步骤 5：编写 AppModel 字体状态失败测试**
 
 在 `AppModelStartupTests` 增加：
 
@@ -174,7 +174,7 @@ func displayFontPreference() {
 }
 ```
 
-- [ ] **步骤 6：运行 AppModel 测试确认红灯**
+- [x] **步骤 6：运行 AppModel 测试确认红灯**
 
 运行：
 
@@ -184,7 +184,7 @@ swift test --filter AppModelStartupTests
 
 预期：编译失败，提示 `displayFontChoice`、`setDisplayFontChoice` 和 `restoreDefaultDisplayFont` 不存在。
 
-- [ ] **步骤 7：把偏好接入 AppModel**
+- [x] **步骤 7：把偏好接入 AppModel**
 
 在 `AppModel` 中：
 
@@ -208,7 +208,7 @@ func restoreDefaultDisplayFont() {
 
 不得把字体可用性放进 AppModel；AppKit 可用性属于表现层。
 
-- [ ] **步骤 8：运行任务 1 测试确认绿灯并提交**
+- [x] **步骤 8：运行任务 1 测试确认绿灯并提交**
 
 运行：
 
@@ -242,7 +242,7 @@ git commit -m "feat: persist global display font preference"
 - 修改：`Sources/AIMeterApp/Views/DeepSeekAnalyticsView.swift`
 - 修改：`Sources/AIMeterApp/Views/UsageRing.swift`
 
-- [ ] **步骤 1：编写字体目录和解析失败测试**
+- [x] **步骤 1：编写字体目录和解析失败测试**
 
 创建 `TypographyTests.swift`：
 
@@ -287,7 +287,7 @@ struct TypographyTests {
 }
 ```
 
-- [ ] **步骤 2：运行测试确认红灯**
+- [x] **步骤 2：运行测试确认红灯**
 
 运行：
 
@@ -297,7 +297,7 @@ swift test --filter TypographyTests
 
 预期：编译失败，提示字体目录、解析器和语义样式不存在。
 
-- [ ] **步骤 3：实现最小字体目录与语义解析层**
+- [x] **步骤 3：实现最小字体目录与语义解析层**
 
 创建 `AIMeterTypography.swift`，职责保持集中：
 
@@ -382,7 +382,7 @@ enum AIMeterTypography {
 
 Headline 默认映射 semibold，显式 weight 优先；固定尺寸保留现有 `14`、`15` 和圆环比例尺寸。自定义字体仍传 `relativeTo` 以保留辅助功能文字缩放。
 
-- [ ] **步骤 4：运行字体解析测试确认绿灯**
+- [x] **步骤 4：运行字体解析测试确认绿灯**
 
 运行：
 
@@ -392,7 +392,7 @@ swift test --filter TypographyTests
 
 预期：4 项测试全部通过。
 
-- [ ] **步骤 5：把可观察字体作用域接入全部根视图**
+- [x] **步骤 5：把可观察字体作用域接入全部根视图**
 
 在以下根视图的最外层内容使用：
 
@@ -410,7 +410,7 @@ swift test --filter TypographyTests
 
 `FloatingStripView` 与 `FloatingDetailView` 必须在自己的 `body` 内从 `@Bindable model` 读取选择，不能只在 `NSHostingView` 创建时捕获初始值，否则 AppKit 浮窗不会即时刷新。
 
-- [ ] **步骤 6：机械迁移所有文字字体调用**
+- [x] **步骤 6：机械迁移所有文字字体调用**
 
 把 `Sources/AIMeterApp` 视图中的 `.font(...)` 逐项替换为语义 modifier：
 
@@ -438,7 +438,7 @@ rg -n "\\.font\\(" Sources/AIMeterApp --glob '*.swift'
 
 预期：除 `AIMeterTypography.swift` 内集中构造 `Font` 的代码外无直接 `.font(...)` 调用。
 
-- [ ] **步骤 7：运行视觉、详情和拖动回归**
+- [x] **步骤 7：运行视觉、详情和拖动回归**
 
 运行：
 
@@ -452,7 +452,7 @@ swift test --filter CodexDetailPanelLayoutTests
 
 预期：字体测试、背景镜像、Provider 配色、轮廓、拖动和详情尺寸测试全部通过。
 
-- [ ] **步骤 8：提交语义字体交付物**
+- [x] **步骤 8：提交语义字体交付物**
 
 ```bash
 git add Sources/AIMeterApp/Views/AIMeterTypography.swift \
@@ -475,7 +475,7 @@ git commit -m "feat: apply selectable typography across AI Meter"
 - 修改：`Tests/AIMeterAppTests/TypographyTests.swift`
 - 修改：`Tests/AIMeterAppTests/VisualSystemTests.swift`
 
-- [ ] **步骤 1：编写 Settings 展示模型失败测试**
+- [x] **步骤 1：编写 Settings 展示模型失败测试**
 
 在 `TypographyTests` 增加：
 
@@ -504,7 +504,7 @@ func restoreDefaultFontState() {
 }
 ```
 
-- [ ] **步骤 2：运行测试确认红灯**
+- [x] **步骤 2：运行测试确认红灯**
 
 运行：
 
@@ -515,7 +515,7 @@ swift test --filter VisualSystemTests
 
 预期：编译失败，提示 `DisplayFontSettingsPresentation` 不存在。
 
-- [ ] **步骤 3：实现最小设置展示模型**
+- [x] **步骤 3：实现最小设置展示模型**
 
 在 `AIMeterTypography.swift` 增加：
 
@@ -549,7 +549,7 @@ enum DisplayFontSettingsPresentation {
 }
 ```
 
-- [ ] **步骤 4：在 Appearance 中加入选择器与恢复按钮**
+- [x] **步骤 4：在 Appearance 中加入选择器与恢复按钮**
 
 在 `SettingsView` 的 Appearance 分区加入：
 
@@ -585,7 +585,7 @@ Button("Restore Default Font") {
 
 `.aiMeterFontPreview(_:)` 在 `AIMeterTypography.swift` 内集中调用同一解析器，只用于让选择器每行以自身字体预览；所有其他视图继续使用 `.aiMeterFont`。增加一行 caption 说明切换即时生效、缺失字体需要在 macOS 安装后使用。
 
-- [ ] **步骤 5：运行任务 3 测试和 AppModel 回归**
+- [x] **步骤 5：运行任务 3 测试和 AppModel 回归**
 
 ```bash
 swift test --filter TypographyTests
@@ -595,7 +595,7 @@ swift test --filter AppModelStartupTests
 
 预期：设置展示、恢复规则、偏好即时更新和视觉测试全部通过。
 
-- [ ] **步骤 6：构建调试版并检查 Settings 可访问性树**
+- [x] **步骤 6：构建调试版并检查 Settings 可访问性树**
 
 运行 `swift build` 或 `bash scripts/build-app.sh`，启动候选版后通过 macOS Computer Use 检查 Settings：
 
@@ -604,7 +604,7 @@ swift test --filter AppModelStartupTests
 - 当前机器 Antonio 与 DIN Condensed 均可选择；
 - `Restore Default Font` 的启用状态与当前选择一致。
 
-- [ ] **步骤 7：提交 Settings 交付物**
+- [x] **步骤 7：提交 Settings 交付物**
 
 ```bash
 git add Sources/AIMeterApp/Views/AIMeterTypography.swift \
@@ -625,7 +625,7 @@ git commit -m "feat: add immediate display font controls"
 - 修改：`docs/superpowers/specs/2026-08-31-display-font-selection-design.md`
 - 修改：`docs/superpowers/plans/2026-08-31-display-font-selection.md`
 
-- [ ] **步骤 1：运行完整自动化测试**
+- [x] **步骤 1：运行完整自动化测试**
 
 ```bash
 bash scripts/test.sh
@@ -633,7 +633,7 @@ bash scripts/test.sh
 
 预期：全部非环境门控测试通过，0 失败；记录总测试数、测试组数和按设计跳过数。
 
-- [ ] **步骤 2：构建并验证 Release App Bundle**
+- [x] **步骤 2：构建并验证 Release App Bundle**
 
 ```bash
 bash scripts/build-app.sh
@@ -644,7 +644,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：构建、签名和 plist 校验退出码均为 0；记录候选版 SHA-256。
 
-- [ ] **步骤 3：安全安装候选版**
+- [x] **步骤 3：安全安装候选版**
 
 完全退出 AI Meter，将 `/Applications/AI Meter.app` 移到带时间戳的 `/private/tmp` 备份目录，再用 `ditto` 安装候选版。重新启动后核对：
 
@@ -656,7 +656,7 @@ shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：安装版和候选版指纹完全一致，备份路径可恢复。
 
-- [ ] **步骤 4：完成真实字体切换验收**
+- [x] **步骤 4：完成真实字体切换验收**
 
 按顺序验收并截图：
 
@@ -669,7 +669,7 @@ shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AIMeterApp"
 7. 检查 Logo、SF Symbols、圆环、品牌颜色、深海背景、左右贴边、拖动、详情自动隐藏和 Settings 入口保持原样；
 8. 最终状态保持 Antonio，并恢复用户原有右侧 97% 浮动条位置。
 
-- [ ] **步骤 5：补全文档**
+- [x] **步骤 5：补全文档**
 
 文档必须说明：
 
@@ -682,7 +682,7 @@ shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 把设计规格状态改为“已实施并验收”，将本计划所有已完成步骤勾为 `[x]`。
 
-- [ ] **步骤 6：提交文档检查点**
+- [x] **步骤 6：提交文档检查点**
 
 ```bash
 git add README.md CHANGELOG.md docs/user-guide/settings.md \
@@ -693,7 +693,7 @@ git add README.md CHANGELOG.md docs/user-guide/settings.md \
 git commit -m "docs: record display font selection acceptance"
 ```
 
-- [ ] **步骤 7：完成前最终验证**
+- [x] **步骤 7：完成前最终验证**
 
 ```bash
 bash scripts/test.sh
