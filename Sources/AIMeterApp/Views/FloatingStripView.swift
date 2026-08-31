@@ -33,7 +33,7 @@ struct FloatingStripView: View {
                 Button {
                     onProviderTap(presentation.provider)
                 } label: {
-                    UsageRing(presentation: presentation, size: 58)
+                    UsageRing(presentation: presentation, size: 60)
                         .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                 }
                 .buttonStyle(.plain)
@@ -44,12 +44,17 @@ struct FloatingStripView: View {
                 )
             }
         }
-        .padding(.vertical, 18)
-        .padding(.horizontal, 9)
+        .padding(.vertical, 17)
+        .padding(.horizontal, 11)
         .background(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .fill(Color.black.opacity(0.94))
-                .shadow(color: .black.opacity(0.28), radius: 18, x: -5, y: 7)
+            FloatingStripShape(edge: displayState.resolvedEdge)
+                .fill(AIMeterVisualTheme.floatingGlass)
+                .shadow(
+                    color: .black.opacity(0.34),
+                    radius: 18,
+                    x: displayState.resolvedEdge == .right ? -6 : 6,
+                    y: 8
+                )
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
