@@ -28,7 +28,7 @@
 - 修改：`Tests/AIMeterAppTests/FloatingStripPointerDragStateTests.swift:7-56`
 - 修改：`Sources/AIMeterApp/Views/FloatingStripShape.swift:4-57`
 
-- [ ] **步骤 1：编写真实路径失败测试**
+- [x] **步骤 1：编写真实路径失败测试**
 
 把 `floatingStripBounds` 改为断言方案 A 的真实可见边界，并把肩部测试改成以下独立推导的采样：
 
@@ -63,7 +63,7 @@ func floatingStripCompactShoulders() {
 
 测试抓住的破坏是：恢复旧 `(108, 0) → (0, 104)` 长肩、让上下不对称，或让左贴边不再镜像。期望坐标来自已确认规格，不调用被测路径计算。
 
-- [ ] **步骤 2：增加真实拖动入口失败测试**
+- [x] **步骤 2：增加真实拖动入口失败测试**
 
 在拖动 Shape 测试中增加短肩可见点：
 
@@ -92,7 +92,7 @@ func compactShoulderBeginsDrag() {
 
 测试抓住的破坏是：视觉 Shape 已改变但拖动仍使用旧轮廓，或者短肩的真实玻璃区域不能拖动。
 
-- [ ] **步骤 3：运行专项测试，确认旧路径正确失败**
+- [x] **步骤 3：运行专项测试，确认旧路径正确失败**
 
 运行：
 
@@ -104,7 +104,7 @@ bash scripts/test.sh --filter FloatingStripPointerDragStateTests
 
 预期：旧路径在新边界、`(40, 50)` 与 `(1, 94)` 内点、`(107, 8)` 外点及短肩拖动入口上失败；失败来自旧几何，不是编译错误。
 
-- [ ] **步骤 4：实现方案 A 的最小路径修改**
+- [x] **步骤 4：实现方案 A 的最小路径修改**
 
 将 `FloatingStripShape.path(in:)` 的路径构造替换为：
 
@@ -137,7 +137,7 @@ path.closeSubpath()
 
 不要修改 `point(_:_:)` 镜像逻辑、窗口尺寸、圆环布局、表面填充或配色。
 
-- [ ] **步骤 5：运行专项测试，确认全部转绿**
+- [x] **步骤 5：运行专项测试，确认全部转绿**
 
 运行：
 
@@ -149,7 +149,7 @@ bash scripts/test.sh --filter FloatingStripPointerDragStateTests
 
 预期：三个测试组全部通过，无意外跳过或警告导致失败。
 
-- [ ] **步骤 6：检查差异并保存功能检查点**
+- [x] **步骤 6：检查差异并保存功能检查点**
 
 运行：
 
@@ -169,7 +169,7 @@ git commit -m "fix: tighten floating strip shoulders"
 - 修改：`docs/design/specifications/2026-08-31-floating-strip-compact-shoulder-design.md`
 - 创建：`docs/development/2026-08-31-floating-strip-compact-shoulder.md`
 
-- [ ] **步骤 1：运行完整测试**
+- [x] **步骤 1：运行完整测试**
 
 运行：
 
@@ -179,7 +179,7 @@ bash scripts/test.sh
 
 预期：全部 Swift 测试通过；只允许既有真实钥匙串/已安装 CLI 门控测试按设计跳过。记录测试数、测试组数、失败数和跳过数。
 
-- [ ] **步骤 2：完成 Release 构建和静态验证**
+- [x] **步骤 2：完成 Release 构建和静态验证**
 
 运行：
 
@@ -192,11 +192,11 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：构建退出码 0，签名验证无错误，Info.plist 为 `OK`，记录候选可执行文件 SHA-256。
 
-- [ ] **步骤 3：安全安装并启动候选版**
+- [x] **步骤 3：安全安装并启动候选版**
 
 先确认 `/private/tmp/AI Meter.app.pre-compact-shoulder-20260831-1600` 不存在，再把现有 `/Applications/AI Meter.app` 移动到该路径；随后用 `ditto` 安装 `dist/AI Meter.app` 并启动。不得删除备份；如果该备份路径已经存在，停止安装并选用另一个写入计划和开发记录的明确路径。
 
-- [ ] **步骤 4：真实界面验收**
+- [x] **步骤 4：真实界面验收**
 
 通过本机 UI 验收以下行为：
 
@@ -207,7 +207,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 - Claude、Codex、DeepSeek 颜色和余额/额度显示没有回归；
 - 浅色或复杂壁纸上没有黑色外阴影和透明接缝。
 
-- [ ] **步骤 5：更新变更记录和开发证据**
+- [x] **步骤 5：更新变更记录和开发证据**
 
 在 `CHANGELOG.md` 的 `Unreleased / Fixed` 记录肩部外鼓修正。把规格状态改为“已实施并验收”。创建开发记录，写入：
 
@@ -220,7 +220,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 - 左右贴边、拖动、Logo、Settings 和配色实机验收；
 - Git 检查点。
 
-- [ ] **步骤 6：验证安装版与构建产物一致**
+- [x] **步骤 6：验证安装版与构建产物一致**
 
 运行：
 
@@ -233,7 +233,7 @@ git diff --check
 
 预期：两个 SHA-256 完全相同，签名和 plist 验证通过，差异无空白错误。
 
-- [ ] **步骤 7：保存文档检查点并确认工作区**
+- [x] **步骤 7：保存文档检查点并确认工作区**
 
 运行：
 
