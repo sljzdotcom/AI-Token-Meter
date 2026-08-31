@@ -16,6 +16,34 @@ struct VisualSystemTests {
         #expect(image.size.height >= 1068)
     }
 
+    @Test("Only the strip background mirrors with the attached edge")
+    @MainActor
+    func floatingBackgroundMirrorsWithEdge() throws {
+        let background = try splitColorBackgroundImage()
+        let right = try renderSurface(edge: .right, backgroundImage: background)
+        let left = try renderSurface(edge: .left, backgroundImage: background)
+
+        let rightLeading = try rgb(atX: 20, y: 178, in: right)
+        let rightTrailing = try rgb(atX: 88, y: 178, in: right)
+        let leftLeading = try rgb(atX: 20, y: 178, in: left)
+        let leftTrailing = try rgb(atX: 88, y: 178, in: left)
+
+        #expect(rightLeading.red > rightLeading.blue)
+        #expect(rightTrailing.blue > rightTrailing.red)
+        #expect(leftLeading.blue > leftLeading.red)
+        #expect(leftTrailing.red > leftTrailing.blue)
+    }
+
+    @Test("Missing background keeps the glass fallback and exact shoulder mask")
+    @MainActor
+    func floatingBackgroundFallback() throws {
+        let image = try renderSurface(edge: .right, backgroundImage: nil)
+
+        #expect(try alpha(atX: 0, y: 178, in: image) > 0)
+        #expect(try alpha(atX: 107, y: 8, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 348, in: image) == 0)
+    }
+
     @Test("Provider logos use one optical calibration table")
     func providerLogoScales() {
         #expect(ProviderLogoStyle.opticalScale(for: .claude) > 1)
@@ -206,6 +234,63 @@ struct VisualSystemTests {
         let bytes = CFDataGetBytePtr(data)
         let alphaIndex = y * image.bytesPerRow + x * image.bitsPerPixel / 8 + 3
         return try #require(bytes?[alphaIndex])
+    }
+
+    @MainActor
+    private func renderSurface(
+        edge: FloatingStripEdge,
+        backgroundImage: NSImage?
+    ) throws -> CGImage {
+        let renderer = ImageRenderer(content:
+            FloatingStripSurface(edge: edge, backgroundImage: backgroundImage)
+                .frame(width: 108, height: 356)
+        )
+        renderer.scale = 1
+        return try #require(renderer.cgImage)
+    }
+
+    private func rgb(atX x: Int, y: Int, in image: CGImage) throws -> PixelRGB {
+        let representation = NSBitmapImageRep(cgImage: image)
+        let color = try #require(
+            representation.colorAt(x: x, y: image.height - 1 - y)?
+                .usingColorSpace(.deviceRGB)
+        )
+        return PixelRGB(
+            red: UInt8((color.redComponent * 255).rounded()),
+            green: UInt8((color.greenComponent * 255).rounded()),
+            blue: UInt8((color.blueComponent * 255).rounded())
+        )
+    }
+
+    private func splitColorBackgroundImage() throws -> NSImage {
+        let width = 108
+        let height = 356
+        let representation = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: width,
+            pixelsHigh: height,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: width * 4,
+            bitsPerPixel: 32
+        ))
+        let bytes = try #require(representation.bitmapData)
+        for y in 0..<height {
+            for x in 0..<width {
+                let offset = y * width * 4 + x * 4
+                bytes[offset] = x < width / 2 ? 255 : 0
+                bytes[offset + 1] = 0
+                bytes[offset + 2] = x < width / 2 ? 0 : 255
+                bytes[offset + 3] = 255
+            }
+        }
+
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.addRepresentation(representation)
+        return image
     }
 
     private struct PixelRGB: Hashable {

@@ -45,12 +45,3 @@ struct FloatingStripShape: Shape {
         return path
     }
 }
-
-struct FloatingStripSurface: View {
-    let edge: FloatingStripEdge
-
-    var body: some View {
-        FloatingStripShape(edge: edge)
-            .fill(AIMeterVisualTheme.floatingGlass)
-    }
-}
