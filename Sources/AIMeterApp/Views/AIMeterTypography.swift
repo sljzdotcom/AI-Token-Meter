@@ -70,24 +70,38 @@ enum AIMeterTextStyle: CaseIterable, Sendable {
 
     var pointSize: CGFloat {
         switch self {
-        case .largeTitle: 34
-        case .title: 28
-        case .title2: 22
-        case .title3: 20
-        case .headline: 17
-        case .subheadline: 15
+        case .largeTitle: 26
+        case .title: 22
+        case .title2: 17
+        case .title3: 15
+        case .headline: 13
+        case .subheadline: 11
         case .body: 13
-        case .caption: 12
-        case .caption2: 11
+        case .caption, .caption2: 10
         }
     }
 
-    var defaultWeight: Font.Weight? {
+    var customDefaultWeight: Font.Weight? {
         switch self {
         case .headline: .semibold
         default: nil
         }
     }
+}
+
+enum AIMeterResolvedFontDescriptor {
+    case systemSemantic(
+        style: AIMeterTextStyle,
+        design: Font.Design,
+        weight: Font.Weight?
+    )
+    case systemFixed(size: CGFloat, design: Font.Design, weight: Font.Weight?)
+    case custom(
+        family: String,
+        size: CGFloat,
+        relativeTo: AIMeterTextStyle,
+        weight: Font.Weight?
+    )
 }
 
 enum AIMeterTypography {
@@ -100,6 +114,32 @@ enum AIMeterTypography {
         case .system: nil
         case .antonio: "Antonio"
         case .dinCondensed: "DIN Condensed"
+        }
+    }
+
+    static func resolvedDescriptor(
+        token: AIMeterFontToken,
+        choice: DisplayFontChoice,
+        catalog: DisplayFontCatalog,
+        design: Font.Design,
+        weight: Font.Weight?
+    ) -> AIMeterResolvedFontDescriptor {
+        let style = token.relativeStyle
+
+        if let family = resolvedFamily(for: choice, catalog: catalog) {
+            return .custom(
+                family: family,
+                size: token.pointSize,
+                relativeTo: style,
+                weight: weight ?? style.customDefaultWeight
+            )
+        }
+
+        return switch token {
+        case .semantic:
+            .systemSemantic(style: style, design: design, weight: weight)
+        case .fixed(let size, _):
+            .systemFixed(size: size, design: design, weight: weight)
         }
     }
 }
@@ -141,24 +181,23 @@ private struct AIMeterFontModifier: ViewModifier {
     let weight: Font.Weight?
 
     func body(content: Content) -> some View {
-        let style = token.relativeStyle
-        let resolvedWeight = weight ?? style.defaultWeight
-        let catalog = DisplayFontCatalog.live
+        let descriptor = AIMeterTypography.resolvedDescriptor(
+            token: token,
+            choice: choice,
+            catalog: .live,
+            design: design,
+            weight: weight
+        )
 
-        if let family = AIMeterTypography.resolvedFamily(for: choice, catalog: catalog) {
-            content.font(Font.custom(family, size: token.pointSize, relativeTo: style.swiftUIStyle))
-                .fontWeight(resolvedWeight)
-        } else {
-            content.font(systemFont(style: style, weight: resolvedWeight))
-        }
-    }
-
-    private func systemFont(style: AIMeterTextStyle, weight: Font.Weight?) -> Font {
-        switch token {
-        case .semantic:
-            Font.system(style.swiftUIStyle, design: design, weight: weight)
-        case .fixed(let size, _):
-            Font.system(size: size, weight: weight, design: design)
+        switch descriptor {
+        case .systemSemantic(let style, let design, let weight):
+            content.font(Font.system(style.swiftUIStyle, design: design, weight: weight))
+        case .systemFixed(let size, let design, let weight):
+            content.font(Font.system(size: size, weight: weight, design: design))
+        case .custom(let family, let size, let style, let weight):
+            content
+                .font(Font.custom(family, size: size, relativeTo: style.swiftUIStyle))
+                .fontWeight(weight)
         }
     }
 }

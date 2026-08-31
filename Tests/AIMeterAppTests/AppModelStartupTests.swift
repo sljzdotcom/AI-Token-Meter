@@ -36,6 +36,7 @@ struct AppModelStartupTests {
 
         model.restoreDefaultDisplayFont()
         #expect(model.displayFontChoice == .system)
+        #expect(DisplayFontPreferenceStore(defaults: defaults).load() == .system)
     }
 }
 

@@ -14,6 +14,14 @@ struct VisualSystemTests {
         #expect(DisplayFontSettingsPresentation.canRestore(.dinCondensed))
     }
 
+    @Test("Default deep sea background reuses one decoded image")
+    func floatingBackgroundCache() throws {
+        let first = try #require(FloatingStripBackgroundAsset.defaultImage)
+        let second = try #require(FloatingStripBackgroundAsset.defaultImage)
+
+        #expect(first === second)
+    }
+
     @Test("Deep sea background is bundled at retina resolution")
     func floatingBackgroundResource() throws {
         let url = try #require(FloatingStripBackgroundAsset.resourceURL())

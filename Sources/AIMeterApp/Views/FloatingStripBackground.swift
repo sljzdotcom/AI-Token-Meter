@@ -4,6 +4,7 @@ import SwiftUI
 
 enum FloatingStripBackgroundAsset {
     static let filename = "floating-strip-deep-sea"
+    static let defaultImage = load()
 
     static func resourceURL(in bundle: Bundle = .module) -> URL? {
         bundle.url(
@@ -32,7 +33,7 @@ struct FloatingStripSurface: View {
 
     init(
         edge: FloatingStripEdge,
-        backgroundImage: NSImage? = FloatingStripBackgroundAsset.load()
+        backgroundImage: NSImage? = FloatingStripBackgroundAsset.defaultImage
     ) {
         self.edge = edge
         self.backgroundImage = backgroundImage
