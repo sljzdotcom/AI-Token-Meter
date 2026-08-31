@@ -55,6 +55,7 @@ Sources/AIMeterApp/
     ├── FloatingStripShape.swift
     ├── FloatingStripView.swift
     ├── MenuBarPanel.swift
+    ├── ProviderAccentPalette.swift # 三服务品牌色与语义色优先级
     ├── ProviderCard.swift
     ├── ProviderLogo.swift
     ├── ProviderLogoStyle.swift

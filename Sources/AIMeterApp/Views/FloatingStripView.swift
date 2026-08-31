@@ -140,6 +140,7 @@ struct FloatingDetailView: View {
                         ProviderLogo(provider: snapshot.provider, size: 25)
                         Text(presentation.title)
                             .font(.headline)
+                            .foregroundStyle(detailValueStyle(presentation))
                     }
                     Spacer()
                     Text(presentation.valueText)
@@ -161,8 +162,10 @@ struct FloatingDetailView: View {
                             Text(secondary.label)
                             Spacer()
                             Text("\(Int((fraction * 100).rounded()))%")
+                                .foregroundStyle(detailValueStyle(presentation))
                         }
                         AIMeterProgressBar(
+                            provider: snapshot.provider,
                             fraction: fraction,
                             semantic: presentation.semantic
                         )
@@ -194,9 +197,6 @@ struct FloatingDetailView: View {
     }
 
     private func detailValueStyle(_ presentation: ProviderPresentation) -> AnyShapeStyle {
-        if presentation.semantic == .normal {
-            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
-        }
-        return AnyShapeStyle(presentation.semantic.color)
+        presentation.semantic.accentStyle(for: presentation.provider)
     }
 }

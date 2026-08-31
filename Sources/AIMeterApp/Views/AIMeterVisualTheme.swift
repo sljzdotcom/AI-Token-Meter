@@ -5,8 +5,6 @@ enum AIMeterVisualTheme {
     static let glassBase = Color(red: 0.027, green: 0.039, blue: 0.063)
     static let glassElevated = Color(red: 0.051, green: 0.071, blue: 0.114)
     static let cardSurface = Color(red: 0.090, green: 0.114, blue: 0.161)
-    static let mintAccent = Color(red: 0.329, green: 0.929, blue: 0.776)
-    static let violetAccent = Color(red: 0.467, green: 0.412, blue: 1.0)
     static let primaryText = Color.white.opacity(0.96)
     static let secondaryText = Color.white.opacity(0.68)
     static let tertiaryText = Color.white.opacity(0.46)
@@ -15,12 +13,6 @@ enum AIMeterVisualTheme {
     static let cardCornerRadius: CGFloat = 15
     static let capsuleInsetRadius: CGFloat = 8
     static let panelPadding: CGFloat = 20
-
-    static let accentGradient = LinearGradient(
-        colors: [mintAccent, violetAccent],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
 
     static let floatingGlass = LinearGradient(
         colors: [
@@ -130,6 +122,7 @@ extension View {
 }
 
 struct AIMeterProgressBar: View {
+    let provider: UsageProvider
     let fraction: Double
     let semantic: UsageSemantic
 
@@ -148,9 +141,6 @@ struct AIMeterProgressBar: View {
     }
 
     private var fillStyle: AnyShapeStyle {
-        if semantic == .normal {
-            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
-        }
-        return AnyShapeStyle(semantic.color)
+        semantic.accentStyle(for: provider)
     }
 }

@@ -55,6 +55,7 @@ struct DeepSeekAnalyticsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("DeepSeek · Last 30 days")
                     .font(.headline)
+                    .foregroundStyle(accentStyle)
                 Text(syncText)
                     .font(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
@@ -63,7 +64,7 @@ struct DeepSeekAnalyticsView: View {
             VStack(alignment: .trailing, spacing: 1) {
                 Text(presentation.valueText)
                     .font(.system(.title2, design: .rounded, weight: .bold))
-                    .foregroundStyle(AIMeterVisualTheme.accentGradient)
+                    .foregroundStyle(accentStyle)
                 Text("current balance")
                     .font(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
@@ -93,7 +94,10 @@ struct DeepSeekAnalyticsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(AIMeterVisualTheme.mintAccent.opacity(0.42), lineWidth: 1)
+                        .stroke(
+                            UsageProvider.deepSeek.accentPalette.startColor.opacity(0.42),
+                            lineWidth: 1
+                        )
                 )
         }
     }
@@ -113,7 +117,7 @@ struct DeepSeekAnalyticsView: View {
                         x: .value("Day", day.date, unit: .day),
                         y: .value("Cost", day.costCNY)
                     )
-                    .foregroundStyle(AIMeterVisualTheme.accentGradient)
+                    .foregroundStyle(accentStyle)
                     .cornerRadius(3)
                 }
                 .chartXAxis {
@@ -160,6 +164,7 @@ struct DeepSeekAnalyticsView: View {
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             Text(value)
                 .font(.system(.title2, design: .rounded, weight: .semibold))
+                .foregroundStyle(accentStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -176,6 +181,10 @@ struct DeepSeekAnalyticsView: View {
         case .ready: "Official usage synced"
         case .stale(let message): message
         }
+    }
+
+    private var accentStyle: AnyShapeStyle {
+        presentation.semantic.accentStyle(for: .deepSeek)
     }
 
     private func updateAutoHidePause() {

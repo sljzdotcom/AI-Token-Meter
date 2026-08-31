@@ -14,6 +14,14 @@ struct CodexResetCreditsView: View {
         CodexResetCreditsPresentation(summary: summary)
     }
 
+    private var accentStart: Color {
+        UsageProvider.codex.accentPalette.startColor
+    }
+
+    private var accentEnd: Color {
+        UsageProvider.codex.accentPalette.endColor
+    }
+
     @ViewBuilder
     var body: some View {
         switch mode {
@@ -29,18 +37,18 @@ struct CodexResetCreditsView: View {
             HStack(spacing: 9) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AIMeterVisualTheme.mintAccent)
+                    .foregroundStyle(accentStart)
                 Text("Reset credits")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text(presentation.availableText)
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(AIMeterVisualTheme.mintAccent)
+                    .foregroundStyle(accentStart)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
                     .background(
                         Capsule()
-                            .fill(AIMeterVisualTheme.mintAccent.opacity(0.12))
+                            .fill(accentStart.opacity(0.12))
                     )
             }
             .accessibilityElement(children: .combine)
@@ -65,10 +73,10 @@ struct CodexResetCreditsView: View {
             HStack(spacing: 11) {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AIMeterVisualTheme.mintAccent)
+                    .foregroundStyle(accentStart)
                     .frame(width: 34, height: 34)
                     .background(
-                        AIMeterVisualTheme.mintAccent.opacity(0.10),
+                        accentStart.opacity(0.10),
                         in: RoundedRectangle(
                             cornerRadius: AIMeterVisualTheme.capsuleInsetRadius,
                             style: .continuous
@@ -106,8 +114,8 @@ struct CodexResetCreditsView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        AIMeterVisualTheme.mintAccent.opacity(0.11),
-                        AIMeterVisualTheme.violetAccent.opacity(0.07),
+                        accentStart.opacity(0.11),
+                        accentEnd.opacity(0.07),
                         AIMeterVisualTheme.cardSurface.opacity(0.72),
                     ],
                     startPoint: .topLeading,
@@ -159,7 +167,7 @@ struct CodexResetCreditsView: View {
 
     private func statusColor(_ state: CodexResetCreditExpirationState) -> Color {
         switch state {
-        case .remaining: AIMeterVisualTheme.mintAccent
+        case .remaining: accentStart
         case .today: .orange
         case .expired: .red
         case .unavailable: AIMeterVisualTheme.tertiaryText

@@ -50,6 +50,19 @@ struct VisualSystemTests {
             #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
         }
 
+        let settlingOutside = [
+            CGPoint(x: 0, y: 94),
+            CGPoint(x: 0, y: 100),
+        ]
+        for point in settlingOutside {
+            #expect(!right.contains(point))
+            #expect(!right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
+            #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
+        }
+
+        #expect(right.contains(CGPoint(x: 8, y: 100)))
+        #expect(right.contains(CGPoint(x: 1, y: 110)))
+
         #expect(right.contains(CGPoint(x: 106, y: 178)))
         #expect(left.contains(CGPoint(x: 2, y: 178)))
     }
@@ -94,6 +107,19 @@ struct VisualSystemTests {
         }
     }
 
+    @Test("Floating island has no shadow outside its visible shoulder")
+    @MainActor
+    func floatingSurfaceHasNoExteriorShadow() throws {
+        let renderer = ImageRenderer(content:
+            FloatingStripSurface(edge: .right)
+                .frame(width: 108, height: 356)
+        )
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+
+        #expect(try alpha(atX: 0, y: 94, in: image) == 0)
+    }
+
     @Test("Every non-normal usage state has a non-color symbol")
     func semanticSymbols() {
         #expect(UsageSemantic.normal.statusSymbolName == nil)
@@ -102,10 +128,82 @@ struct VisualSystemTests {
         }
     }
 
+    @Test("Each provider owns the approved unique brand palette")
+    func providerBrandPalettes() {
+        #expect(
+            UsageProvider.claude.accentPalette
+                == .init(startHex: 0xE8B96D, endHex: 0xD97757)
+        )
+        #expect(
+            UsageProvider.codex.accentPalette
+                == .init(startHex: 0xFF6FAE, endHex: 0xA96DFF)
+        )
+        #expect(
+            UsageProvider.deepSeek.accentPalette
+                == .init(startHex: 0x54EDC6, endHex: 0x7769FF)
+        )
+        #expect(Set(UsageProvider.allCases.map(\.accentPalette)).count == 3)
+    }
+
+    @Test("Semantic states override provider identity colors")
+    func semanticAccentPrecedence() {
+        #expect(UsageSemantic.normal.accentRole(for: .codex) == .provider(.codex))
+        for semantic in [UsageSemantic.warning, .critical, .stale, .unavailable] {
+            for provider in UsageProvider.allCases {
+                #expect(semantic.accentRole(for: provider) == .semantic(semantic))
+            }
+        }
+    }
+
+    @Test("Normal progress bars use provider colors while warnings stay semantic")
+    @MainActor
+    func providerProgressBarColors() throws {
+        let normalColors = try UsageProvider.allCases.map {
+            try progressBarPixel(provider: $0, semantic: .normal)
+        }
+        #expect(Set(normalColors).count == 3)
+
+        let warningColors = try UsageProvider.allCases.map {
+            try progressBarPixel(provider: $0, semantic: .warning)
+        }
+        #expect(Set(warningColors).count == 1)
+    }
+
+    @MainActor
+    private func progressBarPixel(
+        provider: UsageProvider,
+        semantic: UsageSemantic
+    ) throws -> PixelRGB {
+        let renderer = ImageRenderer(content:
+            AIMeterProgressBar(
+                provider: provider,
+                fraction: 1,
+                semantic: semantic
+            )
+            .frame(width: 120, height: 5)
+        )
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        let data = try #require(image.dataProvider?.data)
+        let bytes = try #require(CFDataGetBytePtr(data))
+        let pixelOffset = 2 * image.bytesPerRow + 60 * image.bitsPerPixel / 8
+        return PixelRGB(
+            red: bytes[pixelOffset],
+            green: bytes[pixelOffset + 1],
+            blue: bytes[pixelOffset + 2]
+        )
+    }
+
     private func alpha(atX x: Int, y: Int, in image: CGImage) throws -> UInt8 {
         let data = try #require(image.dataProvider?.data)
         let bytes = CFDataGetBytePtr(data)
         let alphaIndex = y * image.bytesPerRow + x * image.bitsPerPixel / 8 + 3
         return try #require(bytes?[alphaIndex])
+    }
+
+    private struct PixelRGB: Hashable {
+        let red: UInt8
+        let green: UInt8
+        let blue: UInt8
     }
 }

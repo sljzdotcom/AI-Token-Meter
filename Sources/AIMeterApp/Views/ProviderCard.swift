@@ -24,6 +24,7 @@ struct ProviderCard: View {
                 HStack {
                     Text(presentation.title)
                         .font(.headline)
+                        .foregroundStyle(valueStyle)
                     Spacer()
                     Text(presentation.valueText)
                         .font(.system(.title3, design: .rounded, weight: .semibold))
@@ -85,9 +86,6 @@ struct ProviderCard: View {
     }
 
     private var valueStyle: AnyShapeStyle {
-        if presentation.semantic == .normal {
-            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
-        }
-        return AnyShapeStyle(presentation.semantic.color)
+        presentation.semantic.accentStyle(for: snapshot.provider)
     }
 }

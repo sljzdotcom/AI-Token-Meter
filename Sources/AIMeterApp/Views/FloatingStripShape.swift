@@ -26,15 +26,25 @@ struct FloatingStripShape: Shape {
             control2: point(98, 45)
         )
         path.addCurve(
-            to: point(0, 88),
-            control1: point(53, 60),
-            control2: point(0, 63)
+            to: point(16, 82),
+            control1: point(54, 60),
+            control2: point(30, 68)
         )
-        path.addLine(to: point(0, 268))
+        path.addCurve(
+            to: point(0, 104),
+            control1: point(8, 89),
+            control2: point(0, 96)
+        )
+        path.addLine(to: point(0, 252))
+        path.addCurve(
+            to: point(16, 274),
+            control1: point(0, 260),
+            control2: point(8, 267)
+        )
         path.addCurve(
             to: point(78, 304),
-            control1: point(0, 293),
-            control2: point(53, 296)
+            control1: point(30, 288),
+            control2: point(54, 296)
         )
         path.addCurve(
             to: point(108, 356),
@@ -52,11 +62,5 @@ struct FloatingStripSurface: View {
     var body: some View {
         FloatingStripShape(edge: edge)
             .fill(AIMeterVisualTheme.floatingGlass)
-            .shadow(
-                color: .black.opacity(0.34),
-                radius: 18,
-                x: edge == .right ? -6 : 6,
-                y: 8
-            )
     }
 }
