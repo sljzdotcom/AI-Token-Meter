@@ -26,4 +26,22 @@ struct VisualSystemTests {
         #expect(AIMeterVisualTheme.cardCornerRadius > AIMeterVisualTheme.capsuleInsetRadius)
         #expect(AIMeterVisualTheme.panelPadding == 20)
     }
+
+    @Test("App bundle declares the generated meter icon")
+    func appIconConfiguration() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let plistURL = projectRoot.appending(
+            path: "Sources/AIMeterApp/Resources/Info.plist"
+        )
+        let data = try Data(contentsOf: plistURL)
+        let plist = try #require(
+            PropertyListSerialization.propertyList(from: data, format: nil)
+                as? [String: Any]
+        )
+
+        #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
+    }
 }

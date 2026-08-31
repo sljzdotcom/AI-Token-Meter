@@ -39,6 +39,14 @@ install -m 644 \
     "$PROJECT_DIR/Sources/AIMeterApp/Resources/Info.plist" \
     "$CONTENTS_DIR/Info.plist"
 
+ICONSET_DIR="$BUILD_DIR/AppIcon.iconset"
+GENERATED_ICON="$BUILD_DIR/AppIcon.icns"
+swift "$PROJECT_DIR/scripts/generate-app-icon.swift" \
+    "$ICONSET_DIR" \
+    "$GENERATED_ICON"
+install -m 644 "$GENERATED_ICON" "$CONTENTS_DIR/Resources/AppIcon.icns"
+test -s "$CONTENTS_DIR/Resources/AppIcon.icns"
+
 plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
 codesign --force --deep --sign - "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
