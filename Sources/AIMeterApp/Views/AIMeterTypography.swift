@@ -22,6 +22,35 @@ struct DisplayFontCatalog: Sendable {
     }
 }
 
+struct DisplayFontOption: Equatable, Identifiable {
+    let choice: DisplayFontChoice
+    let isEnabled: Bool
+    let statusText: String?
+
+    var id: DisplayFontChoice { choice }
+}
+
+enum DisplayFontSettingsPresentation {
+    static func options(catalog: DisplayFontCatalog) -> [DisplayFontOption] {
+        DisplayFontChoice.allCases.map { choice in
+            let enabled = catalog.isAvailable(choice)
+            return DisplayFontOption(
+                choice: choice,
+                isEnabled: enabled,
+                statusText: enabled ? nil : "Not installed"
+            )
+        }
+    }
+
+    @MainActor static func liveOptions() -> [DisplayFontOption] {
+        options(catalog: .live)
+    }
+
+    static func canRestore(_ choice: DisplayFontChoice) -> Bool {
+        choice != .system
+    }
+}
+
 enum AIMeterTextStyle: CaseIterable, Sendable {
     case largeTitle, title, title2, title3, headline, subheadline, body, caption, caption2
 
@@ -156,6 +185,24 @@ private struct AIMeterFontScopeModifier: ViewModifier {
     }
 }
 
+private struct AIMeterFontPreviewModifier: ViewModifier {
+    let choice: DisplayFontChoice
+
+    func body(content: Content) -> some View {
+        let catalog = DisplayFontCatalog.live
+
+        if let family = AIMeterTypography.resolvedFamily(for: choice, catalog: catalog) {
+            content.font(Font.custom(
+                family,
+                size: AIMeterTextStyle.body.pointSize,
+                relativeTo: .body
+            ))
+        } else {
+            content.font(.system(.body))
+        }
+    }
+}
+
 extension View {
     func aiMeterFont(
         _ style: AIMeterTextStyle,
@@ -180,5 +227,9 @@ extension View {
 
     func aiMeterFontScope(_ choice: DisplayFontChoice) -> some View {
         modifier(AIMeterFontScopeModifier(choice: choice))
+    }
+
+    func aiMeterFontPreview(_ choice: DisplayFontChoice) -> some View {
+        modifier(AIMeterFontPreviewModifier(choice: choice))
     }
 }

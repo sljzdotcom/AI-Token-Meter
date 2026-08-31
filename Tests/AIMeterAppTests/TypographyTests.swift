@@ -28,6 +28,18 @@ struct TypographyTests {
         #expect(AIMeterTypography.resolvedFamily(for: .dinCondensed, catalog: catalog) == "DIN Condensed")
     }
 
+    @Test("Settings always exposes three ordered choices and marks missing fonts")
+    func settingsOptions() {
+        let catalog = DisplayFontCatalog(availableFamilies: ["Antonio"])
+        let options = DisplayFontSettingsPresentation.options(catalog: catalog)
+
+        #expect(options.map(\.choice) == [.system, .antonio, .dinCondensed])
+        #expect(options[0].isEnabled)
+        #expect(options[1].isEnabled)
+        #expect(!options[2].isEnabled)
+        #expect(options[2].statusText == "Not installed")
+    }
+
     @Test("Semantic roles preserve the existing visual hierarchy")
     func semanticSizes() {
         #expect(AIMeterTextStyle.largeTitle.pointSize > AIMeterTextStyle.title2.pointSize)

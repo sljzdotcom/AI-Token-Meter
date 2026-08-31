@@ -7,6 +7,13 @@ import Testing
 
 @Suite("AI Meter visual system")
 struct VisualSystemTests {
+    @Test("Restore default is enabled only for custom selections")
+    func restoreDefaultFontState() {
+        #expect(!DisplayFontSettingsPresentation.canRestore(.system))
+        #expect(DisplayFontSettingsPresentation.canRestore(.antonio))
+        #expect(DisplayFontSettingsPresentation.canRestore(.dinCondensed))
+    }
+
     @Test("Deep sea background is bundled at retina resolution")
     func floatingBackgroundResource() throws {
         let url = try #require(FloatingStripBackgroundAsset.resourceURL())
