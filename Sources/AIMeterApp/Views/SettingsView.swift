@@ -16,7 +16,7 @@ struct SettingsView: View {
                     )
                 )
                 Text("The menu bar meter remains available when the floating meter is hidden.")
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 Picker(
                     "Screen edge",
@@ -31,7 +31,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 Text("Automatic lets you drag the meter to either edge. Left and Right keep that edge fixed while still allowing vertical movement.")
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 Picker(
                     "Detail auto-hide",
@@ -81,7 +81,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Text("The ring shows how much of this reference balance has been depleted. The default is ¥100.")
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
 
                 SecureField("DeepSeek API Key", text: $pendingAPIKey)
@@ -90,7 +90,7 @@ struct SettingsView: View {
                         model.apiKeyConfigured ? "Stored securely in Keychain" : "No API Key stored",
                         systemImage: model.apiKeyConfigured ? "checkmark.shield" : "key"
                     )
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                     Spacer()
                     if model.apiKeyConfigured {
@@ -109,13 +109,14 @@ struct SettingsView: View {
             if let message = model.settingsMessage {
                 Section {
                     Text(message)
-                        .font(.caption)
+                        .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
+        .aiMeterFontScope(model.displayFontChoice)
     }
 }
 

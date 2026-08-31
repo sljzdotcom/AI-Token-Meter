@@ -39,10 +39,10 @@ struct CodexResetCreditsView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(accentStart)
                 Text("Reset credits")
-                    .font(.subheadline.weight(.semibold))
+                    .aiMeterFont(.subheadline, weight: .semibold)
                 Spacer()
                 Text(presentation.availableText)
-                    .font(.caption2.weight(.bold))
+                    .aiMeterFont(.caption2, weight: .bold)
                     .foregroundStyle(accentStart)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
@@ -62,7 +62,7 @@ struct CodexResetCreditsView: View {
                     "Some expiration details are unavailable",
                     systemImage: "info.circle"
                 )
-                .font(.caption2)
+                .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
         }
@@ -85,10 +85,10 @@ struct CodexResetCreditsView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(row.title)
-                        .font(.caption.weight(.semibold))
+                        .aiMeterFont(.caption, weight: .semibold)
                         .lineLimit(1)
                     Text(expirationDateText(row.expiresAt))
-                        .font(.subheadline.weight(.semibold))
+                        .aiMeterFont(.subheadline, weight: .semibold)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                 }
@@ -103,7 +103,7 @@ struct CodexResetCreditsView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(statusColor(row.expirationState))
             }
-            .font(.caption2)
+            .aiMeterFont(.caption2)
         }
         .padding(13)
         .background(
@@ -156,7 +156,7 @@ struct CodexResetCreditsView: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .font(.caption2)
+        .aiMeterFont(.caption2)
         .foregroundStyle(.secondary)
     }
 

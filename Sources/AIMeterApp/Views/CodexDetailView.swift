@@ -29,15 +29,15 @@ struct CodexDetailView: View {
             ProviderLogo(provider: .codex, size: 27)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Codex")
-                    .font(.headline)
+                    .aiMeterFont(.headline)
                     .foregroundStyle(valueStyle)
                 Text("Official quota · Local activity")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
             Spacer()
             Text(presentation.valueText)
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .aiMeterFont(.title2, design: .rounded, weight: .bold)
                 .foregroundStyle(valueStyle)
         }
     }
@@ -45,7 +45,7 @@ struct CodexDetailView: View {
     private var quotaSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Official quota")
-                .font(.caption.weight(.semibold))
+                .aiMeterFont(.caption, weight: .semibold)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             HStack(spacing: 9) {
                 if let metric = snapshot.primaryMetric {
@@ -62,12 +62,12 @@ struct CodexDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(metric.label)
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Text(percentText(metric))
-                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .aiMeterFont(.headline, design: .rounded, weight: .semibold)
                     .foregroundStyle(valueStyle)
             }
             AIMeterProgressBar(
@@ -76,7 +76,7 @@ struct CodexDetailView: View {
                 semantic: presentation.semantic
             )
             Text(resetText ?? "Reset time unavailable")
-                .font(.caption2)
+                .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -92,10 +92,10 @@ struct CodexDetailView: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Text("Last 30 days · This Mac")
-                    .font(.caption.weight(.semibold))
+                    .aiMeterFont(.caption, weight: .semibold)
                 Spacer()
                 Text("Local estimate")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             if let summary = snapshot.codexLocalActivity {
@@ -106,11 +106,11 @@ struct CodexDetailView: View {
                     localStat(title: "Longest session", value: values.longestSessionText, symbol: "clock")
                 }
                 Text("Counts only aggregate Codex thread activity readable on this Mac.")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             } else {
                 Text("Local Codex activity is unavailable; official quota data is unaffected.")
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .padding(11)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,12 +125,12 @@ struct CodexDetailView: View {
                 .font(.caption)
                 .foregroundStyle(valueStyle)
             Text(value)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .aiMeterFont(.headline, design: .rounded, weight: .semibold)
                 .foregroundStyle(valueStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
             Text(title)
-                .font(.caption2)
+                .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -151,7 +151,7 @@ struct CodexDetailView: View {
             Spacer()
             Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
         }
-        .font(.caption2)
+        .aiMeterFont(.caption2)
         .foregroundStyle(AIMeterVisualTheme.tertiaryText)
     }
 

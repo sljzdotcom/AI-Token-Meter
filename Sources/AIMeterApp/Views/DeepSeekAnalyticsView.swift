@@ -54,19 +54,19 @@ struct DeepSeekAnalyticsView: View {
             ProviderLogo(provider: .deepSeek, size: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text("DeepSeek · Last 30 days")
-                    .font(.headline)
+                    .aiMeterFont(.headline)
                     .foregroundStyle(accentStyle)
                 Text(syncText)
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
                 Text(presentation.valueText)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .aiMeterFont(.title2, design: .rounded, weight: .bold)
                     .foregroundStyle(accentStyle)
                 Text("current balance")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             Button {
@@ -88,7 +88,7 @@ struct DeepSeekAnalyticsView: View {
     private var loginPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Sign in on the official DeepSeek page once. AI Meter keeps the web session on this Mac and stores only daily totals.")
-                .font(.caption)
+                .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             DeepSeekWebView(webView: webSession.webView)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -111,7 +111,7 @@ struct DeepSeekAnalyticsView: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Daily cost (CNY)")
-                    .font(.subheadline.weight(.semibold))
+                    .aiMeterFont(.subheadline, weight: .semibold)
                 Chart(history.days) { day in
                     BarMark(
                         x: .value("Day", day.date, unit: .day),
@@ -141,7 +141,7 @@ struct DeepSeekAnalyticsView: View {
                 Spacer()
                 Link("Open official usage page", destination: DeepSeekWebSession.usageURL)
             }
-            .font(.caption2)
+            .aiMeterFont(.caption2)
             .foregroundStyle(AIMeterVisualTheme.secondaryText)
         }
     }
@@ -160,10 +160,10 @@ struct DeepSeekAnalyticsView: View {
     private func statCard(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.caption)
+                .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             Text(value)
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .aiMeterFont(.title2, design: .rounded, weight: .semibold)
                 .foregroundStyle(accentStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

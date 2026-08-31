@@ -23,26 +23,26 @@ struct ProviderCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(presentation.title)
-                        .font(.headline)
+                        .aiMeterFont(.headline)
                         .foregroundStyle(valueStyle)
                     Spacer()
                     Text(presentation.valueText)
-                        .font(.system(.title3, design: .rounded, weight: .semibold))
+                        .aiMeterFont(.title3, design: .rounded, weight: .semibold)
                         .foregroundStyle(valueStyle)
                 }
                 Text(presentation.detailText)
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 if let reset = presentation.primaryResetText {
                     Text(reset)
-                        .font(.caption2)
+                        .aiMeterFont(.caption2)
                         .foregroundStyle(.tertiary)
                 }
                 if let secondary = snapshot.secondaryMetric {
                     metricLine(secondary)
                     if let reset = presentation.secondaryResetText {
                         Text(reset)
-                            .font(.caption2)
+                            .aiMeterFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -58,7 +58,7 @@ struct ProviderCard: View {
                     Spacer()
                     Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
                 }
-                .font(.caption2)
+                .aiMeterFont(.caption2)
                 .foregroundStyle(.secondary)
                 if snapshot.provider == .claude,
                    snapshot.collectionStatus == .setupRequired,
@@ -81,7 +81,7 @@ struct ProviderCard: View {
                 Text("\(Int((fraction * 100).rounded()))%")
             }
         }
-        .font(.caption2)
+        .aiMeterFont(.caption2)
         .foregroundStyle(.secondary)
     }
 

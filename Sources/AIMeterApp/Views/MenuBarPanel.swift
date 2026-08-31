@@ -7,6 +7,7 @@ struct MenuBarLabel: View {
     var body: some View {
         Label(model.menuBarSummary.valueText, systemImage: "gauge.with.dots.needle.50percent")
             .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
+            .aiMeterFontScope(model.displayFontChoice)
     }
 }
 
@@ -43,15 +44,16 @@ struct MenuBarPanel: View {
         }
         .padding(16)
         .frame(width: 380)
+        .aiMeterFontScope(model.displayFontChoice)
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("AI Meter")
-                    .font(.title2.bold())
+                    .aiMeterFont(.title2, weight: .bold)
                 Text("Private usage monitor")
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -74,11 +76,11 @@ struct MenuBarPanel: View {
         HStack {
             if let date = model.lastUpdatedAt {
                 Text("Updated \(date.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(.secondary)
             } else {
                 Text("Waiting for first refresh")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()

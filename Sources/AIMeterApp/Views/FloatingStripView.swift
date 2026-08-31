@@ -80,6 +80,7 @@ struct FloatingStripView: View {
             .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .aiMeterFontScope(model.displayFontChoice)
         .onChange(of: session.selectedProvider) { oldValue, newValue in
             if let oldValue, newValue == nil {
                 accessibilityFocusedProvider = oldValue
@@ -115,22 +116,25 @@ struct FloatingDetailView: View {
 
     @ViewBuilder
     var body: some View {
-        if let snapshot = model.snapshots.first(where: { $0.provider == provider }) {
-            if provider == .deepSeek {
-                DeepSeekAnalyticsView(
-                    snapshot: snapshot,
-                    webSession: model.deepSeekWebSession,
-                    isDemoMode: model.isRunningDemoMode,
-                    onInteractionChange: onInteractionChange
-                )
-            } else if provider == .codex {
-                CodexDetailView(snapshot: snapshot)
-                    .onHover(perform: onInteractionChange)
-            } else {
-                compactDetail(snapshot)
-                    .onHover(perform: onInteractionChange)
+        Group {
+            if let snapshot = model.snapshots.first(where: { $0.provider == provider }) {
+                if provider == .deepSeek {
+                    DeepSeekAnalyticsView(
+                        snapshot: snapshot,
+                        webSession: model.deepSeekWebSession,
+                        isDemoMode: model.isRunningDemoMode,
+                        onInteractionChange: onInteractionChange
+                    )
+                } else if provider == .codex {
+                    CodexDetailView(snapshot: snapshot)
+                        .onHover(perform: onInteractionChange)
+                } else {
+                    compactDetail(snapshot)
+                        .onHover(perform: onInteractionChange)
+                }
             }
         }
+        .aiMeterFontScope(model.displayFontChoice)
     }
 
     private func compactDetail(_ snapshot: UsageSnapshot) -> some View {
@@ -140,20 +144,20 @@ struct FloatingDetailView: View {
                     HStack(spacing: 9) {
                         ProviderLogo(provider: snapshot.provider, size: 25)
                         Text(presentation.title)
-                            .font(.headline)
+                            .aiMeterFont(.headline)
                             .foregroundStyle(detailValueStyle(presentation))
                     }
                     Spacer()
                     Text(presentation.valueText)
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .aiMeterFont(.title2, design: .rounded, weight: .bold)
                         .foregroundStyle(detailValueStyle(presentation))
                 }
                 Text(presentation.detailText)
-                    .font(.caption)
+                    .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 if let reset = presentation.primaryResetText {
                     Text(reset)
-                        .font(.caption2)
+                        .aiMeterFont(.caption2)
                         .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 }
                 if let secondary = snapshot.secondaryMetric,
@@ -175,11 +179,11 @@ struct FloatingDetailView: View {
                                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                         }
                     }
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                 }
                 if let status = presentation.statusText {
                     Text(status)
-                        .font(.caption2)
+                        .aiMeterFont(.caption2)
                         .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 }
                 if snapshot.provider == .claude,
@@ -190,7 +194,7 @@ struct FloatingDetailView: View {
                 }
                 Spacer(minLength: 0)
                 Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption2)
+                    .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
