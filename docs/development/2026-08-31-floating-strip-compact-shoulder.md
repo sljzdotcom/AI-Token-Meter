@@ -56,9 +56,13 @@
 
 - `codesign --verify --deep --strict`：通过；
 - `plutil -lint`：`OK`；
-- 候选版 SHA-256：`d7b941ddaf4be3108c85567c4bc8d5ddd9d2cea26fc8d17d1adfc8c7fd9249d1`；
-- 安装版 SHA-256：`d7b941ddaf4be3108c85567c4bc8d5ddd9d2cea26fc8d17d1adfc8c7fd9249d1`；
-- 旧安装版备份：`/private/tmp/AI Meter.app.pre-compact-shoulder-20260831-1600`。
+- 功能工作区候选版 SHA-256：`d7b941ddaf4be3108c85567c4bc8d5ddd9d2cea26fc8d17d1adfc8c7fd9249d1`；
+- 合并后 `main` 构建 SHA-256：`4fc4dddb197a48938c017f5b019be0729becafc712a2ef55410bdba9c7c80b9b`；
+- 最终安装版 SHA-256：`4fc4dddb197a48938c017f5b019be0729becafc712a2ef55410bdba9c7c80b9b`；
+- 原安装版备份：`/private/tmp/AI Meter.app.pre-compact-shoulder-20260831-1600`；
+- 功能候选版备份：`/private/tmp/AI Meter.app.pre-main-compact-shoulder-20260831-1655`。
+
+两个构建路径产生的可执行文件指纹不同，因此合并后重新从 `main` 构建、安装并逐项验收；最终安装文件与 `main` 发布包指纹完全一致。
 
 ## 实机验收
 
@@ -74,4 +78,6 @@
 
 - `c60634c`：确认紧凑短肩规格；
 - `5be0989`：实现计划；
-- `df7afa6`：方案 A 路径与回归测试（任务 1/2）。
+- `df7afa6`：方案 A 路径与回归测试（任务 1/2）；
+- `28305e6`：验收记录与开发文档（任务 2/2）；
+- `7953806`：合并功能分支到 `main`。

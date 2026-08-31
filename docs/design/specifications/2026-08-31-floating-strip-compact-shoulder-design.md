@@ -71,6 +71,6 @@
 
 专项测试验证了可见边界、内外采样、无外阴影像素、左右镜像、真实拖动 Shape 和指针拖动入口。完整测试共 153 项、33 个测试组、0 失败，4 项真实钥匙串或已安装 CLI 环境门控按设计跳过。
 
-Release 构建、ad-hoc 签名和 Info.plist 校验通过。候选版与最终安装版可执行文件 SHA-256 均为 `d7b941ddaf4be3108c85567c4bc8d5ddd9d2cea26fc8d17d1adfc8c7fd9249d1`。
+Release 构建、ad-hoc 签名和 Info.plist 校验通过。功能工作区候选版 SHA-256 为 `d7b941ddaf4be3108c85567c4bc8d5ddd9d2cea26fc8d17d1adfc8c7fd9249d1`；合并后重新从 `main` 构建并安装，最终发布包与安装版 SHA-256 均为 `4fc4dddb197a48938c017f5b019be0729becafc712a2ef55410bdba9c7c80b9b`。
 
 真实安装版已验收右贴边、左贴边、玻璃主体拖动、Logo 详情、Settings 入口和三项服务配色；验收结束后恢复为用户原有的 Right、垂直位置 97%。
