@@ -51,12 +51,15 @@ struct FloatingStripView: View {
                         NSCursor.arrow.set()
                     }
                 }
-            VStack(spacing: 12) {
+            VStack(spacing: FloatingStripContentLayout.providerSpacing) {
                 ForEach(presentations, id: \.provider) { presentation in
                     Button {
                         onProviderTap(presentation.provider)
                     } label: {
-                        UsageRing(presentation: presentation, size: 60)
+                        UsageRing(
+                            presentation: presentation,
+                            size: FloatingStripContentLayout.providerButtonSize
+                        )
                             .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                     }
                     .buttonStyle(.plain)
@@ -71,8 +74,10 @@ struct FloatingStripView: View {
                     )
                 }
             }
-            .padding(.vertical, 17)
-            .padding(.horizontal, 11)
+            .padding(.vertical, FloatingStripContentLayout.verticalPadding)
+            .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
+            .padding(.top, FloatingStripContentLayout.providerStackTopInset)
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: session.selectedProvider) { oldValue, newValue in
