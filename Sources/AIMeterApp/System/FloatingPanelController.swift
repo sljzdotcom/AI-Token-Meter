@@ -6,24 +6,40 @@ import SwiftUI
 final class FloatingPanelController {
     private let model: AppModel
     private let session = FloatingDetailSession()
+    private let displayState: FloatingStripDisplayState
     private let stripPanel: NSPanel
     private let detailPanel: NSPanel
+    private var dragStartFrame: CGRect?
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
 
     init(model: AppModel) {
         self.model = model
+        displayState = FloatingStripDisplayState(
+            resolvedEdge: model.floatingStripPosition.lastResolvedEdge
+        )
         stripPanel = Self.makePanel(nonactivating: true)
         detailPanel = Self.makePanel(nonactivating: false)
 
-        let stripHost = NSHostingView(rootView: FloatingStripView(model: model, session: session) { [weak self] provider in
-            guard let self else { return }
-            session.toggle(
-                provider,
-                autoHideAfter: .seconds(model.detailAutoHideSeconds)
-            )
-        })
+        let stripHost = NSHostingView(rootView: FloatingStripView(
+            model: model,
+            session: session,
+            displayState: displayState,
+            onProviderTap: { [weak self] provider in
+                guard let self else { return }
+                session.toggle(
+                    provider,
+                    autoHideAfter: .seconds(model.detailAutoHideSeconds)
+                )
+            },
+            onStripDragChanged: { [weak self] translation in
+                self?.updateStripDrag(translation: translation)
+            },
+            onStripDragEnded: { [weak self] translation in
+                self?.endStripDrag(translation: translation)
+            }
+        ))
         stripHost.sizingOptions = []
         stripPanel.contentView = stripHost
         session.onSelectionChange = { [weak self] provider in
@@ -87,6 +103,10 @@ final class FloatingPanelController {
             provider,
             autoHideAfter: .seconds(model.detailAutoHideSeconds)
         )
+    }
+
+    func reposition() {
+        positionPanels()
     }
 
     private func renderSelection(_ provider: UsageProvider?) {
@@ -153,17 +173,91 @@ final class FloatingPanelController {
     }
 
     private func positionPanels() {
-        let screen = stripPanel.screen ?? NSScreen.main ?? NSScreen.screens.first
-        guard let visibleFrame = screen?.visibleFrame else { return }
-        let stripSize = NSSize(width: 84, height: 300)
-        let stripFrame = NSRect(
-            x: visibleFrame.maxX - stripSize.width - 12,
-            y: visibleFrame.midY - stripSize.height / 2,
-            width: stripSize.width,
-            height: stripSize.height
+        guard let screen = preferredScreen() else { return }
+        let edge = resolvedEdgeForCurrentPreference()
+        displayState.resolvedEdge = edge
+        let stripFrame = FloatingStripLayout.stripFrame(
+            in: screen.visibleFrame,
+            size: Self.stripSize,
+            edge: edge,
+            normalizedCenterY: model.floatingStripPosition.normalizedCenterY
         )
         stripPanel.setFrame(stripFrame, display: true, animate: false)
+        positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
+    }
 
+    private func updateStripDrag(translation: CGSize) {
+        if dragStartFrame == nil {
+            dragStartFrame = stripPanel.frame
+        }
+        guard let dragStartFrame else { return }
+
+        var proposedFrame = dragStartFrame
+        if model.floatingStripPosition.preference == .automatic {
+            proposedFrame.origin.x += translation.width
+        }
+        proposedFrame.origin.y -= translation.height
+        stripPanel.setFrame(proposedFrame, display: true, animate: false)
+
+        let screen = screen(containing: CGPoint(x: proposedFrame.midX, y: proposedFrame.midY))
+            ?? preferredScreen()
+        guard let screen else { return }
+        let edge = FloatingStripLayout.resolvedEdge(
+            preference: model.floatingStripPosition.preference,
+            current: displayState.resolvedEdge,
+            proposedMidX: proposedFrame.midX,
+            visibleFrame: screen.visibleFrame
+        )
+        displayState.resolvedEdge = edge
+        positionDetail(relativeTo: proposedFrame, edge: edge, on: screen, animate: false)
+    }
+
+    private func endStripDrag(translation: CGSize) {
+        updateStripDrag(translation: translation)
+        defer { dragStartFrame = nil }
+
+        let proposedFrame = stripPanel.frame
+        guard let screen = screen(containing: CGPoint(x: proposedFrame.midX, y: proposedFrame.midY))
+                ?? preferredScreen() else { return }
+        let placement = FloatingStripLayout.resolvedPlacement(
+            preference: model.floatingStripPosition.preference,
+            current: displayState.resolvedEdge,
+            proposedFrame: proposedFrame,
+            visibleFrame: screen.visibleFrame
+        )
+        displayState.resolvedEdge = placement.edge
+        let finalFrame = FloatingStripLayout.stripFrame(
+            in: screen.visibleFrame,
+            size: Self.stripSize,
+            edge: placement.edge,
+            normalizedCenterY: placement.normalizedCenterY
+        )
+        stripPanel.setFrame(finalFrame, display: true, animate: true)
+        model.saveFloatingStripPlacement(
+            edge: placement.edge,
+            normalizedCenterY: placement.normalizedCenterY,
+            screenIdentifier: Self.identifier(for: screen)
+        )
+        positionDetail(relativeTo: finalFrame, edge: placement.edge, on: screen, animate: true)
+    }
+
+    private func positionDetail(
+        relativeTo stripFrame: CGRect,
+        edge: FloatingStripEdge,
+        on screen: NSScreen,
+        animate: Bool
+    ) {
+        let detailSize = preferredDetailSize(availableHeight: screen.visibleFrame.height)
+        let detailFrame = FloatingStripLayout.detailFrame(
+            size: detailSize,
+            stripFrame: stripFrame,
+            edge: edge,
+            visibleFrame: screen.visibleFrame
+        )
+        detailPanel.setFrame(detailFrame, display: true, animate: animate)
+    }
+
+    private func preferredDetailSize(availableHeight: CGFloat) -> CGSize {
         let detailSize: NSSize
         switch session.selectedProvider {
         case .deepSeek: detailSize = NSSize(width: 620, height: 520)
@@ -174,28 +268,45 @@ final class FloatingPanelController {
                 width: 390,
                 height: CodexDetailPanelLayout.height(
                     creditCount: creditCount,
-                    availableHeight: visibleFrame.height
+                    availableHeight: availableHeight
                 )
             )
         case .claude, .none: detailSize = NSSize(width: 300, height: 260)
         }
-        let detailOriginX = max(visibleFrame.minX + 8, stripFrame.minX - detailSize.width - 10)
-        let centeredY = stripFrame.midY - detailSize.height / 2
-        let detailOriginY = min(
-            max(centeredY, visibleFrame.minY + 8),
-            visibleFrame.maxY - detailSize.height - 8
-        )
-        detailPanel.setFrame(
-            NSRect(
-                x: detailOriginX,
-                y: detailOriginY,
-                width: detailSize.width,
-                height: detailSize.height
-            ),
-            display: true,
-            animate: false
-        )
+        return detailSize
     }
+
+    private func resolvedEdgeForCurrentPreference() -> FloatingStripEdge {
+        switch model.floatingStripPosition.preference {
+        case .automatic:
+            model.floatingStripPosition.lastResolvedEdge
+        case .left:
+            .left
+        case .right:
+            .right
+        }
+    }
+
+    private func preferredScreen() -> NSScreen? {
+        if let savedIdentifier = model.floatingStripPosition.screenIdentifier,
+           let savedScreen = NSScreen.screens.first(where: {
+               Self.identifier(for: $0) == savedIdentifier
+           }) {
+            return savedScreen
+        }
+        return stripPanel.screen ?? NSScreen.main ?? NSScreen.screens.first
+    }
+
+    private func screen(containing point: CGPoint) -> NSScreen? {
+        NSScreen.screens.first(where: { $0.visibleFrame.contains(point) })
+    }
+
+    private static func identifier(for screen: NSScreen) -> String? {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        return (screen.deviceDescription[key] as? NSNumber)?.stringValue
+    }
+
+    private static let stripSize = CGSize(width: 108, height: 356)
 
     private static func makePanel(nonactivating: Bool) -> NSPanel {
         var styleMask: NSWindow.StyleMask = [.borderless]

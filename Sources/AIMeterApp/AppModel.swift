@@ -19,6 +19,7 @@ final class AppModel {
     private let claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher
     private let defaults: UserDefaults
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
+    private let floatingStripPositionStore: FloatingStripPositionStore
     private let isDemoMode: Bool
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
@@ -31,6 +32,7 @@ final class AppModel {
     private(set) var apiKeyConfigured = false
     private(set) var launchAtLoginEnabled = false
     private(set) var settingsMessage: String?
+    private(set) var floatingStripPosition: FloatingStripPosition
 
     var showFloatingStrip: Bool
     var notificationsEnabled: Bool
@@ -38,6 +40,7 @@ final class AppModel {
     var detailAutoHideSeconds: Int
 
     var floatingVisibilityHandler: ((Bool) -> Void)?
+    var floatingPositionHandler: (() -> Void)?
     var notificationHandler: (([ThresholdEvent]) -> Void)?
     var notificationPermissionHandler: (() -> Void)?
 
@@ -52,6 +55,8 @@ final class AppModel {
         self.launchAtLoginService = launchAtLoginService
         self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
+        self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
+        self.floatingStripPosition = self.floatingStripPositionStore.load()
         self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
            let restored = try? JSONDecoder().decode(ThresholdEvaluator.self, from: data) {
@@ -153,6 +158,31 @@ final class AppModel {
         showFloatingStrip = isVisible
         defaults.set(isVisible, forKey: DefaultsKey.showFloatingStrip)
         floatingVisibilityHandler?(isVisible)
+    }
+
+    func setFloatingStripEdgePreference(_ preference: FloatingStripEdgePreference) {
+        floatingStripPosition.preference = preference
+        switch preference {
+        case .automatic:
+            break
+        case .left:
+            floatingStripPosition.lastResolvedEdge = .left
+        case .right:
+            floatingStripPosition.lastResolvedEdge = .right
+        }
+        floatingStripPositionStore.save(floatingStripPosition)
+        floatingPositionHandler?()
+    }
+
+    func saveFloatingStripPlacement(
+        edge: FloatingStripEdge,
+        normalizedCenterY: Double,
+        screenIdentifier: String?
+    ) {
+        floatingStripPosition.lastResolvedEdge = edge
+        floatingStripPosition.normalizedCenterY = normalizedCenterY
+        floatingStripPosition.screenIdentifier = screenIdentifier
+        floatingStripPositionStore.save(floatingStripPosition)
     }
 
     func setNotificationsEnabled(_ isEnabled: Bool) {

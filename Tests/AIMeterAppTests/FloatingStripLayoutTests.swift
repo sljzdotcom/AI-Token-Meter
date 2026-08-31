@@ -132,4 +132,17 @@ struct FloatingStripLayoutTests {
         #expect(detail.minY == 8)
         #expect(detail.maxY == 492)
     }
+
+    @Test("Fixed sides ignore horizontal drag but keep the proposed vertical center")
+    func fixedSideDrag() {
+        let result = FloatingStripLayout.resolvedPlacement(
+            preference: .left,
+            current: .right,
+            proposedFrame: CGRect(x: 1_100, y: 300, width: 108, height: 356),
+            visibleFrame: visible
+        )
+
+        #expect(result.edge == .left)
+        #expect(abs(result.normalizedCenterY - 0.563_063) < 0.001)
+    }
 }

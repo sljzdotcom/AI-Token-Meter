@@ -4,10 +4,31 @@ import SwiftUI
 struct FloatingStripView: View {
     @Bindable var model: AppModel
     @Bindable var session: FloatingDetailSession
+    @Bindable var displayState: FloatingStripDisplayState
     let onProviderTap: (UsageProvider) -> Void
+    let onStripDragChanged: (CGSize) -> Void
+    let onStripDragEnded: (CGSize) -> Void
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
+            Capsule()
+                .fill(Color.white.opacity(displayState.isDragging ? 0.5 : 0.24))
+                .frame(width: 25, height: 3)
+                .frame(width: 50, height: 18)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                        .onChanged { value in
+                            displayState.isDragging = true
+                            onStripDragChanged(value.translation)
+                        }
+                        .onEnded { value in
+                            displayState.isDragging = false
+                            onStripDragEnded(value.translation)
+                        }
+                )
+                .accessibilityLabel("Move floating meter")
+                .accessibilityHint("Drag vertically, or drag to another edge in Automatic mode")
             ForEach(presentations, id: \.provider) { presentation in
                 Button {
                     onProviderTap(presentation.provider)

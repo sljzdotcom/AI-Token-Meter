@@ -1,6 +1,11 @@
 import AIMeterCore
 import Foundation
 
+struct FloatingStripResolvedPlacement: Equatable {
+    let edge: FloatingStripEdge
+    let normalizedCenterY: Double
+}
+
 enum FloatingStripLayout {
     static let detailGap: CGFloat = 9
     static let detailScreenInset: CGFloat = 8
@@ -46,6 +51,23 @@ enum FloatingStripLayout {
         let travel = visibleFrame.height - frame.height
         guard travel > 0 else { return 0.5 }
         return min(max((frame.minY - visibleFrame.minY) / travel, 0), 1)
+    }
+
+    static func resolvedPlacement(
+        preference: FloatingStripEdgePreference,
+        current: FloatingStripEdge,
+        proposedFrame: CGRect,
+        visibleFrame: CGRect
+    ) -> FloatingStripResolvedPlacement {
+        FloatingStripResolvedPlacement(
+            edge: resolvedEdge(
+                preference: preference,
+                current: current,
+                proposedMidX: proposedFrame.midX,
+                visibleFrame: visibleFrame
+            ),
+            normalizedCenterY: normalizedCenterY(for: proposedFrame, in: visibleFrame)
+        )
     }
 
     static func detailFrame(
