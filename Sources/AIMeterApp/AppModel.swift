@@ -185,6 +185,16 @@ final class AppModel {
         floatingStripPositionStore.save(floatingStripPosition)
     }
 
+    func recoverFloatingStripAfterScreenLoss(screenIdentifier: String?) {
+        floatingStripPosition = FloatingStripPosition(
+            preference: .automatic,
+            lastResolvedEdge: .right,
+            normalizedCenterY: 0.5,
+            screenIdentifier: screenIdentifier
+        )
+        floatingStripPositionStore.save(floatingStripPosition)
+    }
+
     func setNotificationsEnabled(_ isEnabled: Bool) {
         notificationsEnabled = isEnabled
         defaults.set(isEnabled, forKey: DefaultsKey.notificationsEnabled)

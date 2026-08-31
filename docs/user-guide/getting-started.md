@@ -33,7 +33,7 @@ dist/AI Meter.app
 open "dist/AI Meter.app"
 ```
 
-构建脚本会执行 release 构建、组装 `.app`、复制资源、校验 `Info.plist`、执行 ad-hoc 签名并验证签名。ad-hoc 签名适合本机使用，不等同于面向其他用户分发所需的 Developer ID 签名与 Apple 公证。
+构建脚本会执行 release 构建、确定性生成完整尺寸的仪表指针 App Icon、组装 `.app`、复制资源、校验 `Info.plist`、执行 ad-hoc 签名并验证签名。ad-hoc 签名适合本机使用，不等同于面向其他用户分发所需的 Developer ID 签名与 Apple 公证。
 
 ## 3. 安装到应用程序
 
@@ -82,6 +82,8 @@ AI Meter 通过 Codex CLI 的 `app-server` 结构化接口读取账户速率限�
 ## 7. 常用操作
 
 - 点击圆环：展开对应服务详情。
+- 拖动顶部短横：调整浮岛上下位置；Automatic 模式还可拖到另一侧。
+- 设置中的 **Screen edge**：选择 Automatic、Left 或 Right。
 - 点击空白处：立即关闭详情。
 - 悬停在详情上：暂停自动隐藏倒计时。
 - 菜单栏刷新按钮：立即刷新三项服务。

@@ -47,3 +47,18 @@ struct FloatingStripShape: Shape {
         return path
     }
 }
+
+struct FloatingStripSurface: View {
+    let edge: FloatingStripEdge
+
+    var body: some View {
+        FloatingStripShape(edge: edge)
+            .fill(AIMeterVisualTheme.floatingGlass)
+            .shadow(
+                color: .black.opacity(0.34),
+                radius: 18,
+                x: edge == .right ? -6 : 6,
+                y: 8
+            )
+    }
+}

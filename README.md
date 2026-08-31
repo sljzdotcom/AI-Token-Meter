@@ -3,25 +3,27 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 113](https://img.shields.io/badge/tests-113%20passed-2ea44f)
+![Tests 137](https://img.shields.io/badge/tests-137%20passed-2ea44f)
 
 AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
 > 项目状态：个人本地工具，当前应用版本为 `0.1.0`（build `1`）。`0.1.0` 之后已经合入但尚未正式发布的改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 <p align="center">
-  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="84" alt="AI Meter 右侧悬浮条，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
+  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="108" alt="AI Meter 贴边浮岛，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
 </p>
 
 ## 主要功能
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
-- 右侧悬浮条只显示三个大尺寸品牌 Logo 与用量环，节省屏幕空间。
+- 贴边浮岛只显示三个经过光学校正的品牌 Logo 与用量环；默认吸附右侧，也可固定左侧或自动拖动吸附。
+- 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
+- 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - Claude：读取当前会话与周额度，显示重置时间。
 - Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。
-- 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停与登录操作期间暂停倒计时。
+- 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
 - 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
 - API Key 存入 macOS Keychain；缓存前会清理常见 Token 与密钥形态。
 
@@ -52,7 +54,7 @@ bash scripts/build-app.sh
 open "dist/AI Meter.app"
 ```
 
-构建脚本会生成 `dist/AI Meter.app`、执行 ad-hoc 本机签名并验证签名。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
+构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Meter.app`、执行 ad-hoc 本机签名并验证签名。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
 
 日常使用时，退出 AI Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
 
@@ -60,12 +62,12 @@ open "dist/AI Meter.app"
 
 ## 第一次使用
 
-1. 启动 AI Meter。屏幕右侧出现三个用量环，菜单栏出现 AI Meter 图标。
+1. 启动 AI Meter。屏幕右侧出现贴边浮岛和三个用量环，菜单栏出现 AI Meter 图标。
 2. 点击菜单栏图标，再点击齿轮，或按 `⌘,` 打开设置。
 3. 确认 Claude Code 与 Codex CLI 已分别登录；如 Claude 提示工作区设置，点击一次性设置按钮并在终端批准。
 4. 如需 DeepSeek，在设置中保存 API Key，并把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
-6. 按需开启 70% / 90% 提醒、登录时启动，并选择详情自动隐藏时间。
+6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间和浮岛侧边模式。
 
 ## 如何理解圆环
 

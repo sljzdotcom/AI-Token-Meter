@@ -4,6 +4,7 @@ import SwiftUI
 struct UsageRing: View {
     let presentation: ProviderPresentation
     var size: CGFloat = 60
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         ZStack {
@@ -23,10 +24,31 @@ struct UsageRing: View {
                     .rotationEffect(.degrees(-90))
             }
             ProviderLogo(provider: presentation.provider, size: size * 0.44)
+            if differentiateWithoutColor,
+               let symbolName = presentation.semantic.statusSymbolName {
+                Image(systemName: symbolName)
+                    .font(.system(size: size * 0.15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(size * 0.055)
+                    .background(Circle().fill(Color.black.opacity(0.82)))
+                    .offset(x: size * 0.30, y: -size * 0.30)
+                    .accessibilityHidden(true)
+            }
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(presentation.title), \(presentation.valueText), \(presentation.detailText)")
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        [
+            presentation.title,
+            presentation.valueText,
+            presentation.detailText,
+            presentation.accessibilityStatusText,
+        ]
+        .compactMap { $0 }
+        .joined(separator: ", ")
     }
 
     private var ringStyle: AnyShapeStyle {

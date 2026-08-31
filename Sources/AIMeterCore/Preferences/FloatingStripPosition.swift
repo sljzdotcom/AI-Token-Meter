@@ -30,7 +30,8 @@ public struct FloatingStripPosition: Equatable, Sendable {
     }
 
     private static func clamped(_ value: Double) -> Double {
-        min(max(value, 0), 1)
+        guard value.isFinite else { return 0.5 }
+        return min(max(value, 0), 1)
     }
 }
 

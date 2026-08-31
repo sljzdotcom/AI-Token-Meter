@@ -31,7 +31,6 @@ struct DeepSeekAnalyticsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .aiMeterDetailSurface()
-        .padding(5)
         .onAppear {
             if !isDemoMode {
                 webSession.syncIfNeeded()

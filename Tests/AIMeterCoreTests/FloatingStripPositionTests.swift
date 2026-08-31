@@ -36,6 +36,14 @@ struct FloatingStripPositionTests {
         #expect(value.normalizedCenterY == 1)
     }
 
+    @Test("Non-finite vertical positions recover to the screen center")
+    func nonFiniteValues() {
+        for value in [Double.nan, .infinity, -.infinity] {
+            let position = FloatingStripPosition(normalizedCenterY: value)
+            #expect(position.normalizedCenterY == 0.5)
+        }
+    }
+
     @Test("Persists every placement field and clamps the saved vertical position")
     func roundTrip() {
         let suiteName = "AIMeter.FloatingStripPositionTests.roundTrip"

@@ -8,55 +8,89 @@ struct FloatingStripView: View {
     let onProviderTap: (UsageProvider) -> Void
     let onStripDragChanged: (CGSize) -> Void
     let onStripDragEnded: (CGSize) -> Void
+    let onAccessibilityMove: (FloatingStripAccessibilityCommand) -> Void
+    @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
 
     var body: some View {
-        VStack(spacing: 12) {
-            Capsule()
-                .fill(Color.white.opacity(displayState.isDragging ? 0.5 : 0.24))
-                .frame(width: 25, height: 3)
-                .frame(width: 50, height: 18)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                        .onChanged { value in
-                            displayState.isDragging = true
-                            onStripDragChanged(value.translation)
+        ZStack {
+            FloatingStripSurface(edge: displayState.resolvedEdge)
+            VStack(spacing: 12) {
+                Capsule()
+                    .fill(Color.white.opacity(displayState.isDragging ? 0.5 : 0.24))
+                    .frame(width: 25, height: 3)
+                    .frame(width: 50, height: 18)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                            .onChanged { value in
+                                displayState.isDragging = true
+                                onStripDragChanged(value.translation)
+                            }
+                            .onEnded { value in
+                                displayState.isDragging = false
+                                onStripDragEnded(value.translation)
+                            }
+                    )
+                    .accessibilityLabel("Move floating meter")
+                    .accessibilityValue(accessibilityPositionValue)
+                    .accessibilityHint("Use up or down to move. Left and right set the edge preference")
+                    .focusable()
+                    .onMoveCommand { direction in
+                        switch direction {
+                        case .up: onAccessibilityMove(.moveUp)
+                        case .down: onAccessibilityMove(.moveDown)
+                        case .left: onAccessibilityMove(.moveToLeftEdge)
+                        case .right: onAccessibilityMove(.moveToRightEdge)
+                        default: break
                         }
-                        .onEnded { value in
-                            displayState.isDragging = false
-                            onStripDragEnded(value.translation)
+                    }
+                    .accessibilityAdjustableAction { direction in
+                        switch direction {
+                        case .increment: onAccessibilityMove(.moveUp)
+                        case .decrement: onAccessibilityMove(.moveDown)
+                        @unknown default: break
                         }
-                )
-                .accessibilityLabel("Move floating meter")
-                .accessibilityHint("Drag vertically, or drag to another edge in Automatic mode")
-            ForEach(presentations, id: \.provider) { presentation in
-                Button {
-                    onProviderTap(presentation.provider)
-                } label: {
-                    UsageRing(presentation: presentation, size: 60)
-                        .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
+                    }
+                    .accessibilityAction(named: "Set edge preference to Left") {
+                        onAccessibilityMove(.moveToLeftEdge)
+                    }
+                    .accessibilityAction(named: "Set edge preference to Right") {
+                        onAccessibilityMove(.moveToRightEdge)
+                    }
+                ForEach(presentations, id: \.provider) { presentation in
+                    Button {
+                        onProviderTap(presentation.provider)
+                    } label: {
+                        UsageRing(presentation: presentation, size: 60)
+                            .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityValue(session.accessibilityValue(for: presentation.provider))
+                    .accessibilityFocused(
+                        $accessibilityFocusedProvider,
+                        equals: presentation.provider
+                    )
+                    .animation(
+                        .spring(response: 0.28, dampingFraction: 0.8),
+                        value: session.selectedProvider
+                    )
                 }
-                .buttonStyle(.plain)
-                .accessibilityValue(session.accessibilityValue(for: presentation.provider))
-                .animation(
-                    .spring(response: 0.28, dampingFraction: 0.8),
-                    value: session.selectedProvider
-                )
+            }
+            .padding(.vertical, 17)
+            .padding(.horizontal, 11)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: session.selectedProvider) { oldValue, newValue in
+            if let oldValue, newValue == nil {
+                accessibilityFocusedProvider = oldValue
             }
         }
-        .padding(.vertical, 17)
-        .padding(.horizontal, 11)
-        .background(
-            FloatingStripShape(edge: displayState.resolvedEdge)
-                .fill(AIMeterVisualTheme.floatingGlass)
-                .shadow(
-                    color: .black.opacity(0.34),
-                    radius: 18,
-                    x: displayState.resolvedEdge == .right ? -6 : 6,
-                    y: 8
-                )
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var accessibilityPositionValue: String {
+        let edge = displayState.resolvedEdge == .left ? "Left edge" : "Right edge"
+        let verticalPercent = Int((displayState.normalizedCenterY * 100).rounded())
+        return "\(edge), vertical position \(verticalPercent) percent"
     }
 
     private var presentations: [ProviderPresentation] {
@@ -158,7 +192,6 @@ struct FloatingDetailView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .aiMeterDetailSurface()
-            .padding(5)
     }
 
     private func detailValueStyle(_ presentation: ProviderPresentation) -> AnyShapeStyle {

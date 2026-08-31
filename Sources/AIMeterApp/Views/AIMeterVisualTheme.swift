@@ -42,9 +42,22 @@ enum AIMeterVisualTheme {
     )
 }
 
+extension UsageSemantic {
+    var statusSymbolName: String? {
+        switch self {
+        case .normal: nil
+        case .warning: "exclamationmark"
+        case .critical: "exclamationmark.triangle.fill"
+        case .stale: "clock.arrow.circlepath"
+        case .unavailable: "questionmark.circle.fill"
+        }
+    }
+}
+
 private struct AIMeterGlassCardModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     let cornerRadius: CGFloat
 
@@ -60,7 +73,10 @@ private struct AIMeterGlassCardModifier: ViewModifier {
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .stroke(
-                                Color.white.opacity(differentiateWithoutColor ? 0.18 : 0.055),
+                                Color.white.opacity(
+                                    differentiateWithoutColor || colorSchemeContrast == .increased
+                                        ? 0.22 : 0.055
+                                ),
                                 lineWidth: 1
                             )
                     }
@@ -71,6 +87,7 @@ private struct AIMeterGlassCardModifier: ViewModifier {
 private struct AIMeterDetailSurfaceModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     func body(content: Content) -> some View {
         content
@@ -87,12 +104,12 @@ private struct AIMeterDetailSurfaceModifier: ViewModifier {
                         : AnyShapeStyle(AIMeterVisualTheme.detailGlass)
                 )
                 .overlay {
-                    if differentiateWithoutColor {
+                    if differentiateWithoutColor || colorSchemeContrast == .increased {
                         RoundedRectangle(
                             cornerRadius: AIMeterVisualTheme.panelCornerRadius,
                             style: .continuous
                         )
-                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
                     }
                 }
                 .shadow(color: .black.opacity(0.30), radius: 20, x: 0, y: 9)

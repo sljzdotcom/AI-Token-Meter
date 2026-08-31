@@ -22,7 +22,6 @@ struct CodexDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .aiMeterDetailSurface()
-        .padding(5)
     }
 
     private var header: some View {

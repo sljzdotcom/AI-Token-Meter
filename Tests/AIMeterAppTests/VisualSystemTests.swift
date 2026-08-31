@@ -1,5 +1,6 @@
 import AIMeterCore
 import Foundation
+import SwiftUI
 import Testing
 @testable import AIMeterApp
 
@@ -43,5 +44,35 @@ struct VisualSystemTests {
         )
 
         #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
+    }
+
+    @Test("Floating island surface paints every window edge")
+    @MainActor
+    func floatingSurfaceIsOpaqueAtWindowEdges() throws {
+        let renderer = ImageRenderer(content:
+            FloatingStripSurface(edge: .right)
+                .frame(width: 108, height: 356)
+        )
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+
+        for point in [(0, 178), (107, 178), (54, 0), (54, 355)] {
+            #expect(try alpha(atX: point.0, y: point.1, in: image) > 0)
+        }
+    }
+
+    @Test("Every non-normal usage state has a non-color symbol")
+    func semanticSymbols() {
+        #expect(UsageSemantic.normal.statusSymbolName == nil)
+        for semantic in [UsageSemantic.warning, .critical, .stale, .unavailable] {
+            #expect(semantic.statusSymbolName != nil)
+        }
+    }
+
+    private func alpha(atX x: Int, y: Int, in image: CGImage) throws -> UInt8 {
+        let data = try #require(image.dataProvider?.data)
+        let bytes = CFDataGetBytePtr(data)
+        let alphaIndex = y * image.bytesPerRow + x * image.bitsPerPixel / 8 + 3
+        return try #require(bytes?[alphaIndex])
     }
 }

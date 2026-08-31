@@ -145,4 +145,49 @@ struct FloatingStripLayoutTests {
         #expect(result.edge == .left)
         #expect(abs(result.normalizedCenterY - 0.563_063) < 0.001)
     }
+
+    @Test("A missing saved display falls back to the main display at right center")
+    func missingDisplayFallback() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "disconnected",
+            availableIdentifiers: ["secondary", "main"],
+            mainIdentifier: "main"
+        )
+
+        #expect(result.identifier == "main")
+        #expect(result.usesDefaultPlacement)
+        #expect(result.defaultEdge == .right)
+        #expect(result.defaultNormalizedCenterY == 0.5)
+    }
+
+    @Test("An available saved display preserves the saved placement")
+    func availableDisplaySelection() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "secondary",
+            availableIdentifiers: ["secondary", "main"],
+            mainIdentifier: "main"
+        )
+
+        #expect(result.identifier == "secondary")
+        #expect(!result.usesDefaultPlacement)
+    }
+
+    @Test("Accessibility movement uses bounded vertical steps and explicit edges")
+    func accessibilityMovement() {
+        #expect(FloatingStripAccessibilityMovement.position(
+            after: .moveUp,
+            currentEdge: .right,
+            normalizedCenterY: 0.95
+        ).normalizedCenterY == 1)
+        #expect(FloatingStripAccessibilityMovement.position(
+            after: .moveDown,
+            currentEdge: .right,
+            normalizedCenterY: 0.05
+        ).normalizedCenterY == 0)
+        #expect(FloatingStripAccessibilityMovement.position(
+            after: .moveToLeftEdge,
+            currentEdge: .right,
+            normalizedCenterY: 0.5
+        ).edge == .left)
+    }
 }
