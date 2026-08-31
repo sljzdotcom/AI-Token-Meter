@@ -50,6 +50,19 @@ struct VisualSystemTests {
             #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
         }
 
+        let settlingOutside = [
+            CGPoint(x: 0, y: 94),
+            CGPoint(x: 0, y: 100),
+        ]
+        for point in settlingOutside {
+            #expect(!right.contains(point))
+            #expect(!right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
+            #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
+        }
+
+        #expect(right.contains(CGPoint(x: 8, y: 100)))
+        #expect(right.contains(CGPoint(x: 1, y: 110)))
+
         #expect(right.contains(CGPoint(x: 106, y: 178)))
         #expect(left.contains(CGPoint(x: 2, y: 178)))
     }
@@ -92,6 +105,19 @@ struct VisualSystemTests {
         for point in [(0, 178), (107, 1), (107, 178), (107, 354)] {
             #expect(try alpha(atX: point.0, y: point.1, in: image) > 0)
         }
+    }
+
+    @Test("Floating island has no shadow outside its visible shoulder")
+    @MainActor
+    func floatingSurfaceHasNoExteriorShadow() throws {
+        let renderer = ImageRenderer(content:
+            FloatingStripSurface(edge: .right)
+                .frame(width: 108, height: 356)
+        )
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+
+        #expect(try alpha(atX: 0, y: 94, in: image) == 0)
     }
 
     @Test("Every non-normal usage state has a non-color symbol")

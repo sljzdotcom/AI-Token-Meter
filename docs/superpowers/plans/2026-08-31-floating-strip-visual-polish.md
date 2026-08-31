@@ -67,7 +67,6 @@ func floatingSurfaceHasNoExteriorShadow() throws {
     let image = try #require(renderer.cgImage)
 
     #expect(try alpha(atX: 0, y: 94, in: image) == 0)
-    #expect(try alpha(atX: 0, y: 100, in: image) == 0)
 }
 ```
 
@@ -79,7 +78,7 @@ func floatingSurfaceHasNoExteriorShadow() throws {
 bash scripts/test.sh --filter VisualSystemTests
 ```
 
-预期：旧路径在 `y = 94/100` 已进入竖直主体，且旧外投影产生 alpha，因此新增断言失败。
+预期：旧路径在 `y = 94/100` 已进入竖直主体，且旧实现会让 `(0, 94)` 产生 alpha，因此新增断言失败。`(0, 100)` 只用于几何测试，避免把曲线边缘的正常抗锯齿误判成阴影。
 
 - [ ] **步骤 3：实现三段肩部并移除外投影**
 
