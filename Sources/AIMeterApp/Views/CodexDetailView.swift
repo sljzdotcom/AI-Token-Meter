@@ -30,6 +30,7 @@ struct CodexDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Codex")
                     .font(.headline)
+                    .foregroundStyle(valueStyle)
                 Text("Official quota · Local activity")
                     .font(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
@@ -67,8 +68,10 @@ struct CodexDetailView: View {
                 Spacer(minLength: 4)
                 Text(percentText(metric))
                     .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(valueStyle)
             }
             AIMeterProgressBar(
+                provider: .codex,
                 fraction: metric.usedFraction ?? 0,
                 semantic: presentation.semantic
             )
@@ -120,9 +123,10 @@ struct CodexDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: symbol)
                 .font(.caption)
-                .foregroundStyle(AIMeterVisualTheme.mintAccent)
+                .foregroundStyle(valueStyle)
             Text(value)
                 .font(.system(.headline, design: .rounded, weight: .semibold))
+                .foregroundStyle(valueStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
             Text(title)
@@ -152,10 +156,7 @@ struct CodexDetailView: View {
     }
 
     private var valueStyle: AnyShapeStyle {
-        if presentation.semantic == .normal {
-            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
-        }
-        return AnyShapeStyle(presentation.semantic.color)
+        presentation.semantic.accentStyle(for: .codex)
     }
 
     private func percentText(_ metric: UsageMetric) -> String {

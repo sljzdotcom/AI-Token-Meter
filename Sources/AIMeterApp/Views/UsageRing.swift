@@ -52,9 +52,6 @@ struct UsageRing: View {
     }
 
     private var ringStyle: AnyShapeStyle {
-        if presentation.semantic == .normal {
-            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
-        }
-        return AnyShapeStyle(presentation.semantic.color)
+        presentation.semantic.accentStyle(for: presentation.provider)
     }
 }

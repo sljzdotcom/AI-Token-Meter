@@ -155,10 +155,55 @@ struct VisualSystemTests {
         }
     }
 
+    @Test("Normal progress bars use provider colors while warnings stay semantic")
+    @MainActor
+    func providerProgressBarColors() throws {
+        let normalColors = try UsageProvider.allCases.map {
+            try progressBarPixel(provider: $0, semantic: .normal)
+        }
+        #expect(Set(normalColors).count == 3)
+
+        let warningColors = try UsageProvider.allCases.map {
+            try progressBarPixel(provider: $0, semantic: .warning)
+        }
+        #expect(Set(warningColors).count == 1)
+    }
+
+    @MainActor
+    private func progressBarPixel(
+        provider: UsageProvider,
+        semantic: UsageSemantic
+    ) throws -> PixelRGB {
+        let renderer = ImageRenderer(content:
+            AIMeterProgressBar(
+                provider: provider,
+                fraction: 1,
+                semantic: semantic
+            )
+            .frame(width: 120, height: 5)
+        )
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        let data = try #require(image.dataProvider?.data)
+        let bytes = try #require(CFDataGetBytePtr(data))
+        let pixelOffset = 2 * image.bytesPerRow + 60 * image.bitsPerPixel / 8
+        return PixelRGB(
+            red: bytes[pixelOffset],
+            green: bytes[pixelOffset + 1],
+            blue: bytes[pixelOffset + 2]
+        )
+    }
+
     private func alpha(atX x: Int, y: Int, in image: CGImage) throws -> UInt8 {
         let data = try #require(image.dataProvider?.data)
         let bytes = CFDataGetBytePtr(data)
         let alphaIndex = y * image.bytesPerRow + x * image.bitsPerPixel / 8 + 3
         return try #require(bytes?[alphaIndex])
+    }
+
+    private struct PixelRGB: Hashable {
+        let red: UInt8
+        let green: UInt8
+        let blue: UInt8
     }
 }
