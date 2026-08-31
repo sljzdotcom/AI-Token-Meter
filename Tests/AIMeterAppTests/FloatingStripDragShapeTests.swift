@@ -11,6 +11,7 @@ struct FloatingStripDragShapeTests {
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
         #expect(right.contains(CGPoint(x: 75, y: 58), eoFill: true))
+        #expect(right.contains(CGPoint(x: 40, y: 50), eoFill: true))
         #expect(right.contains(CGPoint(x: 54, y: 142), eoFill: true))
         #expect(!right.contains(CGPoint(x: 54, y: 106), eoFill: true))
         #expect(!right.contains(CGPoint(x: 54, y: 178), eoFill: true))

@@ -38,6 +38,21 @@ struct FloatingStripPointerDragStateTests {
         #expect(state.translation(to: CGPoint(x: 1800, y: 600)) == nil)
     }
 
+    @Test("Visible compact shoulder begins a pointer drag")
+    func compactShoulderBeginsDrag() {
+        var state = FloatingStripPointerDragState()
+
+        let began = state.begin(
+            windowPoint: CGPoint(x: 40, y: 50),
+            screenPoint: CGPoint(x: 1900, y: 700),
+            panelSize: CGSize(width: 108, height: 356),
+            edge: .right
+        )
+
+        #expect(began)
+        #expect(state.isActive)
+    }
+
     @Test("Transparent shoulder does not begin a pointer drag")
     func transparentShoulderDoesNotBeginDrag() {
         var state = FloatingStripPointerDragState()
