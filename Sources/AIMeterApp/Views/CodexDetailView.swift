@@ -20,14 +20,8 @@ struct CodexDetailView: View {
             Spacer(minLength: 0)
             footer
         }
-        .foregroundStyle(.white)
-        .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.black.opacity(0.95))
-                .shadow(color: .black.opacity(0.28), radius: 20, x: -5, y: 8)
-        )
+        .aiMeterDetailSurface()
         .padding(5)
     }
 
@@ -39,12 +33,12 @@ struct CodexDetailView: View {
                     .font(.headline)
                 Text("Official quota · Local activity")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.54))
+                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
             Spacer()
             Text(presentation.valueText)
                 .font(.system(.title2, design: .rounded, weight: .bold))
-                .foregroundStyle(presentation.semantic.color)
+                .foregroundStyle(valueStyle)
         }
     }
 
@@ -52,7 +46,7 @@ struct CodexDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Official quota")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .foregroundStyle(AIMeterVisualTheme.secondaryText)
             HStack(spacing: 9) {
                 if let metric = snapshot.primaryMetric {
                     quotaCard(metric, resetText: presentation.primaryResetText)
@@ -69,23 +63,25 @@ struct CodexDetailView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(metric.label)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.62))
+                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Text(percentText(metric))
                     .font(.system(.headline, design: .rounded, weight: .semibold))
             }
-            ProgressView(value: metric.usedFraction ?? 0)
-                .tint(presentation.semantic.color)
+            AIMeterProgressBar(
+                fraction: metric.usedFraction ?? 0,
+                semantic: presentation.semantic
+            )
             Text(resetText ?? "Reset time unavailable")
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
         .padding(11)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
+        .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
     }
 
@@ -98,7 +94,7 @@ struct CodexDetailView: View {
                 Spacer()
                 Text("Local estimate")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.42))
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             if let summary = snapshot.codexLocalActivity {
                 let values = CodexLocalActivityPresentation(summary: summary)
@@ -109,14 +105,14 @@ struct CodexDetailView: View {
                 }
                 Text("Counts only aggregate Codex thread activity readable on this Mac.")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.42))
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             } else {
                 Text("Local Codex activity is unavailable; official quota data is unaffected.")
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .padding(11)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(cardBackground)
+                    .aiMeterGlassCard()
             }
         }
     }
@@ -125,20 +121,20 @@ struct CodexDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: symbol)
                 .font(.caption)
-                .foregroundStyle(.mint)
+                .foregroundStyle(AIMeterVisualTheme.mintAccent)
             Text(value)
                 .font(.system(.headline, design: .rounded, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
             Text(title)
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
+        .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(value), local estimate")
     }
@@ -153,11 +149,14 @@ struct CodexDetailView: View {
             Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
         }
         .font(.caption2)
-        .foregroundStyle(.white.opacity(0.42))
+        .foregroundStyle(AIMeterVisualTheme.tertiaryText)
     }
 
-    private var cardBackground: some ShapeStyle {
-        Color.white.opacity(0.075)
+    private var valueStyle: AnyShapeStyle {
+        if presentation.semantic == .normal {
+            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
+        }
+        return AnyShapeStyle(presentation.semantic.color)
     }
 
     private func percentText(_ metric: UsageMetric) -> String {

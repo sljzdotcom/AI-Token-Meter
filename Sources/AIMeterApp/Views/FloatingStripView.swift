@@ -103,20 +103,23 @@ struct FloatingDetailView: View {
         let presentation = ProviderPresentation(snapshot: snapshot)
         return VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label(presentation.title, systemImage: snapshot.provider.symbolName)
-                        .font(.headline)
+                    HStack(spacing: 9) {
+                        ProviderLogo(provider: snapshot.provider, size: 25)
+                        Text(presentation.title)
+                            .font(.headline)
+                    }
                     Spacer()
                     Text(presentation.valueText)
                         .font(.system(.title2, design: .rounded, weight: .bold))
-                        .foregroundStyle(presentation.semantic.color)
+                        .foregroundStyle(detailValueStyle(presentation))
                 }
                 Text(presentation.detailText)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 if let reset = presentation.primaryResetText {
                     Text(reset)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 }
                 if let secondary = snapshot.secondaryMetric,
                    let fraction = secondary.usedFraction {
@@ -126,11 +129,13 @@ struct FloatingDetailView: View {
                             Spacer()
                             Text("\(Int((fraction * 100).rounded()))%")
                         }
-                        ProgressView(value: fraction)
-                            .tint(presentation.semantic.color)
+                        AIMeterProgressBar(
+                            fraction: fraction,
+                            semantic: presentation.semantic
+                        )
                         if let reset = presentation.secondaryResetText {
                             Text(reset)
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                         }
                     }
                     .font(.caption2)
@@ -138,7 +143,7 @@ struct FloatingDetailView: View {
                 if let status = presentation.statusText {
                     Text(status)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 }
                 if snapshot.provider == .claude,
                    snapshot.collectionStatus == .setupRequired {
@@ -149,16 +154,17 @@ struct FloatingDetailView: View {
                 Spacer(minLength: 0)
                 Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
-            .foregroundStyle(.white)
-            .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.black.opacity(0.94))
-                    .shadow(color: .black.opacity(0.24), radius: 18, x: -4, y: 8)
-            )
+            .aiMeterDetailSurface()
             .padding(5)
+    }
+
+    private func detailValueStyle(_ presentation: ProviderPresentation) -> AnyShapeStyle {
+        if presentation.semantic == .normal {
+            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
+        }
+        return AnyShapeStyle(presentation.semantic.color)
     }
 }

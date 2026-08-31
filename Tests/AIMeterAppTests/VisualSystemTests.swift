@@ -19,4 +19,11 @@ struct VisualSystemTests {
         #expect(FloatingStripShape(edge: .right).path(in: rect).boundingRect == rect)
         #expect(FloatingStripShape(edge: .left).path(in: rect).boundingRect == rect)
     }
+
+    @Test("Panel, card, and capsule geometry forms a strict hierarchy")
+    func geometryHierarchy() {
+        #expect(AIMeterVisualTheme.panelCornerRadius > AIMeterVisualTheme.cardCornerRadius)
+        #expect(AIMeterVisualTheme.cardCornerRadius > AIMeterVisualTheme.capsuleInsetRadius)
+        #expect(AIMeterVisualTheme.panelPadding == 20)
+    }
 }

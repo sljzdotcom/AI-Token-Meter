@@ -1,3 +1,4 @@
+import AIMeterCore
 import SwiftUI
 
 enum AIMeterVisualTheme {
@@ -12,6 +13,8 @@ enum AIMeterVisualTheme {
 
     static let panelCornerRadius: CGFloat = 25
     static let cardCornerRadius: CGFloat = 15
+    static let capsuleInsetRadius: CGFloat = 8
+    static let panelPadding: CGFloat = 20
 
     static let accentGradient = LinearGradient(
         colors: [mintAccent, violetAccent],
@@ -24,6 +27,15 @@ enum AIMeterVisualTheme {
             Color(red: 0.055, green: 0.069, blue: 0.110),
             glassBase,
             Color(red: 0.034, green: 0.043, blue: 0.075),
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let detailGlass = LinearGradient(
+        colors: [
+            glassElevated.opacity(0.98),
+            glassBase.opacity(0.99),
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
@@ -56,10 +68,72 @@ private struct AIMeterGlassCardModifier: ViewModifier {
     }
 }
 
+private struct AIMeterDetailSurfaceModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(AIMeterVisualTheme.primaryText)
+            .padding(AIMeterVisualTheme.panelPadding)
+            .background {
+                RoundedRectangle(
+                    cornerRadius: AIMeterVisualTheme.panelCornerRadius,
+                    style: .continuous
+                )
+                .fill(
+                    reduceTransparency
+                        ? AnyShapeStyle(AIMeterVisualTheme.glassBase)
+                        : AnyShapeStyle(AIMeterVisualTheme.detailGlass)
+                )
+                .overlay {
+                    if differentiateWithoutColor {
+                        RoundedRectangle(
+                            cornerRadius: AIMeterVisualTheme.panelCornerRadius,
+                            style: .continuous
+                        )
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    }
+                }
+                .shadow(color: .black.opacity(0.30), radius: 20, x: 0, y: 9)
+            }
+    }
+}
+
 extension View {
     func aiMeterGlassCard(
         cornerRadius: CGFloat = AIMeterVisualTheme.cardCornerRadius
     ) -> some View {
         modifier(AIMeterGlassCardModifier(cornerRadius: cornerRadius))
+    }
+
+    func aiMeterDetailSurface() -> some View {
+        modifier(AIMeterDetailSurfaceModifier())
+    }
+}
+
+struct AIMeterProgressBar: View {
+    let fraction: Double
+    let semantic: UsageSemantic
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.10))
+                Capsule()
+                    .fill(fillStyle)
+                    .frame(width: proxy.size.width * min(max(fraction, 0), 1))
+            }
+        }
+        .frame(height: 5)
+        .accessibilityHidden(true)
+    }
+
+    private var fillStyle: AnyShapeStyle {
+        if semantic == .normal {
+            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
+        }
+        return AnyShapeStyle(semantic.color)
     }
 }

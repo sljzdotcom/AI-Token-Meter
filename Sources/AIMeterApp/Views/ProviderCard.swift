@@ -18,7 +18,7 @@ struct ProviderCard: View {
         HStack(spacing: 14) {
             UsageRing(presentation: presentation, size: 54)
                 .padding(5)
-                .background(Color.black.opacity(0.88), in: Circle())
+                .background(AIMeterVisualTheme.glassBase.opacity(0.88), in: Circle())
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -27,7 +27,7 @@ struct ProviderCard: View {
                     Spacer()
                     Text(presentation.valueText)
                         .font(.system(.title3, design: .rounded, weight: .semibold))
-                        .foregroundStyle(presentation.semantic.color)
+                        .foregroundStyle(valueStyle)
                 }
                 Text(presentation.detailText)
                     .font(.caption)
@@ -69,7 +69,7 @@ struct ProviderCard: View {
             }
         }
         .padding(12)
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .aiMeterGlassCard()
     }
 
     private func metricLine(_ metric: UsageMetric) -> some View {
@@ -82,5 +82,12 @@ struct ProviderCard: View {
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
+    }
+
+    private var valueStyle: AnyShapeStyle {
+        if presentation.semantic == .normal {
+            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
+        }
+        return AnyShapeStyle(presentation.semantic.color)
     }
 }
