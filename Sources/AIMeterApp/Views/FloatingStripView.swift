@@ -76,8 +76,6 @@ struct FloatingStripView: View {
             }
             .padding(.vertical, FloatingStripContentLayout.verticalPadding)
             .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
-            .padding(.top, FloatingStripContentLayout.providerStackTopInset)
-            .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: session.selectedProvider) { oldValue, newValue in

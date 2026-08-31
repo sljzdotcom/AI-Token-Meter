@@ -2,26 +2,22 @@ import AIMeterCore
 import SwiftUI
 
 enum FloatingStripContentLayout {
-    static let referenceSize = CGSize(width: 108, height: 356)
     static let providerButtonSize: CGFloat = 60
     static let providerSpacing: CGFloat = 12
     static let verticalPadding: CGFloat = 17
     static let horizontalPadding: CGFloat = 11
-    static let providerStackTopInset: CGFloat = 59
 
     static func providerFrames(in rect: CGRect) -> [CGRect] {
-        let scaleX = rect.width / referenceSize.width
-        let scaleY = rect.height / referenceSize.height
-        let stackWidth = providerButtonSize + 2 * horizontalPadding
-        let originX = rect.minX + ((referenceSize.width - stackWidth) / 2 + horizontalPadding) * scaleX
-        let originY = rect.minY + (providerStackTopInset + verticalPadding) * scaleY
+        let providerStackHeight = 3 * providerButtonSize + 2 * providerSpacing + 2 * verticalPadding
+        let originX = rect.midX - providerButtonSize / 2
+        let originY = rect.midY - providerStackHeight / 2 + verticalPadding
 
         return (0..<3).map { index in
             CGRect(
                 x: originX,
-                y: originY + CGFloat(index) * (providerButtonSize + providerSpacing) * scaleY,
-                width: providerButtonSize * scaleX,
-                height: providerButtonSize * scaleY
+                y: originY + CGFloat(index) * (providerButtonSize + providerSpacing),
+                width: providerButtonSize,
+                height: providerButtonSize
             )
         }
     }

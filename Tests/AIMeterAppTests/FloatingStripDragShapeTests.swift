@@ -28,15 +28,17 @@ struct FloatingStripDragShapeTests {
         #expect(!left.contains(CGPoint(x: 88, y: 30), eoFill: true))
     }
 
-    @Test("Drag exclusions retain their layout when the shape is scaled or translated")
-    func dragRegionTracksScaledTranslatedLayout() {
+    @Test("Drag exclusions remain fixed-size and centered in a scaled translated shape")
+    func dragRegionUsesFixedCenteredProviderFrames() {
         let rect = CGRect(x: 100, y: 200, width: 216, height: 712)
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
         #expect(right.contains(CGPoint(x: 272, y: 280), eoFill: true))
-        #expect(!right.contains(CGPoint(x: 208, y: 412), eoFill: true))
+        #expect(!right.contains(CGPoint(x: 208, y: 484), eoFill: true))
         #expect(!right.contains(CGPoint(x: 208, y: 556), eoFill: true))
-        #expect(!right.contains(CGPoint(x: 208, y: 700), eoFill: true))
+        #expect(!right.contains(CGPoint(x: 208, y: 628), eoFill: true))
+        #expect(right.contains(CGPoint(x: 208, y: 453), eoFill: true))
+        #expect(right.contains(CGPoint(x: 208, y: 515), eoFill: true))
     }
 
     @Test("Every provider exclusion keeps adjacent glass draggable")
