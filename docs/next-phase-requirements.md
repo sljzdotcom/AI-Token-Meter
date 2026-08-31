@@ -16,6 +16,8 @@
 
 ### R2. 浮动条只在桌面显示
 
+**进度：** 设计已确认，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)。
+
 - 浮动条只应出现在 macOS 桌面场景。
 - 当 Edge 或其他应用进入全屏空间时，浮动条不应覆盖在全屏应用之上。
 - 需要明确并测试普通窗口、全屏空间、多显示器、切换 Space、Mission Control 和显示器插拔时的显示规则。
@@ -50,6 +52,8 @@
 - 产品改名为 AI Token Meter 时，是否沿用当前仪表图标或制作新版图标，放入品牌设计阶段决定。
 
 ### R6. 背景图覆盖顶部反向半圆
+
+**进度：** 设计已确认，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)。
 
 - 当前深海背景图只在浮动条中间主体区域完整显示，顶部反向半圆/肩部存在黑色或未覆盖区域。
 - 背景图应继续延伸并裁切到顶部反向半圆中，使半圆与中间长方形成为一张连续、无接缝的背景。
