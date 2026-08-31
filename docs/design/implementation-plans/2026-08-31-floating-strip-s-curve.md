@@ -229,11 +229,11 @@ git commit -m "docs: record S curve installation acceptance"
 **文件：**
 - 不新增生产文件；只核对任务 1–2 的提交和最终仓库状态。
 
-- [ ] **步骤 1：按规格逐项复核差异**
+- [x] **步骤 1：按规格逐项复核差异**
 
 检查从规格提交到当前 HEAD 的差异，确认只涉及 Shape、对应测试、截图和文档；不得出现详情、采集器、额度算法、窗口尺寸或 Logo 资源修改。
 
-- [ ] **步骤 2：在功能分支运行最终验证**
+- [x] **步骤 2：在功能分支运行最终验证**
 
 ```bash
 bash scripts/test.sh
@@ -245,6 +245,6 @@ git status --short --branch
 
 预期：完整测试和构建通过，签名有效，工作区干净。
 
-- [ ] **步骤 3：按 finishing-a-development-branch 流程合并**
+- [x] **步骤 3：按 finishing-a-development-branch 流程合并**
 
 基础分支固定为 `main`。用户已经要求关键节点保存 Git；合并前仍要确认 `main` 没有用户未提交修改。使用非快进合并保留本阶段边界，在合并结果上重新运行完整测试和 Release 构建。通过后记录合并提交，清理本次 `.worktrees/floating-strip-s-curve` 与已合并功能分支；不得清理其他 worktree。
