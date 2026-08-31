@@ -167,6 +167,21 @@ struct DeepSeekClientTests {
         #expect(snapshot.primaryMetric?.current == 12.5)
         #expect(recorder.lastRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer stored-test-key")
     }
+
+    @Test("A blocked Keychain read times out without blocking provider refresh")
+    func blockedSecretReadTimesOut() async {
+        let recorder = RequestRecorder(response: .json(500, "{}"))
+        let collector = DeepSeekCollector(
+            client: DeepSeekClient(session: recorder.session),
+            secretStore: SlowSecretStore(delay: 0.2),
+            secretReadTimeout: .milliseconds(20)
+        )
+
+        await #expect(throws: UsageCollectionError.timedOut) {
+            try await collector.collect()
+        }
+        #expect(recorder.lastRequest == nil)
+    }
 }
 
 private enum StubResponse {
@@ -178,6 +193,18 @@ private struct FixedSecretStore: SecretStore {
     let secret: String?
 
     func read() throws -> String? { secret }
+    func save(_ secret: String) throws {}
+    func delete() throws {}
+}
+
+private struct SlowSecretStore: SecretStore {
+    let delay: TimeInterval
+
+    func read() throws -> String? {
+        Thread.sleep(forTimeInterval: delay)
+        return "late-secret"
+    }
+
     func save(_ secret: String) throws {}
     func delete() throws {}
 }

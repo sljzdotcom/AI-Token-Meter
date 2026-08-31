@@ -7,8 +7,6 @@ struct FloatingStripView: View {
     @Bindable var session: FloatingDetailSession
     @Bindable var displayState: FloatingStripDisplayState
     let onProviderTap: (UsageProvider) -> Void
-    let onStripDragChanged: (CGSize) -> Void
-    let onStripDragEnded: (CGSize) -> Void
     let onAccessibilityMove: (FloatingStripAccessibilityCommand) -> Void
     @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
 
@@ -16,7 +14,6 @@ struct FloatingStripView: View {
         ZStack {
             FloatingStripSurface(edge: displayState.resolvedEdge)
                 .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge), eoFill: true)
-                .gesture(stripDragGesture)
                 .focusable()
                 .accessibilityLabel("Move floating meter")
                 .accessibilityValue(accessibilityPositionValue)
@@ -46,9 +43,13 @@ struct FloatingStripView: View {
                 .onContinuousHover { phase in
                     switch phase {
                     case .active:
-                        NSCursor.openHand.set()
+                        if !displayState.isDragging {
+                            NSCursor.openHand.set()
+                        }
                     case .ended:
-                        NSCursor.arrow.set()
+                        if !displayState.isDragging {
+                            NSCursor.arrow.set()
+                        }
                     }
                 }
             VStack(spacing: FloatingStripContentLayout.providerSpacing) {
@@ -89,20 +90,6 @@ struct FloatingStripView: View {
         let edge = displayState.resolvedEdge == .left ? "Left edge" : "Right edge"
         let verticalPercent = Int((displayState.normalizedCenterY * 100).rounded())
         return "\(edge), vertical position \(verticalPercent) percent"
-    }
-
-    private var stripDragGesture: some Gesture {
-        DragGesture(minimumDistance: 1, coordinateSpace: .global)
-            .onChanged { value in
-                displayState.isDragging = true
-                NSCursor.closedHand.set()
-                onStripDragChanged(value.translation)
-            }
-            .onEnded { value in
-                displayState.isDragging = false
-                NSCursor.openHand.set()
-                onStripDragEnded(value.translation)
-            }
     }
 
     private var presentations: [ProviderPresentation] {

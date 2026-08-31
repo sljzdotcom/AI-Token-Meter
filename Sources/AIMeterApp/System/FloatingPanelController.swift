@@ -10,6 +10,7 @@ final class FloatingPanelController {
     private let stripPanel: NSPanel
     private let detailPanel: NSPanel
     private var dragStartFrame: CGRect?
+    private var pointerDragState = FloatingStripPointerDragState()
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
@@ -35,12 +36,6 @@ final class FloatingPanelController {
                     provider,
                     autoHideAfter: .seconds(model.detailAutoHideSeconds)
                 )
-            },
-            onStripDragChanged: { [weak self] translation in
-                self?.updateStripDrag(translation: translation)
-            },
-            onStripDragEnded: { [weak self] translation in
-                self?.endStripDrag(translation: translation)
             },
             onAccessibilityMove: { [weak self] command in
                 self?.moveStripForAccessibility(command)
@@ -76,10 +71,13 @@ final class FloatingPanelController {
         }
 
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown]
+            matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .rightMouseDown]
         ) { [weak self] event in
-            self?.handleMonitoredClick(event)
-            return event
+            guard let self else { return event }
+            if event.type == .leftMouseDown || event.type == .rightMouseDown {
+                handleMonitoredClick(event)
+            }
+            return handleLocalPointerEvent(event)
         }
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
@@ -181,6 +179,38 @@ final class FloatingPanelController {
             selectionID: selectionID
         )
         dismissForOutsideClick(request)
+    }
+
+    private func handleLocalPointerEvent(_ event: NSEvent) -> NSEvent? {
+        switch event.type {
+        case .leftMouseDown:
+            guard event.window === stripPanel else { return event }
+            guard pointerDragState.begin(
+                windowPoint: event.locationInWindow,
+                screenPoint: Self.screenPoint(for: event),
+                panelSize: stripPanel.frame.size,
+                edge: displayState.resolvedEdge
+            ) else { return event }
+            displayState.isDragging = true
+            NSCursor.closedHand.set()
+            return nil
+        case .leftMouseDragged:
+            guard let translation = pointerDragState.translation(
+                to: Self.screenPoint(for: event)
+            ) else { return event }
+            updateStripDrag(translation: translation)
+            return nil
+        case .leftMouseUp:
+            guard let translation = pointerDragState.end(
+                at: Self.screenPoint(for: event)
+            ) else { return event }
+            endStripDrag(translation: translation)
+            displayState.isDragging = false
+            NSCursor.openHand.set()
+            return nil
+        default:
+            return event
+        }
     }
 
     private func dismissForOutsideClick(_ request: FloatingPanelDismissalRequest) {

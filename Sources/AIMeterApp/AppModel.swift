@@ -91,7 +91,7 @@ final class AppModel {
                 : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore)],
             cache: SnapshotCache(directoryURL: cacheDirectory)
         )
-        apiKeyConfigured = isDemoMode ? false : ((try? secretStore.read()) ?? nil)?.isEmpty == false
+        apiKeyConfigured = false
         launchAtLoginEnabled = launchAtLoginService.isEnabled
     }
 
@@ -143,6 +143,7 @@ final class AppModel {
         defer { isRefreshing = false }
 
         let collected = await coordinator.refresh()
+        updateAPIKeyConfiguration(from: collected)
         snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         lastUpdatedAt = Date()
 
@@ -259,6 +260,15 @@ final class AppModel {
             Task { await refresh() }
         } catch {
             settingsMessage = "The API Key could not be removed from Keychain."
+        }
+    }
+
+    private func updateAPIKeyConfiguration(from snapshots: [UsageSnapshot]) {
+        guard let deepSeek = snapshots.first(where: { $0.provider == .deepSeek }) else { return }
+        if deepSeek.collectionStatus == .authenticationRequired {
+            apiKeyConfigured = false
+        } else if deepSeek.primaryMetric != nil {
+            apiKeyConfigured = true
         }
     }
 
