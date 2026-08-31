@@ -13,58 +13,39 @@ struct VisualSystemTests {
         #expect(ProviderLogoStyle.opticalScale(for: .deepSeek) < 1)
     }
 
-    @Test("Both island orientations fill the complete window without transparent edge gaps")
+    @Test("Both compact shoulders use the approved inset bounds")
     func floatingStripBounds() {
         let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
+        let expected = CGRect(x: 0, y: 16, width: 108, height: 324)
 
-        #expect(FloatingStripShape(edge: .right).path(in: rect).boundingRect == rect)
-        #expect(FloatingStripShape(edge: .left).path(in: rect).boundingRect == rect)
+        #expect(FloatingStripShape(edge: .right).path(in: rect).boundingRect == expected)
+        #expect(FloatingStripShape(edge: .left).path(in: rect).boundingRect == expected)
     }
 
-    @Test("Floating island tapers from edge points through symmetric S curves")
-    func floatingStripSCurveShoulders() {
+    @Test("Compact shoulders match the approved short shelf and mirrored arc")
+    func floatingStripCompactShoulders() {
         let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
         let right = FloatingStripShape(edge: .right).path(in: rect)
         let left = FloatingStripShape(edge: .left).path(in: rect)
 
-        let insideTop = [
-            CGPoint(x: 107, y: 20),
-            CGPoint(x: 100, y: 40),
-            CGPoint(x: 75, y: 58),
-        ]
-        let outsideTop = [
-            CGPoint(x: 90, y: 1),
-            CGPoint(x: 90, y: 20),
-            CGPoint(x: 70, y: 40),
-            CGPoint(x: 40, y: 58),
-        ]
-
-        for point in insideTop {
+        for point in [
+            CGPoint(x: 40, y: 50),
+            CGPoint(x: 8, y: 82),
+            CGPoint(x: 1, y: 94),
+        ] {
             #expect(right.contains(point))
             #expect(right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
             #expect(left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
         }
-        for point in outsideTop {
+        for point in [
+            CGPoint(x: 107, y: 8),
+            CGPoint(x: 40, y: 30),
+            CGPoint(x: 0, y: 82),
+        ] {
             #expect(!right.contains(point))
             #expect(!right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
             #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
         }
-
-        let settlingOutside = [
-            CGPoint(x: 0, y: 94),
-            CGPoint(x: 0, y: 100),
-        ]
-        for point in settlingOutside {
-            #expect(!right.contains(point))
-            #expect(!right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
-            #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
-        }
-
-        #expect(right.contains(CGPoint(x: 8, y: 100)))
-        #expect(right.contains(CGPoint(x: 1, y: 110)))
-
-        #expect(right.contains(CGPoint(x: 106, y: 178)))
-        #expect(left.contains(CGPoint(x: 2, y: 178)))
     }
 
     @Test("Panel, card, and capsule geometry forms a strict hierarchy")
@@ -102,7 +83,7 @@ struct VisualSystemTests {
         renderer.scale = 1
         let image = try #require(renderer.cgImage)
 
-        for point in [(0, 178), (107, 1), (107, 178), (107, 354)] {
+        for point in [(0, 178), (107, 20), (107, 178), (107, 336)] {
             #expect(try alpha(atX: point.0, y: point.1, in: image) > 0)
         }
     }
@@ -117,7 +98,8 @@ struct VisualSystemTests {
         renderer.scale = 1
         let image = try #require(renderer.cgImage)
 
-        #expect(try alpha(atX: 0, y: 94, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 8, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 348, in: image) == 0)
     }
 
     @Test("Every non-normal usage state has a non-color symbol")
