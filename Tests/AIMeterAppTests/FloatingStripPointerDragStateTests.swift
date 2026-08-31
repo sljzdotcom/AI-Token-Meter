@@ -11,7 +11,7 @@ struct FloatingStripPointerDragStateTests {
         let size = CGSize(width: 108, height: 356)
 
         let began = state.begin(
-            windowPoint: CGPoint(x: 86, y: 316),
+            windowPoint: CGPoint(x: 75, y: 298),
             screenPoint: CGPoint(x: 1900, y: 700),
             panelSize: size,
             edge: .right

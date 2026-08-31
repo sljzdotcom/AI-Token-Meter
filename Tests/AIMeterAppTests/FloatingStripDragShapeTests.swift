@@ -10,7 +10,7 @@ struct FloatingStripDragShapeTests {
         let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
-        #expect(right.contains(CGPoint(x: 86, y: 40), eoFill: true))
+        #expect(right.contains(CGPoint(x: 75, y: 58), eoFill: true))
         #expect(right.contains(CGPoint(x: 54, y: 142), eoFill: true))
         #expect(!right.contains(CGPoint(x: 54, y: 106), eoFill: true))
         #expect(!right.contains(CGPoint(x: 54, y: 178), eoFill: true))
@@ -23,7 +23,7 @@ struct FloatingStripDragShapeTests {
         let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
         let left = FloatingStripDragShape(edge: .left).path(in: rect)
 
-        #expect(left.contains(CGPoint(x: 22, y: 40), eoFill: true))
+        #expect(left.contains(CGPoint(x: 33, y: 58), eoFill: true))
         #expect(!left.contains(CGPoint(x: 54, y: 178), eoFill: true))
         #expect(!left.contains(CGPoint(x: 88, y: 30), eoFill: true))
     }
@@ -33,7 +33,7 @@ struct FloatingStripDragShapeTests {
         let rect = CGRect(x: 100, y: 200, width: 216, height: 712)
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
-        #expect(right.contains(CGPoint(x: 272, y: 280), eoFill: true))
+        #expect(right.contains(CGPoint(x: 250, y: 316), eoFill: true))
         #expect(!right.contains(CGPoint(x: 208, y: 484), eoFill: true))
         #expect(!right.contains(CGPoint(x: 208, y: 556), eoFill: true))
         #expect(!right.contains(CGPoint(x: 208, y: 628), eoFill: true))
