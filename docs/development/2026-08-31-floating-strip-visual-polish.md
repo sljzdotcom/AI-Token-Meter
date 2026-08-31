@@ -74,9 +74,13 @@ Logo 资源、Logo 光学校正、圆环尺寸、详情布局和所有数据采�
 
 `bash scripts/build-app.sh` 完成 release 构建、资源组装、图标生成和 ad-hoc 签名。`codesign --verify --deep --strict` 与 `plutil -lint` 均通过。
 
-- Release 可执行文件 SHA-256：`d94655f5fedaa93d346da48406e6b54adf1a055fb5b39069d895c027524c6f68`；
-- 安装版可执行文件 SHA-256：`d94655f5fedaa93d346da48406e6b54adf1a055fb5b39069d895c027524c6f68`；
-- 旧安装版可恢复备份：`/private/tmp/AI Meter.app.pre-visual-polish-20260831-1527`。
+- 功能工作树 Release 候选 SHA-256：`d94655f5fedaa93d346da48406e6b54adf1a055fb5b39069d895c027524c6f68`；
+- 合并后 `main` Release SHA-256：`dde926493ecc438d061d2dcbf9606da85aa50f8e59a3af1d615a56e5ce89ca96`；
+- 最终安装版 SHA-256：`dde926493ecc438d061d2dcbf9606da85aa50f8e59a3af1d615a56e5ce89ca96`；
+- 原安装版可恢复备份：`/private/tmp/AI Meter.app.pre-visual-polish-20260831-1527`；
+- 功能工作树安装候选备份：`/private/tmp/AI Meter.app.pre-main-build-20260831-1536`。
+
+功能工作树和主目录的绝对构建路径不同，因此 Swift Release 二进制哈希不同。合并后重新从 `main` 构建、签名和安装，最终安装版与 `main/dist` 严格一致。
 
 真实安装版验收结果：
 
