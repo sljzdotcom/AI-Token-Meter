@@ -36,7 +36,7 @@
 bash scripts/test.sh
 ```
 
-结果：166 个测试、35 个测试套件通过，0 失败；4 个环境门控检查按设计跳过：1 个真实 Keychain 隔离读写检查，以及 Claude auth、Claude collector、Codex collector 三个已安装 CLI 冒烟检查。
+结果：170 个测试、35 个测试套件通过，0 失败；4 个环境门控检查按设计跳过：1 个真实 Keychain 隔离读写检查，以及 Claude auth、Claude collector、Codex collector 三个已安装 CLI 冒烟检查。
 
 最终提交前再次运行同一完整测试命令；结果保持一致。测试期间 SwiftPM/WebKit 对受限缓存目录的诊断不影响退出码或测试结论。
 
@@ -84,7 +84,7 @@ Computer Use 生成的 Settings 截图保存在本次本机临时目录：
 - `/private/tmp/AI-Meter-Task4-02-antonio-settings.png`
 - `/private/tmp/AI-Meter-Task4-04-din-settings.png`
 
-当前 Computer Use 的 app-window capture 不包含非激活的详情 `NSPanel` 或菜单栏弹窗，系统级 `screencapture` 也因缺少屏幕录制权限返回 `could not create image from display`。因此无法自动保存或直接观察这些面板的像素级结果。Provider `Detail open/closed` 辅助功能状态、源码字体边界扫描、166 项自动化回归和浮岛视觉确认是补充证据，但不能证明菜单/详情文字的实际字体、字形、截断或小号文字可读性。
+当前 Computer Use 的 app-window capture 不包含非激活的详情 `NSPanel` 或菜单栏弹窗，系统级 `screencapture` 也因缺少屏幕录制权限返回 `could not create image from display`。因此无法自动保存或直接观察这些面板的像素级结果。Provider `Detail open/closed` 辅助功能状态、源码字体边界扫描、170 项自动化回归和浮岛视觉确认是补充证据，但不能证明菜单/详情文字的实际字体、字形、截断或小号文字可读性。
 
 仍待在具备直接观察能力的环境中手工完成：
 

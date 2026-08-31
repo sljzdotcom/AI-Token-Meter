@@ -178,7 +178,7 @@ Settings 稳定提供 System Default、Antonio、DIN Condensed 三个选择和�
 ## 13. 实施与验收摘要
 
 - 领域、持久化、语义字体环境、全视图迁移和 Settings 控件分别由 `030f69d`、`ddd23f4`、`5685d91` 交付，并保留了逐阶段 TDD 红绿证据。
-- 2026-08-31 的最终验证通过 166 个测试、35 个测试套件、0 失败；4 个依赖本机 Keychain/已安装 CLI 的检查按环境门控跳过。
+- 2026-08-31 的最终验证通过 170 个测试、35 个测试套件、0 失败；4 个依赖本机 Keychain/已安装 CLI 的检查按环境门控跳过。
 - Release App Bundle 构建、ad-hoc 签名和 Info.plist 校验通过；候选版与 `/Applications/AI Meter.app` 的可执行文件 SHA-256 均为 `ca8a83ea29abb5f761dced018e9f664053311d4c28f939546f59200ec1822052`。
 - 旧安装包可从 `/private/tmp/AI-Meter-app-backup-20260831-230934/AI Meter.app` 恢复。
 - 实机 Settings 依次完成 System Default、Antonio、DIN Condensed、恢复默认、再次选择 Antonio 和重启持久化；最终保持 Antonio，浮岛恢复右侧 97%。Computer Use 能验证 Settings、选择状态、Provider 详情开关和浮岛辅助功能/视觉状态，但其窗口级截图不包含非激活详情 NSPanel 或菜单栏弹窗，因此尚未直接验证这些面板在 Antonio/DIN 下的字体、字形、截断和小号文字可读性；语义字体扫描、布局/视觉回归和可访问性状态仅作为补充证据，人工视觉验收仍待完成。
