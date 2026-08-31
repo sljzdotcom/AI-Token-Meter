@@ -656,18 +656,20 @@ shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：安装版和候选版指纹完全一致，备份路径可恢复。
 
-- [x] **步骤 4：完成真实字体切换验收**
+- [ ] **步骤 4：完成真实字体切换验收（菜单与三个详情的像素级/人工观察待完成）**
 
-按顺序验收并截图：
+按顺序验收并截图。当前证据状态如下：
 
-1. 启动时保持现有 `.system`，证明迁移不擅自改变用户界面；
-2. 打开 Settings，切换 Antonio，确认 Settings 当前窗口立即变化；
-3. 不重启，打开菜单面板与 Claude、Codex、DeepSeek 三个详情，确认英文、数字、余额、日期和小号说明均使用 Antonio 且无截断；
-4. 切换 DIN Condensed，重复检查详情与小号文字可读性；
-5. 点击 `Restore Default Font`，确认恢复 San Francisco；
-6. 再选择 Antonio，退出并重启 App，确认选择持久化；
-7. 检查 Logo、SF Symbols、圆环、品牌颜色、深海背景、左右贴边、拖动、详情自动隐藏和 Settings 入口保持原样；
-8. 最终状态保持 Antonio，并恢复用户原有右侧 97% 浮动条位置。
+- [x] 启动时保持现有 `.system`，证明迁移不擅自改变用户界面；
+- [x] 打开 Settings，切换 Antonio，确认 Settings 当前窗口立即变化；
+- [ ] 不重启，直接观察菜单面板与 Claude、Codex、DeepSeek 三个详情，确认英文、数字、余额、日期和小号说明均使用 Antonio 且无截断；
+- [ ] 切换 DIN Condensed，直接观察菜单、三个详情和小号文字的字体、字形、截断与可读性；
+- [x] 点击 `Restore Default Font`，确认恢复 San Francisco；
+- [x] 再选择 Antonio，退出并重启 App，确认选择持久化；
+- [x] 检查 Logo、圆环、品牌颜色、深海背景、右侧贴边和 Settings 入口保持原样；左右布局、拖动、详情自动隐藏和 SF Symbols 由自动化回归覆盖；
+- [x] 最终状态保持 Antonio，并恢复用户原有右侧 97% 浮动条位置。
+
+Computer Use 可以控制 Settings 和 Provider 开关，但其窗口级截图不包含非激活详情 `NSPanel` 或菜单栏弹窗；系统级截图又缺少 Screen Recording 权限。因此上述两个未勾选子项需要在可直接观察这些面板的环境中手工验收，AX 开关状态和自动化测试不能替代该视觉证据。
 
 - [x] **步骤 5：补全文档**
 
@@ -680,7 +682,7 @@ shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AIMeterApp"
 - TDD 红绿证据、测试数量、Release 构建、签名、SHA-256、备份路径和实机验收；
 - 当前机器最终选择 Antonio。
 
-把设计规格状态改为“已实施并验收”，将本计划所有已完成步骤勾为 `[x]`。
+把设计规格状态改为“已实施，菜单与详情字体视觉验收待手工完成”，只将有直接证据的步骤勾为 `[x]`。
 
 - [x] **步骤 6：提交文档检查点**
 
@@ -693,7 +695,7 @@ git add README.md CHANGELOG.md docs/user-guide/settings.md \
 git commit -m "docs: record display font selection acceptance"
 ```
 
-- [x] **步骤 7：完成前最终验证**
+- [ ] **步骤 7：完成前最终验证（自动化/构建已通过，整体完成受步骤 4 手工验收门控）**
 
 ```bash
 bash scripts/test.sh
@@ -704,4 +706,4 @@ git diff --check
 git status --short --branch
 ```
 
-预期：完整测试 0 失败，Release 构建和签名通过，`git diff --check` 无输出，功能分支工作树干净。随后按 `finishing-a-development-branch` 流程让用户选择本地合并、创建 PR 或保留分支；未经选择不得推送远端或删除工作树。
+自动化子项已取得证据：完整测试 0 失败，Release 构建和签名通过，`git diff --check` 无输出，功能分支工作树在检查点后干净。整体完成状态仍等待步骤 4 的菜单/详情直接视觉验收；在此之前不得把设计标记为完整验收。随后按 `finishing-a-development-branch` 流程让用户选择本地合并、创建 PR 或保留分支；未经选择不得推送远端或删除工作树。

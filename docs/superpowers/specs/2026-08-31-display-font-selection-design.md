@@ -2,7 +2,7 @@
 
 **日期：** 2026-08-31
 
-**状态：** 已实施并验收
+**状态：** 已实施；菜单与详情字体视觉验收待手工完成
 
 **基础分支：** `codex/deep-sea-background`
 
@@ -147,6 +147,8 @@ AI Meter 当前主要使用 SwiftUI 的 macOS 系统字体 San Francisco；部�
 8. 最终在当前机器选择 Antonio；
 9. Release 构建、签名、Info.plist、安装包指纹和完整测试通过。
 
+**当前验收状态：** 第 1、6、7、8、9 项已有 Settings 截图、辅助功能树、自动化、构建/安装指纹和持久化证据；Settings 中的 System、Antonio、DIN Condensed 与恢复默认切换也已直接观察。第 2 至 5 项中涉及菜单栏面板和三个非激活详情 `NSPanel` 的字体家族、长文本截断、字形与小号文字可读性尚未直接观察，仍需人工视觉验收。AX 的 `Detail open/closed` 状态与语义字体/布局回归是补充证据，不能替代该视觉检查。
+
 ## 10. 文档与 Git
 
 实施完成后同步更新：
@@ -171,7 +173,7 @@ AI Meter 当前主要使用 SwiftUI 的 macOS 系统字体 San Francisco；部�
 
 ## 12. 完成标准
 
-Settings 稳定提供 System Default、Antonio、DIN Condensed 三个选择和恢复默认按钮；可用字体切换即时覆盖 AI Meter 全部自绘文字，缺失字体安全回退；新旧用户默认保持系统字体，当前机器最终选择 Antonio；完整自动化、Release 构建、安装和真实 UI 验收通过，相关文档与 Git 记录完整。
+Settings 稳定提供 System Default、Antonio、DIN Condensed 三个选择和恢复默认按钮；可用字体通过统一语义字体路径覆盖 AI Meter 自绘文字，缺失字体安全回退；新旧用户默认保持系统字体，当前机器最终选择 Antonio；完整自动化、Release 构建、安装、Settings 字体切换和持久化已有证据。菜单栏面板和三个详情在 Antonio/DIN 下的实际字体、长文本截断、字形和小号文字可读性仍须直接人工观察，完成后才能宣告真实 UI 全面验收通过。
 
 ## 13. 实施与验收摘要
 
@@ -179,4 +181,4 @@ Settings 稳定提供 System Default、Antonio、DIN Condensed 三个选择和�
 - 2026-08-31 的最终验证通过 166 个测试、35 个测试套件、0 失败；4 个依赖本机 Keychain/已安装 CLI 的检查按环境门控跳过。
 - Release App Bundle 构建、ad-hoc 签名和 Info.plist 校验通过；候选版与 `/Applications/AI Meter.app` 的可执行文件 SHA-256 均为 `ca8a83ea29abb5f761dced018e9f664053311d4c28f939546f59200ec1822052`。
 - 旧安装包可从 `/private/tmp/AI-Meter-app-backup-20260831-230934/AI Meter.app` 恢复。
-- 实机依次完成 System Default、Antonio、DIN Condensed、恢复默认、再次选择 Antonio 和重启持久化；最终保持 Antonio，浮岛恢复右侧 97%。Computer Use 能验证 Settings、选择状态、Provider 详情开关和浮岛辅助功能/视觉状态，但其窗口级截图不包含非激活详情 NSPanel 或菜单栏弹窗，因此这些面板的像素级截图未能自动采集；语义字体扫描、布局/视觉回归和可访问性状态作为补充证据。
+- 实机 Settings 依次完成 System Default、Antonio、DIN Condensed、恢复默认、再次选择 Antonio 和重启持久化；最终保持 Antonio，浮岛恢复右侧 97%。Computer Use 能验证 Settings、选择状态、Provider 详情开关和浮岛辅助功能/视觉状态，但其窗口级截图不包含非激活详情 NSPanel 或菜单栏弹窗，因此尚未直接验证这些面板在 Antonio/DIN 下的字体、字形、截断和小号文字可读性；语义字体扫描、布局/视觉回归和可访问性状态仅作为补充证据，人工视觉验收仍待完成。

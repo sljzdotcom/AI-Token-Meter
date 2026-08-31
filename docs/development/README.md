@@ -16,7 +16,7 @@
 | [2026-08-31](2026-08-31-codex-reset-credit-card.md) | Codex 重置券分层卡片与自适应详情高度 | 113 个测试、双券视觉渲染、release 构建和安装校验通过 |
 | [2026-08-31](2026-08-31-visual-system-edge-docking.md) | 左右贴边浮岛、拖动位置记忆、统一玻璃详情、Logo 光学校正与仪表指针 App Icon | 功能与打包节点已完成，最终真实界面和安装验收记录见日志 |
 | [2026-08-31](2026-08-31-floating-strip-deep-sea-background.md) | 贴边浮岛黑蓝「深海波纹」背景、左右镜像与玻璃回退 | 156 个测试、Release 构建、签名、安装指纹、左右贴边和辅助功能实机验收通过 |
-| [2026-08-31](2026-08-31-display-font-selection.md) | System Default、Antonio、DIN Condensed 全局显示字体、缺失回退与恢复默认 | 166 个测试、Release 构建/签名/安装指纹和实机字体切换验收通过；当前机器最终为 Antonio、右侧 97% |
+| [2026-08-31](2026-08-31-display-font-selection.md) | System Default、Antonio、DIN Condensed 全局显示字体、缺失回退与恢复默认 | 166 个测试、Release 构建/签名/安装指纹、Settings 切换和持久化通过；菜单与三个详情的字体视觉验收待手工完成，当前机器最终为 Antonio、右侧 97% |
 
 ## 新日志模板
 
