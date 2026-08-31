@@ -128,6 +128,33 @@ struct VisualSystemTests {
         }
     }
 
+    @Test("Each provider owns the approved unique brand palette")
+    func providerBrandPalettes() {
+        #expect(
+            UsageProvider.claude.accentPalette
+                == .init(startHex: 0xE8B96D, endHex: 0xD97757)
+        )
+        #expect(
+            UsageProvider.codex.accentPalette
+                == .init(startHex: 0xFF6FAE, endHex: 0xA96DFF)
+        )
+        #expect(
+            UsageProvider.deepSeek.accentPalette
+                == .init(startHex: 0x54EDC6, endHex: 0x7769FF)
+        )
+        #expect(Set(UsageProvider.allCases.map(\.accentPalette)).count == 3)
+    }
+
+    @Test("Semantic states override provider identity colors")
+    func semanticAccentPrecedence() {
+        #expect(UsageSemantic.normal.accentRole(for: .codex) == .provider(.codex))
+        for semantic in [UsageSemantic.warning, .critical, .stale, .unavailable] {
+            for provider in UsageProvider.allCases {
+                #expect(semantic.accentRole(for: provider) == .semantic(semantic))
+            }
+        }
+    }
+
     private func alpha(atX x: Int, y: Int, in image: CGImage) throws -> UInt8 {
         let data = try #require(image.dataProvider?.data)
         let bytes = CFDataGetBytePtr(data)
