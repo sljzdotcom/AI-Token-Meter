@@ -64,13 +64,13 @@
 
 窗口控制器不重复保存几何规则，而是消费 `FloatingStripLayout` 的纯值结果。浮岛使用 `108 × 356` 窗口；右侧 `maxX` 与 `visibleFrame.maxX` 相同，左侧 `minX` 与 `visibleFrame.minX` 相同。详情可见表面与浮岛间隔 9 点，并按当前屏幕可见区域夹紧。
 
-拖动只从顶部短横开始。Automatic 允许横向跨侧，固定模式忽略横向位移但继续响应纵向移动。松手保存屏幕编号、最终侧边和归一化垂直位置；显示器消失时回退到可用屏幕。
+拖动从浮岛 Shape 内、三个 Logo 圆环以外的任意玻璃空白处开始；顶部短横不再存在。Automatic 允许横向跨侧，固定模式忽略横向位移但继续响应纵向移动。松手保存屏幕编号、最终侧边和归一化垂直位置；显示器消失时回退到可用屏幕。
 
 ### 视觉与可访问性
 
 `AIMeterVisualTheme` 集中管理深色玻璃、卡片、文字、重点色、间距和圆角。减少透明度时使用实色表面；“不只依赖颜色区分”或增强对比度开启时增加轮廓。进度环正常状态使用 mint→violet，警告和危险保留语义色；在不只依赖颜色时，缓存、警告、危险和不可用状态还显示独立状态图形，并写入 VoiceOver 文案。
 
-顶部拖动柄同时支持鼠标、VoiceOver adjustable/custom action 和普通键盘方向键；动态 value 朗读实际侧边与垂直位置。详情在鼠标悬停、键盘控件聚焦、DeepSeek 登录交互或 VoiceOver 运行时暂停自动隐藏。每次 provider 切换都会重置交互状态，并以 selection ID 拒绝退休视图的迟到回调；详情关闭后 VoiceOver 焦点回到原服务按钮。
+玻璃背景拖动区同时支持鼠标、VoiceOver adjustable/custom action 和普通键盘方向键；动态 value 朗读实际侧边与垂直位置。详情在鼠标悬停、键盘控件聚焦、DeepSeek 登录交互或 VoiceOver 运行时暂停自动隐藏。每次 provider 切换都会重置交互状态，并以 selection ID 拒绝退休视图的迟到回调；详情关闭后 VoiceOver 焦点回到原服务按钮。
 
 浮岛由单条连续 Path 绘制顶部内收、中段与底部内收曲线；左侧通过同一坐标规则镜像，没有叠加端帽或额外边框。三个品牌资源不被重绘，只在 `ProviderLogoStyle` 应用集中缩放。
 
@@ -120,6 +120,29 @@
 - 合并后的 `bash scripts/test.sh`：137 个测试、29 个测试组、0 个失败，4 个环境相关检查按设计跳过；
 - 合并后的 Release 构建、`Info.plist`、arm64 可执行文件、ICNS 和严格代码签名验证通过；
 - 最终构建已覆盖安装到 `/Applications/AI Meter.app`，安装产物与构建产物哈希一致。
+
+## 2026-08-31 浮岛回归修复验证
+
+### 根因与修复范围
+
+真实安装版的回归被归为四类：批准的反向半圆路径被近似为方形肩部；唯一的顶部短横既可见又把拖动限制在过小命中区；玻璃拖动的布局/命中区在缩放与固定侧条件下没有共享同一坐标系；`LSUIElement` 菜单栏面板中的 `SettingsLink` 没有可靠地激活并置前 Settings 场景。
+
+修复恢复了单条可镜像的 `108 × 356` 连续路径，去掉短横，以排除三个 Logo 圆环的玻璃 Shape 接管拖动，并让设置命令先激活应用再调用官方 `openSettings`。提交 `81f5d34`、`99b0234`、`a475bcf`、`a71d53c` 与 `e5a7da2` 分别记录轮廓、背景拖动、共享坐标/固定侧以及设置呈现的实现；其中最后三个构成发布前回归加固链。
+
+### 自动化与 Release 证据
+
+- `bash scripts/test.sh`（2026-08-31）：143 个测试、31 个测试组、0 个失败；3 个依赖本机已安装 CLI 或钥匙串环境的 smoke 检查按设计跳过。
+- `bash scripts/build-app.sh`：Release Swift 构建、图标生成、Bundle 组装与 ad-hoc 签名通过。
+- `codesign --verify --deep --strict --verbose=2 "dist/AI Meter.app"`：有效且满足 designated requirement；`plutil -lint`：`OK`。
+- `file`：`AIMeterApp` 为 `Mach-O 64-bit executable arm64`；`AppIcon.icns` 为 1,039,493 字节的 macOS ICNS。
+
+### 安装与真实界面验收
+
+安装前的应用被可恢复地移至 `/private/tmp/AI Meter.app.pre-floating-strip-regressions-20260831-122416`，然后用 `ditto` 安装 Release Bundle。安装后的严格签名通过。构建与安装的 SHA-256 一致：可执行文件均为 `fa37696a74124a7d182bac0bc2c793dd0a3c51e64aabb8a8cd682d60bca2cd46`，App Icon 均为 `480201629a240a551b1a8f346d643842d94dc6be1af408892c6744b6c251b585`。
+
+在已安装应用中实际检查右、左两侧：两种方向均显示连续的反向半圆玻璃轮廓，没有方块、框线、接缝或透明贴边；Claude 圆环上方没有短横。依次点击 Claude、Codex、DeepSeek Logo 时，三者均打开各自详情，未把点击解释为拖动。菜单栏的 Settings 命令首次打开 `AI Meter Settings`，再次执行仍回到同一 `com_apple_SwiftUI_Settings_window` 场景。Automatic 模式下，应用公开的辅助功能边缘动作将位置从 Left 切到 Right，垂直动作将位置从 50% 调至 60%；退出并重新启动后仍恢复为 Right / 60%。
+
+已安装应用的辅助功能树确认可移动浮岛控件及其动态侧边/垂直位置状态；完整测试覆盖玻璃背景与三个 Logo 排除区的命中规则。本次远程界面控制未能取得可用于覆盖顶部、环间及底部的可靠全桌面指针坐标。因此这三个物理指针起点和悬停光标是否有卡住感，仍需在本机直接鼠标复查，不把它们标为已人工确认。
 
 ## 安全与隐私
 
