@@ -42,6 +42,8 @@ open "dist/AI Meter.app"
 3. 从“应用程序”重新启动。
 4. 如果之前开启过“登录时启动”，在设置中关闭再重新开启，以更新应用路径。
 
+本机 ad-hoc 签名会随重新构建而变化。覆盖安装后，macOS 可能要求重新确认 AI Meter 对已保存 DeepSeek Keychain 项目的访问；确认应用路径为 `/Applications/AI Meter.app` 后，输入登录钥匙串密码并选择 **Always Allow**。这是系统的本机签名更新保护，不代表 API Key 被修改。
+
 ## 4. 配置 Claude
 
 1. 在终端确认 `claude` 可以正常启动。
