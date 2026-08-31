@@ -15,6 +15,7 @@ struct FloatingStripView: View {
             FloatingStripSurface(edge: displayState.resolvedEdge)
                 .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge), eoFill: true)
                 .focusable()
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Move floating meter")
                 .accessibilityValue(accessibilityPositionValue)
                 .accessibilityHint("Use up or down to move. Left and right set the edge preference")
