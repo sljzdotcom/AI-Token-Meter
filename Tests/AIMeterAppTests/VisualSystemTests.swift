@@ -21,27 +21,37 @@ struct VisualSystemTests {
         #expect(FloatingStripShape(edge: .left).path(in: rect).boundingRect == rect)
     }
 
-    @Test("Floating island uses the approved reverse semicircle shoulders")
-    func floatingStripReverseSemicircleShoulders() {
+    @Test("Floating island tapers from edge points through symmetric S curves")
+    func floatingStripSCurveShoulders() {
         let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
         let right = FloatingStripShape(edge: .right).path(in: rect)
         let left = FloatingStripShape(edge: .left).path(in: rect)
 
-        #expect(right.contains(CGPoint(x: 70, y: 8)))
-        #expect(!right.contains(CGPoint(x: 45, y: 45)))
-        #expect(right.contains(CGPoint(x: 70, y: 348)))
-        #expect(!right.contains(CGPoint(x: 45, y: 311)))
-        #expect(right.contains(CGPoint(x: 70, y: 178)))
-        #expect(right.contains(CGPoint(x: 106, y: 178)))
-        #expect(!right.contains(CGPoint(x: 109, y: 178)))
+        let insideTop = [
+            CGPoint(x: 107, y: 20),
+            CGPoint(x: 100, y: 40),
+            CGPoint(x: 75, y: 58),
+        ]
+        let outsideTop = [
+            CGPoint(x: 90, y: 1),
+            CGPoint(x: 90, y: 20),
+            CGPoint(x: 70, y: 40),
+            CGPoint(x: 40, y: 58),
+        ]
 
-        #expect(left.contains(CGPoint(x: 38, y: 8)))
-        #expect(!left.contains(CGPoint(x: 63, y: 45)))
-        #expect(left.contains(CGPoint(x: 38, y: 348)))
-        #expect(!left.contains(CGPoint(x: 63, y: 311)))
-        #expect(left.contains(CGPoint(x: 38, y: 178)))
+        for point in insideTop {
+            #expect(right.contains(point))
+            #expect(right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
+            #expect(left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
+        }
+        for point in outsideTop {
+            #expect(!right.contains(point))
+            #expect(!right.contains(CGPoint(x: point.x, y: rect.maxY - point.y)))
+            #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
+        }
+
+        #expect(right.contains(CGPoint(x: 106, y: 178)))
         #expect(left.contains(CGPoint(x: 2, y: 178)))
-        #expect(!left.contains(CGPoint(x: -1, y: 178)))
     }
 
     @Test("Panel, card, and capsule geometry forms a strict hierarchy")
@@ -69,9 +79,9 @@ struct VisualSystemTests {
         #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
     }
 
-    @Test("Floating island surface paints every window edge")
+    @Test("Floating island surface paints the attached edge and body")
     @MainActor
-    func floatingSurfaceIsOpaqueAtWindowEdges() throws {
+    func floatingSurfacePaintsAttachedEdgeAndBody() throws {
         let renderer = ImageRenderer(content:
             FloatingStripSurface(edge: .right)
                 .frame(width: 108, height: 356)
@@ -79,7 +89,7 @@ struct VisualSystemTests {
         renderer.scale = 1
         let image = try #require(renderer.cgImage)
 
-        for point in [(0, 178), (107, 178), (54, 0), (54, 355)] {
+        for point in [(0, 178), (107, 1), (107, 178), (107, 354)] {
             #expect(try alpha(atX: point.0, y: point.1, in: image) > 0)
         }
     }

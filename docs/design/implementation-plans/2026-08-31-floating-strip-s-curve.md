@@ -14,7 +14,8 @@
 
 - 修改 `Sources/AIMeterApp/Views/FloatingStripShape.swift`：定义新的双贝塞尔 S 曲线基准路径。
 - 修改 `Tests/AIMeterAppTests/VisualSystemTests.swift`：把旧“反向半圆”断言替换为尖点、S 曲线、上下对称和左右镜像契约。
-- 验证 `Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`：保证可拖动玻璃区、Logo 排除和透明肩部继续遵循新路径。
+- 修改 `Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`：把旧肩部内的拖动夹具迁移到新 S 曲线内，继续保证 Logo 排除和透明肩部规则。
+- 修改 `Tests/AIMeterAppTests/FloatingStripPointerDragStateTests.swift`：把指针起点迁移到新 S 曲线内，同时保持坐标转换与位移契约。
 - 修改 `CHANGELOG.md`：记录用户可见轮廓修正。
 - 修改 `docs/design/specifications/2026-08-31-floating-strip-s-curve-design.md`：把状态更新为已实施并链接验证日志。
 - 创建 `docs/development/2026-08-31-floating-strip-s-curve.md`：记录红绿测试、构建、安装、真实截图和指针验收证据。
@@ -26,7 +27,8 @@
 **文件：**
 - 修改：`Tests/AIMeterAppTests/VisualSystemTests.swift`
 - 修改：`Sources/AIMeterApp/Views/FloatingStripShape.swift`
-- 验证：`Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`
+- 修改：`Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`
+- 修改：`Tests/AIMeterAppTests/FloatingStripPointerDragStateTests.swift`
 
 - [ ] **步骤 1：把旧肩部测试改成新的尖点和 S 曲线契约**
 
@@ -130,6 +132,8 @@ bash scripts/test.sh --filter FloatingStripPointerDragStateTests
 
 预期：三个命令均通过；S 曲线几何、Logo 排除、透明肩部排除和真实指针坐标转换没有回归。
 
+如果旧夹具使用的顶部点 `(86, 40)` 已落在新曲线外，则把右侧基准点改为经过手工验证、位于新曲线内的 `(75, 58)`：左侧镜像为 `(33, 58)`，两倍缩放且平移到 `(100, 200)` 的点为 `(250, 316)`，AppKit 底部原点窗口坐标为 `(75, 298)`。这些期望值必须以字面量写入对应测试，生产 Shape 不暴露测试专用控制点。
+
 - [ ] **步骤 5：运行完整测试**
 
 运行：
@@ -144,7 +148,7 @@ git diff --check
 - [ ] **步骤 6：保存实现节点**
 
 ```bash
-git add Sources/AIMeterApp/Views/FloatingStripShape.swift Tests/AIMeterAppTests/VisualSystemTests.swift
+git add Sources/AIMeterApp/Views/FloatingStripShape.swift Tests/AIMeterAppTests/VisualSystemTests.swift Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift Tests/AIMeterAppTests/FloatingStripPointerDragStateTests.swift docs/design/implementation-plans/2026-08-31-floating-strip-s-curve.md
 git commit -m "fix: reshape floating strip with S curves"
 ```
 
