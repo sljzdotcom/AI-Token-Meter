@@ -22,7 +22,7 @@ AI-Meter/
 - `DerivedData/`：Xcode 派生文件；
 - `.worktrees/`：本地隔离开发工作树。
 
-`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/build-app.sh` 执行 release 构建、App Bundle 组装与 ad-hoc 签名验证。
+`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、App Bundle 组装与 ad-hoc 签名验证。
 
 ## `Sources/AIMeterApp`
 
@@ -38,17 +38,26 @@ Sources/AIMeterApp/
 │   ├── ClaudeWorkspaceSetupLauncher.swift
 │   ├── CodexDetailPanelLayout.swift
 │   ├── DeepSeekWebSession.swift
+│   ├── FloatingDetailInteractionOwnership.swift
 │   ├── FloatingPanelController.swift
+│   ├── FloatingStripAccessibilityMovement.swift
+│   ├── FloatingStripDisplayState.swift
+│   ├── FloatingStripLayout.swift
+│   ├── FloatingStripScreenResolver.swift
+│   ├── InteractivePanel.swift
 │   ├── LaunchAtLoginService.swift
 │   └── NotificationService.swift
 └── Views/
     ├── CodexResetCreditsView.swift
     ├── CodexDetailView.swift
     ├── DeepSeekAnalyticsView.swift
+    ├── AIMeterVisualTheme.swift
+    ├── FloatingStripShape.swift
     ├── FloatingStripView.swift
     ├── MenuBarPanel.swift
     ├── ProviderCard.swift
     ├── ProviderLogo.swift
+    ├── ProviderLogoStyle.swift
     ├── SettingsView.swift
     ├── UsageRing.swift
     └── UsageVisualStyle.swift
@@ -70,6 +79,7 @@ Sources/AIMeterCore/
 ├── DeepSeek/                   # DeepSeek API、官网数据标准化
 ├── Domain/                     # 跨模块统一领域模型
 ├── Notifications/              # 用量阈值判定
+├── Preferences/                # 浮岛侧边、屏幕与归一化位置偏好
 ├── Persistence/                # 快照与历史聚合持久化
 ├── Presentation/               # 面向 UI 的文案和语义状态
 ├── Security/                   # Keychain、SecretStore、敏感文本清理

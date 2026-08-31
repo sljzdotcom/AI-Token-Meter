@@ -29,19 +29,18 @@ struct CodexResetCreditsView: View {
             HStack(spacing: 9) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.mint)
+                    .foregroundStyle(AIMeterVisualTheme.mintAccent)
                 Text("Reset credits")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text(presentation.availableText)
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.mint)
+                    .foregroundStyle(AIMeterVisualTheme.mintAccent)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
                     .background(
                         Capsule()
-                            .fill(Color.mint.opacity(0.12))
-                            .stroke(Color.mint.opacity(0.24), lineWidth: 1)
+                            .fill(AIMeterVisualTheme.mintAccent.opacity(0.12))
                     )
             }
             .accessibilityElement(children: .combine)
@@ -56,7 +55,7 @@ struct CodexResetCreditsView: View {
                     systemImage: "info.circle"
                 )
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.48))
+                .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
         }
     }
@@ -66,9 +65,15 @@ struct CodexResetCreditsView: View {
             HStack(spacing: 11) {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.mint)
+                    .foregroundStyle(AIMeterVisualTheme.mintAccent)
                     .frame(width: 34, height: 34)
-                    .background(Color.mint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                    .background(
+                        AIMeterVisualTheme.mintAccent.opacity(0.10),
+                        in: RoundedRectangle(
+                            cornerRadius: AIMeterVisualTheme.capsuleInsetRadius,
+                            style: .continuous
+                        )
+                    )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(row.title)
@@ -84,7 +89,7 @@ struct CodexResetCreditsView: View {
 
             HStack {
                 Text("Expiration")
-                    .foregroundStyle(.white.opacity(0.46))
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 Spacer()
                 Text(row.statusText)
                     .fontWeight(.semibold)
@@ -94,9 +99,21 @@ struct CodexResetCreditsView: View {
         }
         .padding(13)
         .background(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(Color.white.opacity(0.055))
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+            RoundedRectangle(
+                cornerRadius: AIMeterVisualTheme.cardCornerRadius,
+                style: .continuous
+            )
+            .fill(
+                LinearGradient(
+                    colors: [
+                        AIMeterVisualTheme.mintAccent.opacity(0.11),
+                        AIMeterVisualTheme.violetAccent.opacity(0.07),
+                        AIMeterVisualTheme.cardSurface.opacity(0.72),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(row))
@@ -142,10 +159,10 @@ struct CodexResetCreditsView: View {
 
     private func statusColor(_ state: CodexResetCreditExpirationState) -> Color {
         switch state {
-        case .remaining: .mint
+        case .remaining: AIMeterVisualTheme.mintAccent
         case .today: .orange
         case .expired: .red
-        case .unavailable: .white.opacity(0.48)
+        case .unavailable: AIMeterVisualTheme.tertiaryText
         }
     }
 

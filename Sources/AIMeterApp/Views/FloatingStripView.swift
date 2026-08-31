@@ -4,33 +4,93 @@ import SwiftUI
 struct FloatingStripView: View {
     @Bindable var model: AppModel
     @Bindable var session: FloatingDetailSession
+    @Bindable var displayState: FloatingStripDisplayState
     let onProviderTap: (UsageProvider) -> Void
+    let onStripDragChanged: (CGSize) -> Void
+    let onStripDragEnded: (CGSize) -> Void
+    let onAccessibilityMove: (FloatingStripAccessibilityCommand) -> Void
+    @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
 
     var body: some View {
-        VStack(spacing: 14) {
-            ForEach(presentations, id: \.provider) { presentation in
-                Button {
-                    onProviderTap(presentation.provider)
-                } label: {
-                    UsageRing(presentation: presentation, size: 58)
-                        .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
+        ZStack {
+            FloatingStripSurface(edge: displayState.resolvedEdge)
+            VStack(spacing: 12) {
+                Capsule()
+                    .fill(Color.white.opacity(displayState.isDragging ? 0.5 : 0.24))
+                    .frame(width: 25, height: 3)
+                    .frame(width: 50, height: 18)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                            .onChanged { value in
+                                displayState.isDragging = true
+                                onStripDragChanged(value.translation)
+                            }
+                            .onEnded { value in
+                                displayState.isDragging = false
+                                onStripDragEnded(value.translation)
+                            }
+                    )
+                    .accessibilityLabel("Move floating meter")
+                    .accessibilityValue(accessibilityPositionValue)
+                    .accessibilityHint("Use up or down to move. Left and right set the edge preference")
+                    .focusable()
+                    .onMoveCommand { direction in
+                        switch direction {
+                        case .up: onAccessibilityMove(.moveUp)
+                        case .down: onAccessibilityMove(.moveDown)
+                        case .left: onAccessibilityMove(.moveToLeftEdge)
+                        case .right: onAccessibilityMove(.moveToRightEdge)
+                        default: break
+                        }
+                    }
+                    .accessibilityAdjustableAction { direction in
+                        switch direction {
+                        case .increment: onAccessibilityMove(.moveUp)
+                        case .decrement: onAccessibilityMove(.moveDown)
+                        @unknown default: break
+                        }
+                    }
+                    .accessibilityAction(named: "Set edge preference to Left") {
+                        onAccessibilityMove(.moveToLeftEdge)
+                    }
+                    .accessibilityAction(named: "Set edge preference to Right") {
+                        onAccessibilityMove(.moveToRightEdge)
+                    }
+                ForEach(presentations, id: \.provider) { presentation in
+                    Button {
+                        onProviderTap(presentation.provider)
+                    } label: {
+                        UsageRing(presentation: presentation, size: 60)
+                            .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityValue(session.accessibilityValue(for: presentation.provider))
+                    .accessibilityFocused(
+                        $accessibilityFocusedProvider,
+                        equals: presentation.provider
+                    )
+                    .animation(
+                        .spring(response: 0.28, dampingFraction: 0.8),
+                        value: session.selectedProvider
+                    )
                 }
-                .buttonStyle(.plain)
-                .accessibilityValue(session.accessibilityValue(for: presentation.provider))
-                .animation(
-                    .spring(response: 0.28, dampingFraction: 0.8),
-                    value: session.selectedProvider
-                )
+            }
+            .padding(.vertical, 17)
+            .padding(.horizontal, 11)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: session.selectedProvider) { oldValue, newValue in
+            if let oldValue, newValue == nil {
+                accessibilityFocusedProvider = oldValue
             }
         }
-        .padding(.vertical, 18)
-        .padding(.horizontal, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .fill(Color.black.opacity(0.94))
-                .shadow(color: .black.opacity(0.28), radius: 18, x: -5, y: 7)
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var accessibilityPositionValue: String {
+        let edge = displayState.resolvedEdge == .left ? "Left edge" : "Right edge"
+        let verticalPercent = Int((displayState.normalizedCenterY * 100).rounded())
+        return "\(edge), vertical position \(verticalPercent) percent"
     }
 
     private var presentations: [ProviderPresentation] {
@@ -77,20 +137,23 @@ struct FloatingDetailView: View {
         let presentation = ProviderPresentation(snapshot: snapshot)
         return VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label(presentation.title, systemImage: snapshot.provider.symbolName)
-                        .font(.headline)
+                    HStack(spacing: 9) {
+                        ProviderLogo(provider: snapshot.provider, size: 25)
+                        Text(presentation.title)
+                            .font(.headline)
+                    }
                     Spacer()
                     Text(presentation.valueText)
                         .font(.system(.title2, design: .rounded, weight: .bold))
-                        .foregroundStyle(presentation.semantic.color)
+                        .foregroundStyle(detailValueStyle(presentation))
                 }
                 Text(presentation.detailText)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 if let reset = presentation.primaryResetText {
                     Text(reset)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 }
                 if let secondary = snapshot.secondaryMetric,
                    let fraction = secondary.usedFraction {
@@ -100,11 +163,13 @@ struct FloatingDetailView: View {
                             Spacer()
                             Text("\(Int((fraction * 100).rounded()))%")
                         }
-                        ProgressView(value: fraction)
-                            .tint(presentation.semantic.color)
+                        AIMeterProgressBar(
+                            fraction: fraction,
+                            semantic: presentation.semantic
+                        )
                         if let reset = presentation.secondaryResetText {
                             Text(reset)
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                         }
                     }
                     .font(.caption2)
@@ -112,7 +177,7 @@ struct FloatingDetailView: View {
                 if let status = presentation.statusText {
                     Text(status)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 }
                 if snapshot.provider == .claude,
                    snapshot.collectionStatus == .setupRequired {
@@ -123,16 +188,16 @@ struct FloatingDetailView: View {
                 Spacer(minLength: 0)
                 Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
-            .foregroundStyle(.white)
-            .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.black.opacity(0.94))
-                    .shadow(color: .black.opacity(0.24), radius: 18, x: -4, y: 8)
-            )
-            .padding(5)
+            .aiMeterDetailSurface()
+    }
+
+    private func detailValueStyle(_ presentation: ProviderPresentation) -> AnyShapeStyle {
+        if presentation.semantic == .normal {
+            return AnyShapeStyle(AIMeterVisualTheme.accentGradient)
+        }
+        return AnyShapeStyle(presentation.semantic.color)
     }
 }

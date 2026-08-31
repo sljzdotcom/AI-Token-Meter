@@ -24,6 +24,18 @@ public struct ProviderPresentation: Equatable, Sendable {
         return fraction
     }
 
+    public var accessibilityStatusText: String? {
+        let semanticText: String? = switch semantic {
+        case .normal: nil
+        case .warning: "Warning"
+        case .critical: "Critical usage"
+        case .stale: "Cached data"
+        case .unavailable: "Unavailable"
+        }
+        let components = [semanticText, statusText].compactMap { $0 }
+        return components.isEmpty ? nil : components.joined(separator: ". ")
+    }
+
     public init(snapshot: UsageSnapshot) {
         provider = snapshot.provider
         title = Self.title(for: snapshot.provider)

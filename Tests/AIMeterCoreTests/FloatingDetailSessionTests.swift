@@ -79,6 +79,43 @@ struct FloatingDetailSessionTests {
         #expect(session.selectedProvider == nil)
     }
 
+    @Test("Keyboard or accessibility focus keeps a detail open")
+    @MainActor
+    func focusedInteractionPausesAutoHide() async throws {
+        let session = FloatingDetailSession()
+        var interaction = FloatingDetailInteractionState()
+        session.present(.codex, autoHideAfter: .milliseconds(25))
+
+        interaction.hasFocusedControl = true
+        session.setAutoHidePaused(interaction.shouldPauseAutoHide)
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(session.selectedProvider == .codex)
+
+        interaction.hasFocusedControl = false
+        session.setAutoHidePaused(
+            interaction.shouldPauseAutoHide,
+            restartAfter: .milliseconds(15)
+        )
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(session.selectedProvider == nil)
+    }
+
+    @Test("Pointer, focused control, and embedded content combine without cancelling each other")
+    func interactionStateCombinesSources() {
+        var interaction = FloatingDetailInteractionState()
+        #expect(!interaction.shouldPauseAutoHide)
+        interaction.isPointerInside = true
+        interaction.hasFocusedControl = true
+        interaction.isPointerInside = false
+        #expect(interaction.shouldPauseAutoHide)
+        interaction.hasFocusedControl = false
+        interaction.hasInteractiveContent = true
+        #expect(interaction.shouldPauseAutoHide)
+        interaction.hasInteractiveContent = false
+        interaction.isAccessibilityReaderActive = true
+        #expect(interaction.shouldPauseAutoHide)
+    }
+
     @Test("Only clicks outside both panels request dismissal")
     func hitPolicy() {
         let strip = CGRect(x: 300, y: 100, width: 84, height: 300)

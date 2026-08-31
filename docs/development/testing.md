@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 113 个测试、26 个测试组、0 个失败。普通测试中有 4 个环境相关检查按设计跳过：1 个 Keychain 生命周期测试和 3 个真实 CLI 冒烟测试。
+当前基线为 137 个测试、29 个测试组、0 个失败。普通测试中有 4 个环境相关检查按设计跳过：1 个 Keychain 生命周期测试和 3 个真实 CLI 冒烟测试。
 
 普通测试覆盖：
 
@@ -22,6 +22,10 @@ bash scripts/test.sh
 - Codex 重置券到期自然日状态、稳定排序、不完整明细提示和自适应详情高度；
 - Codex 本机 SQLite 数值行解析、30 天窗口、连续天数、最长会话与紧凑文案；
 - DeepSeek 30 天补零、缓存、当前官网 amount/cost 分片解析与完整性合并。
+- 浮岛位置偏好默认值、NaN/损坏回退、持久化和垂直夹紧；
+- 左右贴边、自动吸附、固定侧拖动、显示器断开回退和详情展开方向；
+- 浮岛轮廓渲染边缘、品牌 Logo 光学校正、视觉层级和 App Icon Bundle 声明；
+- 拖动柄无障碍移动、详情交互状态所有权、键盘/VoiceOver 自动隐藏暂停和非颜色状态标记。
 
 ## Keychain 集成测试
 
@@ -61,6 +65,7 @@ bash scripts/build-app.sh
 plutil -lint "dist/AI Meter.app/Contents/Info.plist"
 codesign --verify --deep --strict --verbose=2 "dist/AI Meter.app"
 file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
+test -s "dist/AI Meter.app/Contents/Resources/AppIcon.icns"
 ```
 
 当前预期：
@@ -69,6 +74,7 @@ file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 - ad-hoc 签名通过严格验证；
 - 可执行文件为 arm64 Mach-O；
 - 最低系统版本为 macOS 14。
+- `AppIcon.icns` 存在且 `CFBundleIconFile` 指向 `AppIcon`。
 
 ## 文档和差异检查
 
@@ -89,5 +95,9 @@ git diff --check
 - DeepSeek 登录交互暂停自动隐藏；
 - Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；
 - 隐藏/恢复悬浮条与多显示器重定位正常；
+- Automatic 可拖到左右任一侧，Left/Right 只允许垂直移动，重启后恢复位置；
+- 左右轮廓、阴影、拖动提示和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
+- 三个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；
 - VoiceOver 能读出服务、数值和详情状态；
+- 拖动柄可通过 VoiceOver 调整动作和普通键盘方向键移动；VoiceOver 阅读详情时不会被自动收起打断；
 - 退出 App 后无遗留事件监听或刷新任务。

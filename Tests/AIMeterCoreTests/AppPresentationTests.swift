@@ -134,6 +134,8 @@ struct AppPresentationTests {
         #expect(cached.valueText == "40%")
         #expect(cached.semantic == .stale)
         #expect(cached.statusText == "Request timed out")
+        #expect(cached.accessibilityStatusText == "Cached data. Request timed out")
+        #expect(authentication.accessibilityStatusText == "Unavailable. Sign in required")
     }
 
     @Test("Formats Claude workspace setup as a one-time action")

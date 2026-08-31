@@ -29,15 +29,8 @@ struct DeepSeekAnalyticsView: View {
                 unavailablePanel
             }
         }
-        .foregroundStyle(.white)
-        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.black.opacity(0.95))
-                .shadow(color: .black.opacity(0.3), radius: 22, x: -6, y: 9)
-        )
-        .padding(5)
+        .aiMeterDetailSurface()
         .onAppear {
             if !isDemoMode {
                 webSession.syncIfNeeded()
@@ -64,15 +57,16 @@ struct DeepSeekAnalyticsView: View {
                     .font(.headline)
                 Text(syncText)
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
                 Text(presentation.valueText)
                     .font(.system(.title2, design: .rounded, weight: .bold))
+                    .foregroundStyle(AIMeterVisualTheme.accentGradient)
                 Text("current balance")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             Button {
                 webSession.syncIfNeeded(force: true)
@@ -94,12 +88,12 @@ struct DeepSeekAnalyticsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Sign in on the official DeepSeek page once. AI Meter keeps the web session on this Mac and stores only daily totals.")
                 .font(.caption)
-                .foregroundStyle(.white.opacity(0.68))
+                .foregroundStyle(AIMeterVisualTheme.secondaryText)
             DeepSeekWebView(webView: webSession.webView)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.10))
+                        .stroke(AIMeterVisualTheme.mintAccent.opacity(0.42), lineWidth: 1)
                 )
         }
     }
@@ -119,7 +113,7 @@ struct DeepSeekAnalyticsView: View {
                         x: .value("Day", day.date, unit: .day),
                         y: .value("Cost", day.costCNY)
                     )
-                    .foregroundStyle(Color(red: 0.23, green: 0.52, blue: 0.96).gradient)
+                    .foregroundStyle(AIMeterVisualTheme.accentGradient)
                     .cornerRadius(3)
                 }
                 .chartXAxis {
@@ -137,14 +131,14 @@ struct DeepSeekAnalyticsView: View {
                 .frame(minHeight: 260)
             }
             .padding(14)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .aiMeterGlassCard()
             HStack {
                 Text("Updated \(history.updatedAt.formatted(date: .abbreviated, time: .shortened))")
                 Spacer()
                 Link("Open official usage page", destination: DeepSeekWebSession.usageURL)
             }
             .font(.caption2)
-            .foregroundStyle(.white.opacity(0.55))
+            .foregroundStyle(AIMeterVisualTheme.secondaryText)
         }
     }
 
@@ -156,14 +150,14 @@ struct DeepSeekAnalyticsView: View {
             Link("Open official usage page", destination: DeepSeekWebSession.usageURL)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .foregroundStyle(.white.opacity(0.65))
+        .foregroundStyle(AIMeterVisualTheme.secondaryText)
     }
 
     private func statCard(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.white.opacity(0.58))
+                .foregroundStyle(AIMeterVisualTheme.secondaryText)
             Text(value)
                 .font(.system(.title2, design: .rounded, weight: .semibold))
                 .lineLimit(1)
@@ -171,7 +165,7 @@ struct DeepSeekAnalyticsView: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .aiMeterGlassCard()
     }
 
     private var syncText: String {

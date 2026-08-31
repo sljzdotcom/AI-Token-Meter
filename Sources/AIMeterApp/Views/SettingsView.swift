@@ -9,13 +9,28 @@ struct SettingsView: View {
         Form {
             Section("Appearance") {
                 Toggle(
-                    "Show right-side floating meter",
+                    "Show floating meter",
                     isOn: Binding(
                         get: { model.showFloatingStrip },
                         set: { model.setFloatingStripVisible($0) }
                     )
                 )
                 Text("The menu bar meter remains available when the floating meter is hidden.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker(
+                    "Screen edge",
+                    selection: Binding(
+                        get: { model.floatingStripPosition.preference },
+                        set: { model.setFloatingStripEdgePreference($0) }
+                    )
+                ) {
+                    ForEach(FloatingStripEdgePreference.allCases, id: \.self) { preference in
+                        Text(preference.displayName).tag(preference)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("Automatic lets you drag the meter to either edge. Left and Right keep that edge fixed while still allowing vertical movement.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker(
@@ -101,5 +116,15 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+private extension FloatingStripEdgePreference {
+    var displayName: String {
+        switch self {
+        case .automatic: "Automatic"
+        case .left: "Left"
+        case .right: "Right"
+        }
     }
 }

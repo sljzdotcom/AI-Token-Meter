@@ -20,6 +20,7 @@ struct ProviderLogo: View {
             }
         }
         .frame(width: size, height: size)
+        .scaleEffect(ProviderLogoStyle.opticalScale(for: provider))
         .foregroundStyle(.white)
         .accessibilityHidden(true)
     }
