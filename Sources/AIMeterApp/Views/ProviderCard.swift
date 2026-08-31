@@ -47,7 +47,7 @@ struct ProviderCard: View {
                 }
                 if snapshot.provider == .codex,
                    let resetCredits = snapshot.codexResetCredits {
-                    CodexResetCreditsView(summary: resetCredits)
+                    CodexResetCreditsView(summary: resetCredits, mode: .compact)
                         .padding(.top, 2)
                 }
                 HStack(spacing: 6) {
