@@ -15,7 +15,10 @@ let package = Package(
             name: "AIMeterApp",
             dependencies: ["AIMeterCore"],
             exclude: ["Resources/Info.plist"],
-            resources: [.copy("Resources/Logos")]
+            resources: [
+                .copy("Resources/Logos"),
+                .copy("Resources/Backgrounds"),
+            ]
         ),
         .testTarget(
             name: "AIMeterCoreTests",

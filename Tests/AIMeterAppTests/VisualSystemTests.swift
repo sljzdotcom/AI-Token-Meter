@@ -1,4 +1,5 @@
 import AIMeterCore
+import AppKit
 import Foundation
 import SwiftUI
 import Testing
@@ -6,6 +7,15 @@ import Testing
 
 @Suite("AI Meter visual system")
 struct VisualSystemTests {
+    @Test("Deep sea background is bundled at retina resolution")
+    func floatingBackgroundResource() throws {
+        let url = try #require(FloatingStripBackgroundAsset.resourceURL())
+        let image = try #require(NSImage(contentsOf: url))
+
+        #expect(image.size.width >= 324)
+        #expect(image.size.height >= 1068)
+    }
+
     @Test("Provider logos use one optical calibration table")
     func providerLogoScales() {
         #expect(ProviderLogoStyle.opticalScale(for: .claude) > 1)
