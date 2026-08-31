@@ -108,7 +108,7 @@ public struct FloatingStripPosition: Equatable, Sendable {
     public var screenIdentifier: String?
 }
 
-public struct FloatingStripPositionStore: Sendable {
+public struct FloatingStripPositionStore {
     public func load() -> FloatingStripPosition
     public func save(_ position: FloatingStripPosition)
 }
