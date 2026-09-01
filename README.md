@@ -129,6 +129,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 ## 文档
 
 - [文档总览](docs/README.md)
+- [待完成需求与需求历史](docs/requirements-backlog.md)
 - [安装与首次使用](docs/user-guide/getting-started.md)
 - [服务与指标说明](docs/user-guide/providers.md)
 - [设置参考](docs/user-guide/settings.md)
