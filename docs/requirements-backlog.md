@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-01  
+**最后更新：** 2026-09-02
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -22,7 +22,7 @@
 | REQ-20260901-005 | 窗口交互 | 桌面已有其他应用窗口时，点击浮动条 Provider 后弹出的详情应位于所有普通应用窗口上方，而不是落在窗口栈底部 | 高 | 已完成 | 2026-09-01 | 无 | [设计规格](superpowers/specs/2026-09-01-detail-panel-frontmost-design.md)、[实施计划](superpowers/plans/2026-09-01-detail-panel-frontmost.md)、[开发与验收记录](development/2026-09-01-detail-panel-frontmost.md)、`e25371c`、`abb1a96` |
 | REQ-20260901-006 | Claude 详情 | 丰富 Claude 详情页，增加明确标记为本机口径的最近 30 天 Claude Code 统计 | 中 | 已完成 | 2026-09-01 | 无 | [设计规格](superpowers/specs/2026-09-01-claude-detail-local-activity-design.md)、[实施计划](superpowers/plans/2026-09-01-claude-detail-local-activity.md)、[开发与验收记录](development/2026-09-01-claude-detail-local-activity.md)、`f467d13`–`90b31c8`、合并 `1f456a0` |
 | REQ-20260901-007 | 字体 | 在显示字体选择器中增加 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi，并保持 Settings 自身永远使用系统字体 | 中 | 已完成 | 2026-09-01 | 未安装字体的真实字形对比待用户安装对应字体后按需进行，不影响目录功能完成 | [设计规格](superpowers/specs/2026-09-01-display-font-catalog-expansion-design.md)、[实施计划](superpowers/plans/2026-09-01-display-font-catalog-expansion.md)、[开发与验收记录](development/2026-09-01-display-font-catalog-expansion.md)、`3595c28`、合并 `1f456a0` |
-| REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 进行中 | 2026-09-01 | 已确认规格，实施计划执行中 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-card-removal.md) |
+| REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 已完成 | 2026-09-01 | 2026-09-02 完成；294 项测试、Release 安装与实机自动隐藏验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-card-removal.md) · [验收日志](development/2026-09-02-claude-detail-card-removal.md) |
 
 ## 分类索引
 
@@ -81,3 +81,4 @@
 | 2026-09-01 | REQ-20260901-008 | 新建 → 待用户确认 | 用户要求 Claude 详情页不再显示 Token composition 与 Top models，等待确认精简布局规格。 |
 | 2026-09-02 | REQ-20260901-008 | 待用户确认 → 进行中 | 用户选择方案 A：仅移除两张展示卡片，保留采集与缓存兼容；书面规格进入最终确认。 |
 | 2026-09-02 | REQ-20260901-008 | 进行中 | 用户确认书面规格；完成实施计划并进入隔离分支开发。 |
+| 2026-09-02 | REQ-20260901-008 | 进行中 → 已完成 | 移除两张展示卡片，保留采集与缓存兼容；294 项测试、正式构建、安装哈希和真实自动隐藏验收通过。 |

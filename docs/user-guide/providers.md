@@ -39,9 +39,9 @@ Claude 详情页上方始终是官方额度，下方 **Last 30 days · This Mac*
 - Sessions：主会话的去重数量，`subagents` 记录不会虚增会话数；
 - Active days：30 个本机自然日中实际产生 Token 的天数；
 - Tokens：Input、Output、Cache creation 与 Cache read 的合计；
-- Daily token activity：固定 30 日柱形趋势，无活动的日期保留为零；
-- Token composition：Input、Output、Cache 三类构成；
-- Top models：Token 数最多的三个模型 ID，零 Token 的内部占位模型不会展示。
+- Daily token activity：固定 30 日柱形趋势，无活动的日期保留为零。
+
+为保持详情简洁，页面不再单独展示 Input/Output/Cache 构成或模型排行。历史缓存和采集结果仍保留这些聚合字段以保证兼容，但不会把它们显示在详情页。
 
 该区域不是 Anthropic 账户的跨 Web、Desktop、移动端和多设备官方月报。个人 Pro/Max 目前没有稳定公开的跨设备 30 天明细接口，因此 AI Token Meter 不把本机活动伪装成官方总量。本机目录不可读时，区域显示不可用，官方额度仍正常刷新。
 

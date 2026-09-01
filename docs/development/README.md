@@ -25,6 +25,7 @@
 | [2026-09-01](2026-09-01-detail-panel-frontmost.md) | 点击 Provider 后让临时详情位于普通应用窗口上方，同时保留浮岛桌面层 | 268 个测试、55 个测试组、Release 签名/安装哈希及已安装窗口实时层级验收通过 |
 | [2026-09-01](2026-09-01-claude-detail-local-activity.md) | Claude 官方额度优先详情与本机 Claude Code 最近 30 天活动 | 295 个测试、58 个测试组、Release 签名/安装哈希、真实聚合数据与自动隐藏验收通过 |
 | [2026-09-01](2026-09-01-display-font-catalog-expansion.md) | 显示字体扩展至八项、别名解析、安装检测与安全回退 | 295 个测试、字体资源扫描、真实 Settings 八项菜单和本机字体状态验收通过 |
+| [2026-09-02](2026-09-02-claude-detail-card-removal.md) | Claude 详情移除 Token composition 与 Top models，保留额度、三项本机统计和每日趋势 | 294 个测试、58 个测试组、Release 签名、安装哈希与自动隐藏实机验收通过 |
 
 ## 新日志模板
 
