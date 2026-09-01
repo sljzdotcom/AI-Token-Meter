@@ -34,6 +34,7 @@ final class AppModel {
     private var refreshLoop: Task<Void, Never>?
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
     private var signInTokens: [UsageProvider: UUID] = [:]
+    private var isRefreshingServiceAccounts = false
 
     let deepSeekWebSession: DeepSeekWebSession
 
@@ -325,6 +326,9 @@ final class AppModel {
             setDemoServiceAccounts()
             return
         }
+        guard !isRefreshingServiceAccounts else { return }
+        isRefreshingServiceAccounts = true
+        defer { isRefreshingServiceAccounts = false }
 
         UsageProvider.allCases.forEach {
             serviceAccounts[$0] = .checking(provider: $0)

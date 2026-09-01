@@ -37,6 +37,33 @@ struct ServiceAccountSettingsTests {
         #expect(model.signInButtonTitle(for: .codex) == "Sign in again")
     }
 
+    @Test("Overlapping full account refreshes share one provider read")
+    func overlappingAccountRefreshesAreCoalesced() async {
+        let refreshes = ServiceAccountCounter()
+        let model = makeModel(
+            accountRefresh: { _ in
+                refreshes.increment()
+                try? await Task.sleep(for: .milliseconds(50))
+                return [
+                    ServiceAccountStatus(
+                        provider: .deepSeek,
+                        connectionState: .connected,
+                        accountLabel: "API Key ••••SAFE"
+                    ),
+                ]
+            }
+        )
+
+        let first = Task { await model.refreshServiceAccounts() }
+        await Task.yield()
+        let second = Task { await model.refreshServiceAccounts() }
+        await first.value
+        await second.value
+
+        #expect(refreshes.value == 1)
+        #expect(model.serviceAccounts[.deepSeek]?.accountLabel == "API Key ••••SAFE")
+    }
+
     @Test("A successful DeepSeek replacement updates identity and refreshes usage")
     func replacesDeepSeek() async {
         let usageRefreshes = ServiceAccountCounter()
