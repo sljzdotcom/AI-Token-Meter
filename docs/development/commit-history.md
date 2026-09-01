@@ -6,7 +6,7 @@
 
 - App Bundle 版本：`0.1.0`（build `1`）。
 - 初始发布提交：`7fff321`。
-- 当前 `main` 基线：`236dffe`（Settings、品牌迁移和最终安装指纹）。
+- Widget 合入 `main` 的基线：`818272e`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`f6a0b4e`。
 - 可移植测试入口节点：`e355af4`。
 - Git tag：尚未创建。
@@ -31,7 +31,7 @@
 | 浮岛回归修复 | `76dc92f`–`00310c0` | 恢复反向半圆肩部、扩展玻璃拖动、修复 Settings、隔离钥匙串超时，并完成安装验收和主分支合并 |
 | 浮岛 S 曲线轮廓 | `a840bce`–`de3d5d6` | 按手绘参考以双贝塞尔取代平台肩部，完成左右镜像、真实三处拖动、设置入口、安装验收和主分支合并 |
 | Settings 分类与品牌迁移 | `ade6830`–`1f7f6f4` | 四个顶部 Settings Tab、AI Token Meter 可见品牌、兼容身份与 196 项回归 |
-| WidgetKit 桌面组件 | `6e197fe`–`7f69523` | 三尺寸 Widget、脱敏 App Group 快照、时间线、条件式 Apple Development 签名与 224 项回归 |
+| WidgetKit 桌面组件 | `6e197fe`–`32a41a5` | 三尺寸 Widget、脱敏 App Group 快照、时间线、条件式 Apple Development 签名、降级加固与 227 项回归 |
 
 ## 2026-08-28
 

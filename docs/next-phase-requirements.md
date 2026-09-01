@@ -1,7 +1,7 @@
 # AI Token Meter 下一阶段需求登记
 
 **登记日期：** 2026-09-01  
-**状态：** R1/R3/R4/R5/R6 已完成实现；R2 已实现并完成自动化与部分实机验收，完整桌面层验收待补；R3 的代码、测试和无签名保护已完成，真实 Gallery/桌面验收待 Apple Development 证书
+**状态：** R1/R3/R4/R5/R6 已完成实现；R2 已完成当前单桌面环境的真实桌面验收，环境补验项另行保留；R3 的代码、测试和无签名保护已完成，Widget 证书与真实 Gallery/桌面验收按用户决定暂停
 **登记基线：** `main` 提交 `8c42ab2`
 **设置与品牌实施：** 功能提交 `e5f8e94`、`1f7f6f4`，通过 `337ff72` 合入 `main`
 
@@ -19,7 +19,7 @@
 
 ### R2. 浮动条只在桌面显示
 
-**进度：** 实现与自动化合同已完成，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)和[开发验收日志](development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。系统整屏截图已证明普通/全屏 Edge 不被浮动条或详情覆盖，Space 切换关闭详情和位置保持也已完成本机验收；Mission Control、左右两个普通 Space 和多显示器仍需人工环境补验，因此暂不标记完整完成。
+**进度：** 实现与自动化合同已完成，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)、[开发验收日志](development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)和[最终真实桌面验收](development/2026-09-01-real-desktop-acceptance.md)。当前安装版已经完成普通/全屏 Edge、左右吸附、纵向移动、三服务入口、详情自动关闭、设置菜单和四分类页的真实操作。当前系统只有一个普通 Space，自动化会话也没有第二块可操作显示器；Mission Control、第二个普通 Space、真实指针拖动和多显示器保留为环境补验项。
 
 - 浮动条只应出现在 macOS 桌面场景。
 - 当 Edge 或其他应用进入全屏空间时，浮动条不应覆盖在全屏应用之上。
@@ -27,7 +27,7 @@
 
 ### R3. macOS 桌面 Widget
 
-**进度：** 方案 B「深海延续」与布局 A「额度优先 + 分层详情」已完成。支持 Small、Medium、Large；共享快照、过期降级、点击唤醒、隐私源码合同和条件签名打包均有自动化测试。当前机器仍为 `0 valid identities found`，所以尚未把真实 Widget 安装和 Gallery 验收冒充为完成。
+**进度：** 方案 B「深海延续」与布局 A「额度优先 + 分层详情」已完成。支持 Small、Medium、Large；共享快照、过期降级、点击唤醒、隐私源码合同和条件签名打包均有自动化测试。当前机器仍为 `0 valid identities found`。用户已于 2026-09-01 明确决定先暂停 Widget 证书，因此真实 Widget 安装、Gallery 和桌面验收延期，不影响当前无 Widget 主应用。
 
 - 新增可添加到 macOS 桌面的 WidgetKit Widget。
 - 支持多种系统允许的尺寸。
@@ -76,8 +76,8 @@
 
 ## 剩余验收与设计问题
 
-- R2 已采用桌面层语义：普通/全屏 Edge 的系统整屏证据通过，Space 切换关闭详情；仍需补验 Mission Control、左右两个普通 Space 和多显示器结果。
-- Widget 真实 Gallery、Small/Medium/Large 桌面显示、系统刷新延迟、点击唤醒，以及浅/深色与辅助显示模式仍待有 Apple Development 证书后实机验收。
+- R2 已采用桌面层语义并完成当前单桌面环境的真实验收；Mission Control、第二个普通 Space、真实指针拖动和多显示器只在具备相应系统控制/硬件条件时补验。
+- Widget 证书工作已暂停。以后恢复时，再做真实 Gallery、Small/Medium/Large 桌面显示、系统刷新延迟、点击唤醒，以及浅/深色与辅助显示模式验收。
 
 ## 实施门槛
 

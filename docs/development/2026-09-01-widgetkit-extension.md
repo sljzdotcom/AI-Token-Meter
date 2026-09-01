@@ -75,6 +75,12 @@
 
 代码、测试、文档、普通 App release 构建和签名缺失保护均已完成。取得 Apple Development 证书后，只需运行强制 Widget 构建、Bundle 验证、安全替换安装，再按[测试指南](testing.md#手工界面验收)完成真实桌面验收。
 
+### 延期决定
+
+用户于 2026-09-01 明确决定先暂停 Widget 证书工作，优先完成无 Widget 主应用的真实桌面验收。当前 `/Applications/AI Token Meter.app` 不包含 `.appex`，Widget Gallery、三尺寸桌面布局、App Group 和 WidgetKit 系统刷新均保持延期状态。恢复条件是取得 Apple Development 证书；在此之前不重复请求证书，也不把普通 ad-hoc 主应用冒充为可安装 Widget 的版本。
+
+无 Widget 主应用的最终现场结果见[真实桌面验收记录](2026-09-01-real-desktop-acceptance.md)。
+
 ## 已知系统行为
 
 - 时间线以 30 分钟作为下一次建议刷新点，但 WidgetKit 会按系统预算安排，不能承诺准点或逐秒更新；
