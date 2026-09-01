@@ -53,6 +53,7 @@ Sources/AIMeterApp/
 └── Views/
     ├── AboutSettingsView.swift
     ├── AppearanceSettingsView.swift
+    ├── ClaudeDetailPresentation.swift # Claude 详情空状态、模型占比与无障碍文案
     ├── ClaudeDetailView.swift
     ├── CodexResetCreditsView.swift
     ├── CodexDetailView.swift

@@ -1,7 +1,7 @@
 # Claude 专用详情与本机活动开发验收日志
 
-**日期：** 2026-09-01  
-**需求：** `REQ-20260901-006`  
+**日期：** 2026-09-01
+**需求：** `REQ-20260901-006`
 **结果：** 已完成并安装验收
 
 ## 背景与目标
@@ -14,15 +14,15 @@ Claude 原来只使用通用紧凑详情，信息密度明显低于 Codex 与 De
 
 - 新增 `ClaudeDailyActivity`、`ClaudeModelActivity`、`ClaudeLocalActivitySummary`，并让安全快照、缓存、刷新协调与 App 状态显式保留聚合结果。
 - 新增 `ClaudeLocalActivityReader`，只读扫描 `~/.claude/projects/**/*.jsonl`。
-- 官方 `/usage` 与本机读取并行执行；本机失败只让本机区域显示不可用，不改变官方额度结果。
+- 官方 `/usage` 与本机读取并行执行；官方失败立即返回，本机最多等待 2 秒，失败或超时只让本机区域显示不可用，不改变官方额度结果。
 - 新增 390 pt 宽的 Claude 专用详情页，包含：
   - Current session 与 Weekly 官方额度；
   - Sessions、Active days、Total tokens；
   - 固定 30 个自然日的每日 Token 柱图；
   - Input、Output、Cache 构成；
-  - Token 数最多的三个模型。
-- 零 Token 的内部占位模型不进入 Top models。
-- 详情高度按屏幕可用高度自适应，较矮屏幕可滚动；原有置前、自动隐藏、外部点击关闭与左右贴边行为保持不变。
+  - Token 数最多的三个模型及各自占比。
+- 零 Token、未知或不安全的模型标识不进入 Top models；无活动时显示明确空状态。
+- 详情高度按屏幕可用高度自适应；标题与官方额度固定可见，只有本机区域可滚动。原有置前、自动隐藏、外部点击关闭与左右贴边行为保持不变。
 
 ## 数据与隐私边界
 
@@ -33,7 +33,7 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - `message.model`；
 - `message.usage` 中的 input、output、cache creation 与 cache read 数字。
 
-提示词、回复、项目路径、分支、文件名、会话标题和命令不会进入领域模型、缓存或日志。读取器还会跳过符号链接、损坏记录、负计数、超过 2 MiB 的单行及超过 256 MiB 的文件。主会话按 `sessionId` 去重；`subagents` 的 Token 可以计入活动，但不虚增主会话数。
+提示词、回复、项目路径、分支、文件名、会话标题和命令不会进入领域模型、缓存或日志。读取器按 64 KiB 分块流式读取，只扫描 30 日窗口内最近修改的文件，并跳过符号链接、损坏记录、负计数、超过 2 MiB 的单行及超过 256 MiB 的文件；单次扫描最多处理 4096 个文件、512 MiB 和 10 秒。模型标识限长 80 UTF-8 字节，只接受字母、数字和 `-._:/`，旧缓存解码时同样重新规范化。主会话按 `sessionId` 去重；`subagents` 的 Token 可以计入活动，但不虚增主会话数。
 
 ## 测试先行证据
 
@@ -43,12 +43,14 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - 30 日边界、时区、空目录、损坏记录、超限行和符号链接；
 - 主会话与 subagent 计数规则；
 - 官方成功/本机失败的独立降级；
+- 官方失败立即返回、本机读取 2 秒超时与单次在途保护；
+- 旧缓存模型规范化、不安全模型过滤、最近修改时间剪枝与流式读取合同；
 - 自适应面板尺寸与专用详情路由；
-- 零 Token 模型过滤。
+- 零 Token 模型过滤、显式空状态、模型占比和官方/本机无障碍分区。
 
 最终完整命令使用隔离 SwiftPM/Clang 缓存执行，结果为：
 
-- **281 项测试、57 个测试组通过；**
+- **292 项测试、58 个测试组通过；**
 - **0 个失败；**
 - 安装型 CLI 冒烟测试中的 3 项环境门控测试按设计跳过，不属于失败。
 
@@ -65,8 +67,8 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - `codesign --verify --deep --strict` 通过；
 - 主程序为 arm64 Mach-O；
 - Bundle 版本为 0.1.0（build 1）；
-- 候选版和 `/Applications/AI Token Meter.app` 主程序 SHA-256 均为 `cd6eee022b863be08da233cc4a26999c82cbe00616b6eb1b8a694dae1ae26ff1`；
-- 覆盖安装前版本已保存在 `/private/tmp/AI Token Meter-pre-final-20260901-2242.app`，可用于本机临时回退。
+- 候选版和 `/Applications/AI Token Meter.app` 主程序 SHA-256 均为 `0ce6425165c501bbb4540a3c9f5a8c190acac110669716c6177a5af49a34011c`；
+- 覆盖安装前版本已保存在 `/private/tmp/AI Token Meter-pre-reviewed-20260901-2307.app`，可用于本机临时回退。
 
 最终安装版刷新后的真实 Claude 快照为：
 
@@ -81,7 +83,7 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - Total：15,227,409；
 - Top models 仅保留 `claude-sonnet-5` 与 `claude-haiku-4-5-20251001`，内部 `<synthetic>` 零 Token 行已消失。
 
-通过已安装 App 的辅助功能状态确认：点击 Claude 后状态从 `Detail closed` 变为 `Detail open`，8 秒后自动回到 `Detail closed`；浮动条保持右侧、约 60% 高度。Claude 详情使用非激活 `NSPanel`，当前自动化只捕获到浮动条而不能完整截取详情内容，因此本日志不把缺失的整页截图冒充视觉证据；布局、内容与可访问性由自动化测试和真实快照共同覆盖。
+通过已安装 App 的辅助功能状态确认：点击 Claude 后状态从 `Detail closed` 变为 `Detail open`，8 秒后自动回到 `Detail closed`；浮动条保持右侧、50% 高度。Claude 详情使用非激活 `NSPanel`，当前自动化只捕获到浮动条而不能完整截取详情内容，因此本日志不把缺失的整页截图冒充视觉证据；布局、内容与可访问性由自动化测试和真实快照共同覆盖。
 
 ## Git 节点
 
@@ -89,7 +91,8 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - `bd7d4b0`：聚合本机 Claude Code 活动；
 - `4b4aebb`：把可选本机活动接入 Claude 采集；
 - `bb10db3`：实现丰富 Claude 专用详情；
-- `5c33184`：隐藏零 Token 模型行。
+- `5c33184`：隐藏零 Token 模型行；
+- `8a5d8c5`：落实独立审查提出的资源边界、超时、缓存规范化、布局、空状态与无障碍加固。
 
 ## 已知边界
 
