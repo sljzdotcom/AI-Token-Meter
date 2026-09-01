@@ -215,6 +215,8 @@
 | `8e747fd` | feat | 添加三尺寸 WidgetKit 时间线与界面 |
 | `4cd2edd` | build | 添加条件式扩展打包、Apple Development 签名和 Bundle 验证 |
 | `7f69523` | fix | 正确处理带点号的 App Group 与 App Sandbox entitlement 键 |
+| `2dc6ff5` | docs | 补齐 Widget 安装、架构、隐私、测试、发布与故障排查文档 |
+| `32a41a5` | fix | 加固固定三服务、过期重置清理、非颜色状态提示和语义色 |
 
 ## 维护方式
 

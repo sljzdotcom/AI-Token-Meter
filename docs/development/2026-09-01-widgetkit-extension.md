@@ -44,11 +44,13 @@
 | Widget 界面 | `8e747fd` | Small/Medium/Large、时间线和源码安全合同通过，真实 target 编译成功 |
 | 条件打包 | `4cd2edd` | 无 Widget 构建、签名缺失保护、脚本与 entitlement 合同通过 |
 | plist 键路径修复 | `7f69523` | 用 PlistBuddy 正确替换/读取带点号 entitlement 键，并锁定回归 |
+| 文档与验收说明 | `2dc6ff5` | 补齐安装、故障排查、架构、隐私、测试与发布文档 |
+| 降级状态加固 | `32a41a5` | 固定恢复三服务顺序、清除过期重置信息，并为三种尺寸补齐非颜色状态提示与语义色 |
 
 最终自动化结果：
 
 ```text
-224 tests in 48 suites passed
+227 tests in 48 suites passed
 0 failures
 4 environment-gated checks skipped as designed
 ```
