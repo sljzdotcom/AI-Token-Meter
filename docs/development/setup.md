@@ -32,7 +32,7 @@ bash scripts/test.sh
 bash scripts/build-app.sh
 ```
 
-脚本默认把高频 SwiftPM 临时状态放到系统临时目录，并输出 `dist/AI Meter.app`。可通过 `AI_METER_BUILD_DIR` 指定其他构建目录：
+脚本默认把高频 SwiftPM 临时状态放到系统临时目录，并输出 `dist/AI Token Meter.app`。可通过 `AI_METER_BUILD_DIR` 指定其他构建目录：
 
 ```bash
 AI_METER_BUILD_DIR=/private/tmp/ai-meter-build bash scripts/build-app.sh
@@ -45,7 +45,7 @@ AI_METER_BUILD_DIR=/private/tmp/ai-meter-build bash scripts/build-app.sh
 ### 正常模式
 
 ```bash
-open "dist/AI Meter.app"
+open "dist/AI Token Meter.app"
 ```
 
 正常模式会尝试读取已安装 CLI，并在配置 DeepSeek API Key 后访问官方余额 API。
@@ -55,7 +55,7 @@ open "dist/AI Meter.app"
 开发界面时可使用固定脱敏数据，避免访问真实账户：
 
 ```bash
-AI_METER_DEMO_MODE=1 open "dist/AI Meter.app"
+AI_METER_DEMO_MODE=1 open "dist/AI Token Meter.app"
 ```
 
 Demo 模式不会启动三项实时采集器，适合布局、无障碍和窗口交互验证。它不能替代真实数据源的集成测试。

@@ -48,6 +48,8 @@ Sources/AIMeterApp/
 │   ├── LaunchAtLoginService.swift
 │   └── NotificationService.swift
 └── Views/
+    ├── AboutSettingsView.swift
+    ├── AppearanceSettingsView.swift
     ├── CodexResetCreditsView.swift
     ├── CodexDetailView.swift
     ├── DeepSeekAnalyticsView.swift
@@ -55,11 +57,14 @@ Sources/AIMeterApp/
     ├── FloatingStripShape.swift
     ├── FloatingStripView.swift
     ├── MenuBarPanel.swift
+    ├── MonitoringSettingsView.swift
     ├── ProviderAccentPalette.swift # 三服务品牌色与语义色优先级
     ├── ProviderCard.swift
     ├── ProviderLogo.swift
     ├── ProviderLogoStyle.swift
     ├── SettingsView.swift
+    ├── SettingsTab.swift
+    ├── ServicesSettingsView.swift
     ├── UsageRing.swift
     └── UsageVisualStyle.swift
 ```
@@ -113,6 +118,11 @@ Sources/AIMeterCore/
 
 - `UsageModels.swift`：服务、指标、状态和统一快照；
 - `ProviderSupplementalData.swift`：Codex 重置额度、本机活动与 DeepSeek 每日历史模型。
+
+### Presentation
+
+- `AppBrand.swift`：集中定义可见产品名称、副标题与版本文案；兼容身份仍由 Bundle 与既有持久化路径负责。
+- `AppPresentation.swift`：把统一快照转换成菜单栏、卡片和状态展示模型。
 
 ## `Tests/AIMeterCoreTests`
 

@@ -2,14 +2,14 @@
 
 ## 安全目标
 
-AI Meter 是本地状态查看器，不是账户代理。它遵循最小权限原则：只读取展示所需的用量数据，不替用户登录、不执行充值或重置操作，也不把账户数据上传到自建服务。
+AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小权限原则：只读取展示所需的用量数据，不替用户登录、不执行充值或重置操作，也不把账户数据上传到自建服务。
 
 ## 凭证处理
 
 ### Claude 与 Codex
 
 - 登录与凭证生命周期由官方 CLI 管理；
-- AI Meter 调用已登录 CLI，不读取、复制或保存凭证文件；
+- AI Token Meter 调用已登录 CLI，不读取、复制或保存凭证文件；
 - Codex 本机活动只查询本地线程表的 `tokens_used`、`created_at`、`updated_at`，不读取标题、预览、提示词、回复或凭证；
 - CLI 标准输出会在解析后转换为统一字段，原始账户输出不写入业务缓存；
 - 一次性 Claude 工作区批准由用户在终端确认。
@@ -24,7 +24,7 @@ AI Meter 是本地状态查看器，不是账户代理。它遵循最小权限�
 
 ## DeepSeek 网页会话
 
-近 30 天用量使用 AI Meter 自己的 WebKit 会话：
+近 30 天用量使用 AI Token Meter 自己的 WebKit 会话：
 
 - 不读取 Safari、Chrome 或其他浏览器 Cookie；
 - 只允许官方 DeepSeek 平台来源参与用量捕获；
@@ -46,6 +46,8 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 | DeepSeek 每日聚合 | `Application Support/AI Meter` | 新数据覆盖或用户删除缓存 |
 | DeepSeek 登录会话 | App WebKit 数据存储 | 退出登录或清理应用网站数据 |
 
+显示名称迁移不会改变安全身份：Bundle Identifier 仍为 `com.millerpan.AIMeter`，可执行文件仍为 `AIMeterApp`，既有 Keychain 项目与 `Application Support/AI Meter` 兼容目录继续使用，避免重新暴露或复制密钥与会话数据。
+
 ## 敏感文本清理
 
 进入缓存、状态消息或通知前，文本会清理常见敏感形态，包括：
@@ -62,7 +64,7 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 - Codex：由 Codex CLI 及其 `app-server` 提供本地结构化账户数据；
 - DeepSeek 余额：直接访问官方 API；
 - DeepSeek 历史：App 内 WebKit 访问官方平台；
-- AI Meter 没有自建遥测、广告或分析服务。
+- AI Token Meter 没有自建遥测、广告或分析服务。
 
 ## 日志
 

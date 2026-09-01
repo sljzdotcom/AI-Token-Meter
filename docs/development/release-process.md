@@ -2,7 +2,7 @@
 
 ## 版本策略
 
-AI Meter 使用语义化版本思路：
+AI Token Meter 使用语义化版本思路：
 
 - MAJOR：不兼容的数据、配置或系统要求变化；
 - MINOR：向后兼容的新功能；
@@ -42,9 +42,9 @@ AI Meter 使用语义化版本思路：
 
 ```bash
 bash scripts/build-app.sh
-plutil -lint "dist/AI Meter.app/Contents/Info.plist"
-codesign --verify --deep --strict --verbose=2 "dist/AI Meter.app"
-file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
+plutil -lint "dist/AI Token Meter.app/Contents/Info.plist"
+codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
+file "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 ```
 
 当前脚本仅生成本机 ad-hoc 签名。公开分发前还必须补充：
@@ -58,7 +58,7 @@ file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 ## 本机替换与恢复
 
-开发验收时替换 `/Applications/AI Meter.app` 前：
+开发验收时替换 `/Applications/AI Token Meter.app` 前：
 
 1. 完全退出旧版本；
 2. 把旧 App 移到带时间戳的安全备份路径；
@@ -73,7 +73,7 @@ file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 1. 提交所有版本和文档改动；
 2. 确认 `git status` 干净；
-3. 创建 `release: AI Meter vX.Y.Z` 提交；
+3. 创建 `release: AI Token Meter vX.Y.Z` 提交；
 4. 创建带注释 tag：`vX.Y.Z`；
 5. 保存构建校验和和验收结果到开发日志；
 6. 推送分支与 tag。

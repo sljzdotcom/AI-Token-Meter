@@ -2,7 +2,7 @@
 
 ## 目标
 
-AI Meter 的架构围绕四个约束设计：
+AI Token Meter 的架构围绕四个约束设计：
 
 1. 三个服务互不拖累，单项失败不影响其他项；
 2. 凭证由系统或官方 CLI 管理，业务层只接收必要数据；
@@ -72,11 +72,19 @@ UserDefaults ────────────> UI preferences / threshold st
 - 保存用户设置；
 - 向窗口、通知和菜单栏发布状态。
 
+### Settings information architecture
+
+`SettingsView` 只负责顶部 `TabView` 与设置消息路由，四个职责视图分别承载 Appearance、Monitoring、Services 和 About。服务配置反馈通过 `SettingsMessageKind` 定位到 Services，登录项错误定位到 Monitoring；后续设置按职责落入对应视图，避免重新形成单一长页面。Settings 根视图固定使用系统字体作用域，不继承浮动条和详情的可选显示字体。
+
+### Brand and compatibility
+
+`AppBrand` 集中提供 **AI Token Meter**、**Private AI usage monitor** 和版本文案。可见名称与构建产物已迁移，但 `com.millerpan.AIMeter`、`AIMeterApp`、Keychain 身份及 `Application Support/AI Meter` 兼容目录保持不变，以沿用现有偏好、缓存和 Claude 工作区批准。
+
 视图主题层由 `ProviderAccentPalette` 集中映射 Claude、Codex 和 DeepSeek 的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
 
 ### FloatingPanelController
 
-负责无标题悬浮窗口、屏幕右侧定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。右侧悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude、Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
+负责无标题桌面层浮窗、左右贴边定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude、Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
 
 ### DeepSeekWebSession
 
