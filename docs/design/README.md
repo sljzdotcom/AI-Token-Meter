@@ -9,7 +9,8 @@
 
 最新规格：
 
-- [DeepSeek 登录输入焦点修复设计](specifications/2026-08-30-deepseek-web-focus-design.md)
+- [WidgetKit 桌面组件设计](specifications/2026-09-01-widgetkit-extension-design.md)
+- [WidgetKit 测试驱动实施计划](implementation-plans/2026-09-01-widgetkit-extension.md)
 
 ## 阅读顺序
 

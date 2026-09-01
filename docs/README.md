@@ -29,6 +29,7 @@
 | [发布流程](development/release-process.md) | 版本号、变更日志、构建、签名和发布检查清单 |
 | [提交历史](development/commit-history.md) | 从项目创建至今的 Git 节点与阶段说明 |
 | [开发日志索引](development/README.md) | 按日期查阅详细开发与验收记录 |
+| [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [贡献指南](../CONTRIBUTING.md) | 分支、提交、测试、文档和评审要求 |
 | [安全报告](../SECURITY.md) | 私下报告漏洞的要求与范围 |
 | [版本变更](../CHANGELOG.md) | 已发布版本和未发布改动 |

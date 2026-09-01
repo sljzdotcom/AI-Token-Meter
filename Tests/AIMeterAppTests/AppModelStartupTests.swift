@@ -38,6 +38,137 @@ struct AppModelStartupTests {
         #expect(model.displayFontChoice == .system)
         #expect(DisplayFontPreferenceStore(defaults: defaults).load() == .system)
     }
+
+    @Test("Demo startup publishes its initial Widget snapshot once")
+    @MainActor
+    func demoStartupPublishesWidgetSnapshot() {
+        let context = makeContext("DemoWidget")
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let recorder = AppModelWidgetRecorder()
+        let model = AppModel(
+            defaults: context.defaults,
+            secretStore: ReadCountingSecretStore(),
+            widgetSnapshotPublisher: recorder.publisher,
+            isDemoMode: true
+        )
+
+        model.start()
+
+        #expect(recorder.published.count == 1)
+        #expect(recorder.published[0].providers.map(\.provider) == [.claude, .codex, .deepSeek])
+    }
+
+    @Test("A completed refresh publishes exactly the displayed snapshots")
+    @MainActor
+    func refreshPublishesWidgetSnapshot() async {
+        let context = makeContext("RefreshWidget")
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let recorder = AppModelWidgetRecorder()
+        let expected = UsageSnapshot(
+            provider: .codex,
+            primaryMetric: UsageMetric(label: "Weekly", current: 31, limit: 100, unit: .percent)
+        )
+        let model = AppModel(
+            defaults: context.defaults,
+            secretStore: ReadCountingSecretStore(),
+            widgetSnapshotPublisher: recorder.publisher,
+            isDemoMode: false,
+            refreshOperation: { [expected] in [expected] }
+        )
+
+        await model.refresh()
+
+        #expect(model.snapshots == [expected])
+        #expect(recorder.published.count == 1)
+        #expect(recorder.published[0].providers.map(\.provider) == [.claude, .codex, .deepSeek])
+        #expect(
+            recorder.published[0].providers.first(where: { $0.provider == .codex })?.valueText
+                == "31%"
+        )
+    }
+
+    @Test("Changing the DeepSeek balance baseline republishes the recalculated state")
+    @MainActor
+    func balanceBaselineRepublishesWidgetSnapshot() async throws {
+        let context = makeContext("BaselineWidget")
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let recorder = AppModelWidgetRecorder()
+        let deepSeek = UsageSnapshot(
+            provider: .deepSeek,
+            primaryMetric: UsageMetric(
+                label: "Balance",
+                current: 77.99,
+                limit: nil,
+                unit: .cny,
+                kind: .balance
+            )
+        )
+        let model = AppModel(
+            defaults: context.defaults,
+            secretStore: ReadCountingSecretStore(),
+            widgetSnapshotPublisher: recorder.publisher,
+            isDemoMode: false,
+            refreshOperation: { [deepSeek] in [deepSeek] }
+        )
+        await model.refresh()
+        recorder.published.removeAll()
+
+        model.setDeepSeekBalanceBaseline(200)
+
+        let published = try #require(
+            recorder.published.first?.providers.first(where: { $0.provider == .deepSeek })
+        )
+        #expect(published.valueText == "¥77.99")
+        #expect(abs((published.fraction ?? 0) - 0.61005) < 0.000_001)
+    }
+
+    @Test("Widget publication failure never changes app refresh state")
+    @MainActor
+    func widgetFailureDoesNotAffectRefresh() async {
+        let context = makeContext("WidgetFailure")
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let expected = UsageSnapshot(provider: .claude)
+        let publisher = WidgetSnapshotPublisher(
+            save: { _ in throw WidgetPublishingFailureForAppModel.expected },
+            reload: {}
+        )
+        let model = AppModel(
+            defaults: context.defaults,
+            secretStore: ReadCountingSecretStore(),
+            widgetSnapshotPublisher: publisher,
+            isDemoMode: false,
+            refreshOperation: { [expected] in [expected] }
+        )
+
+        await model.refresh()
+
+        #expect(model.snapshots == [expected])
+        #expect(model.lastUpdatedAt != nil)
+        #expect(!model.isRefreshing)
+    }
+
+    private func makeContext(_ suffix: String) -> (suiteName: String, defaults: UserDefaults) {
+        let suiteName = "AppModelStartupTests.\(suffix).\(UUID().uuidString)"
+        return (suiteName, UserDefaults(suiteName: suiteName)!)
+    }
+}
+
+@MainActor
+private final class AppModelWidgetRecorder {
+    var published: [WidgetSnapshotEnvelope] = []
+
+    var publisher: WidgetSnapshotPublisher {
+        WidgetSnapshotPublisher(
+            save: { [weak self] envelope in
+                self?.published.append(envelope)
+            },
+            reload: {}
+        )
+    }
+}
+
+private enum WidgetPublishingFailureForAppModel: Error {
+    case expected
 }
 
 private final class ReadCountingSecretStore: SecretStore, @unchecked Sendable {

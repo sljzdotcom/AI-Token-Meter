@@ -6,6 +6,9 @@
 
 ### Added
 
+- 新增原生 macOS WidgetKit 桌面组件，支持 Small、Medium、Large；最小尺寸仅显示 Claude、Codex、DeepSeek 三个 Logo 状态环，中型显示三张额度卡，大型追加最近重置与 Codex 重置券摘要。
+- 新增隐私安全的 App Group Widget 快照、30 分钟系统时间线建议、过期状态降级和点击唤醒主应用深链；Widget 本身不联网、不调用 CLI、不访问 Keychain。
+- 构建脚本新增 `AI_METER_INCLUDE_WIDGET=auto|0|1`、Apple Development 身份检测、嵌套扩展签名及 App Group 一致性验证；无开发签名时普通主应用仍可构建。
 - Settings 采用 Appearance、Monitoring、Services、About 四个顶部 Tab，并按职责安置现有选项。
 - Appearance 新增全局显示字体选择：System Default、Antonio、DIN Condensed，以及 `Restore Default Font`；可用字体会即时应用到 App 自绘文字并持久化，缺失字体禁用且安全回退到系统字体。第三方字体须由用户预先安装，AI Token Meter 不下载或分发字体文件。
 - 贴边浮岛内部新增静态黑蓝「深海波纹」背景；左右贴边时仅纹理随轮廓镜像，Logo、品牌进度色、点击和拖动行为保持不变，资源缺失时自动回退到原玻璃底色。

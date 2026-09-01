@@ -79,6 +79,21 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 ## 界面
 
+### Widget Gallery 找不到 AI Token Meter
+
+- 确认安装包存在 `Contents/PlugIns/AITokenMeterWidget.appex`；默认构建输出 `Widget skipped` 表示当前包不含 Widget；
+- 在 Xcode > Settings > Accounts 登录 Apple Account 并创建 Apple Development 证书，再以 `AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 重建；
+- 把完整 `AI Token Meter.app` 放入 `/Applications`，启动一次后重新打开桌面 Widget Gallery；
+- ad-hoc 签名无法提供可用的 App Group Widget，构建脚本不会伪装支持。
+
+### Widget 显示 Unavailable 或数据没有立即更新
+
+- 打开主应用并手动刷新一次；Widget 不直接调用 CLI、API 或 Keychain；
+- 核对主应用与扩展是否来自同一次构建，双方 App Group 不一致时无法共享数据；
+- WidgetKit 使用系统刷新预算，主应用请求更新不等于逐秒刷新；
+- 快照超时会标记为陈旧而不是继续伪装实时；共享文件损坏或版本未知会安全回到三项 Unavailable；
+- 可运行 `scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"` 检查嵌套签名、App Group 与扩展沙箱。
+
 ### 悬浮条不见了
 
 - 如果当前应用处于全屏，或普通应用窗口覆盖了屏幕边缘，这是桌面层浮岛的预期行为；退出全屏、显示桌面或切回普通桌面 Space 后再确认。

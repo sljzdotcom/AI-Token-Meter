@@ -21,6 +21,8 @@ final class AppModel {
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
     private let displayFontPreferenceStore: DisplayFontPreferenceStore
     private let floatingStripPositionStore: FloatingStripPositionStore
+    private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
+    private let refreshOperation: @Sendable () async -> [UsageSnapshot]
     private let isDemoMode: Bool
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
@@ -51,7 +53,10 @@ final class AppModel {
         defaults: UserDefaults = .standard,
         secretStore: any SecretStore = KeychainStore(),
         launchAtLoginService: LaunchAtLoginService = LaunchAtLoginService(),
-        claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher = ClaudeWorkspaceSetupLauncher()
+        claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher = ClaudeWorkspaceSetupLauncher(),
+        widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
+        isDemoMode: Bool? = nil,
+        refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil
     ) {
         self.defaults = defaults
         self.secretStore = secretStore
@@ -62,7 +67,9 @@ final class AppModel {
         self.displayFontChoice = self.displayFontPreferenceStore.load()
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
-        self.isDemoMode = ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1"
+        self.widgetSnapshotPublisher = widgetSnapshotPublisher
+        self.isDemoMode = isDemoMode
+            ?? (ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1")
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
            let restored = try? JSONDecoder().decode(ThresholdEvaluator.self, from: data) {
             self.thresholdEvaluator = restored
@@ -91,12 +98,14 @@ final class AppModel {
         deepSeekWebSession = DeepSeekWebSession(
             historyStore: DeepSeekHistoryStore(directoryURL: cacheDirectory)
         )
-        coordinator = RefreshCoordinator(
-            collectors: isDemoMode
+        let coordinator = RefreshCoordinator(
+            collectors: self.isDemoMode
                 ? []
                 : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore)],
             cache: SnapshotCache(directoryURL: cacheDirectory)
         )
+        self.coordinator = coordinator
+        self.refreshOperation = refreshOperation ?? { await coordinator.refresh() }
         apiKeyConfigured = false
         launchAtLoginEnabled = launchAtLoginService.isEnabled
     }
@@ -119,6 +128,7 @@ final class AppModel {
         if isDemoMode {
             snapshots = Self.demoSnapshots
             lastUpdatedAt = Date()
+            publishWidgetSnapshot()
             return
         }
         if notificationsEnabled {
@@ -142,16 +152,18 @@ final class AppModel {
         if isDemoMode {
             snapshots = Self.demoSnapshots
             lastUpdatedAt = Date()
+            publishWidgetSnapshot()
             return
         }
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
 
-        let collected = await coordinator.refresh()
+        let collected = await refreshOperation()
         updateAPIKeyConfiguration(from: collected)
         snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         lastUpdatedAt = Date()
+        publishWidgetSnapshot()
 
         guard notificationsEnabled else { return }
         let events = snapshots.flatMap { thresholdEvaluator.evaluate($0) }
@@ -214,6 +226,7 @@ final class AppModel {
         deepSeekBalanceBaseline = max(value, 1)
         defaults.set(deepSeekBalanceBaseline, forKey: DefaultsKey.deepSeekBalanceBaseline)
         snapshots = snapshots.map(applyingLocalBudget)
+        publishWidgetSnapshot()
     }
 
     func setDetailAutoHideSeconds(_ seconds: Int) {
@@ -342,6 +355,10 @@ final class AppModel {
     private func persistThresholdEvaluator() {
         guard let data = try? JSONEncoder().encode(thresholdEvaluator) else { return }
         defaults.set(data, forKey: DefaultsKey.thresholdEvaluator)
+    }
+
+    private func publishWidgetSnapshot() {
+        widgetSnapshotPublisher?.publish(snapshots)
     }
 
     private static var demoSnapshots: [UsageSnapshot] {

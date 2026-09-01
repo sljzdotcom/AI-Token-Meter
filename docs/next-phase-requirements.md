@@ -1,7 +1,7 @@
 # AI Token Meter 下一阶段需求登记
 
 **登记日期：** 2026-09-01  
-**状态：** R1/R4/R5/R6 已完成实现；R2 已实现并完成自动化与部分实机验收，完整桌面层验收待补；R3 是下一独立子项目
+**状态：** R1/R3/R4/R5/R6 已完成实现；R2 已实现并完成自动化与部分实机验收，完整桌面层验收待补；R3 的代码、测试和无签名保护已完成，真实 Gallery/桌面验收待 Apple Development 证书
 **登记基线：** `main` 提交 `8c42ab2`
 **设置与品牌实施：** 功能提交 `e5f8e94`、`1f7f6f4`，通过 `337ff72` 合入 `main`
 
@@ -27,11 +27,13 @@
 
 ### R3. macOS 桌面 Widget
 
+**进度：** 方案 B「深海延续」与布局 A「额度优先 + 分层详情」已完成。支持 Small、Medium、Large；共享快照、过期降级、点击唤醒、隐私源码合同和条件签名打包均有自动化测试。当前机器仍为 `0 valid identities found`，所以尚未把真实 Widget 安装和 Gallery 验收冒充为完成。
+
 - 新增可添加到 macOS 桌面的 WidgetKit Widget。
 - 支持多种系统允许的尺寸。
 - 最小尺寸只显示三个带 Provider Logo 的状态框，不显示冗余文字。
-- 中型和更大尺寸展示哪些额度、余额、重置时间和刷新状态，留待独立 Widget 规格确认。
-- Widget 与主应用之间的数据共享、刷新频率、隐私边界和无主应用运行时的降级行为需要单独设计。
+- Medium 固定显示三张 Provider 额度/余额卡；Large 在三项 Provider 行之外显示最近重置与 Codex 重置券数量/最近到期。
+- 主应用通过签名 App Group 发布最小脱敏快照；Widget 不联网、不运行 CLI、不读 Keychain，约 30 分钟请求系统时间线，缺失/损坏数据降级为 Unavailable，过期数据标记 stale。
 
 ### R4. 产品名称与副标题
 
@@ -70,12 +72,12 @@
 2. **设置与品牌整理：** R1、R4、R5。
 3. **WidgetKit 扩展：** R3。
 
-前两个子项目已经实现；下一步单独建立 WidgetKit 扩展。Widget 依赖的共享展示模型与品牌命名现在已经稳定。
+三个子项目均已实现。Widget 代码可以在无签名环境独立编译；真实安装需要在 Xcode 登录 Apple Account 并创建 Apple Development 证书，再运行强制 Widget 构建与 Bundle 验证。
 
 ## 剩余验收与设计问题
 
 - R2 已采用桌面层语义：普通/全屏 Edge 的系统整屏证据通过，Space 切换关闭详情；仍需补验 Mission Control、左右两个普通 Space 和多显示器结果。
-- Widget 支持的尺寸、各尺寸字段和是否允许交互。
+- Widget 真实 Gallery、Small/Medium/Large 桌面显示、系统刷新延迟、点击唤醒，以及浅/深色与辅助显示模式仍待有 Apple Development 证书后实机验收。
 
 ## 实施门槛
 

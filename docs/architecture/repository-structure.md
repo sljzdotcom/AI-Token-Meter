@@ -22,7 +22,7 @@ AI-Meter/
 - `DerivedData/`：Xcode 派生文件；
 - `.worktrees/`：本地隔离开发工作树。
 
-`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、App Bundle 组装与 ad-hoc 签名验证。
+`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、主应用/Widget 条件组装与签名验证；`scripts/verify-widget-bundle.sh` 检查嵌套扩展、App Group、沙箱和双方签名。
 
 ## `Sources/AIMeterApp`
 
@@ -33,6 +33,7 @@ Sources/AIMeterApp/
 ├── AppModel.swift              # 主线程应用状态与刷新循环
 ├── Resources/
 │   ├── Info.plist              # Bundle 元数据、最低系统版本、Agent App 标记
+│   ├── AIMeterApp.entitlements # 签名构建时注入的 App Group 模板
 │   └── Logos/                  # Claude、Codex、DeepSeek 图标资源
 ├── System/
 │   ├── ClaudeWorkspaceSetupLauncher.swift
@@ -46,7 +47,8 @@ Sources/AIMeterApp/
 │   ├── FloatingStripScreenResolver.swift
 │   ├── InteractivePanel.swift
 │   ├── LaunchAtLoginService.swift
-│   └── NotificationService.swift
+│   ├── NotificationService.swift
+│   └── WidgetSnapshotPublisher.swift
 └── Views/
     ├── AboutSettingsView.swift
     ├── AppearanceSettingsView.swift
@@ -76,6 +78,27 @@ Sources/AIMeterApp/
 - `Views` 只负责呈现与用户交互；
 - `AppModel` 连接核心库与 App 生命周期，但不重新实现采集协议。
 
+## `Sources/AIMeterWidgetExtension`
+
+```text
+Sources/AIMeterWidgetExtension/
+├── AITokenMeterWidget.swift        # WidgetBundle 与 StaticConfiguration
+├── WidgetTimelineSource.swift      # 只读 App Group 时间线、预览与过期降级
+├── WidgetLayoutPolicy.swift        # Small/Medium/Large 字段合同
+├── Resources/
+│   ├── Info.plist
+│   ├── AITokenMeterWidget.entitlements
+│   ├── Backgrounds/
+│   └── Logos/
+└── Views/
+    ├── SmallWidgetView.swift       # 仅三个 Logo 状态环
+    ├── MediumWidgetView.swift      # 三张额度卡
+    ├── LargeWidgetView.swift       # Provider 行、重置与充值券
+    └── Widget*.swift              # 根视图、背景、Logo 与进度组件
+```
+
+该 target 不允许直接依赖网络、CLI、Keychain 或 WebKit，只依赖 `AIMeterCore` 中的脱敏 Widget 合同。资源在 SwiftPM 测试时使用资源 Bundle，正式 `.appex` 打包时复制到扩展 `Contents/Resources`。
+
 ## `Sources/AIMeterCore`
 
 ```text
@@ -89,7 +112,8 @@ Sources/AIMeterCore/
 ├── Persistence/                # 快照与历史聚合持久化
 ├── Presentation/               # 面向 UI 的文案和语义状态
 ├── Security/                   # Keychain、SecretStore、敏感文本清理
-└── UI/                         # 可单测的面板交互状态与偏好值
+├── UI/                         # 可单测的面板交互状态与偏好值
+└── Widget/                     # 版本化展示快照、构建器与原子 App Group 存储
 ```
 
 ### Collectors
@@ -141,6 +165,13 @@ Sources/AIMeterCore/
 - AppKit 窗口坐标与 SwiftUI 顶部坐标转换；
 - 指针按下、拖动、松开状态及位置位移；
 - 启动过程不在主线程同步读取 Keychain。
+
+## `Tests/AIMeterWidgetExtensionTests`
+
+- 锁定只支持 Small、Medium、Large 及各自可见字段；
+- 锁定 Small 无可见文字、按钮或链接，同时保留无障碍标签；
+- 验证缺失数据占位、过期快照降级与固定 Gallery 预览；
+- 扫描扩展源码，防止引入网络、进程执行或 Keychain 路径。
 
 ## `docs`
 

@@ -6,7 +6,7 @@
 
 - App Bundle 版本：`0.1.0`（build `1`）。
 - 初始发布提交：`7fff321`。
-- 当前已合并功能节点：`de3d5d6`（贴边浮岛 S 曲线轮廓）。
+- 当前 `main` 基线：`236dffe`（Settings、品牌迁移和最终安装指纹）。
 - 公共文档体系节点：`f6a0b4e`。
 - 可移植测试入口节点：`e355af4`。
 - Git tag：尚未创建。
@@ -31,6 +31,7 @@
 | 浮岛回归修复 | `76dc92f`–`00310c0` | 恢复反向半圆肩部、扩展玻璃拖动、修复 Settings、隔离钥匙串超时，并完成安装验收和主分支合并 |
 | 浮岛 S 曲线轮廓 | `a840bce`–`de3d5d6` | 按手绘参考以双贝塞尔取代平台肩部，完成左右镜像、真实三处拖动、设置入口、安装验收和主分支合并 |
 | Settings 分类与品牌迁移 | `ade6830`–`1f7f6f4` | 四个顶部 Settings Tab、AI Token Meter 可见品牌、兼容身份与 196 项回归 |
+| WidgetKit 桌面组件 | `6e197fe`–`7f69523` | 三尺寸 Widget、脱敏 App Group 快照、时间线、条件式 Apple Development 签名与 224 项回归 |
 
 ## 2026-08-28
 
@@ -202,6 +203,20 @@
 | `1f7f6f4` | feat | 将可见品牌和构建产物迁移为 AI Token Meter，同时保留兼容身份 |
 | `6870a28`–`f2f8482` | docs | 同步用户、架构、安全、发布和验收文档并修正文档边界 |
 | `337ff72` | merge | 将 Settings 分类与 AI Token Meter 品牌迁移合入 `main` |
+
+### WidgetKit 桌面组件
+
+| 提交 | 类型 | 变更 |
+| --- | --- | --- |
+| `6e197fe` | docs | 确认深海视觉、Small/Medium/Large、共享数据与签名边界 |
+| `4dc554c` | docs | 编写 WidgetKit 测试驱动实施计划 |
+| `34f2f48` | feat | 添加隐私安全的 Widget 展示快照、构建器与原子存储 |
+| `1ae2544` | feat | 主应用发布 Widget 快照并支持安全点击唤醒 |
+| `8e747fd` | feat | 添加三尺寸 WidgetKit 时间线与界面 |
+| `4cd2edd` | build | 添加条件式扩展打包、Apple Development 签名和 Bundle 验证 |
+| `7f69523` | fix | 正确处理带点号的 App Group 与 App Sandbox entitlement 键 |
+| `2dc6ff5` | docs | 补齐 Widget 安装、架构、隐私、测试、发布与故障排查文档 |
+| `32a41a5` | fix | 加固固定三服务、过期重置清理、非颜色状态提示和语义色 |
 
 ## 维护方式
 

@@ -20,6 +20,7 @@
 | [2026-09-01](2026-09-01-floating-strip-desktop-layer-and-background-crop.md) | 浮动条/详情桌面层、Space 关闭详情、深海背景等比覆盖上下肩部 | 179 个测试、Release 构建/签名/安装指纹、普通/全屏 Edge 层级、Space 关闭详情、左右肩部和偏好保持通过；Mission Control、左右两个普通 Space、真实指针拖动和多显示器待人工环境补验 |
 | [2026-09-01](2026-09-01-settings-font-isolation-and-content-size-step.md) | Settings 系统字体隔离、内容文字精确 `+1pt` 与 SF Symbol 语义基线 | 187 个测试、Release 构建/签名/安装指纹及 Settings 实机切换/持久化通过；caption2/body/ContentUnavailable 的 Symbol 映射与渲染回归已覆盖；菜单点击面板与 Claude/Codex 非激活详情的像素级字体和截断仍待可全屏捕获环境补验 |
 | [2026-09-01](2026-09-01-settings-tabs-and-brand-migration.md) | Settings 四分类 Tab、AI Token Meter 品牌与兼容迁移 | 196 个测试、41 个测试组、Release 构建/签名/arm64、安装哈希和四 Tab 实机验收通过；已合入 `main` |
+| [2026-09-01](2026-09-01-widgetkit-extension.md) | 原生 Small/Medium/Large Widget、脱敏 App Group 快照、时间线与条件签名打包 | 224 个测试、48 个测试组、Widget target 编译和无 Widget release 构建通过；当前无 Apple Development 身份，真实 Gallery/桌面验收明确待补 |
 
 ## 新日志模板
 

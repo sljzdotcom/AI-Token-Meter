@@ -4,6 +4,10 @@
 
 ## Appearance
 
+### Desktop Widget
+
+Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Settings 不重复提供尺寸或刷新频率选项。Widget 始终使用系统字体和深海背景，不继承浮动条的 Antonio/DIN 选择；主应用刷新或 DeepSeek 余额基准变化后会发布脱敏快照并请求系统更新时间线。
+
 ### Show floating meter
 
 - 默认：开启。
@@ -94,6 +98,7 @@ Services 集中放置外部服务的配置与一次性操作。Claude 工作区�
 | 最近一次统一用量快照 | `Application Support/AI Meter` | 非敏感，写入前清理敏感文本 |
 | DeepSeek 标准化每日用量 | `Application Support/AI Meter` | 非敏感聚合数据 |
 | DeepSeek 官网登录会话 | App 隔离 WebKit 数据存储 | 敏感会话，由 WebKit 管理，不写入业务缓存 |
+| Widget 展示快照 | Apple Development 签名双方专用 App Group | 非敏感最小展示数据；主应用刷新覆盖 |
 
 显示名称已经改为 AI Token Meter，但 Bundle Identifier、可执行文件名、Keychain 身份和 `Application Support/AI Meter` 目录暂时保留。这是有意的兼容设计，用于沿用升级前的偏好、密钥访问、缓存与 Claude 工作区批准。
 

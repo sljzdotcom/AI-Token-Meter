@@ -48,6 +48,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard urls.contains(where: { $0.scheme?.lowercased() == "aitokenmeter" }) else { return }
+        application.activate(ignoringOtherApps: true)
+        if model.showFloatingStrip {
+            floatingPanelController?.show()
+        }
+        Task { await model.refresh() }
+    }
+
     @objc private func didWake() {
         Task { await model.refresh() }
     }

@@ -18,6 +18,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] `bash scripts/test.sh` 全部通过；
 - [ ] 环境允许时，真实 CLI 冒烟测试 3/3 通过；
 - [ ] `bash scripts/build-app.sh` 完成 release 构建；
+- [ ] 若发布 Widget，`AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 与 `scripts/verify-widget-bundle.sh` 通过；
 - [ ] `git diff --check` 无错误。
 
 ### 文档
@@ -47,7 +48,22 @@ codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
 file "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 ```
 
-当前脚本仅生成本机 ad-hoc 签名。公开分发前还必须补充：
+无 Widget 构建可明确执行：
+
+```bash
+AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh
+```
+
+Widget 构建需要 Xcode 中可用的 Apple Development 证书：
+
+```bash
+AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh
+scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
+```
+
+默认 `auto` 只有在同时检测到身份和 Team ID 时才嵌入 `AITokenMeterWidget.appex`；显式 `1` 在条件不足时必须失败。构建计算 `${TEAM_ID}.com.millerpan.AIMeter`，写入双方 entitlements 与 Bundle 元数据，先签扩展再签主应用。不得把 ad-hoc 签名 Widget 当成成功产物。
+
+当前脚本的 Apple Development 签名仍只用于本机开发。公开分发前还必须补充：
 
 - universal binary（若计划支持 Intel）；
 - Hardened Runtime；
@@ -65,7 +81,8 @@ file "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 3. 复制新构建；
 4. 核对安装版与构建版可执行文件校验和；
 5. 启动并完成三服务界面验收；
-6. 失败时退出并恢复备份。
+6. 若包含 Widget，在 Gallery 验证三种尺寸、共享数据和点击唤醒；
+7. 失败时退出并恢复备份。
 
 不要在应用仍运行时直接覆盖 Bundle。
 
