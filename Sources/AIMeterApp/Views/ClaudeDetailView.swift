@@ -144,11 +144,6 @@ struct ClaudeDetailView: View {
                 } else {
                     localActivityEmptyState
                 }
-                tokenComposition(summary)
-                let modelRows = ClaudeDetailPresentation.topModelRows(summary)
-                if !modelRows.isEmpty {
-                    modelBreakdown(modelRows)
-                }
                 Label(
                     "Only aggregate timestamps, token counts, session IDs and model IDs are read. Conversation content stays private.",
                     systemImage: "lock.shield"
@@ -257,68 +252,6 @@ struct ClaudeDetailView: View {
             ClaudeDetailPresentation.localActivityAccessibilityLabel(
                 title: "Daily token activity",
                 detail: "\(summary.totalTokens.formatted()) total tokens"
-            )
-        )
-    }
-
-    private func tokenComposition(_ summary: ClaudeLocalActivitySummary) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Token composition")
-                .aiMeterFont(.subheadline, weight: .semibold)
-            tokenRow("Input", value: summary.totalInputTokens, total: summary.totalTokens)
-            tokenRow("Output", value: summary.totalOutputTokens, total: summary.totalTokens)
-            tokenRow("Cache", value: summary.totalCacheTokens, total: summary.totalTokens)
-        }
-        .padding(12)
-        .aiMeterGlassCard()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            ClaudeDetailPresentation.localActivityAccessibilityLabel(
-                title: "Token composition",
-                detail: "Input \(summary.totalInputTokens.formatted()), Output \(summary.totalOutputTokens.formatted()), Cache \(summary.totalCacheTokens.formatted())"
-            )
-        )
-    }
-
-    private func tokenRow(_ title: String, value: Int64, total: Int64) -> some View {
-        let fraction = total > 0 ? Double(value) / Double(total) : 0
-        return HStack(spacing: 8) {
-            Text(title)
-                .frame(width: 44, alignment: .leading)
-            AIMeterProgressBar(provider: .claude, fraction: fraction, semantic: .normal)
-            Text(compactCount(value))
-                .frame(width: 48, alignment: .trailing)
-                .foregroundStyle(AIMeterVisualTheme.secondaryText)
-        }
-        .aiMeterFont(.caption2)
-    }
-
-    private func modelBreakdown(_ rows: [ClaudeModelRowPresentation]) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("Top models")
-                .aiMeterFont(.subheadline, weight: .semibold)
-            ForEach(rows) { model in
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(valueStyle)
-                        .frame(width: 6, height: 6)
-                    Text(model.modelID)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    Text("\(compactCount(model.tokenCount)) · \(model.sharePercent)%")
-                        .foregroundStyle(AIMeterVisualTheme.secondaryText)
-                }
-                .aiMeterFont(.caption)
-            }
-        }
-        .padding(12)
-        .aiMeterGlassCard()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            ClaudeDetailPresentation.localActivityAccessibilityLabel(
-                title: "Top models",
-                detail: rows.map { "\($0.modelID), \($0.sharePercent) percent" }.joined(separator: ", ")
             )
         )
     }

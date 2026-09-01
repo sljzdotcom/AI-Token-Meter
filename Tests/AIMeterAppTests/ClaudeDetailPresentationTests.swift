@@ -15,34 +15,6 @@ struct ClaudeDetailPresentationTests {
         #expect(ClaudeDetailPresentation.localActivityEmptyTitle == "No local Claude Code activity")
     }
 
-    @Test("Top model rows include stable percentage shares")
-    func topModelsIncludeShares() {
-        let summary = makeSummary(
-            days: [ClaudeDailyActivity(date: .distantPast, inputTokens: 100, outputTokens: 0, cacheTokens: 0)],
-            models: [
-                ClaudeModelActivity(modelID: "claude-sonnet-5", tokenCount: 75),
-                ClaudeModelActivity(modelID: "claude-haiku-4-5", tokenCount: 25),
-            ]
-        )
-
-        let rows = ClaudeDetailPresentation.topModelRows(summary)
-
-        #expect(rows.map(\.sharePercent) == [75, 25])
-    }
-
-    @Test("Top model shares remain meaningful when integer totals overflow")
-    func topModelSharesHandleOverflow() {
-        let summary = makeSummary(
-            days: [ClaudeDailyActivity(date: .distantPast, inputTokens: 1, outputTokens: 0, cacheTokens: 0)],
-            models: [
-                ClaudeModelActivity(modelID: "claude-opus-a", tokenCount: .max),
-                ClaudeModelActivity(modelID: "claude-opus-b", tokenCount: .max),
-            ]
-        )
-
-        #expect(ClaudeDetailPresentation.topModelRows(summary).map(\.sharePercent) == [50, 50])
-    }
-
     @Test("Accessibility labels identify official and local estimates")
     func accessibilityLabelsExposeDataScope() {
         let metric = UsageMetric(
@@ -64,9 +36,9 @@ struct ClaudeDetailPresentationTests {
         )
         #expect(
             ClaudeDetailPresentation.localActivityAccessibilityLabel(
-                title: "Top models",
-                detail: "claude-sonnet-5, 75 percent"
-            ) == "Local estimate, Top models, claude-sonnet-5, 75 percent"
+                title: "Daily token activity",
+                detail: "100 total tokens"
+            ) == "Local estimate, Daily token activity, 100 total tokens"
         )
     }
 
@@ -89,6 +61,25 @@ struct ClaudeDetailPresentationTests {
         #expect(local.lowerBound > scroll.lowerBound)
         #expect(source.contains("officialQuotaAccessibilityLabel(metric, resetText: resetText)"))
         #expect(source.contains("localActivityAccessibilityLabel("))
+    }
+
+    @Test("Claude detail omits composition and model cards while retaining essentials")
+    func removedCardsStayAbsent() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterApp/Views/ClaudeDetailView.swift"
+        ))
+
+        #expect(!source.contains("tokenComposition(summary)"))
+        #expect(!source.contains("modelBreakdown("))
+        #expect(!source.contains("\"Token composition\""))
+        #expect(!source.contains("\"Top models\""))
+        #expect(source.contains("localStat(title: \"Sessions\""))
+        #expect(source.contains("activityChart(summary)"))
+        #expect(source.contains("Conversation content stays private."))
     }
 
     private func makeSummary(
