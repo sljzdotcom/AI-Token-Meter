@@ -18,6 +18,7 @@
 | [2026-08-31](2026-08-31-floating-strip-deep-sea-background.md) | 贴边浮岛黑蓝「深海波纹」背景、左右镜像与玻璃回退 | 156 个测试、Release 构建、签名、安装指纹、左右贴边和辅助功能实机验收通过 |
 | [2026-08-31](2026-08-31-display-font-selection.md) | System Default、Antonio、DIN Condensed 全局显示字体、缺失回退与恢复默认 | 170 个测试、Release 构建/签名/安装指纹、Settings 切换和持久化通过；菜单与三个详情的字体视觉验收待手工完成，当前机器最终为 Antonio、右侧 97% |
 | [2026-09-01](2026-09-01-floating-strip-desktop-layer-and-background-crop.md) | 浮动条/详情桌面层、Space 关闭详情、深海背景等比覆盖上下肩部 | 179 个测试、Release 构建/签名/安装指纹、Space 关闭详情、左右肩部和偏好保持通过；Edge 跨 App 层级、Mission Control、真实指针拖动和多显示器待人工环境补验 |
+| [2026-09-01](2026-09-01-settings-font-isolation-and-content-size-step.md) | Settings 系统字体隔离、内容文字精确 `+1pt` 与 SF Symbol 尺寸保护 | 185 个测试、Release 构建/签名/安装指纹及 Settings 实机切换/持久化通过；菜单点击面板与 Claude/Codex 非激活详情的像素级字体和截断仍待可全屏捕获环境补验 |
 
 ## 新日志模板
 

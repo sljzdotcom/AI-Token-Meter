@@ -31,7 +31,7 @@
 - 修改：`Sources/AIMeterApp/Views/AIMeterTypography.swift`
 - 修改：`Tests/AIMeterAppTests/TypographyTests.swift`
 
-- [ ] **步骤 1：为作用域配置和字号解析编写失败测试**
+- [x] **步骤 1：为作用域配置和字号解析编写失败测试**
 
 在 `TypographyTests` 增加：
 
@@ -129,7 +129,7 @@ func pointSizeLowerBound() {
 }
 ```
 
-- [ ] **步骤 2：运行字体测试确认红灯**
+- [x] **步骤 2：运行字体测试确认红灯**
 
 运行：
 
@@ -139,7 +139,7 @@ swift test --filter TypographyTests
 
 预期：编译失败，指出 `AIMeterFontScopeConfiguration`、`pointOffset` 参数和 `resolvedPointSize` 尚不存在。
 
-- [ ] **步骤 3：实现字体作用域配置和偏移解析**
+- [x] **步骤 3：实现字体作用域配置和偏移解析**
 
 在 `AIMeterTypography.swift` 增加：
 
@@ -213,7 +213,7 @@ case .fixed:
 }
 ```
 
-- [ ] **步骤 4：把字号偏移接入 SwiftUI 环境和根作用域**
+- [x] **步骤 4：把字号偏移接入 SwiftUI 环境和根作用域**
 
 在显示字体环境键旁新增：
 
@@ -242,7 +242,7 @@ func aiMeterFontScope(_ configuration: AIMeterFontScopeConfiguration) -> some Vi
 
 删除 `AIMeterFontPreviewModifier` 和 `aiMeterFontPreview(_:)`，避免 Settings 以后再次绕过隔离作用域。
 
-- [ ] **步骤 5：运行字体测试确认绿灯**
+- [x] **步骤 5：运行字体测试确认绿灯**
 
 运行：
 
@@ -252,7 +252,7 @@ swift test --filter TypographyTests
 
 预期：原字体测试与新增作用域、偏移、回退和下限测试全部通过。
 
-- [ ] **步骤 6：提交字体基础设施**
+- [x] **步骤 6：提交字体基础设施**
 
 ```bash
 git add Sources/AIMeterApp/Views/AIMeterTypography.swift \
@@ -268,7 +268,7 @@ git commit -m "feat: isolate typography by interface surface"
 - 修改：`Sources/AIMeterApp/Views/MenuBarPanel.swift`
 - 修改：`Tests/AIMeterAppTests/TypographyTests.swift`
 
-- [ ] **步骤 1：编写根视图接线失败测试**
+- [x] **步骤 1：编写根视图接线失败测试**
 
 在 `TypographyTests` 增加源码契约测试和读取助手：
 
@@ -303,7 +303,7 @@ private func viewSource(_ fileName: String) throws -> String {
 }
 ```
 
-- [ ] **步骤 2：运行接线测试确认红灯**
+- [x] **步骤 2：运行接线测试确认红灯**
 
 运行：
 
@@ -313,7 +313,7 @@ swift test --filter TypographyTests.rootScopeWiring
 
 预期：测试失败，因为三个根视图仍使用旧 `aiMeterFontScope(model.displayFontChoice)`，Settings 仍包含 `aiMeterFontPreview`。
 
-- [ ] **步骤 3：隔离 Settings 并移除字体选项预览**
+- [x] **步骤 3：隔离 Settings 并移除字体选项预览**
 
 在 `SettingsView` 的字体 Picker 中删除：
 
@@ -329,7 +329,7 @@ swift test --filter TypographyTests.rootScopeWiring
 
 保留选项名称、`Not installed`、禁用、选中、保存和 Restore Default Font 行为。不要删除 Picker 对 `model.displayFontChoice` 的读写，因为它仍控制其他内容界面。
 
-- [ ] **步骤 4：为浮动条与详情接入内容作用域**
+- [x] **步骤 4：为浮动条与详情接入内容作用域**
 
 在 `FloatingStripView.body` 和 `FloatingDetailView.body` 的根部把旧调用都替换为：
 
@@ -346,7 +346,7 @@ swift test --filter TypographyTests.rootScopeWiring
 - `CodexResetCreditsView` 的重置箭头图标；
 - `DeepSeekAnalyticsView` 的不可用图表图标。
 
-- [ ] **步骤 5：为菜单点击面板接入内容作用域**
+- [x] **步骤 5：为菜单点击面板接入内容作用域**
 
 把 `MenuBarPanel` 根部改为：
 
@@ -360,7 +360,7 @@ swift test --filter TypographyTests.rootScopeWiring
 .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))
 ```
 
-- [ ] **步骤 6：运行接线与完整 App 视觉系统测试**
+- [x] **步骤 6：运行接线与完整 App 视觉系统测试**
 
 运行：
 
@@ -371,7 +371,7 @@ swift test --filter VisualSystemTests
 
 预期：根作用域契约、字体解析和既有背景、轮廓、图标、Provider 配色测试全部通过。
 
-- [ ] **步骤 7：提交界面接线**
+- [x] **步骤 7：提交界面接线**
 
 ```bash
 git add Sources/AIMeterApp/Views/SettingsView.swift \
@@ -393,7 +393,7 @@ git commit -m "feat: enlarge content fonts outside settings"
 - 修改：`docs/development/README.md`
 - 修改：`docs/superpowers/plans/2026-09-01-settings-font-isolation-and-content-size-step.md`
 
-- [ ] **步骤 1：更新用户文档和历史规格**
+- [x] **步骤 1：更新用户文档和历史规格**
 
 在 `README.md` 的字体功能说明中明确：
 
@@ -409,7 +409,7 @@ git commit -m "feat: enlarge content fonts outside settings"
 
 更新 `docs/user-guide/settings.md` 的 Display font：删除“切换应用到当前 Settings”和字体名称预览含义，明确设置页固定系统字体。给旧字体规格增加“Settings 相关条款已由 2026-09-01 新规格覆盖”的说明，不改写历史实现记录。
 
-- [ ] **步骤 2：创建开发日志并记录 TDD 证据**
+- [x] **步骤 2：创建开发日志并记录 TDD 证据**
 
 创建 `docs/development/2026-09-01-settings-font-isolation-and-content-size-step.md`，记录：
 
@@ -424,7 +424,7 @@ git commit -m "feat: enlarge content fonts outside settings"
 
 在 `docs/development/README.md` 加入该日志链接。
 
-- [ ] **步骤 3：运行全量自动化回归**
+- [x] **步骤 3：运行全量自动化回归**
 
 运行：
 
@@ -434,7 +434,7 @@ bash scripts/test.sh
 
 预期：全部测试套件通过，0 失败；依赖本机 Keychain 或已安装 CLI 的环境门控测试可以跳过，但跳过原因必须写入开发日志。
 
-- [ ] **步骤 4：构建并验证 Release App Bundle**
+- [x] **步骤 4：构建并验证 Release App Bundle**
 
 运行：
 
@@ -446,7 +446,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AI-Meter"
 
 预期：Release 构建完成，严格签名验证无输出且退出码为 0，并取得候选可执行文件 SHA-256。
 
-- [ ] **步骤 5：安装候选版并核对安装指纹**
+- [x] **步骤 5：安装候选版并核对安装指纹**
 
 先完全退出正在运行的 AI Meter，把当前 `/Applications/AI Meter.app` 备份到 `/private/tmp/AI-Meter-font-scope-backup-20260901/AI Meter.app`，再用 `ditto` 安装 `dist/AI Meter.app`。随后运行：
 
@@ -482,7 +482,7 @@ shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AI-Meter"
 
 把直接观察结果和任何环境未覆盖项写入开发日志。
 
-- [ ] **步骤 8：回填规格、计划和最终验证结果**
+- [x] **步骤 8：回填规格、计划和最终验证结果**
 
 将新规格状态更新为真实结果；在本计划完成的步骤改为 `[x]`；开发日志记录提交号、测试数、候选与安装指纹。运行：
 
@@ -493,7 +493,7 @@ git status --short
 
 预期：文档无格式错误，状态只包含本任务预期文档变更。
 
-- [ ] **步骤 9：提交文档与验收记录**
+- [x] **步骤 9：提交文档与验收记录**
 
 ```bash
 git add README.md CHANGELOG.md docs/user-guide/settings.md \
@@ -505,7 +505,7 @@ git add README.md CHANGELOG.md docs/user-guide/settings.md \
 git commit -m "docs: record font scope acceptance"
 ```
 
-- [ ] **步骤 10：执行提交后最终检查**
+- [x] **步骤 10：执行提交后最终检查**
 
 运行：
 

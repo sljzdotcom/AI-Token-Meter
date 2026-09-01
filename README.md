@@ -21,7 +21,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 - 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
 - 浮岛和详情属于 macOS 桌面层：Finder 桌面可用时可见，普通应用窗口和全屏应用会自然覆盖它们，不会把 AI Meter 固定在所有内容最上方。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
-- 全局显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；默认仍为 macOS 系统字体，并可一键恢复。
+- 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；Settings 永远使用 macOS 系统字体，不随选择或内容字号变化。
 - Claude：读取当前会话与周额度，显示重置时间。
 - Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。

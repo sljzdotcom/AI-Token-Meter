@@ -177,6 +177,8 @@ Settings 稳定提供 System Default、Antonio、DIN Condensed 三个选择和�
 
 ## 13. 实施与验收摘要
 
+> **2026-09-01 覆盖说明：** 本规格中「Settings 跟随显示字体」以及「字体选项使用各自字体预览」的相关条款，已由 [Settings 字体隔离与内容字号提升规格](2026-09-01-settings-font-isolation-and-content-size-step-design.md) 覆盖。本节保留原始实施与验收记录，不追溯改写历史结论。
+
 - 领域、持久化、语义字体环境、全视图迁移和 Settings 控件分别由 `030f69d`、`ddd23f4`、`5685d91` 交付，并保留了逐阶段 TDD 红绿证据。
 - 2026-08-31 的最终验证通过 170 个测试、35 个测试套件、0 失败；4 个依赖本机 Keychain/已安装 CLI 的检查按环境门控跳过。
 - Release App Bundle 构建、ad-hoc 签名和 Info.plist 校验通过；候选版与 `/Applications/AI Meter.app` 的可执行文件 SHA-256 均为 `ca8a83ea29abb5f761dced018e9f664053311d4c28f939546f59200ec1822052`。

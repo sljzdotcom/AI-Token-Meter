@@ -29,7 +29,8 @@
 - **System Default（默认）**：使用 macOS 系统字体 San Francisco，并保留界面原有的 Rounded 设计请求。
 - **Antonio**：使用本机已经安装的 Antonio 字体家族。
 - **DIN Condensed**：使用本机已经安装的 DIN Condensed 字体家族。
-- 切换会立即应用到当前 Settings、菜单面板、浮岛状态文字和 Provider 详情，不需要退出或重新打开窗口。
+- Settings 始终使用 macOS 系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、三个选项名称、说明或按钮的字形和大小。
+- 切换会立即应用到菜单点击面板、浮动条及 Provider 详情，不需要退出或重新打开窗口；三个选项只显示名称，不提供对应字体的字形预览。
 - `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
 - Antonio 或 DIN Condensed 未安装时，对应选项仍会显示 `Not installed`，但不能选择。已保存的自定义字体临时不可用时，AI Meter 会安全回退到系统字体，不会覆盖已保存选择。
 - AI Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。

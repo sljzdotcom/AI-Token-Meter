@@ -2,7 +2,7 @@
 
 **日期：** 2026-09-01
 
-**状态：** 设计已确认，待实施
+**状态：** 已实施；自动化、Release 构建、签名和安装指纹已验证。Settings 实机验收已记录；菜单点击面板及 Claude/Codex 非激活详情的像素级人工视觉验收仍待具备全屏捕获能力的环境补验。
 
 **基础分支：** `codex/desktop-only-floating-strip`
 
@@ -193,3 +193,12 @@ Settings 中的字体设置继续提供：
 ## 12. 完成标准
 
 Settings 在所有字体选择和未来内容字号调整下都稳定使用 macOS 系统默认字体，字体选项不再做字形预览；浮动条、三个 Provider 详情和菜单面板的产品文字通过统一作用域精确增加 `1pt`，没有局部遗漏、截断或非文字元素被误放大；自动化测试、Release 构建、签名、安装和实机视觉验收全部留下证据。
+
+## 13. 实施与验收状态
+
+- `aea7e15` 建立字体表面作用域与精确字号偏移；`d350af9` 将 Settings、浮动窗口和菜单面板接入显式作用域；`d334321` 将内容作用域中继承字体的 SF Symbols 固定回原尺寸。
+- 2026-09-01 完整回归通过 185 个测试、38 个套件、0 失败；Keychain 隔离读写、已安装 Claude 状态、Claude 认证状态和已安装 Codex 快照共 4 个环境门控检查跳过。
+- Release 候选及 `/Applications/AI Meter.app` 均通过 `codesign --verify --deep --strict`；实际可执行文件为 `Contents/MacOS/AIMeterApp`，候选与安装 SHA-256 同为 `b6505ae1ab6fd7c5688615af7a81b4b1705ff24d4f20ccd211f95d2aa2efe359`。安装前版本保留在 `/private/tmp/AI-Meter-font-scope-backup-20260901/AI Meter.app`。
+- 实机已观察 Settings 在 System Default、Antonio、DIN Condensed 下保持系统字体与不变字号；Restore Default、选择状态和重启后的 Antonio 持久化均有辅助功能树和截图证据。
+- DeepSeek 详情可直接观察，当前金额、30 天统计、图表和日期没有截断。Computer Use 的窗口捕获不显示菜单点击面板或 Claude/Codex 非激活 `NSPanel` 的像素内容；三者只完成了打开/关闭辅助功能交互验证，字体、截断、自动隐藏、外部点击关闭与真实指针拖动仍不能宣称已完成。
+- 详细命令、截图、辅助功能结果、环境限制和补验清单见 [开发日志](../../development/2026-09-01-settings-font-isolation-and-content-size-step.md)。
