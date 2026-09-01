@@ -50,7 +50,6 @@ struct SettingsView: View {
                                 Text(status).foregroundStyle(.secondary)
                             }
                         }
-                        .aiMeterFontPreview(option.choice)
                         .tag(option.choice)
                         .disabled(!option.isEnabled)
                     }
@@ -145,7 +144,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .aiMeterFontScope(model.displayFontChoice)
+        .aiMeterFontScope(.settings)
     }
 }
 

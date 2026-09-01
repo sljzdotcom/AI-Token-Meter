@@ -295,13 +295,4 @@ extension View {
         modifier(AIMeterFontScopeModifier(configuration: configuration))
     }
 
-    @available(*, deprecated, message: "Use aiMeterFontScope(_:) with an explicit surface configuration")
-    func aiMeterFontScope(_ choice: DisplayFontChoice) -> some View {
-        modifier(AIMeterFontScopeModifier(configuration: .content(choice)))
-    }
-
-    @available(*, deprecated, message: "Use aiMeterFontScope(_:) with an explicit surface configuration")
-    func aiMeterFontPreview(_ choice: DisplayFontChoice) -> some View {
-        modifier(AIMeterFontScopeModifier(configuration: .menuBarLabel(choice)))
-    }
 }

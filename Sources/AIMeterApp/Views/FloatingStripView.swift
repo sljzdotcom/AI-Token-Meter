@@ -80,7 +80,7 @@ struct FloatingStripView: View {
             .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .aiMeterFontScope(model.displayFontChoice)
+        .aiMeterFontScope(.content(model.displayFontChoice))
         .onChange(of: session.selectedProvider) { oldValue, newValue in
             if let oldValue, newValue == nil {
                 accessibilityFocusedProvider = oldValue
@@ -134,7 +134,7 @@ struct FloatingDetailView: View {
                 }
             }
         }
-        .aiMeterFontScope(model.displayFontChoice)
+        .aiMeterFontScope(.content(model.displayFontChoice))
     }
 
     private func compactDetail(_ snapshot: UsageSnapshot) -> some View {

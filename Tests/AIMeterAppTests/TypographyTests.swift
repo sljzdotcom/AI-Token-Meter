@@ -255,7 +255,36 @@ struct TypographyTests {
             AIMeterTypography.resolvedPointSize(
                 token: .fixed(size: 2, relativeTo: .caption2),
                 pointOffset: -10
-            ) == 1
+        ) == 1
         )
+    }
+
+    @Test("Settings is system-only while content roots apply the content scale")
+    func rootScopeWiring() throws {
+        let settings = try viewSource("SettingsView.swift")
+        #expect(settings.contains(".aiMeterFontScope(.settings)"))
+        #expect(!settings.contains("aiMeterFontPreview"))
+
+        let floating = try viewSource("FloatingStripView.swift")
+        #expect(
+            floating.components(
+                separatedBy: ".aiMeterFontScope(.content(model.displayFontChoice))"
+            ).count - 1 == 2
+        )
+
+        let menu = try viewSource("MenuBarPanel.swift")
+        #expect(menu.contains(".aiMeterFontScope(.content(model.displayFontChoice))"))
+        #expect(menu.contains(".aiMeterFontScope(.menuBarLabel(model.displayFontChoice))"))
+    }
+
+    private func viewSource(_ fileName: String) throws -> String {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fileURL = projectRoot
+            .appending(path: "Sources/AIMeterApp/Views")
+            .appending(path: fileName)
+        return try String(contentsOf: fileURL, encoding: .utf8)
     }
 }

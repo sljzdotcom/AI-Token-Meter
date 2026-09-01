@@ -7,7 +7,7 @@ struct MenuBarLabel: View {
     var body: some View {
         Label(model.menuBarSummary.valueText, systemImage: "gauge.with.dots.needle.50percent")
             .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
-            .aiMeterFontScope(model.displayFontChoice)
+            .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))
     }
 }
 
@@ -44,7 +44,7 @@ struct MenuBarPanel: View {
         }
         .padding(16)
         .frame(width: 380)
-        .aiMeterFontScope(model.displayFontChoice)
+        .aiMeterFontScope(.content(model.displayFontChoice))
     }
 
     private var header: some View {
