@@ -46,8 +46,8 @@ final class FloatingPanelController {
             resolvedEdge: model.floatingStripPosition.lastResolvedEdge,
             normalizedCenterY: model.floatingStripPosition.normalizedCenterY
         )
-        stripPanel = Self.makePanel(nonactivating: true)
-        detailPanel = Self.makePanel(nonactivating: false)
+        stripPanel = Self.makePanel(nonactivating: true, role: .strip)
+        detailPanel = Self.makePanel(nonactivating: false, role: .detail)
 
         let stripHost = NSHostingView(rootView: FloatingStripView(
             model: model,
@@ -474,7 +474,10 @@ final class FloatingPanelController {
 
     private static let stripSize = CGSize(width: 108, height: 356)
 
-    private static func makePanel(nonactivating: Bool) -> NSPanel {
+    private static func makePanel(
+        nonactivating: Bool,
+        role: FloatingPanelPresentationRole
+    ) -> NSPanel {
         var styleMask: NSWindow.StyleMask = [.borderless]
         if nonactivating {
             styleMask.insert(.nonactivatingPanel)
@@ -498,7 +501,7 @@ final class FloatingPanelController {
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
-        FloatingPanelPresentationPolicy.apply(to: panel)
+        FloatingPanelPresentationPolicy.apply(to: panel, role: role)
         panel.becomesKeyOnlyIfNeeded = nonactivating
         return panel
     }

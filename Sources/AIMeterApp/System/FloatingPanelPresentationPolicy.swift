@@ -1,7 +1,12 @@
 import AppKit
 
+enum FloatingPanelPresentationRole {
+    case strip
+    case detail
+}
+
 enum FloatingPanelPresentationPolicy {
-    static let level = NSWindow.Level(
+    private static let desktopLevel = NSWindow.Level(
         rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1
     )
 
@@ -11,9 +16,18 @@ enum FloatingPanelPresentationPolicy {
         .ignoresCycle,
     ]
 
+    static func level(for role: FloatingPanelPresentationRole) -> NSWindow.Level {
+        switch role {
+        case .strip:
+            desktopLevel
+        case .detail:
+            .floating
+        }
+    }
+
     @MainActor
-    static func apply(to panel: NSPanel) {
-        panel.level = level
+    static func apply(to panel: NSPanel, role: FloatingPanelPresentationRole) {
+        panel.level = level(for: role)
         panel.collectionBehavior = collectionBehavior
     }
 }

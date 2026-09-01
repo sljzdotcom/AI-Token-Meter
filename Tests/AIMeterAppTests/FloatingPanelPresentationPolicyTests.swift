@@ -4,12 +4,21 @@ import Testing
 
 @Suite("Floating panel presentation policy")
 struct FloatingPanelPresentationPolicyTests {
-    @Test("Desktop panels remain below ordinary app windows")
-    func desktopLevel() {
+    @Test("Floating strip remains below ordinary app windows")
+    func stripLevel() {
         let desktopIcons = Int(CGWindowLevelForKey(.desktopIconWindow))
+        let level = FloatingPanelPresentationPolicy.level(for: .strip)
 
-        #expect(FloatingPanelPresentationPolicy.level.rawValue > desktopIcons)
-        #expect(FloatingPanelPresentationPolicy.level.rawValue < NSWindow.Level.normal.rawValue)
+        #expect(level.rawValue > desktopIcons)
+        #expect(level.rawValue < NSWindow.Level.normal.rawValue)
+    }
+
+    @Test("Detail panels float above ordinary application windows")
+    func detailLevel() {
+        let level = FloatingPanelPresentationPolicy.level(for: .detail)
+
+        #expect(level == .floating)
+        #expect(level.rawValue > NSWindow.Level.normal.rawValue)
     }
 
     @Test("Desktop panels join ordinary Spaces without entering full screen")
@@ -22,18 +31,19 @@ struct FloatingPanelPresentationPolicyTests {
         #expect(!behavior.contains(.fullScreenAuxiliary))
     }
 
-    @Test("The same policy is applied to strip and detail panels")
+    @Test("Role-specific levels share the ordinary Spaces policy")
     @MainActor
-    func appliesToEveryPanel() {
-        let first = NSPanel()
-        let second = NSPanel()
+    func appliesRoleSpecificLevels() {
+        let strip = NSPanel()
+        let detail = NSPanel()
 
-        FloatingPanelPresentationPolicy.apply(to: first)
-        FloatingPanelPresentationPolicy.apply(to: second)
+        FloatingPanelPresentationPolicy.apply(to: strip, role: .strip)
+        FloatingPanelPresentationPolicy.apply(to: detail, role: .detail)
 
-        #expect(first.level == FloatingPanelPresentationPolicy.level)
-        #expect(second.level == first.level)
-        #expect(first.collectionBehavior == FloatingPanelPresentationPolicy.collectionBehavior)
-        #expect(second.collectionBehavior == first.collectionBehavior)
+        #expect(strip.level.rawValue < NSWindow.Level.normal.rawValue)
+        #expect(detail.level == .floating)
+        #expect(detail.level.rawValue > NSWindow.Level.normal.rawValue)
+        #expect(strip.collectionBehavior == FloatingPanelPresentationPolicy.collectionBehavior)
+        #expect(detail.collectionBehavior == strip.collectionBehavior)
     }
 }
