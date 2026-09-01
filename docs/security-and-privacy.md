@@ -10,6 +10,8 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 
 - 登录与凭证生命周期由官方 CLI 管理；
 - AI Token Meter 调用已登录 CLI，不读取、复制或保存凭证文件；
+- Settings 的登录按钮只生成权限为 `0700` 的本地命令文件，内容固定为官方 `claude auth login` 或 `codex login`，不拼接用户输入或秘密；
+- CLI 返回的邮箱、套餐和认证方式只保留在当前 App 进程的内存展示状态，不进入统一快照、Widget、通知、脚本或日志；
 - Codex 本机活动只查询本地线程表的 `tokens_used`、`created_at`、`updated_at`，不读取标题、预览、提示词、回复或凭证；
 - CLI 标准输出会在解析后转换为统一字段，原始账户输出不写入业务缓存；
 - 一次性 Claude 工作区批准由用户在终端确认。
@@ -20,7 +22,9 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 - 使用 macOS Keychain 保存；
 - Keychain 可访问级别为 `AfterFirstUnlockThisDeviceOnly`；
 - 不写入 `UserDefaults`、普通文件、通知、截图或日志；
-- 设置界面不回显已保存的 Key。
+- 设置界面不回显已保存的 Key，只在内存中显示最后四位遮罩；
+- 替换时先用候选 Key 调官方余额接口，验证成功后才原子更新 Keychain；任何验证或写入失败都会保留/尽力恢复旧 Key。
+- Keychain 还会校验调用应用的代码身份。开发版使用 ad-hoc 签名时，每次重编译的 CDHash 都可能变化；应用会把无法读取诚实显示为不可用，不会绕过访问控制、导出旧 Key 或降低 Keychain 权限。稳定发布应使用固定代码签名身份。
 
 ## DeepSeek 网页会话
 
@@ -40,6 +44,7 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 | 数据 | 位置/机制 | 生命周期 |
 | --- | --- | --- |
 | DeepSeek API Key | macOS Keychain | 用户点击 Remove 或删除对应 Keychain 项目 |
+| Settings 账户身份/Key 遮罩 | 仅 App 内存 | Settings 重查、应用退出或进程结束 |
 | 界面与监控偏好 | `UserDefaults` | 直到用户清理偏好 |
 | 最近成功用量快照 | `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
 | Codex 本机活动聚合 | 随统一快照写入 `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
