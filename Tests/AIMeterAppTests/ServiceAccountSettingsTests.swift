@@ -155,6 +155,31 @@ struct ServiceAccountSettingsTests {
         await second?.value
     }
 
+    @Test("A cancelled login check cannot overwrite the newer provider result")
+    func staleLoginCheckCannotOverwriteNewResult() async {
+        let reads = OverlappingServiceAccountReads(provider: .claude)
+        let model = makeModel(
+            accountRefresh: { provider in [await reads.next(for: provider ?? .claude)] },
+            authenticationOpen: { _ in },
+            pollAttempts: 1,
+            pollSleep: { _ in }
+        )
+
+        let first = model.beginSignIn(.claude)
+        while !(await reads.hasStartedFirstRead) {
+            await Task.yield()
+        }
+
+        let second = model.beginSignIn(.claude)
+        await second?.value
+        await reads.releaseFirstRead()
+        await first?.value
+
+        #expect(first?.isCancelled == true)
+        #expect(model.serviceAccounts[.claude]?.accountLabel == "new@example.com")
+        #expect(model.settingsMessage == "Claude account connected.")
+    }
+
     @Test("Initialization still performs no account or Keychain reads")
     func initializationRemainsNonBlocking() {
         let secretStore = ServiceAccountReadCountingStore()
@@ -219,6 +244,41 @@ private actor ServiceAccountStatusSequence {
         statuses.isEmpty
             ? ServiceAccountStatus(provider: .claude, connectionState: .signInRequired)
             : statuses.removeFirst()
+    }
+}
+
+private actor OverlappingServiceAccountReads {
+    private let provider: UsageProvider
+    private var callCount = 0
+    private var firstContinuation: CheckedContinuation<ServiceAccountStatus, Never>?
+
+    init(provider: UsageProvider) {
+        self.provider = provider
+    }
+
+    var hasStartedFirstRead: Bool { callCount >= 1 }
+
+    func next(for provider: UsageProvider) async -> ServiceAccountStatus {
+        callCount += 1
+        if callCount == 1 {
+            return await withCheckedContinuation { continuation in
+                firstContinuation = continuation
+            }
+        }
+        return ServiceAccountStatus(
+            provider: provider,
+            connectionState: .connected,
+            accountLabel: "new@example.com"
+        )
+    }
+
+    func releaseFirstRead() {
+        firstContinuation?.resume(returning: ServiceAccountStatus(
+            provider: provider,
+            connectionState: .connected,
+            accountLabel: "old@example.com"
+        ))
+        firstContinuation = nil
     }
 }
 

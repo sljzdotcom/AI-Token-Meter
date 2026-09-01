@@ -33,6 +33,7 @@ final class AppModel {
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
+    private var signInTokens: [UsageProvider: UUID] = [:]
 
     let deepSeekWebSession: DeepSeekWebSession
 
@@ -196,6 +197,7 @@ final class AppModel {
         refreshLoop = nil
         signInTasks.values.forEach { $0.cancel() }
         signInTasks.removeAll()
+        signInTokens.removeAll()
     }
 
     func refresh() async {
@@ -343,8 +345,7 @@ final class AppModel {
     @discardableResult
     func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
         serviceAccounts[provider] = .checking(provider: provider)
-        let status = await serviceAccountRefreshOperation(provider).first
-            ?? ServiceAccountStatus(provider: provider, connectionState: .unavailable)
+        let status = await readServiceAccount(provider)
         serviceAccounts[provider] = status
         if provider == .deepSeek {
             updateAPIKeyConfiguration(from: status)
@@ -371,6 +372,8 @@ final class AppModel {
         }
 
         signInTasks[provider]?.cancel()
+        let signInToken = UUID()
+        signInTokens[provider] = signInToken
         settingsMessage = "Complete \(provider.displayName) sign-in in Terminal. Status will update automatically."
         settingsMessageKind = authenticationMessageKind(for: provider)
         let task = Task { [weak self] in
@@ -382,8 +385,12 @@ final class AppModel {
                 } catch {
                     return
                 }
-                guard !Task.isCancelled else { return }
-                let status = await checkServiceAccount(provider)
+                guard !Task.isCancelled,
+                      signInTokens[provider] == signInToken else { return }
+                let status = await readServiceAccount(provider)
+                guard !Task.isCancelled,
+                      signInTokens[provider] == signInToken else { return }
+                serviceAccounts[provider] = status
                 let identityChanged = status.accountLabel != originalStatus?.accountLabel
                     || status.accountDetail != originalStatus?.accountDetail
                 if status.connectionState == .connected,
@@ -391,17 +398,22 @@ final class AppModel {
                     settingsMessage = "\(provider.displayName) account connected."
                     settingsMessageKind = authenticationMessageKind(for: provider)
                     await refresh()
+                    guard !Task.isCancelled,
+                          signInTokens[provider] == signInToken else { return }
                     signInTasks[provider] = nil
+                    signInTokens[provider] = nil
                     return
                 }
                 if status.connectionState != .connected {
                     sawNonConnectedStatus = true
                 }
             }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled,
+                  signInTokens[provider] == signInToken else { return }
             settingsMessage = "Sign-in is still pending. Finish in Terminal, then choose Check Status."
             settingsMessageKind = authenticationMessageKind(for: provider)
             signInTasks[provider] = nil
+            signInTokens[provider] = nil
         }
         signInTasks[provider] = task
         return task
@@ -482,6 +494,11 @@ final class AppModel {
 
     private func authenticationMessageKind(for provider: UsageProvider) -> SettingsMessageKind {
         provider == .claude ? .claudeAuthentication : .codexAuthentication
+    }
+
+    private func readServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
+        await serviceAccountRefreshOperation(provider).first
+            ?? ServiceAccountStatus(provider: provider, connectionState: .unavailable)
     }
 
     private func setDemoServiceAccounts() {
