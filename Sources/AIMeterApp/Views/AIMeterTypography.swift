@@ -104,6 +104,21 @@ enum AIMeterResolvedFontDescriptor {
     )
 }
 
+struct AIMeterFontScopeConfiguration: Equatable, Sendable {
+    let choice: DisplayFontChoice
+    let pointOffset: CGFloat
+
+    static let settings = Self(choice: .system, pointOffset: 0)
+
+    static func content(_ choice: DisplayFontChoice) -> Self {
+        Self(choice: choice, pointOffset: 1)
+    }
+
+    static func menuBarLabel(_ choice: DisplayFontChoice) -> Self {
+        Self(choice: choice, pointOffset: 0)
+    }
+}
+
 enum AIMeterTypography {
     static func resolvedFamily(
         for choice: DisplayFontChoice,
@@ -121,26 +136,37 @@ enum AIMeterTypography {
         token: AIMeterFontToken,
         choice: DisplayFontChoice,
         catalog: DisplayFontCatalog,
+        pointOffset: CGFloat = 0,
         design: Font.Design,
         weight: Font.Weight?
     ) -> AIMeterResolvedFontDescriptor {
         let style = token.relativeStyle
+        let size = resolvedPointSize(token: token, pointOffset: pointOffset)
 
         if let family = resolvedFamily(for: choice, catalog: catalog) {
             return .custom(
                 family: family,
-                size: token.pointSize,
+                size: size,
                 relativeTo: style,
                 weight: weight ?? style.customDefaultWeight
             )
         }
 
         return switch token {
-        case .semantic:
+        case .semantic where pointOffset == 0:
             .systemSemantic(style: style, design: design, weight: weight)
-        case .fixed(let size, _):
+        case .semantic:
+            .systemFixed(size: size, design: design, weight: weight ?? style.customDefaultWeight)
+        case .fixed:
             .systemFixed(size: size, design: design, weight: weight)
         }
+    }
+
+    static func resolvedPointSize(
+        token: AIMeterFontToken,
+        pointOffset: CGFloat
+    ) -> CGFloat {
+        max(1, token.pointSize + pointOffset)
     }
 }
 
@@ -167,15 +193,25 @@ private struct AIMeterDisplayFontChoiceKey: EnvironmentKey {
     static let defaultValue: DisplayFontChoice = .system
 }
 
+private struct AIMeterFontPointOffsetKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
 extension EnvironmentValues {
     var aiMeterDisplayFontChoice: DisplayFontChoice {
         get { self[AIMeterDisplayFontChoiceKey.self] }
         set { self[AIMeterDisplayFontChoiceKey.self] = newValue }
     }
+
+    var aiMeterFontPointOffset: CGFloat {
+        get { self[AIMeterFontPointOffsetKey.self] }
+        set { self[AIMeterFontPointOffsetKey.self] = newValue }
+    }
 }
 
 private struct AIMeterFontModifier: ViewModifier {
     @Environment(\.aiMeterDisplayFontChoice) private var choice
+    @Environment(\.aiMeterFontPointOffset) private var pointOffset
     let token: AIMeterFontToken
     let design: Font.Design
     let weight: Font.Weight?
@@ -185,6 +221,7 @@ private struct AIMeterFontModifier: ViewModifier {
             token: token,
             choice: choice,
             catalog: .live,
+            pointOffset: pointOffset,
             design: design,
             weight: weight
         )
@@ -203,41 +240,31 @@ private struct AIMeterFontModifier: ViewModifier {
 }
 
 private struct AIMeterFontScopeModifier: ViewModifier {
-    let choice: DisplayFontChoice
+    let configuration: AIMeterFontScopeConfiguration
 
     func body(content: Content) -> some View {
         let catalog = DisplayFontCatalog.live
+        let descriptor = AIMeterTypography.resolvedDescriptor(
+            token: .semantic(.body),
+            choice: configuration.choice,
+            catalog: catalog,
+            pointOffset: configuration.pointOffset,
+            design: .default,
+            weight: nil
+        )
+        let scopedContent = content
+            .environment(\.aiMeterDisplayFontChoice, configuration.choice)
+            .environment(\.aiMeterFontPointOffset, configuration.pointOffset)
 
-        if let family = AIMeterTypography.resolvedFamily(for: choice, catalog: catalog) {
-            content
-                .environment(\.aiMeterDisplayFontChoice, choice)
-                .font(Font.custom(
-                    family,
-                    size: AIMeterTextStyle.body.pointSize,
-                    relativeTo: .body
-                ))
-        } else {
-            content
-                .environment(\.aiMeterDisplayFontChoice, choice)
-                .font(.system(.body))
-        }
-    }
-}
-
-private struct AIMeterFontPreviewModifier: ViewModifier {
-    let choice: DisplayFontChoice
-
-    func body(content: Content) -> some View {
-        let catalog = DisplayFontCatalog.live
-
-        if let family = AIMeterTypography.resolvedFamily(for: choice, catalog: catalog) {
-            content.font(Font.custom(
-                family,
-                size: AIMeterTextStyle.body.pointSize,
-                relativeTo: .body
-            ))
-        } else {
-            content.font(.system(.body))
+        switch descriptor {
+        case .systemSemantic(let style, let design, let weight):
+            scopedContent.font(Font.system(style.swiftUIStyle, design: design, weight: weight))
+        case .systemFixed(let size, let design, let weight):
+            scopedContent.font(Font.system(size: size, weight: weight, design: design))
+        case .custom(let family, let size, let style, let weight):
+            scopedContent
+                .font(Font.custom(family, size: size, relativeTo: style.swiftUIStyle))
+                .fontWeight(weight)
         }
     }
 }
@@ -264,11 +291,17 @@ extension View {
         ))
     }
 
-    func aiMeterFontScope(_ choice: DisplayFontChoice) -> some View {
-        modifier(AIMeterFontScopeModifier(choice: choice))
+    func aiMeterFontScope(_ configuration: AIMeterFontScopeConfiguration) -> some View {
+        modifier(AIMeterFontScopeModifier(configuration: configuration))
     }
 
+    @available(*, deprecated, message: "Use aiMeterFontScope(_:) with an explicit surface configuration")
+    func aiMeterFontScope(_ choice: DisplayFontChoice) -> some View {
+        modifier(AIMeterFontScopeModifier(configuration: .content(choice)))
+    }
+
+    @available(*, deprecated, message: "Use aiMeterFontScope(_:) with an explicit surface configuration")
     func aiMeterFontPreview(_ choice: DisplayFontChoice) -> some View {
-        modifier(AIMeterFontPreviewModifier(choice: choice))
+        modifier(AIMeterFontScopeModifier(configuration: .menuBarLabel(choice)))
     }
 }

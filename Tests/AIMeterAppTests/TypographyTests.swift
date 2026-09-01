@@ -166,4 +166,96 @@ struct TypographyTests {
         #expect(relativeTo == .body)
         #expect(weight == .semibold)
     }
+
+    @Test("Font surfaces isolate settings and apply one point only to content")
+    func fontSurfaceConfigurations() {
+        #expect(AIMeterFontScopeConfiguration.settings.choice == .system)
+        #expect(AIMeterFontScopeConfiguration.settings.pointOffset == 0)
+
+        let content = AIMeterFontScopeConfiguration.content(.antonio)
+        #expect(content.choice == .antonio)
+        #expect(content.pointOffset == 1)
+
+        let menuBarLabel = AIMeterFontScopeConfiguration.menuBarLabel(.dinCondensed)
+        #expect(menuBarLabel.choice == .dinCondensed)
+        #expect(menuBarLabel.pointOffset == 0)
+    }
+
+    @Test("Content offset adds exactly one point to system and custom semantic fonts")
+    func contentSemanticOffset() {
+        let catalog = DisplayFontCatalog(availableFamilies: ["Antonio"])
+
+        let system = AIMeterTypography.resolvedDescriptor(
+            token: .semantic(.headline),
+            choice: .system,
+            catalog: catalog,
+            pointOffset: 1,
+            design: .default,
+            weight: nil
+        )
+        guard case let .systemFixed(size, _, weight) = system else {
+            Issue.record("Offset system headline did not resolve to an exact point size")
+            return
+        }
+        #expect(size == 14)
+        #expect(weight == .semibold)
+
+        let custom = AIMeterTypography.resolvedDescriptor(
+            token: .semantic(.body),
+            choice: .antonio,
+            catalog: catalog,
+            pointOffset: 1,
+            design: .default,
+            weight: nil
+        )
+        guard case let .custom(family, size, relativeTo, _) = custom else {
+            Issue.record("Offset Antonio body did not remain a custom font")
+            return
+        }
+        #expect(family == "Antonio")
+        #expect(size == 14)
+        #expect(relativeTo == .body)
+    }
+
+    @Test("Fixed fonts and unavailable custom fallback preserve the content offset")
+    func fixedAndFallbackOffset() {
+        let unavailable = DisplayFontCatalog(availableFamilies: [])
+        let fallback = AIMeterTypography.resolvedDescriptor(
+            token: .semantic(.caption),
+            choice: .antonio,
+            catalog: unavailable,
+            pointOffset: 1,
+            design: .default,
+            weight: nil
+        )
+        guard case let .systemFixed(fallbackSize, _, _) = fallback else {
+            Issue.record("Unavailable custom content font did not retain exact offset")
+            return
+        }
+        #expect(fallbackSize == 11)
+
+        let fixed = AIMeterTypography.resolvedDescriptor(
+            token: .fixed(size: 15, relativeTo: .body),
+            choice: .system,
+            catalog: unavailable,
+            pointOffset: 1,
+            design: .default,
+            weight: .semibold
+        )
+        guard case let .systemFixed(fixedSize, _, _) = fixed else {
+            Issue.record("Fixed system font did not resolve with offset")
+            return
+        }
+        #expect(fixedSize == 16)
+    }
+
+    @Test("Point offsets cannot produce a zero or negative font size")
+    func pointSizeLowerBound() {
+        #expect(
+            AIMeterTypography.resolvedPointSize(
+                token: .fixed(size: 2, relativeTo: .caption2),
+                pointOffset: -10
+            ) == 1
+        )
+    }
 }
