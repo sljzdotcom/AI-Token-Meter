@@ -1,159 +1,36 @@
-import AIMeterCore
 import SwiftUI
 
 struct SettingsView: View {
     @Bindable var model: AppModel
+    @State private var selectedTab = SettingsTab.appearance
     @State private var pendingAPIKey = ""
 
     var body: some View {
-        Form {
-            Section("Appearance") {
-                Toggle(
-                    "Show floating meter",
-                    isOn: Binding(
-                        get: { model.showFloatingStrip },
-                        set: { model.setFloatingStripVisible($0) }
-                    )
-                )
-                Text("The menu bar meter remains available when the floating meter is hidden.")
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(.secondary)
-                Picker(
-                    "Screen edge",
-                    selection: Binding(
-                        get: { model.floatingStripPosition.preference },
-                        set: { model.setFloatingStripEdgePreference($0) }
-                    )
-                ) {
-                    ForEach(FloatingStripEdgePreference.allCases, id: \.self) { preference in
-                        Text(preference.displayName).tag(preference)
-                    }
+        TabView(selection: $selectedTab) {
+            AppearanceSettingsView(model: model)
+                .tabItem {
+                    Label(SettingsTab.appearance.title, systemImage: SettingsTab.appearance.systemImage)
                 }
-                .pickerStyle(.segmented)
-                Text("Automatic lets you drag the meter to either edge. Left and Right keep that edge fixed while still allowing vertical movement.")
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(.secondary)
-                Picker(
-                    "Display font",
-                    selection: Binding(
-                        get: { model.displayFontChoice },
-                        set: { choice in
-                            guard DisplayFontCatalog.live.isAvailable(choice) else { return }
-                            model.setDisplayFontChoice(choice)
-                        }
-                    )
-                ) {
-                    ForEach(DisplayFontSettingsPresentation.liveOptions()) { option in
-                        HStack {
-                            Text(option.choice.displayName)
-                            if let status = option.statusText {
-                                Text(status).foregroundStyle(.secondary)
-                            }
-                        }
-                        .tag(option.choice)
-                        .disabled(!option.isEnabled)
-                    }
-                }
-                Button("Restore Default Font") {
-                    model.restoreDefaultDisplayFont()
-                }
-                .disabled(!DisplayFontSettingsPresentation.canRestore(model.displayFontChoice))
-                Text("Changes apply immediately. Install missing fonts in macOS to use them.")
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(.secondary)
-                Picker(
-                    "Detail auto-hide",
-                    selection: Binding(
-                        get: { model.detailAutoHideSeconds },
-                        set: { model.setDetailAutoHideSeconds($0) }
-                    )
-                ) {
-                    ForEach(DetailAutoHideInterval.allCases) { interval in
-                        Text("\(interval.rawValue) seconds").tag(interval.rawValue)
-                    }
-                }
-            }
+                .tag(SettingsTab.appearance)
 
-            Section("Monitoring") {
-                LabeledContent("Refresh interval", value: "5 minutes")
-                Toggle(
-                    "Usage alerts at 70% and 90%",
-                    isOn: Binding(
-                        get: { model.notificationsEnabled },
-                        set: { model.setNotificationsEnabled($0) }
-                    )
-                )
-                Toggle(
-                    "Open AI Meter at login",
-                    isOn: Binding(
-                        get: { model.launchAtLoginEnabled },
-                        set: { model.setLaunchAtLogin($0) }
-                    )
-                )
-            }
-
-            Section("DeepSeek") {
-                HStack {
-                    Text("Balance baseline")
-                    Spacer()
-                    TextField(
-                        "CNY",
-                        value: Binding(
-                            get: { model.deepSeekBalanceBaseline },
-                            set: { model.setDeepSeekBalanceBaseline($0) }
-                        ),
-                        format: .number.precision(.fractionLength(0...2))
-                    )
-                    .frame(width: 110)
-                    Text("CNY")
-                        .foregroundStyle(.secondary)
+            MonitoringSettingsView(model: model)
+                .tabItem {
+                    Label(SettingsTab.monitoring.title, systemImage: SettingsTab.monitoring.systemImage)
                 }
-                Text("The ring shows how much of this reference balance has been depleted. The default is ¥100.")
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(.secondary)
+                .tag(SettingsTab.monitoring)
 
-                SecureField("DeepSeek API Key", text: $pendingAPIKey)
-                HStack {
-                    Label(
-                        model.apiKeyConfigured ? "Stored securely in Keychain" : "No API Key stored",
-                        systemImage: model.apiKeyConfigured ? "checkmark.shield" : "key"
-                    )
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(.secondary)
-                    Spacer()
-                    if model.apiKeyConfigured {
-                        Button("Remove", role: .destructive) {
-                            model.removeDeepSeekAPIKey()
-                        }
-                    }
-                    Button("Save") {
-                        model.saveDeepSeekAPIKey(pendingAPIKey)
-                        pendingAPIKey = ""
-                    }
-                    .disabled(pendingAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            ServicesSettingsView(model: model, pendingAPIKey: $pendingAPIKey)
+                .tabItem {
+                    Label(SettingsTab.services.title, systemImage: SettingsTab.services.systemImage)
                 }
-            }
+                .tag(SettingsTab.services)
 
-            if let message = model.settingsMessage {
-                Section {
-                    Text(message)
-                        .aiMeterFont(.caption)
-                        .foregroundStyle(.secondary)
+            AboutSettingsView()
+                .tabItem {
+                    Label(SettingsTab.about.title, systemImage: SettingsTab.about.systemImage)
                 }
-            }
+                .tag(SettingsTab.about)
         }
-        .formStyle(.grouped)
-        .padding()
         .aiMeterFontScope(.settings)
-    }
-}
-
-private extension FloatingStripEdgePreference {
-    var displayName: String {
-        switch self {
-        case .automatic: "Automatic"
-        case .left: "Left"
-        case .right: "Right"
-        }
     }
 }

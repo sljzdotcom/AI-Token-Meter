@@ -33,6 +33,7 @@ final class AppModel {
     private(set) var apiKeyConfigured = false
     private(set) var launchAtLoginEnabled = false
     private(set) var settingsMessage: String?
+    private(set) var settingsMessageKind: SettingsMessageKind?
     private(set) var displayFontChoice: DisplayFontChoice
     private(set) var floatingStripPosition: FloatingStripPosition
 
@@ -234,9 +235,11 @@ final class AppModel {
             try launchAtLoginService.setEnabled(isEnabled)
             launchAtLoginEnabled = launchAtLoginService.isEnabled
             settingsMessage = nil
+            settingsMessageKind = nil
         } catch {
             launchAtLoginEnabled = launchAtLoginService.isEnabled
             settingsMessage = "macOS could not update Login Items."
+            settingsMessageKind = .launchAtLogin
         }
     }
 
@@ -244,8 +247,10 @@ final class AppModel {
         do {
             try claudeWorkspaceSetupLauncher.open()
             settingsMessage = "Approve the private AI Meter workspace in Terminal, then refresh."
+            settingsMessageKind = .claudeWorkspace
         } catch {
             settingsMessage = "Claude workspace setup could not be opened."
+            settingsMessageKind = .claudeWorkspace
         }
     }
 
@@ -254,14 +259,17 @@ final class AppModel {
             let normalized = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !normalized.isEmpty else {
                 settingsMessage = "Enter a DeepSeek API Key first."
+                settingsMessageKind = .deepSeekCredential
                 return
             }
             try secretStore.save(normalized)
             apiKeyConfigured = true
             settingsMessage = "DeepSeek API Key saved in Keychain."
+            settingsMessageKind = .deepSeekCredential
             Task { await refresh() }
         } catch {
             settingsMessage = "The API Key could not be saved to Keychain."
+            settingsMessageKind = .deepSeekCredential
         }
     }
 
@@ -270,9 +278,11 @@ final class AppModel {
             try secretStore.delete()
             apiKeyConfigured = false
             settingsMessage = "DeepSeek API Key removed."
+            settingsMessageKind = .deepSeekCredential
             Task { await refresh() }
         } catch {
             settingsMessage = "The API Key could not be removed from Keychain."
+            settingsMessageKind = .deepSeekCredential
         }
     }
 
