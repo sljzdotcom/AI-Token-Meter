@@ -2,6 +2,28 @@ import AppKit
 import AIMeterCore
 import SwiftUI
 
+enum FloatingPanelRepositioningReason {
+    case ordinary
+    case activeSpaceChange
+}
+
+enum FloatingStripRecoveryAction: Equatable {
+    case persistScreenLossRecovery
+    case preserveSavedPlacement
+}
+
+enum FloatingStripRecoveryPolicy {
+    static func action(
+        for reason: FloatingPanelRepositioningReason,
+        usesDefaultPlacement: Bool
+    ) -> FloatingStripRecoveryAction {
+        guard usesDefaultPlacement, reason != .activeSpaceChange else {
+            return .preserveSavedPlacement
+        }
+        return .persistScreenLossRecovery
+    }
+}
+
 @MainActor
 final class FloatingPanelController {
     private let model: AppModel
@@ -231,7 +253,7 @@ final class FloatingPanelController {
         session.dismiss()
         detailPanel.makeFirstResponder(nil)
         detailPanel.orderOut(nil)
-        positionPanels()
+        positionPanels(for: .activeSpaceChange)
         if stripPanel.isVisible {
             stripPanel.orderFrontRegardless()
         }
@@ -242,7 +264,7 @@ final class FloatingPanelController {
         return window.convertPoint(toScreen: event.locationInWindow)
     }
 
-    private func positionPanels() {
+    private func positionPanels(for reason: FloatingPanelRepositioningReason = .ordinary) {
         guard let context = placementContext() else { return }
         let screen = context.screen
         let edge = context.edge
@@ -256,7 +278,10 @@ final class FloatingPanelController {
         )
         stripPanel.setFrame(stripFrame, display: true, animate: false)
         positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
-        if context.usesDefaultPlacement {
+        if FloatingStripRecoveryPolicy.action(
+            for: reason,
+            usesDefaultPlacement: context.usesDefaultPlacement
+        ) == .persistScreenLossRecovery {
             model.recoverFloatingStripAfterScreenLoss(
                 screenIdentifier: Self.identifier(for: screen)
             )
