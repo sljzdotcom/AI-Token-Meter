@@ -1,9 +1,9 @@
 # Settings 分类与品牌迁移开发日志
 
-**日期：** 2026-09-01  
-**分支：** `codex/settings-tabs-brand-migration`  
-**状态：** 功能与文档完成；Release 构建、安装验收和主分支合并在本文后续更新  
-**规格：** [`docs/superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md`](../superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md)  
+**日期：** 2026-09-01
+**分支：** `codex/settings-tabs-brand-migration`
+**状态：** 功能、文档、Release 构建和安装验收完成；主分支合并在本文后续更新
+**规格：** [`docs/superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md`](../superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md)
 **计划：** [`docs/superpowers/plans/2026-09-01-settings-tabs-and-brand-migration.md`](../superpowers/plans/2026-09-01-settings-tabs-and-brand-migration.md)
 
 ## 目标
@@ -75,7 +75,41 @@ bash scripts/test.sh
 
 ## Release 与本机验收
 
-本节在构建和安装完成后填写候选路径、签名、架构、哈希、备份位置与真实 Settings/菜单验收证据。
+执行 `bash scripts/build-app.sh` 成功生成：
+
+```text
+dist/AI Token Meter.app
+```
+
+候选包验证结果：
+
+- `Info.plist` 通过 `plutil -lint`；
+- 显示名和 Bundle 名均为 `AI Token Meter`；
+- Bundle Identifier 为 `com.millerpan.AIMeter`；
+- 可执行文件为 `AIMeterApp`；
+- `CFBundleIconFile` 仍为 `AppIcon`；
+- 严格代码签名验证通过；
+- 主可执行文件为 arm64 Mach-O；
+- SHA-256：`77df9719b42db425b925d3d9e878e2b7539aa4da6c6a0bdc553a01793bd5b064`。
+
+安装前旧应用被可恢复地移动到：
+
+```text
+/private/tmp/AI-Token-Meter-brand-migration-20260901-1145/AI Meter.app
+```
+
+候选包安装到 `/Applications/AI Token Meter.app`。安装版再次通过 plist、严格签名和 arm64 架构检查；构建版与安装版主可执行文件 SHA-256 完全一致，`cmp` 退出码为 0。旧 `/Applications/AI Meter.app` 不再存在，因此“应用程序”目录只保留新显示名称。
+
+真实运行验收：
+
+| 项目 | 结果 |
+| --- | --- |
+| 应用菜单 | 菜单名、About、Hide、Quit 均显示 AI Token Meter；Settings… 可稳定打开 |
+| Appearance | Right、Antonio、8 seconds 与升级前偏好保持；设置页面使用系统字体 |
+| Monitoring | 5 分钟刷新、70%/90% 提醒和 Open AI Token Meter at login 正常显示 |
+| Services | Claude、Codex 认证说明和 DeepSeek 配置正确归类；既有 Keychain 状态显示 `Stored securely in Keychain` |
+| About | 显示 AI Token Meter、Private AI usage monitor、Version 0.1.0 (1) 和隐私说明 |
+| 浮岛 | 右侧 98% 位置恢复；Claude、Codex、DeepSeek 三项状态正常呈现 |
 
 ## 安全与隐私检查
 
