@@ -4,6 +4,9 @@ public enum SensitiveTextRedactor {
     private static let patterns: [(String, String)] = [
         (#"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}"#, "Bearer [REDACTED]"),
         (#"(?i)\b(?:sk|dk)-[A-Za-z0-9_-]{8,}"#, "[REDACTED]"),
+        (#"(?i)\bCookie:\s*[^\r\n]+"#, "Cookie: [REDACTED]"),
+        (#"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"#, "[REDACTED]"),
+        (#"(?<!\d)1[3-9]\d{9}(?!\d)"#, "[REDACTED]"),
     ]
 
     public static func redact(_ text: String) -> String {
