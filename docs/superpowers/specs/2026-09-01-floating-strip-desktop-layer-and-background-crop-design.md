@@ -7,7 +7,7 @@
 
 **实现提交：** `458ab2f`、`5837fa6`、`62a5060`、`a83467d`（分支 `codex/desktop-only-floating-strip`，尚未合并 `main`）
 
-**验收摘要：** 179 项测试/38 套件通过，旧窗口符号零命中，受保护 PNG 哈希与基线一致，Release 构建、严格签名、候选安装与指纹比对通过；Space 切换关闭详情、Antonio/右侧/97% 保持、左右肩部和主要交互已有直接证据。Computer Use 无法可靠捕获跨 App `NSPanel` 合成层级，Mission Control 调用挂起，真实指针拖动及多显示器也未覆盖，因此普通/全屏 Edge、Mission Control、指针拖动和多显示器仍需人工补验。详见[开发验收日志](../../development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
+**验收摘要：** 179 项测试/38 套件通过，旧窗口符号零命中，受保护 PNG 哈希与基线一致，Release 构建、严格签名、候选安装与指纹比对通过；系统整屏截图证明普通/全屏 Edge 不被浮动条或详情覆盖，Space 切换关闭详情、Antonio/右侧/97% 保持、左右肩部和主要交互也有直接证据。Mission Control、左右两个普通 Space、真实指针拖动及多显示器仍需人工补验。详见[开发验收日志](../../development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
 
 ## 1. 背景与问题
 

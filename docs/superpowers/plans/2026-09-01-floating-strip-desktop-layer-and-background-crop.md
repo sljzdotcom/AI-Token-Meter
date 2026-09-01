@@ -1,6 +1,6 @@
 # AI Token Meter 浮动条桌面层与背景裁切实现计划
 
-**实施状态（2026-09-01）：** 任务 1 至任务 3 已按 TDD 实现并经独立审查，提交为 `458ab2f`、`5837fa6`、`62a5060`、`a83467d`。任务 4 已完成 179 项全量测试、静态/资产门控、Release 构建签名、候选安装、指纹比对、文档同步和部分本机验收；普通/全屏 Edge 的跨 App 合成层级、Mission Control、真实指针拖动和多显示器因当前自动化环境限制仍需人工补验。本分支不合并 `main`。完整证据见[开发验收日志](../../development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
+**实施状态（2026-09-01）：** 任务 1 至任务 3 已按 TDD 实现并经独立审查，提交为 `458ab2f`、`5837fa6`、`62a5060`、`a83467d`。任务 4 已完成 179 项全量测试、静态/资产门控、Release 构建签名、候选安装、指纹比对、文档同步和部分本机验收；系统整屏截图已证明普通/全屏 Edge 不被浮动条或详情覆盖。Mission Control、左右两个普通 Space、真实指针拖动和多显示器仍需人工补验。本分支不合并 `main`。完整证据见[开发验收日志](../../development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现本计划。每个任务严格执行红灯、绿灯、重构、提交，并使用复选框（`- [ ]`）跟踪进度。
 

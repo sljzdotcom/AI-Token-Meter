@@ -8,7 +8,7 @@
 
 **计划：** [桌面层与背景裁切实现计划](../superpowers/plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)
 
-**状态：** 实现、自动化验证、Release 构建、候选安装和部分本机验收完成；普通/全屏 Edge 的跨 App 合成层级、Mission Control、真实指针拖动和多显示器仍需人工环境补验。本阶段不合并 `main`。
+**状态：** 实现、自动化验证、Release 构建、候选安装和部分本机验收完成；系统整屏截图已证明普通/全屏 Edge 不被浮动条或详情覆盖。Mission Control、左右两个普通 Space、真实指针拖动和多显示器仍需人工环境补验。本阶段不合并 `main`。
 
 ## 1. 背景、根因与目标
 
@@ -93,16 +93,17 @@ file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 ## 6. 本机验收矩阵
 
-Computer Use 只能可靠捕获目标 App 的窗口/辅助功能树，不能把其他 App 的非激活 `NSPanel` 合成进 Edge、Finder 或 Mission Control 截图。下表只把直接观察到的事实标为通过；没有跨 App 合成证据的层级项目不推断为通过。
+Computer Use 只能可靠捕获目标 App 的窗口/辅助功能树，不能把其他 App 的非激活 `NSPanel` 合成进 Edge、Finder 或 Mission Control 截图。控制者随后使用 `/usr/sbin/screencapture -x` 取得两张 `1920 × 1080` 系统整屏 PNG，并按原始分辨率检查普通最大化 Edge 与真实全屏 Edge。它们是本机临时验收证据，没有作为图片资产提交到仓库。
 
 | 项目 | 结果 | 直接证据 |
 | --- | --- | --- |
 | Finder 桌面与三枚 Logo | 通过 | Finder 辅助功能树显示 `Desktop`；已安装 App 显示 Claude、Codex、DeepSeek 三个按钮，三者分别点击后都进入 `Detail open`，切换 Provider 会关闭前一详情。 |
-| 普通 Edge 覆盖 strip/detail | 环境未覆盖，需人工 | Edge 已恢复普通窗口，但 app-window capture 不合成 AI Meter 的非激活面板，无法用该截图可靠证明 WindowServer 最终层级。自动化策略测试已证明 level 低于 `.normal`。 |
-| Edge 全屏完全看不到 strip/detail | 环境未覆盖，需人工 | 已通过 Edge `Enter Full Screen`/`Exit Full Screen` 菜单完成真实全屏过渡；capture 仍不合成其他 App 面板，不能把画面中“未出现”当作充分证据。自动化测试证明集合行为不含 `.fullScreenAuxiliary`。 |
+| 普通 Edge 覆盖 strip/detail | 通过 | `/private/tmp/ai-meter-edge-normal.png` 为系统整屏截图：Edge 普通最大化窗口处于前台，右侧没有浮动条或详情覆盖。PNG 为 `1920 × 1080`，SHA-256 `faee390f924f6f53203b15cdbaf0145fa5d2d8e8241893e815cac433807b1852`。 |
+| Edge 全屏完全看不到 strip/detail | 通过 | `/private/tmp/ai-meter-edge-fullscreen.png` 为真实全屏 Edge 的系统整屏截图：浮动条和详情完全不可见。PNG 为 `1920 × 1080`，SHA-256 `c77be4cd49ef142ba8a6170090ec49f8cbe27c000cc4692ad41afe10d3c2f595`。 |
 | 返回桌面保留 Antonio、右侧、97% | 通过 | 设置窗口显示 Display font = Antonio、Right 已选；浮岛辅助功能详情为 `Right edge, vertical position 97 percent`；最终 defaults 为 `antonio`、`right`、约 `0.97`。 |
 | Space 切换关闭详情 | 通过 | Claude 先为 `Detail open`；Edge 进入全屏 Space 后，AI Meter 辅助功能状态变为三个详情全部 `closed`；位置仍为右侧 97%。 |
 | Mission Control | 环境未覆盖，需人工 | Computer Use 调用 Mission Control 超过 6 分钟无返回并被中止；未获得可核实截图，不再重试。 |
+| 左右两个普通 Space | 环境未覆盖，需人工 | 已验证全屏 Space 过渡会关闭详情，但没有取得左右两个普通桌面 Space 均按桌面语义显示的直接证据。 |
 | 左右贴边上下肩部 | 通过 | 通过辅助功能自定义动作切到 Left、再恢复 Right；两侧捕获图均直接显示上下肩部连续蓝色波纹，Logo 与圆环方向不镜像。 |
 | Logo、圆环、点击 | 通过 | 三枚 Logo 和品牌圆环可见；Claude、Codex、DeepSeek 点击均打开对应详情。 |
 | 指针拖动 | 环境未覆盖，需人工 | Computer Use 对非激活 `NSPanel` 的坐标拖动返回 `noWindowsAvailable`。辅助功能 Decrement/Increment 已将位置从 97% 移到 87% 再恢复 97%，自动化拖动形状与指针状态测试通过，但这些不等同于真实指针拖动。 |
@@ -131,6 +132,6 @@ Computer Use 只能可靠捕获目标 App 的窗口/辅助功能树，不能把�
 
 ## 9. 结论与剩余工作
 
-R6 的完成标准已有自动化像素、等比合同、左右实图和资产保护证据，标记完成。R2 的实现与自动化合同已完成，Space 详情关闭也通过本机验收；但普通/全屏 Edge 的跨 App 合成层级、Mission Control 和多显示器未取得可靠直接证据，因此 R2 暂不标记完整验收完成。
+R6 的完成标准已有自动化像素、等比合同、左右实图和资产保护证据，标记完成。R2 的实现与自动化合同、普通/全屏 Edge 整屏层级以及 Space 详情关闭已有直接证据；但 Mission Control、左右两个普通 Space 和多显示器未完成，因此 R2 暂不标记完整验收完成。
 
-当前结论为 `DONE_WITH_CONCERNS`：没有观察到实质功能失败，但发布/合并前仍需在可直接观察整个桌面合成结果的人工环境中补验普通 Edge、Edge 全屏、Mission Control、真实指针拖动和多显示器（如有）。本任务按上层要求不合并 `main`。
+当前结论为 `DONE_WITH_CONCERNS`：没有观察到实质功能失败，但发布/合并前仍需人工补验 Mission Control、左右两个普通 Space、真实指针拖动和多显示器（如有）。本任务按上层要求不合并 `main`。

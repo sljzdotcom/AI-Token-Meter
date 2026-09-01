@@ -5,7 +5,7 @@
 **登记基线：** `main` 提交 `8c42ab2`
 **本次实现基线：** `main` 提交 `374ffd6`
 
-**实施分支：** `codex/desktop-only-floating-strip`（截至 `a83467d`，尚未合并 `main`）
+**实施分支：** `codex/desktop-only-floating-strip`；实现代码截至 `a83467d`，首轮验收文档提交为 `e13d246`，其后文档修复以本文件所在提交为准；尚未合并 `main`
 
 本文只记录用户确认提出的下一阶段需求和当前事实，不代表设计方案已经批准。开始开发前，仍需按每个子项目完成设计、规格确认、实现计划和验收。
 
@@ -19,7 +19,7 @@
 
 ### R2. 浮动条只在桌面显示
 
-**进度：** 实现与自动化合同已完成，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)和[开发验收日志](development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。Space 切换关闭详情、位置保持已完成本机验收；普通/全屏应用的跨 App 合成层级、Mission Control 和多显示器仍需人工环境补验，因此暂不标记完整完成。
+**进度：** 实现与自动化合同已完成，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)和[开发验收日志](development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。系统整屏截图已证明普通/全屏 Edge 不被浮动条或详情覆盖，Space 切换关闭详情和位置保持也已完成本机验收；Mission Control、左右两个普通 Space 和多显示器仍需人工环境补验，因此暂不标记完整完成。
 
 - 浮动条只应出现在 macOS 桌面场景。
 - 当 Edge 或其他应用进入全屏空间时，浮动条不应覆盖在全屏应用之上。
@@ -76,7 +76,7 @@
 ## 尚待确认的问题
 
 - 新副标题是否最终采用 `Private AI usage monitor`。
-- R2 已采用桌面层语义：普通应用和全屏应用自然覆盖，Space 切换关闭详情；仍需补验 WindowServer 跨 App 合成、Mission Control 和多显示器结果。
+- R2 已采用桌面层语义：普通/全屏 Edge 的系统整屏证据通过，Space 切换关闭详情；仍需补验 Mission Control、左右两个普通 Space 和多显示器结果。
 - Settings Tab 的分类方式。
 - Widget 支持的尺寸、各尺寸字段和是否允许交互。
 - 当前仪表 Icon 是保留、微调，还是重新设计。
