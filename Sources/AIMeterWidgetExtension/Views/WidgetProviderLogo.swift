@@ -35,11 +35,16 @@ enum WidgetResource {
     }
 
     static func image(name: String, extension fileExtension: String, subdirectory: String) -> NSImage? {
-        guard let url = Bundle.module.url(
+        let url = Bundle.main.url(
             forResource: name,
             withExtension: fileExtension,
             subdirectory: subdirectory
-        ), let image = NSImage(contentsOf: url) else {
+        ) ?? Bundle.module.url(
+            forResource: name,
+            withExtension: fileExtension,
+            subdirectory: subdirectory
+        )
+        guard let url, let image = NSImage(contentsOf: url) else {
             return nil
         }
         image.isTemplate = true

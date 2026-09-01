@@ -15,7 +15,10 @@ let package = Package(
         .executableTarget(
             name: "AIMeterApp",
             dependencies: ["AIMeterCore"],
-            exclude: ["Resources/Info.plist"],
+            exclude: [
+                "Resources/Info.plist",
+                "Resources/AIMeterApp.entitlements",
+            ],
             resources: [
                 .copy("Resources/Logos"),
                 .copy("Resources/Backgrounds"),
