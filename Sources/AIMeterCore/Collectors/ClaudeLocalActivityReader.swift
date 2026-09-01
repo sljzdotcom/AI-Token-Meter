@@ -11,6 +11,9 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
 
     static let maximumLineBytes = 2 * 1_024 * 1_024
     static let maximumFileBytes = 256 * 1_024 * 1_024
+    static let maximumTotalBytes = 512 * 1_024 * 1_024
+    static let maximumFileCount = 4_096
+    static let maximumScanDuration: TimeInterval = 10
 
     private let projectsDirectoryURL: URL
     private let calendar: Calendar
@@ -58,21 +61,26 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
             to: today
         ) ?? today
         let windowEnd = calendar.date(byAdding: .day, value: 1, to: today) ?? now
-        let fileURLs = jsonlFiles(in: directoryURL)
+        let fileURLs = jsonlFiles(
+            in: directoryURL,
+            modifiedOnOrAfter: windowStart
+        )
+        let scanDeadline = Date().addingTimeInterval(maximumScanDuration)
         var buckets: [Date: TokenAccumulator] = [:]
         var sessions = Set<String>()
         var models: [String: Int64] = [:]
         let timestampParser = TimestampParser()
 
         for fileURL in fileURLs {
+            guard !Task.isCancelled, Date() < scanDeadline else { break }
             let isSubagent = fileURL.pathComponents.contains("subagents")
-            for entry in entries(in: fileURL) {
+            forEachEntry(in: fileURL, deadline: scanDeadline) { entry in
                 guard let timestamp = timestampParser.date(from: entry.timestamp),
                       timestamp >= windowStart,
                       timestamp < windowEnd,
                       let usage = entry.message?.usage,
                       let components = usage.nonnegativeComponents else {
-                    continue
+                    return
                 }
                 let day = calendar.startOfDay(for: timestamp)
                 var bucket = buckets[day] ?? TokenAccumulator()
@@ -86,8 +94,10 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
                 }
                 if let model = entry.message?.model?.trimmingCharacters(in: .whitespacesAndNewlines),
                    !model.isEmpty,
-                   components.total > 0 {
-                    models[model] = (models[model] ?? 0).addingClamped(components.total)
+                   components.total > 0,
+                   let safeModelID = ClaudeModelActivity.normalizedModelID(model) {
+                    models[safeModelID] = (models[safeModelID] ?? 0)
+                        .addingClamped(components.total)
                 }
             }
         }
@@ -121,8 +131,16 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
         )
     }
 
-    private static func jsonlFiles(in directoryURL: URL) -> [URL] {
-        let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+    private static func jsonlFiles(
+        in directoryURL: URL,
+        modifiedOnOrAfter windowStart: Date
+    ) -> [URL] {
+        let keys: [URLResourceKey] = [
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+            .fileSizeKey,
+            .contentModificationDateKey,
+        ]
         guard let enumerator = FileManager.default.enumerator(
             at: directoryURL,
             includingPropertiesForKeys: keys,
@@ -131,7 +149,7 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
             return []
         }
 
-        var files: [URL] = []
+        var candidates: [(url: URL, modifiedAt: Date, size: Int)] = []
         for case let url as URL in enumerator {
             guard let values = try? url.resourceValues(forKeys: Set(keys)) else { continue }
             if values.isSymbolicLink == true {
@@ -140,23 +158,72 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
             }
             guard values.isRegularFile == true,
                   url.pathExtension.lowercased() == "jsonl",
-                  (values.fileSize ?? 0) <= maximumFileBytes else {
+                  let size = values.fileSize,
+                  size <= maximumFileBytes,
+                  let modifiedAt = values.contentModificationDate,
+                  modifiedAt >= windowStart else {
                 continue
             }
-            files.append(url)
+            candidates.append((url, modifiedAt, size))
         }
-        return files.sorted { $0.path < $1.path }
+        candidates.sort {
+            if $0.modifiedAt == $1.modifiedAt { return $0.url.path < $1.url.path }
+            return $0.modifiedAt > $1.modifiedAt
+        }
+
+        var totalBytes = 0
+        var files: [URL] = []
+        for candidate in candidates.prefix(maximumFileCount) {
+            guard candidate.size <= maximumTotalBytes - totalBytes else { continue }
+            files.append(candidate.url)
+            totalBytes += candidate.size
+        }
+        return files
     }
 
-    private static func entries(in fileURL: URL) -> [ClaudeLogEntry] {
-        guard let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe),
-              data.count <= maximumFileBytes else {
-            return []
+    private static func forEachEntry(
+        in fileURL: URL,
+        deadline: Date,
+        _ body: (ClaudeLogEntry) -> Void
+    ) {
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
+            return
         }
+        defer { try? handle.close() }
+
         let decoder = JSONDecoder()
-        return data.split(separator: 0x0A, omittingEmptySubsequences: true).compactMap { line in
-            guard line.count <= maximumLineBytes else { return nil }
-            return try? decoder.decode(ClaudeLogEntry.self, from: Data(line))
+        var line = Data()
+        var discardingOversizedLine = false
+
+        while !Task.isCancelled, Date() < deadline {
+            guard let chunk = try? handle.read(upToCount: 64 * 1_024),
+                  !chunk.isEmpty else {
+                break
+            }
+            for byte in chunk {
+                if byte == 0x0A {
+                    if !discardingOversizedLine,
+                       !line.isEmpty,
+                       let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
+                        body(entry)
+                    }
+                    line.removeAll(keepingCapacity: true)
+                    discardingOversizedLine = false
+                } else if !discardingOversizedLine {
+                    if line.count < maximumLineBytes {
+                        line.append(byte)
+                    } else {
+                        line.removeAll(keepingCapacity: true)
+                        discardingOversizedLine = true
+                    }
+                }
+            }
+        }
+
+        if !discardingOversizedLine,
+           !line.isEmpty,
+           let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
+            body(entry)
         }
     }
 }

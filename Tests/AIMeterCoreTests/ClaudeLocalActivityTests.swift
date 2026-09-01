@@ -134,6 +134,56 @@ struct ClaudeLocalActivityTests {
         #expect(summary.sessionCount == 1)
     }
 
+    @Test("Skips files not modified during the requested window")
+    func skipsOldFiles() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("old.jsonl")
+        try write([
+            entry(timestamp: "2026-09-01T01:00:00Z", sessionID: "old-file", input: 99),
+        ], to: url)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 1_700_000_000)],
+            ofItemAtPath: url.path
+        )
+        let now = try #require(calendar.date(from: DateComponents(
+            year: 2026, month: 9, day: 1, hour: 12
+        )))
+
+        let summary = try await ClaudeLocalActivityReader(
+            projectsDirectoryURL: directory,
+            calendar: calendar
+        ).read(now: now)
+
+        #expect(summary.totalTokens == 0)
+        #expect(summary.sessionCount == 0)
+    }
+
+    @Test("Unsafe model identifiers never enter the aggregate")
+    func filtersUnsafeModelIdentifiers() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("models.jsonl")
+        try write([
+            entry(timestamp: "2026-09-01T01:00:00Z", sessionID: "safe", model: "claude-sonnet-5", input: 7),
+            entry(timestamp: "2026-09-01T02:00:00Z", sessionID: "secret", model: "sk-private-model-value", input: 11),
+            entry(timestamp: "2026-09-01T03:00:00Z", sessionID: "long", model: String(repeating: "x", count: 81), input: 13),
+        ], to: url)
+        let now = try #require(calendar.date(from: DateComponents(
+            year: 2026, month: 9, day: 1, hour: 12
+        )))
+
+        let summary = try await ClaudeLocalActivityReader(
+            projectsDirectoryURL: directory,
+            calendar: calendar
+        ).read(now: now)
+
+        #expect(summary.totalTokens == 31)
+        #expect(summary.models == [
+            ClaudeModelActivity(modelID: "claude-sonnet-5", tokenCount: 7),
+        ])
+    }
+
     @Test("Reports an unavailable projects directory")
     func reportsUnavailableDirectory() async {
         let missing = temporaryDirectory().appendingPathComponent("missing", isDirectory: true)

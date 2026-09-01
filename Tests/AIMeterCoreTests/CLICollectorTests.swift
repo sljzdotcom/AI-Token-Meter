@@ -51,6 +51,42 @@ struct CLICollectorTests {
         #expect(snapshot.claudeLocalActivity == nil)
     }
 
+    @Test("Claude local activity timeout never delays official quota")
+    func claudeLocalTimeoutIsOptional() async throws {
+        let collector = ClaudeCollector(
+            runner: RecordingClaudeRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: SlowClaudeLocalActivityReader(),
+            localActivityTimeout: .milliseconds(50)
+        )
+        let startedAt = Date()
+
+        let snapshot = try await collector.collect()
+
+        #expect(Date().timeIntervalSince(startedAt) < 0.4)
+        #expect(snapshot.primaryMetric?.usedFraction == 0.73)
+        #expect(snapshot.claudeLocalActivity == nil)
+    }
+
+    @Test("Claude official failure does not wait for local activity")
+    func claudeOfficialFailureReturnsImmediately() async {
+        let collector = ClaudeCollector(
+            runner: RecordingClaudeRunner(),
+            locator: FixedLocator(url: nil),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: SlowClaudeLocalActivityReader(),
+            localActivityTimeout: .seconds(2)
+        )
+        let startedAt = Date()
+
+        await #expect(throws: UsageCollectionError.notInstalled) {
+            try await collector.collect()
+        }
+
+        #expect(Date().timeIntervalSince(startedAt) < 0.2)
+    }
+
     @Test("Codex collector runs status and parses remaining quota")
     func codexCollectorReturnsSnapshot() async throws {
         let collector = CodexCollector(
@@ -301,5 +337,12 @@ private struct StubClaudeLocalActivityReader: ClaudeLocalActivityReading {
 
     func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
         try result.get()
+    }
+}
+
+private struct SlowClaudeLocalActivityReader: ClaudeLocalActivityReading {
+    func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
+        try await Task.sleep(for: .milliseconds(500))
+        throw StubClaudeLocalActivityReader.Failure.unavailable
     }
 }

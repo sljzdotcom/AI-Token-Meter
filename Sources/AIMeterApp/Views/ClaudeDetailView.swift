@@ -11,17 +11,19 @@ struct ClaudeDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                header
-                officialQuotaSection
-                Divider().overlay(Color.white.opacity(0.12))
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            officialQuotaSection
+            Divider().overlay(Color.white.opacity(0.12))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
                 localActivitySection
                 footer
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .aiMeterDetailSurface()
     }
@@ -114,6 +116,9 @@ struct ClaudeDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(metric)
+        )
     }
 
     @ViewBuilder
@@ -134,10 +139,15 @@ struct ClaudeDetailView: View {
                     localStat(title: "Active days", value: "\(summary.activeDayCount)/\(summary.dayCount)", symbol: "calendar")
                     localStat(title: "Tokens", value: compactCount(summary.totalTokens), symbol: "number")
                 }
-                activityChart(summary)
+                if ClaudeDetailPresentation.hasDailyActivity(summary) {
+                    activityChart(summary)
+                } else {
+                    localActivityEmptyState
+                }
                 tokenComposition(summary)
-                if !summary.models.isEmpty {
-                    modelBreakdown(summary)
+                let modelRows = ClaudeDetailPresentation.topModelRows(summary)
+                if !modelRows.isEmpty {
+                    modelBreakdown(modelRows)
                 }
                 Label(
                     "Only aggregate timestamps, token counts, session IDs and model IDs are read. Conversation content stays private.",
@@ -179,6 +189,31 @@ struct ClaudeDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            ClaudeDetailPresentation.localStatAccessibilityLabel(
+                title: title,
+                value: value
+            )
+        )
+    }
+
+    private var localActivityEmptyState: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(
+                ClaudeDetailPresentation.localActivityEmptyTitle,
+                systemImage: "chart.bar.xaxis"
+            )
+            .aiMeterFont(.subheadline, weight: .semibold)
+            Text("No token activity was found in the current 30-day window on this Mac.")
+                .aiMeterFont(.caption)
+                .foregroundStyle(AIMeterVisualTheme.secondaryText)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .aiMeterGlassCard()
+        .accessibilityLabel(
+            "Local estimate, \(ClaudeDetailPresentation.localActivityEmptyTitle)"
+        )
     }
 
     private func activityChart(_ summary: ClaudeLocalActivitySummary) -> some View {
@@ -237,11 +272,11 @@ struct ClaudeDetailView: View {
         .aiMeterFont(.caption2)
     }
 
-    private func modelBreakdown(_ summary: ClaudeLocalActivitySummary) -> some View {
+    private func modelBreakdown(_ rows: [ClaudeModelRowPresentation]) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("Top models")
                 .aiMeterFont(.subheadline, weight: .semibold)
-            ForEach(Array(summary.models.prefix(3))) { model in
+            ForEach(rows) { model in
                 HStack(spacing: 8) {
                     Circle()
                         .fill(valueStyle)
@@ -250,7 +285,7 @@ struct ClaudeDetailView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
-                    Text(compactCount(model.tokenCount))
+                    Text("\(compactCount(model.tokenCount)) · \(model.sharePercent)%")
                         .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 }
                 .aiMeterFont(.caption)

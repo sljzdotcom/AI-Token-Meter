@@ -79,8 +79,41 @@ struct ProviderSupplementalDataTests {
         #expect(activity.days.first?.totalTokens == 0)
         #expect(activity.sessionCount == 0)
         #expect(activity.activeDayCount == 0)
-        #expect(activity.models.first?.tokenCount == 0)
+        #expect(activity.models.isEmpty)
         #expect(activity.dayCount == 1)
+    }
+
+    @Test("Claude activity excludes zero-token and unsafe model identifiers")
+    func claudeActivityFiltersUnsafeModels() {
+        let activity = ClaudeLocalActivitySummary(
+            days: [],
+            sessionCount: 0,
+            activeDayCount: 0,
+            models: [
+                ClaudeModelActivity(modelID: "<synthetic>", tokenCount: 0),
+                ClaudeModelActivity(modelID: "sk-sensitive-model-value", tokenCount: 10),
+                ClaudeModelActivity(modelID: "claude-sonnet-5", tokenCount: 20),
+            ],
+            updatedAt: .distantPast
+        )
+
+        #expect(activity.models == [
+            ClaudeModelActivity(modelID: "claude-sonnet-5", tokenCount: 20),
+        ])
+    }
+
+    @Test("Legacy Claude activity cache is normalized while decoding")
+    func legacyClaudeActivityIsNormalized() throws {
+        let data = try #require(
+            #"{"days":[],"sessionCount":0,"activeDayCount":0,"models":[{"modelID":"<synthetic>","tokenCount":0},{"modelID":"claude-sonnet-5","tokenCount":20}],"updatedAt":0,"dayCount":30}"#
+                .data(using: .utf8)
+        )
+
+        let activity = try JSONDecoder().decode(ClaudeLocalActivitySummary.self, from: data)
+
+        #expect(activity.models == [
+            ClaudeModelActivity(modelID: "claude-sonnet-5", tokenCount: 20),
+        ])
     }
 
     @Test("DeepSeek history exposes independently derived totals")

@@ -71,14 +71,40 @@ public struct ClaudeDailyActivity: Codable, Equatable, Identifiable, Sendable {
 }
 
 public struct ClaudeModelActivity: Codable, Equatable, Identifiable, Sendable {
+    static let unknownModelID = "Unknown model"
+
     public var id: String { modelID }
 
     public let modelID: String
     public let tokenCount: Int64
 
     public init(modelID: String, tokenCount: Int64) {
-        self.modelID = modelID
+        self.modelID = Self.normalizedModelID(modelID) ?? Self.unknownModelID
         self.tokenCount = max(tokenCount, 0)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            modelID: try values.decode(String.self, forKey: .modelID),
+            tokenCount: try values.decode(Int64.self, forKey: .tokenCount)
+        )
+    }
+
+    static func normalizedModelID(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.utf8.count <= 80,
+              SensitiveTextRedactor.redact(trimmed) == trimmed else {
+            return nil
+        }
+        let allowed = CharacterSet.alphanumerics.union(
+            CharacterSet(charactersIn: "-._:/")
+        )
+        guard trimmed.unicodeScalars.allSatisfy(allowed.contains) else {
+            return nil
+        }
+        return trimmed
     }
 }
 
@@ -101,9 +127,23 @@ public struct ClaudeLocalActivitySummary: Codable, Equatable, Sendable {
         self.days = days
         self.sessionCount = max(sessionCount, 0)
         self.activeDayCount = max(activeDayCount, 0)
-        self.models = models
+        self.models = models.filter {
+            $0.tokenCount > 0 && $0.modelID != ClaudeModelActivity.unknownModelID
+        }
         self.updatedAt = updatedAt
         self.dayCount = max(dayCount, 1)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            days: try values.decode([ClaudeDailyActivity].self, forKey: .days),
+            sessionCount: try values.decode(Int.self, forKey: .sessionCount),
+            activeDayCount: try values.decode(Int.self, forKey: .activeDayCount),
+            models: try values.decode([ClaudeModelActivity].self, forKey: .models),
+            updatedAt: try values.decode(Date.self, forKey: .updatedAt),
+            dayCount: try values.decode(Int.self, forKey: .dayCount)
+        )
     }
 
     public var totalInputTokens: Int64 {

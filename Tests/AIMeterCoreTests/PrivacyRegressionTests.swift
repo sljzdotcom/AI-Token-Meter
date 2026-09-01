@@ -78,6 +78,21 @@ struct PrivacyRegressionTests {
         #expect(snapshot.privacySanitized().claudeLocalActivity == activity)
     }
 
+    @Test("Claude activity reader processes bounded streams instead of loading whole files")
+    func claudeReaderUsesStreamingIO() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterCore/Collectors/ClaudeLocalActivityReader.swift"
+        ))
+
+        #expect(source.contains("FileHandle(forReadingFrom:"))
+        #expect(!source.contains("Data(contentsOf: fileURL"))
+        #expect(!source.contains("data.split(separator:"))
+    }
+
     private var credentialBearingSnapshot: UsageSnapshot {
         UsageSnapshot(
             provider: .deepSeek,
