@@ -8,6 +8,7 @@ public struct ClaudeCollector: UsageCollector {
     private let parser: ClaudeUsageParser
     private let accountStatusParser: ClaudeAccountStatusParser
     private let workspaceResolver: any ClaudeUsageWorkspaceResolving
+    private let localActivityReader: any ClaudeLocalActivityReading
 
     public init(
         runner: any CommandRunning = PTYCommandRunner(),
@@ -21,9 +22,32 @@ public struct ClaudeCollector: UsageCollector {
         self.parser = parser
         self.accountStatusParser = accountStatusParser
         self.workspaceResolver = workspaceResolver
+        self.localActivityReader = ClaudeLocalActivityReader()
+    }
+
+    init(
+        runner: any CommandRunning,
+        locator: any ExecutableLocating,
+        parser: ClaudeUsageParser = ClaudeUsageParser(),
+        accountStatusParser: ClaudeAccountStatusParser = ClaudeAccountStatusParser(),
+        workspaceResolver: any ClaudeUsageWorkspaceResolving,
+        localActivityReader: any ClaudeLocalActivityReading
+    ) {
+        self.runner = runner
+        self.locator = locator
+        self.parser = parser
+        self.accountStatusParser = accountStatusParser
+        self.workspaceResolver = workspaceResolver
+        self.localActivityReader = localActivityReader
     }
 
     public func collect() async throws -> UsageSnapshot {
+        async let localActivity = optionalLocalActivity()
+        let official = try await collectOfficialUsage()
+        return official.withClaudeLocalActivity(await localActivity)
+    }
+
+    private func collectOfficialUsage() async throws -> UsageSnapshot {
         guard let executableURL = locator.locate(named: "claude") else {
             throw UsageCollectionError.notInstalled
         }
@@ -60,6 +84,10 @@ public struct ClaudeCollector: UsageCollector {
         } catch UsageCollectionError.unrecognizedOutput where result.exitCode != 0 {
             throw UsageCollectionError.transportFailure
         }
+    }
+
+    private func optionalLocalActivity() async -> ClaudeLocalActivitySummary? {
+        try? await localActivityReader.read(now: Date(), dayCount: 30)
     }
 
     private func verifyAuthentication(

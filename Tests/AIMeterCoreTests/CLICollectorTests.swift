@@ -19,6 +19,38 @@ struct CLICollectorTests {
         #expect(snapshot.primaryMetric?.usedFraction == 0.73)
     }
 
+    @Test("Claude collector attaches local activity without changing official quota")
+    func claudeCollectorAttachesLocalActivity() async throws {
+        let activity = claudeActivitySummary
+        let collector = ClaudeCollector(
+            runner: PTYCommandRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: StubClaudeLocalActivityReader(result: .success(activity))
+        )
+
+        let snapshot = try await collector.collect()
+
+        #expect(snapshot.primaryMetric?.usedFraction == 0.73)
+        #expect(snapshot.secondaryMetric?.usedFraction == 0.07)
+        #expect(snapshot.claudeLocalActivity == activity)
+    }
+
+    @Test("Claude local activity failure does not hide official quota")
+    func claudeLocalFailureIsOptional() async throws {
+        let collector = ClaudeCollector(
+            runner: PTYCommandRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: StubClaudeLocalActivityReader(result: .failure(.unavailable))
+        )
+
+        let snapshot = try await collector.collect()
+
+        #expect(snapshot.primaryMetric?.usedFraction == 0.73)
+        #expect(snapshot.claudeLocalActivity == nil)
+    }
+
     @Test("Codex collector runs status and parses remaining quota")
     func codexCollectorReturnsSnapshot() async throws {
         let collector = CodexCollector(
@@ -215,6 +247,17 @@ struct CLICollectorTests {
     private var generalAndModelCodexExecutable: URL {
         Bundle.module.url(forResource: "fake-codex-general-and-model", withExtension: "sh")!
     }
+
+    private var claudeActivitySummary: ClaudeLocalActivitySummary {
+        let reference = Date(timeIntervalSince1970: 1_900_000_000)
+        return ClaudeLocalActivitySummary(
+            days: [ClaudeDailyActivity(date: reference, inputTokens: 10, outputTokens: 20, cacheTokens: 30)],
+            sessionCount: 1,
+            activeDayCount: 1,
+            models: [ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 60)],
+            updatedAt: reference
+        )
+    }
 }
 
 private struct FixedLocator: ExecutableLocating {
@@ -246,5 +289,17 @@ private actor RecordingClaudeRunner: CommandRunning {
 
     func recordedRequests() -> [CommandRequest] {
         requests
+    }
+}
+
+private struct StubClaudeLocalActivityReader: ClaudeLocalActivityReading {
+    enum Failure: Error {
+        case unavailable
+    }
+
+    let result: Result<ClaudeLocalActivitySummary, Failure>
+
+    func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
+        try result.get()
     }
 }
