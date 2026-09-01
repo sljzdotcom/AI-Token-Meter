@@ -2,6 +2,21 @@ import AIMeterCore
 import AppKit
 import SwiftUI
 
+enum DisplayFontFamilyCandidates {
+    static func values(for choice: DisplayFontChoice) -> [String] {
+        switch choice {
+        case .system: []
+        case .antonio: ["Antonio"]
+        case .dinCondensed: ["DIN Condensed"]
+        case .alimamaFangYuanTiVF: ["Alimama FangYuanTi VF"]
+        case .firaCode: ["Fira Code", "Fira Code VF"]
+        case .leigo: ["Leigo", "Leigo Regular"]
+        case .menlo: ["Menlo"]
+        case .alimamaDaoLiTi: ["Alimama DaoLiTi"]
+        }
+    }
+}
+
 struct DisplayFontCatalog: Sendable {
     let availableFamilies: Set<String>
 
@@ -14,11 +29,12 @@ struct DisplayFontCatalog: Sendable {
     }
 
     func isAvailable(_ choice: DisplayFontChoice) -> Bool {
-        switch choice {
-        case .system: true
-        case .antonio: availableFamilies.contains("Antonio")
-        case .dinCondensed: availableFamilies.contains("DIN Condensed")
-        }
+        choice == .system || resolvedFamily(choice) != nil
+    }
+
+    func resolvedFamily(_ choice: DisplayFontChoice) -> String? {
+        DisplayFontFamilyCandidates.values(for: choice)
+            .first(where: availableFamilies.contains)
     }
 }
 
@@ -124,12 +140,7 @@ enum AIMeterTypography {
         for choice: DisplayFontChoice,
         catalog: DisplayFontCatalog
     ) -> String? {
-        guard catalog.isAvailable(choice) else { return nil }
-        return switch choice {
-        case .system: nil
-        case .antonio: "Antonio"
-        case .dinCondensed: "DIN Condensed"
-        }
+        catalog.resolvedFamily(choice)
     }
 
     static func resolvedDescriptor(

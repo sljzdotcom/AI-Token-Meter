@@ -7,38 +7,80 @@ import Testing
 struct TypographyTests {
     @Test("System is always available while custom choices use registered families")
     func availability() {
-        let catalog = DisplayFontCatalog(availableFamilies: ["Antonio"])
+        let catalog = DisplayFontCatalog(availableFamilies: [
+            "Antonio", "Fira Code VF", "Leigo Regular", "Menlo",
+        ])
         #expect(catalog.isAvailable(.system))
         #expect(catalog.isAvailable(.antonio))
         #expect(!catalog.isAvailable(.dinCondensed))
+        #expect(!catalog.isAvailable(.alimamaFangYuanTiVF))
+        #expect(catalog.isAvailable(.firaCode))
+        #expect(catalog.isAvailable(.leigo))
+        #expect(catalog.isAvailable(.menlo))
+        #expect(!catalog.isAvailable(.alimamaDaoLiTi))
     }
 
     @Test("Unavailable saved custom fonts resolve safely to system")
     func fallback() {
         let catalog = DisplayFontCatalog(availableFamilies: [])
-        #expect(AIMeterTypography.resolvedFamily(for: .antonio, catalog: catalog) == nil)
-        #expect(AIMeterTypography.resolvedFamily(for: .dinCondensed, catalog: catalog) == nil)
+        for choice in DisplayFontChoice.allCases where choice != .system {
+            #expect(AIMeterTypography.resolvedFamily(for: choice, catalog: catalog) == nil)
+        }
     }
 
     @Test("Available choices resolve to the approved family names")
     func familyNames() {
         let catalog = DisplayFontCatalog(
-            availableFamilies: ["Antonio", "DIN Condensed"]
+            availableFamilies: [
+                "Antonio",
+                "DIN Condensed",
+                "Alimama FangYuanTi VF",
+                "Fira Code VF",
+                "Leigo Regular",
+                "Menlo",
+                "Alimama DaoLiTi",
+            ]
         )
         #expect(AIMeterTypography.resolvedFamily(for: .antonio, catalog: catalog) == "Antonio")
         #expect(AIMeterTypography.resolvedFamily(for: .dinCondensed, catalog: catalog) == "DIN Condensed")
+        #expect(AIMeterTypography.resolvedFamily(for: .alimamaFangYuanTiVF, catalog: catalog) == "Alimama FangYuanTi VF")
+        #expect(AIMeterTypography.resolvedFamily(for: .firaCode, catalog: catalog) == "Fira Code VF")
+        #expect(AIMeterTypography.resolvedFamily(for: .leigo, catalog: catalog) == "Leigo Regular")
+        #expect(AIMeterTypography.resolvedFamily(for: .menlo, catalog: catalog) == "Menlo")
+        #expect(AIMeterTypography.resolvedFamily(for: .alimamaDaoLiTi, catalog: catalog) == "Alimama DaoLiTi")
+
+        let preferred = DisplayFontCatalog(availableFamilies: [
+            "Fira Code", "Fira Code VF", "Leigo", "Leigo Regular",
+        ])
+        #expect(AIMeterTypography.resolvedFamily(for: .firaCode, catalog: preferred) == "Fira Code")
+        #expect(AIMeterTypography.resolvedFamily(for: .leigo, catalog: preferred) == "Leigo")
     }
 
-    @Test("Settings always exposes three ordered choices and marks missing fonts")
+    @Test("Settings exposes eight ordered choices and marks missing fonts")
     func settingsOptions() {
-        let catalog = DisplayFontCatalog(availableFamilies: ["Antonio"])
+        let catalog = DisplayFontCatalog(availableFamilies: ["Antonio", "Menlo"])
         let options = DisplayFontSettingsPresentation.options(catalog: catalog)
 
-        #expect(options.map(\.choice) == [.system, .antonio, .dinCondensed])
+        #expect(options.map(\.choice) == [
+            .system,
+            .antonio,
+            .dinCondensed,
+            .alimamaFangYuanTiVF,
+            .firaCode,
+            .leigo,
+            .menlo,
+            .alimamaDaoLiTi,
+        ])
         #expect(options[0].isEnabled)
         #expect(options[1].isEnabled)
         #expect(!options[2].isEnabled)
         #expect(options[2].statusText == "Not installed")
+        #expect(!options[3].isEnabled)
+        #expect(!options[4].isEnabled)
+        #expect(!options[5].isEnabled)
+        #expect(options[6].isEnabled)
+        #expect(options[6].statusText == nil)
+        #expect(!options[7].isEnabled)
     }
 
     @Test("Every semantic role preserves native system behavior and macOS custom base size")
