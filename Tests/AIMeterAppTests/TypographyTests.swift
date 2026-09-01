@@ -288,17 +288,172 @@ struct TypographyTests {
         return try String(contentsOf: fileURL, encoding: .utf8)
     }
 
-    @Test("Content roots keep SF Symbols at their unscaled size")
-    func symbolFontsIgnoreContentOffset() throws {
-        let files = [
-            "MenuBarPanel.swift",
-            "CodexDetailView.swift",
-            "CodexResetCreditsView.swift",
-            "DeepSeekAnalyticsView.swift",
+    @Test("Each content symbol keeps its declared semantic baseline")
+    func symbolFontMappings() throws {
+        let expectations = [
+            SymbolSourceExpectation(
+                fileName: "MenuBarPanel.swift",
+                imageExpression: "Image(systemName: \"gauge.with.dots.needle.50percent\")",
+                occurrence: 0,
+                expectedModifier: ".aiMeterSymbolFont(.body)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "MenuBarPanel.swift",
+                imageExpression: "Image(systemName: \"gauge.with.dots.needle.50percent\")",
+                occurrence: 1,
+                expectedModifier: nil
+            ),
+            SymbolSourceExpectation(
+                fileName: "MenuBarPanel.swift",
+                imageExpression: "Image(systemName: \"arrow.clockwise\")",
+                expectedModifier: ".aiMeterSymbolFont(.body)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "MenuBarPanel.swift",
+                imageExpression: "Image(systemName: \"gearshape\")",
+                expectedModifier: ".aiMeterSymbolFont(.body)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "MenuBarPanel.swift",
+                imageExpression: "Image(systemName: \"power\")",
+                expectedModifier: ".aiMeterSymbolFont(.body)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "CodexDetailView.swift",
+                imageExpression: "Image(systemName: symbol)",
+                expectedModifier: ".aiMeterSymbolFont(.caption)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "CodexResetCreditsView.swift",
+                imageExpression: "Image(systemName: \"info.circle\")",
+                expectedModifier: ".aiMeterSymbolFont(.caption2)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "CodexResetCreditsView.swift",
+                imageExpression: "Image(systemName: \"arrow.counterclockwise.circle\")",
+                expectedModifier: ".aiMeterSymbolFont(.caption2)"
+            ),
+            SymbolSourceExpectation(
+                fileName: "DeepSeekAnalyticsView.swift",
+                imageExpression: "Image(systemName: \"arrow.clockwise\")",
+                expectedModifier: ".aiMeterSymbolFont(.body)"
+            ),
         ]
-        for file in files {
-            let source = try viewSource(file)
-            #expect(source.contains(".aiMeterSymbolFont"))
+
+        for expectation in expectations {
+            let source = try viewSource(expectation.fileName)
+            let fragment = try #require(
+                sourceFragment(
+                    after: expectation.imageExpression,
+                    occurrence: expectation.occurrence,
+                    in: source
+                )
+            )
+            if let expectedModifier = expectation.expectedModifier {
+                #expect(fragment.contains(expectedModifier))
+                #expect(!fragment.contains(".aiMeterSymbolFont()"))
+            } else {
+                #expect(!fragment.contains(".aiMeterSymbolFont"))
+            }
         }
+    }
+
+    @Test("Symbol token rendering retains caption2 and body baselines inside content")
+    @MainActor
+    func symbolTokenRendering() throws {
+        let caption2 = try renderedAlphaBounds(
+            Image(systemName: "info.circle")
+                .aiMeterSymbolFont(.caption2)
+                .foregroundStyle(.black)
+                .frame(width: 80, height: 80)
+                .aiMeterFontScope(.content(.system))
+        )
+        let body = try renderedAlphaBounds(
+            Image(systemName: "info.circle")
+                .aiMeterSymbolFont(.body)
+                .foregroundStyle(.black)
+                .frame(width: 80, height: 80)
+                .aiMeterFontScope(.content(.system))
+        )
+
+        #expect(caption2.height < body.height)
+        #expect(caption2.width < body.width)
+    }
+
+    @Test("Content unavailable symbols retain the system empty-state scale")
+    @MainActor
+    func contentUnavailableSymbolRendering() throws {
+        let systemSized = try renderedAlphaBounds(
+            ContentUnavailableView {
+                Label {
+                    EmptyView()
+                } icon: {
+                    Image(systemName: "gauge.with.dots.needle.50percent")
+                }
+            }
+            .foregroundStyle(.black)
+            .frame(width: 240, height: 160)
+            .aiMeterFontScope(.content(.system))
+        )
+        #expect(systemSized.height > Int(AIMeterTextStyle.body.pointSize))
+        #expect(systemSized.width > Int(AIMeterTextStyle.body.pointSize))
+    }
+
+    private struct SymbolSourceExpectation {
+        let fileName: String
+        let imageExpression: String
+        var occurrence = 0
+        let expectedModifier: String?
+    }
+
+    private func sourceFragment(
+        after imageExpression: String,
+        occurrence: Int,
+        in source: String
+    ) -> String? {
+        var range = source.startIndex..<source.endIndex
+        for _ in 0...occurrence {
+            guard let match = source.range(of: imageExpression, range: range) else {
+                return nil
+            }
+            range = match.upperBound..<source.endIndex
+        }
+        let suffix = source[range]
+        return String(suffix.prefix(180))
+    }
+
+    @MainActor
+    private func renderedAlphaBounds<V: View>(_ view: V) throws -> RenderedAlphaBounds {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        let bitmap = NSBitmapImageRep(cgImage: image)
+        var minX = image.width
+        var maxX = -1
+        var minY = image.height
+        var maxY = -1
+
+        for y in 0..<image.height {
+            for x in 0..<image.width {
+                guard let color = bitmap.colorAt(x: x, y: y) else { continue }
+                if color.alphaComponent > 0.01 {
+                    minX = min(minX, x)
+                    maxX = max(maxX, x)
+                    minY = min(minY, y)
+                    maxY = max(maxY, y)
+                }
+            }
+        }
+
+        guard maxX >= minX, maxY >= minY else {
+            Issue.record("Rendered symbol did not produce visible pixels")
+            return RenderedAlphaBounds(width: 0, height: 0)
+        }
+        return RenderedAlphaBounds(width: maxX - minX + 1, height: maxY - minY + 1)
+    }
+
+    private struct RenderedAlphaBounds {
+        let width: Int
+        let height: Int
     }
 }

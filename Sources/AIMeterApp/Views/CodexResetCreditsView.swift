@@ -62,7 +62,7 @@ struct CodexResetCreditsView: View {
                     Text("Some expiration details are unavailable")
                 } icon: {
                     Image(systemName: "info.circle")
-                        .aiMeterSymbolFont()
+                        .aiMeterSymbolFont(.caption2)
                 }
                 .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
@@ -136,7 +136,7 @@ struct CodexResetCreditsView: View {
                     Text("Reset credits")
                 } icon: {
                     Image(systemName: "arrow.counterclockwise.circle")
-                        .aiMeterSymbolFont()
+                        .aiMeterSymbolFont(.caption2)
                 }
                     .fontWeight(.semibold)
                 Spacer()

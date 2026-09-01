@@ -9,7 +9,7 @@ struct MenuBarLabel: View {
             Text(model.menuBarSummary.valueText)
         } icon: {
             Image(systemName: "gauge.with.dots.needle.50percent")
-                .aiMeterSymbolFont()
+                .aiMeterSymbolFont(.body)
         }
             .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
             .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))
@@ -30,7 +30,6 @@ struct MenuBarPanel: View {
                         Text("Checking usage")
                     } icon: {
                         Image(systemName: "gauge.with.dots.needle.50percent")
-                            .aiMeterSymbolFont()
                     }
                 } description: {
                     Text("Claude, Codex, and DeepSeek are being checked locally.")
@@ -74,7 +73,7 @@ struct MenuBarPanel: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "arrow.clockwise")
-                        .aiMeterSymbolFont()
+                        .aiMeterSymbolFont(.body)
                 }
             }
             .buttonStyle(.borderless)
@@ -104,7 +103,7 @@ struct MenuBarPanel: View {
                 ).perform()
             } label: {
                 Image(systemName: "gearshape")
-                    .aiMeterSymbolFont()
+                    .aiMeterSymbolFont(.body)
             }
             .buttonStyle(.borderless)
             .help("Settings")
@@ -112,7 +111,7 @@ struct MenuBarPanel: View {
                 NSApplication.shared.terminate(nil)
             } label: {
                 Image(systemName: "power")
-                    .aiMeterSymbolFont()
+                    .aiMeterSymbolFont(.body)
             }
             .buttonStyle(.borderless)
             .help("Quit AI Meter")

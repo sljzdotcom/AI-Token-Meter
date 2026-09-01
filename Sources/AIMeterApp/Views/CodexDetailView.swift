@@ -122,7 +122,6 @@ struct CodexDetailView: View {
     private func localStat(title: String, value: String, symbol: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: symbol)
-                .font(.caption)
                 .aiMeterSymbolFont(.caption)
                 .foregroundStyle(valueStyle)
             Text(value)
