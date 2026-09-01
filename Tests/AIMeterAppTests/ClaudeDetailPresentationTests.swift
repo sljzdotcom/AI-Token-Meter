@@ -78,8 +78,12 @@ struct ClaudeDetailPresentationTests {
         #expect(!source.contains("\"Token composition\""))
         #expect(!source.contains("\"Top models\""))
         #expect(source.contains("localStat(title: \"Sessions\""))
+        #expect(source.contains("localStat(title: \"Active days\""))
+        #expect(source.contains("localStat(title: \"Tokens\""))
         #expect(source.contains("activityChart(summary)"))
+        #expect(source.contains("localActivityEmptyState"))
         #expect(source.contains("Conversation content stays private."))
+        #expect(source.contains("Text(\"Updated "))
     }
 
     private func makeSummary(
