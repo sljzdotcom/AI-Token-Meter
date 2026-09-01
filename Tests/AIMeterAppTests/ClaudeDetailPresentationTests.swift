@@ -30,6 +30,19 @@ struct ClaudeDetailPresentationTests {
         #expect(rows.map(\.sharePercent) == [75, 25])
     }
 
+    @Test("Top model shares remain meaningful when integer totals overflow")
+    func topModelSharesHandleOverflow() {
+        let summary = makeSummary(
+            days: [ClaudeDailyActivity(date: .distantPast, inputTokens: 1, outputTokens: 0, cacheTokens: 0)],
+            models: [
+                ClaudeModelActivity(modelID: "claude-opus-a", tokenCount: .max),
+                ClaudeModelActivity(modelID: "claude-opus-b", tokenCount: .max),
+            ]
+        )
+
+        #expect(ClaudeDetailPresentation.topModelRows(summary).map(\.sharePercent) == [50, 50])
+    }
+
     @Test("Accessibility labels identify official and local estimates")
     func accessibilityLabelsExposeDataScope() {
         let metric = UsageMetric(
@@ -40,12 +53,20 @@ struct ClaudeDetailPresentationTests {
         )
 
         #expect(
-            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(metric)
-                == "Official quota, Current session, 23 percent used"
+            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(
+                metric,
+                resetText: "Resets in 3 hours"
+            ) == "Official quota, Current session, 23 percent used, Resets in 3 hours"
         )
         #expect(
             ClaudeDetailPresentation.localStatAccessibilityLabel(title: "Sessions", value: "7")
                 == "Local estimate, Sessions, 7"
+        )
+        #expect(
+            ClaudeDetailPresentation.localActivityAccessibilityLabel(
+                title: "Top models",
+                detail: "claude-sonnet-5, 75 percent"
+            ) == "Local estimate, Top models, claude-sonnet-5, 75 percent"
         )
     }
 
@@ -66,6 +87,8 @@ struct ClaudeDetailPresentationTests {
         #expect(header.lowerBound < scroll.lowerBound)
         #expect(official.lowerBound < scroll.lowerBound)
         #expect(local.lowerBound > scroll.lowerBound)
+        #expect(source.contains("officialQuotaAccessibilityLabel(metric, resetText: resetText)"))
+        #expect(source.contains("localActivityAccessibilityLabel("))
     }
 
     private func makeSummary(

@@ -69,6 +69,23 @@ struct CLICollectorTests {
         #expect(snapshot.claudeLocalActivity == nil)
     }
 
+    @Test("Claude local activity timeout cancels the underlying scan")
+    func claudeLocalTimeoutCancelsReader() async throws {
+        let reader = CancellationRecordingClaudeLocalActivityReader()
+        let collector = ClaudeCollector(
+            runner: RecordingClaudeRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: reader,
+            localActivityTimeout: .milliseconds(50)
+        )
+
+        _ = try await collector.collect()
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(await reader.wasCancelled())
+    }
+
     @Test("Claude official failure does not wait for local activity")
     func claudeOfficialFailureReturnsImmediately() async {
         let collector = ClaudeCollector(
@@ -344,5 +361,23 @@ private struct SlowClaudeLocalActivityReader: ClaudeLocalActivityReading {
     func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
         try await Task.sleep(for: .milliseconds(500))
         throw StubClaudeLocalActivityReader.Failure.unavailable
+    }
+}
+
+private actor CancellationRecordingClaudeLocalActivityReader: ClaudeLocalActivityReading {
+    private var cancelled = false
+
+    func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
+        do {
+            try await Task.sleep(for: .seconds(10))
+        } catch is CancellationError {
+            cancelled = true
+            throw CancellationError()
+        }
+        throw StubClaudeLocalActivityReader.Failure.unavailable
+    }
+
+    func wasCancelled() -> Bool {
+        cancelled
     }
 }

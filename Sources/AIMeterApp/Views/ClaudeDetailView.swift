@@ -117,7 +117,7 @@ struct ClaudeDetailView: View {
         .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(metric)
+            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(metric, resetText: resetText)
         )
     }
 
@@ -166,6 +166,13 @@ struct ClaudeDetailView: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .aiMeterGlassCard()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    ClaudeDetailPresentation.localActivityAccessibilityLabel(
+                        title: "Status",
+                        detail: "Local activity unavailable"
+                    )
+                )
             }
         }
     }
@@ -245,6 +252,13 @@ struct ClaudeDetailView: View {
         }
         .padding(12)
         .aiMeterGlassCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            ClaudeDetailPresentation.localActivityAccessibilityLabel(
+                title: "Daily token activity",
+                detail: "\(summary.totalTokens.formatted()) total tokens"
+            )
+        )
     }
 
     private func tokenComposition(_ summary: ClaudeLocalActivitySummary) -> some View {
@@ -257,6 +271,13 @@ struct ClaudeDetailView: View {
         }
         .padding(12)
         .aiMeterGlassCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            ClaudeDetailPresentation.localActivityAccessibilityLabel(
+                title: "Token composition",
+                detail: "Input \(summary.totalInputTokens.formatted()), Output \(summary.totalOutputTokens.formatted()), Cache \(summary.totalCacheTokens.formatted())"
+            )
+        )
     }
 
     private func tokenRow(_ title: String, value: Int64, total: Int64) -> some View {
@@ -293,6 +314,13 @@ struct ClaudeDetailView: View {
         }
         .padding(12)
         .aiMeterGlassCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            ClaudeDetailPresentation.localActivityAccessibilityLabel(
+                title: "Top models",
+                detail: rows.map { "\($0.modelID), \($0.sharePercent) percent" }.joined(separator: ", ")
+            )
+        )
     }
 
     private var footer: some View {

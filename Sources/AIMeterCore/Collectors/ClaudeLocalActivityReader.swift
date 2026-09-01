@@ -28,16 +28,13 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
     }
 
     func read(now: Date = Date(), dayCount: Int = 30) async throws -> ClaudeLocalActivitySummary {
-        let directoryURL = projectsDirectoryURL
-        let calendar = calendar
-        return try await Task.detached(priority: .utility) {
-            try Self.readSynchronously(
-                directoryURL: directoryURL,
-                calendar: calendar,
-                now: now,
-                dayCount: dayCount
-            )
-        }.value
+        try Task.checkCancellation()
+        return try Self.readSynchronously(
+            directoryURL: projectsDirectoryURL,
+            calendar: calendar,
+            now: now,
+            dayCount: dayCount
+        )
     }
 
     private static func readSynchronously(
@@ -61,11 +58,12 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
             to: today
         ) ?? today
         let windowEnd = calendar.date(byAdding: .day, value: 1, to: today) ?? now
+        let scanDeadline = Date().addingTimeInterval(maximumScanDuration)
         let fileURLs = jsonlFiles(
             in: directoryURL,
-            modifiedOnOrAfter: windowStart
+            modifiedOnOrAfter: windowStart,
+            deadline: scanDeadline
         )
-        let scanDeadline = Date().addingTimeInterval(maximumScanDuration)
         var buckets: [Date: TokenAccumulator] = [:]
         var sessions = Set<String>()
         var models: [String: Int64] = [:]
@@ -133,7 +131,8 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
 
     private static func jsonlFiles(
         in directoryURL: URL,
-        modifiedOnOrAfter windowStart: Date
+        modifiedOnOrAfter windowStart: Date,
+        deadline: Date
     ) -> [URL] {
         let keys: [URLResourceKey] = [
             .isRegularFileKey,
@@ -151,6 +150,7 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
 
         var candidates: [(url: URL, modifiedAt: Date, size: Int)] = []
         for case let url as URL in enumerator {
+            guard !Task.isCancelled, Date() < deadline else { break }
             guard let values = try? url.resourceValues(forKeys: Set(keys)) else { continue }
             if values.isSymbolicLink == true {
                 enumerator.skipDescendants()
@@ -165,11 +165,12 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
                 continue
             }
             candidates.append((url, modifiedAt, size))
+            if candidates.count > maximumFileCount {
+                candidates.sort(by: candidatePrecedes)
+                candidates.removeLast(candidates.count - maximumFileCount)
+            }
         }
-        candidates.sort {
-            if $0.modifiedAt == $1.modifiedAt { return $0.url.path < $1.url.path }
-            return $0.modifiedAt > $1.modifiedAt
-        }
+        candidates.sort(by: candidatePrecedes)
 
         var totalBytes = 0
         var files: [URL] = []
@@ -179,6 +180,14 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
             totalBytes += candidate.size
         }
         return files
+    }
+
+    private static func candidatePrecedes(
+        _ lhs: (url: URL, modifiedAt: Date, size: Int),
+        _ rhs: (url: URL, modifiedAt: Date, size: Int)
+    ) -> Bool {
+        if lhs.modifiedAt == rhs.modifiedAt { return lhs.url.path < rhs.url.path }
+        return lhs.modifiedAt > rhs.modifiedAt
     }
 
     private static func forEachEntry(
@@ -220,7 +229,9 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
             }
         }
 
-        if !discardingOversizedLine,
+        if !Task.isCancelled,
+           Date() < deadline,
+           !discardingOversizedLine,
            !line.isEmpty,
            let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
             body(entry)

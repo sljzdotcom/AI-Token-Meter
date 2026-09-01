@@ -184,6 +184,24 @@ struct ClaudeLocalActivityTests {
         ])
     }
 
+    @Test("Directory enumeration shares the scan deadline and bounds candidates")
+    func directoryEnumerationIsBounded() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterCore/Collectors/ClaudeLocalActivityReader.swift"
+        ))
+        let deadline = try #require(source.range(of: "let scanDeadline ="))
+        let enumeration = try #require(source.range(of: "let fileURLs = jsonlFiles("))
+
+        #expect(deadline.lowerBound < enumeration.lowerBound)
+        #expect(source.contains("deadline: scanDeadline"))
+        #expect(source.contains("guard !Task.isCancelled, Date() < deadline else { break }"))
+        #expect(source.contains("if candidates.count > maximumFileCount"))
+    }
+
     @Test("Reports an unavailable projects directory")
     func reportsUnavailableDirectory() async {
         let missing = temporaryDirectory().appendingPathComponent("missing", isDirectory: true)

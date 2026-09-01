@@ -52,7 +52,13 @@ public struct ClaudeCollector: UsageCollector {
         let localActivity = Task(priority: .utility) {
             await localActivityReader.read(now: Date(), dayCount: 30)
         }
-        let official = try await collectOfficialUsage()
+        let official: UsageSnapshot
+        do {
+            official = try await collectOfficialUsage()
+        } catch {
+            localActivity.cancel()
+            throw error
+        }
         return official.withClaudeLocalActivity(await localActivity.value)
     }
 
@@ -168,9 +174,15 @@ private actor TimedOptionalClaudeLocalActivityReader {
             await self?.finish(token: token)
         }
 
-        switch await Self.firstResult(from: task, timeout: timeout) {
-        case .value(let summary): return summary
-        case .timedOut: return nil
+        return await withTaskCancellationHandler {
+            switch await Self.firstResult(from: task, timeout: timeout) {
+            case .value(let summary): return summary
+            case .timedOut:
+                task.cancel()
+                return nil
+            }
+        } onCancel: {
+            task.cancel()
         }
     }
 

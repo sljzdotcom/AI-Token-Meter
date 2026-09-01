@@ -25,27 +25,31 @@ enum ClaudeDetailPresentation {
                 if $0.tokenCount == $1.tokenCount { return $0.modelID < $1.modelID }
                 return $0.tokenCount > $1.tokenCount
             }
-        let total = models.reduce(Int64(0)) { partial, model in
-            let (sum, overflow) = partial.addingReportingOverflow(model.tokenCount)
-            return overflow ? .max : sum
-        }
+        let total = models.reduce(0.0) { $0 + Double($1.tokenCount) }
         guard total > 0 else { return [] }
 
         return models.prefix(3).map { model in
             ClaudeModelRowPresentation(
                 modelID: model.modelID,
                 tokenCount: model.tokenCount,
-                sharePercent: Int((Double(model.tokenCount) / Double(total) * 100).rounded())
+                sharePercent: Int((Double(model.tokenCount) / total * 100).rounded())
             )
         }
     }
 
-    static func officialQuotaAccessibilityLabel(_ metric: UsageMetric) -> String {
+    static func officialQuotaAccessibilityLabel(
+        _ metric: UsageMetric,
+        resetText: String?
+    ) -> String {
         let percentage = Int(((metric.usedFraction ?? 0) * 100).rounded())
-        return "Official quota, \(metric.label), \(percentage) percent used"
+        return "Official quota, \(metric.label), \(percentage) percent used, \(resetText ?? "Reset time unavailable")"
     }
 
     static func localStatAccessibilityLabel(title: String, value: String) -> String {
         "Local estimate, \(title), \(value)"
+    }
+
+    static func localActivityAccessibilityLabel(title: String, detail: String) -> String {
+        "Local estimate, \(title), \(detail)"
     }
 }
