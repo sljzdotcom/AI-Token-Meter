@@ -70,4 +70,3 @@ README、Settings 参考和故障排查已区分“浮岛桌面层”与“临�
 
 - `REQ-20260901-003`：Widget Apple Development 证书与真实 Gallery 验收，继续延期；
 - `REQ-20260901-004`：Mission Control、第二普通 Space、真实指针拖动和多显示器补验，继续受环境限制。
-
