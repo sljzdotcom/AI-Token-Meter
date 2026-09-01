@@ -13,13 +13,49 @@ struct CodexAppServerClient: Sendable {
     }
 
     func readRateLimits(executableURL: URL, timeout: TimeInterval = 10) async throws -> UsageSnapshot {
+        let envelope: CodexRateLimitsEnvelope = try await request(
+            executableURL: executableURL,
+            method: "account/rateLimits/read",
+            params: .null,
+            timeout: timeout
+        )
+        guard let result = envelope.result else {
+            throw UsageCollectionError.invalidResponse
+        }
+        return snapshot(from: result)
+    }
+
+    func readAccount(executableURL: URL, timeout: TimeInterval = 10) async throws -> CodexAccountResult {
+        let envelope: CodexAccountEnvelope = try await request(
+            executableURL: executableURL,
+            method: "account/read",
+            params: .refreshToken(false),
+            timeout: timeout
+        )
+        guard let result = envelope.result else {
+            throw UsageCollectionError.invalidResponse
+        }
+        return result
+    }
+
+    private func request<Response: Decodable & Sendable>(
+        executableURL: URL,
+        method: String,
+        params: CodexRequestParameters,
+        timeout: TimeInterval
+    ) async throws -> Response {
         let processBox = CodexProcessBox()
 
-        return try await withThrowingTaskGroup(of: UsageSnapshot.self) { group in
+        return try await withThrowingTaskGroup(of: Response.self) { group in
             group.addTask {
                 do {
                     return try await Task.detached(priority: .utility) {
-                        try readRateLimitsBlocking(executableURL: executableURL, processBox: processBox)
+                        try requestBlocking(
+                            executableURL: executableURL,
+                            method: method,
+                            params: params,
+                            processBox: processBox
+                        ) as Response
                     }.value
                 } catch {
                     if processBox.timeoutWasRequested {
@@ -42,10 +78,12 @@ struct CodexAppServerClient: Sendable {
         }
     }
 
-    private func readRateLimitsBlocking(
+    private func requestBlocking<Response: Decodable>(
         executableURL: URL,
+        method: String,
+        params: CodexRequestParameters,
         processBox: CodexProcessBox
-    ) throws -> UsageSnapshot {
+    ) throws -> Response {
         let process = Process()
         let terminationWaiter = ProcessTerminationWaiter()
         let input = Pipe()
@@ -90,16 +128,12 @@ struct CodexAppServerClient: Sendable {
         try writeJSON(["method": "initialized"], to: input.fileHandleForWriting)
         try writeJSON([
             "id": 2,
-            "method": "account/rateLimits/read",
-            "params": NSNull(),
+            "method": method,
+            "params": params.jsonObject,
         ], to: input.fileHandleForWriting)
 
         let responseData = try response(withID: 2, from: output.fileHandleForReading)
-        let envelope = try JSONDecoder().decode(CodexRateLimitsEnvelope.self, from: responseData)
-        guard let result = envelope.result else {
-            throw UsageCollectionError.invalidResponse
-        }
-        return snapshot(from: result)
+        return try JSONDecoder().decode(Response.self, from: responseData)
     }
 
     private func response(withID expectedID: Int, from handle: FileHandle) throws -> Data {
@@ -192,8 +226,76 @@ struct CodexAppServerClient: Sendable {
     }
 }
 
+private enum CodexRequestParameters: Sendable {
+    case null
+    case refreshToken(Bool)
+
+    var jsonObject: Any {
+        switch self {
+        case .null: NSNull()
+        case .refreshToken(let refreshToken): ["refreshToken": refreshToken]
+        }
+    }
+}
+
 private struct CodexRateLimitsEnvelope: Decodable {
     let result: CodexRateLimitsResult?
+}
+
+struct CodexAccountEnvelope: Decodable, Sendable {
+    let result: CodexAccountResult?
+}
+
+struct CodexAccountResult: Decodable, Sendable {
+    let account: CodexAccount?
+    let requiresOpenaiAuth: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case account
+        case requiresOpenaiAuth
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.contains(.account) else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.account,
+                .init(codingPath: decoder.codingPath, debugDescription: "Missing Codex account field")
+            )
+        }
+        account = try container.decodeIfPresent(CodexAccount.self, forKey: .account)
+        requiresOpenaiAuth = try container.decode(Bool.self, forKey: .requiresOpenaiAuth)
+    }
+}
+
+enum CodexAccount: Decodable, Sendable {
+    case chatGPT(email: String?, planType: String?)
+    case apiKey
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case email
+        case planType
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(String.self, forKey: .type) {
+        case "chatgpt":
+            self = .chatGPT(
+                email: try container.decodeIfPresent(String.self, forKey: .email),
+                planType: try container.decodeIfPresent(String.self, forKey: .planType)
+            )
+        case "apiKey":
+            self = .apiKey
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: .type,
+                in: container,
+                debugDescription: "Unsupported Codex account type"
+            )
+        }
+    }
 }
 
 private struct CodexRateLimitsResult: Decodable {

@@ -10,7 +10,28 @@ if [ "$1" = "app-server" ]; then
   printf '{"id":1,"result":{"userAgent":"fake-codex"}}\n'
   IFS= read -r ai_meter_initialized
   IFS= read -r ai_meter_rate_request
-  printf '{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":27,"windowDurationMins":300,"resetsAt":1900000000},"secondary":{"usedPercent":8,"windowDurationMins":10080,"resetsAt":1900600000}}}}\n'
+  case "$ai_meter_rate_request" in
+    *rateLimits*)
+      printf '{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":27,"windowDurationMins":300,"resetsAt":1900000000},"secondary":{"usedPercent":8,"windowDurationMins":10080,"resetsAt":1900600000}}}}\n'
+      ;;
+    *account*read*)
+      case "${AI_METER_TEST_ACCOUNT_KIND:-chatgpt}" in
+        api-key)
+          printf '{"id":2,"result":{"account":{"type":"apiKey"},"requiresOpenaiAuth":false}}\n'
+          ;;
+        signed-out)
+          printf '{"id":2,"result":{"account":null,"requiresOpenaiAuth":true}}\n'
+          ;;
+        invalid)
+          printf '{"id":2,"result":{"unexpected":true}}\n'
+          ;;
+        *)
+          printf '{"id":2,"result":{"account":{"type":"chatgpt","email":"codex@example.com","planType":"pro"},"requiresOpenaiAuth":true}}\n'
+          ;;
+      esac
+      ;;
+    *) exit 3 ;;
+  esac
   exit 0
 fi
 
