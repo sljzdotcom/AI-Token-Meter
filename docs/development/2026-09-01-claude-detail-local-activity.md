@@ -50,7 +50,7 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 
 最终完整命令使用隔离 SwiftPM/Clang 缓存执行，结果为：
 
-- **292 项测试、58 个测试组通过；**
+- **295 项测试、58 个测试组通过；**
 - **0 个失败；**
 - 安装型 CLI 冒烟测试中的 3 项环境门控测试按设计跳过，不属于失败。
 
@@ -67,8 +67,8 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - `codesign --verify --deep --strict` 通过；
 - 主程序为 arm64 Mach-O；
 - Bundle 版本为 0.1.0（build 1）；
-- 候选版和 `/Applications/AI Token Meter.app` 主程序 SHA-256 均为 `0ce6425165c501bbb4540a3c9f5a8c190acac110669716c6177a5af49a34011c`；
-- 覆盖安装前版本已保存在 `/private/tmp/AI Token Meter-pre-reviewed-20260901-2307.app`，可用于本机临时回退。
+- 候选版和 `/Applications/AI Token Meter.app` 主程序 SHA-256 均为 `b958f72c6da409f37c841b3cd9fdfb39dbc0f6b5fdad0a5dd2761afe37c4df45`；
+- 覆盖安装前版本已保存在 `/private/tmp/AI Token Meter-pre-final-review-20260901-2321.app`，可用于本机临时回退。
 
 最终安装版刷新后的真实 Claude 快照为：
 
@@ -92,7 +92,8 @@ Reader 的 JSON 解码结构只声明以下白名单字段：
 - `4b4aebb`：把可选本机活动接入 Claude 采集；
 - `bb10db3`：实现丰富 Claude 专用详情；
 - `5c33184`：隐藏零 Token 模型行；
-- `8a5d8c5`：落实独立审查提出的资源边界、超时、缓存规范化、布局、空状态与无障碍加固。
+- `8a5d8c5`：落实独立审查提出的资源边界、超时、缓存规范化、布局、空状态与无障碍加固；
+- `90b31c8`：复审闭环目录枚举和底层取消边界，补回额度重置时间无障碍信息，并修复极端计数占比。
 
 ## 已知边界
 
