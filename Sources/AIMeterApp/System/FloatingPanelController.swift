@@ -374,7 +374,9 @@ final class FloatingPanelController {
                     availableHeight: availableHeight
                 )
             )
-        case .claude, .none: detailSize = NSSize(width: 300, height: 260)
+        case .claude:
+            detailSize = ClaudeDetailPanelLayout.size(availableHeight: availableHeight)
+        case .none: detailSize = NSSize(width: 300, height: 260)
         }
         return detailSize
     }
