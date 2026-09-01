@@ -119,8 +119,12 @@ prepare_entitlements() {
     WIDGET_ENTITLEMENTS="$BUILD_DIR/AITokenMeterWidget.entitlements"
     cp "$PROJECT_DIR/Sources/AIMeterApp/Resources/AIMeterApp.entitlements" "$APP_ENTITLEMENTS"
     cp "$PROJECT_DIR/Sources/AIMeterWidgetExtension/Resources/AITokenMeterWidget.entitlements" "$WIDGET_ENTITLEMENTS"
-    plutil -replace com.apple.security.application-groups -json "[\"$APP_GROUP_IDENTIFIER\"]" "$APP_ENTITLEMENTS"
-    plutil -replace com.apple.security.application-groups -json "[\"$APP_GROUP_IDENTIFIER\"]" "$WIDGET_ENTITLEMENTS"
+    /usr/libexec/PlistBuddy \
+        -c "Set :com.apple.security.application-groups:0 $APP_GROUP_IDENTIFIER" \
+        "$APP_ENTITLEMENTS"
+    /usr/libexec/PlistBuddy \
+        -c "Set :com.apple.security.application-groups:0 $APP_GROUP_IDENTIFIER" \
+        "$WIDGET_ENTITLEMENTS"
 }
 
 codesign_widget_extension() {
