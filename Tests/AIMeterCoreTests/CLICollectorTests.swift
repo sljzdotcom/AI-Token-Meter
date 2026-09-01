@@ -19,6 +19,91 @@ struct CLICollectorTests {
         #expect(snapshot.primaryMetric?.usedFraction == 0.73)
     }
 
+    @Test("Claude collector attaches local activity without changing official quota")
+    func claudeCollectorAttachesLocalActivity() async throws {
+        let activity = claudeActivitySummary
+        let collector = ClaudeCollector(
+            runner: PTYCommandRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: StubClaudeLocalActivityReader(result: .success(activity))
+        )
+
+        let snapshot = try await collector.collect()
+
+        #expect(snapshot.primaryMetric?.usedFraction == 0.73)
+        #expect(snapshot.secondaryMetric?.usedFraction == 0.07)
+        #expect(snapshot.claudeLocalActivity == activity)
+    }
+
+    @Test("Claude local activity failure does not hide official quota")
+    func claudeLocalFailureIsOptional() async throws {
+        let collector = ClaudeCollector(
+            runner: PTYCommandRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: StubClaudeLocalActivityReader(result: .failure(.unavailable))
+        )
+
+        let snapshot = try await collector.collect()
+
+        #expect(snapshot.primaryMetric?.usedFraction == 0.73)
+        #expect(snapshot.claudeLocalActivity == nil)
+    }
+
+    @Test("Claude local activity timeout never delays official quota")
+    func claudeLocalTimeoutIsOptional() async throws {
+        let collector = ClaudeCollector(
+            runner: RecordingClaudeRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: SlowClaudeLocalActivityReader(),
+            localActivityTimeout: .milliseconds(50)
+        )
+        let startedAt = Date()
+
+        let snapshot = try await collector.collect()
+
+        #expect(Date().timeIntervalSince(startedAt) < 0.4)
+        #expect(snapshot.primaryMetric?.usedFraction == 0.73)
+        #expect(snapshot.claudeLocalActivity == nil)
+    }
+
+    @Test("Claude local activity timeout cancels the underlying scan")
+    func claudeLocalTimeoutCancelsReader() async throws {
+        let reader = CancellationRecordingClaudeLocalActivityReader()
+        let collector = ClaudeCollector(
+            runner: RecordingClaudeRunner(),
+            locator: FixedLocator(url: fixtureExecutable),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: reader,
+            localActivityTimeout: .milliseconds(50)
+        )
+
+        _ = try await collector.collect()
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(await reader.wasCancelled())
+    }
+
+    @Test("Claude official failure does not wait for local activity")
+    func claudeOfficialFailureReturnsImmediately() async {
+        let collector = ClaudeCollector(
+            runner: RecordingClaudeRunner(),
+            locator: FixedLocator(url: nil),
+            workspaceResolver: FixedWorkspaceResolver(url: FileManager.default.temporaryDirectory),
+            localActivityReader: SlowClaudeLocalActivityReader(),
+            localActivityTimeout: .seconds(2)
+        )
+        let startedAt = Date()
+
+        await #expect(throws: UsageCollectionError.notInstalled) {
+            try await collector.collect()
+        }
+
+        #expect(Date().timeIntervalSince(startedAt) < 0.2)
+    }
+
     @Test("Codex collector runs status and parses remaining quota")
     func codexCollectorReturnsSnapshot() async throws {
         let collector = CodexCollector(
@@ -215,6 +300,17 @@ struct CLICollectorTests {
     private var generalAndModelCodexExecutable: URL {
         Bundle.module.url(forResource: "fake-codex-general-and-model", withExtension: "sh")!
     }
+
+    private var claudeActivitySummary: ClaudeLocalActivitySummary {
+        let reference = Date(timeIntervalSince1970: 1_900_000_000)
+        return ClaudeLocalActivitySummary(
+            days: [ClaudeDailyActivity(date: reference, inputTokens: 10, outputTokens: 20, cacheTokens: 30)],
+            sessionCount: 1,
+            activeDayCount: 1,
+            models: [ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 60)],
+            updatedAt: reference
+        )
+    }
 }
 
 private struct FixedLocator: ExecutableLocating {
@@ -246,5 +342,42 @@ private actor RecordingClaudeRunner: CommandRunning {
 
     func recordedRequests() -> [CommandRequest] {
         requests
+    }
+}
+
+private struct StubClaudeLocalActivityReader: ClaudeLocalActivityReading {
+    enum Failure: Error {
+        case unavailable
+    }
+
+    let result: Result<ClaudeLocalActivitySummary, Failure>
+
+    func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
+        try result.get()
+    }
+}
+
+private struct SlowClaudeLocalActivityReader: ClaudeLocalActivityReading {
+    func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
+        try await Task.sleep(for: .milliseconds(500))
+        throw StubClaudeLocalActivityReader.Failure.unavailable
+    }
+}
+
+private actor CancellationRecordingClaudeLocalActivityReader: ClaudeLocalActivityReading {
+    private var cancelled = false
+
+    func read(now: Date, dayCount: Int) async throws -> ClaudeLocalActivitySummary {
+        do {
+            try await Task.sleep(for: .seconds(10))
+        } catch is CancellationError {
+            cancelled = true
+            throw CancellationError()
+        }
+        throw StubClaudeLocalActivityReader.Failure.unavailable
+    }
+
+    func wasCancelled() -> Bool {
+        cancelled
     }
 }

@@ -53,7 +53,23 @@ extension UsageSnapshot {
             statusMessage: statusMessage.map(SensitiveTextRedactor.redact),
             codexResetCredits: codexResetCredits?.privacySanitized(),
             codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity?.privacySanitized(),
             deepSeekUsageHistory: deepSeekUsageHistory?.privacySanitized()
+        )
+    }
+}
+
+private extension ClaudeLocalActivitySummary {
+    func privacySanitized() -> ClaudeLocalActivitySummary {
+        ClaudeLocalActivitySummary(
+            days: days,
+            sessionCount: sessionCount,
+            activeDayCount: activeDayCount,
+            models: models.map {
+                ClaudeModelActivity(modelID: $0.modelID, tokenCount: $0.tokenCount)
+            },
+            updatedAt: updatedAt,
+            dayCount: dayCount
         )
     }
 }

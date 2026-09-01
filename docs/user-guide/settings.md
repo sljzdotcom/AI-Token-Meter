@@ -33,11 +33,18 @@ Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Setti
 - **System Default（默认）**：使用 macOS 系统字体 San Francisco，并保留界面原有的 Rounded 设计请求。
 - **Antonio**：使用本机已经安装的 Antonio 字体家族。
 - **DIN Condensed**：使用本机已经安装的 DIN Condensed 字体家族。
-- Settings 始终使用 macOS 系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、三个选项名称、说明或按钮的字形和大小。
+- **Alimama FangYuanTi VF**：使用本机已安装的阿里妈妈方圆体可变字体。
+- **Fira Code**：优先使用 `Fira Code`，兼容 `Fira Code VF` 家族名。
+- **Leigo**：使用 Ricardo Medina 的 Leigo Regular，兼容 `Leigo` 与 `Leigo Regular` 家族名。
+- **Menlo**：使用 macOS 提供的 Menlo 等宽字体。
+- **Alimama DaoLiTi**：使用本机已安装的阿里妈妈刀隶体。
+- Settings 始终使用 macOS 系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、八个选项名称、说明或按钮的字形和大小。
 - 切换会立即应用到菜单点击面板、浮动条及 Provider 详情，不需要退出或重新打开窗口；三个选项只显示名称，不提供对应字体的字形预览。
 - `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
-- Antonio 或 DIN Condensed 未安装时，对应选项仍会显示 `Not installed`，但不能选择。已保存的自定义字体临时不可用时，AI Token Meter 会安全回退到系统字体，不会覆盖已保存选择。
+- 任意自定义字体未安装时，对应选项会显示 `Not installed` 且不能选择。已保存的字体临时不可用时，AI Token Meter 会安全回退到系统字体，但保留偏好；重新安装后可自动恢复。
 - AI Token Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。
+
+Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时由 macOS 字体级联补齐中文字形。Widget、Settings、系统菜单和通知始终使用系统字体。
 
 字体选择只影响 AI Token Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
 

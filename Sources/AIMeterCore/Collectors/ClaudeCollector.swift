@@ -8,6 +8,7 @@ public struct ClaudeCollector: UsageCollector {
     private let parser: ClaudeUsageParser
     private let accountStatusParser: ClaudeAccountStatusParser
     private let workspaceResolver: any ClaudeUsageWorkspaceResolving
+    private let localActivityReader: TimedOptionalClaudeLocalActivityReader
 
     public init(
         runner: any CommandRunning = PTYCommandRunner(),
@@ -21,9 +22,47 @@ public struct ClaudeCollector: UsageCollector {
         self.parser = parser
         self.accountStatusParser = accountStatusParser
         self.workspaceResolver = workspaceResolver
+        self.localActivityReader = TimedOptionalClaudeLocalActivityReader(
+            reader: ClaudeLocalActivityReader(),
+            timeout: .seconds(2)
+        )
+    }
+
+    init(
+        runner: any CommandRunning,
+        locator: any ExecutableLocating,
+        parser: ClaudeUsageParser = ClaudeUsageParser(),
+        accountStatusParser: ClaudeAccountStatusParser = ClaudeAccountStatusParser(),
+        workspaceResolver: any ClaudeUsageWorkspaceResolving,
+        localActivityReader: any ClaudeLocalActivityReading,
+        localActivityTimeout: Duration = .seconds(2)
+    ) {
+        self.runner = runner
+        self.locator = locator
+        self.parser = parser
+        self.accountStatusParser = accountStatusParser
+        self.workspaceResolver = workspaceResolver
+        self.localActivityReader = TimedOptionalClaudeLocalActivityReader(
+            reader: localActivityReader,
+            timeout: localActivityTimeout
+        )
     }
 
     public func collect() async throws -> UsageSnapshot {
+        let localActivity = Task(priority: .utility) {
+            await localActivityReader.read(now: Date(), dayCount: 30)
+        }
+        let official: UsageSnapshot
+        do {
+            official = try await collectOfficialUsage()
+        } catch {
+            localActivity.cancel()
+            throw error
+        }
+        return official.withClaudeLocalActivity(await localActivity.value)
+    }
+
+    private func collectOfficialUsage() async throws -> UsageSnapshot {
         guard let executableURL = locator.locate(named: "claude") else {
             throw UsageCollectionError.notInstalled
         }
@@ -100,5 +139,86 @@ public struct ClaudeCollector: UsageCollector {
             || normalized.contains("需要登录") {
             throw UsageCollectionError.authenticationRequired
         }
+    }
+}
+
+private enum ClaudeLocalActivityReadOutcome: Sendable {
+    case value(ClaudeLocalActivitySummary?)
+    case timedOut
+}
+
+private actor TimedOptionalClaudeLocalActivityReader {
+    private let reader: any ClaudeLocalActivityReading
+    private let timeout: Duration
+    private var inFlightToken: UUID?
+
+    init(reader: any ClaudeLocalActivityReading, timeout: Duration) {
+        self.reader = reader
+        self.timeout = timeout
+    }
+
+    func read(now: Date, dayCount: Int) async -> ClaudeLocalActivitySummary? {
+        guard inFlightToken == nil else { return nil }
+
+        let token = UUID()
+        let reader = reader
+        let task = Task(priority: .utility) {
+            ClaudeLocalActivityReadOutcome.value(
+                try? await reader.read(now: now, dayCount: dayCount)
+            )
+        }
+        inFlightToken = token
+
+        Task { [weak self] in
+            _ = await task.value
+            await self?.finish(token: token)
+        }
+
+        return await withTaskCancellationHandler {
+            switch await Self.firstResult(from: task, timeout: timeout) {
+            case .value(let summary): return summary
+            case .timedOut:
+                task.cancel()
+                return nil
+            }
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func finish(token: UUID) {
+        guard inFlightToken == token else { return }
+        inFlightToken = nil
+    }
+
+    nonisolated private static func firstResult(
+        from task: Task<ClaudeLocalActivityReadOutcome, Never>,
+        timeout: Duration
+    ) async -> ClaudeLocalActivityReadOutcome {
+        await withCheckedContinuation { continuation in
+            let gate = ClaudeActivityOneShotContinuation(continuation)
+            Task.detached { gate.resume(returning: await task.value) }
+            Task.detached {
+                try? await Task.sleep(for: timeout)
+                gate.resume(returning: .timedOut)
+            }
+        }
+    }
+}
+
+private final class ClaudeActivityOneShotContinuation<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Value, Never>?
+
+    init(_ continuation: CheckedContinuation<Value, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(returning value: Value) {
+        let continuation = lock.withLock {
+            defer { self.continuation = nil }
+            return self.continuation
+        }
+        continuation?.resume(returning: value)
     }
 }

@@ -103,6 +103,7 @@ public actor RefreshCoordinator {
             statusMessage: message,
             codexResetCredits: snapshot.codexResetCredits,
             codexLocalActivity: snapshot.codexLocalActivity,
+            claudeLocalActivity: snapshot.claudeLocalActivity,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }

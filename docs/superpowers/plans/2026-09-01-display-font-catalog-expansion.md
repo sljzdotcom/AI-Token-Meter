@@ -26,7 +26,7 @@
 - 修改：`Tests/AIMeterCoreTests/DisplayFontPreferenceTests.swift`
 - 修改：`Sources/AIMeterCore/Preferences/DisplayFontChoice.swift`
 
-- [ ] **步骤 1：编写失败的选项和持久化测试**
+- [x] **步骤 1：编写失败的选项和持久化测试**
 
 将选项断言更新为：
 
@@ -49,13 +49,13 @@
 
 在 round-trip 测试中依次保存并加载每个新增选项，同时保留未知 raw value 回退 `.system` 的测试。
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`swift test --filter DisplayFontPreferenceTests`
 
 预期：FAIL，编译器报告五个新增 enum case 不存在。
 
-- [ ] **步骤 3：实现最小稳定枚举**
+- [x] **步骤 3：实现最小稳定枚举**
 
 在 `DisplayFontChoice` 增加：
 
@@ -69,13 +69,13 @@ case alimamaDaoLiTi = "alimama-daoliti"
 
 并在 `displayName` switch 返回规格中的名称，不改变三个既有 raw value。
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`swift test --filter DisplayFontPreferenceTests`
 
 预期：PASS。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Sources/AIMeterCore/Preferences/DisplayFontChoice.swift Tests/AIMeterCoreTests/DisplayFontPreferenceTests.swift
@@ -88,7 +88,7 @@ git commit -m "feat: expand display font preferences"
 - 修改：`Tests/AIMeterAppTests/TypographyTests.swift`
 - 修改：`Sources/AIMeterApp/Views/AIMeterTypography.swift`
 
-- [ ] **步骤 1：编写失败的家族映射测试**
+- [x] **步骤 1：编写失败的家族映射测试**
 
 新增断言：
 
@@ -105,13 +105,13 @@ let catalog = DisplayFontCatalog(availableFamilies: [
 
 再用同时包含 `Fira Code`/`Fira Code VF` 和 `Leigo`/`Leigo Regular` 的目录，验证首选候选优先；用空目录验证五项全部回退 `nil`。更新 Settings 选项测试，断言八项顺序不变、缺失项显示 `Not installed`。
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`swift test --filter TypographyTests`
 
 预期：FAIL，新增 case 尚未被 availability 和 family switch 覆盖。
 
-- [ ] **步骤 3：实现有序候选映射**
+- [x] **步骤 3：实现有序候选映射**
 
 在 `DisplayFontCatalog` 增加：
 
@@ -143,7 +143,7 @@ enum DisplayFontFamilyCandidates {
 
 `isAvailable` 对 `.system` 返回 true，其余调用 `resolvedFamily != nil`；`AIMeterTypography.resolvedFamily` 直接复用该结果，删除重复 switch。
 
-- [ ] **步骤 4：运行字体测试与完整测试**
+- [x] **步骤 4：运行字体测试与完整测试**
 
 运行：
 
@@ -154,7 +154,7 @@ swift test
 
 预期：全部 PASS；Swift 编译器无未穷尽 switch。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Sources/AIMeterApp/Views/AIMeterTypography.swift Tests/AIMeterAppTests/TypographyTests.swift
@@ -169,11 +169,11 @@ git commit -m "feat: resolve expanded display font catalog"
 - 创建：`docs/development/2026-09-01-display-font-catalog-expansion.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：更新用户文档**
+- [x] **步骤 1：更新用户文档**
 
 把 Display font 列表扩展为八项，明确：AI Token Meter 不下载或分发字体；未安装项显示 `Not installed`；Leigo/Fira Code/Menlo 的中文由 macOS 系统字体级联；Settings 和 Widget 始终使用系统字体。
 
-- [ ] **步骤 2：执行静态与 Release 验证**
+- [x] **步骤 2：执行静态与 Release 验证**
 
 运行：
 
@@ -185,15 +185,15 @@ swift build -c release
 
 预期：全部成功；`Sources` 和构建产物中没有新增 `.ttf`、`.otf`、`.woff` 或 `.woff2`。
 
-- [ ] **步骤 3：安装候选版并检查真实 Settings**
+- [x] **步骤 3：安装候选版并检查真实 Settings**
 
 使用项目现有安装脚本生成并安装签名候选版。打开 Appearance，确认八个选项按规格排序；当前机器 Menlo 可选，未安装的四个新增第三方字体显示 `Not installed`；Antonio 当前偏好保持，Settings 字形不变化。
 
-- [ ] **步骤 4：记录验收结果与需求状态**
+- [x] **步骤 4：记录验收结果与需求状态**
 
 开发日志必须记录测试数量、Release 构建、安装指纹、八项真实状态、最终 Antonio 偏好，以及未安装字体无法做视觉字形验收这一事实。将 `REQ-20260901-007` 更新为已完成；未安装字体视觉检查只作为环境限制，不影响“目录扩充”完成。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add docs/user-guide/settings.md docs/development/README.md docs/development/2026-09-01-display-font-catalog-expansion.md docs/requirements-backlog.md

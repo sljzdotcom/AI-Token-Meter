@@ -13,6 +13,9 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 - Settings 的登录按钮只生成权限为 `0700` 的本地命令文件，内容固定为官方 `claude auth login` 或 `codex login`，不拼接用户输入或秘密；
 - CLI 返回的邮箱、套餐和认证方式只保留在当前 App 进程的内存展示状态，不进入统一快照、Widget、通知、脚本或日志；
 - Codex 本机活动只查询本地线程表的 `tokens_used`、`created_at`、`updated_at`，不读取标题、预览、提示词、回复或凭证；
+- Claude 本机活动只解码本地 JSONL 的 `timestamp`、`sessionId`、`message.model` 和 `message.usage` 白名单字段；提示词、回复、项目路径、标题、分支和文件内容不会进入领域模型、缓存或日志；
+- Claude JSONL 扫描按块流式读取，只处理 30 日窗口内最近修改的文件，并跳过符号链接、损坏记录、负计数和超出上限的行/文件；扫描还有总字节、文件数和持续时间上限，子代理 Token 可计入总量，但不会被重复算作主会话；
+- Claude 模型标识只接受有限长度的字母、数字和 `-._:/`；旧缓存解码和新快照写入都会重新规范化，零 Token、未知或疑似敏感值不展示；本机活动最多等待 2 秒，失败或超时不改变官方额度；
 - CLI 标准输出会在解析后转换为统一字段，原始账户输出不写入业务缓存；
 - 一次性 Claude 工作区批准由用户在终端确认。
 
@@ -48,6 +51,7 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 | 界面与监控偏好 | `UserDefaults` | 直到用户清理偏好 |
 | 最近成功用量快照 | `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
 | Codex 本机活动聚合 | 随统一快照写入 `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
+| Claude 本机活动聚合 | 随统一快照写入 `Application Support/AI Meter` | 新快照覆盖或用户删除缓存；只含日期、计数和模型 ID |
 | DeepSeek 每日聚合 | `Application Support/AI Meter` | 新数据覆盖或用户删除缓存 |
 | DeepSeek 登录会话 | App WebKit 数据存储 | 退出登录或清理应用网站数据 |
 | Widget 展示快照 | 签名双方专用 App Group | 主应用刷新覆盖；只含脱敏展示字段 |

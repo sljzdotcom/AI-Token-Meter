@@ -555,6 +555,7 @@ final class AppModel {
             statusMessage: snapshot.statusMessage,
             codexResetCredits: snapshot.codexResetCredits,
             codexLocalActivity: snapshot.codexLocalActivity,
+            claudeLocalActivity: snapshot.claudeLocalActivity,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
@@ -597,6 +598,28 @@ final class AppModel {
                     limit: 100,
                     unit: .percent,
                     resetDescription: "Resets at midnight"
+                ),
+                claudeLocalActivity: ClaudeLocalActivitySummary(
+                    days: (0..<30).map { offset in
+                        let active = offset > 8 && !offset.isMultiple(of: 6)
+                        return ClaudeDailyActivity(
+                            date: Calendar.current.date(
+                                byAdding: .day,
+                                value: offset - 29,
+                                to: Date()
+                            ) ?? Date(),
+                            inputTokens: active ? Int64(18_000 + offset * 1_100) : 0,
+                            outputTokens: active ? Int64(9_000 + offset * 620) : 0,
+                            cacheTokens: active ? Int64(31_000 + offset * 1_900) : 0
+                        )
+                    },
+                    sessionCount: 46,
+                    activeDayCount: 18,
+                    models: [
+                        ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 1_480_000),
+                        ClaudeModelActivity(modelID: "claude-opus-4-1", tokenCount: 620_000),
+                    ],
+                    updatedAt: Date()
                 )
             ),
             UsageSnapshot(
@@ -682,6 +705,7 @@ private extension UsageSnapshot {
             statusMessage: statusMessage,
             codexResetCredits: codexResetCredits,
             codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
             deepSeekUsageHistory: history
         )
     }

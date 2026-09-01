@@ -37,6 +37,7 @@ Sources/AIMeterApp/
 │   └── Logos/                  # Claude、Codex、DeepSeek 图标资源
 ├── System/
 │   ├── ClaudeWorkspaceSetupLauncher.swift
+│   ├── ClaudeDetailPanelLayout.swift
 │   ├── CodexDetailPanelLayout.swift
 │   ├── DeepSeekWebSession.swift
 │   ├── FloatingDetailInteractionOwnership.swift
@@ -52,6 +53,8 @@ Sources/AIMeterApp/
 └── Views/
     ├── AboutSettingsView.swift
     ├── AppearanceSettingsView.swift
+    ├── ClaudeDetailPresentation.swift # Claude 详情空状态、模型占比与无障碍文案
+    ├── ClaudeDetailView.swift
     ├── CodexResetCreditsView.swift
     ├── CodexDetailView.swift
     ├── DeepSeekAnalyticsView.swift
@@ -120,6 +123,7 @@ Sources/AIMeterCore/
 
 - `ANSITextSanitizer.swift`：清理终端控制字符；
 - `ClaudeCollector.swift`：Claude 认证和 `/usage` 采集；
+- `ClaudeLocalActivityReader.swift`：只读聚合当前 Mac 最近 30 天的 Claude Code 计量元数据；
 - `ClaudeSetupScriptBuilder.swift`：生成一次性工作区设置命令；
 - `ClaudeUsageParser.swift`：解析 Claude 用量；
 - `ClaudeUsageWorkspace.swift`：管理专用空工作区；

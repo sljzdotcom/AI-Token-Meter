@@ -65,6 +65,31 @@ struct RefreshCoordinatorTests {
         #expect(codex.codexResetCredits?.availableCount == 1)
     }
 
+    @Test("Cached Claude fallback preserves local activity aggregates")
+    func preservesClaudeLocalActivityInCacheFallback() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let reference = Date(timeIntervalSince1970: 1_900_000_000)
+        let activity = ClaudeLocalActivitySummary(
+            days: [ClaudeDailyActivity(date: reference, inputTokens: 10, outputTokens: 20, cacheTokens: 30)],
+            sessionCount: 1,
+            activeDayCount: 1,
+            models: [ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 60)],
+            updatedAt: reference
+        )
+        let cache = SnapshotCache(directoryURL: directory)
+        try cache.save([UsageSnapshot(provider: .claude, claudeLocalActivity: activity)])
+        let coordinator = RefreshCoordinator(
+            collectors: [ControlledCollector(provider: .claude, result: .failure(.timedOut))],
+            cache: cache
+        )
+
+        let snapshot = try #require(await coordinator.refresh().first)
+
+        #expect(snapshot.collectionStatus == .cached)
+        #expect(snapshot.claudeLocalActivity == activity)
+    }
+
     @Test("Two overlapping refresh requests share one collection pass")
     func mergesOverlappingRefreshes() async {
         let directory = temporaryDirectory()

@@ -129,7 +129,7 @@ struct FloatingDetailView: View {
                     CodexDetailView(snapshot: snapshot)
                         .onHover(perform: onInteractionChange)
                 } else {
-                    compactDetail(snapshot)
+                    ClaudeDetailView(snapshot: snapshot, onSetup: onClaudeSetup)
                         .onHover(perform: onInteractionChange)
                 }
             }
@@ -137,71 +137,4 @@ struct FloatingDetailView: View {
         .aiMeterFontScope(.content(model.displayFontChoice))
     }
 
-    private func compactDetail(_ snapshot: UsageSnapshot) -> some View {
-        let presentation = ProviderPresentation(snapshot: snapshot)
-        return VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    HStack(spacing: 9) {
-                        ProviderLogo(provider: snapshot.provider, size: 25)
-                        Text(presentation.title)
-                            .aiMeterFont(.headline)
-                            .foregroundStyle(detailValueStyle(presentation))
-                    }
-                    Spacer()
-                    Text(presentation.valueText)
-                        .aiMeterFont(.title2, design: .rounded, weight: .bold)
-                        .foregroundStyle(detailValueStyle(presentation))
-                }
-                Text(presentation.detailText)
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(AIMeterVisualTheme.secondaryText)
-                if let reset = presentation.primaryResetText {
-                    Text(reset)
-                        .aiMeterFont(.caption2)
-                        .foregroundStyle(AIMeterVisualTheme.tertiaryText)
-                }
-                if let secondary = snapshot.secondaryMetric,
-                   let fraction = secondary.usedFraction {
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(secondary.label)
-                            Spacer()
-                            Text("\(Int((fraction * 100).rounded()))%")
-                                .foregroundStyle(detailValueStyle(presentation))
-                        }
-                        AIMeterProgressBar(
-                            provider: snapshot.provider,
-                            fraction: fraction,
-                            semantic: presentation.semantic
-                        )
-                        if let reset = presentation.secondaryResetText {
-                            Text(reset)
-                                .foregroundStyle(AIMeterVisualTheme.tertiaryText)
-                        }
-                    }
-                    .aiMeterFont(.caption2)
-                }
-                if let status = presentation.statusText {
-                    Text(status)
-                        .aiMeterFont(.caption2)
-                        .foregroundStyle(AIMeterVisualTheme.secondaryText)
-                }
-                if snapshot.provider == .claude,
-                   snapshot.collectionStatus == .setupRequired {
-                    Button("Open one-time setup", action: onClaudeSetup)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                }
-                Spacer(minLength: 0)
-                Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
-                    .aiMeterFont(.caption2)
-                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .aiMeterDetailSurface()
-    }
-
-    private func detailValueStyle(_ presentation: ProviderPresentation) -> AnyShapeStyle {
-        presentation.semantic.accentStyle(for: presentation.provider)
-    }
 }
