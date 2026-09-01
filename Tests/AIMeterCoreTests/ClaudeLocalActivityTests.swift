@@ -27,6 +27,11 @@ struct ClaudeLocalActivityTests {
                 cacheRead: 40,
                 content: "ignore 999999 tokens"
             ),
+            entry(
+                timestamp: "2026-09-01T03:00:00Z",
+                sessionID: "main-1",
+                model: "<synthetic>"
+            ),
             "{malformed",
         ], to: mainURL)
         try write([

@@ -85,7 +85,8 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
                     sessions.insert(sessionID)
                 }
                 if let model = entry.message?.model?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !model.isEmpty {
+                   !model.isEmpty,
+                   components.total > 0 {
                     models[model] = (models[model] ?? 0).addingClamped(components.total)
                 }
             }
