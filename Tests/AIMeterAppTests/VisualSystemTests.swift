@@ -31,6 +31,18 @@ struct VisualSystemTests {
         #expect(image.size.height >= 1068)
     }
 
+    @Test("Background crop uses equal axis magnitudes and mirrors only X")
+    func floatingBackgroundScale() {
+        let right = FloatingStripBackgroundPresentation.scale(for: .right)
+        let left = FloatingStripBackgroundPresentation.scale(for: .left)
+
+        #expect(right.width == 1.22)
+        #expect(right.height == 1.22)
+        #expect(left.width == -right.width)
+        #expect(left.height == right.height)
+        #expect(abs(left.width) == abs(left.height))
+    }
+
     @Test("Only the strip background mirrors with the attached edge")
     @MainActor
     func floatingBackgroundMirrorsWithEdge() throws {
@@ -47,6 +59,22 @@ struct VisualSystemTests {
         #expect(rightTrailing.blue > rightTrailing.red)
         #expect(leftLeading.blue > leftLeading.red)
         #expect(leftTrailing.red > leftTrailing.blue)
+    }
+
+    @Test("Uniform crop removes black gutters from both visible shoulders")
+    @MainActor
+    func floatingBackgroundFillsShoulders() throws {
+        let background = try blackGutterBlueCenterImage()
+
+        for edge in [FloatingStripEdge.left, .right] {
+            let rendered = try renderSurface(edge: edge, backgroundImage: background)
+            let attachedX = edge == .right ? 107 : 0
+            for y in [20, 336] {
+                let color = try rgb(atX: attachedX, y: y, in: rendered)
+                #expect(color.blue > 100)
+                #expect(color.blue > color.red)
+            }
+        }
     }
 
     @Test("Missing background keeps the glass fallback and exact shoulder mask")
@@ -299,6 +327,38 @@ struct VisualSystemTests {
                 bytes[offset] = x < width / 2 ? 255 : 0
                 bytes[offset + 1] = 0
                 bytes[offset + 2] = x < width / 2 ? 0 : 255
+                bytes[offset + 3] = 255
+            }
+        }
+
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.addRepresentation(representation)
+        return image
+    }
+
+    private func blackGutterBlueCenterImage() throws -> NSImage {
+        let width = 108
+        let height = 356
+        let representation = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: width,
+            pixelsHigh: height,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: width * 4,
+            bitsPerPixel: 32
+        ))
+        let bytes = try #require(representation.bitmapData)
+        for y in 0..<height {
+            for x in 0..<width {
+                let offset = y * width * 4 + x * 4
+                let isGutter = y < 32 || y >= 324
+                bytes[offset] = 0
+                bytes[offset + 1] = 0
+                bytes[offset + 2] = isGutter ? 0 : 255
                 bytes[offset + 3] = 255
             }
         }
