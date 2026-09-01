@@ -30,7 +30,57 @@ struct ProviderSupplementalDataTests {
         let snapshot = try JSONDecoder().decode(UsageSnapshot.self, from: legacy)
 
         #expect(snapshot.codexResetCredits == nil)
+        #expect(snapshot.claudeLocalActivity == nil)
         #expect(snapshot.deepSeekUsageHistory == nil)
+    }
+
+    @Test("Claude local activity retains aggregate-only data")
+    func claudeLocalActivityModel() throws {
+        let reference = Date(timeIntervalSince1970: 1_900_000_000)
+        let activity = ClaudeLocalActivitySummary(
+            days: [
+                ClaudeDailyActivity(
+                    date: reference,
+                    inputTokens: 10,
+                    outputTokens: 20,
+                    cacheTokens: 30
+                ),
+            ],
+            sessionCount: 2,
+            activeDayCount: 1,
+            models: [ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 60)],
+            updatedAt: reference
+        )
+
+        let snapshot = UsageSnapshot(provider: .claude, claudeLocalActivity: activity)
+        let encoded = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(UsageSnapshot.self, from: encoded)
+
+        #expect(activity.days.first?.totalTokens == 60)
+        #expect(decoded.claudeLocalActivity == activity)
+    }
+
+    @Test("Claude activity clamps invalid aggregate values")
+    func claudeActivityClampsInvalidValues() {
+        let activity = ClaudeLocalActivitySummary(
+            days: [ClaudeDailyActivity(
+                date: .distantPast,
+                inputTokens: -1,
+                outputTokens: -2,
+                cacheTokens: -3
+            )],
+            sessionCount: -4,
+            activeDayCount: -5,
+            models: [ClaudeModelActivity(modelID: "model", tokenCount: -6)],
+            updatedAt: .distantPast,
+            dayCount: 0
+        )
+
+        #expect(activity.days.first?.totalTokens == 0)
+        #expect(activity.sessionCount == 0)
+        #expect(activity.activeDayCount == 0)
+        #expect(activity.models.first?.tokenCount == 0)
+        #expect(activity.dayCount == 1)
     }
 
     @Test("DeepSeek history exposes independently derived totals")

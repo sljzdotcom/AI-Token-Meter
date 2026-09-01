@@ -63,6 +63,21 @@ struct PrivacyRegressionTests {
         #expect(!serialized.contains("ChatGPT · Pro"))
     }
 
+    @Test("Claude aggregate activity survives snapshot sanitization unchanged")
+    func claudeAggregateSurvivesSanitization() {
+        let reference = Date(timeIntervalSince1970: 1_900_000_000)
+        let activity = ClaudeLocalActivitySummary(
+            days: [ClaudeDailyActivity(date: reference, inputTokens: 10, outputTokens: 20, cacheTokens: 30)],
+            sessionCount: 2,
+            activeDayCount: 1,
+            models: [ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 60)],
+            updatedAt: reference
+        )
+        let snapshot = UsageSnapshot(provider: .claude, claudeLocalActivity: activity)
+
+        #expect(snapshot.privacySanitized().claudeLocalActivity == activity)
+    }
+
     private var credentialBearingSnapshot: UsageSnapshot {
         UsageSnapshot(
             provider: .deepSeek,

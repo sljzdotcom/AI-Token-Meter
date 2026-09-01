@@ -555,6 +555,7 @@ final class AppModel {
             statusMessage: snapshot.statusMessage,
             codexResetCredits: snapshot.codexResetCredits,
             codexLocalActivity: snapshot.codexLocalActivity,
+            claudeLocalActivity: snapshot.claudeLocalActivity,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
@@ -682,6 +683,7 @@ private extension UsageSnapshot {
             statusMessage: statusMessage,
             codexResetCredits: codexResetCredits,
             codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
             deepSeekUsageHistory: history
         )
     }

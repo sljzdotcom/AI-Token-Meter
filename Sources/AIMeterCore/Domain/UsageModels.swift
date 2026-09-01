@@ -87,6 +87,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let statusMessage: String?
     public let codexResetCredits: CodexResetCreditsSummary?
     public let codexLocalActivity: CodexLocalActivitySummary?
+    public let claudeLocalActivity: ClaudeLocalActivitySummary?
     public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
     public init(
@@ -101,6 +102,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         statusMessage: String? = nil,
         codexResetCredits: CodexResetCreditsSummary? = nil,
         codexLocalActivity: CodexLocalActivitySummary? = nil,
+        claudeLocalActivity: ClaudeLocalActivitySummary? = nil,
         deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
         self.provider = provider
@@ -114,6 +116,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.statusMessage = statusMessage
         self.codexResetCredits = codexResetCredits
         self.codexLocalActivity = codexLocalActivity
+        self.claudeLocalActivity = claudeLocalActivity
         self.deepSeekUsageHistory = deepSeekUsageHistory
     }
 
@@ -136,6 +139,25 @@ public extension UsageSnapshot {
             statusMessage: statusMessage,
             codexResetCredits: codexResetCredits,
             codexLocalActivity: activity,
+            claudeLocalActivity: claudeLocalActivity,
+            deepSeekUsageHistory: deepSeekUsageHistory
+        )
+    }
+
+    func withClaudeLocalActivity(_ activity: ClaudeLocalActivitySummary?) -> UsageSnapshot {
+        UsageSnapshot(
+            provider: provider,
+            primaryMetric: primaryMetric,
+            secondaryMetric: secondaryMetric,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: activity,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }

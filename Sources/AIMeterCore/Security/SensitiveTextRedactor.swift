@@ -53,6 +53,7 @@ extension UsageSnapshot {
             statusMessage: statusMessage.map(SensitiveTextRedactor.redact),
             codexResetCredits: codexResetCredits?.privacySanitized(),
             codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
             deepSeekUsageHistory: deepSeekUsageHistory?.privacySanitized()
         )
     }
