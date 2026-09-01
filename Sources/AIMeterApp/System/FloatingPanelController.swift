@@ -454,12 +454,11 @@ final class FloatingPanelController {
                 defer: false
             )
         }
-        panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        FloatingPanelPresentationPolicy.apply(to: panel)
         panel.becomesKeyOnlyIfNeeded = nonactivating
         return panel
     }
