@@ -22,6 +22,7 @@
 | REQ-20260901-005 | 窗口交互 | 桌面已有其他应用窗口时，点击浮动条 Provider 后弹出的详情应位于所有普通应用窗口上方，而不是落在窗口栈底部 | 高 | 已完成 | 2026-09-01 | 无 | [设计规格](superpowers/specs/2026-09-01-detail-panel-frontmost-design.md)、[实施计划](superpowers/plans/2026-09-01-detail-panel-frontmost.md)、[开发与验收记录](development/2026-09-01-detail-panel-frontmost.md)、`e25371c`、`abb1a96` |
 | REQ-20260901-006 | Claude 详情 | 丰富 Claude 详情页，增加明确标记为本机口径的最近 30 天 Claude Code 统计 | 中 | 已完成 | 2026-09-01 | 无 | [设计规格](superpowers/specs/2026-09-01-claude-detail-local-activity-design.md)、[实施计划](superpowers/plans/2026-09-01-claude-detail-local-activity.md)、[开发与验收记录](development/2026-09-01-claude-detail-local-activity.md)、`f467d13`–`90b31c8`、合并 `1f456a0` |
 | REQ-20260901-007 | 字体 | 在显示字体选择器中增加 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi，并保持 Settings 自身永远使用系统字体 | 中 | 已完成 | 2026-09-01 | 未安装字体的真实字形对比待用户安装对应字体后按需进行，不影响目录功能完成 | [设计规格](superpowers/specs/2026-09-01-display-font-catalog-expansion-design.md)、[实施计划](superpowers/plans/2026-09-01-display-font-catalog-expansion.md)、[开发与验收记录](development/2026-09-01-display-font-catalog-expansion.md)、`3595c28`、合并 `1f456a0` |
+| REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 进行中 | 2026-09-01 | 书面规格待用户最终确认，随后编写实施计划 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) |
 
 ## 分类索引
 
@@ -48,6 +49,7 @@
 ### Claude 详情
 
 - `REQ-20260901-006`：评估 Claude 详情页增加近 30 天用量与本机活动统计。
+- `REQ-20260901-008`：移除 Token composition 与 Top models 两张本机活动卡片。
 
 ### 字体
 
@@ -76,3 +78,5 @@
 | 2026-09-01 | REQ-20260901-007 | 待用户确认 → 进行中 | 用户确认书面规格；实施计划已完成，进入测试先行开发。 |
 | 2026-09-01 | REQ-20260901-006 | 进行中 → 已完成 | Claude 专用详情、本机 30 日聚合、流式与超时加固、295 项回归、Release 安装哈希与真实快照验收完成。 |
 | 2026-09-01 | REQ-20260901-007 | 进行中 → 已完成 | 八项字体目录、别名与回退、资源扫描、295 项回归和真实 Settings 验收完成。 |
+| 2026-09-01 | REQ-20260901-008 | 新建 → 待用户确认 | 用户要求 Claude 详情页不再显示 Token composition 与 Top models，等待确认精简布局规格。 |
+| 2026-09-02 | REQ-20260901-008 | 待用户确认 → 进行中 | 用户选择方案 A：仅移除两张展示卡片，保留采集与缓存兼容；书面规格进入最终确认。 |
