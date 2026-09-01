@@ -6,7 +6,7 @@ AI Token Meter 不把三家服务强行换算成同一个“额度”。每个�
 
 | 服务 | 圆环含义 | 详情补充 |
 | --- | --- | --- |
-| Claude | 官方当前额度窗口的已用比例 | 次级额度、重置时间、采集状态 |
+| Claude | 官方当前额度窗口的已用比例 | 次级额度、重置时间，以及本机 Claude Code 近 30 天活动 |
 | Codex | 官方通用速率限制的已用比例 | 次级窗口、重置额度，以及本机近 30 天三项活动聚合 |
 | DeepSeek | 相对余额基准已经消耗的比例 | 当前余额、近 30 天成本/请求/Token 与每日成本图 |
 
@@ -31,6 +31,21 @@ AI Token Meter 先检查 Claude Code CLI 的认证状态，再在专用空工作
 - 次指标通常是周额度或所有模型额度；
 - 促销说明中的“增加 50%”等数字不会被误认为当前用量；
 - 官方客户端与 AI Token Meter 刷新时间不同会产生短暂差异，手动刷新后应以最新官方值为准。
+
+### 本机近 30 天活动
+
+Claude 详情页上方始终是官方额度，下方 **Last 30 days · This Mac** 单独展示当前 Mac 可读取的 Claude Code 活动：
+
+- Sessions：主会话的去重数量，`subagents` 记录不会虚增会话数；
+- Active days：30 个本机自然日中实际产生 Token 的天数；
+- Tokens：Input、Output、Cache creation 与 Cache read 的合计；
+- Daily token activity：固定 30 日柱形趋势，无活动的日期保留为零；
+- Token composition：Input、Output、Cache 三类构成；
+- Top models：Token 数最多的三个模型 ID，零 Token 的内部占位模型不会展示。
+
+该区域不是 Anthropic 账户的跨 Web、Desktop、移动端和多设备官方月报。个人 Pro/Max 目前没有稳定公开的跨设备 30 天明细接口，因此 AI Token Meter 不把本机活动伪装成官方总量。本机目录不可读时，区域显示不可用，官方额度仍正常刷新。
+
+读取范围严格限制为 `~/.claude/projects` 中 JSONL 的时间、会话 ID、模型 ID 和 usage 数字；提示词、回复、项目路径、分支、标题和文件内容不会进入聚合模型、缓存或日志。
 
 ## Codex
 

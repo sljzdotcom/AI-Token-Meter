@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 268](https://img.shields.io/badge/tests-268%20passed-2ea44f)
+![Tests 281](https://img.shields.io/badge/tests-281%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -24,8 +24,8 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 De
 - Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
 - Services 始终显示 Claude、Codex、DeepSeek 当前连接状态；Claude/Codex 可一键打开官方 CLI 登录或重新登录，完成后自动回查。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
-- 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；Settings 永远使用 macOS 系统字体，不随选择或内容字号变化。
-- Claude：读取当前会话与周额度，显示重置时间。
+- 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio、DIN Condensed、Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi 之间即时切换；仅使用本机已安装字体，Settings 永远保持 macOS 系统字体。
+- Claude：读取当前会话与周额度，并在专用详情页补充本机 Claude Code 最近 30 天的会话、活跃日、每日 Token、输入/输出/缓存构成和常用模型；两种数据口径明确分区。
 - Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。

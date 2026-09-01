@@ -37,7 +37,7 @@
 - 修改：`Sources/AIMeterCore/Coordination/RefreshCoordinator.swift`
 - 修改：`Sources/AIMeterApp/AppModel.swift`
 
-- [ ] **步骤 1：编写失败的聚合模型与快照保留测试**
+- [x] **步骤 1：编写失败的聚合模型与快照保留测试**
 
 测试构造：
 
@@ -57,13 +57,13 @@ let snapshot = UsageSnapshot(provider: .claude, claudeLocalActivity: activity)
 
 在刷新协调测试中，把 activity 放入成功快照，断言 stale/fresh 包装后仍相等。
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`swift test --filter SensitiveTextRedactorTests`
 
 预期：FAIL，Claude 聚合类型和快照属性不存在。
 
-- [ ] **步骤 3：实现不可含正文的领域模型**
+- [x] **步骤 3：实现不可含正文的领域模型**
 
 新增 `ClaudeDailyActivity`、`ClaudeModelActivity`、`ClaudeLocalActivitySummary`；构造器把负数钳制为零、`dayCount` 至少为 1。`UsageSnapshot` 增加默认 `nil` 的属性和：
 
@@ -73,7 +73,7 @@ func withClaudeLocalActivity(_ activity: ClaudeLocalActivitySummary?) -> UsageSn
 
 更新快照重建位置，显式复制该字段。模型只允许 Date、Int/Int64 和 model ID，不新增文本内容字段。
 
-- [ ] **步骤 4：运行相关与完整测试**
+- [x] **步骤 4：运行相关与完整测试**
 
 运行：
 
@@ -85,7 +85,7 @@ swift test
 
 预期：全部 PASS。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Sources/AIMeterCore/Domain/ProviderSupplementalData.swift Sources/AIMeterCore/Domain/UsageModels.swift Sources/AIMeterCore/Security/SensitiveTextRedactor.swift Sources/AIMeterCore/Coordination/RefreshCoordinator.swift Sources/AIMeterApp/AppModel.swift Tests/AIMeterCoreTests/SensitiveTextRedactorTests.swift Tests/AIMeterCoreTests/RefreshCoordinatorTests.swift
@@ -98,7 +98,7 @@ git commit -m "feat: add Claude local activity snapshot data"
 - 创建：`Tests/AIMeterCoreTests/ClaudeLocalActivityTests.swift`
 - 创建：`Sources/AIMeterCore/Collectors/ClaudeLocalActivityReader.swift`
 
-- [ ] **步骤 1：编写失败的最小字段解析测试**
+- [x] **步骤 1：编写失败的最小字段解析测试**
 
 用临时目录写入主会话和 `subagents` JSONL。每行同时含有诱饵正文数字和真实 usage：
 
@@ -108,17 +108,17 @@ git commit -m "feat: add Claude local activity snapshot data"
 
 断言总数为 100 而非正文数字；主会话计 1 session；同日 subagent 增加 token 但不增加 session；模型聚合正确。
 
-- [ ] **步骤 2：编写失败的 30 日边界与降级测试**
+- [x] **步骤 2：编写失败的 30 日边界与降级测试**
 
 固定 Asia/Singapore 日历和 `now`，验证：今天与第 29 天纳入，第 30 天排除；无记录返回 30 个零日；损坏行跳过；负 token 跳过；超过单行上限的记录跳过；不可读目录抛出 `directoryUnavailable`。
 
-- [ ] **步骤 3：运行测试验证失败**
+- [x] **步骤 3：运行测试验证失败**
 
 运行：`swift test --filter ClaudeLocalActivityTests`
 
 预期：FAIL，reader、parser 和 summarizer 尚不存在。
 
-- [ ] **步骤 4：实现最小白名单解码与聚合**
+- [x] **步骤 4：实现最小白名单解码与聚合**
 
 创建只声明允许字段的 Codable 结构：
 
@@ -142,13 +142,13 @@ private struct ClaudeLogEntry: Decodable {
 
 为 snake_case 字段提供 CodingKeys。解析器使用带小数秒和不带小数秒的 ISO8601 formatter；以带溢出保护的加法汇总四类 token。Reader 只枚举 `.jsonl`，跳过符号链接；使用 2 MiB 单行和 256 MiB 单文件上限，在 utility 任务中处理。通过路径是否包含 `/subagents/` 判断 session 计数资格。
 
-- [ ] **步骤 5：运行测试验证通过**
+- [x] **步骤 5：运行测试验证通过**
 
 运行：`swift test --filter ClaudeLocalActivityTests`
 
 预期：全部 PASS，测试日志不出现诱饵正文。
 
-- [ ] **步骤 6：Commit**
+- [x] **步骤 6：Commit**
 
 ```bash
 git add Sources/AIMeterCore/Collectors/ClaudeLocalActivityReader.swift Tests/AIMeterCoreTests/ClaudeLocalActivityTests.swift
@@ -161,17 +161,17 @@ git commit -m "feat: aggregate local Claude Code activity"
 - 修改：`Tests/AIMeterCoreTests/ClaudeCollectorTests.swift`
 - 修改：`Sources/AIMeterCore/Collectors/ClaudeCollector.swift`
 
-- [ ] **步骤 1：编写失败的组合与降级测试**
+- [x] **步骤 1：编写失败的组合与降级测试**
 
 增加可注入的 `ClaudeLocalActivityReading` stub：成功时返回固定 summary，断言官方 primary/secondary metric 不变且 `claudeLocalActivity` 被附加；失败时抛错，断言 `collect()` 仍成功且本机字段为 nil；官方认证失败时仍抛原有错误。
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`swift test --filter ClaudeCollectorTests`
 
 预期：FAIL，collector 尚未接收本机 reader。
 
-- [ ] **步骤 3：实现并行可选采集**
+- [x] **步骤 3：实现并行可选采集**
 
 为 reader 定义 Sendable 协议并注入默认实现。在 `collect()` 中：
 
@@ -183,7 +183,7 @@ return try await official.withClaudeLocalActivity(local)
 
 把现有官方逻辑原样移入 `collectOfficialUsage()`；`optionalLocalActivity()` 捕获全部本机错误并返回 nil，不吞掉官方错误。
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：
 
@@ -194,7 +194,7 @@ swift test --filter CLIIntegrationSmokeTests
 
 预期：全部 PASS。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Sources/AIMeterCore/Collectors/ClaudeCollector.swift Tests/AIMeterCoreTests/ClaudeCollectorTests.swift
@@ -211,29 +211,29 @@ git commit -m "feat: attach optional Claude local activity"
 - 创建：`Tests/AIMeterAppTests/ClaudeDetailPanelLayoutTests.swift`
 - 修改：`Tests/AIMeterAppTests/FloatingStripLayoutTests.swift`
 
-- [ ] **步骤 1：编写失败的面板尺寸测试**
+- [x] **步骤 1：编写失败的面板尺寸测试**
 
 验证标准屏幕返回 `CGSize(width: 390, height: 560)`；可用高度较小时高度不超过 `availableHeight - 24` 且不低于 500；`FloatingPanelController` 的 Claude 分支使用该策略而非旧 300×260。
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`swift test --filter ClaudeDetailPanelLayoutTests`
 
 预期：FAIL，布局类型不存在。
 
-- [ ] **步骤 3：实现详情页骨架与官方额度卡片**
+- [x] **步骤 3：实现详情页骨架与官方额度卡片**
 
 创建 `ClaudeDetailView`，复用 Codex 的标题、quota card、glass card、progress bar 和主题语义，但 provider 固定 `.claude`。标题副标题为 `Official quota · Local activity`，两张额度卡来自 primary/secondary metric。
 
-- [ ] **步骤 4：实现本机统计、趋势和构成**
+- [x] **步骤 4：实现本机统计、趋势和构成**
 
 使用 Swift Charts 绘制固定 30 天柱形图；三张统计卡显示 Total token、Sessions、Active days；构成行显示 Input、Output、Cache；模型区按 token 降序最多显示三项。nil 显示 unavailable 卡，合法零数据显示空趋势和 0 值。所有标签包含 `official quota` 或 `local estimate` 可访问性描述。
 
-- [ ] **步骤 5：接入路由与窗口尺寸**
+- [x] **步骤 5：接入路由与窗口尺寸**
 
 在 `FloatingDetailView` 增加 `.claude` 分支；`FloatingPanelController.preferredDetailSize` 调用 `ClaudeDetailPanelLayout.size(availableHeight:)`。保留 hover、置前、空白点击和自动隐藏逻辑。
 
-- [ ] **步骤 6：运行 UI 与完整测试**
+- [x] **步骤 6：运行 UI 与完整测试**
 
 运行：
 
@@ -245,7 +245,7 @@ swift test
 
 预期：全部 PASS。
 
-- [ ] **步骤 7：Commit**
+- [x] **步骤 7：Commit**
 
 ```bash
 git add Sources/AIMeterApp/Views/ClaudeDetailView.swift Sources/AIMeterApp/System/ClaudeDetailPanelLayout.swift Sources/AIMeterApp/Views/FloatingStripView.swift Sources/AIMeterApp/System/FloatingPanelController.swift Tests/AIMeterAppTests/ClaudeDetailPanelLayoutTests.swift Tests/AIMeterAppTests/FloatingStripLayoutTests.swift
@@ -261,11 +261,11 @@ git commit -m "feat: add rich Claude detail view"
 - 创建：`docs/development/2026-09-01-claude-detail-local-activity.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：补充数据口径与隐私文档**
+- [x] **步骤 1：补充数据口径与隐私文档**
 
 明确 Official quota 来自 `/usage`；Last 30 days · This Mac 只包含本机 Claude Code 聚合元数据，排除 Web/Desktop/其他设备；说明本机不可用不会影响官方额度。
 
-- [ ] **步骤 2：执行隐私与占位符扫描**
+- [x] **步骤 2：执行隐私与占位符扫描**
 
 运行：
 
@@ -277,7 +277,7 @@ git diff --check
 
 预期：reader 不声明或输出正文、cwd、branch、slug 字段；无新增占位符；diff 无空白错误。
 
-- [ ] **步骤 3：执行完整测试与 Release 构建**
+- [x] **步骤 3：执行完整测试与 Release 构建**
 
 运行：
 
@@ -288,15 +288,15 @@ swift build -c release
 
 预期：全部成功。
 
-- [ ] **步骤 4：安装并进行真实桌面验收**
+- [x] **步骤 4：安装并进行真实桌面验收**
 
 使用项目现有安装流程安装签名候选版。点击 Claude，核对官方额度与 Claude 客户端 Usage；确认 This Mac 标识、30 日柱图、三项统计、token 构成和模型区出现；确认自动隐藏、点击空白关闭、置前、左右贴边和 Antonio 字体无回归。
 
-- [ ] **步骤 5：记录证据并关闭需求**
+- [x] **步骤 5：记录证据并关闭需求**
 
 开发日志记录测试数量、构建签名、安装指纹、真实数据口径、隐私扫描和 UI 验收。将 `REQ-20260901-006` 更新为已完成并链接规格、计划、开发日志和关键提交。
 
-- [ ] **步骤 6：Commit**
+- [x] **步骤 6：Commit**
 
 ```bash
 git add docs/architecture/data-sources.md docs/user-guide/usage.md docs/development/README.md docs/development/2026-09-01-claude-detail-local-activity.md docs/requirements-backlog.md

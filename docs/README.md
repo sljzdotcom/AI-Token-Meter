@@ -34,6 +34,8 @@
 | [提交历史](development/commit-history.md) | 从项目创建至今的 Git 节点与阶段说明 |
 | [开发日志索引](development/README.md) | 按日期查阅详细开发与验收记录 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
+| [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
+| [显示字体目录扩充](development/2026-09-01-display-font-catalog-expansion.md) | 八项字体、安装检测、别名、回退与真实 Settings 验收 |
 | [贡献指南](../CONTRIBUTING.md) | 分支、提交、测试、文档和评审要求 |
 | [安全报告](../SECURITY.md) | 私下报告漏洞的要求与范围 |
 | [版本变更](../CHANGELOG.md) | 已发布版本和未发布改动 |

@@ -33,7 +33,8 @@ UserDefaults ────────────> UI preferences / threshold st
 
 ### Collectors
 
-- `ClaudeCollector`：定位 CLI、检查认证、在隔离工作区通过 PTY 执行 `/usage`。
+- `ClaudeCollector`：定位 CLI、检查认证、在隔离工作区通过 PTY 执行 `/usage`，并行附加可选的本机 Claude Code 活动聚合；本机读取失败不影响官方额度。
+- `ClaudeLocalActivityReader`：在 utility 后台任务中只读枚举 `~/.claude/projects/**/*.jsonl`，对白名单计量字段做 30 日聚合，并限制单行、单文件大小和符号链接。
 - `CodexCollector`：启动 `codex app-server` 读取 JSON-RPC 速率限制，并以只读 SQLite 查询补充本机线程活动聚合；本地查询失败不会拖累官方额度。
 - `DeepSeekCollector`：从 `SecretStore` 取得 Keychain 密钥并调用余额 API。
 - `ClaudeUsageParser`、`CodexUsageParser`：把外部格式转换成统一指标。
@@ -49,6 +50,7 @@ UserDefaults ────────────> UI preferences / threshold st
 - 获取时间、过期时间和来源版本；
 - Codex 重置额度摘要；
 - Codex 本机 30 天活动摘要；
+- Claude 本机 30 天每日 Token、会话、活跃日和模型摘要；
 - DeepSeek 标准化历史用量。
 
 ### Coordination

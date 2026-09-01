@@ -13,10 +13,12 @@
 - Services 新增 Claude、Codex、DeepSeek 常驻账户状态；Claude/Codex 支持通过官方 CLI 一键登录或重新登录、有限自动回查和手动检查状态。
 - DeepSeek 设置新增遮罩 Key 身份和两阶段替换：候选 Key 先通过官方余额接口验证，验证成功后才更新 Keychain。
 - Appearance 新增全局显示字体选择：System Default、Antonio、DIN Condensed，以及 `Restore Default Font`；可用字体会即时应用到 App 自绘文字并持久化，缺失字体禁用且安全回退到系统字体。第三方字体须由用户预先安装，AI Token Meter 不下载或分发字体文件。
+- 显示字体目录新增 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi，支持已安装检测、别名解析与系统字体安全回退。
 - 贴边浮岛内部新增静态黑蓝「深海波纹」背景；左右贴边时仅纹理随轮廓镜像，Logo、品牌进度色、点击和拖动行为保持不变，资源缺失时自动回退到原玻璃底色。
 - 可配置的详情自动隐藏时间：3、5、8、15 或 30 秒，默认 8 秒。
 - 点击悬浮条和详情以外区域立即关闭详情；悬停和 DeepSeek 登录交互暂停倒计时。
 - Claude 专用空工作区和一次性批准入口，减少用户项目、MCP 与工作区信任对 `/usage` 的干扰。
+- Claude 新增额度优先专用详情页，并补充明确标注为 `This Mac` 的 Claude Code 最近 30 天会话、活跃日、每日 Token、Token 构成与 Top 模型聚合。
 - Codex 可用重置额度、名称和到期日的只读展示。
 - Codex 额度优先详情页，以及近 30 天本机 Token、当前连续使用天数和最长会话三项聚合。
 - DeepSeek 可配置余额基准，默认 ¥100。
@@ -79,6 +81,7 @@
 - Codex 重置额度不保存兑换 ID，也不提供自动兑换或“立即使用”。
 - DeepSeek 业务缓存只保存标准化逐日聚合，不保存 Cookie、授权头、登录字段或网页原始响应。
 - Claude/Codex 账户邮箱与套餐、DeepSeek Key 后四位仅保留在 Settings 的内存状态，不进入快照、Widget、通知、日志或登录脚本；登录脚本权限固定为 `0700` 且只含批准的官方命令。
+- Claude 本机活动读取采用 JSON 白名单字段和文件/行大小边界，不保存或展示提示词、回复、项目路径、标题和分支；本机读取失败不会改变官方额度结果。
 
 ## 0.1.0 - 2026-08-28
 
