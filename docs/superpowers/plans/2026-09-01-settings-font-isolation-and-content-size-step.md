@@ -8,6 +8,8 @@
 
 **技术栈：** Swift 6、SwiftUI、AppKit、Swift Testing、SwiftPM、macOS Release App Bundle、ad-hoc codesign。
 
+**最终审查修正（2026-09-01）：** `8b98744` 删除无参 `aiMeterSymbolFont()`，要求每个受内容作用域影响的 Symbol 指定原始语义 token。测试逐项映射实际图标，使用 `ImageRenderer` 覆盖 caption2、body 和 `ContentUnavailableView`；最终为 187 个测试、38 个套件、0 失败，候选与安装 SHA-256 均为 `ace8c9c9fde6dd46cf26b2eeb2ea303a9bf6363a48eb3883fe9423d16deb4f8c`。
+
 ---
 
 ## 文件结构
@@ -339,7 +341,7 @@ swift test --filter TypographyTests.rootScopeWiring
 
 这样 `ProviderCard`、`CodexDetailView`、`CodexResetCreditsView`、`DeepSeekAnalyticsView` 和 Claude 紧凑详情中的全部 `aiMeterFont` 会自动获得 `+1pt`，无需逐个增加字号。
 
-保留以下直接 `.font(...)`，因为它们只设置 SF Symbol 图标而不是产品文字：
+每个 SF Symbol 必须保留自己的原始语义：可用 `aiMeterSymbolFont(.caption2)` / `.body` 明确 token，或保留原有明确点数。以下直接 `.font(...)` 保留，因为它们是图标自己的明确尺寸而不是产品文字：
 
 - `UsageRing` 的无颜色辅助状态图标；
 - `CodexDetailView` 的本机统计图标；
@@ -370,6 +372,8 @@ swift test --filter VisualSystemTests
 ```
 
 预期：根作用域契约、字体解析和既有背景、轮廓、图标、Provider 配色测试全部通过。
+
+最终验收补充：逐个 Symbol 映射必须能发现同文件遗漏或错误 token；`caption2`、`body` 和 `ContentUnavailableView` 以 `ImageRenderer` 验证。空状态组件图标保留系统大号设计，不能应用 13pt 产品 Symbol 样式。
 
 - [x] **步骤 7：提交界面接线**
 
@@ -448,7 +452,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 
 - [x] **步骤 5：安装候选版并核对安装指纹**
 
-先完全退出正在运行的 AI Meter，把当前 `/Applications/AI Meter.app` 备份到 `/private/tmp/AI-Meter-font-scope-backup-20260901/AI Meter.app`，再用 `ditto` 安装 `dist/AI Meter.app`。随后运行：
+最终字体修复再次完全退出正在运行的 AI Meter，把当前 `/Applications/AI Meter.app` 备份到 `/private/tmp/AI-Meter-font-symbol-fix-backup-20260901-1012/AI Meter.app`，再用 `ditto` 安装 `dist/AI Meter.app`。此前所有备份保留。随后运行：
 
 ```bash
 codesign --verify --deep --strict "/Applications/AI Meter.app"

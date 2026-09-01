@@ -156,6 +156,7 @@ Settings 中的字体设置继续提供：
 8. Settings 根视图安装隔离作用域；
 9. 目标内容视图不存在绕过统一字体系统的产品文字；
 10. 现有字体偏好、恢复默认、Provider 配色、浮动条轮廓和窗口行为测试继续通过。
+11. 每个内容作用域 SF Symbol 映射到其原始语义 token 或明确点数；`caption2`、`body` 及 `ContentUnavailableView` 三种场景分别以结构映射和 `ImageRenderer` 渲染验证。`ContentUnavailableView` 的图标不得被产品层 13pt 样式覆盖。
 
 ### 9.2 实机视觉验收
 
@@ -196,9 +197,10 @@ Settings 在所有字体选择和未来内容字号调整下都稳定使用 macO
 
 ## 13. 实施与验收状态
 
-- `aea7e15` 建立字体表面作用域与精确字号偏移；`d350af9` 将 Settings、浮动窗口和菜单面板接入显式作用域；`d334321` 将内容作用域中继承字体的 SF Symbols 固定回原尺寸。
-- 2026-09-01 完整回归通过 185 个测试、38 个套件、0 失败；Keychain 隔离读写、已安装 Claude 状态、Claude 认证状态和已安装 Codex 快照共 4 个环境门控检查跳过。
-- Release 候选及 `/Applications/AI Meter.app` 均通过 `codesign --verify --deep --strict`；实际可执行文件为 `Contents/MacOS/AIMeterApp`，候选与安装 SHA-256 同为 `b6505ae1ab6fd7c5688615af7a81b4b1705ff24d4f20ccd211f95d2aa2efe359`。安装前版本保留在 `/private/tmp/AI-Meter-font-scope-backup-20260901/AI Meter.app`。
+- `aea7e15` 建立字体表面作用域与精确字号偏移；`d350af9` 将 Settings、浮动窗口和菜单面板接入显式作用域；`d334321` 初步固定了 SF Symbol 尺寸。最终审查后 `8b98744` 去除了会误用 body 的无参帮助器，逐个声明图标语义基线，并让 `ContentUnavailableView` 保持系统空状态图标设计。
+- 2026-09-01 最终完整回归通过 187 个测试、38 个套件、0 失败；Keychain 隔离读写、已安装 Claude 状态、Claude 认证状态和已安装 Codex 快照共 4 个环境门控检查跳过。
+- Release 候选及 `/Applications/AI Meter.app` 均通过 `codesign --verify --deep --strict`；实际可执行文件为 `Contents/MacOS/AIMeterApp`，候选与安装 SHA-256 同为 `ace8c9c9fde6dd46cf26b2eeb2ea303a9bf6363a48eb3883fe9423d16deb4f8c`。安装前版本保留在 `/private/tmp/AI-Meter-font-symbol-fix-backup-20260901-1012/AI Meter.app`。
+- 最终 Symbol 聚焦验证：`TypographyTests` 的 16 项覆盖逐一映射、caption2/body 的真实 `ImageRenderer` 尺寸差异，以及 `ContentUnavailableView` 的系统大号空状态渲染；`VisualSystemTests` 18 项继续通过。此自动化证据不替代下述受限的菜单及非激活详情像素验收。
 - 实机已观察 Settings 在 System Default、Antonio、DIN Condensed 下保持系统字体与不变字号；Restore Default、选择状态和重启后的 Antonio 持久化均有辅助功能树和截图证据。
 - DeepSeek 详情可直接观察，当前金额、30 天统计、图表和日期没有截断。Computer Use 的窗口捕获不显示菜单点击面板或 Claude/Codex 非激活 `NSPanel` 的像素内容；三者只完成了打开/关闭辅助功能交互验证，字体、截断、自动隐藏、外部点击关闭与真实指针拖动仍不能宣称已完成。
 - 详细命令、截图、辅助功能结果、环境限制和补验清单见 [开发日志](../../development/2026-09-01-settings-font-isolation-and-content-size-step.md)。
