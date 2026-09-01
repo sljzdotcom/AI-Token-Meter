@@ -270,6 +270,15 @@ private struct AIMeterFontScopeModifier: ViewModifier {
 }
 
 extension View {
+    /// Pins SF Symbols to the unscaled body size when inside a content font scope.
+    func aiMeterSymbolFont() -> some View {
+        font(.system(size: AIMeterTextStyle.body.pointSize))
+    }
+
+    func aiMeterSymbolFont(_ style: Font.TextStyle) -> some View {
+        font(.system(style))
+    }
+
     func aiMeterFont(
         _ style: AIMeterTextStyle,
         design: Font.Design = .default,

@@ -73,6 +73,7 @@ struct DeepSeekAnalyticsView: View {
                 webSession.syncIfNeeded(force: true)
             } label: {
                 Image(systemName: "arrow.clockwise")
+                    .aiMeterSymbolFont()
             }
             .buttonStyle(.borderless)
             .help("Refresh from DeepSeek")

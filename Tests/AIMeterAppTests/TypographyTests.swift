@@ -287,4 +287,18 @@ struct TypographyTests {
             .appending(path: fileName)
         return try String(contentsOf: fileURL, encoding: .utf8)
     }
+
+    @Test("Content roots keep SF Symbols at their unscaled size")
+    func symbolFontsIgnoreContentOffset() throws {
+        let files = [
+            "MenuBarPanel.swift",
+            "CodexDetailView.swift",
+            "CodexResetCreditsView.swift",
+            "DeepSeekAnalyticsView.swift",
+        ]
+        for file in files {
+            let source = try viewSource(file)
+            #expect(source.contains(".aiMeterSymbolFont"))
+        }
+    }
 }

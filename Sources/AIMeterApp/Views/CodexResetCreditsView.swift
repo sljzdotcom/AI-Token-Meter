@@ -58,10 +58,12 @@ struct CodexResetCreditsView: View {
             }
 
             if presentation.showsIncompleteDetails {
-                Label(
-                    "Some expiration details are unavailable",
-                    systemImage: "info.circle"
-                )
+                Label {
+                    Text("Some expiration details are unavailable")
+                } icon: {
+                    Image(systemName: "info.circle")
+                        .aiMeterSymbolFont()
+                }
                 .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
@@ -130,7 +132,12 @@ struct CodexResetCreditsView: View {
     private var compactContent: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Label("Reset credits", systemImage: "arrow.counterclockwise.circle")
+                Label {
+                    Text("Reset credits")
+                } icon: {
+                    Image(systemName: "arrow.counterclockwise.circle")
+                        .aiMeterSymbolFont()
+                }
                     .fontWeight(.semibold)
                 Spacer()
                 Text(presentation.availableText)

@@ -5,7 +5,12 @@ struct MenuBarLabel: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        Label(model.menuBarSummary.valueText, systemImage: "gauge.with.dots.needle.50percent")
+        Label {
+            Text(model.menuBarSummary.valueText)
+        } icon: {
+            Image(systemName: "gauge.with.dots.needle.50percent")
+                .aiMeterSymbolFont()
+        }
             .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
             .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))
     }
@@ -21,7 +26,12 @@ struct MenuBarPanel: View {
 
             if model.snapshots.isEmpty {
                 ContentUnavailableView {
-                    Label("Checking usage", systemImage: "gauge.with.dots.needle.50percent")
+                    Label {
+                        Text("Checking usage")
+                    } icon: {
+                        Image(systemName: "gauge.with.dots.needle.50percent")
+                            .aiMeterSymbolFont()
+                    }
                 } description: {
                     Text("Claude, Codex, and DeepSeek are being checked locally.")
                 }
@@ -64,6 +74,7 @@ struct MenuBarPanel: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "arrow.clockwise")
+                        .aiMeterSymbolFont()
                 }
             }
             .buttonStyle(.borderless)
@@ -93,6 +104,7 @@ struct MenuBarPanel: View {
                 ).perform()
             } label: {
                 Image(systemName: "gearshape")
+                    .aiMeterSymbolFont()
             }
             .buttonStyle(.borderless)
             .help("Settings")
@@ -100,6 +112,7 @@ struct MenuBarPanel: View {
                 NSApplication.shared.terminate(nil)
             } label: {
                 Image(systemName: "power")
+                    .aiMeterSymbolFont()
             }
             .buttonStyle(.borderless)
             .help("Quit AI Meter")
