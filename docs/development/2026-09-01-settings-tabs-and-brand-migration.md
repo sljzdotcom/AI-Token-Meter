@@ -2,7 +2,7 @@
 
 **日期：** 2026-09-01
 **分支：** `codex/settings-tabs-brand-migration`
-**状态：** 功能、文档、Release 构建和安装验收完成；主分支合并在本文后续更新
+**状态：** 已完成并合入 `main`
 **规格：** [`docs/superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md`](../superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md)
 **计划：** [`docs/superpowers/plans/2026-09-01-settings-tabs-and-brand-migration.md`](../superpowers/plans/2026-09-01-settings-tabs-and-brand-migration.md)
 
@@ -122,3 +122,9 @@ dist/AI Token Meter.app
 
 - WidgetKit 是单独阶段，不与本次品牌迁移混合；
 - 桌面层仍需补验 Mission Control、左右普通 Space、真实指针拖动和可用时的多显示器场景。
+
+## Git 收尾
+
+- `337ff72 merge: add settings tabs and AI Token Meter brand`：非快进合并到 `main`；
+- 合并后的 `main` 再次运行 196 个测试、41 个测试组，0 失败；
+- 功能工作树与短期分支在合并验证完成后清理。

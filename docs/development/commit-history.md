@@ -200,6 +200,8 @@
 | `3c84e16`–`962315f` | docs | 编写并强化测试驱动实施计划 |
 | `e5f8e94` | feat | 将 Settings 重组为 Appearance、Monitoring、Services、About 四个 Tab |
 | `1f7f6f4` | feat | 将可见品牌和构建产物迁移为 AI Token Meter，同时保留兼容身份 |
+| `6870a28`–`f2f8482` | docs | 同步用户、架构、安全、发布和验收文档并修正文档边界 |
+| `337ff72` | merge | 将 Settings 分类与 AI Token Meter 品牌迁移合入 `main` |
 
 ## 维护方式
 
