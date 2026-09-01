@@ -6,17 +6,20 @@ public struct ClaudeCollector: UsageCollector {
     private let runner: any CommandRunning
     private let locator: any ExecutableLocating
     private let parser: ClaudeUsageParser
+    private let accountStatusParser: ClaudeAccountStatusParser
     private let workspaceResolver: any ClaudeUsageWorkspaceResolving
 
     public init(
         runner: any CommandRunning = PTYCommandRunner(),
         locator: any ExecutableLocating = ExecutableLocator(),
         parser: ClaudeUsageParser = ClaudeUsageParser(),
+        accountStatusParser: ClaudeAccountStatusParser = ClaudeAccountStatusParser(),
         workspaceResolver: any ClaudeUsageWorkspaceResolving = ClaudeUsageWorkspaceResolver()
     ) {
         self.runner = runner
         self.locator = locator
         self.parser = parser
+        self.accountStatusParser = accountStatusParser
         self.workspaceResolver = workspaceResolver
     }
 
@@ -70,12 +73,8 @@ public struct ClaudeCollector: UsageCollector {
             timeout: 5,
             currentDirectoryURL: workspaceURL
         ))
-        let sanitized = ANSITextSanitizer.sanitize(result.output)
-        if let start = sanitized.firstIndex(of: "{"),
-           let end = sanitized.lastIndex(of: "}"),
-           let data = String(sanitized[start...end]).data(using: .utf8),
-           let authStatus = try? JSONDecoder().decode(ClaudeAuthStatus.self, from: data) {
-            if !authStatus.loggedIn {
+        if let authStatus = try? accountStatusParser.parse(result.output) {
+            if authStatus.connectionState == .signInRequired {
                 throw UsageCollectionError.authenticationRequired
             }
             return
@@ -102,8 +101,4 @@ public struct ClaudeCollector: UsageCollector {
             throw UsageCollectionError.authenticationRequired
         }
     }
-}
-
-private struct ClaudeAuthStatus: Decodable {
-    let loggedIn: Bool
 }
