@@ -32,6 +32,7 @@
 | 浮岛 S 曲线轮廓 | `a840bce`–`de3d5d6` | 按手绘参考以双贝塞尔取代平台肩部，完成左右镜像、真实三处拖动、设置入口、安装验收和主分支合并 |
 | Settings 分类与品牌迁移 | `ade6830`–`1f7f6f4` | 四个顶部 Settings Tab、AI Token Meter 可见品牌、兼容身份与 196 项回归 |
 | WidgetKit 桌面组件 | `6e197fe`–`32a41a5` | 三尺寸 Widget、脱敏 App Group 快照、时间线、条件式 Apple Development 签名、降级加固与 227 项回归 |
+| 服务账户与需求台账 | `8a396af`–`f97f6c3` | 项目级需求台账、Claude/Codex 当前身份与官方重新登录、DeepSeek 验证后换 Key、267 项回归 |
 
 ## 2026-08-28
 
@@ -217,6 +218,22 @@
 | `7f69523` | fix | 正确处理带点号的 App Group 与 App Sandbox entitlement 键 |
 | `2dc6ff5` | docs | 补齐 Widget 安装、架构、隐私、测试、发布与故障排查文档 |
 | `32a41a5` | fix | 加固固定三服务、过期重置清理、非颜色状态提示和语义色 |
+
+### 服务账户与需求台账
+
+| 提交 | 类型 | 变更 |
+| --- | --- | --- |
+| `8a396af` | docs | 确认 Services 当前账号、官方 CLI 重新登录和 DeepSeek 安全换 Key 规格 |
+| `c369b07` | docs | 建立项目级待完成需求台账和根级强制登记规则 |
+| `db86d45` | docs | 编写服务账户重新登录测试驱动实施计划 |
+| `0ac12a4` | feat | 添加 Claude 账户状态读取并复用认证解析 |
+| `b2ca8b3` | feat | 通过 Codex `account/read` 读取 ChatGPT/API Key 身份 |
+| `f74bd33` | feat | 生成并打开固定官方 CLI 登录脚本 |
+| `c5a0ab0` | feat | 验证候选 Key 后安全替换 DeepSeek Keychain 凭据 |
+| `f97f6c3` | feat | 在 Settings 编排三服务状态、回查、反馈和隐私边界 |
+| `1636f44` | fix | 防止被取消的旧登录读取覆盖新账户状态 |
+| `6b153b3` | fix | 合并启动与 Settings 的重叠账户刷新，消除瞬时错误状态 |
+| `fc26180` | test | 用虚构号码替换历史隐私测试夹具中的真实手机号 |
 
 ## 维护方式
 

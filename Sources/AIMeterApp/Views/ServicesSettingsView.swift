@@ -1,3 +1,4 @@
+import AIMeterCore
 import SwiftUI
 
 struct ServicesSettingsView: View {
@@ -7,18 +8,49 @@ struct ServicesSettingsView: View {
     var body: some View {
         Form {
             Section("Claude") {
-                Label("Authentication is managed by the Claude Code CLI.", systemImage: "terminal")
+                ServiceAccountStatusView(status: status(for: .claude))
+                Text("Authentication is handled by the official Claude Code CLI. AI Token Meter never receives your password or verification code.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
+                HStack {
+                    Button(model.signInButtonTitle(for: .claude)) {
+                        model.beginSignIn(.claude)
+                    }
+                    .disabled(status(for: .claude).connectionState == .notInstalled)
+
+                    Button("Check Status") {
+                        Task { await model.checkServiceAccount(.claude) }
+                    }
+
+                    Spacer()
+
+                    Button("Authorize Usage Workspace") {
+                        model.openClaudeWorkspaceSetup()
+                    }
+                    .help("Only needed when Claude asks for workspace approval before /usage can run.")
+                }
             }
 
             Section("Codex") {
-                Label("Authentication is managed by the Codex CLI.", systemImage: "terminal")
+                ServiceAccountStatusView(status: status(for: .codex))
+                Text("Authentication is handled by the official Codex CLI. AI Token Meter only reads the account identity that Codex reports locally.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
+                HStack {
+                    Button(model.signInButtonTitle(for: .codex)) {
+                        model.beginSignIn(.codex)
+                    }
+                    .disabled(status(for: .codex).connectionState == .notInstalled)
+
+                    Button("Check Status") {
+                        Task { await model.checkServiceAccount(.codex) }
+                    }
+                }
             }
 
             Section("DeepSeek") {
+                ServiceAccountStatusView(status: status(for: .deepSeek))
+
                 HStack {
                     Text("Balance baseline")
                     Spacer()
@@ -38,12 +70,13 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
 
-                SecureField("DeepSeek API Key", text: $pendingAPIKey)
+                SecureField(
+                    model.apiKeyConfigured ? "Enter a replacement API Key" : "DeepSeek API Key",
+                    text: $pendingAPIKey
+                )
+                .disabled(model.isReplacingDeepSeekAPIKey)
                 HStack {
-                    Label(
-                        model.apiKeyConfigured ? "Stored securely in Keychain" : "No API Key stored",
-                        systemImage: model.apiKeyConfigured ? "checkmark.shield" : "key"
-                    )
+                    Label("Stored only in macOS Keychain", systemImage: "checkmark.shield")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                     Spacer()
@@ -52,12 +85,29 @@ struct ServicesSettingsView: View {
                             model.removeDeepSeekAPIKey()
                         }
                     }
-                    Button("Save") {
-                        model.saveDeepSeekAPIKey(pendingAPIKey)
-                        pendingAPIKey = ""
+                    Button(model.apiKeyConfigured ? "Replace API Key" : "Save API Key") {
+                        Task {
+                            if await model.replaceDeepSeekAPIKey(pendingAPIKey) {
+                                pendingAPIKey = ""
+                            }
+                        }
                     }
-                    .disabled(pendingAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(
+                        pendingAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || model.isReplacingDeepSeekAPIKey
+                    )
+
+                    if model.isReplacingDeepSeekAPIKey {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Verifying…")
+                            .aiMeterFont(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                Text("A replacement is saved only after DeepSeek verifies it. If verification fails, the existing Key remains active.")
+                    .aiMeterFont(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if model.settingsMessageKind.map(SettingsTab.services.accepts) == true,
@@ -71,5 +121,10 @@ struct ServicesSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func status(for provider: UsageProvider) -> ServiceAccountStatus {
+        model.serviceAccounts[provider]
+            ?? ServiceAccountStatus(provider: provider, connectionState: .checking, checkedAt: nil)
     }
 }

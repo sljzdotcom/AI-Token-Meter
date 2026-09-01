@@ -1,6 +1,8 @@
 enum SettingsMessageKind: Equatable {
     case launchAtLogin
     case claudeWorkspace
+    case claudeAuthentication
+    case codexAuthentication
     case deepSeekCredential
 }
 
@@ -34,6 +36,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch (self, kind) {
         case (.monitoring, .launchAtLogin),
              (.services, .claudeWorkspace),
+             (.services, .claudeAuthentication),
+             (.services, .codexAuthentication),
              (.services, .deepSeekCredential):
             true
         default:

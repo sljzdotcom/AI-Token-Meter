@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 227](https://img.shields.io/badge/tests-227%20passed-2ea44f)
+![Tests 267](https://img.shields.io/badge/tests-267%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -22,6 +22,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 De
 - 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
 - 浮岛和详情属于 macOS 桌面层：Finder 桌面可用时可见，普通应用窗口和全屏应用会自然覆盖它们，不会把 AI Token Meter 固定在所有内容最上方。
 - Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
+- Services 始终显示 Claude、Codex、DeepSeek 当前连接状态；Claude/Codex 可一键打开官方 CLI 登录或重新登录，完成后自动回查。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；Settings 永远使用 macOS 系统字体，不随选择或内容字号变化。
 - Claude：读取当前会话与周额度，显示重置时间。
@@ -30,7 +31,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 De
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
 - 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
-- API Key 存入 macOS Keychain；缓存前会清理常见 Token 与密钥形态。
+- DeepSeek API Key 存入 macOS Keychain；替换时先经官方余额接口验证，失败会保留旧 Key，设置页只显示最后四位遮罩。
 
 ## 数据来源一览
 
@@ -76,8 +77,8 @@ AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh
 
 1. 启动 AI Token Meter。屏幕右侧出现贴边浮岛和三个用量环，菜单栏出现 AI Token Meter 图标。
 2. 点击菜单栏图标，再点击齿轮，或按 `⌘,` 打开设置。
-3. 确认 Claude Code 与 Codex CLI 已分别登录；如 Claude 提示工作区设置，点击一次性设置按钮并在终端批准。
-4. 如需 DeepSeek，在设置中保存 API Key，并把“Balance baseline”设为希望参考的余额（默认 ¥100）。
+3. 在 Services 查看 Claude Code 与 Codex 当前账户；需要登录或换账号时点击 **Sign in** / **Sign in again**，在打开的官方终端流程中完成登录。如 Claude 提示工作区设置，再点击 **Authorize Usage Workspace** 并批准。
+4. 如需 DeepSeek，在 Services 输入 API Key；应用验证成功后才写入 Keychain。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
 6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。
 7. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
@@ -148,6 +149,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 ## 隐私与安全摘要
 
 - Claude 与 Codex 凭证由各自 CLI 管理，AI Token Meter 不读取或保存它们的凭证文件。
+- Services 中的 Claude/Codex 邮箱、套餐和 DeepSeek Key 后四位只存在内存，不进入缓存、Widget、通知或登录脚本。
 - Codex 本机活动只读取线程表中的 Token 数与创建/更新时间，不读取标题、预览、提示词或回复。
 - DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
 - DeepSeek 历史用量使用 App 自己的隔离 WebKit 会话，不读取 Safari、Chrome 或其他浏览器 Cookie。

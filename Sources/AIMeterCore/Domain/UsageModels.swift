@@ -1,6 +1,6 @@
 import Foundation
 
-public enum UsageProvider: String, Codable, CaseIterable, Sendable {
+public enum UsageProvider: String, Codable, CaseIterable, Hashable, Sendable {
     case claude
     case codex
     case deepSeek

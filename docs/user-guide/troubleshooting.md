@@ -6,10 +6,11 @@
 
 ### 显示 Unavailable 或 Request timed out
 
-1. 在终端运行 `claude auth status`，确认登录状态正常。
-2. 直接运行 `claude`，确认 CLI 本身可以启动。
-3. 回到 AI Token Meter 手动刷新。
-4. 如果仍提示工作区设置，点击 **Open one-time setup**，在打开的终端中批准私有工作区。
+1. 打开 Settings > Services，先点击 Claude 的 **Check Status**。
+2. 显示 `Sign-in required` 时点击 **Sign in**；需要换账号时点击 **Sign in again**，在官方 Terminal 流程中完成登录。
+3. 显示 `CLI not installed` 时先安装 Claude Code；也可在终端运行 `claude auth status --json` 检查 CLI。
+4. 回到 AI Token Meter 手动刷新。
+5. 如果仍提示工作区设置，点击 **Authorize Usage Workspace**，在打开的终端中批准私有工作区。
 
 公司代理、防火墙、CLI 升级或 Claude 服务端延迟都可能导致超时。AI Token Meter 会保留最近成功缓存，但不会把缓存伪装成实时数据。
 
@@ -24,9 +25,10 @@
 
 ### 显示需要登录或不可用
 
-1. 在终端启动 Codex CLI 并完成官方登录。
-2. 升级过旧的 Codex CLI。
-3. 回到 AI Token Meter 手动刷新。
+1. 打开 Settings > Services，点击 Codex 的 **Check Status**。
+2. 显示 `Sign-in required` 时点击 **Sign in**；需要换账号时点击 **Sign in again**，在官方 Terminal 流程中完成登录。
+3. 显示 `CLI not installed` 或 app-server 不可用时，安装或升级 Codex CLI。
+4. 回到 AI Token Meter 手动刷新。
 
 AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式变化时会显示明确状态，不会回退到脆弱的终端截图识别。
 
@@ -47,8 +49,9 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 ### 没有余额
 
-- 打开设置，确认显示 **Stored securely in Keychain**；
-- 401：删除并重新保存 API Key；
+- 打开 Settings > Services，确认显示遮罩状态 `API Key ••••XXXX`；
+- 如果 Keychain 中确实有旧 Key，但临时构建显示 `Account status unavailable`，通常是 ad-hoc 签名的 CDHash 在重编译后变化，macOS 不再允许新二进制静默读取旧项。不要删除旧 Key；改用稳定代码签名，或在确认新构建可信后从 Services 重新录入一次；
+- 401：输入新 Key 并点击 **Replace API Key**；候选值验证失败不会覆盖原 Key；
 - 429：等待后重试；
 - 连接失败：检查网络、代理和 DeepSeek 服务状态。
 

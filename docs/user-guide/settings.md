@@ -69,12 +69,20 @@ Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Setti
 
 ## Services
 
-Services 集中放置外部服务的配置与一次性操作。Claude 工作区需要批准时，状态提示与 **Open one-time setup** 按钮会出现在此处；DeepSeek 的余额基准和 API Key 也在此处管理。
+Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查三项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
+
+### Claude 与 Codex 账户
+
+- 已连接时显示 CLI 报告的账户标识；Claude 优先显示邮箱与认证方式，Codex 的 ChatGPT 账户显示邮箱和套餐，API Key 登录只显示 `API Key account`。
+- 未连接时显示 **Sign in**，已连接时仍显示 **Sign in again**，方便换账号或修复过期登录。
+- 按钮只会打开固定的官方命令 `claude auth login` 或 `codex login`；密码、浏览器授权和 MFA 仍由官方流程处理。
+- 打开登录后，应用每 3 秒检查一次，最长 2 分钟；也可随时点击 **Check Status**。重复点击同一服务会取消旧回查任务。
+- 账户信息读取失败时不会把“无法检查”误写成“已退出登录”，也不会影响已缓存的额度显示。
 
 ### Claude workspace setup
 
 - 仅在 Claude 的隔离用量工作区需要首次批准时使用。
-- 按钮会打开终端，由用户本人确认工作区；应用不会自动接受信任或权限提示。
+- **Authorize Usage Workspace** 会打开终端，由用户本人确认工作区；应用不会自动接受信任或权限提示。它与账号登录是两件独立的事。
 - 既有批准继续使用兼容目录 `Application Support/AI Meter/ClaudeUsageWorkspace`。
 
 ### Balance baseline
@@ -85,9 +93,11 @@ Services 集中放置外部服务的配置与一次性操作。Claude 工作区�
 
 ### DeepSeek API Key
 
-- **Save**：去除首尾空白后写入 macOS Keychain，并立即刷新。
+- 当前 Key 只显示 `API Key ••••ABCD` 形式的最后四位；输入框始终为空，不回填完整 Key。
+- **Save API Key / Replace API Key**：先用候选 Key 调用 DeepSeek 官方余额接口；只有验证成功才更新 macOS Keychain 并刷新。
+- 401 会提示 Key 无效；网络、超时、响应异常或 Keychain 写入失败都会保留旧 Key，并保留输入内容供修改重试。
 - **Remove**：从 Keychain 删除密钥并刷新状态。
-- 设置页只显示是否已安全保存，不回显密钥内容。
+- 验证期间按钮和输入框会暂时禁用，并显示 `Verifying…`。
 
 ## 本地持久化
 

@@ -10,6 +10,8 @@
 - 新增隐私安全的 App Group Widget 快照、30 分钟系统时间线建议、过期状态降级和点击唤醒主应用深链；Widget 本身不联网、不调用 CLI、不访问 Keychain。
 - 构建脚本新增 `AI_METER_INCLUDE_WIDGET=auto|0|1`、Apple Development 身份检测、嵌套扩展签名及 App Group 一致性验证；无开发签名时普通主应用仍可构建。
 - Settings 采用 Appearance、Monitoring、Services、About 四个顶部 Tab，并按职责安置现有选项。
+- Services 新增 Claude、Codex、DeepSeek 常驻账户状态；Claude/Codex 支持通过官方 CLI 一键登录或重新登录、有限自动回查和手动检查状态。
+- DeepSeek 设置新增遮罩 Key 身份和两阶段替换：候选 Key 先通过官方余额接口验证，验证成功后才更新 Keychain。
 - Appearance 新增全局显示字体选择：System Default、Antonio、DIN Condensed，以及 `Restore Default Font`；可用字体会即时应用到 App 自绘文字并持久化，缺失字体禁用且安全回退到系统字体。第三方字体须由用户预先安装，AI Token Meter 不下载或分发字体文件。
 - 贴边浮岛内部新增静态黑蓝「深海波纹」背景；左右贴边时仅纹理随轮廓镜像，Logo、品牌进度色、点击和拖动行为保持不变，资源缺失时自动回退到原玻璃底色。
 - 可配置的详情自动隐藏时间：3、5、8、15 或 30 秒，默认 8 秒。
@@ -41,6 +43,7 @@
 - Codex 优先展示顶层通用速率限制，不再被模型专属窗口覆盖。
 - 圆环和中央数值共享同一展示指标；0% 或无百分比指标时不再绘制虚假最小弧。
 - DeepSeek 圆环由“余额文本”改为相对余额基准的已消耗比例。
+- DeepSeek API Key 输入框不再回显旧值；替换失败时保留输入与原 Key，成功后才清空并刷新额度。
 - 历史设计资料从内部命名的 `docs/superpowers` 迁移到 `docs/design`。
 
 ### Fixed
@@ -74,6 +77,7 @@
 - DeepSeek 官网响应仅接受官方 HTTPS 来源、受限负载大小和可识别结构。
 - Codex 重置额度不保存兑换 ID，也不提供自动兑换或“立即使用”。
 - DeepSeek 业务缓存只保存标准化逐日聚合，不保存 Cookie、授权头、登录字段或网页原始响应。
+- Claude/Codex 账户邮箱与套餐、DeepSeek Key 后四位仅保留在 Settings 的内存状态，不进入快照、Widget、通知、日志或登录脚本；登录脚本权限固定为 `0700` 且只含批准的官方命令。
 
 ## 0.1.0 - 2026-08-28
 
