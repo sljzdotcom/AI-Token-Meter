@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 196 个测试、41 个测试套件、0 个失败。Keychain 隔离读写、已安装 Claude auth 状态、已安装 Claude CLI 额度快照和已安装 Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 224 个测试、48 个测试套件、0 个失败。Keychain 隔离读写、已安装 Claude auth 状态、已安装 Claude CLI 额度快照和已安装 Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
@@ -28,6 +28,10 @@ bash scripts/test.sh
 - 玻璃拖动命中区、AppKit 指针状态、无障碍移动、详情交互状态所有权、键盘/VoiceOver 自动隐藏暂停和非颜色状态标记；
 - App 启动不被 Keychain 阻塞，以及 DeepSeek 密钥读取的隔离超时与单次在途保护。
 - Settings 四 Tab 顺序、服务/登录项反馈路由、品牌文案与真实 `Info.plist` 兼容身份。
+- Widget 脱敏快照、固定 Provider 顺序、DeepSeek 基准消耗、最近重置与充值券摘要；
+- Widget 原子 App Group 存储、损坏/未知版本降级和个人标识/凭证回归；
+- Small/Medium/Large 布局合同、Small 无文字源码合同、时间线过期状态和扩展禁止网络/CLI/Keychain 合同；
+- Widget 条件打包、签名顺序、App Group 与沙箱验证脚本合同。
 
 ## Keychain 集成测试
 
@@ -61,6 +65,22 @@ AI_METER_RUN_CLI_SMOKE=1 bash scripts/test.sh --filter CLIIntegrationSmokeTests
 bash scripts/build-app.sh
 ```
 
+构建模式：
+
+```bash
+AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh  # 普通 ad-hoc 主应用
+AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh  # 必须有 Apple Development 签名
+```
+
+独立验证 Widget target 可编译：
+
+```bash
+CLANG_MODULE_CACHE_PATH=/private/tmp/ai-meter-widget-clang-cache \
+swift build --disable-sandbox \
+  --scratch-path /private/tmp/ai-meter-widget-build \
+  --product AIMeterWidgetExtension
+```
+
 ## App Bundle 验证
 
 ```bash
@@ -77,6 +97,14 @@ test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 - 可执行文件为 arm64 Mach-O；
 - 最低系统版本为 macOS 14。
 - `AppIcon.icns` 存在且 `CFBundleIconFile` 指向 `AppIcon`。
+
+包含 Widget 时再运行：
+
+```bash
+scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
+```
+
+它验证 `.appex` 可执行文件、Info.plist、嵌套签名、双方 App Group 和 Widget App Sandbox。当前没有有效 Apple Development 证书的机器只能验证无 Widget 构建与“强制构建清晰失败”保护，不能把 Gallery/桌面验收标为通过。
 
 ## 文档和差异检查
 
@@ -105,3 +133,6 @@ git diff --check
 - VoiceOver 能读出服务、数值和详情状态；
 - 浮岛玻璃表面可通过 VoiceOver 调整动作和普通键盘方向键移动；VoiceOver 阅读详情时不会被自动收起打断；
 - 退出 App 后无遗留事件监听或刷新任务。
+- Small Widget 只有三个 Logo 状态环且无可见文字；Medium 三卡与主应用口径一致；Large 最近重置与重置券数量/到期准确；
+- 退出主应用后 Widget 使用最近脱敏缓存，过期后清晰显示陈旧；点击 Widget 只唤醒主应用；
+- 浅色、深色、提高对比度与减少透明度环境下三种尺寸仍可读。

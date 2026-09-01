@@ -45,6 +45,7 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 | Codex 本机活动聚合 | 随统一快照写入 `Application Support/AI Meter` | 新快照覆盖或用户删除缓存 |
 | DeepSeek 每日聚合 | `Application Support/AI Meter` | 新数据覆盖或用户删除缓存 |
 | DeepSeek 登录会话 | App WebKit 数据存储 | 退出登录或清理应用网站数据 |
+| Widget 展示快照 | 签名双方专用 App Group | 主应用刷新覆盖；只含脱敏展示字段 |
 
 显示名称迁移不会改变安全身份：Bundle Identifier 仍为 `com.millerpan.AIMeter`，可执行文件仍为 `AIMeterApp`，既有 Keychain 项目与 `Application Support/AI Meter` 兼容目录继续使用，避免重新暴露或复制密钥与会话数据。
 
@@ -57,6 +58,14 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 - 可能随 HTTP 错误返回的授权内容。
 
 清理是纵深防御，不应取代“不记录原始敏感响应”的设计原则。
+
+## Widget 隐私边界
+
+- Widget 进程不发网络请求、不运行 Claude/Codex CLI、不读取 DeepSeek Keychain，也不访问 WebKit 登录会话；
+- 主应用在刷新成功或本地基准变化后构建最小展示快照，再请求 WidgetKit 更新；
+- 共享 JSON 不包含 API Key、Bearer Token、Cookie、邮箱、手机号、登录表单、CLI 原始输出或 Codex 重置券兑换 ID；
+- Widget 只显示重置券数量和最近到期时间，不提供“立即使用”或自动兑换；
+- App Group 只有使用同一 Apple Team ID 和一致 entitlement 签名的主应用与扩展可以访问。普通 ad-hoc 构建不会嵌入 Widget，也不会写入 App Group 配置。
 
 ## 网络边界
 

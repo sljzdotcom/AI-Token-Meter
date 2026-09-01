@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 196](https://img.shields.io/badge/tests-196%20passed-2ea44f)
+![Tests 224](https://img.shields.io/badge/tests-224%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -16,6 +16,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 De
 ## 主要功能
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
+- 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 Codex 重置券摘要。
 - 贴边浮岛只显示三个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
 - Claude、Codex、DeepSeek 分别使用黄橙、玫红紫、薄荷紫强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
@@ -46,6 +47,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 De
 - Apple Silicon Mac（M1 或更新机型）。
 - macOS 14 Sonoma 或更新版本。
 - 从源码构建时需要 Xcode Command Line Tools 与 Swift 6 工具链。
+- 桌面 Widget 需要在 Xcode 登录 Apple Account 并具备有效的 Apple Development 证书；没有证书时仍可构建普通主应用。
 - Claude 与 Codex 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。
 - DeepSeek 是可选服务；余额需要 API Key，30 天用量图表需要在 App 的隔离网页中登录 DeepSeek 平台。
 
@@ -58,7 +60,13 @@ bash scripts/build-app.sh
 open "dist/AI Token Meter.app"
 ```
 
-构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Token Meter.app`、执行 ad-hoc 本机签名并验证签名。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
+默认 `auto` 模式会检测 Apple Development 签名：证书与 Team ID 可用时嵌入 Widget，否则明确显示 `Widget skipped` 并生成普通主应用。要强制构建 Widget，可使用：
+
+```bash
+AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh
+```
+
+构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Token Meter.app` 并验证嵌套签名。无 Widget 产物使用 ad-hoc 本机签名；Widget 产物要求真实 Apple Development 签名与双方一致的 App Group。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
 
 日常使用时，退出 AI Token Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
 
@@ -72,6 +80,7 @@ open "dist/AI Token Meter.app"
 4. 如需 DeepSeek，在设置中保存 API Key，并把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
 6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。
+7. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
 
 Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。
 
@@ -88,10 +97,12 @@ Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter
 AI-Meter/
 ├── Sources/
 │   ├── AIMeterApp/              # SwiftUI App、系统集成与界面
-│   └── AIMeterCore/             # 采集、领域模型、缓存、安全与协调逻辑
+│   ├── AIMeterCore/             # 采集、领域模型、缓存、安全与协调逻辑
+│   └── AIMeterWidgetExtension/  # WidgetKit 时间线与三尺寸界面
 ├── Tests/
 │   ├── AIMeterCoreTests/        # 领域、解析器、协调与真实 CLI 冒烟测试
-│   └── AIMeterAppTests/         # 浮岛输入、启动和 AppKit/SwiftUI 边界测试
+│   ├── AIMeterAppTests/         # 浮岛输入、启动、打包和 AppKit/SwiftUI 边界测试
+│   └── AIMeterWidgetExtensionTests/ # Widget 布局、时间线和安全合同
 ├── docs/
 │   ├── user-guide/              # 安装、服务配置、设置和排障
 │   ├── architecture/            # 架构与源码目录说明
@@ -140,6 +151,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
 - DeepSeek 历史用量使用 App 自己的隔离 WebKit 会话，不读取 Safari、Chrome 或其他浏览器 Cookie。
 - 历史页面的原始响应不会进入业务缓存；AI Token Meter 只保存标准化后的逐日成本、请求数和 Token 总数。
+- Widget 只读取主应用写入 App Group 的脱敏展示快照，不联网、不运行 CLI、不读取 Keychain，也不能登录或兑换重置券。
 - 缓存、状态消息与通知会先经过敏感文本清理。
 
 完整说明见 [隐私与安全](docs/security-and-privacy.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。

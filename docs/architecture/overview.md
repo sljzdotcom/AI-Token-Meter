@@ -16,7 +16,12 @@ Claude CLI ─┐
 Codex CLI/DB┼─> Collectors ─> RefreshCoordinator ─> UsageSnapshot ─> AppModel ─> SwiftUI
 DeepSeek API┘            │             │                    │
                          │             └─ SnapshotCache     ├─ Menu bar panel
-DeepSeek WebKit ─> Normalizer ─> DeepSeekHistoryStore       └─ Floating panel
+DeepSeek WebKit ─> Normalizer ─> DeepSeekHistoryStore       ├─ Floating panel
+                                                          └─ WidgetSnapshotPublisher
+                                                                  │
+App Group file <─ privacy-safe Widget envelope <───────────────────┘
+      │
+      └─> AIMeterWidgetExtension (read-only) ─> Small / Medium / Large
 
 Keychain ────────────────> DeepSeekCollector
 UserDefaults ────────────> UI preferences / threshold state
@@ -58,6 +63,13 @@ UserDefaults ────────────> UI preferences / threshold st
 - `SensitiveTextRedactor`：写缓存、错误消息和通知前清理常见敏感形态；
 - `ThresholdEvaluator`：跨刷新保存 70% / 90% 通知状态。
 
+### Widget shared contract
+
+- `WidgetSnapshotBuilder` 重用 `ProviderPresentation`，确保主程序与 Widget 的额度选择、DeepSeek 基准消耗和状态含义一致；
+- `WidgetSnapshotStore` 原子写入版本化 JSON，损坏、缺失或未知版本安全降级为空状态；
+- 共享快照只包含三项展示值、进度、过期时间、最近重置与重置券数量/最近到期，不包含密钥、Cookie、手机号、邮箱或重置券内部 ID；
+- `SensitiveTextRedactor` 在进入共享容器前再次清理所有可见字符串。
+
 ## AIMeterApp
 
 `AIMeterApp` 负责 macOS 生命周期、系统服务与 SwiftUI 展示。
@@ -71,6 +83,7 @@ UserDefaults ────────────> UI preferences / threshold st
 - 应用 DeepSeek 余额基准和历史数据；
 - 保存用户设置；
 - 向窗口、通知和菜单栏发布状态。
+- 在演示启动、真实刷新和 DeepSeek 基准变化后发布 Widget 展示快照，再请求 WidgetKit 更新；发布失败不改变主应用状态。
 
 ### Settings information architecture
 
@@ -89,6 +102,15 @@ UserDefaults ────────────> UI preferences / threshold st
 ### DeepSeekWebSession
 
 负责隔离 WebKit 会话、官方域名限制、页面状态和相关 JSON 的标准化入口。它分别接收官网每日 Token/请求与每日费用响应，只在两类数据都存在时合并并写入完整 30 天缓存。网页层与 API Key 余额采集相互独立；网页历史失败不会让余额失效。
+
+## AIMeterWidgetExtension
+
+Widget 扩展是独立的受沙箱进程，只从双方签名授权的 App Group 读取共享快照。`WidgetTimelineSource` 建议系统约 30 分钟后刷新时间线，并在快照超过 `expiresAt` 后显示陈旧状态；实际调度由 WidgetKit 的系统预算决定。Gallery 预览只使用固定示例数据，不读取真实账户。
+
+- Small：三个 Logo 与状态环，不含可见文字、按钮或链接；无障碍标签仍包含服务和值；
+- Medium：三个固定顺序额度卡，显示名称、主值、短标签和进度；
+- Large：三项 Provider 行、最近重置、Codex 重置券数量与最近到期；
+- 根视图使用 `aitokenmeter://open` 唤醒主应用，不提供登录、兑换或其他账户操作。
 
 ## 状态与降级
 

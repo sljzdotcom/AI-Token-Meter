@@ -35,6 +35,13 @@ open "dist/AI Token Meter.app"
 
 构建脚本会执行 release 构建、确定性生成完整尺寸的仪表指针 App Icon、组装 `.app`、复制资源、校验 `Info.plist`、执行 ad-hoc 签名并验证签名。ad-hoc 签名适合本机使用，不等同于面向其他用户分发所需的 Developer ID 签名与 Apple 公证。
 
+默认构建使用 `AI_METER_INCLUDE_WIDGET=auto`：检测到真实 Apple Development 证书和 Team ID 时包含 Widget；否则显示 `Widget skipped` 并继续生成普通主应用。Widget 不能使用 ad-hoc 签名共享 App Group。首次准备方式：
+
+1. 打开 Xcode > Settings > Accounts；
+2. 登录 Apple Account，并让 Xcode 创建 Apple Development 证书；
+3. 返回仓库执行 `AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh`；
+4. 脚本会自动计算双方相同的 App Group、先签 Widget、再签主应用并验证嵌套包。
+
 ## 3. 安装到应用程序
 
 1. 从菜单栏退出正在运行的 AI Token Meter。
@@ -43,6 +50,23 @@ open "dist/AI Token Meter.app"
 4. 如果之前开启过“登录时启动”，在设置中关闭再重新开启，以更新应用路径。
 
 本机 ad-hoc 签名会随重新构建而变化。覆盖安装后，macOS 可能要求重新确认 AI Token Meter 对已保存 DeepSeek Keychain 项目的访问；确认应用路径为 `/Applications/AI Token Meter.app` 后，输入登录钥匙串密码并选择 **Always Allow**。这是系统的本机签名更新保护，不代表 API Key 被修改。
+
+### 添加桌面 Widget
+
+只有使用 Apple Development 签名且包内包含 `.appex` 的版本会出现在 Widget Gallery：
+
+1. 先启动一次 `/Applications/AI Token Meter.app` 并手动刷新；
+2. 在桌面空白处右键，选择“编辑小组件”；
+3. 搜索 **AI Token Meter**；
+4. 选择尺寸并拖到桌面。
+
+| 尺寸 | 显示内容 |
+| --- | --- |
+| Small | 三个同尺寸 Provider Logo 状态环；无可见文字 |
+| Medium | Claude、Codex、DeepSeek 三张额度/余额卡 |
+| Large | 三项 Provider 行、最近重置、Codex 重置券数量和最近到期 |
+
+点击 Widget 只会唤醒 AI Token Meter 并触发刷新，不会自动登录、消费额度或兑换重置券。WidgetKit 按系统预算调度，主应用刷新后通常不是逐秒更新；超过快照有效期时 Widget 会显示陈旧状态。
 
 ## 4. 配置 Claude
 
