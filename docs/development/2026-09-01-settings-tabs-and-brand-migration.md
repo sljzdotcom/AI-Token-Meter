@@ -81,7 +81,7 @@ bash scripts/test.sh
 dist/AI Token Meter.app
 ```
 
-候选包验证结果：
+功能工作树候选包验证结果：
 
 - `Info.plist` 通过 `plutil -lint`；
 - 显示名和 Bundle 名均为 `AI Token Meter`；
@@ -98,7 +98,13 @@ dist/AI Token Meter.app
 /private/tmp/AI-Token-Meter-brand-migration-20260901-1145/AI Meter.app
 ```
 
-候选包安装到 `/Applications/AI Token Meter.app`。安装版再次通过 plist、严格签名和 arm64 架构检查；构建版与安装版主可执行文件 SHA-256 完全一致，`cmp` 退出码为 0。旧 `/Applications/AI Meter.app` 不再存在，因此“应用程序”目录只保留新显示名称。
+功能工作树候选包首先安装到 `/Applications/AI Token Meter.app`，验证升级兼容性后移入：
+
+```text
+/private/tmp/AI-Token-Meter-brand-migration-20260901-1145/AI Token Meter feature candidate.app
+```
+
+合入 `main` 后重新运行完整测试并从主目录构建最终包；主分支构建和最终安装的主可执行文件 SHA-256 均为 `abee09fadf01d1514da9d903eaf43c415643d91312cb97c9a2bc956b4b1889cd`，`cmp` 退出码为 0。最终 `/Applications/AI Token Meter.app` 再次通过 plist、严格签名与 arm64 检查。旧 `/Applications/AI Meter.app` 不再存在，因此“应用程序”目录只保留新显示名称。
 
 真实运行验收：
 
