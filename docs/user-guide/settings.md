@@ -100,4 +100,4 @@ Services 集中放置外部服务的配置与一次性操作。Claude 工作区�
 ## About
 
 - 显示 App Icon、**AI Token Meter**、副标题 **Private AI usage monitor**、版本号和 build 号。
-- 提供项目主页与隐私说明入口；不包含账户操作或诊断数据上传。
+- 显示简短隐私说明；不包含外部账户入口、账户操作或诊断数据上传。
