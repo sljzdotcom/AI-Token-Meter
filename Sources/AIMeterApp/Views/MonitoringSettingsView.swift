@@ -1,3 +1,4 @@
+import AIMeterCore
 import SwiftUI
 
 struct MonitoringSettingsView: View {
@@ -15,7 +16,7 @@ struct MonitoringSettingsView: View {
                     )
                 )
                 Toggle(
-                    "Open AI Meter at login",
+                    "Open \(AppBrand.displayName) at login",
                     isOn: Binding(
                         get: { model.launchAtLoginEnabled },
                         set: { model.setLaunchAtLogin($0) }

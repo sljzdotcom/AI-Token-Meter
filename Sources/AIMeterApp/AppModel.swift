@@ -83,6 +83,7 @@ final class AppModel {
         defaults.set(resolvedBaseline, forKey: DefaultsKey.deepSeekBalanceBaseline)
         detailAutoHideSeconds = detailAutoHidePreferenceStore.load().rawValue
 
+        // Legacy storage compatibility: the visible rename must not orphan existing data.
         let cacheDirectory = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -246,7 +247,7 @@ final class AppModel {
     func openClaudeWorkspaceSetup() {
         do {
             try claudeWorkspaceSetupLauncher.open()
-            settingsMessage = "Approve the private AI Meter workspace in Terminal, then refresh."
+            settingsMessage = "Approve the private \(AppBrand.displayName) workspace in Terminal, then refresh."
             settingsMessageKind = .claudeWorkspace
         } catch {
             settingsMessage = "Claude workspace setup could not be opened."

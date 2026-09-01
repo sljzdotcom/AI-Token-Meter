@@ -13,6 +13,7 @@ public struct ClaudeUsageWorkspaceResolver: ClaudeUsageWorkspaceResolving {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0]
+        // Legacy storage compatibility: retain the pre-rename directory and approval state.
         let workspace = base
             .appendingPathComponent("AI Meter", isDirectory: true)
             .appendingPathComponent("ClaudeUsageWorkspace", isDirectory: true)

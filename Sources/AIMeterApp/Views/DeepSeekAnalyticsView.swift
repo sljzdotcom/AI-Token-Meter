@@ -88,7 +88,7 @@ struct DeepSeekAnalyticsView: View {
 
     private var loginPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sign in on the official DeepSeek page once. AI Meter keeps the web session on this Mac and stores only daily totals.")
+            Text("Sign in on the official DeepSeek page once. \(AppBrand.displayName) keeps the web session on this Mac and stores only daily totals.")
                 .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             DeepSeekWebView(webView: webSession.webView)

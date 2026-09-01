@@ -165,7 +165,14 @@ struct AppPresentationTests {
 
         #expect(summary.semantic == .critical)
         #expect(summary.valueText == "92%")
-        #expect(summary.accessibilityLabel == "AI Meter, highest usage 92 percent")
+        #expect(summary.accessibilityLabel == "AI Token Meter, highest usage 92 percent")
+    }
+
+    @Test("Menu bar summary uses the visible brand when usage is unavailable")
+    func summarizesUnavailableUsage() {
+        let summary = MenuBarSummary(snapshots: [])
+
+        #expect(summary.accessibilityLabel == "AI Token Meter, usage unavailable")
     }
 
     @Test("Carries reset guidance for both quota windows")

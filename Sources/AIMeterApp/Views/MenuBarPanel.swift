@@ -1,4 +1,5 @@
 import AppKit
+import AIMeterCore
 import SwiftUI
 
 struct MenuBarLabel: View {
@@ -59,9 +60,9 @@ struct MenuBarPanel: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("AI Meter")
+                Text(AppBrand.displayName)
                     .aiMeterFont(.title2, weight: .bold)
-                Text("Private usage monitor")
+                Text(AppBrand.subtitle)
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -114,7 +115,7 @@ struct MenuBarPanel: View {
                     .aiMeterSymbolFont(.body)
             }
             .buttonStyle(.borderless)
-            .help("Quit AI Meter")
+            .help("Quit \(AppBrand.displayName)")
         }
     }
 }

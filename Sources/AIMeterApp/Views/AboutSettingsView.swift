@@ -1,19 +1,10 @@
 import AppKit
+import AIMeterCore
 import SwiftUI
 
 struct AboutSettingsView: View {
-    private var displayName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "AI Meter"
-    }
-
     private var versionText: String {
-        guard let version = Bundle.main.object(
-            forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String,
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
-            return "Version unavailable"
-        }
-        return "Version \(version) (\(build))"
+        AppBrand.versionText(info: Bundle.main.infoDictionary ?? [:])
     }
 
     var body: some View {
@@ -25,9 +16,9 @@ struct AboutSettingsView: View {
                         .frame(width: 64, height: 64)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(displayName)
+                        Text(AppBrand.displayName)
                             .font(.title2.weight(.semibold))
-                        Text("Private usage monitor")
+                        Text(AppBrand.subtitle)
                             .foregroundStyle(.secondary)
                         Text(versionText)
                             .font(.caption)
