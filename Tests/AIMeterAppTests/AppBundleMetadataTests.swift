@@ -16,6 +16,11 @@ struct AppBundleMetadataTests {
         #expect(plist["CFBundleIdentifier"] as? String == "com.millerpan.AIMeter")
         #expect(plist["CFBundleExecutable"] as? String == "AIMeterApp")
         #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
+
+        let URLTypes = try #require(plist["CFBundleURLTypes"] as? [[String: Any]])
+        let URLType = try #require(URLTypes.first)
+        #expect(URLType["CFBundleURLName"] as? String == "com.millerpan.AIMeter")
+        #expect(URLType["CFBundleURLSchemes"] as? [String] == ["aitokenmeter"])
     }
 
     private static let infoPlistURL = URL(fileURLWithPath: #filePath)
