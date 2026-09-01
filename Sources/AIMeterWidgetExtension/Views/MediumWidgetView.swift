@@ -14,6 +14,8 @@ struct MediumWidgetView: View {
                         Text(snapshot.provider.name)
                             .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
+                        Spacer(minLength: 0)
+                        WidgetStatusIndicator(semantic: snapshot.semantic)
                     }
                     Spacer(minLength: 0)
                     Text(snapshot.valueText)
@@ -47,7 +49,7 @@ struct WidgetProgressBar: View {
                 if let fraction = snapshot.fraction {
                     Capsule()
                         .fill(LinearGradient(
-                            colors: snapshot.provider.accentColors,
+                            colors: snapshot.semantic.accentColors(for: snapshot.provider),
                             startPoint: .leading,
                             endPoint: .trailing
                         ))

@@ -14,10 +14,15 @@ struct SmallWidgetView: View {
                         .padding(5)
                     WidgetProviderLogo(provider: snapshot.provider)
                         .frame(width: 19, height: 19)
+                    WidgetStatusIndicator(semantic: snapshot.semantic)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(4)
                 }
                 .aspectRatio(1, contentMode: .fit)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(snapshot.provider.name + ", " + snapshot.valueText)
+                .accessibilityLabel(
+                    snapshot.provider.name + ", " + snapshot.valueText + ", " + snapshot.semantic.accessibilityText
+                )
             }
         }
         .padding(12)

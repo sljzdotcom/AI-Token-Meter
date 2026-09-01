@@ -47,6 +47,7 @@ private struct LargeProviderRow: View {
                 HStack {
                     Text(snapshot.provider.name)
                         .font(.system(size: 12, weight: .semibold))
+                    WidgetStatusIndicator(semantic: snapshot.semantic)
                     Spacer()
                     Text(snapshot.valueText)
                         .font(.system(size: 17, weight: .bold, design: .rounded))

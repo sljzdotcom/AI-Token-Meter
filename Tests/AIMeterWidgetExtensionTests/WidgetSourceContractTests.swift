@@ -13,6 +13,20 @@ struct WidgetSourceContractTests {
         #expect(source.contains("accessibilityLabel"))
         #expect(source.contains("WidgetProviderLogo"))
         #expect(source.contains("WidgetProgressRing"))
+        #expect(source.contains("WidgetStatusIndicator"))
+    }
+
+    @Test("Every Widget size exposes non-color semantic status")
+    func semanticStatusContract() throws {
+        for path in ["Views/SmallWidgetView.swift", "Views/MediumWidgetView.swift", "Views/LargeWidgetView.swift"] {
+            let source = try String(contentsOf: Self.sourceURL(path))
+            #expect(source.contains("WidgetStatusIndicator"), "Missing status indicator in \(path)")
+        }
+
+        let progressSource = try String(contentsOf: Self.sourceURL("Views/WidgetProgressRing.swift"))
+        let barSource = try String(contentsOf: Self.sourceURL("Views/MediumWidgetView.swift"))
+        #expect(progressSource.contains("snapshot.semantic.accentColors(for: snapshot.provider)"))
+        #expect(barSource.contains("snapshot.semantic.accentColors(for: snapshot.provider)"))
     }
 
     @Test("Widget extension never reaches protected or external data sources")

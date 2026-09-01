@@ -80,3 +80,25 @@ extension WidgetProvider {
         }
     }
 }
+
+extension WidgetSnapshotSemantic {
+    func accentColors(for provider: WidgetProvider) -> [Color] {
+        // DeepSeek's ring represents depletion of its configured RMB baseline,
+        // so keep its established palette while the status icon carries state.
+        if provider == .deepSeek {
+            return provider.accentColors
+        }
+        switch self {
+        case .normal:
+            return provider.accentColors
+        case .warning:
+            return [Color(red: 1.0, green: 0.78, blue: 0.18)]
+        case .critical:
+            return [Color(red: 1.0, green: 0.28, blue: 0.26)]
+        case .stale:
+            return [Color(red: 0.98, green: 0.55, blue: 0.22)]
+        case .unavailable:
+            return [Color.white.opacity(0.34)]
+        }
+    }
+}

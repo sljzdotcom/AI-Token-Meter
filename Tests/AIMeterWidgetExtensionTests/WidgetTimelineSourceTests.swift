@@ -45,6 +45,61 @@ struct WidgetTimelineSourceTests {
         #expect(provider.fraction == 0.18)
     }
 
+    @Test("Decodable partial data is normalized to the fixed provider contract")
+    func partialDataIsNormalized() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let envelope = WidgetSnapshotEnvelope(
+            generatedAt: now,
+            providers: [
+                WidgetProviderSnapshot(
+                    provider: .deepSeek,
+                    valueText: "¥77.99",
+                    detailText: "Available balance",
+                    fraction: 0.2201,
+                    semantic: .normal,
+                    fetchedAt: now,
+                    expiresAt: now.addingTimeInterval(300)
+                ),
+            ],
+            nextReset: nil,
+            codexResetCredits: nil
+        )
+        let source = WidgetTimelineSource(load: { envelope }, now: { now })
+
+        let providers = source.currentEntry().envelope.providers
+
+        #expect(providers.map(\.provider) == [.claude, .codex, .deepSeek])
+        #expect(providers.first(where: { $0.provider == .claude })?.semantic == .unavailable)
+        #expect(providers.first(where: { $0.provider == .codex })?.semantic == .unavailable)
+        #expect(providers.first(where: { $0.provider == .deepSeek })?.valueText == "¥77.99")
+    }
+
+    @Test("Elapsed reset metadata is not presented as upcoming")
+    func elapsedResetMetadataIsRemoved() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let envelope = WidgetSnapshotEnvelope(
+            generatedAt: now.addingTimeInterval(-600),
+            providers: [],
+            nextReset: WidgetResetSummary(
+                provider: .codex,
+                label: "Weekly",
+                text: "Already reset",
+                resetAt: now.addingTimeInterval(-60)
+            ),
+            codexResetCredits: WidgetResetCreditsSummary(
+                availableCount: 1,
+                nearestExpiration: now.addingTimeInterval(-60)
+            )
+        )
+        let source = WidgetTimelineSource(load: { envelope }, now: { now })
+
+        let current = source.currentEntry().envelope
+
+        #expect(current.nextReset == nil)
+        #expect(current.codexResetCredits?.availableCount == 1)
+        #expect(current.codexResetCredits?.nearestExpiration == nil)
+    }
+
     @Test("Preview data never depends on a real account")
     func previewData() {
         let date = Date(timeIntervalSince1970: 1_800_000_000)
