@@ -20,7 +20,8 @@
 | REQ-20260901-003 | Widget | Apple Development 证书、Widget 安装、Gallery 与 Small/Medium/Large 真实桌面验收 | 中 | 已延期 | 2026-09-01 | 用户明确要求先放一放；取得证书且用户恢复该事项后继续 | [Widget 开发日志](development/2026-09-01-widgetkit-extension.md) |
 | REQ-20260901-004 | 真实验收 | Mission Control、第二个普通 Space、真实指针拖动和多显示器补验 | 低 | 受环境限制 | 2026-09-01 | 需要可操作的系统界面、第二个普通 Space 或额外显示器 | [真实桌面验收](development/2026-09-01-real-desktop-acceptance.md) |
 | REQ-20260901-005 | 窗口交互 | 桌面已有其他应用窗口时，点击浮动条 Provider 后弹出的详情应位于所有普通应用窗口上方，而不是落在窗口栈底部 | 高 | 已完成 | 2026-09-01 | 无 | [设计规格](superpowers/specs/2026-09-01-detail-panel-frontmost-design.md)、[实施计划](superpowers/plans/2026-09-01-detail-panel-frontmost.md)、[开发与验收记录](development/2026-09-01-detail-panel-frontmost.md)、`e25371c`、`abb1a96` |
-| REQ-20260901-006 | Claude 详情 | 丰富 Claude 详情页，评估增加最近 30 天用量或其他有价值的官方/本机统计，同时明确数据口径 | 中 | 待用户确认 | 2026-09-01 | 确认是否采用“官方额度 + 本机 Claude Code 近 30 天活动（This Mac）”方案 | 待补充 |
+| REQ-20260901-006 | Claude 详情 | 丰富 Claude 详情页，评估增加最近 30 天用量或其他有价值的官方/本机统计，同时明确数据口径 | 中 | 待用户确认 | 2026-09-01 | 审查书面规格；确认后编写实施计划 | [设计规格](superpowers/specs/2026-09-01-claude-detail-local-activity-design.md) |
+| REQ-20260901-007 | 字体 | 在显示字体选择器中增加 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi，并保持 Settings 自身永远使用系统字体 | 中 | 待用户确认 | 2026-09-01 | 审查书面规格；确认后编写实施计划 | [设计规格](superpowers/specs/2026-09-01-display-font-catalog-expansion-design.md) |
 
 ## 分类索引
 
@@ -48,6 +49,10 @@
 
 - `REQ-20260901-006`：评估 Claude 详情页增加近 30 天用量与本机活动统计。
 
+### 字体
+
+- `REQ-20260901-007`：扩充显示字体选择器，新增五个用户指定字体。
+
 ## 状态变更记录
 
 | 日期 | ID | 变化 | 说明 |
@@ -62,3 +67,8 @@
 | 2026-09-01 | REQ-20260901-005 | 进行中 → 已完成 | 角色化窗口层级已上线；268 项测试、Release 安装哈希和已安装 App 实时窗口层级验收通过。 |
 | 2026-09-01 | REQ-20260901-006 | 新建 → 进行中 | 用户希望 Claude 详情页不再单薄，优先评估最近 30 天用量等可验证数据。 |
 | 2026-09-01 | REQ-20260901-006 | 进行中 → 待用户确认 | 已确认个人订阅无公开稳定的跨设备 30 天用量接口；本机 Claude Code 记录可安全聚合 token、会话与活跃日统计。 |
+| 2026-09-01 | REQ-20260901-007 | 新建 → 进行中 | 用户希望字体选择器新增 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi。 |
+| 2026-09-01 | REQ-20260901-006 | 待用户确认 → 进行中 | 用户选择方案 A：官方额度优先，下方补充明确标注 This Mac 的近 30 天 Claude Code 活动。 |
+| 2026-09-01 | REQ-20260901-007 | 范围确认 | 用户确认 Leigo 指 Ricardo Medina 的 Leigo Regular。 |
+| 2026-09-01 | REQ-20260901-006 | 进行中 → 待用户确认 | 方案 A 的数据口径、隐私边界、布局、错误处理与测试规格已完成并通过自检。 |
+| 2026-09-01 | REQ-20260901-007 | 进行中 → 待用户确认 | 方案 A 的安装检测、家族映射、回退、应用范围与测试规格已完成并通过自检。 |
