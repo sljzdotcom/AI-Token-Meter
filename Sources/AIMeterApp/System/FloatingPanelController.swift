@@ -14,6 +14,7 @@ final class FloatingPanelController {
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
+    private var activeSpaceObserver: ActiveSpaceChangeObserver?
     private var voiceOverObservation: NSKeyValueObservation?
     private var detailInteraction = FloatingDetailInteractionState()
 
@@ -61,6 +62,9 @@ final class FloatingPanelController {
             }
         }
         positionPanels()
+        activeSpaceObserver = ActiveSpaceChangeObserver { [weak self] in
+            self?.handleActiveSpaceChange()
+        }
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -91,6 +95,7 @@ final class FloatingPanelController {
 
     isolated deinit {
         session.shutdown()
+        activeSpaceObserver?.invalidate()
         if let localMouseMonitor {
             NSEvent.removeMonitor(localMouseMonitor)
         }
@@ -220,6 +225,16 @@ final class FloatingPanelController {
             detail: detailPanel.frame
         ) else { return }
         session.dismiss(ifCurrent: request.selectionID)
+    }
+
+    private func handleActiveSpaceChange() {
+        session.dismiss()
+        detailPanel.makeFirstResponder(nil)
+        detailPanel.orderOut(nil)
+        positionPanels()
+        if stripPanel.isVisible {
+            stripPanel.orderFrontRegardless()
+        }
     }
 
     private static func screenPoint(for event: NSEvent) -> CGPoint {
