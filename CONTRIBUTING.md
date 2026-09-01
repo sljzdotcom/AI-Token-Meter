@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢关注 AI Meter。这个项目直接接触本机 CLI、Keychain 和账户用量，因此正确性、隐私与可恢复性优先于快速堆叠功能。
+感谢关注 AI Token Meter。这个项目直接接触本机 CLI、Keychain 和账户用量，因此正确性、隐私与可恢复性优先于快速堆叠功能。
 
 ## 开始之前
 
@@ -29,7 +29,7 @@ docs: document provider setup
 test: cover malformed usage response
 refactor: isolate presentation mapping
 chore: update build tooling
-release: package AI Meter v0.2.0
+release: package AI Token Meter v0.2.0
 ```
 
 一个提交应表达一个可理解、可回滚的节点。不要把密钥、账户数据、构建产物或临时调试文件纳入提交。
@@ -47,7 +47,7 @@ git diff --check
 
 ```bash
 bash scripts/build-app.sh
-codesign --verify --deep --strict "dist/AI Meter.app"
+codesign --verify --deep --strict "dist/AI Token Meter.app"
 ```
 
 真实 CLI 与 Keychain 测试需要显式许可，具体见 [测试指南](docs/development/testing.md)。Pull Request 不应要求 CI 使用个人账户凭证。

@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 185 个测试、38 个测试套件、0 个失败。Keychain 隔离读写、已安装 Claude auth 状态、已安装 Claude CLI 额度快照和已安装 Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 196 个测试、41 个测试套件、0 个失败。Keychain 隔离读写、已安装 Claude auth 状态、已安装 Claude CLI 额度快照和已安装 Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
@@ -27,6 +27,7 @@ bash scripts/test.sh
 - 浮岛轮廓渲染边缘、品牌 Logo 光学校正、视觉层级和 App Icon Bundle 声明；
 - 玻璃拖动命中区、AppKit 指针状态、无障碍移动、详情交互状态所有权、键盘/VoiceOver 自动隐藏暂停和非颜色状态标记；
 - App 启动不被 Keychain 阻塞，以及 DeepSeek 密钥读取的隔离超时与单次在途保护。
+- Settings 四 Tab 顺序、服务/登录项反馈路由、品牌文案与真实 `Info.plist` 兼容身份。
 
 ## Keychain 集成测试
 
@@ -63,10 +64,10 @@ bash scripts/build-app.sh
 ## App Bundle 验证
 
 ```bash
-plutil -lint "dist/AI Meter.app/Contents/Info.plist"
-codesign --verify --deep --strict --verbose=2 "dist/AI Meter.app"
-file "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
-test -s "dist/AI Meter.app/Contents/Resources/AppIcon.icns"
+plutil -lint "dist/AI Token Meter.app/Contents/Info.plist"
+codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
+file "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
+test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 ```
 
 当前预期：
@@ -92,6 +93,8 @@ git diff --check
 - 三个 Logo、圆环方向与真实百分比一致；
 - 0% 不绘制虚假最小弧；
 - 三个详情都能打开并按设置自动收起；
+- Settings 显示 Appearance、Monitoring、Services、About 四个 Tab，并始终使用系统字体；
+- About 显示 AI Token Meter、Private AI usage monitor 和真实版本号；
 - 点击空白处立即关闭，面板内点击不误关；
 - DeepSeek 登录交互暂停自动隐藏；
 - Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；

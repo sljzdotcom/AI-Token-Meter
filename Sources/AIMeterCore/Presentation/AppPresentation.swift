@@ -158,7 +158,7 @@ public struct MenuBarSummary: Equatable, Sendable {
         if let highest = availablePresentations.compactMap(\.fraction).max() {
             let percent = Int((highest * 100).rounded())
             valueText = "\(percent)%"
-            accessibilityLabel = "AI Meter, highest usage \(percent) percent"
+            accessibilityLabel = "\(AppBrand.displayName), highest usage \(percent) percent"
             if highest >= 0.90 {
                 semantic = .critical
             } else if highest >= 0.70 {
@@ -168,7 +168,7 @@ public struct MenuBarSummary: Equatable, Sendable {
             }
         } else {
             valueText = "—"
-            accessibilityLabel = "AI Meter, usage unavailable"
+            accessibilityLabel = "\(AppBrand.displayName), usage unavailable"
             semantic = presentations.contains(where: { $0.semantic == .stale }) ? .stale : .unavailable
         }
     }

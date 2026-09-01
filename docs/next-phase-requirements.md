@@ -1,11 +1,9 @@
 # AI Token Meter 下一阶段需求登记
 
 **登记日期：** 2026-09-01  
-**状态：** R6 已完成；R2 已实现并完成自动化与部分实机验收，完整桌面层验收待补；R1/R3/R4/R5 尚未进入实现
+**状态：** R1/R4/R5/R6 已完成实现；R2 已实现并完成自动化与部分实机验收，完整桌面层验收待补；R3 是下一独立子项目
 **登记基线：** `main` 提交 `8c42ab2`
-**本次实现基线：** `main` 提交 `374ffd6`
-
-**实施分支：** `codex/desktop-only-floating-strip`；实现代码截至 `a83467d`，首轮验收文档提交为 `e13d246`，其后文档修复以本文件所在提交为准；尚未合并 `main`
+**设置与品牌实施分支：** `codex/settings-tabs-brand-migration`；功能提交 `e5f8e94`、`1f7f6f4`，合并状态以 Git 历史为准
 
 本文只记录用户确认提出的下一阶段需求和当前事实，不代表设计方案已经批准。开始开发前，仍需按每个子项目完成设计、规格确认、实现计划和验收。
 
@@ -13,9 +11,11 @@
 
 ### R1. Settings 使用分类 Tab
 
+**进度：** 已完成。设置固定分为 Appearance、Monitoring、Services、About 四个顶部 Tab，服务反馈会自动路由到 Services，登录项反馈路由到 Monitoring；Settings 根视图始终使用系统字体。
+
 - Settings 内容增多后，改为按类别划分的 Tab 界面，避免所有设置堆叠在同一页面。
 - 后续新增设置应根据功能归属自动放入合适的 Tab，而不是继续追加到单一长页面。
-- Tab 的具体分类、名称、排序和窗口尺寸在设计阶段确认。
+- Tab 顺序和职责已由自动化测试锁定，后续设置按职责放入对应页面。
 
 ### R2. 浮动条只在桌面显示
 
@@ -35,12 +35,14 @@
 
 ### R4. 产品名称与副标题
 
+**进度：** 已完成。显示名称为 **AI Token Meter**，副标题为 **Private AI usage monitor**，构建产物为 `AI Token Meter.app`。
+
 - 产品显示名称改为 **AI Token Meter**。
-- 当前副标题为 `Private usage monitor`。
-- 用户提出的新副标题方向为 `Private AI ...`；暂按候选文案 **Private AI usage monitor** 登记，最终英文文案在实施前确认。
-- 改名需要统一覆盖应用包显示名、菜单、设置窗口、README、用户文档、构建产物名称和可见提示；是否保留现有 Bundle Identifier 与本机数据目录需要在迁移设计中确认，避免丢失偏好、Keychain 访问或登录状态。
+- Bundle Identifier `com.millerpan.AIMeter`、可执行文件 `AIMeterApp`、Keychain 身份和 `Application Support/AI Meter` 兼容目录保持不变，升级不会丢失偏好、密钥访问、缓存或 Claude 工作区批准。
 
 ### R5. 应用 Icon 状态确认与后续处理
+
+**进度：** 已确认沿用当前无文字仪表指针图标；Bundle 元数据测试继续验证 `CFBundleIconFile = AppIcon`。
 
 当前事实：
 
@@ -49,10 +51,7 @@
 - 图标由 `scripts/generate-app-icon.swift` 生成，`Info.plist` 已通过 `CFBundleIconFile = AppIcon` 引用，构建产物中存在完整 `AppIcon.icns`。
 - 该图标最初由提交 `1a165d3` 引入。
 
-待确认：
-
-- 如果 Finder、Dock 或应用列表仍显示旧图标，需要区分是 macOS 图标缓存、正在运行旧安装包，还是用户希望再次重新设计图标。
-- 产品改名为 AI Token Meter 时，是否沿用当前仪表图标或制作新版图标，放入品牌设计阶段决定。
+如果 Finder、Dock 或应用列表仍显示旧图标，应先排除 macOS 图标缓存或仍在运行旧安装包，不重新设计图标。
 
 ### R6. 背景图覆盖顶部反向半圆
 
@@ -65,21 +64,18 @@
 
 ## 初步拆分
 
-这些需求横跨三个相对独立的子项目，不应塞入一次大改动：
+这些需求拆分为三个相对独立的子项目：
 
 1. **浮动条显示与视觉修复：** R2、R6。
 2. **设置与品牌整理：** R1、R4、R5。
 3. **WidgetKit 扩展：** R3。
 
-建议先处理浮动条显示与视觉修复，再整理 Settings 和产品品牌，最后建立 WidgetKit 扩展。Widget 依赖稳定的共享展示模型与品牌命名，放在前两部分之后风险更低。
+前两个子项目已经实现；下一步单独建立 WidgetKit 扩展。Widget 依赖的共享展示模型与品牌命名现在已经稳定。
 
-## 尚待确认的问题
+## 剩余验收与设计问题
 
-- 新副标题是否最终采用 `Private AI usage monitor`。
 - R2 已采用桌面层语义：普通/全屏 Edge 的系统整屏证据通过，Space 切换关闭详情；仍需补验 Mission Control、左右两个普通 Space 和多显示器结果。
-- Settings Tab 的分类方式。
 - Widget 支持的尺寸、各尺寸字段和是否允许交互。
-- 当前仪表 Icon 是保留、微调，还是重新设计。
 
 ## 实施门槛
 

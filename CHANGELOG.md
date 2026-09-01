@@ -1,12 +1,13 @@
 # Changelog
 
-本文件记录 AI Meter 面向使用者的主要变化。格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，版本号遵循语义化版本思路。
+本文件记录 AI Token Meter 面向使用者的主要变化。格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，版本号遵循语义化版本思路。
 
 ## Unreleased
 
 ### Added
 
-- Appearance 新增全局显示字体选择：System Default、Antonio、DIN Condensed，以及 `Restore Default Font`；可用字体会即时应用到 App 自绘文字并持久化，缺失字体禁用且安全回退到系统字体。第三方字体须由用户预先安装，AI Meter 不下载或分发字体文件。
+- Settings 采用 Appearance、Monitoring、Services、About 四个顶部 Tab，并按职责安置现有选项。
+- Appearance 新增全局显示字体选择：System Default、Antonio、DIN Condensed，以及 `Restore Default Font`；可用字体会即时应用到 App 自绘文字并持久化，缺失字体禁用且安全回退到系统字体。第三方字体须由用户预先安装，AI Token Meter 不下载或分发字体文件。
 - 贴边浮岛内部新增静态黑蓝「深海波纹」背景；左右贴边时仅纹理随轮廓镜像，Logo、品牌进度色、点击和拖动行为保持不变，资源缺失时自动回退到原玻璃底色。
 - 可配置的详情自动隐藏时间：3、5、8、15 或 30 秒，默认 8 秒。
 - 点击悬浮条和详情以外区域立即关闭详情；悬停和 DeepSeek 登录交互暂停倒计时。
@@ -25,6 +26,7 @@
 
 ### Changed
 
+- 产品显示名称改为 **AI Token Meter**，副标题改为 **Private AI usage monitor**，构建产物改为 `dist/AI Token Meter.app`；Bundle Identifier、可执行文件名、Keychain 身份和旧数据目录保持兼容。
 - Settings 现在固定使用 macOS 系统字体，字体选项只显示名称；浮动条、三个详情页和菜单点击面板的产品文字统一增大 1pt。
 - Claude、Codex、DeepSeek 现在分别使用黄橙、玫红紫、薄荷紫品牌渐变，并同步到圆环、菜单卡片、详情进度条、标题和关键数据；Claude 与 Codex 的异常语义色仍优先，DeepSeek 始终保留用于表达余额消耗的原薄荷紫渐变。
 - Codex 重置券改为分层卡片：突出可用数量、完整到期时间和自然日剩余状态，并按券数量自适应详情高度。
@@ -40,7 +42,7 @@
 
 ### Fixed
 
-- 将浮岛与详情从系统浮动层降到桌面层，移除全屏辅助行为，使普通应用窗口和全屏空间可自然覆盖 AI Meter。
+- 将浮岛与详情从系统浮动层降到桌面层，移除全屏辅助行为，使普通应用窗口和全屏空间可自然覆盖 AI Token Meter。
 - 修复切换 Space 后详情继续残留的问题；Space 变化现在关闭详情、撤销交互焦点并保持用户已保存的屏幕、侧边和垂直位置。
 - 修复深海背景在浮岛上下肩部出现黑色断层的问题；背景改为 `1.22×` 等比裁切，左右仅水平镜像，原始 PNG 保持不变。
 - 将浮岛上下跨度过大的长 S 肩部收窄为“短平台 + 紧凑圆弧”，减少贴边处过度外鼓，同时保持左右镜像、主体拖动、Logo 点击和详情布局不变。

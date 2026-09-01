@@ -1,16 +1,16 @@
-# AI Meter
+# AI Token Meter
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 185](https://img.shields.io/badge/tests-185%20passed-2ea44f)
+![Tests 196](https://img.shields.io/badge/tests-196%20passed-2ea44f)
 
-AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
+AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
 > 项目状态：个人本地工具，当前应用版本为 `0.1.0`（build `1`）。`0.1.0` 之后已经合入但尚未正式发布的改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 <p align="center">
-  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="108" alt="AI Meter 贴边浮岛，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
+  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="108" alt="AI Token Meter 贴边浮岛，依次显示 Claude、Codex 和 DeepSeek 图标及用量环">
 </p>
 
 ## 主要功能
@@ -19,7 +19,8 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 - 贴边浮岛只显示三个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
 - Claude、Codex、DeepSeek 分别使用黄橙、玫红紫、薄荷紫强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
-- 浮岛和详情属于 macOS 桌面层：Finder 桌面可用时可见，普通应用窗口和全屏应用会自然覆盖它们，不会把 AI Meter 固定在所有内容最上方。
+- 浮岛和详情属于 macOS 桌面层：Finder 桌面可用时可见，普通应用窗口和全屏应用会自然覆盖它们，不会把 AI Token Meter 固定在所有内容最上方。
+- Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；Settings 永远使用 macOS 系统字体，不随选择或内容字号变化。
 - Claude：读取当前会话与周额度，显示重置时间。
@@ -34,7 +35,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 
 | 服务 | 数据来源 | 主要显示内容 | 首次准备 |
 | --- | --- | --- | --- |
-| Claude | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage` | 当前会话、周额度、重置时间 | 安装并登录 Claude Code；首次可能需批准 AI Meter 私有工作区 |
+| Claude | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage` | 当前会话、周额度、重置时间 | 安装并登录 Claude Code；首次可能需批准 AI Token Meter 私有工作区 |
 | Codex | Codex CLI 官方 `app-server` JSON-RPC + 本机 Codex 状态库的聚合列 | 通用用量窗口、重置额度、近 30 天本机活动 | 安装并登录 Codex CLI |
 | DeepSeek | 官方余额 API + App 内隔离的 `platform.deepseek.com` WebKit 会话 | 余额、基准消耗环、近 30 天成本/请求/Token 图表 | 在设置中保存 API Key；历史图表首次需登录官网 |
 
@@ -54,25 +55,25 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 git clone <repository-url>
 cd AI-Meter
 bash scripts/build-app.sh
-open "dist/AI Meter.app"
+open "dist/AI Token Meter.app"
 ```
 
-构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Meter.app`、执行 ad-hoc 本机签名并验证签名。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
+构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Token Meter.app`、执行 ad-hoc 本机签名并验证签名。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
 
-日常使用时，退出 AI Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
+日常使用时，退出 AI Token Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
 
 完整步骤见 [安装与首次使用](docs/user-guide/getting-started.md)。
 
 ## 第一次使用
 
-1. 启动 AI Meter。屏幕右侧出现贴边浮岛和三个用量环，菜单栏出现 AI Meter 图标。
+1. 启动 AI Token Meter。屏幕右侧出现贴边浮岛和三个用量环，菜单栏出现 AI Token Meter 图标。
 2. 点击菜单栏图标，再点击齿轮，或按 `⌘,` 打开设置。
 3. 确认 Claude Code 与 Codex CLI 已分别登录；如 Claude 提示工作区设置，点击一次性设置按钮并在终端批准。
 4. 如需 DeepSeek，在设置中保存 API Key，并把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
 6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。
 
-Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。
+Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。
 
 ## 如何理解圆环
 
@@ -109,7 +110,7 @@ AI-Meter/
 ```bash
 bash scripts/test.sh
 bash scripts/build-app.sh
-codesign --verify --deep --strict "dist/AI Meter.app"
+codesign --verify --deep --strict "dist/AI Token Meter.app"
 ```
 
 普通测试不会主动读取本机账户状态。真实 CLI 冒烟测试必须显式开启对应环境变量，具体方法见 [测试指南](docs/development/testing.md)。
@@ -134,11 +135,11 @@ codesign --verify --deep --strict "dist/AI Meter.app"
 
 ## 隐私与安全摘要
 
-- Claude 与 Codex 凭证由各自 CLI 管理，AI Meter 不读取或保存它们的凭证文件。
+- Claude 与 Codex 凭证由各自 CLI 管理，AI Token Meter 不读取或保存它们的凭证文件。
 - Codex 本机活动只读取线程表中的 Token 数与创建/更新时间，不读取标题、预览、提示词或回复。
 - DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
 - DeepSeek 历史用量使用 App 自己的隔离 WebKit 会话，不读取 Safari、Chrome 或其他浏览器 Cookie。
-- 历史页面的原始响应不会进入业务缓存；AI Meter 只保存标准化后的逐日成本、请求数和 Token 总数。
+- 历史页面的原始响应不会进入业务缓存；AI Token Meter 只保存标准化后的逐日成本、请求数和 Token 总数。
 - 缓存、状态消息与通知会先经过敏感文本清理。
 
 完整说明见 [隐私与安全](docs/security-and-privacy.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。

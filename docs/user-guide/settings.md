@@ -1,6 +1,6 @@
 # 设置参考
 
-使用菜单栏齿轮或 `⌘,` 打开设置。
+使用菜单栏齿轮或 `⌘,` 打开设置。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用 macOS 系统字体。
 
 ## Appearance
 
@@ -16,7 +16,7 @@
 - **Left**：固定在屏幕左侧，仍可上下拖动。
 - **Right**：固定在屏幕右侧，仍可上下拖动。
 - 设置变更立即生效，不需要重启应用。
-- AI Meter 会保存当前显示器、最后侧边和相对垂直位置；已保存显示器断开时回到主屏幕、Automatic、右侧和垂直中点，可见区域改变时自动夹紧。
+- AI Token Meter 会保存当前显示器、最后侧边和相对垂直位置；已保存显示器断开时回到主屏幕、Automatic、右侧和垂直中点，可见区域改变时自动夹紧。
 
 浮岛和详情固定使用 macOS 桌面层，这不是可切换偏好。普通应用窗口和全屏应用会覆盖它们；返回 Finder 桌面或普通桌面 Space 后，浮岛会按已保存的显示器、Left/Right 侧边和垂直位置重新出现。切换 Space 会关闭当前详情，但不会改写这些位置偏好。
 
@@ -32,10 +32,10 @@
 - Settings 始终使用 macOS 系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、三个选项名称、说明或按钮的字形和大小。
 - 切换会立即应用到菜单点击面板、浮动条及 Provider 详情，不需要退出或重新打开窗口；三个选项只显示名称，不提供对应字体的字形预览。
 - `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
-- Antonio 或 DIN Condensed 未安装时，对应选项仍会显示 `Not installed`，但不能选择。已保存的自定义字体临时不可用时，AI Meter 会安全回退到系统字体，不会覆盖已保存选择。
-- AI Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。
+- Antonio 或 DIN Condensed 未安装时，对应选项仍会显示 `Not installed`，但不能选择。已保存的自定义字体临时不可用时，AI Token Meter 会安全回退到系统字体，不会覆盖已保存选择。
+- AI Token Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。
 
-字体选择只影响 AI Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
+字体选择只影响 AI Token Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
 
 ### Detail auto-hide
 
@@ -57,13 +57,21 @@
 - 开启时 macOS 会请求通知权限。
 - 只对有明确上限的额度比例生效，并抑制同一周期的重复通知。
 
-### Open AI Meter at login
+### Open AI Token Meter at login
 
 - 默认：关闭。
 - 使用 macOS 登录项服务注册当前应用。
 - 移动应用位置后应关闭再开启一次，以刷新路径。
 
-## DeepSeek
+## Services
+
+Services 集中放置外部服务的配置与一次性操作。Claude 工作区需要批准时，状态提示与 **Open one-time setup** 按钮会出现在此处；DeepSeek 的余额基准和 API Key 也在此处管理。
+
+### Claude workspace setup
+
+- 仅在 Claude 的隔离用量工作区需要首次批准时使用。
+- 按钮会打开终端，由用户本人确认工作区；应用不会自动接受信任或权限提示。
+- 既有批准继续使用兼容目录 `Application Support/AI Meter/ClaudeUsageWorkspace`。
 
 ### Balance baseline
 
@@ -86,3 +94,10 @@
 | 最近一次统一用量快照 | `Application Support/AI Meter` | 非敏感，写入前清理敏感文本 |
 | DeepSeek 标准化每日用量 | `Application Support/AI Meter` | 非敏感聚合数据 |
 | DeepSeek 官网登录会话 | App 隔离 WebKit 数据存储 | 敏感会话，由 WebKit 管理，不写入业务缓存 |
+
+显示名称已经改为 AI Token Meter，但 Bundle Identifier、可执行文件名、Keychain 身份和 `Application Support/AI Meter` 目录暂时保留。这是有意的兼容设计，用于沿用升级前的偏好、密钥访问、缓存与 Claude 工作区批准。
+
+## About
+
+- 显示 App Icon、**AI Token Meter**、副标题 **Private AI usage monitor**、版本号和 build 号。
+- 显示简短隐私说明；不包含外部账户入口、账户操作或诊断数据上传。

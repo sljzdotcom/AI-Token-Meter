@@ -14,7 +14,7 @@ struct AIMeterApp: App {
 
         Settings {
             SettingsView(model: appDelegate.model)
-                .frame(width: 520, height: 620)
+                .frame(width: 560, height: 540)
         }
     }
 }
