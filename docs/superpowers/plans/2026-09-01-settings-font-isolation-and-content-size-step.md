@@ -441,7 +441,7 @@ bash scripts/test.sh
 ```bash
 bash scripts/build-app.sh
 codesign --verify --deep --strict "dist/AI Meter.app"
-shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AI-Meter"
+shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 ```
 
 预期：Release 构建完成，严格签名验证无输出且退出码为 0，并取得候选可执行文件 SHA-256。
@@ -452,7 +452,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AI-Meter"
 
 ```bash
 codesign --verify --deep --strict "/Applications/AI Meter.app"
-shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AI-Meter"
+shasum -a 256 "/Applications/AI Meter.app/Contents/MacOS/AIMeterApp"
 ```
 
 预期：安装包签名通过，安装包可执行文件 SHA-256 与步骤 4 候选值完全一致。涉及关闭、备份、覆盖和启动 GUI App 时按系统要求请求授权，不删除备份。

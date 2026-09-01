@@ -93,7 +93,7 @@ Release 构建完成，候选与安装版的严格签名命令均无输出且退
 | 安装 `/Applications/AI Meter.app/Contents/MacOS/AIMeterApp` | `b6505ae1ab6fd7c5688615af7a81b4b1705ff24d4f20ccd211f95d2aa2efe359` |
 | 安装前备份 `AI Meter.app/Contents/MacOS/AIMeterApp` | `4fc3cbc757e044710346fa27d52454ceb81a4f975c637d0bb81adf1276cf31ac` |
 
-计划文本中使用的 `Contents/MacOS/AI-Meter` 路径不存在；`Info.plist` 的 `CFBundleExecutable` 是 `AIMeterApp`，因此指纹命令按实际 bundle 可执行文件执行并记录。安装前 bundle 已保留（未删除）于：
+初始任务简报中使用的 `Contents/MacOS/AI-Meter` 路径不存在；`Info.plist` 的 `CFBundleExecutable` 是 `AIMeterApp`，因此指纹命令按实际 bundle 可执行文件执行并记录。实现计划已同步为该实际路径。安装前 bundle 已保留（未删除）于：
 
 ```text
 /private/tmp/AI-Meter-font-scope-backup-20260901/AI Meter.app
