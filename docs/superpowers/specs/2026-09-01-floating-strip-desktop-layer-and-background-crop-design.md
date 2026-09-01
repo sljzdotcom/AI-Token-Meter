@@ -1,9 +1,13 @@
 # AI Token Meter 浮动条桌面层与肩部背景连续性设计规格
 
 **日期：** 2026-09-01  
-**状态：** 用户已确认设计，等待实现计划  
+**状态：** 已实现；R6 验收完成，R2 自动化与部分本机验收完成，完整桌面层实机矩阵待人工补验
 **范围：** 下一阶段需求 R2、R6  
 **基线：** `main` 提交 `970060e`
+
+**实现提交：** `458ab2f`、`5837fa6`、`62a5060`、`a83467d`（分支 `codex/desktop-only-floating-strip`，尚未合并 `main`）
+
+**验收摘要：** 179 项测试/38 套件通过，旧窗口符号零命中，受保护 PNG 哈希与基线一致，Release 构建、严格签名、候选安装与指纹比对通过；Space 切换关闭详情、Antonio/右侧/97% 保持、左右肩部和主要交互已有直接证据。Computer Use 无法可靠捕获跨 App `NSPanel` 合成层级，Mission Control 调用挂起，真实指针拖动及多显示器也未覆盖，因此普通/全屏 Edge、Mission Control、指针拖动和多显示器仍需人工补验。详见[开发验收日志](../../development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
 
 ## 1. 背景与问题
 

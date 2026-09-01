@@ -1,5 +1,7 @@
 # AI Token Meter 浮动条桌面层与背景裁切实现计划
 
+**实施状态（2026-09-01）：** 任务 1 至任务 3 已按 TDD 实现并经独立审查，提交为 `458ab2f`、`5837fa6`、`62a5060`、`a83467d`。任务 4 已完成 179 项全量测试、静态/资产门控、Release 构建签名、候选安装、指纹比对、文档同步和部分本机验收；普通/全屏 Edge 的跨 App 合成层级、Mission Control、真实指针拖动和多显示器因当前自动化环境限制仍需人工补验。本分支不合并 `main`。完整证据见[开发验收日志](../../development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
+
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现本计划。每个任务严格执行红灯、绿灯、重构、提交，并使用复选框（`- [ ]`）跟踪进度。
 
 **目标：** 让浮动条与详情成为真正的桌面层内容：普通应用和全屏应用可以自然覆盖它；同时在不修改原始深海图片的前提下，以 `1.22×` 等比裁切消除上下黑边，使背景连续覆盖完整上下肩部。
@@ -462,7 +464,7 @@ git commit -m "fix: crop strip background across both shoulders"
 - 修改：`docs/superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md`
 - 修改：`docs/superpowers/plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md`
 
-- [ ] **步骤 1：运行完整测试并记录精确结果**
+- [x] **步骤 1：运行完整测试并记录精确结果**
 
 ```bash
 bash scripts/test.sh
@@ -470,7 +472,7 @@ bash scripts/test.sh
 
 预期：不少于基线 170 项测试，新测试全部通过，0 failures。把最终测试数、套件数、耗时和命令记录到开发日志，不写“应该通过”。
 
-- [ ] **步骤 2：执行静态合同与资产保护检查**
+- [x] **步骤 2：执行静态合同与资产保护检查**
 
 ```bash
 rg -n "fullScreenAuxiliary|panel.level = \.floating" Sources/AIMeterApp/System
@@ -480,7 +482,7 @@ git diff --exit-code -- Sources/AIMeterApp/Resources/Backgrounds/floating-strip-
 
 预期：源代码不再命中旧的全屏辅助或浮动层赋值；背景哈希精确匹配基线；资产无 diff。
 
-- [ ] **步骤 3：构建、签名并生成候选 App**
+- [x] **步骤 3：构建、签名并生成候选 App**
 
 先阅读现有构建脚本帮助和最近开发日志，复用项目既有命令，不发明第二套打包流程。至少执行：
 
@@ -491,7 +493,7 @@ codesign --verify --deep --strict build/AI\ Meter.app
 
 若脚本输出的实际 App 路径不同，以脚本返回路径为准。记录 Release 构建结果、签名验证和 bundle 位置。
 
-- [ ] **步骤 4：安装候选版并做桌面层实机验收**
+- [ ] **步骤 4：安装候选版并做桌面层实机验收（部分完成；环境门禁见开发验收日志）**
 
 安装前先安全退出当前 AI Meter；复用项目既有安装脚本或将候选 App 复制到当前安装位置，保留现有 UserDefaults。逐项记录：
 
@@ -507,7 +509,7 @@ codesign --verify --deep --strict build/AI\ Meter.app
 
 实机失败时回到对应任务增加失败测试，不允许只在日志里标注已知问题后继续合并。
 
-- [ ] **步骤 5：补全用户文档和开发日志**
+- [x] **步骤 5：补全用户文档和开发日志**
 
 文档至少包含：
 
@@ -516,10 +518,10 @@ codesign --verify --deep --strict build/AI\ Meter.app
 - Troubleshooting：为何全屏应用中看不到浮动条，以及如何返回桌面确认；
 - CHANGELOG：桌面层修复、Space 详情关闭、背景肩部连续性；
 - 开发日志：根因、设计链接、TDD 红绿结果、最终测试数、资产哈希、构建签名、安装指纹、实机矩阵；
-- 下一阶段需求：R2/R6 标记完成，R1/R3/R4/R5 保持未完成；
+- 下一阶段需求：R6 标记完成；R2 记录实现与自动化完成但完整实机验收待补；R1/R3/R4/R5 保持未完成；
 - 规格与本计划：状态更新为已实现，并附提交与验收摘要。
 
-- [ ] **步骤 6：提交文档与验收证据**
+- [x] **步骤 6：提交文档与验收证据**
 
 ```bash
 git add README.md CHANGELOG.md docs/user-guide/settings.md docs/user-guide/troubleshooting.md docs/development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md docs/development/README.md docs/next-phase-requirements.md docs/superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md docs/superpowers/plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md

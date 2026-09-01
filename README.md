@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 170](https://img.shields.io/badge/tests-170%20passed-2ea44f)
+![Tests 179](https://img.shields.io/badge/tests-179%20passed-2ea44f)
 
 AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -19,6 +19,7 @@ AI Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek
 - 贴边浮岛只显示三个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
 - Claude、Codex、DeepSeek 分别使用黄橙、玫红紫、薄荷紫强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会记住显示器、侧边和垂直位置，详情始终朝桌面内部展开。
+- 浮岛和详情属于 macOS 桌面层：Finder 桌面可用时可见，普通应用窗口和全屏应用会自然覆盖它们，不会把 AI Meter 固定在所有内容最上方。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - 全局显示字体可在 System Default、Antonio 和 DIN Condensed 之间即时切换；默认仍为 macOS 系统字体，并可一键恢复。
 - Claude：读取当前会话与周额度，显示重置时间。

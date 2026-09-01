@@ -1,8 +1,11 @@
 # AI Token Meter 下一阶段需求登记
 
 **登记日期：** 2026-09-01  
-**状态：** 已登记，尚未进入设计与实现  
-**当前基线：** `main` 提交 `8c42ab2`
+**状态：** R6 已完成；R2 已实现并完成自动化与部分实机验收，完整桌面层验收待补；R1/R3/R4/R5 尚未进入实现
+**登记基线：** `main` 提交 `8c42ab2`
+**本次实现基线：** `main` 提交 `374ffd6`
+
+**实施分支：** `codex/desktop-only-floating-strip`（截至 `a83467d`，尚未合并 `main`）
 
 本文只记录用户确认提出的下一阶段需求和当前事实，不代表设计方案已经批准。开始开发前，仍需按每个子项目完成设计、规格确认、实现计划和验收。
 
@@ -16,7 +19,7 @@
 
 ### R2. 浮动条只在桌面显示
 
-**进度：** 设计已确认，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)。
+**进度：** 实现与自动化合同已完成，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)和[开发验收日志](development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。Space 切换关闭详情、位置保持已完成本机验收；普通/全屏应用的跨 App 合成层级、Mission Control 和多显示器仍需人工环境补验，因此暂不标记完整完成。
 
 - 浮动条只应出现在 macOS 桌面场景。
 - 当 Edge 或其他应用进入全屏空间时，浮动条不应覆盖在全屏应用之上。
@@ -53,7 +56,7 @@
 
 ### R6. 背景图覆盖顶部反向半圆
 
-**进度：** 设计已确认，见[桌面层与肩部背景连续性规格](superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)。
+**进度：** 已完成。`1.22×` 等比裁切、左右仅水平镜像、真实肩部像素和玻璃 fallback 均有自动化回归；左右贴边实图均显示上下肩部连续蓝色波纹，原始 PNG SHA-256 与基线一致且无 Git diff。见[开发验收日志](development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)。
 
 - 当前深海背景图只在浮动条中间主体区域完整显示，顶部反向半圆/肩部存在黑色或未覆盖区域。
 - 背景图应继续延伸并裁切到顶部反向半圆中，使半圆与中间长方形成为一张连续、无接缝的背景。
@@ -73,7 +76,7 @@
 ## 尚待确认的问题
 
 - 新副标题是否最终采用 `Private AI usage monitor`。
-- “只在桌面显示”的精确规则：仅隐藏于全屏 App，还是只要桌面不是当前前台空间就隐藏。
+- R2 已采用桌面层语义：普通应用和全屏应用自然覆盖，Space 切换关闭详情；仍需补验 WindowServer 跨 App 合成、Mission Control 和多显示器结果。
 - Settings Tab 的分类方式。
 - Widget 支持的尺寸、各尺寸字段和是否允许交互。
 - 当前仪表 Icon 是保留、微调，还是重新设计。
