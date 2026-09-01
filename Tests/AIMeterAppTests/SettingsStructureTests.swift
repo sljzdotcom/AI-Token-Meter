@@ -23,6 +23,8 @@ struct SettingsStructureTests {
     func messageRouting() {
         #expect(SettingsTab.monitoring.accepts(.launchAtLogin))
         #expect(SettingsTab.services.accepts(.claudeWorkspace))
+        #expect(SettingsTab.services.accepts(.claudeAuthentication))
+        #expect(SettingsTab.services.accepts(.codexAuthentication))
         #expect(SettingsTab.services.accepts(.deepSeekCredential))
         #expect(!SettingsTab.appearance.accepts(.deepSeekCredential))
         #expect(!SettingsTab.about.accepts(.launchAtLogin))

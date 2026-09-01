@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        model.stop()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

@@ -7,7 +7,8 @@ public enum DeepSeekCredentialReplacementError: Error, Equatable, Sendable {
     case keychainFailure
 }
 
-public struct DeepSeekCredentialManager: Sendable {
+public struct DeepSeekCredentialManager: ServiceAccountReading, Sendable {
+    public let provider = UsageProvider.deepSeek
     private let secretStore: any SecretStore
     private let secretReader: DeepSeekCredentialReader
     private let validate: @Sendable (String) async throws -> Void
@@ -46,6 +47,10 @@ public struct DeepSeekCredentialManager: Sendable {
         } catch {
             return ServiceAccountStatus(provider: .deepSeek, connectionState: .unavailable)
         }
+    }
+
+    public func read() async -> ServiceAccountStatus {
+        await readStatus()
     }
 
     public func replace(with candidate: String) async throws -> ServiceAccountStatus {

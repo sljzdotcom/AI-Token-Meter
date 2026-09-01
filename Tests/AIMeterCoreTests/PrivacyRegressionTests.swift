@@ -47,6 +47,22 @@ struct PrivacyRegressionTests {
         #expect(redacted.contains("sign in required"))
     }
 
+    @Test("Account identity has no path into the Widget snapshot")
+    func accountIdentityIsNotPublishedToWidget() throws {
+        let email = "private-account@example.com"
+        let status = ServiceAccountStatus(
+            provider: .codex,
+            connectionState: .connected,
+            accountLabel: email,
+            accountDetail: "ChatGPT · Pro"
+        )
+        let envelope = WidgetSnapshotBuilder().build(snapshots: [UsageSnapshot(provider: status.provider)])
+        let serialized = String(decoding: try JSONEncoder().encode(envelope), as: UTF8.self)
+
+        #expect(!serialized.contains(email))
+        #expect(!serialized.contains("ChatGPT · Pro"))
+    }
+
     private var credentialBearingSnapshot: UsageSnapshot {
         UsageSnapshot(
             provider: .deepSeek,

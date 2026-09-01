@@ -56,6 +56,7 @@ struct AppModelStartupTests {
 
         #expect(recorder.published.count == 1)
         #expect(recorder.published[0].providers.map(\.provider) == [.claude, .codex, .deepSeek])
+        #expect(model.serviceAccounts.values.allSatisfy { $0.connectionState == .connected })
     }
 
     @Test("A completed refresh publishes exactly the displayed snapshots")

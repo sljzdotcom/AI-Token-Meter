@@ -32,5 +32,8 @@ struct SettingsView: View {
                 .tag(SettingsTab.about)
         }
         .aiMeterFontScope(.settings)
+        .task {
+            await model.refreshServiceAccounts()
+        }
     }
 }

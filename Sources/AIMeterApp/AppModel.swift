@@ -23,9 +23,16 @@ final class AppModel {
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
     private let refreshOperation: @Sendable () async -> [UsageSnapshot]
+    private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
+    private let authenticationOpenOperation: (UsageProvider) throws -> Void
+    private let deepSeekReplaceOperation: @Sendable (String) async throws -> ServiceAccountStatus
+    private let signInPollAttempts: Int
+    private let signInPollInterval: Duration
+    private let signInSleep: @Sendable (Duration) async throws -> Void
     private let isDemoMode: Bool
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
+    private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
 
     let deepSeekWebSession: DeepSeekWebSession
 
@@ -33,6 +40,12 @@ final class AppModel {
     private(set) var isRefreshing = false
     private(set) var lastUpdatedAt: Date?
     private(set) var apiKeyConfigured = false
+    private(set) var serviceAccounts: [UsageProvider: ServiceAccountStatus] = [
+        .claude: .checking(provider: .claude),
+        .codex: .checking(provider: .codex),
+        .deepSeek: .checking(provider: .deepSeek),
+    ]
+    private(set) var isReplacingDeepSeekAPIKey = false
     private(set) var launchAtLoginEnabled = false
     private(set) var settingsMessage: String?
     private(set) var settingsMessageKind: SettingsMessageKind?
@@ -56,7 +69,15 @@ final class AppModel {
         claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher = ClaudeWorkspaceSetupLauncher(),
         widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
         isDemoMode: Bool? = nil,
-        refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil
+        refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
+        serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
+        authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
+        deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
+        signInPollAttempts: Int = 40,
+        signInPollInterval: Duration = .seconds(3),
+        signInSleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
+            try await Task.sleep(for: duration)
+        }
     ) {
         self.defaults = defaults
         self.secretStore = secretStore
@@ -68,6 +89,26 @@ final class AppModel {
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
         self.widgetSnapshotPublisher = widgetSnapshotPublisher
+        let deepSeekCredentialManager = DeepSeekCredentialManager(secretStore: secretStore)
+        let accountCoordinator = ServiceAccountCoordinator(
+            deepSeekReader: deepSeekCredentialManager
+        )
+        self.serviceAccountRefreshOperation = serviceAccountRefreshOperation ?? { provider in
+            if let provider {
+                return [await accountCoordinator.read(provider)]
+            }
+            return await accountCoordinator.readAll()
+        }
+        let authenticationLauncher = CLIAuthenticationLauncher()
+        self.authenticationOpenOperation = authenticationOpenOperation ?? { provider in
+            try authenticationLauncher.open(provider: provider)
+        }
+        self.deepSeekReplaceOperation = deepSeekReplaceOperation ?? { candidate in
+            try await deepSeekCredentialManager.replace(with: candidate)
+        }
+        self.signInPollAttempts = max(signInPollAttempts, 1)
+        self.signInPollInterval = signInPollInterval
+        self.signInSleep = signInSleep
         self.isDemoMode = isDemoMode
             ?? (ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1")
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
@@ -127,6 +168,7 @@ final class AppModel {
         }
         if isDemoMode {
             snapshots = Self.demoSnapshots
+            setDemoServiceAccounts()
             lastUpdatedAt = Date()
             publishWidgetSnapshot()
             return
@@ -136,6 +178,7 @@ final class AppModel {
         }
         refreshLoop = Task { [weak self] in
             guard let self else { return }
+            await refreshServiceAccounts()
             await refresh()
             while !Task.isCancelled {
                 do {
@@ -146,6 +189,13 @@ final class AppModel {
                 await refresh()
             }
         }
+    }
+
+    func stop() {
+        refreshLoop?.cancel()
+        refreshLoop = nil
+        signInTasks.values.forEach { $0.cancel() }
+        signInTasks.removeAll()
     }
 
     func refresh() async {
@@ -268,29 +318,145 @@ final class AppModel {
         }
     }
 
-    func saveDeepSeekAPIKey(_ apiKey: String) {
-        do {
-            let normalized = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !normalized.isEmpty else {
-                settingsMessage = "Enter a DeepSeek API Key first."
-                settingsMessageKind = .deepSeekCredential
-                return
-            }
-            try secretStore.save(normalized)
-            apiKeyConfigured = true
-            settingsMessage = "DeepSeek API Key saved in Keychain."
-            settingsMessageKind = .deepSeekCredential
-            Task { await refresh() }
-        } catch {
-            settingsMessage = "The API Key could not be saved to Keychain."
-            settingsMessageKind = .deepSeekCredential
+    func refreshServiceAccounts() async {
+        if isDemoMode {
+            setDemoServiceAccounts()
+            return
         }
+
+        UsageProvider.allCases.forEach {
+            serviceAccounts[$0] = .checking(provider: $0)
+        }
+        let statuses = await serviceAccountRefreshOperation(nil)
+        for status in statuses {
+            serviceAccounts[status.provider] = status
+        }
+        for provider in UsageProvider.allCases where serviceAccounts[provider]?.connectionState == .checking {
+            serviceAccounts[provider] = ServiceAccountStatus(
+                provider: provider,
+                connectionState: .unavailable
+            )
+        }
+        updateAPIKeyConfiguration(from: serviceAccounts[.deepSeek])
+    }
+
+    @discardableResult
+    func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
+        serviceAccounts[provider] = .checking(provider: provider)
+        let status = await serviceAccountRefreshOperation(provider).first
+            ?? ServiceAccountStatus(provider: provider, connectionState: .unavailable)
+        serviceAccounts[provider] = status
+        if provider == .deepSeek {
+            updateAPIKeyConfiguration(from: status)
+        }
+        return status
+    }
+
+    func signInButtonTitle(for provider: UsageProvider) -> String {
+        serviceAccounts[provider]?.connectionState == .connected
+            ? "Sign in again"
+            : "Sign in"
+    }
+
+    @discardableResult
+    func beginSignIn(_ provider: UsageProvider) -> Task<Void, Never>? {
+        guard provider == .claude || provider == .codex else { return nil }
+        let originalStatus = serviceAccounts[provider]
+        do {
+            try authenticationOpenOperation(provider)
+        } catch {
+            settingsMessage = "\(provider.displayName) sign-in could not be opened."
+            settingsMessageKind = authenticationMessageKind(for: provider)
+            return nil
+        }
+
+        signInTasks[provider]?.cancel()
+        settingsMessage = "Complete \(provider.displayName) sign-in in Terminal. Status will update automatically."
+        settingsMessageKind = authenticationMessageKind(for: provider)
+        let task = Task { [weak self] in
+            guard let self else { return }
+            var sawNonConnectedStatus = originalStatus?.connectionState != .connected
+            for _ in 0..<signInPollAttempts {
+                do {
+                    try await signInSleep(signInPollInterval)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                let status = await checkServiceAccount(provider)
+                let identityChanged = status.accountLabel != originalStatus?.accountLabel
+                    || status.accountDetail != originalStatus?.accountDetail
+                if status.connectionState == .connected,
+                   sawNonConnectedStatus || identityChanged {
+                    settingsMessage = "\(provider.displayName) account connected."
+                    settingsMessageKind = authenticationMessageKind(for: provider)
+                    await refresh()
+                    signInTasks[provider] = nil
+                    return
+                }
+                if status.connectionState != .connected {
+                    sawNonConnectedStatus = true
+                }
+            }
+            guard !Task.isCancelled else { return }
+            settingsMessage = "Sign-in is still pending. Finish in Terminal, then choose Check Status."
+            settingsMessageKind = authenticationMessageKind(for: provider)
+            signInTasks[provider] = nil
+        }
+        signInTasks[provider] = task
+        return task
+    }
+
+    func replaceDeepSeekAPIKey(_ apiKey: String) async -> Bool {
+        guard !isReplacingDeepSeekAPIKey else { return false }
+        isReplacingDeepSeekAPIKey = true
+        defer { isReplacingDeepSeekAPIKey = false }
+
+        do {
+            let status = try await deepSeekReplaceOperation(apiKey)
+            serviceAccounts[.deepSeek] = status
+            apiKeyConfigured = status.connectionState == .connected
+            settingsMessage = "DeepSeek API Key verified and saved in Keychain."
+            settingsMessageKind = .deepSeekCredential
+            await refresh()
+            return true
+        } catch let error as DeepSeekCredentialReplacementError {
+            switch error {
+            case .emptyCandidate:
+                settingsMessage = "Enter a DeepSeek API Key first."
+            case .invalidKey:
+                settingsMessage = "DeepSeek rejected this API Key. The existing Key was kept."
+            case .verificationUnavailable:
+                settingsMessage = "DeepSeek could not verify this Key. The existing Key was kept."
+            case .keychainFailure:
+                settingsMessage = "The existing DeepSeek Key was kept because Keychain could not be updated."
+            }
+            settingsMessageKind = .deepSeekCredential
+            return false
+        } catch {
+            settingsMessage = "DeepSeek could not verify this Key. The existing Key was kept."
+            settingsMessageKind = .deepSeekCredential
+            return false
+        }
+    }
+
+    func saveDeepSeekAPIKey(_ apiKey: String) {
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            settingsMessage = "Enter a DeepSeek API Key first."
+            settingsMessageKind = .deepSeekCredential
+            return
+        }
+        Task { _ = await replaceDeepSeekAPIKey(apiKey) }
     }
 
     func removeDeepSeekAPIKey() {
         do {
             try secretStore.delete()
             apiKeyConfigured = false
+            serviceAccounts[.deepSeek] = ServiceAccountStatus(
+                provider: .deepSeek,
+                connectionState: .signInRequired
+            )
             settingsMessage = "DeepSeek API Key removed."
             settingsMessageKind = .deepSeekCredential
             Task { await refresh() }
@@ -307,6 +473,38 @@ final class AppModel {
         } else if deepSeek.primaryMetric != nil {
             apiKeyConfigured = true
         }
+    }
+
+    private func updateAPIKeyConfiguration(from status: ServiceAccountStatus?) {
+        guard let status else { return }
+        apiKeyConfigured = status.connectionState == .connected
+    }
+
+    private func authenticationMessageKind(for provider: UsageProvider) -> SettingsMessageKind {
+        provider == .claude ? .claudeAuthentication : .codexAuthentication
+    }
+
+    private func setDemoServiceAccounts() {
+        serviceAccounts = [
+            .claude: ServiceAccountStatus(
+                provider: .claude,
+                connectionState: .connected,
+                accountLabel: "Demo Claude account",
+                accountDetail: "OAuth"
+            ),
+            .codex: ServiceAccountStatus(
+                provider: .codex,
+                connectionState: .connected,
+                accountLabel: "demo@example.com",
+                accountDetail: "ChatGPT · Pro"
+            ),
+            .deepSeek: ServiceAccountStatus(
+                provider: .deepSeek,
+                connectionState: .connected,
+                accountLabel: "API Key ••••DEMO"
+            ),
+        ]
+        apiKeyConfigured = true
     }
 
     private func applyingLocalBudget(to snapshot: UsageSnapshot) -> UsageSnapshot {
