@@ -22,7 +22,7 @@
 - `Sources/AIMeterCore/Presentation/AppBrand.swift`：用户可见品牌常量和 Bundle 版本格式化。
 - `Tests/AIMeterAppTests/SettingsStructureTests.swift`：Tab 结构、控件归属、字体作用域和消息路由合同。
 - `Tests/AIMeterCoreTests/AppBrandTests.swift`：品牌与版本格式化测试。
-- `Tests/AIMeterAppTests/BrandContractTests.swift`：Info.plist、构建脚本和用户可见源码品牌合同。
+- `Tests/AIMeterAppTests/AppBundleMetadataTests.swift`：真实解析 Info.plist，验证用户可见 Bundle 元数据与兼容标识。
 - `docs/development/2026-09-01-settings-tabs-and-brand-migration.md`：TDD、构建、安装、迁移和人工验收日志。
 
 ### 修改
@@ -37,7 +37,6 @@
 - `Sources/AIMeterApp/Resources/Info.plist`：显示名与 Bundle 名。
 - `scripts/build-app.sh`：生成 `dist/AI Token Meter.app`。
 - `Tests/AIMeterCoreTests/AppPresentationTests.swift`：新可访问性文本。
-- `Tests/AIMeterAppTests/TypographyTests.swift`：新的 Settings 文件边界与系统字体合同。
 - `README.md`、`CHANGELOG.md`、`docs/README.md`、`docs/architecture/*.md`、`docs/user-guide/*.md`、`docs/development/*.md`、`docs/security-and-privacy.md`：当前文档品牌与状态同步；历史规格和历史日志不批量改写。
 - `docs/next-phase-requirements.md`：R1/R4/R5 完成，R2 保留人工门槛，R3 待 Widget 阶段。
 
@@ -52,10 +51,9 @@
 - 修改：`Sources/AIMeterApp/Views/SettingsView.swift`
 - 修改：`Sources/AIMeterApp/AppModel.swift`
 - 修改：`Sources/AIMeterApp/AIMeterApp.swift`
-- 修改：`Tests/AIMeterAppTests/TypographyTests.swift`
 - 测试：`Tests/AIMeterAppTests/SettingsStructureTests.swift`
 
-- [ ] **步骤 1：编写四分类与根视图接线的失败测试**
+- [ ] **步骤 1：编写四分类与消息路由的失败测试**
 
 ```swift
 import Testing
@@ -79,18 +77,15 @@ struct SettingsStructureTests {
 }
 ```
 
-同时扩展 `TypographyTests.rootScopeWiring`：根 `SettingsView` 必须包含 `.aiMeterFontScope(.settings)`；四个子视图不得包含 `.content(` 或 `aiMeterFontPreview`。
-
 - [ ] **步骤 2：运行测试并确认红灯来自缺失类型/接线**
 
 运行：
 
 ```bash
 swift test --filter SettingsStructureTests
-swift test --filter TypographyTests.rootScopeWiring
 ```
 
-预期：编译失败，提示 `SettingsTab` 或 `SettingsMessageKind` 不存在；字体源码合同因旧单文件 Settings 结构失败。
+预期：编译失败，提示 `SettingsTab` 或 `SettingsMessageKind` 不存在。
 
 - [ ] **步骤 3：实现稳定 Tab 与消息种类**
 
@@ -158,7 +153,7 @@ TabView(selection: $selectedTab) {
 .aiMeterFontScope(.settings)
 ```
 
-`AppearanceSettingsView`、`MonitoringSettingsView` 和 `ServicesSettingsView` 逐项搬移旧 `SettingsView` 控件，不改变绑定和说明；服务页为 Claude/Codex 加只读 CLI 管理说明。只有 `settingsMessageKind` 与当前页匹配时显示消息。`AIMeterApp` 的 Settings frame 改为 560 × 540。
+`AppearanceSettingsView`、`MonitoringSettingsView` 和 `ServicesSettingsView` 逐项搬移旧 `SettingsView` 控件，不改变绑定和说明；服务页为 Claude/Codex 加只读 CLI 管理说明。只有 `settingsMessageKind` 与当前页匹配时显示消息。任务 1 的 `AboutSettingsView` 只从真实 `Bundle.main.infoDictionary` 读取当前显示名和版本，不引入第二份品牌常量；任务 2 再将其统一接入 `AppBrand`。`AIMeterApp` 的 Settings frame 改为 560 × 540。
 
 - [ ] **步骤 5：运行定向与完整字体/启动测试**
 
@@ -181,8 +176,7 @@ git add Sources/AIMeterApp/Views/SettingsTab.swift \
   Sources/AIMeterApp/Views/ServicesSettingsView.swift \
   Sources/AIMeterApp/Views/AboutSettingsView.swift \
   Sources/AIMeterApp/Views/SettingsView.swift Sources/AIMeterApp/AppModel.swift \
-  Sources/AIMeterApp/AIMeterApp.swift Tests/AIMeterAppTests/SettingsStructureTests.swift \
-  Tests/AIMeterAppTests/TypographyTests.swift
+  Sources/AIMeterApp/AIMeterApp.swift Tests/AIMeterAppTests/SettingsStructureTests.swift
 git commit -m "feat: organize settings into four tabs"
 ```
 
@@ -191,7 +185,7 @@ git commit -m "feat: organize settings into four tabs"
 **文件：**
 - 创建：`Sources/AIMeterCore/Presentation/AppBrand.swift`
 - 创建：`Tests/AIMeterCoreTests/AppBrandTests.swift`
-- 创建：`Tests/AIMeterAppTests/BrandContractTests.swift`
+- 创建：`Tests/AIMeterAppTests/AppBundleMetadataTests.swift`
 - 修改：`Sources/AIMeterCore/Presentation/AppPresentation.swift`
 - 修改：`Sources/AIMeterApp/Views/MenuBarPanel.swift`
 - 修改：`Sources/AIMeterApp/Views/AboutSettingsView.swift`
@@ -227,7 +221,22 @@ struct AppBrandTests {
 }
 ```
 
-`BrandContractTests` 读取 Info.plist、`scripts/build-app.sh` 和用户可见 View 源码，断言新显示名、副标题和 `APP_NAME="AI Token Meter"`；允许旧字符串只出现在显式列出的兼容文件与内部 suite 名称中。
+`AppBundleMetadataTests` 用 `PropertyListSerialization` 真实解析 `Sources/AIMeterApp/Resources/Info.plist`，断言 `CFBundleDisplayName`、`CFBundleName`、`CFBundleIdentifier`、`CFBundleExecutable` 和 `CFBundleIconFile`。构建脚本不靠文本扫描测试；任务 4 会真实执行脚本并验证产物路径、签名和 Bundle 内容。
+
+```swift
+@Test("Declares the visible brand without changing compatibility identity")
+func bundleMetadata() throws {
+    let data = try Data(contentsOf: Self.infoPlistURL)
+    let plist = try #require(
+        PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+    )
+    #expect(plist["CFBundleDisplayName"] as? String == "AI Token Meter")
+    #expect(plist["CFBundleName"] as? String == "AI Token Meter")
+    #expect(plist["CFBundleIdentifier"] as? String == "com.millerpan.AIMeter")
+    #expect(plist["CFBundleExecutable"] as? String == "AIMeterApp")
+    #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
+}
+```
 
 - [ ] **步骤 2：运行测试并确认旧品牌导致失败**
 
@@ -235,7 +244,7 @@ struct AppBrandTests {
 
 ```bash
 swift test --filter AppBrandTests
-swift test --filter BrandContractTests
+swift test --filter AppBundleMetadataTests
 swift test --filter AppPresentationTests
 ```
 
@@ -278,7 +287,7 @@ CFBundleIconFile = AppIcon
 
 ```bash
 swift test --filter AppBrandTests
-swift test --filter BrandContractTests
+swift test --filter AppBundleMetadataTests
 swift test --filter AppPresentationTests
 bash scripts/test.sh
 ```
@@ -295,7 +304,7 @@ git add Sources/AIMeterCore/Presentation/AppBrand.swift \
   Sources/AIMeterApp/Views/MonitoringSettingsView.swift Sources/AIMeterApp/AppModel.swift \
   Sources/AIMeterApp/Resources/Info.plist scripts/build-app.sh \
   Tests/AIMeterCoreTests/AppBrandTests.swift Tests/AIMeterCoreTests/AppPresentationTests.swift \
-  Tests/AIMeterAppTests/BrandContractTests.swift
+  Tests/AIMeterAppTests/AppBundleMetadataTests.swift
 git commit -m "feat: rename the product to AI Token Meter"
 ```
 
