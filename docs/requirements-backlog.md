@@ -23,6 +23,7 @@
 | REQ-20260901-006 | Claude 详情 | 丰富 Claude 详情页，增加明确标记为本机口径的最近 30 天 Claude Code 统计 | 中 | 已完成 | 2026-09-01 | 无 | [设计规格](superpowers/specs/2026-09-01-claude-detail-local-activity-design.md)、[实施计划](superpowers/plans/2026-09-01-claude-detail-local-activity.md)、[开发与验收记录](development/2026-09-01-claude-detail-local-activity.md)、`f467d13`–`90b31c8`、合并 `1f456a0` |
 | REQ-20260901-007 | 字体 | 在显示字体选择器中增加 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi，并保持 Settings 自身永远使用系统字体 | 中 | 已完成 | 2026-09-01 | 未安装字体的真实字形对比待用户安装对应字体后按需进行，不影响目录功能完成 | [设计规格](superpowers/specs/2026-09-01-display-font-catalog-expansion-design.md)、[实施计划](superpowers/plans/2026-09-01-display-font-catalog-expansion.md)、[开发与验收记录](development/2026-09-01-display-font-catalog-expansion.md)、`3595c28`、合并 `1f456a0` |
 | REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 已完成 | 2026-09-01 | 2026-09-02 完成；294 项测试、Release 安装与实机自动隐藏验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-card-removal.md) · [验收日志](development/2026-09-02-claude-detail-card-removal.md) |
+| REQ-20260902-009 | Claude 详情 | 移除本机活动区域底部的隐私说明文字及锁形图标 | 中 | 待用户确认 | 2026-09-02 | 方案 A 已选定；书面规格待用户最终确认 | [设计规格](superpowers/specs/2026-09-02-claude-detail-privacy-note-removal-design.md) |
 
 ## 分类索引
 
@@ -50,6 +51,7 @@
 
 - `REQ-20260901-006`：评估 Claude 详情页增加近 30 天用量与本机活动统计。
 - `REQ-20260901-008`：移除 Token composition 与 Top models 两张本机活动卡片。
+- `REQ-20260902-009`：移除本机活动区域底部的隐私说明及锁形图标。
 
 ### 字体
 
@@ -82,3 +84,5 @@
 | 2026-09-02 | REQ-20260901-008 | 待用户确认 → 进行中 | 用户选择方案 A：仅移除两张展示卡片，保留采集与缓存兼容；书面规格进入最终确认。 |
 | 2026-09-02 | REQ-20260901-008 | 进行中 | 用户确认书面规格；完成实施计划并进入隔离分支开发。 |
 | 2026-09-02 | REQ-20260901-008 | 进行中 → 已完成 | 移除两张展示卡片，保留采集与缓存兼容；294 项测试、正式构建、安装哈希和真实自动隐藏验收通过。 |
+| 2026-09-02 | REQ-20260902-009 | 新建 → 待用户确认 | 用户要求移除 Claude 详情底部隐私说明；等待确认完整移除、不留占位的最小方案。 |
+| 2026-09-02 | REQ-20260902-009 | 待用户确认 | 用户选择方案 A：完整移除文字和锁形图标，不增加占位、提示或设置开关。 |
