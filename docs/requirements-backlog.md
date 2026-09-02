@@ -24,6 +24,7 @@
 | REQ-20260901-007 | 字体 | 在显示字体选择器中增加 Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi，并保持 Settings 自身永远使用系统字体 | 中 | 已完成 | 2026-09-01 | 未安装字体的真实字形对比待用户安装对应字体后按需进行，不影响目录功能完成 | [设计规格](superpowers/specs/2026-09-01-display-font-catalog-expansion-design.md)、[实施计划](superpowers/plans/2026-09-01-display-font-catalog-expansion.md)、[开发与验收记录](development/2026-09-01-display-font-catalog-expansion.md)、`3595c28`、合并 `1f456a0` |
 | REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 已完成 | 2026-09-01 | 2026-09-02 完成；294 项测试、Release 安装与实机自动隐藏验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-card-removal.md) · [验收日志](development/2026-09-02-claude-detail-card-removal.md) |
 | REQ-20260902-009 | Claude 详情 | 移除本机活动区域底部的隐私说明文字及锁形图标 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；295 项测试、Release 安装与真实辅助功能树验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-privacy-note-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-privacy-note-removal.md) · [验收日志](development/2026-09-02-claude-detail-privacy-note-removal.md) |
+| REQ-20260902-010 | 菜单栏视觉 | 重新设计菜单栏状态图标，使其更现代、更具极客感，并保持 macOS 菜单栏小尺寸下清晰可辨 | 中 | 待用户确认 | 2026-09-02 | 审阅书面设计规格后进入实施计划 | [设计规格](superpowers/specs/2026-09-02-menu-bar-quantum-dial-design.md) · 用户截图与本次视觉原型 |
 
 ## 分类索引
 
@@ -57,6 +58,10 @@
 
 - `REQ-20260901-007`：扩充显示字体选择器，新增五个用户指定字体。
 
+### 菜单栏视觉
+
+- `REQ-20260902-010`：重新设计菜单栏状态图标，提升现代感、极客感与小尺寸辨识度。
+
 ## 状态变更记录
 
 | 日期 | ID | 变化 | 说明 |
@@ -89,3 +94,7 @@
 | 2026-09-02 | REQ-20260902-009 | 待用户确认 → 进行中 | 用户确认书面规格，进入实施计划和测试先行开发。 |
 | 2026-09-02 | REQ-20260902-009 | 进行中 | 完成测试驱动实施计划，准备在隔离分支执行。 |
 | 2026-09-02 | REQ-20260902-009 | 进行中 → 已完成 | 完整移除隐私说明和锁图标；295 项测试、Release 签名、安装哈希及真实辅助功能树验收通过。 |
+| 2026-09-02 | REQ-20260902-010 | 新建 → 待用户确认 | 用户希望菜单栏状态图标更现代、更具极客感；等待确认视觉方案。 |
+| 2026-09-02 | REQ-20260902-010 | 待用户确认 | 用户选择方案 A「Quantum Dial」作为菜单栏图标正式视觉方向。 |
+| 2026-09-02 | REQ-20260902-010 | 待用户确认 | 用户确认动态图标：外圈和指针反映最高已用比例，保留精确百分比文字，无数据时显示中性状态。 |
+| 2026-09-02 | REQ-20260902-010 | 待用户确认 | 完整设计已口头确认；书面规格已完成，等待最终审阅。 |
