@@ -34,6 +34,7 @@
 | REQ-20260902-017 | 公开发布 | 将项目安全发布到用户 GitHub 账户：建立公开仓库，补齐标准开源文档和产品截图，提供可下载 Release，确保源码、历史和产物不含个人 Key，并在 About 中标注作者 Miller | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-public-github-release-design.md)、[实施计划](design/implementation-plans/2026-09-02-public-github-release.md)、[发布日志](development/2026-09-02-public-github-release.md)、[v0.1.2 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2)、[最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33642220151)、`24ab4a5` |
 | REQ-20260902-018 | 发布缺陷 | 修复 GitHub Actions 在 macOS 15 runner 上编译 Claude 本机活动 token 数组时的 Swift 类型推断失败，恢复公开仓库 CI | 高 | 已完成 | 2026-09-02 | 无 | [首次失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33634543141)、[中间成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658)、[复验失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637436534)、[最终成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)、`616ce76` |
 | REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 进行中 | 2026-09-02 | 书面设计已最终确认；详细实施计划完成后直接进入测试先行开发 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) · [实施计划](design/implementation-plans/2026-09-02-github-app-update.md) |
+| REQ-20260902-020 | 运行稳定性 | 修复 macOS 并发分配 PTY 时 `openpty` 偶发失败，导致并发 CLI 命令误报 `transportFailure` 和发布回归不稳定 | 高 | 进行中 | 2026-09-02 | 已用 32/48/64 路最小实验与现有 32 路回归稳定复现；串行化唯一 PTY 分配临界区并重新执行压力及完整发布验证 | 发布流水线失败证据、`PTYCommandRunnerTests.concurrentCommandsPreserveOutput` |
 
 ## 分类索引
 
@@ -85,6 +86,7 @@
 - `REQ-20260902-017`：安全发布公开 GitHub 仓库、标准文档、截图与可下载 Release，并补充作者信息。
 - `REQ-20260902-018`：修复公开仓库首次 GitHub Actions 的 Swift 跨工具链类型推断失败。
 - `REQ-20260902-019`：Settings 内检查 GitHub 新版本并安全自动下载安装。
+- `REQ-20260902-020`：串行化 macOS PTY 分配，消除并发 CLI 采集的瞬时 `openpty` 失败。
 
 ## 状态变更记录
 
@@ -158,3 +160,4 @@
 | 2026-09-02 | REQ-20260902-019 | 进行中 | 用户选择方案 A：仅在手动点击“检查更新”时联网；发现新版后由用户点击“立即更新”下载安装，不做后台检查或静默安装。 |
 | 2026-09-02 | REQ-20260902-019 | 进行中 → 待用户确认 | Sparkle 2、GitHub appcast、EdDSA 签名、About 双按钮、失败回退、首次手动升级与测试验收的书面规格已完成并通过自检。 |
 | 2026-09-02 | REQ-20260902-019 | 待用户确认 → 进行中 | 用户确认书面规格；进入实施计划和测试先行开发，不再等待额外计划审批。 |
+| 2026-09-02 | REQ-20260902-020 | 新建 → 进行中 | v0.2.0 主分支发布验证中，32 路 PTY 测试稳定复现 `transportFailure`；最小 `openpty` 并发实验确认分配调用存在竞争。 |

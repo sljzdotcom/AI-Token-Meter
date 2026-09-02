@@ -19,6 +19,7 @@
 
 ### Fixed
 
+- 修复高并发 CLI 刷新或发布回归中，macOS `openpty` 偶发竞争失败并误报 `transportFailure` 的问题；仅串行化极短的 PTY 分配临界区，命令执行与三服务采集仍可并行。
 - ad-hoc 分发不再错误启用会拒绝无 TeamIdentifier framework 的 library validation；真实开发者证书构建仍保留 hardened runtime。
 - 更新归档验证会核对 ZIP 长度、版本、build 与 EdDSA 签名，并明确拒绝被追加或篡改的归档。
 

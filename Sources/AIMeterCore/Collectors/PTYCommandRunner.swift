@@ -2,6 +2,8 @@ import Darwin
 import Foundation
 
 public struct PTYCommandRunner: CommandRunning {
+    private static let allocationLock = NSLock()
+
     private let beforeProcessRegistration: (@Sendable () -> Void)?
 
     public init() {
@@ -40,7 +42,10 @@ public struct PTYCommandRunner: CommandRunning {
         var masterDescriptor: Int32 = -1
         var slaveDescriptor: Int32 = -1
         var windowSize = winsize(ws_row: 40, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
-        guard openpty(&masterDescriptor, &slaveDescriptor, nil, nil, &windowSize) == 0 else {
+        let allocationResult = Self.allocationLock.withLock {
+            openpty(&masterDescriptor, &slaveDescriptor, nil, nil, &windowSize)
+        }
+        guard allocationResult == 0 else {
             throw UsageCollectionError.transportFailure
         }
         let activeMasterDescriptor = masterDescriptor
