@@ -147,6 +147,7 @@ public struct ProviderPresentation: Equatable, Sendable {
 
 public struct MenuBarSummary: Equatable, Sendable {
     public let semantic: UsageSemantic
+    public let usageFraction: Double?
     public let valueText: String
     public let accessibilityLabel: String
 
@@ -155,18 +156,24 @@ public struct MenuBarSummary: Equatable, Sendable {
         let availablePresentations = zip(snapshots, presentations)
             .filter { snapshot, _ in snapshot.availability == .available }
             .map(\.1)
-        if let highest = availablePresentations.compactMap(\.fraction).max() {
-            let percent = Int((highest * 100).rounded())
+        if let highest = availablePresentations
+            .compactMap(\.fraction)
+            .filter({ $0.isFinite })
+            .max() {
+            let normalizedHighest = min(max(highest, 0), 1)
+            usageFraction = normalizedHighest
+            let percent = Int((normalizedHighest * 100).rounded())
             valueText = "\(percent)%"
             accessibilityLabel = "\(AppBrand.displayName), highest usage \(percent) percent"
-            if highest >= 0.90 {
+            if normalizedHighest >= 0.90 {
                 semantic = .critical
-            } else if highest >= 0.70 {
+            } else if normalizedHighest >= 0.70 {
                 semantic = .warning
             } else {
                 semantic = .normal
             }
         } else {
+            usageFraction = nil
             valueText = "—"
             accessibilityLabel = "\(AppBrand.displayName), usage unavailable"
             semantic = presentations.contains(where: { $0.semantic == .stale }) ? .stale : .unavailable

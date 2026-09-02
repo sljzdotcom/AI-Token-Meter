@@ -164,14 +164,44 @@ struct AppPresentationTests {
         let summary = MenuBarSummary(snapshots: snapshots)
 
         #expect(summary.semantic == .critical)
+        #expect(summary.usageFraction == 0.92)
         #expect(summary.valueText == "92%")
         #expect(summary.accessibilityLabel == "AI Token Meter, highest usage 92 percent")
+    }
+
+    @Test("Menu bar summary clamps fractions and excludes unavailable providers")
+    func normalizesMenuBarFraction() {
+        let unavailable = UsageSnapshot(
+            provider: .claude,
+            primaryMetric: UsageMetric(
+                label: "Usage",
+                current: 100,
+                limit: 100,
+                unit: .percent
+            ),
+            availability: .unavailable
+        )
+        let overLimit = UsageSnapshot(
+            provider: .codex,
+            primaryMetric: UsageMetric(
+                label: "Usage",
+                current: 140,
+                limit: 100,
+                unit: .percent
+            )
+        )
+
+        let summary = MenuBarSummary(snapshots: [unavailable, overLimit])
+
+        #expect(summary.usageFraction == 1)
+        #expect(summary.valueText == "100%")
     }
 
     @Test("Menu bar summary uses the visible brand when usage is unavailable")
     func summarizesUnavailableUsage() {
         let summary = MenuBarSummary(snapshots: [])
 
+        #expect(summary.usageFraction == nil)
         #expect(summary.accessibilityLabel == "AI Token Meter, usage unavailable")
     }
 

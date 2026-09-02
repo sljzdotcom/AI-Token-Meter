@@ -28,7 +28,7 @@
 - 修改：`Sources/AIMeterCore/Presentation/AppPresentation.swift:148-180`
 - 修改：`Tests/AIMeterCoreTests/AppPresentationTests.swift:145-180`
 
-- [ ] **步骤 1：编写失败的展示模型测试**
+- [x] **步骤 1：编写失败的展示模型测试**
 
 在 `AppPresentationTests` 的菜单栏摘要测试中加入比例断言，并新增边界用例：
 
@@ -72,7 +72,7 @@ func normalizesMenuBarFraction() {
 }
 ```
 
-- [ ] **步骤 2：运行定向测试验证失败**
+- [x] **步骤 2：运行定向测试验证失败**
 
 运行：
 
@@ -83,7 +83,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-core \
 
 预期：FAIL，编译器报告 `MenuBarSummary` 没有 `usageFraction`。
 
-- [ ] **步骤 3：实现最小展示模型改动**
+- [x] **步骤 3：实现最小展示模型改动**
 
 在 `MenuBarSummary` 增加公开只读属性，并确保所有分支赋值：
 
@@ -127,13 +127,13 @@ public struct MenuBarSummary: Equatable, Sendable {
 }
 ```
 
-- [ ] **步骤 4：运行定向测试验证通过**
+- [x] **步骤 4：运行定向测试验证通过**
 
 运行任务 1 步骤 2 的同一命令。
 
 预期：`AppPresentationTests` 全部 PASS；现有最高风险、品牌文案和无数据测试不变。
 
-- [ ] **步骤 5：提交展示模型变更**
+- [x] **步骤 5：提交展示模型变更**
 
 ```bash
 git add Sources/AIMeterCore/Presentation/AppPresentation.swift \
