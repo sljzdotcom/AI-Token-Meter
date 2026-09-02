@@ -42,6 +42,35 @@ struct PublicReleaseSafetyScriptTests {
         #expect(result.output.contains("Git history"))
         #expect(!result.output.contains(fixture.telegramToken))
     }
+
+    @Test("Rejects a tracked private key filename")
+    func rejectsPrivateKeyFilename() throws {
+        let fixture = try PublicReleaseFixture()
+        defer { fixture.remove() }
+        try fixture.commit(path: "README.md", contents: "# Safe public project\n")
+        try fixture.commit(path: "update-signing.key", contents: "fixture only\n")
+
+        let result = try fixture.runSafetyCheck()
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("credential-bearing filename"))
+        #expect(!result.output.contains("update-signing.key"))
+    }
+
+    @Test("Rejects a Sparkle private-key export marker without echoing it")
+    func rejectsSparklePrivateKeyExportMarker() throws {
+        let fixture = try PublicReleaseFixture()
+        defer { fixture.remove() }
+        try fixture.commit(path: "README.md", contents: "# Safe public project\n")
+        let marker = "[SPARKLE " + "PRIVATE KEY EXPORT]"
+        try fixture.write(path: "local.txt", contents: marker)
+
+        let result = try fixture.runSafetyCheck()
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("current repository content"))
+        #expect(!result.output.contains(marker))
+    }
 }
 
 private final class PublicReleaseFixture {

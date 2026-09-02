@@ -69,6 +69,42 @@ struct SoftwareUpdatePackagingTests {
         #expect(source.contains(".build"))
     }
 
+    @Test("Release pipeline creates a signed GitHub update archive and appcast")
+    func releasePipelineContract() throws {
+        let source = try String(
+            contentsOf: Self.projectRoot.appending(path: "scripts/package-update-release.sh"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("SPARKLE_TOOLS_DIR"))
+        #expect(source.contains("AI-Token-Meter-${VERSION}-macOS-arm64.zip"))
+        #expect(source.contains("scripts/test.sh"))
+        #expect(source.contains("check-public-release.sh"))
+        #expect(source.contains("AI_METER_INCLUDE_WIDGET=0"))
+        #expect(source.contains("verify-update-bundle.sh"))
+        #expect(source.contains("ditto -c -k --keepParent"))
+        #expect(source.contains("shasum -a 256"))
+        #expect(source.contains("generate_appcast"))
+        #expect(source.contains("KEY_ACCOUNT=\"com.millerpan.AIMeter\""))
+        #expect(source.contains("--account \"$KEY_ACCOUNT\""))
+        #expect(source.contains("releases/download/v${VERSION}/"))
+    }
+
+    @Test("Stable appcast advertises the signed 0.2.0 release")
+    func stableAppcastContract() throws {
+        let source = try String(
+            contentsOf: Self.projectRoot.appending(path: "appcast.xml"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("<sparkle:version>4</sparkle:version>"))
+        #expect(source.contains("<sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>"))
+        #expect(source.contains("sparkle:edSignature="))
+        #expect(source.contains("length="))
+        #expect(source.contains("releases/download/v0.2.0/AI-Token-Meter-0.2.0-macOS-arm64.zip"))
+        #expect(source.contains("<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>"))
+    }
+
     private func loadInfoPlist() throws -> [String: Any] {
         let data = try Data(contentsOf: Self.infoPlistURL)
         return try #require(

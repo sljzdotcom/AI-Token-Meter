@@ -38,7 +38,7 @@ git -C "$REPOSITORY" rev-parse --git-dir >/dev/null 2>&1 || {
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ai-token-meter-public-release.XXXXXX")"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-HIGH_CONFIDENCE_PATTERN='([0-9]{8,12}:AA[A-Za-z0-9_-]{25,})|(sk-(proj-)?[A-Za-z0-9_-]{20,})|(sk-ant-[A-Za-z0-9_-]{20,})|(gh[pousr]_[A-Za-z0-9]{20,})|(AKIA[0-9A-Z]{16})|(-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)|(Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9._~+/-]{20,})'
+HIGH_CONFIDENCE_PATTERN='([0-9]{8,12}:AA[A-Za-z0-9_-]{25,})|(sk-(proj-)?[A-Za-z0-9_-]{20,})|(sk-ant-[A-Za-z0-9_-]{20,})|(gh[pousr]_[A-Za-z0-9]{20,})|(AKIA[0-9A-Z]{16})|(-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)|(Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9._~+/-]{20,})|(SPARKLE[[:space:]_-]+PRIVATE[[:space:]_-]+KEY[[:space:]_-]+EXPORT)'
 ALLOWED_TEST_TOKENS=(
     "sk-private""-regression-token-1234567890"
     "sk-sensitive""-model-value"
@@ -70,7 +70,7 @@ contains_credential() {
 while IFS= read -r -d '' relative_path; do
     lower_path="$(printf '%s' "$relative_path" | tr '[:upper:]' '[:lower:]')"
     case "/$lower_path" in
-        */.env|*/.env.*|*.pem|*.p12|*.pfx|*.mobileprovision|*id_rsa|*id_ed25519)
+        */.env|*/.env.*|*.pem|*.key|*.p12|*.pfx|*.mobileprovision|*id_rsa|*id_ed25519)
             [[ "$lower_path" == *.example ]] || fail "a credential-bearing filename is tracked"
             ;;
     esac
