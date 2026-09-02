@@ -331,7 +331,6 @@ git commit -m "feat: add dynamic Quantum Dial menu icon"
 
 **文件：**
 - 修改：`Sources/AIMeterApp/Views/MenuBarPanel.swift:5-18`
-- 修改：`Tests/AIMeterAppTests/MenuBarMeterIconTests.swift`
 - 修改：`Tests/AIMeterAppTests/TypographyTests.swift:325-365`
 - 修改：`README.md`
 - 修改：`CHANGELOG.md`
@@ -342,37 +341,7 @@ git commit -m "feat: add dynamic Quantum Dial menu icon"
 - 修改：`docs/development/commit-history.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：先增加菜单栏接入源码契约**
-
-在 `MenuBarMeterIconTests` 读取 `MenuBarPanel.swift`，断言：
-
-```swift
-#expect(source.contains(
-    "MenuBarMeterIcon(fraction: model.menuBarSummary.usageFraction)"
-))
-#expect(
-    source.components(
-        separatedBy: "Image(systemName: \"gauge.with.dots.needle.50percent\")"
-    ).count - 1 == 1
-)
-```
-
-第二条确保旧 SF Symbol 只保留在点击菜单栏后“Checking usage”的内部空状态，不再作为顶部状态图标。
-
-同步修改 `TypographyTests.symbolFontMappings()`：删除菜单栏顶部旧 SF Symbol 的 `.aiMeterSymbolFont(.body)` 预期，只保留弹出面板内部那一次且 `expectedModifier: nil`。
-
-- [ ] **步骤 2：运行接入测试验证失败**
-
-运行：
-
-```bash
-AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-wiring \
-  bash scripts/test.sh --filter MenuBarMeterIconTests
-```
-
-预期：FAIL，源码仍包含两次旧 SF Symbol，且尚未向 `MenuBarMeterIcon` 传入比例。
-
-- [ ] **步骤 3：替换菜单栏顶部图标**
+- [ ] **步骤 1：替换菜单栏顶部图标**
 
 把 `MenuBarLabel` 的图标分支改为：
 
@@ -384,7 +353,11 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-wiring \
 
 保留整个 `Label`、`Text(model.menuBarSummary.valueText)`、`.accessibilityLabel(...)` 和 `.aiMeterFontScope(...)`。不要修改 `MenuBarPanel` 中 `ContentUnavailableView` 的 SF Symbol。
 
-- [ ] **步骤 4：运行接入与排版测试验证通过**
+- [ ] **步骤 2：移除已经失效的 SF Symbol 源码探测断言**
+
+`TypographyTests.symbolFontMappings()` 当前对 `MenuBarPanel.swift` 中两次旧 SF Symbol 的源码片段和字体修饰符做字符串探测。顶部图标改成自绘组件后，这两条断言不再描述字体行为；同时按照测试规范，源码搜索也不能证明真实渲染。删除这两项 `SymbolSourceExpectation`，不要为新组件添加替代字符串断言。Quantum Dial 的真实行为由任务 1 的数据测试、任务 2 的几何/渲染测试、编译检查和本任务的真实菜单栏验收共同保护。
+
+- [ ] **步骤 3：运行组件与排版测试验证接入**
 
 运行：
 
@@ -397,16 +370,15 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-typography \
 
 预期：两个套件全部 PASS；菜单栏字体作用域与弹出面板内部图标契约保持正常。
 
-- [ ] **步骤 5：提交菜单栏接入**
+- [ ] **步骤 4：提交菜单栏接入**
 
 ```bash
 git add Sources/AIMeterApp/Views/MenuBarPanel.swift \
-  Tests/AIMeterAppTests/MenuBarMeterIconTests.swift \
   Tests/AIMeterAppTests/TypographyTests.swift
 git commit -m "feat: use Quantum Dial in the menu bar"
 ```
 
-- [ ] **步骤 6：更新用户与维护文档**
+- [ ] **步骤 5：更新用户与维护文档**
 
 文档必须明确：
 
@@ -418,7 +390,7 @@ git commit -m "feat: use Quantum Dial in the menu bar"
 
 开发日志记录 Red/Green 测试输出、完整测试计数、Release 路径、签名、候选与安装哈希、真实菜单栏验收结果和提交 ID。需求 `REQ-20260902-010` 仅在全部验收完成后改为 `已完成`。
 
-- [ ] **步骤 7：运行完整自动化与静态检查**
+- [ ] **步骤 6：运行完整自动化与静态检查**
 
 ```bash
 AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-full bash scripts/test.sh
@@ -427,7 +399,7 @@ git diff --check
 
 预期：现有 295 项测试加新增测试全部 PASS，0 失败；`git diff --check` 无输出。
 
-- [ ] **步骤 8：构建 Release 并验证候选应用**
+- [ ] **步骤 7：构建 Release 并验证候选应用**
 
 ```bash
 AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh
@@ -438,7 +410,7 @@ shasum -a 256 "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：构建成功、严格签名验证通过、可执行文件为 Apple Silicon Mach-O，并记录候选哈希。
 
-- [ ] **步骤 9：安装并执行真实菜单栏验收**
+- [ ] **步骤 8：安装并执行真实菜单栏验收**
 
 先退出当前 AI Token Meter，把 `/Applications/AI Token Meter.app` 移到带时间戳的 `/private/tmp` 可恢复备份，再安装 `dist/AI Token Meter.app`。验证：
 
@@ -451,14 +423,14 @@ shasum -a 256 "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 
 如果无法安全构造无数据或指定百分比状态，自动化几何/渲染测试作为这些状态的证据，真实验收不得伪造数据。
 
-- [ ] **步骤 10：提交文档与验收证据**
+- [ ] **步骤 9：提交文档与验收证据**
 
 ```bash
 git add README.md CHANGELOG.md docs
 git commit -m "docs: record Quantum Dial menu icon delivery"
 ```
 
-- [ ] **步骤 11：独立审查、修复问题并合并**
+- [ ] **步骤 10：独立审查、修复问题并合并**
 
 对功能分支执行代码审查，重点检查：
 
