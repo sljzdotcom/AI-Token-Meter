@@ -88,7 +88,7 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 - `Update Now` 只有本轮手动检查发现高于当前版本的稳定版后才启用；已经是最新版时保持禁用。
 - 出现离线提示时检查网络或代理，然后再次点击 **Check for Updates**。应用不会在后台自动重试。
-- `0.1.2` 没有更新按钮；先从 GitHub Release 手动安装 `0.2.0`，之后版本才能应用内更新。
+- `0.1.2` 没有更新按钮；先从 GitHub Release 手动安装当前版本，之后版本才能应用内更新。
 - 安装阶段确保 App 位于当前用户可替换的位置，通常为 `/Applications/AI Token Meter.app`，并完全处理 macOS 显示的权限提示。
 - 如果 Sparkle 报告签名或归档验证失败，不要绕过。继续使用当前版本，并从项目官方 GitHub Release 重新下载或报告问题。
 - 需要回退时，完全退出应用，从官方 Release 下载上一版本并手动替换。偏好和非敏感缓存通常保留；操作前仍建议备份 `Application Support/AI Meter`。

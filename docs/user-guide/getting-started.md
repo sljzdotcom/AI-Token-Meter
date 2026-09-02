@@ -15,15 +15,15 @@ AI Token Meter 当前支持 Apple Silicon Mac 与 macOS 14 或更新版本。从
 
 ## 2. 下载公开版本
 
-从 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases/latest) 下载 `AI-Token-Meter-0.2.0-macOS-arm64.zip` 和同名 `.sha256`。在下载目录验证：
+从 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases/latest) 下载 `AI-Token-Meter-0.2.1-macOS-arm64.zip` 和同名 `.sha256`。在下载目录验证：
 
 ```bash
-shasum -a 256 -c AI-Token-Meter-0.2.0-macOS-arm64.zip.sha256
+shasum -a 256 -c AI-Token-Meter-0.2.1-macOS-arm64.zip.sha256
 ```
 
 解压后把 `AI Token Meter.app` 移到 `/Applications`。当前公开包为 ad-hoc signed、not notarized；首次运行如果 macOS 阻止，请在 Finder 中右键 App 并选择“打开”。不要从不可信镜像下载，也不要绕过更新签名失败。
 
-`0.1.2` 不含更新器，因此升级到 `0.2.0` 要手动替换一次。安装 `0.2.0` 后，后续稳定版本可在 Settings → About 手动检查和安装。
+`0.1.2` 不含更新器，因此要手动安装一次当前版本。安装 `0.2.0` 或更新版本后，后续稳定版本可在 Settings → About 手动检查和安装。
 
 ## 3. 从源码构建
 

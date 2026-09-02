@@ -121,7 +121,7 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 
 ```bash
 SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
-scripts/package-update-release.sh 0.2.0 4
+scripts/package-update-release.sh 0.2.1 5
 ```
 
 生产 EdDSA 私钥必须已存在于当前用户 Keychain 的 `com.millerpan.AIMeter` 账户中。脚本不会导出私钥。生成后再次独立验证：
@@ -130,7 +130,7 @@ scripts/package-update-release.sh 0.2.0 4
 SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
 scripts/verify-update-archive.sh \
   appcast.xml \
-  dist/releases/0.2.0/AI-Token-Meter-0.2.0-macOS-arm64.zip
+  dist/releases/0.2.1/AI-Token-Meter-0.2.1-macOS-arm64.zip
 ```
 
 验证器会读取 appcast enclosure，核对字节长度、版本、build、ZIP 内 App 与签名，并创建临时篡改副本确认验证失败；不会修改正式 ZIP。
