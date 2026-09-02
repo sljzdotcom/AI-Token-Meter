@@ -40,8 +40,8 @@
 - `scripts/verify-app-resources.sh` 与 `codesign --verify --deep --strict` 通过；
 - ZIP 清单测试、独立目录解压、标准资源与严格签名复验通过；
 - 最小 Finder 风格环境启动后保持运行，由验收进程主动停止，没有立即崩溃；
-- 当前 ZIP 大小：2,348,575 bytes；
-- 当前 ZIP SHA-256：`c5ce3830a1b54fbb956d01ee11e4a620750ee68e9fee1bf75cab39ad4dbab9a8`。
+- 最终 ZIP 大小：2,348,170 bytes；
+- 最终 ZIP SHA-256：`c275e4d0644e79a5db624352ae88a5921024e422416931a9b909e345b8fee3d9`。
 
 ## GitHub 发布证据
 
