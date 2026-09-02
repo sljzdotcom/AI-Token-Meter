@@ -3,6 +3,16 @@
     <channel>
         <title>AI Token Meter</title>
         <item>
+            <title>0.2.1</title>
+            <pubDate>Thu, 03 Sep 2026 00:32:18 +0800</pubDate>
+            <link>https://github.com/sljzdotcom/AI-Token-Meter</link>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v0.2.1/AI-Token-Meter-0.2.1-macOS-arm64.zip" length="3467098" type="application/octet-stream" sparkle:edSignature="mjhD7+MVUXNfUntaXDmk8VOs+/P8WInpC+aBIY2V190LkGGJDpUAZyBRJVPVftALGDJneRrJgYYfamezWaZjDg=="/>
+        </item>
+        <item>
             <title>0.2.0</title>
             <pubDate>Wed, 02 Sep 2026 23:24:41 +0800</pubDate>
             <link>https://github.com/sljzdotcom/AI-Token-Meter</link>
