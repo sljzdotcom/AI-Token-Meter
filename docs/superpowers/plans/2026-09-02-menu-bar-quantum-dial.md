@@ -341,7 +341,7 @@ git commit -m "feat: add dynamic Quantum Dial menu icon"
 - 修改：`docs/development/commit-history.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：替换菜单栏顶部图标**
+- [x] **步骤 1：替换菜单栏顶部图标**
 
 把 `MenuBarLabel` 的图标分支改为：
 
@@ -353,11 +353,11 @@ git commit -m "feat: add dynamic Quantum Dial menu icon"
 
 保留整个 `Label`、`Text(model.menuBarSummary.valueText)`、`.accessibilityLabel(...)` 和 `.aiMeterFontScope(...)`。不要修改 `MenuBarPanel` 中 `ContentUnavailableView` 的 SF Symbol。
 
-- [ ] **步骤 2：移除已经失效的 SF Symbol 源码探测断言**
+- [x] **步骤 2：移除已经失效的 SF Symbol 源码探测断言**
 
 `TypographyTests.symbolFontMappings()` 当前对 `MenuBarPanel.swift` 中两次旧 SF Symbol 的源码片段和字体修饰符做字符串探测。顶部图标改成自绘组件后，这两条断言不再描述字体行为；同时按照测试规范，源码搜索也不能证明真实渲染。删除这两项 `SymbolSourceExpectation`，不要为新组件添加替代字符串断言。Quantum Dial 的真实行为由任务 1 的数据测试、任务 2 的几何/渲染测试、编译检查和本任务的真实菜单栏验收共同保护。
 
-- [ ] **步骤 3：运行组件与排版测试验证接入**
+- [x] **步骤 3：运行组件与排版测试验证接入**
 
 运行：
 
@@ -370,7 +370,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-typography \
 
 预期：两个套件全部 PASS；菜单栏字体作用域与弹出面板内部图标契约保持正常。
 
-- [ ] **步骤 4：提交菜单栏接入**
+- [x] **步骤 4：提交菜单栏接入**
 
 ```bash
 git add Sources/AIMeterApp/Views/MenuBarPanel.swift \

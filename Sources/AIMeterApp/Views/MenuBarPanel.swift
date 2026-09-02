@@ -9,8 +9,7 @@ struct MenuBarLabel: View {
         Label {
             Text(model.menuBarSummary.valueText)
         } icon: {
-            Image(systemName: "gauge.with.dots.needle.50percent")
-                .aiMeterSymbolFont(.body)
+            MenuBarMeterIcon(fraction: model.menuBarSummary.usageFraction)
         }
             .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
             .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))

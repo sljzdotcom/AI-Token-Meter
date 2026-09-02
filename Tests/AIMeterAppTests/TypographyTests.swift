@@ -335,18 +335,6 @@ struct TypographyTests {
         let expectations = [
             SymbolSourceExpectation(
                 fileName: "MenuBarPanel.swift",
-                imageExpression: "Image(systemName: \"gauge.with.dots.needle.50percent\")",
-                occurrence: 0,
-                expectedModifier: ".aiMeterSymbolFont(.body)"
-            ),
-            SymbolSourceExpectation(
-                fileName: "MenuBarPanel.swift",
-                imageExpression: "Image(systemName: \"gauge.with.dots.needle.50percent\")",
-                occurrence: 1,
-                expectedModifier: nil
-            ),
-            SymbolSourceExpectation(
-                fileName: "MenuBarPanel.swift",
                 imageExpression: "Image(systemName: \"arrow.clockwise\")",
                 expectedModifier: ".aiMeterSymbolFont(.body)"
             ),
