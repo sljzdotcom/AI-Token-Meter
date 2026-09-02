@@ -147,7 +147,7 @@ git commit -m "feat: expose menu bar usage fraction"
 - 创建：`Sources/AIMeterApp/Views/MenuBarMeterIcon.swift`
 - 创建：`Tests/AIMeterAppTests/MenuBarMeterIconTests.swift`
 
-- [ ] **步骤 1：编写失败的几何与渲染测试**
+- [x] **步骤 1：编写失败的几何与渲染测试**
 
 创建测试套件，先锁定几何常量和代表状态：
 
@@ -203,7 +203,7 @@ let image = try #require(renderer.cgImage)
 
 通过 `NSBitmapImageRep` 检查四角 alpha 为零、中心轴和轨道采样点可见；分别渲染 `.white` 和 `.black` 前景，确认不依赖固定颜色或背景底板。
 
-- [ ] **步骤 2：运行图标测试验证失败**
+- [x] **步骤 2：运行图标测试验证失败**
 
 运行：
 
@@ -214,7 +214,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-icon \
 
 预期：FAIL，编译器报告 `MenuBarMeterGeometry` 和 `MenuBarMeterIcon` 尚不存在。
 
-- [ ] **步骤 3：实现独立几何模型**
+- [x] **步骤 3：实现独立几何模型**
 
 在新文件中定义：
 
@@ -247,7 +247,7 @@ struct MenuBarMeterGeometry: Equatable {
 }
 ```
 
-- [ ] **步骤 4：实现 Quantum Dial SwiftUI 视图**
+- [x] **步骤 4：实现 Quantum Dial SwiftUI 视图**
 
 在同一文件新增 `MenuBarMeterIcon`：
 
@@ -313,13 +313,13 @@ struct MenuBarMeterIcon: View {
 
 三枚短 `Capsule` 固定在起点、中点和终点；所有尺寸保持在本文件内。不要添加渐变、背景、阴影、定时器或动画。
 
-- [ ] **步骤 5：运行定向测试并按像素证据微调**
+- [x] **步骤 5：运行定向测试并按像素证据微调**
 
 运行任务 2 步骤 2 的同一命令。
 
 预期：全部 PASS；若采样点显示笔画裁切，只调整本文件中的 padding、线宽或刻度长度，不改变 135° 起点、270° 扫掠和 18×18pt 外框。
 
-- [ ] **步骤 6：提交 Quantum Dial 组件**
+- [x] **步骤 6：提交 Quantum Dial 组件**
 
 ```bash
 git add Sources/AIMeterApp/Views/MenuBarMeterIcon.swift \
