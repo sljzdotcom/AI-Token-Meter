@@ -53,7 +53,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 完整自动化基线：**360 项测试、70 个测试组**，另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
+- 完整自动化基线：**361 项测试、70 个测试组**，其中 11 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[`v0.2.0` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.0) 提供 Apple Silicon ZIP 与 SHA-256；正式 CI 与匿名下载验证证据在发布完成后回填到[需求台账](requirements-backlog.md)。

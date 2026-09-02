@@ -23,7 +23,7 @@ AI-Meter/
 - `DerivedData/`：Xcode 派生文件；
 - `.worktrees/`：本地隔离开发工作树。
 
-`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、主应用/Widget 条件组装、Sparkle 嵌入与签名验证；`scripts/verify-widget-bundle.sh` 检查扩展；`scripts/verify-update-bundle.sh`、`package-update-release.sh` 和 `verify-update-archive.sh` 分别验证 App、生成正式更新资产并核对/抗篡改验证 appcast。
+`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录；无额外参数时先运行普通测试、再从独立进程运行 PTY 系统资源测试，传入参数时则原样转发给单次 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、主应用/Widget 条件组装、Sparkle 嵌入与签名验证；`scripts/verify-widget-bundle.sh` 检查扩展；`scripts/verify-update-bundle.sh`、`package-update-release.sh` 和 `verify-update-archive.sh` 分别验证 App、生成正式更新资产并核对/抗篡改验证 appcast。
 
 ## `Sources/AIMeterApp`
 

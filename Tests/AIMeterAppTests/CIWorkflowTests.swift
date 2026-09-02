@@ -17,4 +17,17 @@ struct CIWorkflowTests {
         #expect(workflow.contains("uses: actions/checkout@v5"))
         #expect(workflow.contains("run: swift --version"))
     }
+
+    @Test("Full validation isolates PTY resource tests from the general test process")
+    func isolatesPTYResourceTests() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let testScript = try String(contentsOf: projectRoot.appending(path: "scripts/test.sh"))
+
+        #expect(testScript.contains("--skip PTYCommandRunnerTests"))
+        #expect(testScript.contains("--filter PTYCommandRunnerTests"))
+        #expect(testScript.contains("--skip-build"))
+    }
 }

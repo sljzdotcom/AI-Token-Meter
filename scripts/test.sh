@@ -9,13 +9,22 @@ SWIFTPM_STATE_DIR="$TEST_BUILD_DIR/swiftpm-state"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$TEST_BUILD_DIR/clang-module-cache}"
 
 cd "$PROJECT_DIR"
-swift test \
-    --disable-sandbox \
-    --cache-path "$SWIFTPM_STATE_DIR/cache" \
-    --config-path "$SWIFTPM_STATE_DIR/config" \
-    --security-path "$SWIFTPM_STATE_DIR/security" \
-    --scratch-path "$TEST_BUILD_DIR/build" \
-    "$@"
+run_swift_tests() {
+    swift test \
+        --disable-sandbox \
+        --cache-path "$SWIFTPM_STATE_DIR/cache" \
+        --config-path "$SWIFTPM_STATE_DIR/config" \
+        --security-path "$SWIFTPM_STATE_DIR/security" \
+        --scratch-path "$TEST_BUILD_DIR/build" \
+        "$@"
+}
+
+if [[ "$#" -eq 0 ]]; then
+    run_swift_tests --skip PTYCommandRunnerTests
+    run_swift_tests --skip-build --filter PTYCommandRunnerTests
+else
+    run_swift_tests "$@"
+fi
 
 "$PROJECT_DIR/scripts/check-docs.sh"
 "$PROJECT_DIR/scripts/check-public-release.sh"

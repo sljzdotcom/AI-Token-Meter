@@ -37,7 +37,7 @@
 | [2026-09-02](2026-09-02-public-github-release.md) | MIT 开源、作者信息、标准社区文档、脱敏截图、完整历史安全扫描与 v0.1.2 GitHub Release | 331 个测试、67 个测试组、公开 CI、正式标签、双资产 Release 和匿名 SHA-256 下载终验全部通过 |
 | [2026-09-02](2026-09-02-github-app-update.md) | Settings 手动检查与安装 GitHub 稳定版、Sparkle EdDSA 信任链和可复现发布入口 | 360 个测试、70 个测试组、Release/Sparkle/归档/篡改门禁和 0.1.9 → 0.2.0 隔离真实更新通过 |
 | [2026-09-03](2026-09-03-pty-allocation-race.md) | macOS 高并发 `openpty` 分配竞争修复 | 修复前 32 路回归可复现；修复后聚焦压力与 360 个完整测试通过 |
-| [2026-09-03](2026-09-03-ci-pty-exit-race.md) | GitHub runner 高负载下 PTY 退出回调与输出尾部竞态修复 | 11 项聚焦测试和连续 10 轮压力复验通过；完整 CI 证据待回填 |
+| [2026-09-03](2026-09-03-ci-pty-exit-race.md) | GitHub runner 高负载下 PTY 退出回调、输出尾部与测试隔离修复 | 361 项完整回归、11 项聚焦测试和连续 10 轮压力复验通过；完整 CI 证据待回填 |
 
 ## 新日志模板
 
