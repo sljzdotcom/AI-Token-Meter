@@ -3,6 +3,8 @@ import AIMeterCore
 import SwiftUI
 
 struct AboutSettingsView: View {
+    let updateCoordinator: SoftwareUpdateCoordinator
+
     private var versionText: String {
         AppBrand.versionText(info: Bundle.main.infoDictionary ?? [:])
     }
@@ -35,6 +37,8 @@ struct AboutSettingsView: View {
                 Text("Claude Code and OpenAI Codex credentials stay with their official CLIs. The DeepSeek API Key is stored in Keychain, and local history contains only normalized aggregate usage.")
                     .foregroundStyle(.secondary)
             }
+
+            SoftwareUpdateSettingsView(coordinator: updateCoordinator)
         }
         .formStyle(.grouped)
         .padding()

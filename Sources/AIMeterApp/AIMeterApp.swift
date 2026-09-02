@@ -13,7 +13,10 @@ struct AIMeterApp: App {
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView(model: appDelegate.model)
+            SettingsView(
+                model: appDelegate.model,
+                updateCoordinator: appDelegate.softwareUpdateCoordinator
+            )
                 .frame(width: 560, height: 540)
         }
     }

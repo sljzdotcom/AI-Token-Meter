@@ -4,9 +4,20 @@ import Foundation
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
+    let softwareUpdateCoordinator: SoftwareUpdateCoordinator
 
     private var notificationService: NotificationService?
     private var floatingPanelController: FloatingPanelController?
+
+    override init() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        softwareUpdateCoordinator = SoftwareUpdateCoordinator(
+            engine: SparkleUpdateEngine(),
+            currentVersion: info["CFBundleShortVersionString"] as? String ?? "Unavailable",
+            currentBuild: info["CFBundleVersion"] as? String ?? "Unavailable"
+        )
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let panelController = FloatingPanelController(model: model)
@@ -46,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        softwareUpdateCoordinator.stop()
         model.stop()
     }
 

@@ -64,6 +64,39 @@ struct SettingsStructureTests {
         #expect(model.settingsMessage == "Claude Code workspace setup could not be opened.")
         #expect(model.settingsMessageKind == .claudeWorkspace)
     }
+
+    @Test("About exposes both user initiated update actions")
+    func softwareUpdateControlCopy() {
+        #expect(SoftwareUpdateSettingsCopy.sectionTitle == "Software Update")
+        #expect(SoftwareUpdateSettingsCopy.checkButton == "Check for Updates")
+        #expect(SoftwareUpdateSettingsCopy.installButton == "Update Now")
+        #expect(SoftwareUpdateSettingsCopy.currentVersion == "Current version")
+        #expect(SoftwareUpdateSettingsCopy.lastChecked == "Last checked")
+    }
+
+    @Test("Settings injects the shared update coordinator into About")
+    func softwareUpdateCoordinatorInjection() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let settingsSource = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/Views/SettingsView.swift"),
+            encoding: .utf8
+        )
+        let appSource = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/AIMeterApp.swift"),
+            encoding: .utf8
+        )
+        let delegateSource = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/AppDelegate.swift"),
+            encoding: .utf8
+        )
+
+        #expect(settingsSource.contains("AboutSettingsView(updateCoordinator: updateCoordinator)"))
+        #expect(appSource.contains("updateCoordinator: appDelegate.softwareUpdateCoordinator"))
+        #expect(delegateSource.contains("softwareUpdateCoordinator.stop()"))
+    }
 }
 
 private final class InMemorySecretStore: SecretStore, @unchecked Sendable {

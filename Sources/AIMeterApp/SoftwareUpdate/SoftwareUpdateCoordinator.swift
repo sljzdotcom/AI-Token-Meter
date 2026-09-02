@@ -44,6 +44,10 @@ final class SoftwareUpdateCoordinator {
         !isStopped && state.canInstall
     }
 
+    var currentVersionText: String {
+        "Version \(currentVersion) (\(currentBuild))"
+    }
+
     func checkForUpdates() {
         guard canCheck else { return }
         state = .checking

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var model: AppModel
+    let updateCoordinator: SoftwareUpdateCoordinator
     @State private var selectedTab = SettingsTab.appearance
     @State private var pendingAPIKey = ""
 
@@ -25,7 +26,7 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.services)
 
-            AboutSettingsView()
+            AboutSettingsView(updateCoordinator: updateCoordinator)
                 .tabItem {
                     Label(SettingsTab.about.title, systemImage: SettingsTab.about.systemImage)
                 }
