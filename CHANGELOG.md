@@ -33,6 +33,7 @@
 
 ### Changed
 
+- 菜单栏顶部的通用仪表 SF Symbol 改为自绘 18×18pt Quantum Dial；断环进度与指针跟随三项服务中的最高有效已用比例，保留精确百分比文字，无数据时使用中性状态，并自动适配 macOS 菜单栏前景色。
 - 产品显示名称改为 **AI Token Meter**，副标题改为 **Private AI usage monitor**，构建产物改为 `dist/AI Token Meter.app`；Bundle Identifier、可执行文件名、Keychain 身份和旧数据目录保持兼容。
 - Claude 详情页移除 Token composition、Top models 以及底部的内联隐私说明，保留官方额度、本机三项统计和每日趋势；底层隐私保护、采集与旧缓存兼容性不变。
 - Settings 现在固定使用 macOS 系统字体，字体选项只显示名称；浮动条、三个详情页和菜单点击面板的产品文字统一增大 1pt。

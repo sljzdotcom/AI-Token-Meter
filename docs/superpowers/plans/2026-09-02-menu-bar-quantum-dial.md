@@ -378,7 +378,7 @@ git add Sources/AIMeterApp/Views/MenuBarPanel.swift \
 git commit -m "feat: use Quantum Dial in the menu bar"
 ```
 
-- [ ] **步骤 5：更新用户与维护文档**
+- [x] **步骤 5：更新用户与维护文档**
 
 文档必须明确：
 
@@ -390,7 +390,7 @@ git commit -m "feat: use Quantum Dial in the menu bar"
 
 开发日志记录 Red/Green 测试输出、完整测试计数、Release 路径、签名、候选与安装哈希、真实菜单栏验收结果和提交 ID。需求 `REQ-20260902-010` 仅在全部验收完成后改为 `已完成`。
 
-- [ ] **步骤 6：运行完整自动化与静态检查**
+- [x] **步骤 6：运行完整自动化与静态检查**
 
 ```bash
 AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-quantum-full bash scripts/test.sh
@@ -399,7 +399,7 @@ git diff --check
 
 预期：现有 295 项测试加新增测试全部 PASS，0 失败；`git diff --check` 无输出。
 
-- [ ] **步骤 7：构建 Release 并验证候选应用**
+- [x] **步骤 7：构建 Release 并验证候选应用**
 
 ```bash
 AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh
@@ -410,7 +410,7 @@ shasum -a 256 "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 
 预期：构建成功、严格签名验证通过、可执行文件为 Apple Silicon Mach-O，并记录候选哈希。
 
-- [ ] **步骤 8：安装并执行真实菜单栏验收**
+- [x] **步骤 8：安装并执行真实菜单栏验收**
 
 先退出当前 AI Token Meter，把 `/Applications/AI Token Meter.app` 移到带时间戳的 `/private/tmp` 可恢复备份，再安装 `dist/AI Token Meter.app`。验证：
 

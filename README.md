@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 295](https://img.shields.io/badge/tests-295%20passed-2ea44f)
+![Tests 299](https://img.shields.io/badge/tests-299%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -16,6 +16,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude、Codex 和 De
 ## 主要功能
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
+- 菜单栏使用 18×18pt 单色 Quantum Dial：断环进度和指针动态显示三项服务中的最高已用比例，旁边保留精确百分比；无有效数据时显示中性仪表与 `—`。
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 Codex 重置券摘要。
 - 贴边浮岛只显示三个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
 - Claude、Codex、DeepSeek 分别使用黄橙、玫红紫、薄荷紫强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
@@ -90,7 +91,7 @@ Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter
 - **Claude / Codex**：圆环表示官方额度已经使用的比例，越接近一整圈，剩余额度越少。
 - **DeepSeek**：圆环表示参考余额已经消耗的比例。基准为 ¥100、余额为 ¥77.99 时，圆环约为 `22.01%`。
 - 圆环中的 Logo 只表示服务；百分比、余额、重置时间和明细在点击后的详情中显示。
-- 菜单栏汇总采用可用额度指标中的最高使用比例；余额金额本身不直接触发额度提醒。
+- 菜单栏 Quantum Dial 的弧长、指针与旁边百分比采用同一个最高有效使用比例；余额金额本身不直接触发额度提醒。
 
 ## 项目结构
 
