@@ -42,6 +42,18 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("README version 0.1.0 does not match Info.plist 0.2.0"))
     }
 
+    @Test("A missing public community file fails")
+    func rejectsMissingPublicCommunityFile() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        try FileManager.default.removeItem(at: fixture.appendingPathComponent("LICENSE"))
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("LICENSE"))
+    }
+
     private func makeFixture(bundleVersion: String = "0.1.0") throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ai-token-meter-doc-check-\(UUID().uuidString)", isDirectory: true)
@@ -51,6 +63,8 @@ struct DocumentationCheckScriptTests {
             "docs/design/specifications",
             "docs/design/implementation-plans",
             "docs/development",
+            ".github/ISSUE_TEMPLATE",
+            ".github/workflows",
         ]
         for directory in requiredDirectories {
             try FileManager.default.createDirectory(
@@ -81,6 +95,16 @@ struct DocumentationCheckScriptTests {
         )
 
         let documents: [String: String] = [
+            "LICENSE": "MIT License\n",
+            "SECURITY.md": "# Security\n",
+            "CONTRIBUTING.md": "# Contributing\n",
+            "CODE_OF_CONDUCT.md": "# Code of Conduct\n",
+            "SUPPORT.md": "# Support\n",
+            ".github/ISSUE_TEMPLATE/bug_report.yml": "name: Bug report\n",
+            ".github/ISSUE_TEMPLATE/feature_request.yml": "name: Feature request\n",
+            ".github/ISSUE_TEMPLATE/config.yml": "blank_issues_enabled: false\n",
+            ".github/pull_request_template.md": "# Pull request\n",
+            ".github/workflows/ci.yml": "name: CI\n",
             "docs/README.md": "# Documentation\n\n[Status](project-status.md)\n",
             "docs/project-status.md": "# Project status\n",
             "docs/requirements-backlog.md": "# Requirements\n",

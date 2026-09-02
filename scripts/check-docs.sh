@@ -13,6 +13,16 @@ errors = []
 
 required_files = %w[
   README.md
+  LICENSE
+  SECURITY.md
+  CONTRIBUTING.md
+  CODE_OF_CONDUCT.md
+  SUPPORT.md
+  .github/ISSUE_TEMPLATE/bug_report.yml
+  .github/ISSUE_TEMPLATE/feature_request.yml
+  .github/ISSUE_TEMPLATE/config.yml
+  .github/pull_request_template.md
+  .github/workflows/ci.yml
   Sources/AIMeterApp/Resources/Info.plist
   docs/README.md
   docs/project-status.md
@@ -23,6 +33,8 @@ required_files = %w[
   docs/development/testing.md
 ]
 required_directories = %w[
+  .github/ISSUE_TEMPLATE
+  .github/workflows
   docs/design/specifications
   docs/design/implementation-plans
 ]
