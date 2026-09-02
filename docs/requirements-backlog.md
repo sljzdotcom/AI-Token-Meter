@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-02
+**最后更新：** 2026-09-03
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -33,9 +33,9 @@
 | REQ-20260902-016 | 服务发现 | 修复 M4 Max 上 OpenAI Codex 显示 `CLI not installed`；区分 CLI 确实缺失与 GUI App 启动环境找不到用户安装路径，并提供可操作恢复入口 | 高 | 待用户确认 | 2026-09-02 | 安装 `0.1.2` 后在 M4 Max 完整退出/重开并点击 Check Status，确认 nvm `0.148.0` 的账户、额度和详情恢复 | [设计规格](design/specifications/2026-09-02-codex-cli-discovery-design.md)、[实施计划](design/implementation-plans/2026-09-02-codex-cli-discovery.md)、[开发与交付记录](development/2026-09-02-codex-cli-discovery.md)、`6fe2382`、`d7b4467`、`55b5251`、ZIP SHA-256 `a2c76017…d143f` |
 | REQ-20260902-017 | 公开发布 | 将项目安全发布到用户 GitHub 账户：建立公开仓库，补齐标准开源文档和产品截图，提供可下载 Release，确保源码、历史和产物不含个人 Key，并在 About 中标注作者 Miller | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-public-github-release-design.md)、[实施计划](design/implementation-plans/2026-09-02-public-github-release.md)、[发布日志](development/2026-09-02-public-github-release.md)、[v0.1.2 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2)、[最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33642220151)、`24ab4a5` |
 | REQ-20260902-018 | 发布缺陷 | 修复 GitHub Actions 在 macOS 15 runner 上编译 Claude 本机活动 token 数组时的 Swift 类型推断失败，恢复公开仓库 CI | 高 | 已完成 | 2026-09-02 | 无 | [首次失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33634543141)、[中间成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658)、[复验失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637436534)、[最终成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)、`616ce76` |
-| REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 进行中 | 2026-09-02 | 书面设计已最终确认；详细实施计划完成后直接进入测试先行开发 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) · [实施计划](design/implementation-plans/2026-09-02-github-app-update.md) |
-| REQ-20260902-020 | 运行稳定性 | 修复 macOS 并发分配 PTY 时 `openpty` 偶发失败，导致并发 CLI 命令误报 `transportFailure` 和发布回归不稳定 | 高 | 进行中 | 2026-09-02 | 已用 32/48/64 路最小实验与现有 32 路回归稳定复现；串行化唯一 PTY 分配临界区并重新执行压力及完整发布验证 | 发布流水线失败证据、`PTYCommandRunnerTests.concurrentCommandsPreserveOutput` |
-| REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 进行中 | 2026-09-03 | 完整日志确认 Homebrew trust 仅为警告；实际失败为两项 PTY 时序回归，需消除退出通知、EOF 与尾部排空竞态并重新验证完整 CI | [失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33653128303) |
+| REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 待用户确认 | 2026-09-02 | 隔离 0.2.0 已从正式 GitHub appcast 发现 0.2.1；等待用户动作时确认后点击 Update Now，验收原位替换和重启 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) · [实施计划](design/implementation-plans/2026-09-02-github-app-update.md) · [开发与验收记录](development/2026-09-02-github-app-update.md) · [`v0.2.1` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.1) |
+| REQ-20260902-020 | 运行稳定性 | 修复 macOS 并发分配 PTY 时 `openpty` 偶发失败，导致并发 CLI 命令误报 `transportFailure` 和发布回归不稳定 | 高 | 已完成 | 2026-09-02 | 无 | [PTY 分配竞态日志](development/2026-09-03-pty-allocation-race.md) · `d6cbe76` · 361 项测试 · [最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33655946917) |
+| REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 已完成 | 2026-09-03 | 无 | [开发与验收记录](development/2026-09-03-ci-pty-exit-race.md) · `9f50b78` · `a627f0b` · [最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33655946917) · [`v0.2.1` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.1) |
 
 ## 分类索引
 
@@ -164,3 +164,6 @@
 | 2026-09-02 | REQ-20260902-019 | 待用户确认 → 进行中 | 用户确认书面规格；进入实施计划和测试先行开发，不再等待额外计划审批。 |
 | 2026-09-02 | REQ-20260902-020 | 新建 → 进行中 | v0.2.0 主分支发布验证中，32 路 PTY 测试稳定复现 `transportFailure`；最小 `openpty` 并发实验确认分配调用存在竞争。 |
 | 2026-09-03 | REQ-20260903-001 | 新建 → 进行中 | v0.2.0 发布提交的公开 CI 失败；完整日志排除 Homebrew 警告，定位为高负载下 PTY 父进程退出超时与并发输出尾部丢失。本地 360 项测试和发布包验证不受影响。 |
+| 2026-09-03 | REQ-20260902-020 | 进行中 → 已完成 | 串行化唯一 PTY 分配临界区；361 项本机回归、11 项独立 PTY 测试和 v0.2.1 最终公开 CI 全部通过。 |
+| 2026-09-03 | REQ-20260903-001 | 进行中 → 已完成 | 增加独立退出确认、有限尾部排空并隔离 PTY 系统资源测试；两轮公开 CI 通过，v0.2.1 补丁已发布且资产复验一致。 |
+| 2026-09-03 | REQ-20260902-019 | 进行中 → 待用户确认 | v0.2.0 与 v0.2.1 Release、公开 appcast、EdDSA ZIP、远端 CI 和公开下载复验均通过；隔离 0.2.0 已发现 0.2.1，等待实际安装动作确认。 |
