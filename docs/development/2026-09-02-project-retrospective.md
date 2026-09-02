@@ -1,7 +1,7 @@
 # 2026-09-02 全项目复盘
 
 - **需求：** `REQ-20260902-013`
-- **状态：** 进行中
+- **状态：** 已完成
 - **基线：** `main` 的 `a5077cd`
 
 ## 审计范围
@@ -81,4 +81,9 @@
 
 ### 合并与清理
 
-待合入 `main` 后回填最终合并提交、合并树复验、删除对象和实际空间回收结果。
+- 复盘分支以 `54e05be` 合入 `main`；合并树重新运行 `scripts/test.sh`，308 项测试、61 个测试组和 104 份 Markdown 检查全部通过；
+- 合并树重新构建无 Widget Release，严格签名验证通过；随后按“产物可重建”原则删除仓库内临时 `dist/`，不影响 `/Applications/AI Token Meter.app`；
+- 删除根 `.build/`（约 439 MB）、根 `dist/`（约 9.4 MB）、`.superpowers/brainstorm/`（约 2 MB）、已完全合并的 `feat/initial-app` 工作树（约 179 MB）和本轮复盘工作树；
+- 删除 `feat/initial-app` 与 `codex/project-retrospective` 本地分支并执行 worktree prune；最终只有 `main` 和主工作目录；
+- 仓库磁盘占用由约 644 MB 降至约 16 MB，约回收 628 MB。数值受文件系统计量影响，恢复方式是重新测试/构建或从 Git 历史重新建立工作树；
+- 根 `.build`、`dist`、`.superpowers`、`.worktrees` 均已不存在，`git status --short --branch` 为干净 `main`（本收尾记录提交前除外）。

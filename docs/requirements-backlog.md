@@ -27,7 +27,7 @@
 | REQ-20260902-010 | 菜单栏视觉 | 重新设计菜单栏状态图标，使其更现代、更具极客感，并保持 macOS 菜单栏小尺寸下清晰可辨 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；299 项测试、双外观像素渲染、Release 安装哈希与真实刷新链路验收通过 | [设计规格](design/specifications/2026-09-02-menu-bar-quantum-dial-design.md) · [实施计划](design/implementation-plans/2026-09-02-menu-bar-quantum-dial.md) · [开发与验收记录](development/2026-09-02-menu-bar-quantum-dial.md) · `e4a7552`–`00bc80a` |
 | REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；304 项测试、60 个测试组、Release/安装哈希、真实辅助功能与 Settings 验收通过；Widget 桌面安装继续由既有延期证书事项管理 | [设计规格](design/specifications/2026-09-02-provider-visible-name-standardization-design.md) · [实施计划](design/implementation-plans/2026-09-02-provider-visible-name-standardization.md) · [开发与验收记录](development/2026-09-02-provider-visible-name-standardization.md) · `04b707b`–`2078717` |
 | REQ-20260902-012 | 菜单栏缺陷 | 已安装应用的菜单栏状态图标不可见或对比度不足 | 高 | 已完成 | 2026-09-02 | 2026-09-02 完成；用户确认真实菜单栏可见，分支及合并后 `main` 均通过 305 项测试/60 个测试组 | [开发与验收记录](development/2026-09-02-menu-bar-icon-visibility.md) · `2759061`–`5db1c3a` |
-| REQ-20260902-013 | 项目治理 | 对整个项目进行完整复盘，补齐架构、功能、数据口径、构建发布、测试、运维、决策与遗留事项文档，并安全删除已证明无用的文件 | 高 | 进行中 | 2026-09-02 | 盘点仓库与 Git 历史，建立文档差距和可删除项证据，分阶段补齐、验证并提交 | 待补充设计规格、实施计划、复盘报告、删除清单与 Git 证据 |
+| REQ-20260902-013 | 项目治理 | 对整个项目进行完整复盘，补齐架构、功能、数据口径、构建发布、测试、运维、决策与遗留事项文档，并安全删除已证明无用的文件 | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-project-retrospective-and-documentation-governance-design.md)、[实施计划](design/implementation-plans/2026-09-02-project-retrospective-and-documentation-governance.md)、[复盘报告](development/2026-09-02-project-retrospective.md)、`a5077cd`–`54e05be` |
 
 ## 分类索引
 
@@ -122,3 +122,4 @@
 | 2026-09-02 | REQ-20260902-012 | 待用户确认 → 进行中 | 用户确认已能看到菜单栏图标，真实视觉验收通过；进入主分支集成。 |
 | 2026-09-02 | REQ-20260902-012 | 进行中 → 已完成 | 模板图像修复已合入 `main`；用户视觉确认、Release 安装哈希及合并前后 305 项测试/60 个测试组全部通过。 |
 | 2026-09-02 | REQ-20260902-013 | 新建 → 进行中 | 用户要求完整复盘项目、补齐文档、删除无用内容，并确保长期可追溯；先执行全仓库与 Git 历史盘点。 |
+| 2026-09-02 | REQ-20260902-013 | 进行中 → 已完成 | 单一需求/设计入口、项目状态、13 项架构决策、维护手册和文档门禁已落地；308 项测试、61 个测试组、104 份 Markdown、Release 严格签名和合并后复验通过；清理约 628 MB 可重建残留。 |
