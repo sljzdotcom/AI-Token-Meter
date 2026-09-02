@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible AI Token Meter problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AI Token Meter. Never paste API keys, tokens, cookies, CLI credentials, raw account responses, or unredacted screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: AI Token Meter version
+      placeholder: 0.1.2 (3)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS and Mac model
+      placeholder: macOS 15.6, MacBook Pro M4 Max
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Claude Code
+        - OpenAI Codex
+        - DeepSeek
+        - App shell or settings
+        - Not provider-specific
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use dummy values and redact account information.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and redacted diagnostics
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I removed API keys, tokens, cookies, email addresses, account responses, and other personal data.
+          required: true

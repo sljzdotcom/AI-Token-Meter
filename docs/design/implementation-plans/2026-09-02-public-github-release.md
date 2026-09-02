@@ -297,26 +297,30 @@ git commit -m "docs: record public release audit"
 
 运行 `GITHUB_OWNER="$(gh api user --jq .login)"` 得到所有者；再以 `gh repo view "$GITHUB_OWNER/AI-Token-Meter"` 检查同名仓库。若存在且不是当前本地仓库对应的空仓库，按规格停止，不覆盖。
 
-- [ ] **步骤 3：创建 Public 仓库并推送 main**
+- [ ] **步骤 3：先把已验收分支合入本地 main**
+
+公开仓库必须从包含本次安全、作者、文档和截图改动的本地 `main` 创建，不能从仍指向发布前基线的 `main` 推送。按完成开发分支流程完成最终复核，再以非快进合并保留本次发布边界。
+
+- [ ] **步骤 4：创建 Public 仓库并推送 main**
 
 ```bash
 gh repo create AI-Token-Meter --public --source=. --remote=origin --push --description "Native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek"
 gh repo edit --add-topic macos --add-topic swift --add-topic swiftui --add-topic claude-code --add-topic openai-codex --add-topic deepseek --add-topic menu-bar-app
 ```
 
-- [ ] **步骤 4：等待 GitHub Actions 完成**
+- [ ] **步骤 5：等待 GitHub Actions 完成**
 
 运行 `RUN_ID="$(gh run list --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId')"` 和 `gh run watch "$RUN_ID" --exit-status`。预期：公开 `main` CI 成功；失败则先修复并重新验证，不发布 Release。
 
-- [ ] **步骤 5：创建标签与 GitHub Release**
+- [ ] **步骤 6：创建标签与 GitHub Release**
 
 在最终发布提交创建注释标签 `v0.1.2`，推送标签，使用已验证 ZIP 和 `.sha256` 创建 Release。Release Notes 必须包含安装、nvm 修复、无 Widget、ad-hoc 与未公证限制。
 
-- [ ] **步骤 6：匿名验证仓库与下载资产**
+- [ ] **步骤 7：匿名验证仓库与下载资产**
 
 通过无需凭证的 GitHub URL 检查仓库为 Public、默认分支 `main`、README 三张截图可加载、License 被识别、CI 成功、Release 两个附件名称和远程 SHA-256 与本地一致。
 
-- [ ] **步骤 7：回填需求与最终提交**
+- [ ] **步骤 8：回填需求与最终提交**
 
 将仓库 URL、Release URL、CI run、标签和资产哈希写入开发日志、项目状态、提交历史与需求台账；只有公开下载复验通过后把 `REQ-20260902-017` 标记为 `已完成`。
 

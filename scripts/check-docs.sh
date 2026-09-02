@@ -13,6 +13,19 @@ errors = []
 
 required_files = %w[
   README.md
+  LICENSE
+  SECURITY.md
+  CONTRIBUTING.md
+  CODE_OF_CONDUCT.md
+  SUPPORT.md
+  .github/ISSUE_TEMPLATE/bug_report.yml
+  .github/ISSUE_TEMPLATE/feature_request.yml
+  .github/ISSUE_TEMPLATE/config.yml
+  .github/pull_request_template.md
+  .github/workflows/ci.yml
+  docs/assets/screenshots/floating-strip.png
+  docs/assets/screenshots/provider-detail.png
+  docs/assets/screenshots/settings.png
   Sources/AIMeterApp/Resources/Info.plist
   docs/README.md
   docs/project-status.md
@@ -23,6 +36,8 @@ required_files = %w[
   docs/development/testing.md
 ]
 required_directories = %w[
+  .github/ISSUE_TEMPLATE
+  .github/workflows
   docs/design/specifications
   docs/design/implementation-plans
 ]
@@ -88,6 +103,27 @@ if readme_path.file? && plist_path.file?
   elsif readme_version != plist_version
     errors << "README version #{readme_version} does not match Info.plist #{plist_version}"
   end
+
+  public_readme_requirements = {
+    "English project summary" => "A native macOS usage meter",
+    "public author credit" => "Author: Miller",
+    "MIT license notice" => "MIT License",
+    "v0.1.2 download guidance" => "Download v0.1.2",
+    "ad-hoc signing notice" => "ad-hoc signed",
+    "notarization notice" => "not notarized",
+    "floating strip screenshot" => "docs/assets/screenshots/floating-strip.png",
+    "provider detail screenshot" => "docs/assets/screenshots/provider-detail.png",
+    "settings screenshot" => "docs/assets/screenshots/settings.png",
+  }
+  public_readme_requirements.each do |label, text|
+    errors << "README #{label} is missing" unless readme.include?(text)
+  end
+end
+
+%w[floating-strip.png provider-detail.png settings.png].each do |filename|
+  screenshot = root + "docs/assets/screenshots/#{filename}"
+  next unless screenshot.file?
+  errors << "Documentation screenshot is not a PNG: #{filename}" unless screenshot.binread(8) == "\x89PNG\r\n\x1A\n".b
 end
 
 if readme_path.file? && testing_path.file?

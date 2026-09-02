@@ -22,6 +22,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] 若发布 Widget，`AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 与 `scripts/verify-widget-bundle.sh` 通过；
 - [ ] `git diff --check` 无错误。
 - [ ] `scripts/check-docs.sh` 无断链、版本或目录治理错误。
+- [ ] `scripts/check-public-release.sh <release.zip>` 对当前内容、完整 Git 历史和分发包无未处理的高置信度秘密。
 
 ### 文档
 
@@ -66,14 +67,14 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 
 默认 `auto` 只有在同时检测到身份和 Team ID 时才嵌入 `AITokenMeterWidget.appex`；显式 `1` 在条件不足时必须失败。构建计算 `${TEAM_ID}.com.millerpan.AIMeter`，写入双方 entitlements 与 Bundle 元数据，先签扩展再签主应用。不得把 ad-hoc 签名 Widget 当成成功产物。
 
-当前脚本的 Apple Development 签名仍只用于本机开发。公开分发前还必须补充：
+当前 GitHub 预览发行允许提供明确标注为 ad-hoc、未公证的 Apple Silicon ZIP，用户需要通过 Finder 右键“打开”。要升级为无需该提示的正式 macOS 发行渠道，还必须补充：
 
 - universal binary（若计划支持 Intel）；
 - Hardened Runtime；
 - Developer ID Application 签名；
 - Apple notarization 与 stapling；
-- 可验证的发布校验和；
-- 清晰的软件许可证。
+- 可验证的发布校验和（GitHub 预览发行已经要求）；
+- 清晰的软件许可证（当前为 MIT）。
 
 ## 本机替换与恢复
 

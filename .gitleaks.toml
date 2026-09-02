@@ -1,0 +1,15 @@
+title = "AI Token Meter public release policy"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic credentials used by privacy regression tests"
+regexes = [
+  '''sk-private-regression-token-1234567890''',
+  '''sk-sensitive-model-value''',
+  '''sk-widget-reset-secret-123456''',
+  '''sk-widget-private-123456789''',
+  '''Bearer test-secret-value''',
+  '''Bearer stored-test-key''',
+]

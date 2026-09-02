@@ -9,6 +9,12 @@ struct AppBrandTests {
         #expect(AppBrand.subtitle == "Private AI usage monitor")
     }
 
+    @Test("Formats the public author credit for About")
+    func publicAuthorCredit() {
+        #expect(AppBrand.author == "Miller")
+        #expect(AppBrand.authorLine == "Author: Miller")
+    }
+
     @Test("Formats a complete bundle version")
     func completeVersion() {
         #expect(

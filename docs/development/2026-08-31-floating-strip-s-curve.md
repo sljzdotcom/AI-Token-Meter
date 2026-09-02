@@ -56,7 +56,7 @@
 - 点击 Codex Logo 只把详情状态从关闭变为打开，位置仍为 95%；
 - macOS 应用菜单中的 `Settings…` 成功打开唯一的 `AI Meter Settings` 窗口，既有 Automatic / Left / Right 与自动隐藏设置均正常显示。
 
-最终真实截图已更新为 [浮岛截图](../assets/ai-meter-floating-strip.jpeg)，只包含浮岛本身，不包含账户凭证或私密详情。
+最终公开截图见 [浮岛截图](../assets/screenshots/floating-strip.png)，只包含浮岛本身，不包含账户凭证或私密详情。
 
 ## Git 节点
 

@@ -3,15 +3,19 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-2ea44f)
-![Tests 318](https://img.shields.io/badge/tests-318%20passed-2ea44f)
+![Tests 325](https://img.shields.io/badge/tests-325%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
+> **English:** A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek. It keeps credentials with the official CLIs or macOS Keychain, presents official quota and local aggregate activity in a compact edge meter, and is open source under the MIT License.
+
 > 项目状态：个人本地工具，当前应用版本为 `0.1.2`（build `3`）。待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
-<p align="center">
-  <img src="docs/assets/ai-meter-floating-strip.jpeg" width="108" alt="AI Token Meter 贴边浮岛，依次显示 Claude Code、OpenAI Codex 和 DeepSeek 图标及用量环">
-</p>
+## Screenshots
+
+| 贴边浮岛 | OpenAI Codex 详情（Demo 数据） | Appearance Settings |
+| --- | --- | --- |
+| ![AI Token Meter floating strip](docs/assets/screenshots/floating-strip.png) | ![OpenAI Codex detail using deterministic demo data](docs/assets/screenshots/provider-detail.png) | ![AI Token Meter Appearance Settings](docs/assets/screenshots/settings.png) |
 
 ## 主要功能
 
@@ -54,11 +58,22 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 - Claude Code 与 OpenAI Codex 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。
 - DeepSeek 是可选服务；余额需要 API Key，30 天用量图表需要在 App 的隔离网页中登录 DeepSeek 平台。
 
+## 下载与安装
+
+**Download v0.1.2** from the repository's GitHub Releases page and choose `AI-Token-Meter-0.1.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
+
+1. 完全退出已有的 AI Token Meter。
+2. 解压 ZIP，并把 `AI Token Meter.app` 移到 `/Applications`。
+3. 当前公开包是 **ad-hoc signed** 且 **not notarized**；首次打开若被 macOS 阻止，请在 Finder 中右键 App 并选择“打开”。
+4. 在 Settings → Services 配置需要使用的 Provider；所有 Provider 都是可选的。
+
+当前 Release 仅支持 Apple Silicon 与 macOS 14+，不包含需要 Apple Development 证书的 Widget。详细步骤和 SHA-256 校验方法见[安装与首次使用](docs/user-guide/getting-started.md)。
+
 ## 从源码安装
 
 ```bash
-git clone <repository-url>
-cd AI-Meter
+# Clone this repository from its GitHub Code menu, then:
+cd AI-Token-Meter
 bash scripts/build-app.sh
 open "dist/AI Token Meter.app"
 ```
@@ -172,4 +187,5 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - 当前应用版本：`0.1.2`（build `3`）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
-- 本仓库目前尚未声明开源许可证。源代码可见不等于获得复制、修改或再分发授权；在许可证确定前请勿擅自分发。
+- **Author: Miller**
+- 本项目使用 [MIT License](LICENSE)，允许在保留版权与许可声明的前提下使用、修改和再分发。
