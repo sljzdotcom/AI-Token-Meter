@@ -18,6 +18,7 @@ struct CLIAuthenticationScriptBuilderTests {
 
         #expect(claude.contains("exec '/tmp/Claude CLI/claude' auth login"))
         #expect(codex.contains("exec '/tmp/Codex CLI/codex' login"))
+        #expect(codex.contains("export PATH='/tmp/Codex CLI':\"${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}\""))
         #expect(!claude.localizedCaseInsensitiveContains("token"))
         #expect(!codex.localizedCaseInsensitiveContains("api key"))
     }

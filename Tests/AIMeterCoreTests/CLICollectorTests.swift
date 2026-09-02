@@ -141,6 +141,21 @@ struct CLICollectorTests {
         #expect(snapshot.codexResetCredits?.hasCompleteDetails == true)
     }
 
+    @Test("Codex app-server can run an env-node CLI found inside an nvm bin")
+    func codexNVMRuntimePath() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ai-meter-nvm-runtime-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let executable = try makeEnvRuntimeCodex(in: root)
+        let client = CodexAppServerClient(environmentOverrides: [
+            "PATH": "/usr/bin:/bin",
+        ])
+
+        let snapshot = try await client.readRateLimits(executableURL: executable)
+
+        #expect(snapshot.primaryMetric?.usedFraction == 0.42)
+    }
+
     @Test("A missing executable is reported without starting a process")
     func missingExecutableIsReported() async {
         let collector = ClaudeCollector(
@@ -310,6 +325,26 @@ struct CLICollectorTests {
             models: [ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 60)],
             updatedAt: reference
         )
+    }
+
+    private func makeEnvRuntimeCodex(in directory: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let runtime = directory.appendingPathComponent("ai-meter-node")
+        let codex = directory.appendingPathComponent("codex")
+        try Data("#!/bin/sh\nscript=\"$1\"\nshift\nexec /bin/sh \"$script\" \"$@\"\n".utf8)
+            .write(to: runtime)
+        try Data("""
+        #!/usr/bin/env ai-meter-node
+        if [ "$1" != "app-server" ]; then exit 2; fi
+        IFS= read -r initialize
+        printf '{"id":1,"result":{"userAgent":"nvm-test"}}\\n'
+        IFS= read -r initialized
+        IFS= read -r request
+        printf '{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":42,"windowDurationMins":300}}}}\\n'
+        """.utf8).write(to: codex)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runtime.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: codex.path)
+        return codex
     }
 }
 

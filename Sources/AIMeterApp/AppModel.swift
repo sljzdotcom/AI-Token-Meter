@@ -25,6 +25,7 @@ final class AppModel {
     private let refreshOperation: @Sendable () async -> [UsageSnapshot]
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
+    private let codexInstallGuideOpenOperation: () -> Bool
     private let deepSeekReplaceOperation: @Sendable (String) async throws -> ServiceAccountStatus
     private let signInPollAttempts: Int
     private let signInPollInterval: Duration
@@ -74,6 +75,7 @@ final class AppModel {
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
+        codexInstallGuideOpenOperation: (() -> Bool)? = nil,
         deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
         signInPollAttempts: Int = 40,
         signInPollInterval: Duration = .seconds(3),
@@ -104,6 +106,10 @@ final class AppModel {
         let authenticationLauncher = CLIAuthenticationLauncher()
         self.authenticationOpenOperation = authenticationOpenOperation ?? { provider in
             try authenticationLauncher.open(provider: provider)
+        }
+        let codexInstallationGuideLauncher = CodexInstallationGuideLauncher()
+        self.codexInstallGuideOpenOperation = codexInstallGuideOpenOperation ?? {
+            codexInstallationGuideLauncher.open()
         }
         self.deepSeekReplaceOperation = deepSeekReplaceOperation ?? { candidate in
             try await deepSeekCredentialManager.replace(with: candidate)
@@ -361,6 +367,19 @@ final class AppModel {
         serviceAccounts[provider]?.connectionState == .connected
             ? "Sign in again"
             : "Sign in"
+    }
+
+    var shouldOfferCodexInstallGuide: Bool {
+        serviceAccounts[.codex]?.connectionState == .notInstalled
+    }
+
+    func openCodexInstallGuide() {
+        if codexInstallGuideOpenOperation() {
+            settingsMessage = "Opened the official OpenAI Codex CLI installation guide."
+        } else {
+            settingsMessage = "The OpenAI Codex CLI installation guide could not be opened."
+        }
+        settingsMessageKind = .codexAuthentication
     }
 
     @discardableResult

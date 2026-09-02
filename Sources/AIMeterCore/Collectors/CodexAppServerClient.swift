@@ -94,12 +94,7 @@ struct CodexAppServerClient: Sendable {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
-        if !environmentOverrides.isEmpty {
-            process.environment = ProcessInfo.processInfo.environment.merging(
-                environmentOverrides,
-                uniquingKeysWith: { _, override in override }
-            )
-        }
+        process.environment = processEnvironment(for: executableURL)
         terminationWaiter.attach(to: process)
 
         try process.run()
@@ -134,6 +129,26 @@ struct CodexAppServerClient: Sendable {
 
         let responseData = try response(withID: 2, from: output.fileHandleForReading)
         return try JSONDecoder().decode(Response.self, from: responseData)
+    }
+
+    private func processEnvironment(for executableURL: URL) -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment.merging(
+            environmentOverrides,
+            uniquingKeysWith: { _, override in override }
+        )
+        let executableDirectory = executableURL.deletingLastPathComponent().path
+        let configuredPath = environment["PATH"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let inheritedPath: String
+        if let configuredPath, !configuredPath.isEmpty {
+            inheritedPath = configuredPath
+        } else {
+            inheritedPath = "/usr/bin:/bin:/usr/sbin:/sbin"
+        }
+        let pathParts = inheritedPath.split(separator: ":").map(String.init)
+        if !pathParts.contains(executableDirectory) {
+            environment["PATH"] = "\(executableDirectory):\(inheritedPath)"
+        }
+        return environment
     }
 
     private func response(withID expectedID: Int, from handle: FileHandle) throws -> Data {

@@ -37,10 +37,15 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
-                    Button(model.signInButtonTitle(for: .codex)) {
-                        model.beginSignIn(.codex)
+                    if model.shouldOfferCodexInstallGuide {
+                        Button("Open Install Guide") {
+                            model.openCodexInstallGuide()
+                        }
+                    } else {
+                        Button(model.signInButtonTitle(for: .codex)) {
+                            model.beginSignIn(.codex)
+                        }
                     }
-                    .disabled(status(for: .codex).connectionState == .notInstalled)
 
                     Button("Check Status") {
                         Task { await model.checkServiceAccount(.codex) }

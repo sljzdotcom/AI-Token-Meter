@@ -37,6 +37,25 @@ struct ServiceAccountSettingsTests {
         #expect(model.signInButtonTitle(for: .codex) == "Sign in again")
     }
 
+    @Test("Missing Codex offers and opens the official installation guide")
+    func missingCodexOffersInstallGuide() async {
+        let guideRecorder = ServiceAccountInstallGuideRecorder()
+        let model = makeModel(
+            accountRefresh: { _ in [
+                ServiceAccountStatus(provider: .codex, connectionState: .notInstalled),
+            ] },
+            codexInstallGuideOpen: { guideRecorder.record(); return true }
+        )
+
+        await model.refreshServiceAccounts()
+
+        #expect(model.shouldOfferCodexInstallGuide)
+        model.openCodexInstallGuide()
+        #expect(guideRecorder.openCount == 1)
+        #expect(model.settingsMessage == "Opened the official OpenAI Codex CLI installation guide.")
+        #expect(model.settingsMessageKind == .codexAuthentication)
+    }
+
     @Test("Overlapping full account refreshes share one provider read")
     func overlappingAccountRefreshesAreCoalesced() async {
         let refreshes = ServiceAccountCounter()
@@ -226,6 +245,7 @@ struct ServiceAccountSettingsTests {
         refreshOperation: @escaping @Sendable () async -> [UsageSnapshot] = { [] },
         accountRefresh: @escaping @Sendable (UsageProvider?) async -> [ServiceAccountStatus] = { _ in [] },
         authenticationOpen: @escaping (UsageProvider) throws -> Void = { _ in },
+        codexInstallGuideOpen: @escaping () -> Bool = { true },
         deepSeekReplace: @escaping @Sendable (String) async throws -> ServiceAccountStatus = { _ in
             ServiceAccountStatus(provider: .deepSeek, connectionState: .signInRequired)
         },
@@ -243,12 +263,19 @@ struct ServiceAccountSettingsTests {
             refreshOperation: refreshOperation,
             serviceAccountRefreshOperation: accountRefresh,
             authenticationOpenOperation: authenticationOpen,
+            codexInstallGuideOpenOperation: codexInstallGuideOpen,
             deepSeekReplaceOperation: deepSeekReplace,
             signInPollAttempts: pollAttempts,
             signInPollInterval: .milliseconds(1),
             signInSleep: pollSleep
         )
     }
+}
+
+@MainActor
+private final class ServiceAccountInstallGuideRecorder {
+    private(set) var openCount = 0
+    func record() { openCount += 1 }
 }
 
 private final class ServiceAccountCounter: @unchecked Sendable {

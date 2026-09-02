@@ -24,6 +24,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
         return """
         #!/bin/zsh
         set -eu
+        export PATH=\(shellQuote(executableURL.deletingLastPathComponent().path)):"${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}"
         exec \(shellQuote(executableURL.path)) \(arguments)
 
         """
