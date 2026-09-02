@@ -1,4 +1,72 @@
 # 2026-09-02 全项目复盘
 
-**需求：** `REQ-20260902-013`  
+**需求：** `REQ-20260902-013`
 **状态：** 进行中
+**基线：** `main` 的 `a5077cd`
+
+## 审计范围
+
+- 251 个 Git 提交、全部本地分支/worktree、tag、stash 与 remote；
+- 298 个跟踪文件：168 个 Swift、101 个 Markdown，以及 Shell、plist、entitlements 和图片资源；
+- `AIMeterCore`、`AIMeterApp`、`AIMeterWidgetExtension` 三个 target 与对应测试；
+- README、用户指南、架构、安全、设计、开发、发布、需求和变更记录；
+- 根目录构建缓存、发行包、视觉原型与历史工作树。
+
+## 基线结论
+
+- `main` 没有未提交代码，所有历史功能分支均已是 `main` 祖先；
+- 无 remote、tag、stash 或第三方 Swift Package 依赖；
+- 应用元数据为 `0.1.0` build `1`、macOS 14+、LSUIElement 菜单栏 App；
+- 首次完整测试运行 305 项中 `PTYCommandRunnerTests.sendsInputAndPreservesExitStatus` 在 2 秒门槛偶发超时；立即单独复跑完整 PTY suite 为 9/9 通过。该事实保留，最终验证必须再次完整复跑；
+- Markdown 相对链接初检为 0 个断链，但文档有两个状态入口和两个设计资料根目录，属于信息架构问题。
+
+## 发现与处理
+
+### 1. 需求状态分叉
+
+`docs/next-phase-requirements.md` 是建立正式台账前的过渡文件，其中 R1/R4/R5/R6 已完成，R2 和 R3 已分别进入正式的受环境限制/延期事项。继续保留会形成第二需求队列，因此删除；当前事实迁入[项目状态](../project-status.md)，状态只由[需求台账](../requirements-backlog.md)维护。
+
+### 2. 设计资料分叉
+
+2026-08-31 曾开始从内部名 `docs/superpowers` 迁移到 `docs/design`，但后续新增资料又写回旧目录。已把 13 份规格和 15 份计划移动到统一设计目录、更新有效链接，并为全部 28 组规格/计划建立[完整索引](../design/README.md)。Git 将其识别为高相似度 rename，内容历史保留。
+
+### 3. 临时报告被正式日志覆盖
+
+两个 `.superpowers/sdd` 文件没有任何入口引用：
+
+- 反向半圆 task report 的提交、测试和疑虑已在 `2026-08-31-visual-system-edge-docking.md` 与提交历史记录；
+- Symbol 最终修复报告的 `8b98744`、红绿灯、验收和限制已在 `2026-09-01-settings-font-isolation-and-content-size-step.md` 及对应规格记录。
+
+因此删除临时副本；恢复方式是从复盘前提交 `a5077cd` 读取，不丢失 Git 历史。
+
+### 4. 缺少长期接手入口
+
+新增：
+
+- [当前项目状态](../project-status.md)：当前能力、数据、版本、验证与未完成事项；
+- [架构决策](../architecture/decisions.md)：长期约束、动机、代价和重新评估条件；
+- [维护手册](maintenance-playbook.md)：变更影响矩阵、三服务诊断、构建、安装和回滚；
+- 文档一致性检查：未来自动阻止断链、版本/测试基线分叉和旧目录复发。
+
+### 5. 本地可再生残留
+
+盘点时根检出共约 644 MB，其中 `.build/` 约 439 MB、工作树约 179 MB、`dist/` 约 9.4 MB、视觉原型状态约 2 MB。它们均被 `.gitignore` 排除。最终合并后将删除：
+
+- 可由 SwiftPM/构建脚本重建的根 `.build/`；
+- 同时包含旧 `AI Meter.app` 和新 `AI Token Meter.app` 的根 `dist/`；
+- 已完全合入 `main` 且干净的 `feat/initial-app` 工作树/分支；
+- 已被正式规格、日志和资源吸收的 `.superpowers/brainstorm/` 临时服务器状态与原型输出；
+- 本轮完成后的复盘工作树/分支。
+
+当前 `/Applications/AI Token Meter.app` 不属于仓库残留，不删除。清理后的恢复方式分别是重新测试/构建，或从对应 Git 提交读取正式记录。
+
+## 保留但明确标记的事实
+
+- Widget 源码已实现，真实 Gallery/桌面验收仍因证书决定延期；
+- Mission Control、第二普通 Space、真实指针、多显示器仍受环境限制；
+- 项目没有远程备份、tag、CI、许可证、Developer ID 签名和公证；这些不能在复盘中凭空补造；
+- 旧兼容 Bundle ID、可执行文件名、Keychain 服务和数据目录有意保留。
+
+## 最终验证
+
+待实施完成后回填：文档检查、Swift 测试、Release 构建、签名、Git 提交范围、合并节点与本地清理结果。

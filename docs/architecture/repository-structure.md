@@ -179,14 +179,18 @@ Sources/AIMeterCore/
 
 ## `docs`
 
+- `project-status.md`：当前能力、版本、验证与未完成事项的事实快照；
+- `requirements-backlog.md`：需求状态唯一来源；
 - `user-guide/`：面向使用者的当前行为；
-- `architecture/`：当前代码和数据流；
-- `development/`：开发环境、测试、发布、提交历史和逐日日志；
+- `architecture/`：当前代码、数据流和长期决策；
+- `development/`：开发环境、维护手册、测试、发布、提交历史和逐日日志；
 - `design/specifications/`：历史设计方案；
 - `design/implementation-plans/`：历史实施计划；
 - `assets/`：README 与文档使用的图片。
 
 历史设计目录不用于描述当前配置。功能演进后可以保留当时决策，但必须更新用户指南、架构文档与 `CHANGELOG.md`。
+
+仓库不再维护第二份“下一阶段需求”文件，也不再使用内部命名的 `docs/superpowers`。所有新需求先进入台账，所有规格和计划进入 `docs/design`。
 
 ## 命名与放置规则
 

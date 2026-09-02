@@ -24,38 +24,38 @@
 
 ### 任务 1：锁定文档检查行为
 
-- [ ] 新增失败测试，在临时目录运行真实检查器，分别验证完整文档集通过、断链失败、版本不一致失败。
-- [ ] 运行 `./scripts/test.sh --filter DocumentationCheckScriptTests`，确认测试因检查脚本尚不存在而失败。
-- [ ] 保留红灯证据，实施任务 2–4 后再让同一组测试转绿。
-- [ ] 提交 `test: specify documentation checks` 检查点。
+- [x] 新增失败测试，在临时目录运行真实检查器，分别验证完整文档集通过、断链失败、版本不一致失败。
+- [x] 运行 `./scripts/test.sh --filter DocumentationCheckScriptTests`，确认测试因检查脚本尚不存在而失败。
+- [x] 保留红灯证据，实施任务 2–4 后再让同一组测试转绿。
+- [x] 提交 `test: specify documentation checks` 检查点。
 
 ### 任务 2：统一设计资料与需求入口
 
-- [ ] 将 `docs/design/specifications/*.md` 移到 `docs/design/specifications/`，将 `docs/design/implementation-plans/*.md` 移到 `docs/design/implementation-plans/`。
-- [ ] 把所有现行链接更新到新路径，并扫描确认仓库中除历史叙述外不存在有效的旧目录引用。
-- [ ] 删除 `docs/next-phase-requirements.md`，把仍有效的 Widget、桌面环境验收、签名和发布限制保留在需求台账与状态页。
-- [ ] 删除两个无引用 `.superpowers/sdd` 报告，确认其中独有的测试和验收事实已存在正式开发日志。
-- [ ] 提交 `docs: consolidate project records` 检查点。
+- [x] 将 `docs/superpowers/specs/*.md` 移到 `docs/design/specifications/`，将 `docs/superpowers/plans/*.md` 移到 `docs/design/implementation-plans/`。
+- [x] 把所有现行链接更新到新路径，并扫描确认仓库中除历史叙述外不存在有效的旧目录引用。
+- [x] 删除 `docs/next-phase-requirements.md`，把仍有效的 Widget、桌面环境验收、签名和发布限制保留在需求台账与状态页。
+- [x] 删除两个无引用 `.superpowers/sdd` 报告，确认其中独有的测试和验收事实已存在正式开发日志。
+- [x] 提交 `docs: consolidate project records` 检查点。
 
 ### 任务 3：补齐长期维护知识
 
-- [ ] 编写 `docs/project-status.md`，列出版本、平台、三服务、Widget、签名、测试基线、持久化、未完成事项与权威入口。
-- [ ] 编写 `docs/architecture/decisions.md`，记录原生菜单栏架构、统一快照、CLI 凭证边界、DeepSeek Keychain/WebKit 隔离、缓存降级、桌面层浮岛、模板菜单图标、Widget App Group 和兼容身份。
-- [ ] 编写 `docs/development/maintenance-playbook.md`，给出按 Provider 的诊断顺序、变更影响矩阵、测试/构建/安装/回滚步骤和隐私红线。
-- [ ] 更新 README、文档索引、架构目录、开发索引、贡献规则、发布与测试文档。
+- [x] 编写 `docs/project-status.md`，列出版本、平台、三服务、Widget、签名、测试基线、持久化、未完成事项与权威入口。
+- [x] 编写 `docs/architecture/decisions.md`，记录原生菜单栏架构、统一快照、CLI 凭证边界、DeepSeek Keychain/WebKit 隔离、缓存降级、桌面层浮岛、模板菜单图标、Widget App Group 和兼容身份。
+- [x] 编写 `docs/development/maintenance-playbook.md`，给出按 Provider 的诊断顺序、变更影响矩阵、三服务诊断、构建、安装和回滚步骤和隐私红线。
+- [x] 更新 README、文档索引、架构目录、开发索引、贡献规则、发布与测试文档。
 - [ ] 提交 `docs: add long-term maintenance knowledge` 检查点。
 
 ### 任务 4：自动验证文档
 
-- [ ] 实现 `scripts/check-docs.sh`：使用系统自带 Ruby 检查相对链接、版本、测试基线、必备入口与禁用旧路径；接受可选仓库根路径以支持受控测试。
-- [ ] 将检查脚本接入 `scripts/test.sh` 的 Swift 测试之后。
-- [ ] 运行 `scripts/check-docs.sh`、`./scripts/test.sh --filter DocumentationCheckScriptTests` 和完整 `scripts/test.sh`，确认全部通过。
+- [x] 实现 `scripts/check-docs.sh`：使用系统自带 Ruby 检查相对链接、版本、测试基线、必备入口与禁用旧路径；接受可选仓库根路径以支持受控测试。
+- [x] 将检查脚本接入 `scripts/test.sh` 的 Swift 测试之后。
+- [x] 运行 `scripts/check-docs.sh`、`./scripts/test.sh --filter DocumentationCheckScriptTests` 和完整 `scripts/test.sh`，确认全部通过。
 - [ ] 提交 `test: automate documentation consistency checks` 检查点。
 
 ### 任务 5：复盘、构建和清理
 
 - [ ] 运行 `git diff --check`、完整测试、`scripts/build-app.sh`、`codesign --verify --deep --strict` 和 Markdown 检查。
-- [ ] 在复盘日志记录一次基线 PTY 超时及独立复跑通过的事实，不把偶发失败隐瞒为一次全绿。
+- [x] 在复盘日志记录一次基线 PTY 超时及独立复跑通过的事实，不把偶发失败隐瞒为一次全绿。
 - [ ] 记录每个被删除对象的跟踪状态、替代来源、恢复方式和空间影响。
 - [ ] 完成需求台账、CHANGELOG 与提交历史，标记 `REQ-20260902-013` 已完成。
 - [ ] 合入 `main` 后删除已合并工作树/分支以及根目录可再生缓存与旧构建产物，最后确认仓库干净。
