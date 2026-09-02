@@ -3,7 +3,7 @@
 **日期：** 2026-09-02  
 **需求：** `REQ-20260902-012`  
 **分支：** `codex/menu-bar-icon-visibility`  
-**状态：** 真实视觉验收通过，等待合入 `main`
+**状态：** 已完成并合入 `main`
 
 ## 问题
 
@@ -27,7 +27,7 @@ Quantum Dial 原先由 SwiftUI `Shape` 使用 `Color.primary` 直接绘制到 `M
 红灯：新增测试先引用尚不存在的 `MenuBarMeterTemplateImage`，编译明确失败。  
 绿灯：新增契约验证模板属性、18×18pt 逻辑尺寸、36×36 像素表示和非空可见像素；Quantum Dial 定向套件 4/4 通过。
 
-完整回归：**305 个测试、60 个测试组、0 失败**。
+完整回归：功能分支及合并后的 `main` 均为 **305 个测试、60 个测试组、0 失败**。
 
 ## Release 与安装
 
@@ -44,4 +44,6 @@ Quantum Dial 原先由 SwiftUI `Shape` 使用 `Color.primary` 直接绘制到 `M
 ## Git 证据
 
 - `2759061`：登记菜单栏图标不可见缺陷；
-- `62f3158`：以 macOS 模板图像输出 Quantum Dial，并增加回归测试。
+- `62f3158`：以 macOS 模板图像输出 Quantum Dial，并增加回归测试；
+- `c2996a9`：记录根因、Release、安装哈希和待视觉确认状态；
+- `5db1c3a`：记录用户视觉验收并快进合入 `main`。
