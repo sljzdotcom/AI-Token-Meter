@@ -4,7 +4,7 @@ import SwiftUI
 
 enum FloatingStripBackgroundAsset {
     static let filename = "floating-strip-deep-sea"
-    static let defaultImage = load()
+    @MainActor static let defaultImage = load()
 
     static func resourceURL(in bundle: Bundle = .main) -> URL? {
         AppResourceLocator.url(

@@ -15,11 +15,25 @@ struct VisualSystemTests {
     }
 
     @Test("Default deep sea background reuses one decoded image")
+    @MainActor
     func floatingBackgroundCache() throws {
         let first = try #require(FloatingStripBackgroundAsset.defaultImage)
         let second = try #require(FloatingStripBackgroundAsset.defaultImage)
 
         #expect(first === second)
+    }
+
+    @Test("Cached AppKit images stay on the main actor")
+    func floatingBackgroundCacheIsMainActorIsolated() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterApp/Views/FloatingStripBackground.swift"
+        ))
+
+        #expect(source.contains("@MainActor static let defaultImage = load()"))
     }
 
     @Test("Deep sea background is bundled at retina resolution")

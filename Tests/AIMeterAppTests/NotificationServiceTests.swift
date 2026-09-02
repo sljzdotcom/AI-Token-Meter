@@ -1,4 +1,5 @@
 import AIMeterCore
+import Foundation
 import Testing
 @testable import AIMeterApp
 
@@ -18,5 +19,18 @@ struct NotificationServiceTests {
             NotificationService.notificationBody(for: event)
                 == "OpenAI Codex · Weekly limit is at 73%."
         )
+    }
+
+    @Test("UserNotifications keeps cross-SDK concurrency compatibility")
+    func userNotificationsImportIsPreconcurrency() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterApp/System/NotificationService.swift"
+        ))
+
+        #expect(source.contains("@preconcurrency import UserNotifications"))
     }
 }
