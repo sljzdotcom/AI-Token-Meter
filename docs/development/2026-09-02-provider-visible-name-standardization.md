@@ -3,7 +3,7 @@
 **日期：** 2026-09-02  
 **需求：** `REQ-20260902-011`  
 **分支：** `codex/provider-visible-names`  
-**状态：** 进行中
+**状态：** 实现与分支验收完成，等待合并 `main`
 
 ## 背景与目标
 
@@ -54,11 +54,24 @@
 
 ## 完整自动化、构建与安装
 
-待完成后补充：完整测试数量与套件、Release 构建、严格签名、Widget 包检查、候选/安装版 SHA-256。
+- 完整自动化：**304 个测试、60 个测试组、0 失败**；
+- 主应用：`scripts/build-app.sh` Release 构建成功，生成 Apple Silicon `arm64` 产物；
+- 签名：无 Apple Development 身份时按设计生成 ad-hoc 主应用，`codesign --verify --deep --strict` 通过；Candidate CDHash 为 `6e31338fd37323b6710f0ebe951f5c4506b49d24`；
+- Widget：使用独立临时模块缓存执行 `swift build -c release --product AIMeterWidgetExtension`，Release target 编译与链接成功；
+- Widget Bundle：当前没有 Apple Development 身份，主应用构建按设计显示 `Widget skipped`，因此 `verify-widget-bundle.sh` 对无 `.appex` 的主应用返回失败；真实 Gallery、桌面安装及嵌套签名仍归既有延期项 `REQ-20260901-003`，没有伪报通过；
+- 安装：旧版应用可恢复备份到 `/private/tmp/AI Token Meter.pre-provider-names-20260902-1424.app`，候选版安装到 `/Applications/AI Token Meter.app` 并成功启动；
+- 候选版与安装版主可执行文件 SHA-256 均为 `5ef2fcd948e70c9e56267c9acd4819065f9dbda5273197d8d900af85cd2cf3d3`；安装版严格签名再次通过。
 
 ## 真实界面与辅助功能验收
 
-待安装候选后检查菜单面板、浮动条、两项详情、Settings Services 与 Widget 当前说明。重点确认 `OpenAI Codex` 在详情和 Widget 中不截断。
+已安装应用的真实辅助功能树确认：
+
+- 浮动条依次朗读 `Claude Code, 0%, Current session`、`OpenAI Codex, 37%, Weekly limit` 与 DeepSeek 余额；
+- 点击 OpenAI Codex 后辅助功能值切换为 `Detail open`，证明交互链路仍正常；
+- Settings > Services 显示 `Claude Code`、`Claude Code · Pro`、`OpenAI Codex`，说明文字分别指向官方 Claude Code CLI 与 OpenAI Codex CLI；
+- 浮动条、Settings 和 CLI 刷新均继续使用原 Provider 身份，未发生 raw value 迁移。
+
+当前自动化界面工具不会枚举非激活详情面板的内部文本，因此没有把详情标题的直接辅助功能读取冒充为通过；该标题由核心 `displayName` 同源生成，已由 `ProviderPresentationTests`、源码编译和已安装交互链路共同覆盖。Widget 当前无法安装到桌面，其正式名称由核心测试、Small 辅助功能源码和独立 Release target 编译覆盖。
 
 ## 安全与隐私
 
@@ -73,9 +86,10 @@
 - `b2a2b8d`：记录用户确认；
 - `7c358db`：完成测试驱动实施计划；
 - `68b833f`：集中核心正式名称；
-- `318b556`：统一主应用、通知、解析器和 Widget 当前名称。
+- `318b556`：统一主应用、通知、解析器和 Widget 当前名称；
+- `a194ad6`：同步 README、用户指南、架构、隐私与开发文档。
 
-最终文档、验证和主分支合并提交待验收后补充。
+最终验证证据与主分支合并提交在集成完成后补充。
 
 ## 已知限制
 

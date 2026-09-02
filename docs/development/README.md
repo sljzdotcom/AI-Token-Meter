@@ -28,7 +28,7 @@
 | [2026-09-02](2026-09-02-claude-detail-card-removal.md) | Claude 详情移除 Token composition 与 Top models，保留额度、三项本机统计和每日趋势 | 294 个测试、58 个测试组、Release 签名、安装哈希与自动隐藏实机验收通过 |
 | [2026-09-02](2026-09-02-claude-detail-privacy-note-removal.md) | Claude 详情移除底部隐私说明及锁图标，底层隐私边界不变 | 295 个测试、58 个测试组、Release 签名、安装哈希和真实辅助功能树验收通过 |
 | [2026-09-02](2026-09-02-menu-bar-quantum-dial.md) | 菜单栏 18×18pt 动态 Quantum Dial、同源最高比例和精确百分比 | 299 个测试、59 个测试组、双外观像素渲染、Release 签名、安装哈希和真实刷新链路验收通过 |
-| [2026-09-02](2026-09-02-provider-visible-name-standardization.md) | Claude Code、OpenAI Codex、DeepSeek 当前用户可见名称统一与兼容边界 | 定向红绿测试通过；完整测试、Release、安装与真实界面验收进行中 |
+| [2026-09-02](2026-09-02-provider-visible-name-standardization.md) | Claude Code、OpenAI Codex、DeepSeek 当前用户可见名称统一与兼容边界 | 304 个测试、60 个测试组、主应用 Release 严格签名、安装哈希和真实辅助功能验收通过；Widget Release target 通过，桌面安装仍受既有证书事项限制 |
 
 ## 新日志模板
 

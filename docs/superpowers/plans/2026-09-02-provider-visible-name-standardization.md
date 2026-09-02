@@ -184,7 +184,7 @@ git commit -m "feat: standardize provider names across the app"
 
 在文档索引和提交历史中加入本次条目；需求在真正完成前保持 `进行中`，只在全部验收后改为 `已完成`。
 
-- [ ] **步骤 4：提交文档检查点**
+- [x] **步骤 4：提交文档检查点**
 
 ```bash
 git add README.md CHANGELOG.md docs
@@ -198,7 +198,7 @@ git commit -m "docs: document provider display name standardization"
 - 修改：`docs/development/commit-history.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：运行完整自动化测试**
+- [x] **步骤 1：运行完整自动化测试**
 
 ```bash
 AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-full bash scripts/test.sh
@@ -206,7 +206,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-full bash scripts/te
 
 预期：所有测试通过，0 failures。
 
-- [ ] **步骤 2：构建并严格验证 Release**
+- [x] **步骤 2：构建并严格验证 Release**
 
 ```bash
 bash scripts/build-app.sh
@@ -214,13 +214,13 @@ codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
 bash scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 ```
 
-预期：Release 构建、主应用和 Widget 签名结构全部通过。
+结果：主应用 Release 构建与严格签名通过；Widget Extension 的独立 Release target 编译通过。当前没有 Apple Development 身份，自动构建按设计跳过 `.appex`，因此真实 Widget 包签名/安装继续归延期项 `REQ-20260901-003`，不阻塞本次显示名称实现。
 
-- [ ] **步骤 3：安全安装候选版本**
+- [x] **步骤 3：安全安装候选版本**
 
 退出正在运行的 AI Token Meter；把现有 `/Applications/AI Token Meter.app` 备份到 `/private/tmp`，再安装候选。对候选与安装版主可执行文件计算 SHA-256，必须一致；安装异常时恢复备份。
 
-- [ ] **步骤 4：真实界面和辅助功能验收**
+- [x] **步骤 4：真实界面和辅助功能验收**
 
 启动已安装应用并检查：
 

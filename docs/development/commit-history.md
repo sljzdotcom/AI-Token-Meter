@@ -36,7 +36,7 @@
 | 详情窗口置前 | `e25371c`–`abb1a96` | 浮岛保留桌面层、临时详情使用标准 floating 层级、268 项回归与真实安装层级验收 |
 | Claude 详情与字体目录 | `3595c28`–`1f456a0` | Claude 本机 30 日活动与专用详情、八项字体目录、295 项回归及最终安装验收 |
 | 菜单栏 Quantum Dial | `9662480`–`4839cdb` | 18×18pt 自绘动态图标、同源最高比例、双外观渲染与 299 项回归 |
-| Provider 用户可见名称统一 | `04b707b`–`318b556` | 集中 Claude Code、OpenAI Codex、DeepSeek 正式名称并同步主应用、通知、Widget 与现行文档 |
+| Provider 用户可见名称统一 | `04b707b`–`a194ad6` | 集中 Claude Code、OpenAI Codex、DeepSeek 正式名称并同步主应用、通知、Widget、现行文档与测试证据 |
 
 ## 2026-08-28
 
