@@ -31,6 +31,7 @@
 | [2026-09-02](2026-09-02-provider-visible-name-standardization.md) | Claude Code、OpenAI Codex、DeepSeek 当前用户可见名称统一与兼容边界 | 304 个测试、60 个测试组、主应用 Release 严格签名、安装哈希和真实辅助功能验收通过；Widget Release target 通过，桌面安装仍受既有证书事项限制 |
 | [2026-09-02](2026-09-02-menu-bar-icon-visibility.md) | Quantum Dial 菜单栏模板着色修复 | 305 个测试、60 个测试组、Release 严格签名、安装哈希、运行时刷新与用户真实菜单栏视觉确认通过 |
 | [2026-09-02](2026-09-02-project-retrospective.md) | 全仓库复盘、文档单一来源、设计资料统一、自动一致性检查与本地残留清理 | 308 个测试、61 个测试组、文档检查、Release 构建/签名与清理证据见日志 |
+| [2026-09-02](2026-09-02-macbook-arm64-package.md) | MacBook Pro M4 Max Apple Silicon 分发包 | 308 个测试、arm64 Release、ZIP 完整性、解压后严格签名和 SHA-256 验证通过 |
 
 ## 新日志模板
 

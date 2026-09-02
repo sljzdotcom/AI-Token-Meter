@@ -28,7 +28,7 @@
 | REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；304 项测试、60 个测试组、Release/安装哈希、真实辅助功能与 Settings 验收通过；Widget 桌面安装继续由既有延期证书事项管理 | [设计规格](design/specifications/2026-09-02-provider-visible-name-standardization-design.md) · [实施计划](design/implementation-plans/2026-09-02-provider-visible-name-standardization.md) · [开发与验收记录](development/2026-09-02-provider-visible-name-standardization.md) · `04b707b`–`2078717` |
 | REQ-20260902-012 | 菜单栏缺陷 | 已安装应用的菜单栏状态图标不可见或对比度不足 | 高 | 已完成 | 2026-09-02 | 2026-09-02 完成；用户确认真实菜单栏可见，分支及合并后 `main` 均通过 305 项测试/60 个测试组 | [开发与验收记录](development/2026-09-02-menu-bar-icon-visibility.md) · `2759061`–`5db1c3a` |
 | REQ-20260902-013 | 项目治理 | 对整个项目进行完整复盘，补齐架构、功能、数据口径、构建发布、测试、运维、决策与遗留事项文档，并安全删除已证明无用的文件 | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-project-retrospective-and-documentation-governance-design.md)、[实施计划](design/implementation-plans/2026-09-02-project-retrospective-and-documentation-governance.md)、[复盘报告](development/2026-09-02-project-retrospective.md)、`a5077cd`–`54e05be` |
-| REQ-20260902-014 | 发布交付 | 从当前 `main` 生成可拷贝到 MacBook Pro M4 Max 使用的 Apple Silicon Release ZIP，并提供完整性校验和与安装说明 | 高 | 进行中 | 2026-09-02 | 运行全量测试，构建无 Widget Release，校验签名/架构/版本后生成 ZIP 和 SHA-256 | 待补充打包日志、产物路径与 Git 证据 |
+| REQ-20260902-014 | 发布交付 | 从当前 `main` 生成可拷贝到 MacBook Pro M4 Max 使用的 Apple Silicon Release ZIP，并提供完整性校验和与安装说明 | 高 | 已完成 | 2026-09-02 | 无 | [打包与安装记录](development/2026-09-02-macbook-arm64-package.md)、源码基线 `873a8e3`、ZIP SHA-256 `262f13f9…d91783` |
 
 ## 分类索引
 
@@ -129,3 +129,4 @@
 | 2026-09-02 | REQ-20260902-013 | 新建 → 进行中 | 用户要求完整复盘项目、补齐文档、删除无用内容，并确保长期可追溯；先执行全仓库与 Git 历史盘点。 |
 | 2026-09-02 | REQ-20260902-013 | 进行中 → 已完成 | 单一需求/设计入口、项目状态、13 项架构决策、维护手册和文档门禁已落地；308 项测试、61 个测试组、104 份 Markdown、Release 严格签名和合并后复验通过；清理约 628 MB 可重建残留。 |
 | 2026-09-02 | REQ-20260902-014 | 新建 → 进行中 | 用户要求生成可迁移到 MacBook Pro M4 Max 使用的应用包；采用 Apple Silicon arm64 ZIP、SHA-256 和无 Widget 明确边界。 |
+| 2026-09-02 | REQ-20260902-014 | 进行中 → 已完成 | 308 项测试与 104 份文档检查通过；arm64、macOS 14+、ad-hoc Release 构建、ZIP 完整性、解压后严格签名和 SHA-256 验证通过。 |
