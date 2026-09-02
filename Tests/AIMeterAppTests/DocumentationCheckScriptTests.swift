@@ -54,6 +54,21 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("LICENSE"))
     }
 
+    @Test("A README missing its public author credit fails")
+    func rejectsMissingPublicAuthorCredit() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let readmeURL = fixture.appendingPathComponent("README.md")
+        let original = try String(contentsOf: readmeURL, encoding: .utf8)
+        try original.replacingOccurrences(of: "Author: Miller", with: "")
+            .write(to: readmeURL, atomically: true, encoding: .utf8)
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("public author credit"))
+    }
+
     private func makeFixture(bundleVersion: String = "0.1.0") throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ai-token-meter-doc-check-\(UUID().uuidString)", isDirectory: true)
@@ -63,6 +78,7 @@ struct DocumentationCheckScriptTests {
             "docs/design/specifications",
             "docs/design/implementation-plans",
             "docs/development",
+            "docs/assets/screenshots",
             ".github/ISSUE_TEMPLATE",
             ".github/workflows",
         ]
@@ -79,8 +95,24 @@ struct DocumentationCheckScriptTests {
         ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-green)
         ![Tests 305](https://img.shields.io/badge/tests-305%20passed-green)
 
+        A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek.
+
+        ![Floating strip](docs/assets/screenshots/floating-strip.png)
+        ![Provider detail](docs/assets/screenshots/provider-detail.png)
+        ![Settings](docs/assets/screenshots/settings.png)
+
+        Download v0.1.2. The public package is ad-hoc signed and not notarized.
+
+        Author: Miller · MIT License
+
         [Documentation](docs/README.md)
         """.write(to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+
+        for filename in ["floating-strip.png", "provider-detail.png", "settings.png"] {
+            try Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).write(
+                to: root.appendingPathComponent("docs/assets/screenshots/\(filename)")
+            )
+        }
 
         try """
         <?xml version="1.0" encoding="UTF-8"?>
