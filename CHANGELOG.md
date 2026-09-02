@@ -34,7 +34,7 @@
 ### Changed
 
 - 产品显示名称改为 **AI Token Meter**，副标题改为 **Private AI usage monitor**，构建产物改为 `dist/AI Token Meter.app`；Bundle Identifier、可执行文件名、Keychain 身份和旧数据目录保持兼容。
-- Claude 详情页移除 Token composition 与 Top models 两张次要卡片，保留官方额度、本机三项统计、每日趋势和隐私提示；采集与旧缓存兼容性不变。
+- Claude 详情页移除 Token composition、Top models 以及底部的内联隐私说明，保留官方额度、本机三项统计和每日趋势；底层隐私保护、采集与旧缓存兼容性不变。
 - Settings 现在固定使用 macOS 系统字体，字体选项只显示名称；浮动条、三个详情页和菜单点击面板的产品文字统一增大 1pt。
 - Claude、Codex、DeepSeek 现在分别使用黄橙、玫红紫、薄荷紫品牌渐变，并同步到圆环、菜单卡片、详情进度条、标题和关键数据；Claude 与 Codex 的异常语义色仍优先，DeepSeek 始终保留用于表达余额消耗的原薄荷紫渐变。
 - Codex 重置券改为分层卡片：突出可用数量、完整到期时间和自然日剩余状态，并按券数量自适应详情高度。

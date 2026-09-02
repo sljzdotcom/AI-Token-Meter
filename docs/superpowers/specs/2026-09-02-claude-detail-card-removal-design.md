@@ -1,5 +1,7 @@
 # AI Token Meter Claude 详情卡片精简设计规格
 
+> **2026-09-02 后续变更：** `REQ-20260902-009` 进一步移除了本机活动区域底部的内联隐私说明及锁形图标。底层隐私保护和长期文档不变。参见 [隐私说明移除规格](2026-09-02-claude-detail-privacy-note-removal-design.md)。
+
 **日期：** 2026-09-02  
 **状态：** 已实施并验收
 **范围：** Claude 详情页本机活动区域  
@@ -15,7 +17,7 @@ Claude 详情页当前在每日 Token 趋势下方继续显示 `Token compositio
 
 1. Claude 详情页不再显示 `Token composition` 卡片。
 2. Claude 详情页不再显示 `Top models` 卡片。
-3. 保留官方额度、Sessions、Active days、Tokens、每日 Token 趋势、隐私说明、采集状态和更新时间。
+3. 保留官方额度、Sessions、Active days、Tokens、每日 Token 趋势、采集状态和更新时间。
 4. 保持详情窗口现有宽度、高度上限、自适应屏幕和局部滚动策略，避免点击后窗口尺寸跳变。
 5. 不影响 Claude 官方额度、本机 30 日总 Token、缓存兼容、自动隐藏、置前和无障碍交互。
 
@@ -28,8 +30,7 @@ Claude 详情页当前在每日 Token 趋势下方继续显示 `Token compositio
 3. `Last 30 days · This Mac` 标题；
 4. Sessions、Active days、Tokens 三项统计；
 5. 30 日每日 Token 趋势图，零活动时显示明确空状态；
-6. 本机聚合隐私说明；
-7. 状态与更新时间页脚。
+6. 状态与更新时间页脚。
 
 `Token composition` 与 `Top models` 不提供折叠入口、占位符或设置开关，也不留下额外空白卡片。窗口尺寸策略保持不变，由现有本机区域滚动容器处理不同屏幕高度。
 
@@ -39,12 +40,12 @@ Claude 详情页当前在每日 Token 趋势下方继续显示 `Token compositio
 - Input、Output、Cache 仍用于计算每日与总 Token，不再单独可视化。
 - 模型聚合字段继续保留在现有版本化快照中，本次不做缓存迁移或格式破坏。
 - 删除只服务于这两张卡片的 SwiftUI 展示函数和未再使用的展示辅助类型，避免遗留不可达界面代码。
-- 底部隐私说明继续如实说明应用读取的聚合字段。
+- 聚合读取边界继续由用户指南和隐私文档说明，详情页不再重复显示内联提示。
 
 ## 5. 无障碍
 
 - 移除两张卡片后，同时移除它们各自的 VoiceOver 节点。
-- 官方额度重置时间、三项本机统计、每日趋势图、空状态、隐私说明和页脚的现有无障碍信息保持有效。
+- 官方额度重置时间、三项本机统计、每日趋势图、空状态和页脚的现有无障碍信息保持有效。
 - 不用隐藏或透明视图保留已删除内容，避免 VoiceOver 仍朗读不可见信息。
 
 ## 6. 测试与验收
@@ -53,7 +54,7 @@ Claude 详情页当前在每日 Token 趋势下方继续显示 `Token compositio
 
 1. Claude 详情源码不再调用或定义 `tokenComposition` 与 `modelBreakdown`；
 2. `Token composition` 与 `Top models` 两个可见标题不再存在于 Claude 详情视图；
-3. Sessions、Active days、Tokens、每日趋势和隐私说明仍存在；
+3. Sessions、Active days、Tokens 和每日趋势仍存在；
 4. 已删除的 Top model 展示辅助代码与专属测试同步清理；
 5. 完整测试、Release 构建、签名验证和 `git diff --check` 通过。
 
