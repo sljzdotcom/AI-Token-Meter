@@ -4,7 +4,7 @@
 
 **分支：** `codex/deep-sea-background`
 
-**基础节点：** `5685d916a1ac8cef53ad9804f6bdfce07c2d0710`
+**基础节点：** `2229b62b304fd95532f3282ba4f0bf46da283921`
 
 ## 1. 背景与目标
 
@@ -20,11 +20,11 @@
 
 ## 3. TDD 红绿证据
 
-任务 1 的偏好测试先因 `DisplayFontChoice` / `DisplayFontPreferenceStore` 不存在而编译失败；核心实现后，AppModel 测试又因 `displayFontChoice`、设置和恢复方法不存在而失败。最小实现后，3 个偏好测试和 2 个 AppModel 启动测试通过。提交：`030f69d`。
+任务 1 的偏好测试先因 `DisplayFontChoice` / `DisplayFontPreferenceStore` 不存在而编译失败；核心实现后，AppModel 测试又因 `displayFontChoice`、设置和恢复方法不存在而失败。最小实现后，3 个偏好测试和 2 个 AppModel 启动测试通过。提交：`8a6d8df`。
 
-任务 2 的 `TypographyTests` 先因 `DisplayFontCatalog`、`AIMeterTypography`、`AIMeterTextStyle` 不存在而失败；最小语义字体层和视图迁移后，字体、视觉、拖动和详情布局测试通过。提交：`ddd23f4`。
+任务 2 的 `TypographyTests` 先因 `DisplayFontCatalog`、`AIMeterTypography`、`AIMeterTextStyle` 不存在而失败；最小语义字体层和视图迁移后，字体、视觉、拖动和详情布局测试通过。提交：`9051e3f`。
 
-任务 3 的 Settings 展示测试先因 `DisplayFontSettingsPresentation` 不存在而失败；实现三选项、缺失状态、预览和恢复规则后，字体、视觉和 AppModel 回归通过。提交：`5685d91`。
+任务 3 的 Settings 展示测试先因 `DisplayFontSettingsPresentation` 不存在而失败；实现三选项、缺失状态、预览和恢复规则后，字体、视觉和 AppModel 回归通过。提交：`2229b62`。
 
 独立审查没有发现关键或重要问题。逐阶段原始报告保存在 `.superpowers/sdd/2026-08-31-display-font-selection/`（该目录为本地 SDD 工作记录，不进入正式仓库）。
 

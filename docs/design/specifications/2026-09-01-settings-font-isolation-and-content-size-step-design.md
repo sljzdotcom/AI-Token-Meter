@@ -197,7 +197,7 @@ Settings 在所有字体选择和未来内容字号调整下都稳定使用 macO
 
 ## 13. 实施与验收状态
 
-- `aea7e15` 建立字体表面作用域与精确字号偏移；`d350af9` 将 Settings、浮动窗口和菜单面板接入显式作用域；`d334321` 初步固定了 SF Symbol 尺寸。最终审查后 `8b98744` 去除了会误用 body 的无参帮助器，逐个声明图标语义基线，并让 `ContentUnavailableView` 保持系统空状态图标设计。
+- `92c88dd` 建立字体表面作用域与精确字号偏移；`5890658` 将 Settings、浮动窗口和菜单面板接入显式作用域；`bb73fc4` 初步固定了 SF Symbol 尺寸。最终审查后 `4a0d6b3` 去除了会误用 body 的无参帮助器，逐个声明图标语义基线，并让 `ContentUnavailableView` 保持系统空状态图标设计。
 - 2026-09-01 最终完整回归通过 187 个测试、38 个套件、0 失败；Keychain 隔离读写、已安装 Claude 状态、Claude 认证状态和已安装 Codex 快照共 4 个环境门控检查跳过。
 - Release 候选及 `/Applications/AI Meter.app` 均通过 `codesign --verify --deep --strict`；实际可执行文件为 `Contents/MacOS/AIMeterApp`，候选与安装 SHA-256 同为 `ace8c9c9fde6dd46cf26b2eeb2ea303a9bf6363a48eb3883fe9423d16deb4f8c`。安装前版本保留在 `/private/tmp/AI-Meter-font-symbol-fix-backup-20260901-1012/AI Meter.app`。
 - 最终 Symbol 聚焦验证：`TypographyTests` 的 16 项覆盖逐一映射、caption2/body 的真实 `ImageRenderer` 尺寸差异，以及 `ContentUnavailableView` 的系统大号空状态渲染；`VisualSystemTests` 18 项继续通过。此自动化证据不替代下述受限的菜单及非激活详情像素验收。

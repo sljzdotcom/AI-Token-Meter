@@ -16,7 +16,7 @@
 
 ## 安全问题
 
-不要公开提交 API Key、Token、Cookie、CLI 凭证、账户响应或未脱敏截图。安全问题请按照 [Security Policy](SECURITY.md) 通过仓库的 **Security → Report a vulnerability** 私密报告。
+不要公开提交 API Key、Token、Cookie、CLI 凭证、账户响应或未脱敏截图。安全问题请按照 [Security Policy](SECURITY.md) 通过仓库的 [Security → Report a vulnerability](https://github.com/sljzdotcom/AI-Token-Meter/security/advisories/new) 私密报告。
 
 ## Support in English
 

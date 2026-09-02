@@ -36,7 +36,7 @@ This Code of Conduct applies within all project spaces and when an individual of
 
 ## Enforcement
 
-Report abusive, harassing, or otherwise unacceptable behavior privately through the repository's **Security → Report a vulnerability** form. Do not include API keys, tokens, cookies, account responses, or unrelated personal information.
+Report abusive, harassing, or otherwise unacceptable behavior privately through the repository's [Security → Report a vulnerability](https://github.com/sljzdotcom/AI-Token-Meter/security/advisories/new) form. Do not include API keys, tokens, cookies, account responses, or unrelated personal information.
 
 All reports will be reviewed promptly and fairly. Maintainers must respect the privacy and security of the reporter.
 

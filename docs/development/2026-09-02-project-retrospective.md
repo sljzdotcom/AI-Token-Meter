@@ -35,7 +35,7 @@
 两个 `.superpowers/sdd` 文件没有任何入口引用：
 
 - 反向半圆 task report 的提交、测试和疑虑已在 `2026-08-31-visual-system-edge-docking.md` 与提交历史记录；
-- Symbol 最终修复报告的 `8b98744`、红绿灯、验收和限制已在 `2026-09-01-settings-font-isolation-and-content-size-step.md` 及对应规格记录。
+- Symbol 最终修复报告的 `4a0d6b3`、红绿灯、验收和限制已在 `2026-09-01-settings-font-isolation-and-content-size-step.md` 及对应规格记录。
 
 因此删除临时副本；恢复方式是从复盘前提交 `99f3788` 读取，不丢失 Git 历史。
 

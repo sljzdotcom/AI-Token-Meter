@@ -16,8 +16,8 @@ AI Token Meter 当前支持 Apple Silicon Mac 与 macOS 14 或更新版本。从
 ## 2. 构建应用
 
 ```bash
-git clone <repository-url>
-cd AI-Meter
+git clone https://github.com/sljzdotcom/AI-Token-Meter.git
+cd AI-Token-Meter
 bash scripts/build-app.sh
 ```
 

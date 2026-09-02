@@ -15,7 +15,7 @@
 - Swift：6.3.3，arm64-apple-macosx26.0。
 - Claude Code：2.1.241，路径 `/Users/millerpan/.local/bin/claude`。
 - Codex CLI：0.149.0-alpha.4.3，路径 `/Users/millerpan/.local/bin/codex`。
-- Git 基线提交：`d9bc9a8 chore: prepare isolated development workspace`。
+- Git 基线提交：`c6f8992 chore: prepare isolated development workspace`。
 
 ## 规划节点
 
@@ -237,7 +237,7 @@
 - DeepSeek 请求明确设置 `timeoutInterval = 10`；测试直接检查生产请求对象的 10 秒限制。
 - `ThresholdEvaluator` 支持 Codable；AppModel 从 UserDefaults 恢复并在每次启用通知的评估后保存，因此同一额度周期在重启后仍保持去重。
 - 展示语义现在优先尊重官方 `availability`；`is_available=false` 会保留余额但显示不可用颜色与提示，菜单栏最高风险不再使用不可用账户的百分比。
-- 清理全部历史变更中的 EOF 多余空行，`git diff --check d9bc9a8` 退出码 0。
+- 清理全部历史变更中的 EOF 多余空行，`git diff --check c6f8992` 退出码 0。
 - 审查确认当前打包方式只适合本机：README 已明确 Apple Silicon、arm64 与 ad-hoc 签名范围；正式外部分发需另做 Developer ID、Hardened Runtime、公证和可选 universal binary。
 - 首轮修复后的全量套件为 61 个测试、15 个测试组，0 个失败；另外显式启用的 3 项真实 CLI 烟雾测试与 1 项隔离 Keychain 生命周期测试为 4/4 通过。
 - 最终 production 重建、App 打包、Info.plist 校验、严格签名验证及从基础提交开始的完整 `git diff --check` 均通过。
@@ -424,5 +424,5 @@
 
 ### Git 节点
 
-- `f6a0b4e docs: establish public project documentation`：建立公共文档体系并整理历史设计目录。
-- `e355af4 chore: add portable test runner`：增加可移植测试入口并统一文档命令。
+- `0f9852a docs: establish public project documentation`：建立公共文档体系并整理历史设计目录。
+- `e3381ea chore: add portable test runner`：增加可移植测试入口并统一文档命令。

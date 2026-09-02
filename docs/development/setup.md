@@ -20,8 +20,8 @@ git --version
 ## 获取与构建
 
 ```bash
-git clone <repository-url>
-cd AI-Meter
+git clone https://github.com/sljzdotcom/AI-Token-Meter.git
+cd AI-Token-Meter
 swift build
 bash scripts/test.sh
 ```

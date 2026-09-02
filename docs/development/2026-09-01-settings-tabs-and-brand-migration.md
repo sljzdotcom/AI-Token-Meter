@@ -46,13 +46,13 @@ Settings 固定为四个顶部 Tab：
 
 先增加 Settings 信息架构测试，确认四个 Tab 的顺序和反馈路由在实现前失败；随后拆出四个职责视图并让 `SettingsView` 成为轻量 `TabView` 根。提交：
 
-- `e5f8e94 feat: organize settings into four tabs`
+- `099b51c feat: organize settings into four tabs`
 
 ### 品牌迁移
 
 先增加 `AppBrandTests`、真实 `Info.plist` 元数据测试和菜单栏无数据文案回归；失败证据分别证明集中品牌模型、Bundle 显示名和旧辅助功能文案尚未迁移。随后增加 `AppBrand`，更新界面、Bundle 和构建脚本，并保留兼容身份。提交：
 
-- `1f7f6f4 feat: rename the product to AI Token Meter`
+- `af99f20 feat: rename the product to AI Token Meter`
 
 ## 自动化验证
 
@@ -131,6 +131,6 @@ dist/AI Token Meter.app
 
 ## Git 收尾
 
-- `337ff72 merge: add settings tabs and AI Token Meter brand`：非快进合并到 `main`；
+- `2a5c556 merge: add settings tabs and AI Token Meter brand`：非快进合并到 `main`；
 - 合并后的 `main` 再次运行 196 个测试、41 个测试组，0 失败；
 - 功能工作树与短期分支在合并验证完成后清理。

@@ -18,17 +18,17 @@
 
 ## 2. 实现与提交
 
-- `458ab2f fix: place floating panels on desktop layer`
+- `04a7bd4 fix: place floating panels on desktop layer`
   - 新增 `FloatingPanelPresentationPolicy`；level 为 `desktopIconWindow + 1`，低于 `.normal`。
   - 集合行为为 `.canJoinAllSpaces`、`.stationary`、`.ignoresCycle`，不含 `.fullScreenAuxiliary`。
   - strip 和 detail 经同一入口应用策略。
-- `5837fa6 fix: dismiss floating detail across Space changes`
+- `fd02612 fix: dismiss floating detail across Space changes`
   - 新增可注入、可注销的 `ActiveSpaceChangeObserver`。
   - Space 变化关闭详情、撤销 responder、隐藏详情并重新定位。
-- `62a5060 fix: preserve floating placement across Space changes`
+- `8571bbc fix: preserve floating placement across Space changes`
   - 审查发现保存屏幕暂不可用时，普通重定位路径会持久化恢复默认位置。
   - 新增 `FloatingStripRecoveryPolicy`；Active Space 路径只重排现场面板，禁止写回屏幕、侧边与垂直位置。
-- `a83467d fix: crop strip background across both shoulders`
+- `36d2636 fix: crop strip background across both shoulders`
   - 背景合成改为 `1.22×` 等比缩放，左右只在 X 方向镜像。
   - 玻璃 fallback、图片和 scrim 在一个 `ZStack` 内合成，再用完整 `FloatingStripShape` 统一裁切。
 
@@ -61,7 +61,7 @@ git diff --exit-code -- Sources/AIMeterApp/Resources/Backgrounds/floating-strip-
 ```
 
 - `rg` 退出码为 1、无命中，证明目标目录不再保留旧符号。
-- 当前资产与基线提交 `374ffd6` 的 SHA-256 都是 `43ae960bf58a5ddcf2b416362c00d7bfcdcc5764f9af50316285454b2a813b6d`。
+- 当前资产与基线提交 `0fe854c` 的 SHA-256 都是 `43ae960bf58a5ddcf2b416362c00d7bfcdcc5764f9af50316285454b2a813b6d`。
 - 资产 diff 退出码为 0；Git 变更不包含该 PNG。
 
 ## 5. Release 构建、签名与安装身份

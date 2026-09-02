@@ -16,7 +16,7 @@
 - 完整账户响应；
 - 包含邮箱、姓名、组织或余额明细的截图。
 
-优先使用 GitHub 仓库的 **Security → Report a vulnerability** 私有报告功能。如果仓库尚未启用 Private Vulnerability Reporting，请通过维护者已经公开提供的私密联系方式联系，并只发送最小复现信息。
+优先使用 GitHub 仓库的 [Security → Report a vulnerability](https://github.com/sljzdotcom/AI-Token-Meter/security/advisories/new) 私有报告功能。如果该入口暂时不可用，请等待维护者恢复私密报告渠道，不要改为公开披露；报告只发送最小复现信息。
 
 报告应包含：
 

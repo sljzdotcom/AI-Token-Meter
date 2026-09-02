@@ -10,10 +10,10 @@
 
 ## 1. 交付节点
 
-- `aea7e15 feat: isolate typography by interface surface`：定义 Settings、内容与菜单栏标签三类字体作用域；内容精确 `+1pt`，Settings 固定 `.system + 0pt`。
-- `d350af9 feat: enlarge content fonts outside settings`：将 Settings、浮动条/详情和菜单点击面板接到明确作用域，并移除字体名称预览。
-- `d334321 fix: keep symbols at content scope size`：初步审计内容作用域中的 SF Symbols。
-- `8b98744 fix: preserve semantic symbol baselines`：最终审查修复。删除无参 body 默认的 Symbol helper，逐项标注语义基线；Codex 两个 reset 图标恢复 caption2，`ContentUnavailableView` 保持系统大号空状态图标。
+- `92c88dd feat: isolate typography by interface surface`：定义 Settings、内容与菜单栏标签三类字体作用域；内容精确 `+1pt`，Settings 固定 `.system + 0pt`。
+- `5890658 feat: enlarge content fonts outside settings`：将 Settings、浮动条/详情和菜单点击面板接到明确作用域，并移除字体名称预览。
+- `bb73fc4 fix: keep symbols at content scope size`：初步审计内容作用域中的 SF Symbols。
+- `4a0d6b3 fix: preserve semantic symbol baselines`：最终审查修复。删除无参 body 默认的 Symbol helper，逐项标注语义基线；Codex 两个 reset 图标恢复 caption2，`ContentUnavailableView` 保持系统大号空状态图标。
 
 本日志对应的文档提交在本阶段完成时另见 Git 历史；没有合并 `main` 或推送远端。
 

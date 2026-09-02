@@ -418,7 +418,7 @@ shasum -a 256 "dist/AI Meter.app/Contents/Resources/AppIcon.icns" "/Applications
 
 - [ ] **步骤 6：请求独立代码审查并处理反馈**
 
-以 `3f534a1` 为基线、当前 HEAD 为终点，审查规格覆盖、形状几何、SwiftUI 命中优先级、设置窗口生命周期、可访问性、测试诚实性和文档。修复所有 Critical/Important 问题并重新运行相关测试。
+以 `96ad67b` 为基线、当前 HEAD 为终点，审查规格覆盖、形状几何、SwiftUI 命中优先级、设置窗口生命周期、可访问性、测试诚实性和文档。修复所有 Critical/Important 问题并重新运行相关测试。
 
 - [ ] **步骤 7：提交收尾记录**
 

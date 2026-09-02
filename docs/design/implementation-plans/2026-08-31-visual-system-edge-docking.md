@@ -46,7 +46,7 @@
 
 - 分支：`codex/visual-system-edge-docking`
 - 工作区：`.worktrees/visual-system-edge-docking`
-- 起点：`515d91e`
+- 起点：`fa443bd`
 - `bash scripts/test.sh`：113 个测试、26 个套件、0 失败；4 个环境依赖检查按设计跳过。
 
 ---

@@ -8,7 +8,7 @@
 
 **技术栈：** Swift 6、SwiftUI、AppKit、Swift Testing、SwiftPM、macOS Release App Bundle、ad-hoc codesign。
 
-**最终审查修正（2026-09-01）：** `8b98744` 删除无参 `aiMeterSymbolFont()`，要求每个受内容作用域影响的 Symbol 指定原始语义 token。测试逐项映射实际图标，使用 `ImageRenderer` 覆盖 caption2、body 和 `ContentUnavailableView`；最终为 187 个测试、38 个套件、0 失败，候选与安装 SHA-256 均为 `ace8c9c9fde6dd46cf26b2eeb2ea303a9bf6363a48eb3883fe9423d16deb4f8c`。
+**最终审查修正（2026-09-01）：** `4a0d6b3` 删除无参 `aiMeterSymbolFont()`，要求每个受内容作用域影响的 Symbol 指定原始语义 token。测试逐项映射实际图标，使用 `ImageRenderer` 覆盖 caption2、body 和 `ContentUnavailableView`；最终为 187 个测试、38 个套件、0 失败，候选与安装 SHA-256 均为 `ace8c9c9fde6dd46cf26b2eeb2ea303a9bf6363a48eb3883fe9423d16deb4f8c`。
 
 ---
 

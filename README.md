@@ -4,6 +4,8 @@
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-2ea44f)
 ![Tests 325](https://img.shields.io/badge/tests-325%20passed-2ea44f)
+[![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -60,7 +62,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 ## 下载与安装
 
-**Download v0.1.2** from the repository's GitHub Releases page and choose `AI-Token-Meter-0.1.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
+**[Download v0.1.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2)** from GitHub Releases and choose `AI-Token-Meter-0.1.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
 
 1. 完全退出已有的 AI Token Meter。
 2. 解压 ZIP，并把 `AI Token Meter.app` 移到 `/Applications`。
@@ -72,7 +74,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 ## 从源码安装
 
 ```bash
-# Clone this repository from its GitHub Code menu, then:
+git clone https://github.com/sljzdotcom/AI-Token-Meter.git
 cd AI-Token-Meter
 bash scripts/build-app.sh
 open "dist/AI Token Meter.app"
