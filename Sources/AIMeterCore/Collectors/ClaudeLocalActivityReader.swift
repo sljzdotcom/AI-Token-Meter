@@ -278,7 +278,7 @@ private struct ClaudeLogEntry: Decodable {
         }
 
         var nonnegativeComponents: TokenComponents? {
-            let values = [
+            let values: [Int64] = [
                 inputTokens ?? 0,
                 outputTokens ?? 0,
                 cacheCreationInputTokens ?? 0,

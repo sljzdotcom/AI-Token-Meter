@@ -202,6 +202,19 @@ struct ClaudeLocalActivityTests {
         #expect(source.contains("if candidates.count > maximumFileCount"))
     }
 
+    @Test("Token component literals keep an explicit cross-toolchain type")
+    func tokenComponentArrayIsExplicitlyInt64() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterCore/Collectors/ClaudeLocalActivityReader.swift"
+        ))
+
+        #expect(source.contains("let values: [Int64] = ["))
+    }
+
     @Test("Reports an unavailable projects directory")
     func reportsUnavailableDirectory() async {
         let missing = temporaryDirectory().appendingPathComponent("missing", isDirectory: true)

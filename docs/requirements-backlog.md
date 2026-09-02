@@ -32,6 +32,7 @@
 | REQ-20260902-015 | 发布缺陷 | 修复 MacBook 分发包启动时因 SwiftPM 资源包无法加载而在 `NSBundle.module → FloatingStripView.body` 崩溃，重新生成可迁移验证的修复版 | 高 | 已完成 | 2026-09-02 | 无 | [修复与 0.1.1 交付记录](development/2026-09-02-portable-resource-crash-fix.md)、`c01f094`、`bec0869`、`04b2a7d`、ZIP SHA-256 `1b2cf19b…9fa72` |
 | REQ-20260902-016 | 服务发现 | 修复 M4 Max 上 OpenAI Codex 显示 `CLI not installed`；区分 CLI 确实缺失与 GUI App 启动环境找不到用户安装路径，并提供可操作恢复入口 | 高 | 待用户确认 | 2026-09-02 | 安装 `0.1.2` 后在 M4 Max 完整退出/重开并点击 Check Status，确认 nvm `0.148.0` 的账户、额度和详情恢复 | [设计规格](design/specifications/2026-09-02-codex-cli-discovery-design.md)、[实施计划](design/implementation-plans/2026-09-02-codex-cli-discovery.md)、[开发与交付记录](development/2026-09-02-codex-cli-discovery.md)、`a7b7719`、`fee7f59`、`de9763e`、ZIP SHA-256 `a2c76017…d143f` |
 | REQ-20260902-017 | 公开发布 | 将项目安全发布到用户 GitHub 账户：建立公开仓库，补齐标准开源文档和产品截图，提供可下载 Release，确保源码、历史和产物不含个人 Key，并在 About 中标注作者 Miller | 高 | 进行中 | 2026-09-02 | 按实施计划先完成本地安全门禁、作者、文档、CI、截图与审计，再创建公开仓库和 Release | [设计规格](design/specifications/2026-09-02-public-github-release-design.md)、[实施计划](design/implementation-plans/2026-09-02-public-github-release.md)；用户已确认实施 |
+| REQ-20260902-018 | 发布缺陷 | 修复 GitHub Actions 在 macOS 15 runner 上编译 Claude 本机活动 token 数组时的 Swift 类型推断失败，恢复公开仓库 CI | 高 | 进行中 | 2026-09-02 | 先用源码契约测试锁定跨工具链显式 `Int64` 类型，再完成完整本地与远程 CI 验证 | [失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33634543141) |
 
 ## 分类索引
 
@@ -81,6 +82,7 @@
 - `REQ-20260902-014`：生成供 MacBook Pro M4 Max 使用的 Apple Silicon Release 分发包。
 - `REQ-20260902-015`：修复跨 Mac 分发包的 SwiftPM 资源包启动崩溃并重新交付。
 - `REQ-20260902-017`：安全发布公开 GitHub 仓库、标准文档、截图与可下载 Release，并补充作者信息。
+- `REQ-20260902-018`：修复公开仓库首次 GitHub Actions 的 Swift 跨工具链类型推断失败。
 
 ## 状态变更记录
 
@@ -145,3 +147,4 @@
 | 2026-09-02 | REQ-20260902-017 | 新建 → 进行中 | 用户要求将项目公开发布到其 GitHub 账户，包含标准文档、截图和 Release 下载；必须先完成个人 Key、身份信息与历史泄露审计，并在 About 标注作者 Miller。 |
 | 2026-09-02 | REQ-20260902-017 | 进行中 → 待用户确认 | 用户确认方案 A 和 MIT License；完整书面规格已覆盖公开边界、文档、截图、About、历史/产物扫描、CI、Release 与停止条件，等待复核。 |
 | 2026-09-02 | REQ-20260902-017 | 待用户确认 → 进行中 | 用户确认书面规格并授权实施；详细计划拆分为安全门禁、品牌许可、社区文档、脱敏截图、本地审计、GitHub 发布和最终复核七个检查点。 |
+| 2026-09-02 | REQ-20260902-018 | 新建 → 进行中 | 首次公开 CI 暴露 macOS 15 runner 上 `[Int64? ?? 整数字面量]` 的类型推断差异；本机测试通过但远程编译失败，进入跨工具链兼容修复。 |
