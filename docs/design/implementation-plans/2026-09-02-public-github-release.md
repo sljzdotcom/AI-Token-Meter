@@ -248,7 +248,15 @@ git commit -m "docs: prepare public project presentation"
 
 通过 Homebrew 安装 GitHub CLI 与 Gitleaks；记录版本，不把认证 Token 或 Homebrew 日志提交仓库。
 
-- [ ] **步骤 2：运行全量测试与三层敏感信息扫描**
+- [ ] **步骤 2：重新构建包含作者信息的 0.1.2 分发包**
+
+About 已发生用户可见变化，因此不得复用作者变更前的 ZIP。运行无 Widget Release 构建，重新生成 `AI-Token-Meter-0.1.2-macOS-arm64.zip` 与 `.sha256`，并删除被新版替代的旧校验值。版本仍为 `0.1.2`（build `3`），因为此前候选尚未公开发布。
+
+```bash
+AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh
+```
+
+- [ ] **步骤 3：运行全量测试与三层敏感信息扫描**
 
 ```bash
 bash scripts/test.sh
@@ -258,7 +266,7 @@ git diff --check
 
 预期：全部通过，输出不含秘密原文。
 
-- [ ] **步骤 3：复验 Release 资产**
+- [ ] **步骤 4：复验 Release 资产**
 
 ```bash
 cd dist
@@ -266,9 +274,9 @@ shasum -a 256 -c AI-Token-Meter-0.1.2-macOS-arm64.zip.sha256
 unzip -t AI-Token-Meter-0.1.2-macOS-arm64.zip
 ```
 
-解压后继续验证主二进制为 arm64、`CFBundleShortVersionString=0.1.2`、资源门禁和严格签名通过。
+解压后继续验证主二进制为 arm64、`CFBundleShortVersionString=0.1.2`、About 包含作者常量、资源门禁和严格签名通过；从独立临时目录以 Finder 风格最小 PATH 启动并确认进程持续存活。
 
-- [ ] **步骤 4：写入本地验收记录并提交**
+- [ ] **步骤 5：写入本地验收记录并提交**
 
 记录测试数量、扫描器版本、扫描范围、ZIP SHA-256、已知限制与 Git 检查点；需求在远程发布完成前保持 `进行中`。
 
