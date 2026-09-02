@@ -41,21 +41,21 @@
 
 - [x] 编写 `docs/project-status.md`，列出版本、平台、三服务、Widget、签名、测试基线、持久化、未完成事项与权威入口。
 - [x] 编写 `docs/architecture/decisions.md`，记录原生菜单栏架构、统一快照、CLI 凭证边界、DeepSeek Keychain/WebKit 隔离、缓存降级、桌面层浮岛、模板菜单图标、Widget App Group 和兼容身份。
-- [x] 编写 `docs/development/maintenance-playbook.md`，给出按 Provider 的诊断顺序、变更影响矩阵、三服务诊断、构建、安装和回滚步骤和隐私红线。
+- [x] 编写 `docs/development/maintenance-playbook.md`，给出按 Provider 的诊断顺序、变更影响矩阵、构建、安装、回滚步骤和隐私红线。
 - [x] 更新 README、文档索引、架构目录、开发索引、贡献规则、发布与测试文档。
-- [ ] 提交 `docs: add long-term maintenance knowledge` 检查点。
+- [x] 提交 `docs: add long-term maintenance knowledge` 检查点。
 
 ### 任务 4：自动验证文档
 
 - [x] 实现 `scripts/check-docs.sh`：使用系统自带 Ruby 检查相对链接、版本、测试基线、必备入口与禁用旧路径；接受可选仓库根路径以支持受控测试。
 - [x] 将检查脚本接入 `scripts/test.sh` 的 Swift 测试之后。
 - [x] 运行 `scripts/check-docs.sh`、`./scripts/test.sh --filter DocumentationCheckScriptTests` 和完整 `scripts/test.sh`，确认全部通过。
-- [ ] 提交 `test: automate documentation consistency checks` 检查点。
+- [x] 提交 `test: automate documentation consistency checks` 检查点。
 
 ### 任务 5：复盘、构建和清理
 
-- [ ] 运行 `git diff --check`、完整测试、`scripts/build-app.sh`、`codesign --verify --deep --strict` 和 Markdown 检查。
+- [x] 运行 `git diff --check`、完整测试、`scripts/build-app.sh`、`codesign --verify --deep --strict` 和 Markdown 检查。
 - [x] 在复盘日志记录一次基线 PTY 超时及独立复跑通过的事实，不把偶发失败隐瞒为一次全绿。
-- [ ] 记录每个被删除对象的跟踪状态、替代来源、恢复方式和空间影响。
+- [x] 记录每个被删除对象的跟踪状态、替代来源、恢复方式和预计空间影响；合并后回填实际回收结果。
 - [ ] 完成需求台账、CHANGELOG 与提交历史，标记 `REQ-20260902-013` 已完成。
 - [ ] 合入 `main` 后删除已合并工作树/分支以及根目录可再生缓存与旧构建产物，最后确认仓库干净。

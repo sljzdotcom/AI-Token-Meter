@@ -1,9 +1,9 @@
 # 当前项目状态
 
-**事实快照：** 2026-09-02
-**产品：** AI Token Meter
-**应用版本：** `0.1.0`（build `1`）
-**维护分支：** `main`
+- **事实快照：** 2026-09-02
+- **产品：** AI Token Meter
+- **应用版本：** `0.1.0`（build `1`）
+- **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
