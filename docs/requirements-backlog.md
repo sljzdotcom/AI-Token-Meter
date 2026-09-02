@@ -28,8 +28,8 @@
 | REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；304 项测试、60 个测试组、Release/安装哈希、真实辅助功能与 Settings 验收通过；Widget 桌面安装继续由既有延期证书事项管理 | [设计规格](design/specifications/2026-09-02-provider-visible-name-standardization-design.md) · [实施计划](design/implementation-plans/2026-09-02-provider-visible-name-standardization.md) · [开发与验收记录](development/2026-09-02-provider-visible-name-standardization.md) · `04b707b`–`2078717` |
 | REQ-20260902-012 | 菜单栏缺陷 | 已安装应用的菜单栏状态图标不可见或对比度不足 | 高 | 已完成 | 2026-09-02 | 2026-09-02 完成；用户确认真实菜单栏可见，分支及合并后 `main` 均通过 305 项测试/60 个测试组 | [开发与验收记录](development/2026-09-02-menu-bar-icon-visibility.md) · `2759061`–`5db1c3a` |
 | REQ-20260902-013 | 项目治理 | 对整个项目进行完整复盘，补齐架构、功能、数据口径、构建发布、测试、运维、决策与遗留事项文档，并安全删除已证明无用的文件 | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-project-retrospective-and-documentation-governance-design.md)、[实施计划](design/implementation-plans/2026-09-02-project-retrospective-and-documentation-governance.md)、[复盘报告](development/2026-09-02-project-retrospective.md)、`a5077cd`–`54e05be` |
-| REQ-20260902-014 | 发布交付 | 从当前 `main` 生成可拷贝到 MacBook Pro M4 Max 使用的 Apple Silicon Release ZIP，并提供完整性校验和与安装说明 | 高 | 已完成 | 2026-09-02 | 无 | [打包与安装记录](development/2026-09-02-macbook-arm64-package.md)、源码基线 `873a8e3`、ZIP SHA-256 `262f13f9…d91783` |
-| REQ-20260902-015 | 发布缺陷 | 修复 MacBook 分发包启动时因 SwiftPM 资源包无法加载而在 `NSBundle.module → FloatingStripView.body` 崩溃，重新生成可迁移验证的修复版 | 高 | 进行中 | 2026-09-02 | 复现资源包装载失败，补回归测试并在脱离源码目录后完成启动验收 | 用户提供的 `AIMeterApp-2026-09-02-161459.ips` 诊断、待补开发记录与 Git 证据 |
+| REQ-20260902-014 | 发布交付 | 从当前 `main` 生成可拷贝到 MacBook Pro M4 Max 使用的 Apple Silicon Release ZIP，并提供完整性校验和与安装说明 | 高 | 已完成 | 2026-09-02 | `0.1.0` 包后续确认不可跨 Mac 启动，已被 `REQ-20260902-015` 的 `0.1.1` 修复包替代 | [失败包历史记录](development/2026-09-02-macbook-arm64-package.md)、源码基线 `873a8e3`、旧 ZIP SHA-256 `262f13f9…d91783` |
+| REQ-20260902-015 | 发布缺陷 | 修复 MacBook 分发包启动时因 SwiftPM 资源包无法加载而在 `NSBundle.module → FloatingStripView.body` 崩溃，重新生成可迁移验证的修复版 | 高 | 已完成 | 2026-09-02 | 无 | [修复与 0.1.1 交付记录](development/2026-09-02-portable-resource-crash-fix.md)、`759e157`、`5c72aff`、ZIP SHA-256 `1b2cf19b…9fa72` |
 
 ## 分类索引
 
@@ -133,3 +133,4 @@
 | 2026-09-02 | REQ-20260902-014 | 新建 → 进行中 | 用户要求生成可迁移到 MacBook Pro M4 Max 使用的应用包；采用 Apple Silicon arm64 ZIP、SHA-256 和无 Widget 明确边界。 |
 | 2026-09-02 | REQ-20260902-014 | 进行中 → 已完成 | 308 项测试与 104 份文档检查通过；arm64、macOS 14+、ad-hoc Release 构建、ZIP 完整性、解压后严格签名和 SHA-256 验证通过。 |
 | 2026-09-02 | REQ-20260902-015 | 新建 → 进行中 | 用户反馈 0.1.0 分发包在 MacBook 上启动即崩溃；按资源包装载、跨目录启动与签名顺序开展系统化修复。 |
+| 2026-09-02 | REQ-20260902-015 | 进行中 → 已完成 | 修复 SwiftPM 资源绝对路径回退并升级 0.1.1；312 项测试、标准资源门禁、最终 ZIP 解压签名与隐藏构建目录启动验收通过。 |

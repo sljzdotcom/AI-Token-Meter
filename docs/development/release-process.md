@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前 `Info.plist` 版本为 `0.1.0`、build `1`。仓库尚未创建 Git tag；在真正发布下一版本前，后续改动保留在 `CHANGELOG.md` 的 `Unreleased`。
+当前 `Info.plist` 版本为 `0.1.1`、build `2`。仓库尚未创建 Git tag；在真正发布下一版本前，后续改动保留在 `CHANGELOG.md` 的 `Unreleased`。
 
 ## 发布前检查清单
 
@@ -18,6 +18,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] `bash scripts/test.sh` 全部通过；
 - [ ] 环境允许时，真实 CLI 冒烟测试 3/3 通过；
 - [ ] `bash scripts/build-app.sh` 完成 release 构建；
+- [ ] `scripts/verify-app-resources.sh "dist/AI Token Meter.app"` 确认主应用资源可由迁移后的 App Bundle 直接解析；
 - [ ] 若发布 Widget，`AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 与 `scripts/verify-widget-bundle.sh` 通过；
 - [ ] `git diff --check` 无错误。
 - [ ] `scripts/check-docs.sh` 无断链、版本或目录治理错误。

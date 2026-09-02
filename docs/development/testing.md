@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **308 个测试、61 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **312 个测试、63 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
@@ -32,6 +32,7 @@ bash scripts/test.sh
 - Widget 原子 App Group 存储、损坏/未知版本降级和个人标识/凭证回归；
 - Small/Medium/Large 布局合同、Small 无文字源码合同、时间线过期状态和扩展禁止网络/CLI/Keychain 合同；
 - Widget 条件打包、签名顺序、App Group 与沙箱验证脚本合同。
+- 发布版资源优先从主 App Bundle 解析且不得回退到构建机绝对路径；旧 SwiftPM 嵌套资源布局会被验证器拒绝。
 
 ## Keychain 集成测试
 
@@ -85,6 +86,7 @@ swift build --disable-sandbox \
 
 ```bash
 plutil -lint "dist/AI Token Meter.app/Contents/Info.plist"
+scripts/verify-app-resources.sh "dist/AI Token Meter.app"
 codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
 file "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
@@ -97,6 +99,7 @@ test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 - 可执行文件为 arm64 Mach-O；
 - 最低系统版本为 macOS 14。
 - `AppIcon.icns` 存在且 `CFBundleIconFile` 指向 `AppIcon`。
+- Logo 与深海背景直接位于 `Contents/Resources` 的标准子目录，可在脱离源码与 SwiftPM 构建缓存后加载。
 
 包含 Widget 时再运行：
 

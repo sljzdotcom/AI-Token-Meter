@@ -2,7 +2,7 @@
 
 - **事实快照：** 2026-09-02
 - **产品：** AI Token Meter
-- **应用版本：** `0.1.0`（build `1`）
+- **应用版本：** `0.1.1`（build `2`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
@@ -52,9 +52,9 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 
 - Swift 6 / SwiftPM；无第三方 Package 依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 完整自动化基线：**308 项测试、61 个测试组**，另有环境门控的 Keychain 与真实 CLI 冒烟检查；
+- 完整自动化基线：**312 项测试、63 个测试组**，另有环境门控的 Keychain 与真实 CLI 冒烟检查；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
-- `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用；
+- `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证主应用资源位于可跨机器解析的标准目录；
 - 当前没有 Git remote、Git tag、公开 Release、CI、Developer ID 公证或许可证声明。
 
 ## 明确未完成或受限

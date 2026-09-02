@@ -2,12 +2,12 @@
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
-![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 308](https://img.shields.io/badge/tests-308%20passed-2ea44f)
+![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-2ea44f)
+![Tests 312](https://img.shields.io/badge/tests-312%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
-> 项目状态：个人本地工具，当前应用版本为 `0.1.0`（build `1`）。`0.1.0` 之后已经合入但尚未正式发布的改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+> 项目状态：个人本地工具，当前应用版本为 `0.1.1`（build `2`）。待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 <p align="center">
   <img src="docs/assets/ai-meter-floating-strip.jpeg" width="108" alt="AI Token Meter 贴边浮岛，依次显示 Claude Code、OpenAI Codex 和 DeepSeek 图标及用量环">
@@ -148,6 +148,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - [提交历史](docs/development/commit-history.md)
 - [开发日志](docs/development/README.md)
 - [2026-09-02 全项目复盘](docs/development/2026-09-02-project-retrospective.md)
+- [0.1.1 跨 Mac 资源崩溃修复与分发包](docs/development/2026-09-02-portable-resource-crash-fix.md)
 - [版本变更](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
 
@@ -166,7 +167,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前应用版本：`0.1.0`（build `1`）。
+- 当前应用版本：`0.1.1`（build `2`）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - 本仓库目前尚未声明开源许可证。源代码可见不等于获得复制、修改或再分发授权；在许可证确定前请勿擅自分发。
