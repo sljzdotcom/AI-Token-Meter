@@ -423,7 +423,7 @@ shasum -a 256 "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 
 如果无法安全构造无数据或指定百分比状态，自动化几何/渲染测试作为这些状态的证据，真实验收不得伪造数据。
 
-- [ ] **步骤 9：提交文档与验收证据**
+- [x] **步骤 9：提交文档与验收证据**
 
 ```bash
 git add README.md CHANGELOG.md docs
