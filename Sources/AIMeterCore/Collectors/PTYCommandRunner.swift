@@ -74,6 +74,7 @@ public struct PTYCommandRunner: CommandRunning {
             close(slaveDescriptor)
             throw error
         }
+        terminationWaiter.beginFallbackWait(for: process)
 
         beforeProcessRegistration?()
         processBox.set(process, descriptorBox: descriptorBox)
@@ -133,7 +134,6 @@ public struct PTYCommandRunner: CommandRunning {
         var buffer = [UInt8](repeating: 0, count: 4_096)
         var remainingStopDrainBytes: Int?
         var stopDrainDeadline: Date?
-        var didReadAfterStop = false
         var matchedStopPhrase = false
 
         while true {
@@ -144,9 +144,6 @@ public struct PTYCommandRunner: CommandRunning {
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
-                if stopDrainDeadline != nil {
-                    didReadAfterStop = true
-                }
                 if !matchedStopPhrase, !stopPhrases.isEmpty {
                     let output = String(decoding: result, as: UTF8.self)
                     if stopPhrases.contains(where: output.contains) {
@@ -161,7 +158,7 @@ public struct PTYCommandRunner: CommandRunning {
                 }
             } else if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if let stopDrainDeadline {
-                    if didReadAfterStop || Date() >= stopDrainDeadline { break }
+                    if Date() >= stopDrainDeadline { break }
                 }
                 usleep(10_000)
             } else {
@@ -186,21 +183,35 @@ public struct PTYCommandRunner: CommandRunning {
 }
 
 final class ProcessTerminationWaiter: @unchecked Sendable {
+    private static let fallbackQueue = DispatchQueue(
+        label: "com.millerpan.AIMeter.process-termination",
+        qos: .utility,
+        attributes: .concurrent
+    )
+
     private let lock = NSLock()
     private let blockingSignal = DispatchSemaphore(value: 0)
     private var exitCode: Int32?
     private var continuation: CheckedContinuation<Int32, Never>?
+    private var fallbackWaitStarted = false
 
     func attach(to process: Process) {
         process.terminationHandler = { [self] process in
-            let continuationToResume = lock.withLock {
-                guard exitCode == nil else { return nil as CheckedContinuation<Int32, Never>? }
-                exitCode = process.terminationStatus
-                defer { continuation = nil }
-                return continuation
-            }
-            blockingSignal.signal()
-            continuationToResume?.resume(returning: process.terminationStatus)
+            complete(with: process.terminationStatus)
+        }
+    }
+
+    func beginFallbackWait(for process: Process) {
+        let shouldStart = lock.withLock {
+            guard exitCode == nil, !fallbackWaitStarted else { return false }
+            fallbackWaitStarted = true
+            return true
+        }
+        guard shouldStart else { return }
+
+        Self.fallbackQueue.async { [self] in
+            process.waitUntilExit()
+            complete(with: process.terminationStatus)
         }
     }
 
@@ -223,6 +234,18 @@ final class ProcessTerminationWaiter: @unchecked Sendable {
         }
         blockingSignal.wait()
         return lock.withLock { exitCode ?? -1 }
+    }
+
+    private func complete(with status: Int32) {
+        let completion: (didComplete: Bool, continuation: CheckedContinuation<Int32, Never>?) = lock.withLock {
+            guard exitCode == nil else { return (false, nil) }
+            exitCode = status
+            defer { continuation = nil }
+            return (true, continuation)
+        }
+        guard completion.didComplete else { return }
+        blockingSignal.signal()
+        completion.continuation?.resume(returning: status)
     }
 }
 

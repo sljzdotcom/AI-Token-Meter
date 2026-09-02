@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- 修复 GitHub macOS runner 或本机高负载下，Foundation 进程退出回调延迟导致 PTY 命令误报超时，以及非阻塞读取短暂无数据时过早停止、遗漏输出尾部的问题。
+
 ## 0.2.0 - 2026-09-02
 
 ### Added

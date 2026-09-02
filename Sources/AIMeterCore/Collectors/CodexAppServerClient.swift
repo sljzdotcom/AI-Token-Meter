@@ -98,6 +98,7 @@ struct CodexAppServerClient: Sendable {
         terminationWaiter.attach(to: process)
 
         try process.run()
+        terminationWaiter.beginFallbackWait(for: process)
         beforeProcessRegistration?()
         processBox.set(
             process: process,
