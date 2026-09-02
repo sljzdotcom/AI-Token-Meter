@@ -51,7 +51,7 @@
 - 当前工作树、完整 Git 历史和最终 ZIP 的公开安全扫描通过。
 - arm64 Release 构建、便携资源、Sparkle 嵌套组件、`@rpath` 与严格签名通过。
 - ZIP：`AI-Token-Meter-0.2.0-macOS-arm64.zip`。
-- 最终 ZIP SHA-256：`d339440ddbadc75727a4bcf3269cd93244f65bdabc0be22a2d074c963cd5fa77`。
+- 最终 ZIP SHA-256：`81002ba6e577e5ce019e94aa9b8c7305d052ecae1193ebe4cb2169436f639ee1`（3,466,635 字节）。
 - ZIP 长度：`3,465,709` 字节。
 - ZIP 内版本：`0.2.0`，build `4`。
 - 正式 ZIP 的 Sparkle EdDSA 验证通过。

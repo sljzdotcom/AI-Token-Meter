@@ -10,7 +10,7 @@
             <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v0.2.0/AI-Token-Meter-0.2.0-macOS-arm64.zip" length="3465709" type="application/octet-stream" sparkle:edSignature="4kMMeT3s86jyIso8cEFeI/dJZoH78zLimWepd+kiOjsiyhxoqYk8JgKP2wZWXtKE/W4AdVH4oEh+2iJ9GiXeBQ=="/>
+            <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v0.2.0/AI-Token-Meter-0.2.0-macOS-arm64.zip" length="3466635" type="application/octet-stream" sparkle:edSignature="CmJsm0IfxOxARhR6foMNSCxViSNk8SWkK15canJpDFe0bhh/VTsSPTvsVLmYE1CvbAPdYzFNnZ3vY94O76cRDw=="/>
         </item>
     </channel>
 </rss>
