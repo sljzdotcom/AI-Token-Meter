@@ -16,7 +16,7 @@ Mission Control、第二个普通桌面 Space、真实鼠标指针拖动和多�
 - 版本：`0.1.0`（build `1`）
 - 签名：`codesign --verify --deep --strict` 通过
 - 当前安装包不包含 `.appex`；因此本轮不涉及 Widget Gallery、App Group 或 WidgetKit 刷新
-- 验收代码基线：`main` 的 Widget 合并节点 `818272e`
+- 验收代码基线：`main` 的 Widget 合并节点 `da4dc5c`
 
 ## 真实操作矩阵
 

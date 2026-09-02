@@ -2,7 +2,7 @@
 
 - **需求：** `REQ-20260902-013`
 - **状态：** 已完成
-- **基线：** `main` 的 `a5077cd`
+- **基线：** `main` 的 `99f3788`
 
 ## 审计范围
 
@@ -37,7 +37,7 @@
 - 反向半圆 task report 的提交、测试和疑虑已在 `2026-08-31-visual-system-edge-docking.md` 与提交历史记录；
 - Symbol 最终修复报告的 `8b98744`、红绿灯、验收和限制已在 `2026-09-01-settings-font-isolation-and-content-size-step.md` 及对应规格记录。
 
-因此删除临时副本；恢复方式是从复盘前提交 `a5077cd` 读取，不丢失 Git 历史。
+因此删除临时副本；恢复方式是从复盘前提交 `99f3788` 读取，不丢失 Git 历史。
 
 ### 4. 缺少长期接手入口
 
@@ -81,7 +81,7 @@
 
 ### 合并与清理
 
-- 复盘分支以 `54e05be` 合入 `main`；合并树重新运行 `scripts/test.sh`，308 项测试、61 个测试组和 104 份 Markdown 检查全部通过；
+- 复盘分支以 `d7748c1` 合入 `main`；合并树重新运行 `scripts/test.sh`，308 项测试、61 个测试组和 104 份 Markdown 检查全部通过；
 - 合并树重新构建无 Widget Release，严格签名验证通过；随后按“产物可重建”原则删除仓库内临时 `dist/`，不影响 `/Applications/AI Token Meter.app`；
 - 删除根 `.build/`（约 439 MB）、根 `dist/`（约 9.4 MB）、`.superpowers/brainstorm/`（约 2 MB）、已完全合并的 `feat/initial-app` 工作树（约 179 MB）和本轮复盘工作树；
 - 删除 `feat/initial-app` 与 `codex/project-retrospective` 本地分支并执行 worktree prune；最终只有 `main` 和主工作目录；
