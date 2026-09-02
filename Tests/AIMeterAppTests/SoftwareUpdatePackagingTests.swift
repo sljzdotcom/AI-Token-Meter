@@ -82,12 +82,29 @@ struct SoftwareUpdatePackagingTests {
         #expect(source.contains("check-public-release.sh"))
         #expect(source.contains("AI_METER_INCLUDE_WIDGET=0"))
         #expect(source.contains("verify-update-bundle.sh"))
+        #expect(source.contains("verify-update-archive.sh"))
         #expect(source.contains("ditto -c -k --keepParent"))
         #expect(source.contains("shasum -a 256"))
         #expect(source.contains("generate_appcast"))
         #expect(source.contains("KEY_ACCOUNT=\"com.millerpan.AIMeter\""))
         #expect(source.contains("--account \"$KEY_ACCOUNT\""))
         #expect(source.contains("releases/download/v${VERSION}/"))
+    }
+
+    @Test("Archive verifier accepts the signed release and rejects a tampered copy")
+    func archiveVerifierContract() throws {
+        let source = try String(
+            contentsOf: Self.projectRoot.appending(path: "scripts/verify-update-archive.sh"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("xmllint --xpath"))
+        #expect(source.contains("sign_update"))
+        #expect(source.contains("--verify"))
+        #expect(source.contains("tampered"))
+        #expect(source.contains("PlistBuddy"))
+        #expect(source.contains("CFBundleShortVersionString"))
+        #expect(source.contains("CFBundleVersion"))
     }
 
     @Test("Stable appcast advertises the signed 0.2.0 release")

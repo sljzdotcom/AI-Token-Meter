@@ -122,6 +122,8 @@ if [[ ! -s "$GENERATED_APPCAST" ]] \
 fi
 
 cp "$GENERATED_APPCAST" "$PROJECT_DIR/appcast.xml"
+SPARKLE_TOOLS_DIR="$SPARKLE_TOOLS_DIR" \
+    "$PROJECT_DIR/scripts/verify-update-archive.sh" "$PROJECT_DIR/appcast.xml" "$ARCHIVE"
 "$PROJECT_DIR/scripts/check-public-release.sh" --repository "$PROJECT_DIR" --archive "$ARCHIVE"
 
 echo "Signed update release prepared: $ARCHIVE"
