@@ -29,7 +29,7 @@ struct AboutSettingsView: View {
             }
 
             Section("Privacy") {
-                Text("Claude and Codex credentials stay with their official CLIs. The DeepSeek API Key is stored in Keychain, and local history contains only normalized aggregate usage.")
+                Text("Claude Code and OpenAI Codex credentials stay with their official CLIs. The DeepSeek API Key is stored in Keychain, and local history contains only normalized aggregate usage.")
                     .foregroundStyle(.secondary)
             }
         }

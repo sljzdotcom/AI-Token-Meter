@@ -25,7 +25,7 @@ struct ClaudeAccountReaderTests {
         )
 
         #expect(status.connectionState == .connected)
-        #expect(status.accountLabel == "Claude.ai account")
+        #expect(status.accountLabel == "Claude Code account")
         #expect(status.accountDetail == nil)
     }
 

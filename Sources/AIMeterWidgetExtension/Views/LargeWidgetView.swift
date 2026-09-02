@@ -45,8 +45,10 @@ private struct LargeProviderRow: View {
             .frame(width: 42, height: 42)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(snapshot.provider.name)
+                    Text(snapshot.provider.displayName)
                         .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
                     WidgetStatusIndicator(semantic: snapshot.semantic)
                     Spacer()
                     Text(snapshot.valueText)
@@ -74,8 +76,10 @@ private struct NextResetCard: View {
             Label("Next reset", systemImage: "clock.arrow.circlepath")
                 .font(.system(size: 10, weight: .semibold))
             Spacer(minLength: 0)
-            Text(summary?.provider.name ?? "No reset")
+            Text(summary?.provider.displayName ?? "No reset")
                 .font(.system(size: 15, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
             Text(summary?.text ?? "Open the app to refresh")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.58))

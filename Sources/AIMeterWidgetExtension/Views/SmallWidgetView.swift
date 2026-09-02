@@ -21,7 +21,7 @@ struct SmallWidgetView: View {
                 .aspectRatio(1, contentMode: .fit)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    snapshot.provider.name + ", " + snapshot.valueText + ", " + snapshot.semantic.accessibilityText
+                    snapshot.provider.displayName + ", " + snapshot.valueText + ", " + snapshot.semantic.accessibilityText
                 )
             }
         }

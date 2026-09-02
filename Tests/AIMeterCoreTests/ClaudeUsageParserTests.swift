@@ -42,6 +42,13 @@ struct ClaudeUsageParserTests {
         }
     }
 
+    @Test("Uses the canonical provider name when the terminal omits a metric label")
+    func canonicalFallbackLabel() throws {
+        let snapshot = try ClaudeUsageParser().parse("73% used")
+
+        #expect(snapshot.primaryMetric?.label == "Claude Code usage")
+    }
+
     private func fixture(_ name: String) throws -> String {
         let url = try #require(Bundle.module.url(forResource: name, withExtension: "txt"))
         return try String(contentsOf: url, encoding: .utf8)

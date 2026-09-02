@@ -52,7 +52,7 @@ public struct ClaudeAccountStatusParser: Sendable {
         }
         switch value.lowercased() {
         case "oauth": return "OAuth"
-        case "claude.ai", "claudeai": return "Claude.ai"
+        case "claude.ai", "claudeai": return UsageProvider.claude.displayName
         case "api_key", "apikey", "api-key": return "API Key"
         case "none": return nil
         default: return value

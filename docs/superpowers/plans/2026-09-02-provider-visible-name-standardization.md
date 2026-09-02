@@ -81,7 +81,7 @@ public var displayName: String {
 
 重复步骤 2 命令，预期全部通过。
 
-- [ ] **步骤 5：提交核心名称检查点**
+- [x] **步骤 5：提交核心名称检查点**
 
 ```bash
 git add Sources/AIMeterCore Sources/AIMeterApp/Views/UsageVisualStyle.swift Tests/AIMeterCoreTests/AppPresentationTests.swift
@@ -97,7 +97,7 @@ git commit -m "refactor: centralize provider display names"
 - 修改：必要的 Widget/App 展示测试
 - 修改：本计划文件结构中列出的 App/Core/Widget 源文件
 
-- [ ] **步骤 1：更新并新增当前文案失败断言**
+- [x] **步骤 1：更新并新增当前文案失败断言**
 
 至少锁定：
 
@@ -109,7 +109,7 @@ git commit -m "refactor: centralize provider display names"
 
 为 Widget 名称消费者增加可执行断言，确保 Medium/Large 的辅助功能或展示模型读取 `WidgetProvider.displayName`；内部 raw value 仍断言为 `claude` / `codex`。
 
-- [ ] **步骤 2：运行定向测试验证失败**
+- [x] **步骤 2：运行定向测试验证失败**
 
 ```bash
 AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-ui \
@@ -122,7 +122,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-ui \
 
 预期：旧简称断言或实现使至少一项失败。
 
-- [ ] **步骤 3：替换当前用户可见名称**
+- [x] **步骤 3：替换当前用户可见名称**
 
 实施原则：
 
@@ -137,7 +137,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-ui \
 
 对 `OpenAI Codex` 较长标题检查 `lineLimit(1)`、缩放或布局优先级；只在实际存在截断风险时做最小布局调整。
 
-- [ ] **步骤 4：运行全部 App/Core/Widget 定向套件**
+- [x] **步骤 4：运行全部 App/Core/Widget 定向套件**
 
 ```bash
 AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-ui \

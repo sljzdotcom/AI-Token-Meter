@@ -61,7 +61,7 @@ struct SettingsStructureTests {
 
         model.openClaudeWorkspaceSetup()
 
-        #expect(model.settingsMessage == "Claude workspace setup could not be opened.")
+        #expect(model.settingsMessage == "Claude Code workspace setup could not be opened.")
         #expect(model.settingsMessageKind == .claudeWorkspace)
     }
 }

@@ -120,7 +120,7 @@ public struct ProviderPresentation: Equatable, Sendable {
     private static func defaultDetail(for status: CollectionStatus) -> String {
         switch status {
         case .authenticationRequired: "Account connection required"
-        case .setupRequired: "One-time Claude workspace approval"
+        case .setupRequired: "One-time Claude Code workspace approval"
         case .notInstalled: "CLI was not found"
         case .refreshing: "Checking current usage"
         case .unrecognizedOutput: "Usage format changed"

@@ -17,7 +17,7 @@ struct AITokenMeterUsageWidget: Widget {
             WidgetRootView(entry: entry)
         }
         .configurationDisplayName("AI Token Meter")
-        .description("Claude, Codex, and DeepSeek usage at a glance.")
+        .description("Claude Code, OpenAI Codex, and DeepSeek usage at a glance.")
         .supportedFamilies(WidgetLayoutPolicy.supportedFamilies)
         .contentMarginsDisabled()
     }

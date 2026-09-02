@@ -21,7 +21,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         for event in events {
             let content = UNMutableNotificationContent()
             content.title = event.level == .critical ? "Usage reached 90%" : "Usage reached 70%"
-            content.body = "\(providerName(event.provider)) · \(event.metricLabel) is at \(Int((event.usedFraction * 100).rounded()))%."
+            content.body = Self.notificationBody(for: event)
             content.sound = .default
             content.userInfo = ["provider": event.provider.rawValue]
             let request = UNNotificationRequest(
@@ -33,12 +33,8 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    private func providerName(_ provider: UsageProvider) -> String {
-        switch provider {
-        case .claude: "Claude"
-        case .codex: "Codex"
-        case .deepSeek: "DeepSeek"
-        }
+    static func notificationBody(for event: ThresholdEvent) -> String {
+        "\(event.provider.displayName) · \(event.metricLabel) is at \(Int((event.usedFraction * 100).rounded()))%."
     }
 
     nonisolated func userNotificationCenter(

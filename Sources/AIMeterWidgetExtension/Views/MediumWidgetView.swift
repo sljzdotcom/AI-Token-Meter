@@ -11,9 +11,10 @@ struct MediumWidgetView: View {
                     HStack(spacing: 6) {
                         WidgetProviderLogo(provider: snapshot.provider)
                             .frame(width: 18, height: 18)
-                        Text(snapshot.provider.name)
+                        Text(snapshot.provider.displayName)
                             .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.72)
                         Spacer(minLength: 0)
                         WidgetStatusIndicator(semantic: snapshot.semantic)
                     }

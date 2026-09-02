@@ -32,7 +32,7 @@ struct MenuBarPanel: View {
                         Image(systemName: "gauge.with.dots.needle.50percent")
                     }
                 } description: {
-                    Text("Claude, Codex, and DeepSeek are being checked locally.")
+                    Text("Claude Code, OpenAI Codex, and DeepSeek are being checked locally.")
                 }
                 .frame(height: 190)
             } else {

@@ -167,7 +167,7 @@ struct AppPresentationTests {
         ))
 
         #expect(presentation.valueText == "Set up")
-        #expect(presentation.detailText == "One-time Claude workspace approval")
+        #expect(presentation.detailText == "One-time Claude Code workspace approval")
         #expect(presentation.statusText == "Approve the private usage workspace once")
         #expect(presentation.semantic == .unavailable)
     }

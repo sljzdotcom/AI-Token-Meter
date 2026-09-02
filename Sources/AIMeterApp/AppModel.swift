@@ -316,7 +316,7 @@ final class AppModel {
             settingsMessage = "Approve the private \(AppBrand.displayName) workspace in Terminal, then refresh."
             settingsMessageKind = .claudeWorkspace
         } catch {
-            settingsMessage = "Claude workspace setup could not be opened."
+            settingsMessage = "Claude Code workspace setup could not be opened."
             settingsMessageKind = .claudeWorkspace
         }
     }
@@ -510,7 +510,7 @@ final class AppModel {
             .claude: ServiceAccountStatus(
                 provider: .claude,
                 connectionState: .connected,
-                accountLabel: "Demo Claude account",
+                accountLabel: "Demo Claude Code account",
                 accountDetail: "OAuth"
             ),
             .codex: ServiceAccountStatus(

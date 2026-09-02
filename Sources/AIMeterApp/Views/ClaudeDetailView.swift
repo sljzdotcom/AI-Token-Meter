@@ -32,7 +32,7 @@ struct ClaudeDetailView: View {
         HStack(spacing: 10) {
             ProviderLogo(provider: .claude, size: 27)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Claude")
+                Text(snapshot.provider.displayName)
                     .aiMeterFont(.headline)
                     .foregroundStyle(valueStyle)
                 Text("Official quota · Local Claude Code activity")
@@ -52,7 +52,7 @@ struct ClaudeDetailView: View {
                 Text("Official quota")
                     .aiMeterFont(.caption, weight: .semibold)
                 Spacer()
-                Text("Claude CLI")
+                Text("Claude Code CLI")
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }

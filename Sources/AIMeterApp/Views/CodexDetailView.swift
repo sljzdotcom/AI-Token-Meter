@@ -28,10 +28,10 @@ struct CodexDetailView: View {
         HStack(spacing: 10) {
             ProviderLogo(provider: .codex, size: 27)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Codex")
+                Text(snapshot.provider.displayName)
                     .aiMeterFont(.headline)
                     .foregroundStyle(valueStyle)
-                Text("Official quota · Local activity")
+                Text("Official quota · Local OpenAI Codex activity")
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
@@ -105,11 +105,11 @@ struct CodexDetailView: View {
                     localStat(title: "Current streak", value: values.streakText, symbol: "flame")
                     localStat(title: "Longest session", value: values.longestSessionText, symbol: "clock")
                 }
-                Text("Counts only aggregate Codex thread activity readable on this Mac.")
+                Text("Counts only aggregate OpenAI Codex thread activity readable on this Mac.")
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             } else {
-                Text("Local Codex activity is unavailable; official quota data is unaffected.")
+                Text("Local OpenAI Codex activity is unavailable; official quota data is unaffected.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .padding(11)

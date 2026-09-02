@@ -7,7 +7,7 @@ struct ServicesSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Claude") {
+            Section(UsageProvider.claude.displayName) {
                 ServiceAccountStatusView(status: status(for: .claude))
                 Text("Authentication is handled by the official Claude Code CLI. AI Token Meter never receives your password or verification code.")
                     .aiMeterFont(.caption)
@@ -27,13 +27,13 @@ struct ServicesSettingsView: View {
                     Button("Authorize Usage Workspace") {
                         model.openClaudeWorkspaceSetup()
                     }
-                    .help("Only needed when Claude asks for workspace approval before /usage can run.")
+                    .help("Only needed when Claude Code asks for workspace approval before /usage can run.")
                 }
             }
 
-            Section("Codex") {
+            Section(UsageProvider.codex.displayName) {
                 ServiceAccountStatusView(status: status(for: .codex))
-                Text("Authentication is handled by the official Codex CLI. AI Token Meter only reads the account identity that Codex reports locally.")
+                Text("Authentication is handled by the official OpenAI Codex CLI. AI Token Meter only reads the account identity that OpenAI Codex reports locally.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {

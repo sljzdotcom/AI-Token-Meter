@@ -53,14 +53,6 @@ enum WidgetResource {
 }
 
 extension WidgetProvider {
-    var name: String {
-        switch self {
-        case .claude: "Claude"
-        case .codex: "Codex"
-        case .deepSeek: "DeepSeek"
-        }
-    }
-
     var fallbackSymbol: String {
         switch self {
         case .claude: "sparkles"

@@ -204,7 +204,7 @@ struct ServiceAccountSettingsTests {
 
         #expect(first?.isCancelled == true)
         #expect(model.serviceAccounts[.claude]?.accountLabel == "new@example.com")
-        #expect(model.settingsMessage == "Claude account connected.")
+        #expect(model.settingsMessage == "Claude Code account connected.")
     }
 
     @Test("Initialization still performs no account or Keychain reads")

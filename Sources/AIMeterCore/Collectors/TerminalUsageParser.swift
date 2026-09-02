@@ -119,10 +119,6 @@ enum TerminalUsageParser {
     }
 
     private static func defaultLabel(for provider: UsageProvider) -> String {
-        switch provider {
-        case .claude: "Claude usage"
-        case .codex: "Codex usage"
-        case .deepSeek: "DeepSeek usage"
-        }
+        "\(provider.displayName) usage"
     }
 }
