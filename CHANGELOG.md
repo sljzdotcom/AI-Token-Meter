@@ -6,6 +6,7 @@
 
 ### Added
 
+- 新增当前项目状态、架构决策、维护手册与全项目复盘文档，并把断链、版本、测试基线和目录治理纳入自动检查。
 - 新增原生 macOS WidgetKit 桌面组件，支持 Small、Medium、Large；最小尺寸仅显示 Claude、Codex、DeepSeek 三个 Logo 状态环，中型显示三张额度卡，大型追加最近重置与 Codex 重置券摘要。
 - 新增隐私安全的 App Group Widget 快照、30 分钟系统时间线建议、过期状态降级和点击唤醒主应用深链；Widget 本身不联网、不调用 CLI、不访问 Keychain。
 - 构建脚本新增 `AI_METER_INCLUDE_WIDGET=auto|0|1`、Apple Development 身份检测、嵌套扩展签名及 App Group 一致性验证；无开发签名时普通主应用仍可构建。
@@ -33,6 +34,7 @@
 
 ### Changed
 
+- 需求状态统一由 `docs/requirements-backlog.md` 管理，全部设计规格和实施计划统一归档到 `docs/design`；删除已被正式记录覆盖的旧需求副本与临时代理报告。
 - 当前界面、辅助功能、通知、Widget 与现行文档中的服务名称统一为 **Claude Code**、**OpenAI Codex** 和 **DeepSeek**；CLI 命令、路径、缓存标识与历史记录保持兼容。
 - 菜单栏顶部的通用仪表 SF Symbol 改为自绘 18×18pt Quantum Dial；断环进度与指针跟随三项服务中的最高有效已用比例，保留精确百分比文字，无数据时使用中性状态，并自动适配 macOS 菜单栏前景色。
 - 产品显示名称改为 **AI Token Meter**，副标题改为 **Private AI usage monitor**，构建产物改为 `dist/AI Token Meter.app`；Bundle Identifier、可执行文件名、Keychain 身份和旧数据目录保持兼容。
