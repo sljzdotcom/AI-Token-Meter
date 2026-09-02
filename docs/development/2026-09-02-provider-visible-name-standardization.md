@@ -3,7 +3,7 @@
 **日期：** 2026-09-02  
 **需求：** `REQ-20260902-011`  
 **分支：** `codex/provider-visible-names`  
-**状态：** 实现与分支验收完成，等待合并 `main`
+**状态：** 已完成并合入 `main`
 
 ## 背景与目标
 
@@ -55,6 +55,7 @@
 ## 完整自动化、构建与安装
 
 - 完整自动化：**304 个测试、60 个测试组、0 失败**；
+- 合并后回归：`main` 再次执行完整套件，仍为 **304 个测试、60 个测试组、0 失败**；
 - 主应用：`scripts/build-app.sh` Release 构建成功，生成 Apple Silicon `arm64` 产物；
 - 签名：无 Apple Development 身份时按设计生成 ad-hoc 主应用，`codesign --verify --deep --strict` 通过；Candidate CDHash 为 `6e31338fd37323b6710f0ebe951f5c4506b49d24`；
 - Widget：使用独立临时模块缓存执行 `swift build -c release --product AIMeterWidgetExtension`，Release target 编译与链接成功；
@@ -87,9 +88,10 @@
 - `7c358db`：完成测试驱动实施计划；
 - `68b833f`：集中核心正式名称；
 - `318b556`：统一主应用、通知、解析器和 Widget 当前名称；
-- `a194ad6`：同步 README、用户指南、架构、隐私与开发文档。
+- `a194ad6`：同步 README、用户指南、架构、隐私与开发文档；
+- `2078717`：记录完整测试、Release、安装、真实辅助功能与证书限制；`main` 快进合并到该提交。
 
-最终验证证据与主分支合并提交在集成完成后补充。
+合并后完整回归通过，需求台账已关闭；后续维护只需继续使用核心 `displayName`，不要重新引入页面级简称 switch。
 
 ## 已知限制
 

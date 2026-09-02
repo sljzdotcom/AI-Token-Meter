@@ -231,7 +231,7 @@ bash scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 5. Widget 当前说明/辅助功能使用正式名称；
 6. 内部 CLI 与缓存仍正常刷新。
 
-- [ ] **步骤 5：完成日志、台账与提交**
+- [x] **步骤 5：完成日志、台账与提交**
 
 填入真实测试数量、签名身份、哈希、验收时间和提交号；把 `REQ-20260902-011` 标记为 `已完成` 后提交：
 
@@ -240,6 +240,6 @@ git add docs
 git commit -m "docs: verify provider display names"
 ```
 
-- [ ] **步骤 6：代码审查与主分支集成**
+- [x] **步骤 6：代码审查与主分支集成**
 
 执行提交范围、差异、命名兼容和测试证据自审；在主工作区确认无未提交改动后，将 `codex/provider-visible-names` 快进合并到 `main`，再次运行完整测试并确认工作区干净。

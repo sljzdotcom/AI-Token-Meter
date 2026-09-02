@@ -25,7 +25,7 @@
 | REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 已完成 | 2026-09-01 | 2026-09-02 完成；294 项测试、Release 安装与实机自动隐藏验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-card-removal.md) · [验收日志](development/2026-09-02-claude-detail-card-removal.md) |
 | REQ-20260902-009 | Claude 详情 | 移除本机活动区域底部的隐私说明文字及锁形图标 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；295 项测试、Release 安装与真实辅助功能树验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-privacy-note-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-privacy-note-removal.md) · [验收日志](development/2026-09-02-claude-detail-privacy-note-removal.md) |
 | REQ-20260902-010 | 菜单栏视觉 | 重新设计菜单栏状态图标，使其更现代、更具极客感，并保持 macOS 菜单栏小尺寸下清晰可辨 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；299 项测试、双外观像素渲染、Release 安装哈希与真实刷新链路验收通过 | [设计规格](superpowers/specs/2026-09-02-menu-bar-quantum-dial-design.md) · [实施计划](superpowers/plans/2026-09-02-menu-bar-quantum-dial.md) · [开发与验收记录](development/2026-09-02-menu-bar-quantum-dial.md) · `e4a7552`–`00bc80a` |
-| REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 进行中 | 2026-09-02 | 核心、主应用、通知、Widget 与现行文档已同步；执行完整构建、安装和真实界面验收 | [设计规格](superpowers/specs/2026-09-02-provider-visible-name-standardization-design.md) · [实施计划](superpowers/plans/2026-09-02-provider-visible-name-standardization.md) · [开发与验收记录](development/2026-09-02-provider-visible-name-standardization.md) |
+| REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；304 项测试、60 个测试组、Release/安装哈希、真实辅助功能与 Settings 验收通过；Widget 桌面安装继续由既有延期证书事项管理 | [设计规格](superpowers/specs/2026-09-02-provider-visible-name-standardization-design.md) · [实施计划](superpowers/plans/2026-09-02-provider-visible-name-standardization.md) · [开发与验收记录](development/2026-09-02-provider-visible-name-standardization.md) · `04b707b`–`2078717` |
 
 ## 分类索引
 
@@ -112,3 +112,4 @@
 | 2026-09-02 | REQ-20260902-011 | 待用户确认 → 进行中 | 用户确认书面规格；进入实施计划和测试先行开发。 |
 | 2026-09-02 | REQ-20260902-011 | 进行中 | 完成测试驱动实施计划，准备在隔离分支执行。 |
 | 2026-09-02 | REQ-20260902-011 | 进行中 | 核心正式名称、主应用、通知、Widget 与现行维护文档已同步；进入完整验证与安装验收。 |
+| 2026-09-02 | REQ-20260902-011 | 进行中 → 已完成 | 当前 UI、辅助功能、通知、Widget 源码和现行文档已统一；分支与合并后的 `main` 均通过 304 项测试/60 个测试组，Release 安装哈希和真实 Settings/浮动条验收通过。 |
