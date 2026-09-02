@@ -87,9 +87,11 @@ copy_main_app() {
     install -m 755 "$BIN_DIR/$EXECUTABLE_NAME" "$CONTENTS_DIR/MacOS/$EXECUTABLE_NAME"
     local resource_bundle
     resource_bundle="$(find "$BIN_DIR" -maxdepth 1 -type d -name '*AIMeterApp*.bundle' -print -quit)"
-    if [[ -n "$resource_bundle" ]]; then
-        cp -R "$resource_bundle" "$CONTENTS_DIR/Resources/"
+    if [[ -z "$resource_bundle" ]]; then
+        echo "SwiftPM resource bundle was not produced for $EXECUTABLE_NAME." >&2
+        exit 1
     fi
+    cp -R "$resource_bundle"/. "$CONTENTS_DIR/Resources/"
     install -m 644 \
         "$PROJECT_DIR/Sources/AIMeterApp/Resources/Info.plist" \
         "$CONTENTS_DIR/Info.plist"
@@ -165,6 +167,7 @@ else
 fi
 
 plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
+"$PROJECT_DIR/scripts/verify-app-resources.sh" "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 if [[ "$SHOULD_BUILD_WIDGET" == "1" ]]; then

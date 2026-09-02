@@ -6,15 +6,16 @@ enum FloatingStripBackgroundAsset {
     static let filename = "floating-strip-deep-sea"
     static let defaultImage = load()
 
-    static func resourceURL(in bundle: Bundle = .module) -> URL? {
-        bundle.url(
+    static func resourceURL(in bundle: Bundle = .main) -> URL? {
+        AppResourceLocator.url(
             forResource: filename,
             withExtension: "png",
-            subdirectory: "Backgrounds"
+            subdirectory: "Backgrounds",
+            primaryBundle: bundle
         )
     }
 
-    static func load(in bundle: Bundle = .module) -> NSImage? {
+    static func load(in bundle: Bundle = .main) -> NSImage? {
         resourceURL(in: bundle).flatMap(NSImage.init(contentsOf:))
     }
 }

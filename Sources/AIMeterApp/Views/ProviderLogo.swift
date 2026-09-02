@@ -26,7 +26,7 @@ struct ProviderLogo: View {
     }
 
     private static func image(for provider: UsageProvider) -> NSImage? {
-        guard let url = Bundle.module.url(
+        guard let url = AppResourceLocator.url(
             forResource: provider.logoResourceName,
             withExtension: provider.logoResourceExtension,
             subdirectory: "Logos"
