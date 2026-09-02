@@ -34,7 +34,7 @@
 | [2026-09-02](2026-09-02-macbook-arm64-package.md) | MacBook Pro M4 Max Apple Silicon 分发包 | 308 个测试、arm64 Release、ZIP 完整性、解压后严格签名和 SHA-256 验证通过 |
 | [2026-09-02](2026-09-02-portable-resource-crash-fix.md) | 修复跨 Mac 的 SwiftPM 资源装载崩溃并重新发布 0.1.1 | 312 个测试、标准资源门禁、解压后隐藏构建目录启动、签名与 SHA-256 验证通过 |
 | [2026-09-02](2026-09-02-codex-cli-discovery.md) | 修复 Finder 环境下 nvm Codex 误报未安装并重新发布 0.1.2 | 318 个测试、nvm Node shebang、桌面 App 后备、Release 与跨目录分发验收通过 |
-| [2026-09-02](2026-09-02-public-github-release.md) | MIT 开源、作者信息、标准社区文档、脱敏截图、完整历史安全扫描与 v0.1.2 GitHub Release | 331 个测试、67 个测试组和本地三层发布审计通过；标签候选 CI 的 PTY/测试时钟竞态已修复，等待公开复验 |
+| [2026-09-02](2026-09-02-public-github-release.md) | MIT 开源、作者信息、标准社区文档、脱敏截图、完整历史安全扫描与 v0.1.2 GitHub Release | 331 个测试、67 个测试组、本地三层发布审计及公开 GitHub Actions 33638241625 全部通过；等待标签、Release 和匿名下载终验 |
 
 ## 新日志模板
 

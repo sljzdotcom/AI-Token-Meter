@@ -43,7 +43,7 @@ Quantum Dial 原先由 SwiftUI `Shape` 使用 `Color.primary` 直接绘制到 `M
 
 ## Git 证据
 
-- `ed4e5e4`：登记菜单栏图标不可见缺陷；
-- `70a6bab`：以 macOS 模板图像输出 Quantum Dial，并增加回归测试；
-- `1392b61`：记录根因、Release、安装哈希和待视觉确认状态；
-- `1953182`：记录用户视觉验收并快进合入 `main`。
+- `3d5bd87`：登记菜单栏图标不可见缺陷；
+- `ebe5f32`：以 macOS 模板图像输出 Quantum Dial，并增加回归测试；
+- `ecf7487`：记录根因、Release、安装哈希和待视觉确认状态；
+- `b85a04e`：记录用户视觉验收并快进合入 `main`。

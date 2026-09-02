@@ -55,7 +55,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 - 完整自动化基线：**331 项测试、67 个测试组**，另有环境门控的 Keychain 与真实 CLI 冒烟检查；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证主应用资源位于可跨机器解析的标准目录；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)；MIT License、社区模板、敏感信息门禁和 GitHub Actions 已上线。早期 [CI 33637095658](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658) 已通过，后续标签候选复验又暴露 PTY 阻塞等待和测试时钟竞态，当前修复通过本机 331 项回归，等待新一轮公开 CI。`v0.1.2` 标签、Release 与匿名下载复验仍按发布门禁顺序创建。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)；MIT License、社区模板、敏感信息门禁和 GitHub Actions 已上线。最终 PTY 异步退出与确定性时钟修复已通过本机 331 项测试及公开 [CI 33638241625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)。`v0.1.2` 标签、Release 与匿名下载复验仍按发布门禁顺序创建。
 
 ## 明确未完成或受限
 

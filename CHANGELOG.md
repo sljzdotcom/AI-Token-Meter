@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- 修复完整并发测试或高负载下，PTY 子进程退出等待同步占用 Swift 并发线程池，进而导致 Claude/Codex 输出丢失或误报超时的问题；退出通知现在采用真正异步的 continuation，并覆盖 32 路并发回归。
 - 修复 Finder 启动的 AI Token Meter 无法发现通过 nvm 安装在 `~/.nvm/versions/node/*/bin` 中的 OpenAI Codex CLI，因而错误显示 `CLI not installed` 的问题。
 - 启动 Codex `app-server` 和登录脚本时把所选 CLI 的同目录放到 PATH 首位，使 `#!/usr/bin/env node` 能找到匹配的 Node 运行时。
 - 增加已安装 ChatGPT/Codex 桌面应用内置原生 `codex` 的安全后备路径，并保持用户显式 CLI 优先。

@@ -40,8 +40,8 @@
 - `scripts/verify-app-resources.sh` 与 `codesign --verify --deep --strict` 通过；
 - ZIP 清单测试、独立目录解压、标准资源与严格签名复验通过；
 - 最小 Finder 风格环境启动后保持运行，由验收进程主动停止，没有立即崩溃；
-- 最终 ZIP 大小：2,348,170 bytes；
-- 最终 ZIP SHA-256：`c275e4d0644e79a5db624352ae88a5921024e422416931a9b909e345b8fee3d9`。
+- 最终 ZIP 大小：2,358,998 bytes；
+- 最终 ZIP SHA-256：`b9a71ebef40567c307913b54b9920b780d622c6572302ab0319b3baea19c254d`。
 
 ## GitHub 发布证据
 
@@ -51,7 +51,9 @@
 - [GitHub Actions 33637095658](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658) 在 Xcode 26.3 上通过完整 Swift 测试、文档检查和公开发布安全门禁；
 - `e742f35` 用行为探针替代绝对耗时并发断言、用实际时间窗口等待异步启动，并为 PTY 父进程退出后的延迟尾部输出增加先失败后通过的回归测试；
 - 后续标签候选 [GitHub Actions 33637436534](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637436534) 再次暴露完整并行负载下的 PTY 输出丢失和两项真实时钟竞态；根因是 PTY 退出等待通过 detached task 同步阻塞 Swift 并发线程池，而非排空毫秒数不足；
-- 退出等待已改为 continuation 驱动的异步通知，同时保留同步 Codex app-server 清理入口；暂停/恢复自动隐藏测试改为手动控制睡眠事件，不再依赖共享 runner 的绝对时间；新增 32 路 PTY 并发输出回归，当前本机 331 项测试通过；
+- 退出等待已改为 continuation 驱动的异步通知，同时保留同步 Codex app-server 清理入口；暂停/恢复自动隐藏测试改为手动控制睡眠事件，不再依赖共享 runner 的绝对时间；新增 32 路 PTY 并发输出回归；
+- 最终修复检查点 `616ce76` 在本机通过 331 项测试、67 个测试组，并由 [GitHub Actions 33638241625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625) 在公开仓库完整复验通过；
+- 隐私脱敏造成 Git 提交对象重写后，已将现行文档内 69 个失效短提交号全部迁移到当前公开历史中的可解析提交；发布前审计结果为 0 个悬空短提交号；
 - `v0.1.2` 标签、Release 资产和匿名下载校验完成后继续回填本节；在这些证据存在前，`REQ-20260902-017` 保持 `进行中`。
 
 ## 已知限制
