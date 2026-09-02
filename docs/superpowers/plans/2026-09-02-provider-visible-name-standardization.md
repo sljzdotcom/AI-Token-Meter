@@ -154,7 +154,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-ui \
 
 预期：全部通过，且 Package 编译证明主应用与 Widget 不再依赖重复名称扩展。
 
-- [ ] **步骤 5：提交用户界面检查点**
+- [x] **步骤 5：提交用户界面检查点**
 
 ```bash
 git add Sources Tests
@@ -172,15 +172,15 @@ git commit -m "feat: standardize provider names across the app"
 - 创建：`docs/development/2026-09-02-provider-visible-name-standardization.md`
 - 修改：`docs/development/README.md`、`docs/README.md`、`docs/development/commit-history.md`、`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：更新当前维护文档**
+- [x] **步骤 1：更新当前维护文档**
 
 把描述 UI、Provider 名称和用户操作的简称更新为 `Claude Code` / `OpenAI Codex`。真实命令、类型名、源文件名、目录名、历史规格、历史计划和旧开发日志保持不变。
 
-- [ ] **步骤 2：记录兼容边界和 TDD 证据**
+- [x] **步骤 2：记录兼容边界和 TDD 证据**
 
 开发日志需包含：修改范围、明确未改内容、红测试、绿测试、完整测试、Release 构建、签名、哈希、真实 UI/辅助功能验收和提交号。
 
-- [ ] **步骤 3：检查文档入口与需求状态**
+- [x] **步骤 3：检查文档入口与需求状态**
 
 在文档索引和提交历史中加入本次条目；需求在真正完成前保持 `进行中`，只在全部验收后改为 `已完成`。
 

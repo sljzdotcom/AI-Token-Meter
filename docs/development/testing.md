@@ -6,21 +6,21 @@
 bash scripts/test.sh
 ```
 
-当前基线为 224 个测试、48 个测试套件、0 个失败。Keychain 隔离读写、已安装 Claude auth 状态、已安装 Claude CLI 额度快照和已安装 Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线以最近一次开发日志和 README 徽章为准。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
 - 用量模型和百分比边界；
 - ANSI/终端输出净化；
-- Claude 与 Codex 解析 fixture；
+- Claude Code 与 OpenAI Codex 解析 fixture；
 - 进程超时、取消和终止；
 - DeepSeek API 映射与敏感错误清理；
 - 刷新协调、缓存降级和通知阈值；
 - 菜单栏与圆环展示计算；
 - 自动隐藏、外部点击和交互暂停；
-- Codex 重置额度映射；
-- Codex 重置券到期自然日状态、稳定排序、不完整明细提示和自适应详情高度；
-- Codex 本机 SQLite 数值行解析、30 天窗口、连续天数、最长会话与紧凑文案；
+- OpenAI Codex 重置额度映射；
+- OpenAI Codex 重置券到期自然日状态、稳定排序、不完整明细提示和自适应详情高度；
+- OpenAI Codex 本机 SQLite 数值行解析、30 天窗口、连续天数、最长会话与紧凑文案；
 - DeepSeek 30 天补零、缓存、当前官网 amount/cost 分片解析与完整性合并。
 - 浮岛位置偏好默认值、NaN/损坏回退、持久化和垂直夹紧；
 - 左右贴边、自动吸附、固定侧拖动、显示器断开回退和详情展开方向；
@@ -45,7 +45,7 @@ AI_METER_RUN_KEYCHAIN_TESTS=1 bash scripts/test.sh --filter KeychainStoreTests
 
 ## 真实 CLI 冒烟测试
 
-真实测试会调用已安装并登录的 Claude/Codex CLI：
+真实测试会调用已安装并登录的 Claude Code/OpenAI Codex CLI：
 
 ```bash
 AI_METER_RUN_CLI_SMOKE=1 bash scripts/test.sh --filter CLIIntegrationSmokeTests
@@ -53,9 +53,9 @@ AI_METER_RUN_CLI_SMOKE=1 bash scripts/test.sh --filter CLIIntegrationSmokeTests
 
 当前包含：
 
-1. Claude 认证状态；
-2. Claude 隔离工作区 `/usage`；
-3. Codex `app-server` 速率限制与本机聚合活动。
+1. Claude Code 认证状态；
+2. Claude Code 隔离工作区 `/usage`；
+3. OpenAI Codex `app-server` 速率限制与本机聚合活动。
 
 这些测试读取真实账户的当前用量，因此不应在未授权的 CI、共享机器或日志会被公开保存的环境中运行。测试结果只能记录成功/失败与耗时，不能提交原始账户输出。
 
@@ -125,7 +125,7 @@ git diff --check
 - About 显示 AI Token Meter、Private AI usage monitor 和真实版本号；
 - 点击空白处立即关闭，面板内点击不误关；
 - DeepSeek 登录交互暂停自动隐藏；
-- Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；
+- OpenAI Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；
 - 隐藏/恢复悬浮条与多显示器重定位正常；
 - Automatic 可拖到左右任一侧，Left/Right 只允许垂直移动，重启后恢复位置；
 - 左右轮廓、阴影、拖动提示和详情展开方向正确镜像，贴边处无透明空白或可见接缝；

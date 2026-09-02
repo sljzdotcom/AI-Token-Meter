@@ -6,11 +6,11 @@ AI Token Meter 不把三家服务强行换算成同一个“额度”。每个�
 
 | 服务 | 圆环含义 | 详情补充 |
 | --- | --- | --- |
-| Claude | 官方当前额度窗口的已用比例 | 次级额度、重置时间，以及本机 Claude Code 近 30 天活动 |
-| Codex | 官方通用速率限制的已用比例 | 次级窗口、重置额度，以及本机近 30 天三项活动聚合 |
+| Claude Code | 官方当前额度窗口的已用比例 | 次级额度、重置时间，以及本机近 30 天活动 |
+| OpenAI Codex | 官方通用速率限制的已用比例 | 次级窗口、重置额度，以及本机近 30 天三项活动聚合 |
 | DeepSeek | 相对余额基准已经消耗的比例 | 当前余额、近 30 天成本/请求/Token 与每日成本图 |
 
-## Claude
+## Claude Code
 
 ### 数据来源
 
@@ -20,7 +20,7 @@ AI Token Meter 先检查 Claude Code CLI 的认证状态，再在专用空工作
 
 - 避免打开用户代码仓库时加载项目指令和工具；
 - 避免 MCP 启动或项目扫描拖慢简单的额度查询；
-- 避免当前终端目录没有被 Claude 信任；
+- 避免当前终端目录没有被 Claude Code 信任；
 - 让自动查询行为保持稳定、可复现。
 
 首次运行可能仍需由用户批准该空工作区。AI Token Meter 会提供一次性设置按钮，不会代替用户接受授权提示。
@@ -34,7 +34,7 @@ AI Token Meter 先检查 Claude Code CLI 的认证状态，再在专用空工作
 
 ### 本机近 30 天活动
 
-Claude 详情页上方始终是官方额度，下方 **Last 30 days · This Mac** 单独展示当前 Mac 可读取的 Claude Code 活动：
+Claude Code 详情页上方始终是官方额度，下方 **Last 30 days · This Mac** 单独展示当前 Mac 可读取的本机活动：
 
 - Sessions：主会话的去重数量，`subagents` 记录不会虚增会话数；
 - Active days：30 个本机自然日中实际产生 Token 的天数；
@@ -49,11 +49,11 @@ Claude 详情页上方始终是官方额度，下方 **Last 30 days · This Mac*
 
 读取范围严格限制为 `~/.claude/projects` 中 JSONL 的时间、会话 ID、模型 ID 和 usage 数字；提示词、回复、项目路径、分支、标题和文件内容不会进入聚合模型、缓存或日志。
 
-## Codex
+## OpenAI Codex
 
 ### 数据来源
 
-AI Token Meter 启动已安装的 Codex CLI `app-server`，通过 JSON-RPC 调用 `account/rateLimits/read`，读取账户返回的结构化速率限制。
+AI Token Meter 启动已安装的 OpenAI Codex CLI `app-server`，通过 JSON-RPC 调用 `account/rateLimits/read`，读取账户返回的结构化速率限制。
 
 ### 数据口径
 
@@ -64,13 +64,13 @@ AI Token Meter 启动已安装的 Codex CLI `app-server`，通过 JSON-RPC 调�
 
 ### 本机近 30 天活动
 
-Codex 详情把官方额度放在上方，下面单独标记 **Last 30 days · This Mac**，显示：
+OpenAI Codex 详情把官方额度放在上方，下面单独标记 **Last 30 days · This Mac**，显示：
 
-- Token：近 30 天内有更新的本机 Codex 线程所记录的 Token 总数；
+- Token：近 30 天内有更新的本机 OpenAI Codex 线程所记录的 Token 总数；
 - Current streak：今天或昨天结束的连续本机活动日；
 - Longest session：这些线程中创建到最后更新时间最长的一次。
 
-三项都是本机估算，不是 OpenAI 账户跨设备统计。AI Token Meter 只查询 Codex 本地状态库的 `tokens_used`、`created_at`、`updated_at` 聚合列，不读取对话标题、预览、提示词或回复。本地状态库缺失时，官方额度和充值券仍正常显示。
+三项都是本机估算，不是 OpenAI 账户跨设备统计。AI Token Meter 只查询 OpenAI Codex 本地状态库的 `tokens_used`、`created_at`、`updated_at` 聚合列，不读取对话标题、预览、提示词或回复。本地状态库缺失时，官方额度和充值券仍正常显示。
 
 ## DeepSeek
 

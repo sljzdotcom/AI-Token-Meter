@@ -33,6 +33,7 @@
 
 ### Changed
 
+- 当前界面、辅助功能、通知、Widget 与现行文档中的服务名称统一为 **Claude Code**、**OpenAI Codex** 和 **DeepSeek**；CLI 命令、路径、缓存标识与历史记录保持兼容。
 - 菜单栏顶部的通用仪表 SF Symbol 改为自绘 18×18pt Quantum Dial；断环进度与指针跟随三项服务中的最高有效已用比例，保留精确百分比文字，无数据时使用中性状态，并自动适配 macOS 菜单栏前景色。
 - 产品显示名称改为 **AI Token Meter**，副标题改为 **Private AI usage monitor**，构建产物改为 `dist/AI Token Meter.app`；Bundle Identifier、可执行文件名、Keychain 身份和旧数据目录保持兼容。
 - Claude 详情页移除 Token composition、Top models 以及底部的内联隐私说明，保留官方额度、本机三项统计和每日趋势；底层隐私保护、采集与旧缓存兼容性不变。

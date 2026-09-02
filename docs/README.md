@@ -11,7 +11,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序、三项服务首次配置 |
-| [服务与指标说明](user-guide/providers.md) | Claude、Codex、DeepSeek 的数据来源、口径和限制 |
+| [服务与指标说明](user-guide/providers.md) | Claude Code、OpenAI Codex、DeepSeek 的数据来源、口径和限制 |
 | [设置参考](user-guide/settings.md) | 每一项设置的行为、默认值和注意事项 |
 | [故障排查](user-guide/troubleshooting.md) | 登录、超时、数据不一致、缓存、通知和悬浮条问题 |
 
@@ -40,6 +40,7 @@
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |
 | [Claude 详情隐私说明移除](development/2026-09-02-claude-detail-privacy-note-removal.md) | 移除内联隐私说明、保留底层边界并记录测试与安装验收 |
 | [菜单栏 Quantum Dial](development/2026-09-02-menu-bar-quantum-dial.md) | 自绘菜单栏动态图标、比例映射、像素渲染、安装和真实数据链路验收 |
+| [Provider 用户可见名称统一](development/2026-09-02-provider-visible-name-standardization.md) | Claude Code、OpenAI Codex、DeepSeek 的集中名称源、兼容边界与验收证据 |
 | [显示字体目录扩充](development/2026-09-01-display-font-catalog-expansion.md) | 八项字体、安装检测、别名、回退与真实 Settings 验收 |
 | [贡献指南](../CONTRIBUTING.md) | 分支、提交、测试、文档和评审要求 |
 | [安全报告](../SECURITY.md) | 私下报告漏洞的要求与范围 |

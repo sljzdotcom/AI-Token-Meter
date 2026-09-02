@@ -2,32 +2,32 @@
 
 建议先在 AI Token Meter 菜单栏手动刷新一次，再按下面的服务分类检查。
 
-## Claude
+## Claude Code
 
 ### 显示 Unavailable 或 Request timed out
 
-1. 打开 Settings > Services，先点击 Claude 的 **Check Status**。
+1. 打开 Settings > Services，先点击 Claude Code 的 **Check Status**。
 2. 显示 `Sign-in required` 时点击 **Sign in**；需要换账号时点击 **Sign in again**，在官方 Terminal 流程中完成登录。
 3. 显示 `CLI not installed` 时先安装 Claude Code；也可在终端运行 `claude auth status --json` 检查 CLI。
 4. 回到 AI Token Meter 手动刷新。
 5. 如果仍提示工作区设置，点击 **Authorize Usage Workspace**，在打开的终端中批准私有工作区。
 
-公司代理、防火墙、CLI 升级或 Claude 服务端延迟都可能导致超时。AI Token Meter 会保留最近成功缓存，但不会把缓存伪装成实时数据。
+公司代理、防火墙、CLI 升级或 Claude Code 服务端延迟都可能导致超时。AI Token Meter 会保留最近成功缓存，但不会把缓存伪装成实时数据。
 
 ### 官方客户端显示 0%，AI Token Meter 数字不同
 
 - 对比两边的“更新时间”和额度窗口名称；
 - AI Token Meter 只解析 `/usage` 中的实际用量，不采用促销说明中的百分比；
 - 手动刷新后再比较；
-- 如果仍不一致，记录 Claude CLI 版本与界面文字变化，但不要在问题报告中粘贴凭证或完整账户响应。
+- 如果仍不一致，记录 Claude Code CLI 版本与界面文字变化，但不要在问题报告中粘贴凭证或完整账户响应。
 
-## Codex
+## OpenAI Codex
 
 ### 显示需要登录或不可用
 
-1. 打开 Settings > Services，点击 Codex 的 **Check Status**。
+1. 打开 Settings > Services，点击 OpenAI Codex 的 **Check Status**。
 2. 显示 `Sign-in required` 时点击 **Sign in**；需要换账号时点击 **Sign in again**，在官方 Terminal 流程中完成登录。
-3. 显示 `CLI not installed` 或 app-server 不可用时，安装或升级 Codex CLI。
+3. 显示 `CLI not installed` 或 app-server 不可用时，安装或升级 OpenAI Codex CLI。
 4. 回到 AI Token Meter 手动刷新。
 
 AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式变化时会显示明确状态，不会回退到脆弱的终端截图识别。
@@ -42,7 +42,7 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 ### 本机活动显示 Unavailable
 
 - 这不影响上方官方额度和重置额度；
-- 确认当前 macOS 用户曾使用 Codex CLI 或 Codex App，并且 `~/.codex/state_5.sqlite` 可读；
+- 确认当前 macOS 用户曾使用 OpenAI Codex CLI 或 OpenAI Codex App，并且 `~/.codex/state_5.sqlite` 可读；
 - 本机 Token 是线程级聚合估算，不应与官网跨设备账户统计直接比较。
 
 ## DeepSeek
@@ -76,7 +76,7 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 - 完全退出并重新打开最新版 AI Token Meter，旧进程不会自动获得新的窗口焦点能力；
 - 点击 DeepSeek 圆环后，先确认 AI Token Meter 成为当前活动 App，再点击手机号或验证码输入框；
-- Claude、Codex 详情按设计不会激活 AI Token Meter，它们是只读面板；
+- Claude Code、OpenAI Codex 详情按设计不会激活 AI Token Meter，它们是只读面板；
 - 如果出现 CAPTCHA、法律协议或额外安全确认，请在官方页面手动处理；
 - AI Token Meter 不保存手机号、验证码或表单内容。不要把验证码、Cookie 或完整登录截图附在问题报告中。
 

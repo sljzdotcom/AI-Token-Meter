@@ -8,7 +8,7 @@ AI Token Meter 当前支持 Apple Silicon Mac 与 macOS 14 或更新版本。从
 - Swift 6 工具链；
 - Git；
 - Claude Code CLI（可选）；
-- Codex CLI（可选）；
+- OpenAI Codex CLI（可选）；
 - DeepSeek API Key（可选）。
 
 三项服务彼此独立。没有安装或配置某项服务时，其他服务仍可正常使用。
@@ -63,28 +63,28 @@ open "dist/AI Token Meter.app"
 | 尺寸 | 显示内容 |
 | --- | --- |
 | Small | 三个同尺寸 Provider Logo 状态环；无可见文字 |
-| Medium | Claude、Codex、DeepSeek 三张额度/余额卡 |
-| Large | 三项 Provider 行、最近重置、Codex 重置券数量和最近到期 |
+| Medium | Claude Code、OpenAI Codex、DeepSeek 三张额度/余额卡 |
+| Large | 三项 Provider 行、最近重置、OpenAI Codex 重置券数量和最近到期 |
 
 点击 Widget 只会唤醒 AI Token Meter 并触发刷新，不会自动登录、消费额度或兑换重置券。WidgetKit 按系统预算调度，主应用刷新后通常不是逐秒更新；超过快照有效期时 Widget 会显示陈旧状态。
 
-## 4. 配置 Claude
+## 4. 配置 Claude Code
 
 1. 在终端确认 `claude` 可以正常启动。
 2. 使用 Claude Code 官方流程完成登录。
 3. 回到 AI Token Meter 手动刷新。
 4. 如果显示需要工作区设置，点击 **Open one-time setup**。
-5. AI Token Meter 会打开终端，在专用空目录中启动 Claude；批准该工作区后退出终端并再次刷新。
+5. AI Token Meter 会打开终端，在专用空目录中启动 Claude Code；批准该工作区后退出终端并再次刷新。
 
 AI Token Meter 不在用户项目中运行 `/usage`，而是在兼容目录 `Application Support/AI Meter` 下的私有空工作区执行，以减少项目指令、MCP 服务或当前会话对额度查询的干扰。显示名称改版后继续保留该目录，以沿用既有批准和缓存。
 
-## 5. 配置 Codex
+## 5. 配置 OpenAI Codex
 
-1. 在终端启动 Codex CLI。
+1. 在终端启动 OpenAI Codex CLI。
 2. 使用官方流程完成登录。
 3. 回到 AI Token Meter 手动刷新。
 
-AI Token Meter 通过 Codex CLI 的 `app-server` 结构化接口读取账户速率限制，不解析终端全屏界面。详情页下方还会读取本机 Codex 状态库中的三个数值/时间列，计算近 30 天 Token、连续活动天数和最长会话；这些值不包含其他设备活动。
+AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账户速率限制，不解析终端全屏界面。详情页下方还会读取本机 OpenAI Codex 状态库中的三个数值/时间列，计算近 30 天 Token、连续活动天数和最长会话；这些值不包含其他设备活动。
 
 ## 6. 配置 DeepSeek
 

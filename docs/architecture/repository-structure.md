@@ -34,7 +34,7 @@ Sources/AIMeterApp/
 ├── Resources/
 │   ├── Info.plist              # Bundle 元数据、最低系统版本、Agent App 标记
 │   ├── AIMeterApp.entitlements # 签名构建时注入的 App Group 模板
-│   └── Logos/                  # Claude、Codex、DeepSeek 图标资源
+│   └── Logos/                  # Claude Code、OpenAI Codex、DeepSeek 图标资源
 ├── System/
 │   ├── ClaudeWorkspaceSetupLauncher.swift
 │   ├── ClaudeDetailPanelLayout.swift
@@ -53,7 +53,7 @@ Sources/AIMeterApp/
 └── Views/
     ├── AboutSettingsView.swift
     ├── AppearanceSettingsView.swift
-    ├── ClaudeDetailPresentation.swift # Claude 详情空状态、模型占比与无障碍文案
+    ├── ClaudeDetailPresentation.swift # Claude Code 详情空状态、模型占比与无障碍文案
     ├── ClaudeDetailView.swift
     ├── CodexResetCreditsView.swift
     ├── CodexDetailView.swift
@@ -122,14 +122,14 @@ Sources/AIMeterCore/
 ### Collectors
 
 - `ANSITextSanitizer.swift`：清理终端控制字符；
-- `ClaudeCollector.swift`：Claude 认证和 `/usage` 采集；
+- `ClaudeCollector.swift`：Claude Code 认证和 `/usage` 采集；
 - `ClaudeLocalActivityReader.swift`：只读聚合当前 Mac 最近 30 天的 Claude Code 计量元数据；
 - `ClaudeSetupScriptBuilder.swift`：生成一次性工作区设置命令；
-- `ClaudeUsageParser.swift`：解析 Claude 用量；
+- `ClaudeUsageParser.swift`：解析 Claude Code 用量；
 - `ClaudeUsageWorkspace.swift`：管理专用空工作区；
-- `CodexAppServerClient.swift`：Codex JSON-RPC 客户端；
-- `CodexLocalActivityReader.swift`：只读查询本机 Codex 聚合列并计算 30 天活动；
-- `CodexCollector.swift` / `CodexUsageParser.swift`：采集与解析 Codex 数据；
+- `CodexAppServerClient.swift`：OpenAI Codex JSON-RPC 客户端；
+- `CodexLocalActivityReader.swift`：只读查询本机 OpenAI Codex 聚合列并计算 30 天活动；
+- `CodexCollector.swift` / `CodexUsageParser.swift`：采集与解析 OpenAI Codex 数据；
 - `CommandRunner.swift` / `PTYCommandRunner.swift`：普通和伪终端进程执行；
 - `DeepSeekCollector.swift`：余额采集、隔离的钥匙串读取超时与单次在途保护；
 - `ExecutableLocator.swift`：定位用户 PATH 之外的常见 CLI 安装路径；
@@ -145,7 +145,7 @@ Sources/AIMeterCore/
 ### Domain
 
 - `UsageModels.swift`：服务、指标、状态和统一快照；
-- `ProviderSupplementalData.swift`：Codex 重置额度、本机活动与 DeepSeek 每日历史模型。
+- `ProviderSupplementalData.swift`：OpenAI Codex 重置额度、本机活动与 DeepSeek 每日历史模型。
 
 ### Presentation
 

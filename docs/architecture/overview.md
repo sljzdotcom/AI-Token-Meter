@@ -12,8 +12,8 @@ AI Token Meter 的架构围绕四个约束设计：
 ## 模块边界
 
 ```text
-Claude CLI ─┐
-Codex CLI/DB┼─> Collectors ─> RefreshCoordinator ─> UsageSnapshot ─> AppModel ─> SwiftUI
+Claude Code CLI ─┐
+OpenAI Codex CLI/DB┼─> Collectors ─> RefreshCoordinator ─> UsageSnapshot ─> AppModel ─> SwiftUI
 DeepSeek API┘            │             │                    │
                          │             └─ SnapshotCache     ├─ Menu bar panel
 DeepSeek WebKit ─> Normalizer ─> DeepSeekHistoryStore       ├─ Floating panel
@@ -33,9 +33,9 @@ UserDefaults ────────────> UI preferences / threshold st
 
 ### Collectors
 
-- `ClaudeCollector`：定位 CLI、检查认证、在隔离工作区通过 PTY 执行 `/usage`，并行附加可选的本机 Claude Code 活动聚合；官方额度失败立即返回，本机读取最多等待 2 秒，失败或超时不影响官方结果。
+- `ClaudeCollector`：定位 Claude Code CLI、检查认证、在隔离工作区通过 PTY 执行 `/usage`，并行附加可选的本机活动聚合；官方额度失败立即返回，本机读取最多等待 2 秒，失败或超时不影响官方结果。
 - `ClaudeLocalActivityReader`：在 utility 后台任务中只读枚举 `~/.claude/projects/**/*.jsonl`，对白名单计量字段做 30 日聚合；按文件修改时间剪枝、按块流式读取，并限制单行、单文件、总字节、文件数、持续时间和符号链接。
-- `CodexCollector`：启动 `codex app-server` 读取 JSON-RPC 速率限制，并以只读 SQLite 查询补充本机线程活动聚合；本地查询失败不会拖累官方额度。
+- `CodexCollector`：启动 OpenAI Codex 的 `codex app-server` 读取 JSON-RPC 速率限制，并以只读 SQLite 查询补充本机线程活动聚合；本地查询失败不会拖累官方额度。
 - `DeepSeekCollector`：从 `SecretStore` 取得 Keychain 密钥并调用余额 API。
 - `ClaudeUsageParser`、`CodexUsageParser`：把外部格式转换成统一指标。
 - `CommandRunner`、`PTYCommandRunner`：负责超时、进程终止和输出收集。
@@ -48,9 +48,9 @@ UserDefaults ────────────> UI preferences / threshold st
 - 主、次指标；
 - 可用性与采集状态；
 - 获取时间、过期时间和来源版本；
-- Codex 重置额度摘要；
-- Codex 本机 30 天活动摘要；
-- Claude 本机 30 天每日 Token、会话、活跃日和模型摘要；
+- OpenAI Codex 重置额度摘要；
+- OpenAI Codex 本机 30 天活动摘要；
+- Claude Code 本机 30 天每日 Token、会话、活跃日和模型摘要；
 - DeepSeek 标准化历史用量。
 
 ### Coordination
@@ -93,13 +93,13 @@ UserDefaults ────────────> UI preferences / threshold st
 
 ### Brand and compatibility
 
-`AppBrand` 集中提供 **AI Token Meter**、**Private AI usage monitor** 和版本文案。可见名称与构建产物已迁移，但 `com.millerpan.AIMeter`、`AIMeterApp`、Keychain 身份及 `Application Support/AI Meter` 兼容目录保持不变，以沿用现有偏好、缓存和 Claude 工作区批准。
+`AppBrand` 集中提供 **AI Token Meter**、**Private AI usage monitor** 和版本文案。`UsageProvider` 与 `WidgetProvider` 集中提供 **Claude Code**、**OpenAI Codex**、**DeepSeek** 正式名称。可见名称与构建产物已迁移，但 `com.millerpan.AIMeter`、`AIMeterApp`、Keychain 身份及 `Application Support/AI Meter` 兼容目录保持不变，以沿用现有偏好、缓存和 Claude Code 工作区批准。
 
-视图主题层由 `ProviderAccentPalette` 集中映射 Claude、Codex 和 DeepSeek 的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
+视图主题层由 `ProviderAccentPalette` 集中映射 Claude Code、OpenAI Codex 和 DeepSeek 的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
 
 ### FloatingPanelController
 
-负责无标题桌面层浮窗、左右贴边定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude、Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
+负责无标题桌面层浮窗、左右贴边定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude Code、OpenAI Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
 
 ### DeepSeekWebSession
 
@@ -111,7 +111,7 @@ Widget 扩展是独立的受沙箱进程，只从双方签名授权的 App Group
 
 - Small：三个 Logo 与状态环，不含可见文字、按钮或链接；无障碍标签仍包含服务和值；
 - Medium：三个固定顺序额度卡，显示名称、主值、短标签和进度；
-- Large：三项 Provider 行、最近重置、Codex 重置券数量与最近到期；
+- Large：三项 Provider 行、最近重置、OpenAI Codex 重置券数量与最近到期；
 - 根视图使用 `aitokenmeter://open` 唤醒主应用，不提供登录、兑换或其他账户操作。
 
 ## 状态与降级
@@ -123,7 +123,7 @@ Widget 扩展是独立的受沙箱进程，只从双方签名授权的 App Group
 - `refreshing`：正在更新；
 - `notInstalled`：对应 CLI 未找到；
 - `authenticationRequired`：需要登录或重新配置密钥；
-- `setupRequired`：Claude 私有工作区需一次性批准；
+- `setupRequired`：Claude Code 私有工作区需一次性批准；
 - `unavailable`：超时、网络或服务不可用；
 - `unrecognizedOutput`：外部工具输出格式暂时无法识别。
 

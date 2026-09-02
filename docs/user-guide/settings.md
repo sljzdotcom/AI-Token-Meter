@@ -78,17 +78,17 @@ Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时�
 
 Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查三项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
 
-### Claude 与 Codex 账户
+### Claude Code 与 OpenAI Codex 账户
 
-- 已连接时显示 CLI 报告的账户标识；Claude 优先显示邮箱与认证方式，Codex 的 ChatGPT 账户显示邮箱和套餐，API Key 登录只显示 `API Key account`。
+- 已连接时显示 CLI 报告的账户标识；Claude Code 优先显示邮箱与认证方式，OpenAI Codex 的 ChatGPT 账户显示邮箱和套餐，API Key 登录只显示 `API Key account`。
 - 未连接时显示 **Sign in**，已连接时仍显示 **Sign in again**，方便换账号或修复过期登录。
 - 按钮只会打开固定的官方命令 `claude auth login` 或 `codex login`；密码、浏览器授权和 MFA 仍由官方流程处理。
 - 打开登录后，应用每 3 秒检查一次，最长 2 分钟；也可随时点击 **Check Status**。重复点击同一服务会取消旧回查任务。
 - 账户信息读取失败时不会把“无法检查”误写成“已退出登录”，也不会影响已缓存的额度显示。
 
-### Claude workspace setup
+### Claude Code workspace setup
 
-- 仅在 Claude 的隔离用量工作区需要首次批准时使用。
+- 仅在 Claude Code 的隔离用量工作区需要首次批准时使用。
 - **Authorize Usage Workspace** 会打开终端，由用户本人确认工作区；应用不会自动接受信任或权限提示。它与账号登录是两件独立的事。
 - 既有批准继续使用兼容目录 `Application Support/AI Meter/ClaudeUsageWorkspace`。
 
@@ -117,7 +117,7 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 | DeepSeek 官网登录会话 | App 隔离 WebKit 数据存储 | 敏感会话，由 WebKit 管理，不写入业务缓存 |
 | Widget 展示快照 | Apple Development 签名双方专用 App Group | 非敏感最小展示数据；主应用刷新覆盖 |
 
-显示名称已经改为 AI Token Meter，但 Bundle Identifier、可执行文件名、Keychain 身份和 `Application Support/AI Meter` 目录暂时保留。这是有意的兼容设计，用于沿用升级前的偏好、密钥访问、缓存与 Claude 工作区批准。
+显示名称已经改为 AI Token Meter，但 Bundle Identifier、可执行文件名、Keychain 身份和 `Application Support/AI Meter` 目录暂时保留。这是有意的兼容设计，用于沿用升级前的偏好、密钥访问、缓存与 Claude Code 工作区批准。
 
 ## About
 
