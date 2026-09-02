@@ -30,7 +30,7 @@
 | REQ-20260902-013 | 项目治理 | 对整个项目进行完整复盘，补齐架构、功能、数据口径、构建发布、测试、运维、决策与遗留事项文档，并安全删除已证明无用的文件 | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-project-retrospective-and-documentation-governance-design.md)、[实施计划](design/implementation-plans/2026-09-02-project-retrospective-and-documentation-governance.md)、[复盘报告](development/2026-09-02-project-retrospective.md)、`a5077cd`–`54e05be` |
 | REQ-20260902-014 | 发布交付 | 从当前 `main` 生成可拷贝到 MacBook Pro M4 Max 使用的 Apple Silicon Release ZIP，并提供完整性校验和与安装说明 | 高 | 已完成 | 2026-09-02 | `0.1.0` 包后续确认不可跨 Mac 启动，已被 `REQ-20260902-015` 的 `0.1.1` 修复包替代 | [失败包历史记录](development/2026-09-02-macbook-arm64-package.md)、源码基线 `873a8e3`、旧 ZIP SHA-256 `262f13f9…d91783` |
 | REQ-20260902-015 | 发布缺陷 | 修复 MacBook 分发包启动时因 SwiftPM 资源包无法加载而在 `NSBundle.module → FloatingStripView.body` 崩溃，重新生成可迁移验证的修复版 | 高 | 已完成 | 2026-09-02 | 无 | [修复与 0.1.1 交付记录](development/2026-09-02-portable-resource-crash-fix.md)、`759e157`、`5c72aff`、`116ea89`、ZIP SHA-256 `1b2cf19b…9fa72` |
-| REQ-20260902-016 | 服务发现 | 修复 M4 Max 上 OpenAI Codex 显示 `CLI not installed`；区分 CLI 确实缺失与 GUI App 启动环境找不到用户安装路径，并提供可操作恢复入口 | 高 | 进行中 | 2026-09-02 | 根因已证实为 Finder 环境无 nvm PATH，而 CLI 位于 `~/.nvm/versions/node/v25.2.0/bin/codex`；补 nvm 自动发现、Node 运行 PATH、桌面 App 内置 CLI 与缺失恢复回归测试 | 用户提供的 M4 Max Services/详情截图及本机 Codex `0.148.0` 路径诊断；待补开发记录与 Git 证据 |
+| REQ-20260902-016 | 服务发现 | 修复 M4 Max 上 OpenAI Codex 显示 `CLI not installed`；区分 CLI 确实缺失与 GUI App 启动环境找不到用户安装路径，并提供可操作恢复入口 | 高 | 待用户确认 | 2026-09-02 | 安装 `0.1.2` 后在 M4 Max 完整退出/重开并点击 Check Status，确认 nvm `0.148.0` 的账户、额度和详情恢复 | [设计规格](design/specifications/2026-09-02-codex-cli-discovery-design.md)、[实施计划](design/implementation-plans/2026-09-02-codex-cli-discovery.md)、[开发与交付记录](development/2026-09-02-codex-cli-discovery.md)、`7a5f166`、`05f1c9d`、`8fd9233`、ZIP SHA-256 `a2c76017…d143f` |
 
 ## 分类索引
 
@@ -139,3 +139,4 @@
 | 2026-09-02 | REQ-20260902-016 | 新建 → 进行中 | M4 Max 上 Claude Code 与 DeepSeek 正常，但 OpenAI Codex 显示 `CLI not installed`；先区分真实缺失与 PATH/安装位置发现失败。 |
 | 2026-09-02 | REQ-20260902-016 | 进行中 | M4 Max 详情页同步显示 `Not installed`、官方额度空白和本机活动不可用，确认三个表现来自同一个 Codex 可执行文件定位失败。 |
 | 2026-09-02 | REQ-20260902-016 | 进行中 | M4 Max 终端确认 Codex CLI `0.148.0` 位于 nvm 的 Node `v25.2.0` bin，Finder/launchctl 未提供该 PATH；修复范围扩展为发现脚本并保证其 `/usr/bin/env node` 可执行。 |
+| 2026-09-02 | REQ-20260902-016 | 进行中 → 待用户确认 | 已发布 0.1.2 候选：318 项测试、64 个测试组、Release 资源/签名、ZIP 跨目录启动及正常权限下最小 PATH 的真实 Codex 冒烟通过；等待 M4 Max nvm 环境安装确认。 |

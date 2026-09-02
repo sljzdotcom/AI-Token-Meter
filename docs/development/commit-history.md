@@ -41,7 +41,7 @@
 | 项目复盘与文档治理 | `a5077cd`–`54e05be` | 统一需求/设计入口，补齐当前状态、架构决策和维护手册，增加文档一致性测试，删除被正式记录覆盖的临时文档并合入 `main` |
 | MacBook arm64 分发包 | `873a8e3` | 从当前 `main` 构建无 Widget、ad-hoc 签名的 macOS 14+ arm64 ZIP，并记录解压签名、完整性、SHA-256 和异机安装边界 |
 | v0.1.1 跨 Mac 资源修复 | `759e157`–`116ea89` | 识别 SwiftPM 绝对构建路径泄漏，改用主 App Bundle 标准资源目录，增加发布门禁与脱离构建缓存启动验收 |
-| v0.1.2 Codex nvm 发现修复 | `7a5f166`–待发布提交 | 自动枚举 nvm/Node 管理器，配对子进程 Node PATH，增加 ChatGPT/Codex App 后备和官方安装入口 |
+| v0.1.2 Codex nvm 发现修复 | `7a5f166`–`8fd9233` | 自动枚举 nvm/Node 管理器，配对子进程 Node PATH，增加 ChatGPT/Codex App 后备和官方安装入口 |
 
 ## 2026-08-28
 

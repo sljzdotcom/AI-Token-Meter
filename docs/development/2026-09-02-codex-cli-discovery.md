@@ -3,7 +3,7 @@
 - **需求：** `REQ-20260902-016`
 - **登记提交：** `7a5f166`
 - **核心修复提交：** `05f1c9d`
-- **版本发布提交：** 待最终提交
+- **版本准备提交：** `8fd9233`
 - **产品版本：** `0.1.2`（build `3`）
 - **目标：** Apple Silicon `arm64`、macOS 14.0+
 
@@ -43,8 +43,21 @@
 ## 验收结果
 
 - 全量自动化：**318 个测试、64 个测试组、0 失败**；
-- 文档门禁、Release 构建、签名、资源、ZIP 和跨目录启动：待最终打包后回填；
+- 文档门禁：109 份 Markdown 无断链、版本或测试基线错误；
+- Release：`AI_METER_INCLUDE_WIDGET=0` 构建通过，资源门禁与 `codesign --verify --deep --strict` 通过；
+- 分发包为 macOS 14+、Apple Silicon arm64，ZIP 清单以 `AI Token Meter.app` 为根，无 `__MACOSX`；
+- ZIP 解压至独立目录 `/private/tmp/ai-token-meter-v012.ZuxzoK` 后，在仅含系统目录的 Finder 风格 PATH 下启动并持续存活 5 秒，启动日志为空；
+- 正常本机权限下，以同样最小 PATH 调用真实 OpenAI Codex 冒烟测试，官方额度与本机聚合快照在 0.986 秒内成功返回；
 - M4 Max 真实 nvm 安装验证：待用户安装 `0.1.2` 后确认，不在交付前冒充完成。
+
+## 0.1.2 交付物
+
+- ZIP：`dist/AI-Token-Meter-0.1.2-macOS-arm64.zip`
+- 校验文件：`dist/AI-Token-Meter-0.1.2-macOS-arm64.zip.sha256`
+- ZIP 大小：2,347,172 bytes
+- SHA-256：`a2c76017e65b088f42d509424eef72044784e6195af94a1b9d086b13eb4d143f`
+
+分发包不含 Widget，采用 ad-hoc 签名，适合本人 Mac 间迁移；首次打开可能仍需通过 Finder 右键“打开”或系统隐私与安全确认。安装前必须退出旧版并完整替换 `.app`，不能只覆盖内部可执行文件。
 
 ## 安全与隐私
 

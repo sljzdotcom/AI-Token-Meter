@@ -64,6 +64,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 | Widget Gallery 与三尺寸真实桌面验收 | 已延期 | 用户恢复事项，并准备 Apple Development 证书/Team ID |
 | Mission Control、第二普通 Space、真实指针拖动、多显示器补验 | 受环境限制 | 有对应系统 Space、显示器和可操作真实指针环境 |
 | 稳定签名下旧 DeepSeek Key 再录入 | 维护提示 | 有稳定签名发行包时重新保存一次可信 Key |
+| M4 Max nvm Codex 真实界面复验 | 待用户确认 | 在 M4 Max 完整替换为 0.1.2，重新打开后检查 OpenAI Codex 账户与详情 |
 | 公开分发 | 未进入发布 | 确定许可证、远程仓库、版本号、Developer ID、公证、校验和与支持策略 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
