@@ -25,6 +25,7 @@
 | REQ-20260901-008 | Claude 详情 | Claude 详情页不再显示 Token composition 与 Top models 两张卡片 | 中 | 已完成 | 2026-09-01 | 2026-09-02 完成；294 项测试、Release 安装与实机自动隐藏验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-card-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-card-removal.md) · [验收日志](development/2026-09-02-claude-detail-card-removal.md) |
 | REQ-20260902-009 | Claude 详情 | 移除本机活动区域底部的隐私说明文字及锁形图标 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；295 项测试、Release 安装与真实辅助功能树验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-privacy-note-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-privacy-note-removal.md) · [验收日志](development/2026-09-02-claude-detail-privacy-note-removal.md) |
 | REQ-20260902-010 | 菜单栏视觉 | 重新设计菜单栏状态图标，使其更现代、更具极客感，并保持 macOS 菜单栏小尺寸下清晰可辨 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；299 项测试、双外观像素渲染、Release 安装哈希与真实刷新链路验收通过 | [设计规格](superpowers/specs/2026-09-02-menu-bar-quantum-dial-design.md) · [实施计划](superpowers/plans/2026-09-02-menu-bar-quantum-dial.md) · [开发与验收记录](development/2026-09-02-menu-bar-quantum-dial.md) · `e4a7552`–`00bc80a` |
+| REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 待用户确认 | 2026-09-02 | 范围已确认；设计规格完成并通过自检，等待书面规格确认 | [设计规格](superpowers/specs/2026-09-02-provider-visible-name-standardization-design.md) · 用户本次要求 |
 
 ## 分类索引
 
@@ -61,6 +62,10 @@
 ### 菜单栏视觉
 
 - `REQ-20260902-010`：重新设计菜单栏状态图标，提升现代感、极客感与小尺寸辨识度。
+
+### 服务命名
+
+- `REQ-20260902-011`：统一 Claude Code 与 OpenAI Codex 的当前用户可见名称。
 
 ## 状态变更记录
 
@@ -101,3 +106,6 @@
 | 2026-09-02 | REQ-20260902-010 | 待用户确认 → 进行中 | 用户确认书面规格，进入实施计划和测试先行开发。 |
 | 2026-09-02 | REQ-20260902-010 | 进行中 | 完成测试驱动实施计划，准备在隔离分支执行。 |
 | 2026-09-02 | REQ-20260902-010 | 进行中 → 已完成 | Quantum Dial 接入菜单栏；299 项测试、双外观像素渲染、Release 严格签名、安装哈希与已安装应用真实刷新链路验收通过。 |
+| 2026-09-02 | REQ-20260902-011 | 新建 → 待用户确认 | 用户要求 Claude 统一显示为 Claude Code，Codex 统一显示为 OpenAI Codex；先确认当前界面与历史记录的边界。 |
+| 2026-09-02 | REQ-20260902-011 | 待用户确认 | 用户批准推荐边界：统一当前界面、辅助功能、通知、Widget 和现行文档；保留历史记录、技术标识、路径与 CLI 命令。 |
+| 2026-09-02 | REQ-20260902-011 | 待用户确认 | 集中式正式名称设计已完成并通过占位符、内部一致性、范围与模糊性自检。 |

@@ -23,6 +23,7 @@
 | [代码库结构](architecture/repository-structure.md) | 每个顶层目录与核心源码目录的职责 |
 | [隐私与安全](security-and-privacy.md) | 凭证、WebKit 会话、缓存、日志和网络边界 |
 | [菜单栏 Quantum Dial 图标设计](superpowers/specs/2026-09-02-menu-bar-quantum-dial-design.md) | 动态菜单栏图标的视觉构成、数据映射、系统适配和验收边界 |
+| [Provider 用户可见名称统一设计](superpowers/specs/2026-09-02-provider-visible-name-standardization-design.md) | Claude Code、OpenAI Codex 当前名称及兼容边界 |
 
 ## 开发与维护
 
