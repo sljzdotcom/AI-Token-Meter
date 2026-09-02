@@ -18,3 +18,4 @@ swift test \
     "$@"
 
 "$PROJECT_DIR/scripts/check-docs.sh"
+"$PROJECT_DIR/scripts/check-public-release.sh"
