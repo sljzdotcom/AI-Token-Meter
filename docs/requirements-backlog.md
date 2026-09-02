@@ -33,6 +33,7 @@
 | REQ-20260902-016 | 服务发现 | 修复 M4 Max 上 OpenAI Codex 显示 `CLI not installed`；区分 CLI 确实缺失与 GUI App 启动环境找不到用户安装路径，并提供可操作恢复入口 | 高 | 待用户确认 | 2026-09-02 | 安装 `0.1.2` 后在 M4 Max 完整退出/重开并点击 Check Status，确认 nvm `0.148.0` 的账户、额度和详情恢复 | [设计规格](design/specifications/2026-09-02-codex-cli-discovery-design.md)、[实施计划](design/implementation-plans/2026-09-02-codex-cli-discovery.md)、[开发与交付记录](development/2026-09-02-codex-cli-discovery.md)、`6fe2382`、`d7b4467`、`55b5251`、ZIP SHA-256 `a2c76017…d143f` |
 | REQ-20260902-017 | 公开发布 | 将项目安全发布到用户 GitHub 账户：建立公开仓库，补齐标准开源文档和产品截图，提供可下载 Release，确保源码、历史和产物不含个人 Key，并在 About 中标注作者 Miller | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-public-github-release-design.md)、[实施计划](design/implementation-plans/2026-09-02-public-github-release.md)、[发布日志](development/2026-09-02-public-github-release.md)、[v0.1.2 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2)、[最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33642220151)、`24ab4a5` |
 | REQ-20260902-018 | 发布缺陷 | 修复 GitHub Actions 在 macOS 15 runner 上编译 Claude 本机活动 token 数组时的 Swift 类型推断失败，恢复公开仓库 CI | 高 | 已完成 | 2026-09-02 | 无 | [首次失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33634543141)、[中间成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658)、[复验失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637436534)、[最终成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)、`616ce76` |
+| REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 待用户确认 | 2026-09-02 | 书面设计已完成并自检；等待用户最终复核后进入实施计划 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) |
 
 ## 分类索引
 
@@ -83,6 +84,7 @@
 - `REQ-20260902-015`：修复跨 Mac 分发包的 SwiftPM 资源包启动崩溃并重新交付。
 - `REQ-20260902-017`：安全发布公开 GitHub 仓库、标准文档、截图与可下载 Release，并补充作者信息。
 - `REQ-20260902-018`：修复公开仓库首次 GitHub Actions 的 Swift 跨工具链类型推断失败。
+- `REQ-20260902-019`：Settings 内检查 GitHub 新版本并安全自动下载安装。
 
 ## 状态变更记录
 
@@ -152,3 +154,6 @@
 | 2026-09-02 | REQ-20260902-018 | 已完成 → 进行中 | 标签候选复验 33637436534 再现 PTY 输出丢失和两项测试时钟竞态，证明前一状态过早；需求重新打开并改为异步退出等待与事件驱动测试。 |
 | 2026-09-02 | REQ-20260902-018 | 进行中 → 已完成 | 用 continuation 取代并发线程池内的同步阻塞退出等待，保留必要的同步清理入口；增加确定性睡眠夹具与 32 路 PTY 回归，本机 331 项测试及公开 GitHub Actions 33638241625 全部通过。 |
 | 2026-09-02 | REQ-20260902-017 | 进行中 → 已完成 | 公开仓库、MIT、作者 Miller、标准社区文档、三张脱敏截图、完整历史与 ZIP 安全扫描、331 项测试、两轮最终公开 CI、`v0.1.2` 标签和双资产 Release 均已完成；匿名访问 README/截图与重新下载 SHA-256 复验通过。 |
+| 2026-09-02 | REQ-20260902-019 | 新建 → 进行中 | 用户要求在 Settings 增加检查更新和立即更新，并在 GitHub 有新版本时自动下载和安装；先进入安全更新设计。 |
+| 2026-09-02 | REQ-20260902-019 | 进行中 | 用户选择方案 A：仅在手动点击“检查更新”时联网；发现新版后由用户点击“立即更新”下载安装，不做后台检查或静默安装。 |
+| 2026-09-02 | REQ-20260902-019 | 进行中 → 待用户确认 | Sparkle 2、GitHub appcast、EdDSA 签名、About 双按钮、失败回退、首次手动升级与测试验收的书面规格已完成并通过自检。 |

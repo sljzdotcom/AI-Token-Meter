@@ -26,6 +26,7 @@
 | [隐私与安全](security-and-privacy.md) | 凭证、WebKit 会话、缓存、日志和网络边界 |
 | [菜单栏 Quantum Dial 图标设计](design/specifications/2026-09-02-menu-bar-quantum-dial-design.md) | 动态菜单栏图标的视觉构成、数据映射、系统适配和验收边界 |
 | [Provider 用户可见名称统一设计](design/specifications/2026-09-02-provider-visible-name-standardization-design.md) | Claude Code、OpenAI Codex 当前名称及兼容边界 |
+| [GitHub 应用内更新设计](design/specifications/2026-09-02-github-app-update-design.md) | 手动检查、一键安全更新、Sparkle、签名与首次升级边界 |
 
 ## 开发与维护
 
