@@ -10,6 +10,14 @@ public enum WidgetProvider: String, Codable, CaseIterable, Sendable {
     case claude
     case codex
     case deepSeek
+
+    public var displayName: String {
+        switch self {
+        case .claude: "Claude Code"
+        case .codex: "OpenAI Codex"
+        case .deepSeek: "DeepSeek"
+        }
+    }
 }
 
 public enum WidgetSnapshotSemantic: String, Codable, Sendable {

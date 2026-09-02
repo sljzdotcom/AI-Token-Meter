@@ -14,14 +14,6 @@ extension UsageSemantic {
 }
 
 extension UsageProvider {
-    var displayName: String {
-        switch self {
-        case .claude: "Claude"
-        case .codex: "Codex"
-        case .deepSeek: "DeepSeek"
-        }
-    }
-
     var symbolName: String {
         switch self {
         case .claude: "sparkles"

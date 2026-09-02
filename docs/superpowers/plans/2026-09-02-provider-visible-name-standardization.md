@@ -34,7 +34,7 @@
 - 修改：`Sources/AIMeterCore/Presentation/AppPresentation.swift`
 - 修改：`Sources/AIMeterApp/Views/UsageVisualStyle.swift`
 
-- [ ] **步骤 1：先写失败测试**
+- [x] **步骤 1：先写失败测试**
 
 在 `AppPresentationTests` 中增加并更新断言：
 
@@ -52,7 +52,7 @@ func canonicalProviderNames() {
 
 同时把既有 `ProviderPresentation` 标题期望改为 `Claude Code`，并增加 `OpenAI Codex` 覆盖。
 
-- [ ] **步骤 2：验证测试先红**
+- [x] **步骤 2：验证测试先红**
 
 ```bash
 AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-core \
@@ -61,7 +61,7 @@ AIMETER_TEST_BUILD_DIR=/private/tmp/ai-meter-provider-names-core \
 
 预期：编译失败或标题断言失败，因为核心正式名称尚未实现。
 
-- [ ] **步骤 3：实现最小核心映射**
+- [x] **步骤 3：实现最小核心映射**
 
 为两个 Provider 枚举分别增加：
 
@@ -77,7 +77,7 @@ public var displayName: String {
 
 让 `ProviderPresentation.title` 返回 `snapshot.provider.displayName`，删除 `UsageVisualStyle.swift` 中重复的 `displayName`，保留颜色和符号映射。
 
-- [ ] **步骤 4：运行定向测试至绿**
+- [x] **步骤 4：运行定向测试至绿**
 
 重复步骤 2 命令，预期全部通过。
 
@@ -243,4 +243,3 @@ git commit -m "docs: verify provider display names"
 - [ ] **步骤 6：代码审查与主分支集成**
 
 执行提交范围、差异、命名兼容和测试证据自审；在主工作区确认无未提交改动后，将 `codex/provider-visible-names` 快进合并到 `main`，再次运行完整测试并确认工作区干净。
-

@@ -4,6 +4,25 @@ import Testing
 
 @Suite("App presentation model")
 struct AppPresentationTests {
+    @Test("Providers expose canonical user-facing names")
+    func canonicalProviderNames() {
+        #expect(UsageProvider.claude.displayName == "Claude Code")
+        #expect(UsageProvider.codex.displayName == "OpenAI Codex")
+        #expect(UsageProvider.deepSeek.displayName == "DeepSeek")
+        #expect(WidgetProvider.claude.displayName == "Claude Code")
+        #expect(WidgetProvider.codex.displayName == "OpenAI Codex")
+        #expect(WidgetProvider.deepSeek.displayName == "DeepSeek")
+    }
+
+    @Test("Provider presentation uses the canonical OpenAI Codex name")
+    func formatsOpenAICodexTitle() {
+        let presentation = ProviderPresentation(
+            snapshot: usageSnapshot(provider: .codex, fraction: 0.05)
+        )
+
+        #expect(presentation.title == "OpenAI Codex")
+    }
+
     @Test("Formats bounded usage and assigns warning semantics")
     func formatsPercentageUsage() {
         let snapshot = UsageSnapshot(
@@ -18,7 +37,7 @@ struct AppPresentationTests {
 
         let presentation = ProviderPresentation(snapshot: snapshot)
 
-        #expect(presentation.title == "Claude")
+        #expect(presentation.title == "Claude Code")
         #expect(presentation.valueText == "73%")
         #expect(presentation.detailText == "Current session")
         #expect(presentation.semantic == .warning)

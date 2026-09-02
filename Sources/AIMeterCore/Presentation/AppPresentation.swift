@@ -89,11 +89,7 @@ public struct ProviderPresentation: Equatable, Sendable {
     }
 
     private static func title(for provider: UsageProvider) -> String {
-        switch provider {
-        case .claude: "Claude"
-        case .codex: "Codex"
-        case .deepSeek: "DeepSeek"
-        }
+        provider.displayName
     }
 
     private static func valueText(for metric: UsageMetric) -> String {
