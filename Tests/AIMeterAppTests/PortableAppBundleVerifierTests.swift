@@ -55,6 +55,10 @@ struct PortableAppBundleVerifierTests {
         switch layout {
         case .portable:
             resourceRoot = resources
+            try FileManager.default.createDirectory(
+                at: contents.appending(path: "Frameworks/Sparkle.framework"),
+                withIntermediateDirectories: true
+            )
         case .nestedSwiftPMBundle:
             resourceRoot = resources.appending(path: "AI-Meter_AIMeterApp.bundle")
         }

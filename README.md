@@ -2,7 +2,7 @@
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
-![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-2ea44f)
+![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-2ea44f)
 ![Tests 331](https://img.shields.io/badge/tests-331%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -11,7 +11,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 > **English:** A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek. It keeps credentials with the official CLIs or macOS Keychain, presents official quota and local aggregate activity in a compact edge meter, and is open source under the MIT License.
 
-> 项目状态：个人本地工具，当前应用版本为 `0.1.2`（build `3`）。待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+> 项目状态：个人本地工具，当前开发版本为 `0.2.0`（build `4`）。最新公开版本仍为 `0.1.2`；待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 ## Screenshots
 
@@ -186,7 +186,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前应用版本：`0.1.2`（build `3`）。
+- 当前开发版本：`0.2.0`（build `4`）；最新公开版本：`0.1.2`。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

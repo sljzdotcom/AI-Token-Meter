@@ -9,6 +9,8 @@ WIDGET_EXECUTABLE_NAME="AIMeterWidgetExtension"
 DIST_DIR="$PROJECT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
+FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
+SPARKLE_FRAMEWORK="$FRAMEWORKS_DIR/Sparkle.framework"
 WIDGET_APPEX="$APP_BUNDLE/Contents/PlugIns/AITokenMeterWidget.appex"
 WIDGET_CONTENTS="$WIDGET_APPEX/Contents"
 LOCAL_BUILD_ROOT="${TMPDIR:-/tmp}"
@@ -83,8 +85,10 @@ configure_widget_build() {
 }
 
 copy_main_app() {
-    mkdir -p "$CONTENTS_DIR/MacOS" "$CONTENTS_DIR/Resources"
+    mkdir -p "$CONTENTS_DIR/MacOS" "$CONTENTS_DIR/Resources" "$FRAMEWORKS_DIR"
     install -m 755 "$BIN_DIR/$EXECUTABLE_NAME" "$CONTENTS_DIR/MacOS/$EXECUTABLE_NAME"
+    install_name_tool -add_rpath "@executable_path/../Frameworks" \
+        "$CONTENTS_DIR/MacOS/$EXECUTABLE_NAME"
     local resource_bundle
     resource_bundle="$(find "$BIN_DIR" -maxdepth 1 -type d -name '*AIMeterApp*.bundle' -print -quit)"
     if [[ -z "$resource_bundle" ]]; then
@@ -102,6 +106,15 @@ copy_main_app() {
     swift "$PROJECT_DIR/scripts/generate-app-icon.swift" "$iconset_dir" "$generated_icon"
     install -m 644 "$generated_icon" "$CONTENTS_DIR/Resources/AppIcon.icns"
     test -s "$CONTENTS_DIR/Resources/AppIcon.icns"
+}
+
+copy_sparkle_framework() {
+    local source_framework="$BIN_DIR/Sparkle.framework"
+    if [[ ! -d "$source_framework" ]]; then
+        echo "SwiftPM did not produce Sparkle.framework beside the app executable." >&2
+        exit 1
+    fi
+    ditto "$source_framework" "$SPARKLE_FRAMEWORK"
 }
 
 copy_widget_extension() {
@@ -136,6 +149,30 @@ codesign_widget_extension() {
         "$WIDGET_APPEX"
 }
 
+codesign_sparkle_framework() {
+    local identity="${CODESIGN_IDENTITY:--}"
+    local sparkle_version="$SPARKLE_FRAMEWORK/Versions/B"
+    local signing_options=(--force --timestamp=none)
+    if [[ "$identity" != "-" ]]; then
+        signing_options+=(--options runtime)
+    fi
+    local nested_targets=(
+        "$sparkle_version/XPCServices/Downloader.xpc"
+        "$sparkle_version/XPCServices/Installer.xpc"
+        "$sparkle_version/Updater.app"
+        "$sparkle_version/Autoupdate"
+        "$SPARKLE_FRAMEWORK"
+    )
+
+    for target in "${nested_targets[@]}"; do
+        if [[ ! -e "$target" ]]; then
+            echo "Missing required Sparkle signing target: $target" >&2
+            exit 1
+        fi
+        codesign "${signing_options[@]}" --sign "$identity" "$target"
+    done
+}
+
 codesign_main_app() {
     codesign --force --options runtime --timestamp=none \
         --entitlements "$APP_ENTITLEMENTS" \
@@ -155,6 +192,8 @@ if [[ -e "$APP_BUNDLE" ]]; then
     rm -rf "$APP_BUNDLE"
 fi
 copy_main_app
+copy_sparkle_framework
+codesign_sparkle_framework
 
 if [[ "$SHOULD_BUILD_WIDGET" == "1" ]]; then
     copy_widget_extension
@@ -163,11 +202,12 @@ if [[ "$SHOULD_BUILD_WIDGET" == "1" ]]; then
     codesign_widget_extension
     codesign_main_app
 else
-    codesign --force --deep --sign - "$APP_BUNDLE"
+    codesign --force --timestamp=none --sign - "$APP_BUNDLE"
 fi
 
 plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
 "$PROJECT_DIR/scripts/verify-app-resources.sh" "$APP_BUNDLE"
+"$PROJECT_DIR/scripts/verify-update-bundle.sh" "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 if [[ "$SHOULD_BUILD_WIDGET" == "1" ]]; then

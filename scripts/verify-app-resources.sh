@@ -29,4 +29,9 @@ for resource in "${required_resources[@]}"; do
     fi
 done
 
+if [[ ! -d "$CONTENTS_DIR/Frameworks/Sparkle.framework" ]]; then
+    echo "missing embedded update framework: Contents/Frameworks/Sparkle.framework" >&2
+    exit 1
+fi
+
 echo "Portable app resources verified: $APP_BUNDLE"

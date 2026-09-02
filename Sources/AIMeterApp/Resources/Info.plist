@@ -17,9 +17,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.2</string>
+    <string>0.2.0</string>
     <key>CFBundleVersion</key>
-    <string>3</string>
+    <string>4</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
@@ -37,5 +37,13 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/sljzdotcom/AI-Token-Meter/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>nDjROrFfJfA9phDNSiHbvMFTtDoGDWNrwqz/DWjWjCk=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <false/>
+    <key>SUAutomaticallyUpdate</key>
+    <false/>
 </dict>
 </plist>
