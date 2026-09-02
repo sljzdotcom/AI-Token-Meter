@@ -41,6 +41,7 @@
 | 2026-09-02 | 菜单栏 Quantum Dial | [规格](specifications/2026-09-02-menu-bar-quantum-dial-design.md) | [计划](implementation-plans/2026-09-02-menu-bar-quantum-dial.md) |
 | 2026-09-02 | Provider 名称统一 | [规格](specifications/2026-09-02-provider-visible-name-standardization-design.md) | [计划](implementation-plans/2026-09-02-provider-visible-name-standardization.md) |
 | 2026-09-02 | 全项目复盘与文档治理 | [规格](specifications/2026-09-02-project-retrospective-and-documentation-governance-design.md) | [计划](implementation-plans/2026-09-02-project-retrospective-and-documentation-governance.md) |
+| 2026-09-02 | 公开 GitHub 发布 | [规格](specifications/2026-09-02-public-github-release-design.md) | 待书面规格确认后编写 |
 
 ## 阅读顺序与历史边界
 
