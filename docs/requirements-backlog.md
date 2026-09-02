@@ -26,7 +26,7 @@
 | REQ-20260902-009 | Claude 详情 | 移除本机活动区域底部的隐私说明文字及锁形图标 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；295 项测试、Release 安装与真实辅助功能树验收通过 | [设计规格](superpowers/specs/2026-09-02-claude-detail-privacy-note-removal-design.md) · [实施计划](superpowers/plans/2026-09-02-claude-detail-privacy-note-removal.md) · [验收日志](development/2026-09-02-claude-detail-privacy-note-removal.md) |
 | REQ-20260902-010 | 菜单栏视觉 | 重新设计菜单栏状态图标，使其更现代、更具极客感，并保持 macOS 菜单栏小尺寸下清晰可辨 | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；299 项测试、双外观像素渲染、Release 安装哈希与真实刷新链路验收通过 | [设计规格](superpowers/specs/2026-09-02-menu-bar-quantum-dial-design.md) · [实施计划](superpowers/plans/2026-09-02-menu-bar-quantum-dial.md) · [开发与验收记录](development/2026-09-02-menu-bar-quantum-dial.md) · `e4a7552`–`00bc80a` |
 | REQ-20260902-011 | 服务命名 | 将所有当前用户界面中的 Claude 统一显示为 Claude Code，将 Codex 统一显示为 OpenAI Codex | 中 | 已完成 | 2026-09-02 | 2026-09-02 完成；304 项测试、60 个测试组、Release/安装哈希、真实辅助功能与 Settings 验收通过；Widget 桌面安装继续由既有延期证书事项管理 | [设计规格](superpowers/specs/2026-09-02-provider-visible-name-standardization-design.md) · [实施计划](superpowers/plans/2026-09-02-provider-visible-name-standardization.md) · [开发与验收记录](development/2026-09-02-provider-visible-name-standardization.md) · `04b707b`–`2078717` |
-| REQ-20260902-012 | 菜单栏缺陷 | 已安装应用的菜单栏状态图标不可见或对比度不足 | 高 | 待用户确认 | 2026-09-02 | 模板着色修复候选已安装；请确认菜单栏 Quantum Dial 现在清晰可见 | [开发与验收记录](development/2026-09-02-menu-bar-icon-visibility.md) · `2759061`、`62f3158` |
+| REQ-20260902-012 | 菜单栏缺陷 | 已安装应用的菜单栏状态图标不可见或对比度不足 | 高 | 进行中 | 2026-09-02 | 用户已确认真实菜单栏图标可见；完成分支复测并合入 `main` | [开发与验收记录](development/2026-09-02-menu-bar-icon-visibility.md) · `2759061`、`62f3158` |
 
 ## 分类索引
 
@@ -117,3 +117,4 @@
 | 2026-09-02 | REQ-20260902-011 | 进行中 → 已完成 | 当前 UI、辅助功能、通知、Widget 源码和现行文档已统一；分支与合并后的 `main` 均通过 304 项测试/60 个测试组，Release 安装哈希和真实 Settings/浮动条验收通过。 |
 | 2026-09-02 | REQ-20260902-012 | 新建 → 进行中 | 用户反馈菜单栏图标看不见；先按系统化调试收集已安装版本、真实菜单栏和动态图标生成链路证据。 |
 | 2026-09-02 | REQ-20260902-012 | 进行中 → 待用户确认 | 根因是自绘 SwiftUI 图形未作为菜单栏模板图像输出；修复候选已安装，305 项测试、Release 签名和安装哈希通过，等待用户肉眼确认。 |
+| 2026-09-02 | REQ-20260902-012 | 待用户确认 → 进行中 | 用户确认已能看到菜单栏图标，真实视觉验收通过；进入主分支集成。 |
