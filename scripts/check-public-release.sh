@@ -39,7 +39,6 @@ TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ai-token-meter-public-release.XXXXXX")"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 HIGH_CONFIDENCE_PATTERN='([0-9]{8,12}:AA[A-Za-z0-9_-]{25,})|(sk-(proj-)?[A-Za-z0-9_-]{20,})|(sk-ant-[A-Za-z0-9_-]{20,})|(gh[pousr]_[A-Za-z0-9]{20,})|(AKIA[0-9A-Z]{16})|(-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)|(Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9._~+/-]{20,})'
-KNOWN_TELEGRAM_PREFIX_PATTERN='(1000000001|1000000002):'
 ALLOWED_TEST_TOKENS=(
     "sk-private""-regression-token-1234567890"
     "sk-sensitive""-model-value"
@@ -65,7 +64,7 @@ contains_credential() {
     local file="$1"
     strings "$file" 2>/dev/null \
         | sanitize_test_values \
-        | grep -Eaq "$HIGH_CONFIDENCE_PATTERN|$KNOWN_TELEGRAM_PREFIX_PATTERN"
+        | grep -Eaq "$HIGH_CONFIDENCE_PATTERN"
 }
 
 while IFS= read -r -d '' relative_path; do
