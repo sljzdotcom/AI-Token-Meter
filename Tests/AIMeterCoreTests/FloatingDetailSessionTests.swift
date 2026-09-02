@@ -265,9 +265,10 @@ private actor AutoHideSleepProbe {
 private func eventually(
     _ condition: @escaping @Sendable () async -> Bool
 ) async -> Bool {
-    for _ in 0..<1_000 {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+    while ContinuousClock.now < deadline {
         if await condition() { return true }
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(1))
     }
     return false
 }

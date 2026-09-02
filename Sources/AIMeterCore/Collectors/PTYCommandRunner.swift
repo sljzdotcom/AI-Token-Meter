@@ -134,7 +134,7 @@ public struct PTYCommandRunner: CommandRunning {
         while true {
             if remainingStopDrainBytes == nil, controller.stopRequested {
                 remainingStopDrainBytes = 256 * 1_024
-                stopDrainDeadline = Date().addingTimeInterval(0.2)
+                stopDrainDeadline = Date().addingTimeInterval(0.75)
             }
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {

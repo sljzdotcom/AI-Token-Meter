@@ -8,18 +8,23 @@ struct RefreshCoordinatorTests {
     func refreshesConcurrently() async {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
+        let concurrencyProbe = ConcurrentCollectionProbe()
         let collectors = UsageProvider.allCases.reversed().map {
-            ControlledCollector(provider: $0, delay: 0.2, result: .success(snapshot(for: $0)))
+            ControlledCollector(
+                provider: $0,
+                delay: 0.2,
+                result: .success(snapshot(for: $0)),
+                concurrencyProbe: concurrencyProbe
+            )
         }
         let coordinator = RefreshCoordinator(
             collectors: collectors,
             cache: SnapshotCache(directoryURL: directory)
         )
-        let startedAt = Date()
 
         let snapshots = await coordinator.refresh()
 
-        #expect(Date().timeIntervalSince(startedAt) < 0.5)
+        #expect(concurrencyProbe.maxConcurrentCalls == 3)
         #expect(snapshots.map(\.provider) == [.claude, .codex, .deepSeek])
         #expect(snapshots.allSatisfy { $0.collectionStatus == .fresh })
     }
@@ -169,6 +174,7 @@ private final class ControlledCollector: UsageCollector, @unchecked Sendable {
     let provider: UsageProvider
     let delay: TimeInterval
     let result: Result<UsageSnapshot, UsageCollectionError>
+    let concurrencyProbe: ConcurrentCollectionProbe?
 
     private let lock = NSLock()
     private var calls = 0
@@ -176,20 +182,43 @@ private final class ControlledCollector: UsageCollector, @unchecked Sendable {
     init(
         provider: UsageProvider,
         delay: TimeInterval = 0,
-        result: Result<UsageSnapshot, UsageCollectionError>
+        result: Result<UsageSnapshot, UsageCollectionError>,
+        concurrencyProbe: ConcurrentCollectionProbe? = nil
     ) {
         self.provider = provider
         self.delay = delay
         self.result = result
+        self.concurrencyProbe = concurrencyProbe
     }
 
     var callCount: Int { lock.withLock { calls } }
 
     func collect() async throws -> UsageSnapshot {
         lock.withLock { calls += 1 }
+        concurrencyProbe?.enter()
+        defer { concurrencyProbe?.leave() }
         if delay > 0 {
             try await Task.sleep(for: .seconds(delay))
         }
         return try result.get()
+    }
+}
+
+private final class ConcurrentCollectionProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var activeCalls = 0
+    private var maximumCalls = 0
+
+    var maxConcurrentCalls: Int { lock.withLock { maximumCalls } }
+
+    func enter() {
+        lock.withLock {
+            activeCalls += 1
+            maximumCalls = max(maximumCalls, activeCalls)
+        }
+    }
+
+    func leave() {
+        lock.withLock { activeCalls -= 1 }
     }
 }

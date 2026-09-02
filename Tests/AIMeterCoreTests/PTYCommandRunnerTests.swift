@@ -140,6 +140,18 @@ struct PTYCommandRunnerTests {
         #expect(Date().timeIntervalSince(startedAt) < 3)
     }
 
+    @Test("Captures terminal output that arrives shortly after the parent exits")
+    func capturesDelayedTailOutput() async throws {
+        let result = try await PTYCommandRunner().run(CommandRequest(
+            executableURL: delayedTailExecutable,
+            inputLines: [],
+            timeout: 2
+        ))
+
+        #expect(result.exitCode == 0)
+        #expect(result.output.contains("delayed-tail-output"))
+    }
+
     private var fixtureExecutable: URL {
         Bundle.module.url(forResource: "fake-interactive-cli", withExtension: "sh")!
     }
@@ -154,5 +166,9 @@ struct PTYCommandRunnerTests {
 
     private var parentExitExecutable: URL {
         Bundle.module.url(forResource: "fake-parent-exits", withExtension: "sh")!
+    }
+
+    private var delayedTailExecutable: URL {
+        Bundle.module.url(forResource: "fake-delayed-tail", withExtension: "sh")!
     }
 }
