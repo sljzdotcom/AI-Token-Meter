@@ -29,7 +29,7 @@
 | REQ-20260902-012 | 菜单栏缺陷 | 已安装应用的菜单栏状态图标不可见或对比度不足 | 高 | 已完成 | 2026-09-02 | 2026-09-02 完成；用户确认真实菜单栏可见，分支及合并后 `main` 均通过 305 项测试/60 个测试组 | [开发与验收记录](development/2026-09-02-menu-bar-icon-visibility.md) · `2759061`–`5db1c3a` |
 | REQ-20260902-013 | 项目治理 | 对整个项目进行完整复盘，补齐架构、功能、数据口径、构建发布、测试、运维、决策与遗留事项文档，并安全删除已证明无用的文件 | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-project-retrospective-and-documentation-governance-design.md)、[实施计划](design/implementation-plans/2026-09-02-project-retrospective-and-documentation-governance.md)、[复盘报告](development/2026-09-02-project-retrospective.md)、`a5077cd`–`54e05be` |
 | REQ-20260902-014 | 发布交付 | 从当前 `main` 生成可拷贝到 MacBook Pro M4 Max 使用的 Apple Silicon Release ZIP，并提供完整性校验和与安装说明 | 高 | 已完成 | 2026-09-02 | `0.1.0` 包后续确认不可跨 Mac 启动，已被 `REQ-20260902-015` 的 `0.1.1` 修复包替代 | [失败包历史记录](development/2026-09-02-macbook-arm64-package.md)、源码基线 `873a8e3`、旧 ZIP SHA-256 `262f13f9…d91783` |
-| REQ-20260902-015 | 发布缺陷 | 修复 MacBook 分发包启动时因 SwiftPM 资源包无法加载而在 `NSBundle.module → FloatingStripView.body` 崩溃，重新生成可迁移验证的修复版 | 高 | 已完成 | 2026-09-02 | 无 | [修复与 0.1.1 交付记录](development/2026-09-02-portable-resource-crash-fix.md)、`759e157`、`5c72aff`、ZIP SHA-256 `1b2cf19b…9fa72` |
+| REQ-20260902-015 | 发布缺陷 | 修复 MacBook 分发包启动时因 SwiftPM 资源包无法加载而在 `NSBundle.module → FloatingStripView.body` 崩溃，重新生成可迁移验证的修复版 | 高 | 已完成 | 2026-09-02 | 无 | [修复与 0.1.1 交付记录](development/2026-09-02-portable-resource-crash-fix.md)、`759e157`、`5c72aff`、`116ea89`、ZIP SHA-256 `1b2cf19b…9fa72` |
 
 ## 分类索引
 
