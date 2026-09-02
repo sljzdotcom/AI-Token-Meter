@@ -55,7 +55,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 - 完整自动化基线：**331 项测试、67 个测试组**，另有环境门控的 Keychain 与真实 CLI 冒烟检查；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证主应用资源位于可跨机器解析的标准目录；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)；MIT License、社区模板、敏感信息门禁和 GitHub Actions 已上线。最终 PTY 异步退出与确定性时钟修复已通过本机 331 项测试及公开 [CI 33638241625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)。`v0.1.2` 标签、Release 与匿名下载复验仍按发布门禁顺序创建。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)；MIT License、社区模板、敏感信息门禁和 GitHub Actions 已上线。最终 PTY 异步退出与确定性时钟修复已通过本机 331 项测试及公开 [CI 33638241625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)，最终文档检查点也通过 [CI 33642220151](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33642220151)。[`v0.1.2` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2) 已公开，ZIP 与 SHA-256 文件经过匿名下载复验。
 
 ## 明确未完成或受限
 
@@ -65,7 +65,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 | Mission Control、第二普通 Space、真实指针拖动、多显示器补验 | 受环境限制 | 有对应系统 Space、显示器和可操作真实指针环境 |
 | 稳定签名下旧 DeepSeek Key 再录入 | 维护提示 | 有稳定签名发行包时重新保存一次可信 Key |
 | M4 Max nvm Codex 真实界面复验 | 待用户确认 | 在 M4 Max 完整替换为 0.1.2，重新打开后检查 OpenAI Codex 账户与详情 |
-| 公开分发 | 进行中 | 创建 `v0.1.2` 标签与 GitHub Release，完成匿名下载复验；Developer ID/公证明确作为当前限制披露 |
+| 公开分发 | 已完成 | `v0.1.2` 标签、GitHub Release、两个可下载资产和匿名 SHA-256 复验均已完成；Developer ID/公证仍作为当前限制披露 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
 

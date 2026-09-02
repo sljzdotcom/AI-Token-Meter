@@ -9,8 +9,8 @@
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- Git tag：尚未创建。
-- `0.1.2` 修复 Finder 环境无法发现和运行 nvm 安装的 OpenAI Codex，并增加 OpenAI 桌面 App 内置二进制后备；仓库仍未创建正式 tag。
+- Git tag：`v0.1.2`，指向已通过公开 CI 的 `24ab4a5`。
+- `0.1.2` 修复 Finder 环境无法发现和运行 nvm 安装的 OpenAI Codex，并增加 OpenAI 桌面 App 内置二进制后备；公开 Release 同时提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
 
@@ -324,6 +324,7 @@
 | `84e81f2`–`dc9f552` | fix/ci | 修复 Swift 类型推断、严格并发和 Xcode 工具链差异 |
 | `fe44847`–`e742f35` | fix/test | 排空 PTY 尾部输出并移除共享 runner 的绝对时序假设 |
 | `616ce76` | fix | 用异步 continuation 等待进程退出，消除并发线程池阻塞；331 项测试和 GitHub Actions 33638241625 通过 |
+| `24ab4a5` | docs | 对齐隐私历史重写后的提交引用、最终 CI 证据和发布包校验和；GitHub Actions 33642220151 通过，作为 `v0.1.2` 标签目标 |
 
 ## 维护方式
 

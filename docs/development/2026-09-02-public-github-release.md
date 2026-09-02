@@ -54,7 +54,12 @@
 - 退出等待已改为 continuation 驱动的异步通知，同时保留同步 Codex app-server 清理入口；暂停/恢复自动隐藏测试改为手动控制睡眠事件，不再依赖共享 runner 的绝对时间；新增 32 路 PTY 并发输出回归；
 - 最终修复检查点 `616ce76` 在本机通过 331 项测试、67 个测试组，并由 [GitHub Actions 33638241625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625) 在公开仓库完整复验通过；
 - 隐私脱敏造成 Git 提交对象重写后，已将现行文档内 69 个失效短提交号全部迁移到当前公开历史中的可解析提交；发布前审计结果为 0 个悬空短提交号；
-- `v0.1.2` 标签、Release 资产和匿名下载校验完成后继续回填本节；在这些证据存在前，`REQ-20260902-017` 保持 `进行中`。
+- 最终文档检查点 `24ab4a5` 通过 [GitHub Actions 33642220151](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33642220151) 的完整 Swift 测试、文档检查和公开安全门禁；
+- 正式标签 [`v0.1.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2) 指向已通过 CI 的 `24ab4a5`，Release 为公开、非草稿、非预发布；
+- Release 包含 `AI-Token-Meter-0.1.2-macOS-arm64.zip`（2,358,998 bytes）和独立 `.sha256` 文件；
+- 在不使用 GitHub 登录凭据的环境中，仓库 API 确认为 `public`、默认分支为 `main`、许可证为 MIT；README 与三张截图均返回 HTTP 200；
+- 匿名重新下载两个 Release 资产后，`shasum -a 256 -c` 返回 `OK`，结果与本地构建哈希一致；
+- `REQ-20260902-017` 的公开仓库、标准文档、作者、截图、安全历史、CI、Release 和匿名下载验收全部完成。
 
 ## 已知限制
 
