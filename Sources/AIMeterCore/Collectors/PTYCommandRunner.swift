@@ -127,15 +127,21 @@ public struct PTYCommandRunner: CommandRunning {
         var result = Data()
         var buffer = [UInt8](repeating: 0, count: 4_096)
         var remainingStopDrainBytes: Int?
+        var stopDrainDeadline: Date?
+        var didReadAfterStop = false
         var matchedStopPhrase = false
 
         while true {
             if remainingStopDrainBytes == nil, controller.stopRequested {
                 remainingStopDrainBytes = 256 * 1_024
+                stopDrainDeadline = Date().addingTimeInterval(0.2)
             }
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
+                if stopDrainDeadline != nil {
+                    didReadAfterStop = true
+                }
                 if !matchedStopPhrase, !stopPhrases.isEmpty {
                     let output = String(decoding: result, as: UTF8.self)
                     if stopPhrases.contains(where: output.contains) {
@@ -149,7 +155,9 @@ public struct PTYCommandRunner: CommandRunning {
                     if updated <= 0 { break }
                 }
             } else if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
-                if controller.stopRequested { break }
+                if let stopDrainDeadline {
+                    if didReadAfterStop || Date() >= stopDrainDeadline { break }
+                }
                 usleep(10_000)
             } else {
                 break
