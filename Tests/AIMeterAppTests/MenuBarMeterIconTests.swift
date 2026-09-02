@@ -57,6 +57,21 @@ struct MenuBarMeterIconTests {
         #expect(lightCenter.brightnessComponent < darkCenter.brightnessComponent)
     }
 
+    @Test("The menu bar image is a system-tinted template")
+    @MainActor
+    func producesTemplateImage() throws {
+        let image = MenuBarMeterTemplateImage.make(fraction: 0.37, scale: 2)
+
+        #expect(image.isTemplate)
+        #expect(image.size == NSSize(width: 18, height: 18))
+
+        let data = try #require(image.tiffRepresentation)
+        let representation = try #require(NSBitmapImageRep(data: data))
+        #expect(representation.pixelsWide == 36)
+        #expect(representation.pixelsHigh == 36)
+        #expect(try visiblePixelCount(in: representation) > 80)
+    }
+
     @MainActor
     private func renderIcon(colorScheme: ColorScheme) throws -> NSBitmapImageRep {
         let renderer = ImageRenderer(content:
