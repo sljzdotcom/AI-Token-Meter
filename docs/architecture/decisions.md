@@ -113,3 +113,11 @@
 - **原因：** 图形应用不加载 `.zshrc`，nvm 安装的 `codex` 和相邻 `node` 不会自然出现在 launchctl PATH；写死某个 Node 版本升级后会再次失效。
 - **代价：** 需要维护有限的可信安装约定，并以真实可执行权限过滤候选。
 - **重新评估：** OpenAI 提供不依赖外部 CLI 的稳定授权额度 API，或 macOS 为 GUI App 提供标准的用户 Shell 命令发现接口。
+
+## D015：应用更新必须由用户发起并由 EdDSA 签名授权
+
+- **状态：** 接受。
+- **决定：** 使用固定版本的 Sparkle 读取 GitHub `appcast.xml`；只在用户点击 `Check for Updates` 时联网，只有用户点击 `Update Now` 才下载和安装。Release ZIP 必须通过内置公开键的 EdDSA 验证，生产私钥只保存在维护者 Keychain。
+- **原因：** GitHub 提供稳定公开分发，但 HTTPS、Release 页面或 SHA-256 本身都不能代替发布者签名；手动触发同时符合本地优先产品的网络边界。
+- **代价：** 发布过程必须维护 appcast 和离线签名密钥；`0.1.2` 到 `0.2.0` 需要手动替换一次，且 ad-hoc/not notarized 分发仍可能触发 Gatekeeper 提示。
+- **重新评估：** 项目获得 Developer ID、公证和可信自动发布基础设施，或分发渠道迁移到 Mac App Store 时。

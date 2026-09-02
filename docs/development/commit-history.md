@@ -4,13 +4,13 @@
 
 ## 当前版本边界
 
-- App Bundle 版本：`0.1.2`（build `3`）。
+- App Bundle 版本：`0.2.0`（build `4`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- Git tag：`v0.1.2`，指向已通过公开 CI 的 `24ab4a5`。
-- `0.1.2` 修复 Finder 环境无法发现和运行 nvm 安装的 OpenAI Codex，并增加 OpenAI 桌面 App 内置二进制后备；公开 Release 同时提供 Apple Silicon ZIP 和 SHA-256 文件。
+- 最新 Git tag：`v0.2.0`；发布提交、公开 CI 与 Release 资产证据见本页 `v0.2.0` 节和[应用内更新日志](2026-09-02-github-app-update.md)。
+- `0.2.0` 在保留 nvm/OpenAI App CLI 发现修复的基础上，增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；公开 Release 同时提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
 
@@ -44,6 +44,7 @@
 | v0.1.2 Codex nvm 发现修复 | `6fe2382`–`55b5251` | 自动枚举 nvm/Node 管理器，配对子进程 Node PATH，增加 ChatGPT/Codex App 后备和官方安装入口 |
 | 公开仓库准备 | `e478161`–`ca8032f` | MIT、作者 Miller、标准社区文档、脱敏截图、三层秘密门禁、历史脱敏和公开仓库元数据 |
 | 公开 CI 兼容与稳定性 | `84e81f2`–`616ce76` | 跨 Swift/Xcode 工具链兼容、PTY 输出排空、确定性异步测试及非阻塞进程退出；331 项测试和公开 CI 通过 |
+| v0.2.0 签名应用内更新 | `8937d29`–`407c2f7` | 手动检查/安装状态、Sparkle 2.9.4 适配、完整嵌入签名、发布资产/appcast 与隔离真实自更新验收 |
 
 ## 2026-08-28
 
@@ -325,6 +326,18 @@
 | `fe44847`–`e742f35` | fix/test | 排空 PTY 尾部输出并移除共享 runner 的绝对时序假设 |
 | `616ce76` | fix | 用异步 continuation 等待进程退出，消除并发线程池阻塞；331 项测试和 GitHub Actions 33638241625 通过 |
 | `24ab4a5` | docs | 对齐隐私历史重写后的提交引用、最终 CI 证据和发布包校验和；GitHub Actions 33642220151 通过，作为 `v0.1.2` 标签目标 |
+
+### v0.2.0 GitHub 签名应用内更新
+
+| 提交 | 类型 | 变更 |
+| --- | --- | --- |
+| `8937d29`、`d789383` | docs | 确认手动检查/安装、Sparkle、EdDSA 和首次升级边界，拆分七阶段实施计划 |
+| `3821b78` | feat | 添加更新状态模型、按钮能力和安全错误文案 |
+| `1aaca01` | feat | 用单例协调器桥接 Sparkle 检查、可更新和安装事件 |
+| `b90ac9c` | feat | 在 Settings → About 添加检查状态、最后检查时间和两个手动动作 |
+| `e296917` | build | 固定 Sparkle 2.9.4，完整嵌入 framework/helper、配置 `@rpath` 并验证嵌套签名 |
+| `8d3e958` | build | 添加签名 ZIP、SHA-256、appcast 与公开安全扫描的统一发布流水线 |
+| `407c2f7` | test | 增加 enclosure/篡改验证，并完成 0.1.9 → 0.2.0 隔离下载、替换和重启验收 |
 
 ## 维护方式
 

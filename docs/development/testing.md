@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **331 个测试、67 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **360 个测试、70 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
@@ -34,6 +34,9 @@ bash scripts/test.sh
 - Small/Medium/Large 布局合同、Small 无文字源码合同、时间线过期状态和扩展禁止网络/CLI/Keychain 合同；
 - Widget 条件打包、签名顺序、App Group 与沙箱验证脚本合同。
 - 发布版资源优先从主 App Bundle 解析且不得回退到构建机绝对路径；旧 SwiftPM 嵌套资源布局会被验证器拒绝。
+- 软件更新状态转换、按钮能力、动作去重、固定安全错误映射和 Sparkle 代理事件桥接；
+- Sparkle 版本/校验和锁定、Info.plist 手动检查策略、framework/helper 嵌入、`@rpath`、嵌套签名与发布脚本安全合同；
+- appcast enclosure 的版本、build、长度与 EdDSA 签名验证，以及篡改归档必须被拒绝。
 
 ## Keychain 集成测试
 
@@ -89,6 +92,7 @@ swift build --disable-sandbox \
 plutil -lint "dist/AI Token Meter.app/Contents/Info.plist"
 scripts/verify-app-resources.sh "dist/AI Token Meter.app"
 codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
+scripts/verify-update-bundle.sh "dist/AI Token Meter.app"
 file "dist/AI Token Meter.app/Contents/MacOS/AIMeterApp"
 test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 ```
@@ -101,6 +105,7 @@ test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 - 最低系统版本为 macOS 14。
 - `AppIcon.icns` 存在且 `CFBundleIconFile` 指向 `AppIcon`。
 - Logo 与深海背景直接位于 `Contents/Resources` 的标准子目录，可在脱离源码与 SwiftPM 构建缓存后加载。
+- `Sparkle.framework`、Updater、Autoupdate 与两个 XPC helper 完整，主程序通过正确 `@rpath` 加载，并且 feed、公钥和禁用后台检查的键存在。
 
 包含 Widget 时再运行：
 
@@ -109,6 +114,26 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 ```
 
 它验证 `.appex` 可执行文件、Info.plist、嵌套签名、双方 App Group 和 Widget App Sandbox。当前没有有效 Apple Development 证书的机器只能验证无 Widget 构建与“强制构建清晰失败”保护，不能把 Gallery/桌面验收标为通过。
+
+## 更新归档验证
+
+正式更新发布由单一入口生成；它会先执行完整测试和公开安全扫描，再构建、签名、压缩并更新 `appcast.xml`：
+
+```bash
+SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
+scripts/package-update-release.sh 0.2.0 4
+```
+
+生产 EdDSA 私钥必须已存在于当前用户 Keychain 的 `com.millerpan.AIMeter` 账户中。脚本不会导出私钥。生成后再次独立验证：
+
+```bash
+SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
+scripts/verify-update-archive.sh \
+  appcast.xml \
+  dist/releases/0.2.0/AI-Token-Meter-0.2.0-macOS-arm64.zip
+```
+
+验证器会读取 appcast enclosure，核对字节长度、版本、build、ZIP 内 App 与签名，并创建临时篡改副本确认验证失败；不会修改正式 ZIP。
 
 ## 文档和差异检查
 
@@ -128,6 +153,8 @@ git diff --check
 - 三个详情都能打开并按设置自动收起；
 - Settings 显示 Appearance、Monitoring、Services、About 四个 Tab，并始终使用系统字体；
 - About 显示 AI Token Meter、Private AI usage monitor 和真实版本号；
+- About 启动后不自动请求 appcast；点击 Check for Updates 后能分别展示新版、最新版和离线安全状态；只有发现新版后 Update Now 才启用；
+- 用签名的旧版隔离 fixture 验证 Sparkle 可下载、替换、重新启动到目标版本；绝不在未备份或未授权时覆盖 `/Applications` 正式安装；
 - 点击空白处立即关闭，面板内点击不误关；
 - DeepSeek 登录交互暂停自动隐藏；
 - OpenAI Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；

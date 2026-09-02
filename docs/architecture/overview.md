@@ -27,6 +27,10 @@ App Group file <─ privacy-safe Widget envelope <──────────
 
 Keychain ────────────────> DeepSeekCollector
 UserDefaults ────────────> UI preferences / threshold state
+
+Settings About ─> SoftwareUpdateCoordinator ─> Sparkle ─> GitHub appcast
+                                                        │
+App relaunch <─ verified replacement <─ EdDSA signed ZIP┘
 ```
 
 ## AIMeterCore
@@ -108,6 +112,14 @@ UserDefaults ────────────> UI preferences / threshold st
 
 负责隔离 WebKit 会话、官方域名限制、页面状态和相关 JSON 的标准化入口。它分别接收官网每日 Token/请求与每日费用响应，只在两类数据都存在时合并并写入完整 30 天缓存。网页层与 API Key 余额采集相互独立；网页历史失败不会让余额失效。
 
+### Software update
+
+- `SoftwareUpdateCoordinator` 维护检查、可更新、安装与失败状态，并串行化用户动作；
+- `SparkleUpdateEngine` 是 Sparkle 唯一适配边界，Settings 不直接引用第三方类型；
+- AppDelegate 在整个进程中只创建一个 Sparkle updater controller，并在退出时解除回调；
+- 应用启动和 5 分钟用量刷新不触发更新请求。用户点击 `Check for Updates` 后才读取固定 GitHub appcast，点击 `Update Now` 后才进入 Sparkle 标准下载与安装流程；
+- appcast 的 URL 和 ZIP 的 SHA-256 便于传输与审计，但真正授权安装的是 App 内公开键验证的 EdDSA 签名。验证失败时不替换当前 App。
+
 ## AIMeterWidgetExtension
 
 Widget 扩展是独立的受沙箱进程，只从双方签名授权的 App Group 读取共享快照。`WidgetTimelineSource` 建议系统约 30 分钟后刷新时间线，并在快照超过 `expiresAt` 后显示陈旧状态；实际调度由 WidgetKit 的系统预算决定。Gallery 预览只使用固定示例数据，不读取真实账户。
@@ -138,6 +150,7 @@ UI 必须展示状态含义和更新时间，不能用旧数据覆盖失败而�
 - 每次刷新设置互斥状态，避免重复刷新重叠；
 - 采集器和网络操作异步执行；
 - 详情自动隐藏、全局点击监听和刷新循环都在退出时取消；
+- 更新检查与用量刷新是独立生命周期，重复点击由更新协调器去重；
 - 进程执行器在超时、取消和正常结束之间只完成一次 continuation。
 
 ## 可测试性

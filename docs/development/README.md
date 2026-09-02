@@ -35,6 +35,7 @@
 | [2026-09-02](2026-09-02-portable-resource-crash-fix.md) | 修复跨 Mac 的 SwiftPM 资源装载崩溃并重新发布 0.1.1 | 312 个测试、标准资源门禁、解压后隐藏构建目录启动、签名与 SHA-256 验证通过 |
 | [2026-09-02](2026-09-02-codex-cli-discovery.md) | 修复 Finder 环境下 nvm Codex 误报未安装并重新发布 0.1.2 | 318 个测试、nvm Node shebang、桌面 App 后备、Release 与跨目录分发验收通过 |
 | [2026-09-02](2026-09-02-public-github-release.md) | MIT 开源、作者信息、标准社区文档、脱敏截图、完整历史安全扫描与 v0.1.2 GitHub Release | 331 个测试、67 个测试组、公开 CI、正式标签、双资产 Release 和匿名 SHA-256 下载终验全部通过 |
+| [2026-09-02](2026-09-02-github-app-update.md) | Settings 手动检查与安装 GitHub 稳定版、Sparkle EdDSA 信任链和可复现发布入口 | 360 个测试、70 个测试组、Release/Sparkle/归档/篡改门禁和 0.1.9 → 0.2.0 隔离真实更新通过 |
 
 ## 新日志模板
 

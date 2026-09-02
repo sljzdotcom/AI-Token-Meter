@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前 `Info.plist` 版本为 `0.1.2`、build `3`。仓库尚未创建 Git tag；在真正发布下一版本前，后续改动保留在 `CHANGELOG.md` 的 `Unreleased`。
+当前稳定版本为 `0.2.0`、build `4`，Git tag 为 `v0.2.0`。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到新的版本资产、appcast、签名验证和 CI 一并完成。
 
 ## 发布前检查清单
 
@@ -19,10 +19,12 @@ AI Token Meter 使用语义化版本思路：
 - [ ] 环境允许时，真实 CLI 冒烟测试 3/3 通过；
 - [ ] `bash scripts/build-app.sh` 完成 release 构建；
 - [ ] `scripts/verify-app-resources.sh "dist/AI Token Meter.app"` 确认主应用资源可由迁移后的 App Bundle 直接解析；
+- [ ] `scripts/verify-update-bundle.sh "dist/AI Token Meter.app"` 确认 Sparkle framework、helper、`@rpath`、feed、公钥、手动检查策略和严格签名；
 - [ ] 若发布 Widget，`AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 与 `scripts/verify-widget-bundle.sh` 通过；
 - [ ] `git diff --check` 无错误。
 - [ ] `scripts/check-docs.sh` 无断链、版本或目录治理错误。
 - [ ] `scripts/check-public-release.sh <release.zip>` 对当前内容、完整 Git 历史和分发包无未处理的高置信度秘密。
+- [ ] `scripts/verify-update-archive.sh appcast.xml <release.zip>` 核对 enclosure 并证明篡改副本会被拒绝。
 
 ### 文档
 
@@ -76,6 +78,27 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 - 可验证的发布校验和（GitHub 预览发行已经要求）；
 - 清晰的软件许可证（当前为 MIT）。
 
+### 生成签名更新资产
+
+Sparkle 固定为 `2.9.4`。生产私钥只保存在维护者 macOS Keychain 的 `com.millerpan.AIMeter` 账户中，不得使用导出私钥命令，也不得把 `.key`、`.pem`、Keychain 导出或原始签名环境写入仓库与日志。
+
+使用官方 Sparkle 工具目录执行单一发布入口：
+
+```bash
+SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
+scripts/package-update-release.sh 0.2.0 4
+```
+
+入口按固定顺序执行：完整测试与文档门禁 → 公开安全扫描 → Release 构建 → Sparkle Bundle 验证 → 最终 ZIP → SHA-256 → 官方工具生成 appcast → 独立 enclosure/EdDSA/篡改验证。ZIP 一旦用于生成 appcast 就不得重建；任何字节变化都必须重新生成 enclosure。
+
+发布资产至少包含：
+
+- `AI-Token-Meter-X.Y.Z-macOS-arm64.zip`；
+- 同名 `.sha256`；
+- 主分支根目录中的 `appcast.xml`。
+
+先提交最终 appcast 和版本文档，再创建 tag、推送 `main` 与 tag，并从同一个 ZIP 创建 GitHub Release。发布后匿名核对 raw appcast、ZIP 下载、SHA-256 和签名。不要让 appcast 指向草稿、私有、已替换或不存在的资产。
+
 ## 本机替换与恢复
 
 开发验收时替换 `/Applications/AI Token Meter.app` 前：
@@ -97,6 +120,15 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 3. 创建 `release: AI Token Meter vX.Y.Z` 提交；
 4. 创建带注释 tag：`vX.Y.Z`；
 5. 保存构建校验和和验收结果到开发日志；
-6. 推送分支与 tag。
+6. 推送 `main` 与 tag，创建 GitHub Release 并上传经过验证的同一份 ZIP/SHA；
+7. 等待公开 CI 成功，再匿名下载 Release 资产并与本地 SHA-256 对比；
+8. 用当前版隔离副本读取线上 appcast，确认显示最新版且不会触发下载。
 
 只有在版本元数据、Changelog、构建产物和验收同时完成后，才能把 `Unreleased` 宣布为已发布版本。
+
+## 回滚更新发布
+
+- 已安装用户回滚：退出 App，从官方 Release 下载上一稳定版并手动替换；用户偏好和非敏感缓存通常保留。
+- 尚未广泛安装的错误版本：保留 Git 历史和发布记录，在 appcast 发布更高修复版本；不要把同一版本号的 ZIP 静默替换成不同字节。
+- 必须撤回恶意或损坏资产时，可从 appcast 移除对应 enclosure，但要公开说明并立即发布更高版本；不要重用已经发布的版本/build。
+- 私钥疑似泄露时立即停止发布，移除受影响 appcast，轮换公开键并发布需要手动安装的可信恢复版本。旧 App 无法仅靠远程 appcast安全更换信任根。

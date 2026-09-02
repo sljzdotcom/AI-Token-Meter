@@ -124,3 +124,7 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 
 - 显示 App Icon、**AI Token Meter**、副标题 **Private AI usage monitor**、版本号和 build 号。
 - 显示简短隐私说明；不包含外部账户入口、账户操作或诊断数据上传。
+- **Check for Updates**：只有点击时才读取项目的 GitHub appcast；应用启动、定时刷新和后台驻留都不会检查更新。
+- 检查结果会显示正在检查、已是最新版、发现版本、离线或安全失败；`Last checked` 只记录本次用户操作的时间。
+- **Update Now**：仅在本轮已发现更高稳定版本时启用。点击后使用 Sparkle 标准窗口下载，EdDSA 验证通过后才替换 App 并重新启动；应用不会静默安装。
+- `0.1.2` 没有这两个按钮，因此升级到 `0.2.0` 需要从 GitHub Release 手动替换一次。之后的稳定版本可以从本页更新。

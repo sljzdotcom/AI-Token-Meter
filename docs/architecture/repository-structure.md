@@ -8,6 +8,7 @@ AI-Meter/
 ├── Tests/                      # 自动化测试与 fixture
 ├── docs/                       # 用户、架构、开发和历史设计文档
 ├── scripts/                    # 可移植测试、构建与维护脚本
+├── appcast.xml                 # Sparkle 稳定版更新清单
 ├── Package.swift               # Swift Package 清单
 ├── README.md                   # 项目首页
 ├── CHANGELOG.md                # 版本变更
@@ -22,7 +23,7 @@ AI-Meter/
 - `DerivedData/`：Xcode 派生文件；
 - `.worktrees/`：本地隔离开发工作树。
 
-`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、主应用/Widget 条件组装与签名验证；`scripts/verify-widget-bundle.sh` 检查嵌套扩展、App Group、沙箱和双方签名。
+`scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录，并把额外参数原样传给 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、主应用/Widget 条件组装、Sparkle 嵌入与签名验证；`scripts/verify-widget-bundle.sh` 检查扩展；`scripts/verify-update-bundle.sh`、`package-update-release.sh` 和 `verify-update-archive.sh` 分别验证 App、生成正式更新资产并核对/抗篡改验证 appcast。
 
 ## `Sources/AIMeterApp`
 
@@ -31,6 +32,7 @@ Sources/AIMeterApp/
 ├── AIMeterApp.swift            # App 入口与 SwiftUI scene
 ├── AppDelegate.swift           # 菜单栏、窗口和系统生命周期
 ├── AppModel.swift              # 主线程应用状态与刷新循环
+├── SoftwareUpdate/             # 更新状态、协调器与 Sparkle 适配边界
 ├── Resources/
 │   ├── Info.plist              # Bundle 元数据、最低系统版本、Agent App 标记
 │   ├── AIMeterApp.entitlements # 签名构建时注入的 App Group 模板
@@ -68,6 +70,7 @@ Sources/AIMeterApp/
     ├── ProviderLogo.swift
     ├── ProviderLogoStyle.swift
     ├── SettingsView.swift
+    ├── SoftwareUpdateSettingsView.swift # About 更新状态与两个手动动作
     ├── SettingsTab.swift
     ├── ServicesSettingsView.swift
     ├── UsageRing.swift
@@ -78,6 +81,7 @@ Sources/AIMeterApp/
 
 - `Resources` 只放随 App Bundle 分发的静态资源和元数据；
 - `System` 只放 macOS 或 WebKit 集成，不放用量业务解析；
+- `SoftwareUpdate` 隔离 Sparkle 类型、状态和动作串行化，其他界面只依赖本项目协议；
 - `Views` 只负责呈现与用户交互；
 - `AppModel` 连接核心库与 App 生命周期，但不重新实现采集协议。
 

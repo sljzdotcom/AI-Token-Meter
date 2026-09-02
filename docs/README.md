@@ -42,6 +42,8 @@
 | [开发日志索引](development/README.md) | 按日期查阅详细开发与验收记录 |
 | [全项目复盘](development/2026-09-02-project-retrospective.md) | 全仓库盘点、文档差距、清理证据和最终验证 |
 | [公开 GitHub 发布](development/2026-09-02-public-github-release.md) | MIT、作者、社区文件、脱敏截图、历史扫描、CI 与 Release 证据 |
+| [GitHub 应用内更新](development/2026-09-02-github-app-update.md) | Sparkle 手动检查、EdDSA 签名、发布流水线与真实隔离更新验收 |
+| [v0.2.0 Release notes](releases/v0.2.0.md) | GitHub Release 使用的安装、变化、安全和首次升级说明 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |

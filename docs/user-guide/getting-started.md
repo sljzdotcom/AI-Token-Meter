@@ -13,7 +13,19 @@ AI Token Meter 当前支持 Apple Silicon Mac 与 macOS 14 或更新版本。从
 
 三项服务彼此独立。没有安装或配置某项服务时，其他服务仍可正常使用。
 
-## 2. 构建应用
+## 2. 下载公开版本
+
+从 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases/latest) 下载 `AI-Token-Meter-0.2.0-macOS-arm64.zip` 和同名 `.sha256`。在下载目录验证：
+
+```bash
+shasum -a 256 -c AI-Token-Meter-0.2.0-macOS-arm64.zip.sha256
+```
+
+解压后把 `AI Token Meter.app` 移到 `/Applications`。当前公开包为 ad-hoc signed、not notarized；首次运行如果 macOS 阻止，请在 Finder 中右键 App 并选择“打开”。不要从不可信镜像下载，也不要绕过更新签名失败。
+
+`0.1.2` 不含更新器，因此升级到 `0.2.0` 要手动替换一次。安装 `0.2.0` 后，后续稳定版本可在 Settings → About 手动检查和安装。
+
+## 3. 从源码构建
 
 ```bash
 git clone https://github.com/sljzdotcom/AI-Token-Meter.git
@@ -33,7 +45,7 @@ dist/AI Token Meter.app
 open "dist/AI Token Meter.app"
 ```
 
-构建脚本会执行 release 构建、确定性生成完整尺寸的仪表指针 App Icon、组装 `.app`、复制资源、校验 `Info.plist`、执行 ad-hoc 签名并验证签名。ad-hoc 签名适合本机使用，不等同于面向其他用户分发所需的 Developer ID 签名与 Apple 公证。
+构建脚本会执行 release 构建、确定性生成完整尺寸的仪表指针 App Icon、组装 `.app`、复制资源、嵌入 Sparkle framework 与 helper、校验 `Info.plist`、执行 ad-hoc 签名并验证签名和运行路径。ad-hoc 签名适合本机使用，不等同于面向其他用户分发所需的 Developer ID 签名与 Apple 公证。
 
 默认构建使用 `AI_METER_INCLUDE_WIDGET=auto`：检测到真实 Apple Development 证书和 Team ID 时包含 Widget；否则显示 `Widget skipped` 并继续生成普通主应用。Widget 不能使用 ad-hoc 签名共享 App Group。首次准备方式：
 
@@ -42,7 +54,7 @@ open "dist/AI Token Meter.app"
 3. 返回仓库执行 `AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh`；
 4. 脚本会自动计算双方相同的 App Group、先签 Widget、再签主应用并验证嵌套包。
 
-## 3. 安装到应用程序
+## 4. 安装到应用程序
 
 1. 从菜单栏退出正在运行的 AI Token Meter。
 2. 把 `dist/AI Token Meter.app` 移到 `/Applications`。
@@ -68,7 +80,7 @@ open "dist/AI Token Meter.app"
 
 点击 Widget 只会唤醒 AI Token Meter 并触发刷新，不会自动登录、消费额度或兑换重置券。WidgetKit 按系统预算调度，主应用刷新后通常不是逐秒更新；超过快照有效期时 Widget 会显示陈旧状态。
 
-## 4. 配置 Claude Code
+## 5. 配置 Claude Code
 
 1. 在终端确认 `claude` 可以正常启动。
 2. 使用 Claude Code 官方流程完成登录。
@@ -78,7 +90,7 @@ open "dist/AI Token Meter.app"
 
 AI Token Meter 不在用户项目中运行 `/usage`，而是在兼容目录 `Application Support/AI Meter` 下的私有空工作区执行，以减少项目指令、MCP 服务或当前会话对额度查询的干扰。显示名称改版后继续保留该目录，以沿用既有批准和缓存。
 
-## 5. 配置 OpenAI Codex
+## 6. 配置 OpenAI Codex
 
 1. 在终端启动 OpenAI Codex CLI。
 2. 使用官方流程完成登录。
@@ -88,7 +100,7 @@ AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账
 
 从 Finder 启动时，AI Token Meter 不依赖 `.zshrc`：它会自动检查 `~/.local/bin`、Homebrew、nvm 与常见 Node 管理器目录，也能使用已安装 ChatGPT/Codex App 内置的原生 `codex`。通过 nvm/npm 安装的脚本会自动配对同目录 Node，无需手工修改 `launchctl PATH`。确实没有可执行文件时，可在 Settings > Services 点击 **Open Install Guide**。
 
-## 6. 配置 DeepSeek
+## 7. 配置 DeepSeek
 
 ### 余额
 
@@ -107,7 +119,16 @@ AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账
 
 该登录会话只属于 AI Token Meter，不读取其他浏览器的 Cookie。网页结构或网络暂时不可用时，详情会退回最近一次标准化缓存。
 
-## 7. 常用操作
+## 8. 检查与安装更新
+
+1. 打开 Settings → About。
+2. 点击 **Check for Updates**。只有此时应用才访问 GitHub 更新清单。
+3. 如果显示新版本，点击 **Update Now**。
+4. 在 Sparkle 标准窗口确认安装；签名验证通过后应用会原位替换并重新启动。
+
+显示 `You're up to date` 时，**Update Now** 会保持禁用。离线、清单不可用、签名不匹配或目标不可写时，当前应用保持不变；参见[故障排查](troubleshooting.md#检查更新失败或-update-now-不可用)。
+
+## 9. 常用操作
 
 - 点击圆环：展开对应服务详情。
 - 从三个 Logo 以外的玻璃空白处拖动：调整浮岛上下位置；Automatic 模式还可拖到另一侧。
@@ -118,8 +139,9 @@ AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账
 - 菜单栏刷新按钮：立即刷新三项服务，并同步更新 Quantum Dial 与百分比。
 - `⌘,`：打开设置。
 - 菜单栏退出项：完全退出应用。
+- Settings → About 的 **Check for Updates**：手动检查 GitHub 稳定版；不会开启后台检查。
 
-## 8. 卸载
+## 10. 卸载
 
 1. 在 **Monitoring** 设置中关闭“Open AI Token Meter at login”。
 2. 如需删除 DeepSeek API Key，点击 **Remove**。

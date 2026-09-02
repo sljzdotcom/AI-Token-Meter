@@ -4,6 +4,29 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-09-02
+
+### Added
+
+- Settings → About 新增 `Check for Updates` 与 `Update Now`。只有用户手动检查才访问 GitHub；发现更高稳定版本后，由用户明确启动下载和安装。
+- 集成 Sparkle 2.9.4，通过 GitHub `appcast.xml` 发现版本，并用标准更新窗口完成下载、替换与重新启动。
+- 新增可复现的更新发布入口，统一生成 Apple Silicon ZIP、SHA-256、appcast enclosure 与签名验证证据。
+
+### Changed
+
+- 应用版本升级为 `0.2.0`（build `4`）。Release 构建现在完整嵌入 Sparkle framework、Updater、Autoupdate 与两个 XPC helper，并验证 `@rpath` 和嵌套签名。
+- `0.1.2` 到 `0.2.0` 仍需手动替换一次；从 `0.2.0` 开始，后续稳定版本可在应用内完成手动检查与更新。
+
+### Fixed
+
+- ad-hoc 分发不再错误启用会拒绝无 TeamIdentifier framework 的 library validation；真实开发者证书构建仍保留 hardened runtime。
+- 更新归档验证会核对 ZIP 长度、版本、build 与 EdDSA 签名，并明确拒绝被追加或篡改的归档。
+
+### Security
+
+- 更新包使用 Sparkle EdDSA 签名；App 仅内置公开验证键，生产私钥只保存在维护者 macOS Keychain 中，不导出到仓库、日志或 Release。
+- 公开发布门禁新增 `.key` 与 Sparkle 私钥导出标记检查；签名或下载验证失败时不会替换当前 App。
+
 ## 0.1.2 - 2026-09-02
 
 ### Added

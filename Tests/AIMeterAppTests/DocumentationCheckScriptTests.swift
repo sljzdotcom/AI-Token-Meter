@@ -42,6 +42,17 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("README version 0.1.0 does not match Info.plist 0.2.0"))
     }
 
+    @Test("README download guidance follows the bundle version")
+    func rejectsStaleDownloadGuidance() throws {
+        let fixture = try makeFixture(bundleVersion: "0.2.0", readmeVersion: "0.2.0", downloadVersion: "0.1.2")
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("v0.2.0 download guidance"))
+    }
+
     @Test("A missing public community file fails")
     func rejectsMissingPublicCommunityFile() throws {
         let fixture = try makeFixture()
@@ -69,7 +80,11 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("public author credit"))
     }
 
-    private func makeFixture(bundleVersion: String = "0.1.0") throws -> URL {
+    private func makeFixture(
+        bundleVersion: String = "0.1.0",
+        readmeVersion: String = "0.1.0",
+        downloadVersion: String = "0.1.0"
+    ) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ai-token-meter-doc-check-\(UUID().uuidString)", isDirectory: true)
         let requiredDirectories = [
@@ -92,7 +107,7 @@ struct DocumentationCheckScriptTests {
         try """
         # AI Token Meter
 
-        ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-green)
+        ![Version \(readmeVersion)](https://img.shields.io/badge/version-\(readmeVersion)-green)
         ![Tests 305](https://img.shields.io/badge/tests-305%20passed-green)
 
         A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek.
@@ -101,7 +116,7 @@ struct DocumentationCheckScriptTests {
         ![Provider detail](docs/assets/screenshots/provider-detail.png)
         ![Settings](docs/assets/screenshots/settings.png)
 
-        Download v0.1.2. The public package is ad-hoc signed and not notarized.
+        Download v\(downloadVersion). The public package is ad-hoc signed and not notarized.
 
         Author: Miller · MIT License
 

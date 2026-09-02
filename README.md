@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-2ea44f)
-![Tests 331](https://img.shields.io/badge/tests-331%20passed-2ea44f)
+![Tests 360](https://img.shields.io/badge/tests-360%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -11,7 +11,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 > **English:** A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek. It keeps credentials with the official CLIs or macOS Keychain, presents official quota and local aggregate activity in a compact edge meter, and is open source under the MIT License.
 
-> 项目状态：个人本地工具，当前开发版本为 `0.2.0`（build `4`）。最新公开版本仍为 `0.1.2`；待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+> 项目状态：个人本地工具，当前稳定版本为 `0.2.0`（build `4`）。后续变更统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 ## Screenshots
 
@@ -40,6 +40,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
 - 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
 - DeepSeek API Key 存入 macOS Keychain；替换时先经官方余额接口验证，失败会保留旧 Key，设置页只显示最后四位遮罩。
+- Settings → About 支持手动检查 GitHub 新版本；发现更高稳定版本后，可由用户明确点击更新，Sparkle 会验证 EdDSA 签名后替换 App 并重新启动。应用不会在后台检查，也不会静默安装。
 
 ## 数据来源一览
 
@@ -62,7 +63,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 ## 下载与安装
 
-**[Download v0.1.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2)** from GitHub Releases and choose `AI-Token-Meter-0.1.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
+**[Download v0.2.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.0)** from GitHub Releases and choose `AI-Token-Meter-0.2.0-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
 
 1. 完全退出已有的 AI Token Meter。
 2. 解压 ZIP，并把 `AI Token Meter.app` 移到 `/Applications`。
@@ -70,6 +71,8 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 4. 在 Settings → Services 配置需要使用的 Provider；所有 Provider 都是可选的。
 
 当前 Release 仅支持 Apple Silicon 与 macOS 14+，不包含需要 Apple Development 证书的 Widget。详细步骤和 SHA-256 校验方法见[安装与首次使用](docs/user-guide/getting-started.md)。
+
+`0.1.2` 尚未包含应用内更新器，因此升级到 `0.2.0` 需要手动替换这一次。从 `0.2.0` 开始，可在 Settings → About 点击 **Check for Updates**，发现新版后再点击 **Update Now**；只有这两个用户动作会触发联网和安装。
 
 ## 从源码安装
 
@@ -86,7 +89,7 @@ open "dist/AI Token Meter.app"
 AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh
 ```
 
-构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Token Meter.app` 并验证嵌套签名。无 Widget 产物使用 ad-hoc 本机签名；Widget 产物要求真实 Apple Development 签名与双方一致的 App Group。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
+构建脚本会生成完整尺寸的仪表指针 App Icon、组装 `dist/AI Token Meter.app`、嵌入 Sparkle framework 与更新 helper，并验证运行路径和嵌套签名。无 Widget 产物使用 ad-hoc 本机签名；Widget 产物要求真实 Apple Development 签名与双方一致的 App Group。当前产物面向 Apple Silicon 本机使用，不是经过 Developer ID 签名和 Apple 公证的公开发行包。
 
 日常使用时，退出 AI Token Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
 
@@ -128,7 +131,8 @@ AI-Meter/
 │   ├── architecture/            # 架构与源码目录说明
 │   ├── development/             # 开发、测试、发布和逐日开发日志
 │   └── design/                  # 历史设计规格与实施计划
-├── scripts/                     # 可移植测试、Release 构建、App 打包与签名验证
+├── scripts/                     # 测试、Release 构建、Sparkle 打包、签名与安全门禁
+├── appcast.xml                  # 稳定版 Sparkle 更新清单
 ├── CHANGELOG.md                 # 面向版本的变更记录
 ├── CONTRIBUTING.md              # 贡献规范
 └── SECURITY.md                  # 安全问题报告方式
@@ -181,12 +185,13 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - 历史页面的原始响应不会进入业务缓存；AI Token Meter 只保存标准化后的逐日成本、请求数和 Token 总数。
 - Widget 只读取主应用写入 App Group 的脱敏展示快照，不联网、不运行 CLI、不读取 Keychain，也不能登录或兑换重置券。
 - 缓存、状态消息与通知会先经过敏感文本清理。
+- 更新 ZIP 由 Sparkle EdDSA 签名；生产私钥只保存在维护者的 macOS Keychain，不进入仓库、日志或 Release。应用只包含公开验证键，签名不匹配时保持现有版本不变。
 
 完整说明见 [隐私与安全](docs/security-and-privacy.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
 ## 版本与许可
 
-- 当前开发版本：`0.2.0`（build `4`）；最新公开版本：`0.1.2`。
+- 当前稳定版本：`0.2.0`（build `4`）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

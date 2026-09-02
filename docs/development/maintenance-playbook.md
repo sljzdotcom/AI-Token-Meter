@@ -23,6 +23,7 @@
 | Settings | 对应 Tab、消息路由、Settings structure tests | settings、README |
 | Widget | Core snapshot contract、publisher、extension、build script | status、architecture、security、release、Widget 日志 |
 | 版本/发布 | 两个 Info.plist、README 徽章、CHANGELOG | release、commit history、项目状态 |
+| 应用更新 | `SoftwareUpdate/`、About、Info.plist、Sparkle Bundle/归档验证 | settings、architecture、security、release、更新日志 |
 
 ## 三服务诊断顺序
 
@@ -65,6 +66,7 @@ scripts/test.sh
 scripts/check-docs.sh
 scripts/build-app.sh
 codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
+scripts/verify-update-bundle.sh "dist/AI Token Meter.app"
 ```
 
 真实 CLI/Keychain 门控和 Widget 强制构建命令见[测试指南](testing.md)。安装验收：
@@ -83,6 +85,15 @@ codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
 - 完整测试、文档检查、Release、严格签名和实机验收；
 - 确认许可证、远程、tag、Developer ID、公证、校验和与支持范围是真实存在的；
 - 没有证书时明确发布“无 Widget 主应用”，不要声称 Widget 可安装。
+- 更新发布必须使用 Keychain 中的 Sparkle EdDSA 私钥，经单一脚本生成 ZIP、SHA-256 和 appcast；不得手改 enclosure 签名或在生成 appcast 后重建 ZIP。
+- 发布后必须验证 raw appcast、Release 下载和匿名 SHA-256；更新失败或签名异常时保留当前 App，禁止指导用户绕过验证。
+
+## 更新故障与密钥轮换
+
+1. About 无法检查时，先核对固定 feed 和 GitHub Release 资产是否可匿名访问，再检查代理/离线状态；不要开启隐藏后台轮询。
+2. `Update Now` 禁用时先确认当前状态是否真的发现更高版本；最新版和失败状态按设计禁用。
+3. 下载后拒绝安装时，依次核对 enclosure 长度、版本/build、ZIP 是否在签名后被修改，以及 App 内公开键是否匹配。
+4. 私钥只允许留在维护者 Keychain；任何疑似泄露都按[发布流程](release-process.md#回滚更新发布)停止发布并轮换信任根。
 
 ## 日志与证据
 

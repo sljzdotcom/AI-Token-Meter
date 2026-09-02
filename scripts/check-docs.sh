@@ -108,7 +108,7 @@ if readme_path.file? && plist_path.file?
     "English project summary" => "A native macOS usage meter",
     "public author credit" => "Author: Miller",
     "MIT license notice" => "MIT License",
-    "v0.1.2 download guidance" => "Download v0.1.2",
+    "v#{plist_version} download guidance" => "Download v#{plist_version}",
     "ad-hoc signing notice" => "ad-hoc signed",
     "notarization notice" => "not notarized",
     "floating strip screenshot" => "docs/assets/screenshots/floating-strip.png",
