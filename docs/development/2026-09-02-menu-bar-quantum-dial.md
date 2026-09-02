@@ -42,9 +42,9 @@
 - 候选与安装版均通过 `codesign --verify --deep --strict`；
 - 安装版可执行文件：Mach-O 64-bit arm64；
 - 候选与 `/Applications/AI Token Meter.app` 的可执行文件 SHA-256 完全一致：
-  `1ab9e102b648ce95e33e3b3593e0e7981b3fd79816a341897f2b22083edf932d`；
+  `59ccc59db0787fb049dd49c813e76a063ebb991cfdb18a4dc22189dd18247557`；
 - 旧安装已可恢复地保存在：
-  `/private/tmp/AI Token Meter-pre-quantum-dial-20260902-103220.app`。
+  `/private/tmp/AI Token Meter-pre-main-rebuild-20260902-1042.app`；更早的功能候选前备份仍位于 `/private/tmp/AI Token Meter-pre-quantum-dial-20260902-103220.app`。
 
 已安装应用成功启动并完成真实刷新。Computer Use 辅助功能状态读取到 Claude 0%、Codex 35%、DeepSeek ¥76.91；因此运行时最高比例为 35%，与 `MenuBarSummary` 驱动 Quantum Dial 和精确文字的同源逻辑一致。浮动条三项按钮和移动控制保持可用。
 
