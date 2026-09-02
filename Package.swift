@@ -11,10 +11,18 @@ let package = Package(
         .executable(name: "AIMeterWidgetExtension", targets: ["AIMeterWidgetExtension"]),
     ],
     targets: [
+        .binaryTarget(
+            name: "Sparkle",
+            url: "https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-for-Swift-Package-Manager.zip",
+            checksum: "cb6fdbdc8884f15d62a616e79face92b08322410fd2d425edc6596ccbf4ba3b0"
+        ),
         .target(name: "AIMeterCore"),
         .executableTarget(
             name: "AIMeterApp",
-            dependencies: ["AIMeterCore"],
+            dependencies: [
+                "AIMeterCore",
+                "Sparkle",
+            ],
             exclude: [
                 "Resources/Info.plist",
                 "Resources/AIMeterApp.entitlements",

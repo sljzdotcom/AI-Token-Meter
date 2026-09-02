@@ -29,7 +29,7 @@
 
 ### 修改
 
-- `Package.swift`、`Package.resolved`：精确锁定 Sparkle `2.9.4`，只让主 App target 依赖它。
+- `Package.swift`：以官方 Release URL 和官方 SHA-256 直接声明 Sparkle `2.9.4` binary target，只让主 App target 依赖它；避免 Git 协议不可用时无法解析仅含二进制产物的上游包。
 - `Sources/AIMeterApp/AIMeterApp.swift`、`AppDelegate.swift`：创建并向 Settings 注入唯一 coordinator；应用终止时结束更新状态。
 - `Sources/AIMeterApp/Views/SettingsView.swift`、`AboutSettingsView.swift`：接入 Software Update 卡片。
 - `Sources/AIMeterApp/Resources/Info.plist`：升级 `0.2.0 (4)`，写入 feed、公钥并明确禁用自动检查/自动安装。
@@ -41,7 +41,6 @@
 
 **文件：**
 - 修改：`Package.swift`
-- 生成：`Package.resolved`
 - 创建：`Sources/AIMeterApp/SoftwareUpdate/SoftwareUpdateState.swift`
 - 创建：`Tests/AIMeterAppTests/SoftwareUpdateStateTests.swift`
 
@@ -113,21 +112,23 @@ enum SoftwareUpdateState: Equatable, Sendable {
 
 - [ ] **步骤 4：精确锁定 Sparkle 2.9.4**
 
-在 `Package.swift` 增加：
+在 `Package.swift` 增加官方二进制 target：
 
 ```swift
-dependencies: [
-    .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.4"),
-],
+.binaryTarget(
+    name: "Sparkle",
+    url: "https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-for-Swift-Package-Manager.zip",
+    checksum: "cb6fdbdc8884f15d62a616e79face92b08322410fd2d425edc6596ccbf4ba3b0"
+),
 ```
 
 并仅在 `AIMeterApp` 增加：
 
 ```swift
-.product(name: "Sparkle", package: "Sparkle")
+"Sparkle"
 ```
 
-运行 `swift package resolve`，检查 `Package.resolved` 的 Sparkle revision 与 `2.9.4` tag 对应，不使用 `branch` 或范围依赖。
+SwiftPM 必须验证下载产物与固定 SHA-256 一致；不使用 `branch`、范围依赖或仓库内 vendored framework。官方 Git 仓库在当前主机发生持续 TLS 握手失败，因此选用同一 `2.9.4` Release 的直接 binary target；此变化不改变版本、来源或安全边界。
 
 - [ ] **步骤 5：运行状态测试和完整编译**
 
@@ -138,7 +139,7 @@ dependencies: [
 - [ ] **步骤 6：提交检查点**
 
 ```bash
-git add Package.swift Package.resolved Sources/AIMeterApp/SoftwareUpdate Tests/AIMeterAppTests/SoftwareUpdateStateTests.swift
+git add Package.swift Sources/AIMeterApp/SoftwareUpdate Tests/AIMeterAppTests/SoftwareUpdateStateTests.swift docs/design/implementation-plans/2026-09-02-github-app-update.md
 git commit -m "feat: add software update state model"
 ```
 
