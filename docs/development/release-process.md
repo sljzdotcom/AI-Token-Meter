@@ -20,6 +20,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] `bash scripts/build-app.sh` 完成 release 构建；
 - [ ] 若发布 Widget，`AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 与 `scripts/verify-widget-bundle.sh` 通过；
 - [ ] `git diff --check` 无错误。
+- [ ] `scripts/check-docs.sh` 无断链、版本或目录治理错误。
 
 ### 文档
 
@@ -28,6 +29,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] 架构、目录与隐私文档已更新；
 - [ ] `CHANGELOG.md` 把 `Unreleased` 内容移入新版本；
 - [ ] `docs/development/commit-history.md` 已记录发布节点；
+- [ ] `docs/project-status.md` 的版本、验证和未完成事项已更新；
 - [ ] 所有 Markdown 相对链接有效。
 
 ### 版本元数据

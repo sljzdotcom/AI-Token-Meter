@@ -4,9 +4,9 @@
 
 **分支：** `codex/desktop-only-floating-strip`
 
-**规格：** [`docs/superpowers/specs/2026-09-01-settings-font-isolation-and-content-size-step-design.md`](../superpowers/specs/2026-09-01-settings-font-isolation-and-content-size-step-design.md)
+**规格：** [`docs/design/specifications/2026-09-01-settings-font-isolation-and-content-size-step-design.md`](../design/specifications/2026-09-01-settings-font-isolation-and-content-size-step-design.md)
 
-**计划：** [`docs/superpowers/plans/2026-09-01-settings-font-isolation-and-content-size-step.md`](../superpowers/plans/2026-09-01-settings-font-isolation-and-content-size-step.md)
+**计划：** [`docs/design/implementation-plans/2026-09-01-settings-font-isolation-and-content-size-step.md`](../design/implementation-plans/2026-09-01-settings-font-isolation-and-content-size-step.md)
 
 ## 1. 交付节点
 

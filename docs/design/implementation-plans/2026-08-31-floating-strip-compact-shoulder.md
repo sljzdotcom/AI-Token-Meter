@@ -238,7 +238,7 @@ git diff --check
 运行：
 
 ```bash
-git add CHANGELOG.md docs/design/specifications/2026-08-31-floating-strip-compact-shoulder-design.md docs/development/2026-08-31-floating-strip-compact-shoulder.md docs/superpowers/plans/2026-08-31-floating-strip-compact-shoulder.md
+git add CHANGELOG.md docs/design/specifications/2026-08-31-floating-strip-compact-shoulder-design.md docs/development/2026-08-31-floating-strip-compact-shoulder.md docs/design/implementation-plans/2026-08-31-floating-strip-compact-shoulder.md
 git commit -m "docs: record compact shoulder acceptance"
 git status --short --branch
 ```

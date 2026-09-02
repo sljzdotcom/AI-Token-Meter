@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **305 个测试、60 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **308 个测试、61 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
@@ -109,10 +109,11 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 ## 文档和差异检查
 
 ```bash
+scripts/check-docs.sh
 git diff --check
 ```
 
-发布前还应验证所有 Markdown 相对链接存在、README 版本号与 `Info.plist` 一致、示例命令可从仓库根目录执行。
+`scripts/test.sh` 在 Swift 测试通过后自动调用同一个文档检查器。它验证 Markdown 相对链接、README 与 `Info.plist` 版本、README 与本页测试基线、必备维护文档，以及旧需求/设计目录不会复发。
 
 ## 手工界面验收
 

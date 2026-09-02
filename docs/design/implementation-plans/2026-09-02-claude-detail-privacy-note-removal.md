@@ -15,7 +15,7 @@
 - `Sources/AIMeterApp/Views/ClaudeDetailView.swift`：删除本机活动区域底部的隐私 `Label`。
 - `Tests/AIMeterAppTests/ClaudeDetailPresentationTests.swift`：先证明旧说明仍存在，再锁定说明文字和锁形图标不得回归。
 - `CHANGELOG.md`、`docs/user-guide/providers.md`：同步当前可见行为。
-- `docs/superpowers/specs/2026-09-02-claude-detail-card-removal-design.md`、`docs/development/2026-09-02-claude-detail-card-removal.md`：记录后续展示变更，不重写原始验收事实。
+- `docs/design/specifications/2026-09-02-claude-detail-card-removal-design.md`、`docs/development/2026-09-02-claude-detail-card-removal.md`：记录后续展示变更，不重写原始验收事实。
 - `docs/development/2026-09-02-claude-detail-privacy-note-removal.md`、文档索引、提交历史与需求台账：记录本阶段证据。
 
 ### 任务 1：测试驱动移除隐私说明
@@ -98,7 +98,7 @@ git commit -m "feat: remove Claude detail privacy note"
 
 - 修改：`CHANGELOG.md`
 - 修改：`docs/user-guide/providers.md`
-- 修改：`docs/superpowers/specs/2026-09-02-claude-detail-card-removal-design.md`
+- 修改：`docs/design/specifications/2026-09-02-claude-detail-card-removal-design.md`
 - 修改：`docs/development/2026-09-02-claude-detail-card-removal.md`
 - 创建：`docs/development/2026-09-02-claude-detail-privacy-note-removal.md`
 - 修改：`docs/development/README.md`

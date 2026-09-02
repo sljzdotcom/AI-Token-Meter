@@ -11,12 +11,14 @@
 
 ## 开发流程
 
-1. 从最新主分支创建短生命周期分支，推荐 `codex/<topic>`。
-2. 为新行为或修复先增加能够失败的测试。
-3. 做满足需求的最小实现，避免顺手重构无关模块。
-4. 更新相关 README、用户指南、架构文档和 `CHANGELOG.md`。
-5. 运行完整测试和差异检查。
-6. 在 Pull Request 中说明数据来源、隐私影响、测试证据和已知限制。
+1. 先在 [`docs/requirements-backlog.md`](docs/requirements-backlog.md) 登记需求、缺陷或反馈。
+2. 从最新主分支创建短生命周期分支，推荐 `codex/<topic>`。
+3. 为新行为或修复先增加能够失败的测试。
+4. 做满足需求的最小实现，避免顺手重构无关模块。
+5. 更新相关 README、用户指南、架构文档和 `CHANGELOG.md`。
+6. 运行完整测试和差异检查。
+7. 回填需求状态、开发日志与 Git 证据。
+8. 在 Pull Request 中说明数据来源、隐私影响、测试证据和已知限制。
 
 ## 提交信息
 
@@ -40,6 +42,7 @@ release: package AI Token Meter v0.2.0
 
 ```bash
 bash scripts/test.sh
+scripts/check-docs.sh
 git diff --check
 ```
 

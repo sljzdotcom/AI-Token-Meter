@@ -10,7 +10,7 @@
 
 **技术栈：** Swift 6、AppKit `NSPanel`/`NSWorkspace`、SwiftUI、Swift Testing、`ImageRenderer`、Swift Package Manager、macOS Computer Use、Release App Bundle 与 ad-hoc 签名。
 
-**设计规格：** `docs/superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md`
+**设计规格：** `docs/design/specifications/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md`
 
 ---
 
@@ -461,8 +461,8 @@ git commit -m "fix: crop strip background across both shoulders"
 - 创建：`docs/development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md`
 - 修改：`docs/development/README.md`
 - 修改：`docs/next-phase-requirements.md`
-- 修改：`docs/superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md`
-- 修改：`docs/superpowers/plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md`
+- 修改：`docs/design/specifications/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md`
+- 修改：`docs/design/implementation-plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md`
 
 - [x] **步骤 1：运行完整测试并记录精确结果**
 
@@ -524,7 +524,7 @@ codesign --verify --deep --strict build/AI\ Meter.app
 - [x] **步骤 6：提交文档与验收证据**
 
 ```bash
-git add README.md CHANGELOG.md docs/user-guide/settings.md docs/user-guide/troubleshooting.md docs/development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md docs/development/README.md docs/next-phase-requirements.md docs/superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md docs/superpowers/plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md
+git add README.md CHANGELOG.md docs/user-guide/settings.md docs/user-guide/troubleshooting.md docs/development/2026-09-01-floating-strip-desktop-layer-and-background-crop.md docs/development/README.md docs/next-phase-requirements.md docs/design/specifications/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md docs/design/implementation-plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md
 git commit -m "docs: record desktop-only strip behavior"
 ```
 

@@ -622,8 +622,8 @@ git commit -m "feat: add immediate display font controls"
 - 修改：`docs/user-guide/settings.md`
 - 创建：`docs/development/2026-08-31-display-font-selection.md`
 - 修改：`docs/development/README.md`
-- 修改：`docs/superpowers/specs/2026-08-31-display-font-selection-design.md`
-- 修改：`docs/superpowers/plans/2026-08-31-display-font-selection.md`
+- 修改：`docs/design/specifications/2026-08-31-display-font-selection-design.md`
+- 修改：`docs/design/implementation-plans/2026-08-31-display-font-selection.md`
 
 - [x] **步骤 1：运行完整自动化测试**
 
@@ -690,8 +690,8 @@ Computer Use 可以控制 Settings 和 Provider 开关，但其窗口级截图�
 git add README.md CHANGELOG.md docs/user-guide/settings.md \
   docs/development/README.md \
   docs/development/2026-08-31-display-font-selection.md \
-  docs/superpowers/specs/2026-08-31-display-font-selection-design.md \
-  docs/superpowers/plans/2026-08-31-display-font-selection.md
+  docs/design/specifications/2026-08-31-display-font-selection-design.md \
+  docs/design/implementation-plans/2026-08-31-display-font-selection.md
 git commit -m "docs: record display font selection acceptance"
 ```
 

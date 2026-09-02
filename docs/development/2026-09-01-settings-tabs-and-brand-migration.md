@@ -3,8 +3,8 @@
 **日期：** 2026-09-01
 **分支：** `codex/settings-tabs-brand-migration`
 **状态：** 已完成并合入 `main`
-**规格：** [`docs/superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md`](../superpowers/specs/2026-09-01-settings-tabs-and-brand-migration-design.md)
-**计划：** [`docs/superpowers/plans/2026-09-01-settings-tabs-and-brand-migration.md`](../superpowers/plans/2026-09-01-settings-tabs-and-brand-migration.md)
+**规格：** [`docs/design/specifications/2026-09-01-settings-tabs-and-brand-migration-design.md`](../design/specifications/2026-09-01-settings-tabs-and-brand-migration-design.md)
+**计划：** [`docs/design/implementation-plans/2026-09-01-settings-tabs-and-brand-migration.md`](../design/implementation-plans/2026-09-01-settings-tabs-and-brand-migration.md)
 
 ## 目标
 

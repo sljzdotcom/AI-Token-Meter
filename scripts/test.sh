@@ -17,3 +17,4 @@ swift test \
     --scratch-path "$TEST_BUILD_DIR/build" \
     "$@"
 
+"$PROJECT_DIR/scripts/check-docs.sh"

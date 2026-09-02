@@ -4,9 +4,9 @@
 
 **分支：** `codex/desktop-only-floating-strip`
 
-**设计：** [桌面层与肩部背景连续性规格](../superpowers/specs/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)
+**设计：** [桌面层与肩部背景连续性规格](../design/specifications/2026-09-01-floating-strip-desktop-layer-and-background-crop-design.md)
 
-**计划：** [桌面层与背景裁切实现计划](../superpowers/plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)
+**计划：** [桌面层与背景裁切实现计划](../design/implementation-plans/2026-09-01-floating-strip-desktop-layer-and-background-crop.md)
 
 **状态：** 实现、自动化验证、Release 构建、候选安装和部分本机验收完成；系统整屏截图已证明普通/全屏 Edge 不被浮动条或详情覆盖。Mission Control、左右两个普通 Space、真实指针拖动和多显示器仍需人工环境补验。本阶段不合并 `main`。
 

@@ -3,7 +3,7 @@
 日期：2026-08-31  
 分支：`codex/compact-shoulder`  
 规格：`docs/design/specifications/2026-08-31-floating-strip-compact-shoulder-design.md`  
-计划：`docs/superpowers/plans/2026-08-31-floating-strip-compact-shoulder.md`
+计划：`docs/design/implementation-plans/2026-08-31-floating-strip-compact-shoulder.md`
 
 ## 问题与根因
 

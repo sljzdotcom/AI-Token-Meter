@@ -98,7 +98,7 @@ git commit -m "feat: simplify Claude detail activity cards"
 - 修改：`README.md`
 - 修改：`CHANGELOG.md`
 - 修改：`docs/user-guide/providers.md`
-- 修改：`docs/superpowers/specs/2026-09-01-claude-detail-local-activity-design.md`
+- 修改：`docs/design/specifications/2026-09-01-claude-detail-local-activity-design.md`
 - 修改：`docs/development/2026-09-01-claude-detail-local-activity.md`
 - 新增：`docs/development/2026-09-02-claude-detail-card-removal.md`
 - 修改：`docs/development/README.md`

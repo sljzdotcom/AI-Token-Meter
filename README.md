@@ -3,7 +3,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2ea44f)
-![Tests 305](https://img.shields.io/badge/tests-305%20passed-2ea44f)
+![Tests 308](https://img.shields.io/badge/tests-308%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
@@ -131,19 +131,23 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 ## 文档
 
 - [文档总览](docs/README.md)
+- [当前项目状态](docs/project-status.md)
 - [待完成需求与需求历史](docs/requirements-backlog.md)
 - [安装与首次使用](docs/user-guide/getting-started.md)
 - [服务与指标说明](docs/user-guide/providers.md)
 - [设置参考](docs/user-guide/settings.md)
 - [故障排查](docs/user-guide/troubleshooting.md)
 - [架构概览](docs/architecture/overview.md)
+- [架构决策记录](docs/architecture/decisions.md)
 - [代码库结构](docs/architecture/repository-structure.md)
 - [隐私与安全](docs/security-and-privacy.md)
 - [开发环境](docs/development/setup.md)
 - [测试指南](docs/development/testing.md)
 - [发布流程](docs/development/release-process.md)
+- [维护手册](docs/development/maintenance-playbook.md)
 - [提交历史](docs/development/commit-history.md)
 - [开发日志](docs/development/README.md)
+- [2026-09-02 全项目复盘](docs/development/2026-09-02-project-retrospective.md)
 - [版本变更](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
 
