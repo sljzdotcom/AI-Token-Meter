@@ -22,14 +22,14 @@
 | [架构概览](architecture/overview.md) | 数据流、模块边界、刷新和降级机制 |
 | [代码库结构](architecture/repository-structure.md) | 每个顶层目录与核心源码目录的职责 |
 | [隐私与安全](security-and-privacy.md) | 凭证、WebKit 会话、缓存、日志和网络边界 |
-| [菜单栏 Quantum Dial 图标设计](superpowers/specs/2026-09-02-menu-bar-quantum-dial-design.md) | 动态菜单栏图标的视觉构成、数据映射、系统适配和验收边界 |
-| [Provider 用户可见名称统一设计](superpowers/specs/2026-09-02-provider-visible-name-standardization-design.md) | Claude Code、OpenAI Codex 当前名称及兼容边界 |
+| [菜单栏 Quantum Dial 图标设计](design/specifications/2026-09-02-menu-bar-quantum-dial-design.md) | 动态菜单栏图标的视觉构成、数据映射、系统适配和验收边界 |
+| [Provider 用户可见名称统一设计](design/specifications/2026-09-02-provider-visible-name-standardization-design.md) | Claude Code、OpenAI Codex 当前名称及兼容边界 |
 
 ## 开发与维护
 
 | 文档 | 内容 |
 | --- | --- |
-| [下一阶段需求](next-phase-requirements.md) | 已登记但尚未进入设计与实现的新功能、产品调整与待确认事项 |
+| [待完成需求与需求历史](requirements-backlog.md) | 唯一需求队列、状态、阻塞和交付证据 |
 | [开发环境](development/setup.md) | 工具链、运行、Demo 模式和编码约定 |
 | [测试指南](development/testing.md) | 普通测试、真实 CLI 冒烟测试、打包验证 |
 | [发布流程](development/release-process.md) | 版本号、变更日志、构建、签名和发布检查清单 |

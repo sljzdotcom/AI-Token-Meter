@@ -402,7 +402,7 @@ plutil -lint "dist/AI Meter.app/Contents/Info.plist"
 - [x] **步骤 4：提交文档与发布候选检查点**
 
 ```bash
-git add CHANGELOG.md docs/development/2026-08-31-floating-strip-visual-polish.md docs/design/specifications/2026-08-31-floating-strip-corner-shadow-design.md docs/superpowers/plans/2026-08-31-floating-strip-visual-polish.md
+git add CHANGELOG.md docs/development/2026-08-31-floating-strip-visual-polish.md docs/design/specifications/2026-08-31-floating-strip-corner-shadow-design.md docs/design/implementation-plans/2026-08-31-floating-strip-visual-polish.md
 git commit -m "docs: record floating strip visual polish"
 ```
 

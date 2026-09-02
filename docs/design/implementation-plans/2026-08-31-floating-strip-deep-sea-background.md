@@ -20,7 +20,7 @@
 - 修改：`README.md` — 补充浮动条深海波纹背景说明。
 - 修改：`CHANGELOG.md` — 记录视觉改进。
 - 创建：`docs/development/2026-08-31-floating-strip-deep-sea-background.md` — 记录实现、测试、构建、安装与实机验收。
-- 修改：`docs/superpowers/specs/2026-08-31-floating-strip-deep-sea-background-design.md` — 实施后更新状态和验收摘要。
+- 修改：`docs/design/specifications/2026-08-31-floating-strip-deep-sea-background-design.md` — 实施后更新状态和验收摘要。
 
 ### 任务 1：生成并可靠打包深海波纹资源
 
@@ -272,7 +272,7 @@ git commit -m "feat: render mirrored deep sea strip background"
 - 修改：`README.md`
 - 修改：`CHANGELOG.md`
 - 创建：`docs/development/2026-08-31-floating-strip-deep-sea-background.md`
-- 修改：`docs/superpowers/specs/2026-08-31-floating-strip-deep-sea-background-design.md`
+- 修改：`docs/design/specifications/2026-08-31-floating-strip-deep-sea-background-design.md`
 
 - [x] **步骤 1：运行完整自动化测试**
 
@@ -332,8 +332,8 @@ shasum -a 256 "dist/AI Meter.app/Contents/MacOS/AIMeterApp"
 ```bash
 git add README.md CHANGELOG.md \
   docs/development/2026-08-31-floating-strip-deep-sea-background.md \
-  docs/superpowers/specs/2026-08-31-floating-strip-deep-sea-background-design.md \
-  docs/superpowers/plans/2026-08-31-floating-strip-deep-sea-background.md
+  docs/design/specifications/2026-08-31-floating-strip-deep-sea-background-design.md \
+  docs/design/implementation-plans/2026-08-31-floating-strip-deep-sea-background.md
 git commit -m "docs: record deep sea strip background acceptance"
 ```
 

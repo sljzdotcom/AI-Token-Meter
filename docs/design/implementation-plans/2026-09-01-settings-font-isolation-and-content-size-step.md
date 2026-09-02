@@ -22,8 +22,8 @@
 - 修改：`README.md` — 说明字体选择的作用范围和 Settings 固定字体。
 - 修改：`CHANGELOG.md` — 记录 Settings 字体隔离与内容字号提升。
 - 修改：`docs/user-guide/settings.md` — 更新字体选项、无预览和 Settings 不随选择变化的说明。
-- 修改：`docs/superpowers/specs/2026-08-31-display-font-selection-design.md` — 标记被新规格覆盖的 Settings 条款。
-- 修改：`docs/superpowers/specs/2026-09-01-settings-font-isolation-and-content-size-step-design.md` — 回填实施与验收状态。
+- 修改：`docs/design/specifications/2026-08-31-display-font-selection-design.md` — 标记被新规格覆盖的 Settings 条款。
+- 修改：`docs/design/specifications/2026-09-01-settings-font-isolation-and-content-size-step-design.md` — 回填实施与验收状态。
 - 创建：`docs/development/2026-09-01-settings-font-isolation-and-content-size-step.md` — 记录 TDD、构建、安装和实机验收证据。
 - 修改：`docs/development/README.md` — 索引本次开发日志。
 
@@ -391,11 +391,11 @@ git commit -m "feat: enlarge content fonts outside settings"
 - 修改：`README.md`
 - 修改：`CHANGELOG.md`
 - 修改：`docs/user-guide/settings.md`
-- 修改：`docs/superpowers/specs/2026-08-31-display-font-selection-design.md`
-- 修改：`docs/superpowers/specs/2026-09-01-settings-font-isolation-and-content-size-step-design.md`
+- 修改：`docs/design/specifications/2026-08-31-display-font-selection-design.md`
+- 修改：`docs/design/specifications/2026-09-01-settings-font-isolation-and-content-size-step-design.md`
 - 创建：`docs/development/2026-09-01-settings-font-isolation-and-content-size-step.md`
 - 修改：`docs/development/README.md`
-- 修改：`docs/superpowers/plans/2026-09-01-settings-font-isolation-and-content-size-step.md`
+- 修改：`docs/design/implementation-plans/2026-09-01-settings-font-isolation-and-content-size-step.md`
 
 - [x] **步骤 1：更新用户文档和历史规格**
 
@@ -501,9 +501,9 @@ git status --short
 
 ```bash
 git add README.md CHANGELOG.md docs/user-guide/settings.md \
-  docs/superpowers/specs/2026-08-31-display-font-selection-design.md \
-  docs/superpowers/specs/2026-09-01-settings-font-isolation-and-content-size-step-design.md \
-  docs/superpowers/plans/2026-09-01-settings-font-isolation-and-content-size-step.md \
+  docs/design/specifications/2026-08-31-display-font-selection-design.md \
+  docs/design/specifications/2026-09-01-settings-font-isolation-and-content-size-step-design.md \
+  docs/design/implementation-plans/2026-09-01-settings-font-isolation-and-content-size-step.md \
   docs/development/2026-09-01-settings-font-isolation-and-content-size-step.md \
   docs/development/README.md
 git commit -m "docs: record font scope acceptance"

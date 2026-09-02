@@ -31,7 +31,7 @@
 
 ### 任务 2：统一设计资料与需求入口
 
-- [ ] 将 `docs/superpowers/specs/*.md` 移到 `docs/design/specifications/`，将 `docs/superpowers/plans/*.md` 移到 `docs/design/implementation-plans/`。
+- [ ] 将 `docs/design/specifications/*.md` 移到 `docs/design/specifications/`，将 `docs/design/implementation-plans/*.md` 移到 `docs/design/implementation-plans/`。
 - [ ] 把所有现行链接更新到新路径，并扫描确认仓库中除历史叙述外不存在有效的旧目录引用。
 - [ ] 删除 `docs/next-phase-requirements.md`，把仍有效的 Widget、桌面环境验收、签名和发布限制保留在需求台账与状态页。
 - [ ] 删除两个无引用 `.superpowers/sdd` 报告，确认其中独有的测试和验收事实已存在正式开发日志。

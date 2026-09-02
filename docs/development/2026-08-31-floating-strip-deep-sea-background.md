@@ -2,9 +2,9 @@
 
 日期：2026-08-31
 
-规格：`docs/superpowers/specs/2026-08-31-floating-strip-deep-sea-background-design.md`
+规格：`docs/design/specifications/2026-08-31-floating-strip-deep-sea-background-design.md`
 
-计划：`docs/superpowers/plans/2026-08-31-floating-strip-deep-sea-background.md`
+计划：`docs/design/implementation-plans/2026-08-31-floating-strip-deep-sea-background.md`
 
 ## 目标与范围
 
