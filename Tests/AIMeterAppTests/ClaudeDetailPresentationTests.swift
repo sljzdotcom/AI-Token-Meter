@@ -82,7 +82,22 @@ struct ClaudeDetailPresentationTests {
         #expect(source.contains("localStat(title: \"Tokens\""))
         #expect(source.contains("activityChart(summary)"))
         #expect(source.contains("localActivityEmptyState"))
-        #expect(source.contains("Conversation content stays private."))
+        #expect(source.contains("Text(\"Updated "))
+    }
+
+    @Test("Claude detail omits the local privacy note")
+    func privacyNoteStaysAbsent() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(contentsOf: projectRoot.appending(
+            path: "Sources/AIMeterApp/Views/ClaudeDetailView.swift"
+        ))
+
+        #expect(!source.contains("Only aggregate timestamps, token counts, session IDs and model IDs are read."))
+        #expect(!source.contains("systemImage: \"lock.shield\""))
+        #expect(source.contains("activityChart(summary)"))
         #expect(source.contains("Text(\"Updated "))
     }
 

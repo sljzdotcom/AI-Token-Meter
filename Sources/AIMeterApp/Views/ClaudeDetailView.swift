@@ -144,12 +144,6 @@ struct ClaudeDetailView: View {
                 } else {
                     localActivityEmptyState
                 }
-                Label(
-                    "Only aggregate timestamps, token counts, session IDs and model IDs are read. Conversation content stays private.",
-                    systemImage: "lock.shield"
-                )
-                .aiMeterFont(.caption2)
-                .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             } else {
                 VStack(alignment: .leading, spacing: 7) {
                     Label("Local activity unavailable", systemImage: "chart.bar.xaxis")
