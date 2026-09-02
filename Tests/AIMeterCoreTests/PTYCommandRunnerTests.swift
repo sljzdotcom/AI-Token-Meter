@@ -152,6 +152,31 @@ struct PTYCommandRunnerTests {
         #expect(result.output.contains("delayed-tail-output"))
     }
 
+    @Test("Concurrent terminal commands do not lose their output")
+    func concurrentCommandsPreserveOutput() async throws {
+        let outputs = try await withThrowingTaskGroup(of: String.self) { group in
+            for index in 0..<32 {
+                group.addTask {
+                    let result = try await PTYCommandRunner().run(CommandRequest(
+                        executableURL: fixtureExecutable,
+                        inputLines: ["identity"],
+                        timeout: 3
+                    ))
+                    return "\(index):\(result.output)"
+                }
+            }
+
+            var collected: [String] = []
+            for try await output in group {
+                collected.append(output)
+            }
+            return collected
+        }
+
+        #expect(outputs.count == 32)
+        #expect(outputs.allSatisfy { $0.contains("user:\(NSUserName())") })
+    }
+
     private var fixtureExecutable: URL {
         Bundle.module.url(forResource: "fake-interactive-cli", withExtension: "sh")!
     }

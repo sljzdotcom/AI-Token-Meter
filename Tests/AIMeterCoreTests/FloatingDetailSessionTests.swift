@@ -68,36 +68,49 @@ struct FloatingDetailSessionTests {
 
     @Test("Paused detail does not auto-hide until resumed")
     @MainActor
-    func pauseAndResume() async throws {
-        let session = FloatingDetailSession()
-        session.present(.deepSeek, autoHideAfter: .milliseconds(30))
+    func pauseAndResume() async {
+        let sleeper = ControlledAutoHideSleeper()
+        let session = FloatingDetailSession { duration in
+            try await sleeper.sleep(for: duration)
+        }
+        session.present(.deepSeek, autoHideAfter: .seconds(30))
+        #expect(await eventually { await sleeper.startCount == 1 })
+
         session.setAutoHidePaused(true)
-        try await Task.sleep(for: .milliseconds(50))
         #expect(session.selectedProvider == .deepSeek)
-        session.setAutoHidePaused(false, restartAfter: .milliseconds(20))
-        try await Task.sleep(for: .milliseconds(40))
-        #expect(session.selectedProvider == nil)
+        session.setAutoHidePaused(false, restartAfter: .seconds(30))
+        #expect(await eventually { await sleeper.startCount == 2 })
+
+        await sleeper.resumeLatest()
+        #expect(await eventually { session.selectedProvider == nil })
+        await sleeper.resumeAll()
     }
 
     @Test("Keyboard or accessibility focus keeps a detail open")
     @MainActor
-    func focusedInteractionPausesAutoHide() async throws {
-        let session = FloatingDetailSession()
+    func focusedInteractionPausesAutoHide() async {
+        let sleeper = ControlledAutoHideSleeper()
+        let session = FloatingDetailSession { duration in
+            try await sleeper.sleep(for: duration)
+        }
         var interaction = FloatingDetailInteractionState()
-        session.present(.codex, autoHideAfter: .milliseconds(25))
+        session.present(.codex, autoHideAfter: .seconds(30))
+        #expect(await eventually { await sleeper.startCount == 1 })
 
         interaction.hasFocusedControl = true
         session.setAutoHidePaused(interaction.shouldPauseAutoHide)
-        try await Task.sleep(for: .milliseconds(40))
         #expect(session.selectedProvider == .codex)
 
         interaction.hasFocusedControl = false
         session.setAutoHidePaused(
             interaction.shouldPauseAutoHide,
-            restartAfter: .milliseconds(15)
+            restartAfter: .seconds(30)
         )
-        try await Task.sleep(for: .milliseconds(30))
-        #expect(session.selectedProvider == nil)
+        #expect(await eventually { await sleeper.startCount == 2 })
+
+        await sleeper.resumeLatest()
+        #expect(await eventually { session.selectedProvider == nil })
+        await sleeper.resumeAll()
     }
 
     @Test("Pointer, focused control, and embedded content combine without cancelling each other")
@@ -262,8 +275,32 @@ private actor AutoHideSleepProbe {
     }
 }
 
+private actor ControlledAutoHideSleeper {
+    private(set) var startCount = 0
+    private var pending: [CheckedContinuation<Void, Never>] = []
+
+    func sleep(for _: Duration) async throws {
+        startCount += 1
+        await withCheckedContinuation { continuation in
+            pending.append(continuation)
+        }
+        try Task.checkCancellation()
+    }
+
+    func resumeLatest() {
+        pending.popLast()?.resume()
+    }
+
+    func resumeAll() {
+        let continuations = pending
+        pending.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+}
+
+@MainActor
 private func eventually(
-    _ condition: @escaping @Sendable () async -> Bool
+    _ condition: @escaping @MainActor @Sendable () async -> Bool
 ) async -> Bool {
     let deadline = ContinuousClock.now.advanced(by: .seconds(1))
     while ContinuousClock.now < deadline {

@@ -181,33 +181,42 @@ public struct PTYCommandRunner: CommandRunning {
 }
 
 final class ProcessTerminationWaiter: @unchecked Sendable {
-    private let group = DispatchGroup()
     private let lock = NSLock()
+    private let blockingSignal = DispatchSemaphore(value: 0)
     private var exitCode: Int32?
-
-    init() {
-        group.enter()
-    }
+    private var continuation: CheckedContinuation<Int32, Never>?
 
     func attach(to process: Process) {
         process.terminationHandler = { [self] process in
-            let shouldSignal = lock.withLock {
-                guard exitCode == nil else { return false }
+            let continuationToResume = lock.withLock {
+                guard exitCode == nil else { return nil as CheckedContinuation<Int32, Never>? }
                 exitCode = process.terminationStatus
-                return true
+                defer { continuation = nil }
+                return continuation
             }
-            if shouldSignal { group.leave() }
+            blockingSignal.signal()
+            continuationToResume?.resume(returning: process.terminationStatus)
         }
     }
 
     func value() async -> Int32 {
-        await Task.detached(priority: .utility) { [self] in
-            wait()
-        }.value
+        await withCheckedContinuation { pendingContinuation in
+            let completedExitCode: Int32? = lock.withLock {
+                if let exitCode { return exitCode }
+                continuation = pendingContinuation
+                return nil
+            }
+            if let completedExitCode {
+                pendingContinuation.resume(returning: completedExitCode)
+            }
+        }
     }
 
     func wait() -> Int32 {
-        group.wait()
+        if let completedExitCode = lock.withLock({ exitCode }) {
+            return completedExitCode
+        }
+        blockingSignal.wait()
         return lock.withLock { exitCode ?? -1 }
     }
 }

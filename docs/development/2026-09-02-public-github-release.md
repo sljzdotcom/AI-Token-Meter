@@ -32,7 +32,7 @@
 
 ## 测试与本地发布证据
 
-- 自动化：**330 个测试、67 个测试组、0 失败**；
+- 自动化：**331 个测试、67 个测试组、0 失败**；
 - 文档门禁：114 份 Markdown 通过断链、版本、测试基线和公开文件检查；
 - 工具：GitHub CLI `2.99.0`，Gitleaks `8.30.1`，git-filter-repo `2.47.0`；
 - Release 构建：`AI_METER_INCLUDE_WIDGET=0`；
@@ -50,6 +50,8 @@
 - 首次 CI 依次暴露并保留了跨工具链类型推断、严格并发、Xcode 版本和共享 runner 时序假设的问题；修复检查点为 `84e81f2`、`f1a0cc4`、`dc9f552`、`fe44847`、`e742f35`；
 - [GitHub Actions 33637095658](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658) 在 Xcode 26.3 上通过完整 Swift 测试、文档检查和公开发布安全门禁；
 - `e742f35` 用行为探针替代绝对耗时并发断言、用实际时间窗口等待异步启动，并为 PTY 父进程退出后的延迟尾部输出增加先失败后通过的回归测试；
+- 后续标签候选 [GitHub Actions 33637436534](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637436534) 再次暴露完整并行负载下的 PTY 输出丢失和两项真实时钟竞态；根因是 PTY 退出等待通过 detached task 同步阻塞 Swift 并发线程池，而非排空毫秒数不足；
+- 退出等待已改为 continuation 驱动的异步通知，同时保留同步 Codex app-server 清理入口；暂停/恢复自动隐藏测试改为手动控制睡眠事件，不再依赖共享 runner 的绝对时间；新增 32 路 PTY 并发输出回归，当前本机 331 项测试通过；
 - `v0.1.2` 标签、Release 资产和匿名下载校验完成后继续回填本节；在这些证据存在前，`REQ-20260902-017` 保持 `进行中`。
 
 ## 已知限制

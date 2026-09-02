@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **330 个测试、67 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **331 个测试、67 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
