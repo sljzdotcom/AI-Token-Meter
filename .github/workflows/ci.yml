@@ -14,11 +14,16 @@ jobs:
     name: Swift tests and public-release checks
     runs-on: macos-15
     timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - name: Check out complete history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Verify Swift toolchain
+        run: swift --version
       - name: Install secret scanner
         run: brew install gitleaks
       - name: Test and validate documentation
