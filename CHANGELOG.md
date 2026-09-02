@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-09-02
+
+### Added
+
+- OpenAI Codex 确实未安装时，Services 显示可操作的 OpenAI 官方 CLI 安装指南入口。
+
+### Fixed
+
+- 修复 Finder 启动的 AI Token Meter 无法发现通过 nvm 安装在 `~/.nvm/versions/node/*/bin` 中的 OpenAI Codex CLI，因而错误显示 `CLI not installed` 的问题。
+- 启动 Codex `app-server` 和登录脚本时把所选 CLI 的同目录放到 PATH 首位，使 `#!/usr/bin/env node` 能找到匹配的 Node 运行时。
+- 增加已安装 ChatGPT/Codex 桌面应用内置原生 `codex` 的安全后备路径，并保持用户显式 CLI 优先。
+
 ## 0.1.1 - 2026-09-02
 
 ### Added

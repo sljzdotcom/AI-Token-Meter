@@ -85,6 +85,7 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 - 按钮只会打开固定的官方命令 `claude auth login` 或 `codex login`；密码、浏览器授权和 MFA 仍由官方流程处理。
 - 打开登录后，应用每 3 秒检查一次，最长 2 分钟；也可随时点击 **Check Status**。重复点击同一服务会取消旧回查任务。
 - 账户信息读取失败时不会把“无法检查”误写成“已退出登录”，也不会影响已缓存的额度显示。
+- OpenAI Codex 显示 `CLI not installed` 时，登录按钮会替换为 **Open Install Guide**，只打开 OpenAI 官方安装说明；安装后点击 **Check Status**。AI Token Meter 会自动发现 nvm 等 Node 管理器目录和 ChatGPT/Codex App 内置二进制。
 
 ### Claude Code workspace setup
 

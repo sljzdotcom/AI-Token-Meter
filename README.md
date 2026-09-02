@@ -2,12 +2,12 @@
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
-![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-2ea44f)
-![Tests 312](https://img.shields.io/badge/tests-312%20passed-2ea44f)
+![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-2ea44f)
+![Tests 318](https://img.shields.io/badge/tests-318%20passed-2ea44f)
 
 AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
 
-> 项目状态：个人本地工具，当前应用版本为 `0.1.1`（build `2`）。待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+> 项目状态：个人本地工具，当前应用版本为 `0.1.2`（build `3`）。待发布改动统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 <p align="center">
   <img src="docs/assets/ai-meter-floating-strip.jpeg" width="108" alt="AI Token Meter 贴边浮岛，依次显示 Claude Code、OpenAI Codex 和 DeepSeek 图标及用量环">
@@ -24,6 +24,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 - 浮岛保持 macOS 桌面层，普通应用和全屏应用可自然覆盖；用户点击 Provider 后，临时详情会显示在普通应用窗口上方，关闭或自动隐藏后立即退出窗口栈。
 - Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
 - Services 始终显示 Claude Code、OpenAI Codex、DeepSeek 当前连接状态；Claude Code/OpenAI Codex 可一键打开官方 CLI 登录或重新登录，完成后自动回查。
+- OpenAI Codex 可从 Shell PATH、`~/.local/bin`、nvm/常见 Node 管理器或已安装 ChatGPT/Codex App 中自动发现；Finder 启动时也会为 Node 脚本补齐运行 PATH，确实缺失时提供官方安装指南。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio、DIN Condensed、Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi 之间即时切换；仅使用本机已安装字体，Settings 永远保持 macOS 系统字体。
 - Claude Code：读取当前会话与周额度，并在专用详情页补充本机最近 30 天的会话、活跃日、Token 总量和每日趋势；两种数据口径明确分区。
@@ -149,6 +150,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - [开发日志](docs/development/README.md)
 - [2026-09-02 全项目复盘](docs/development/2026-09-02-project-retrospective.md)
 - [0.1.1 跨 Mac 资源崩溃修复与分发包](docs/development/2026-09-02-portable-resource-crash-fix.md)
+- [0.1.2 Codex nvm 跨 Mac 发现修复与分发包](docs/development/2026-09-02-codex-cli-discovery.md)
 - [版本变更](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
 
@@ -167,7 +169,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前应用版本：`0.1.1`（build `2`）。
+- 当前应用版本：`0.1.2`（build `3`）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - 本仓库目前尚未声明开源许可证。源代码可见不等于获得复制、修改或再分发授权；在许可证确定前请勿擅自分发。

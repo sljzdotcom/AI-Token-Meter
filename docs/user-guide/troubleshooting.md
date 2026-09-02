@@ -27,10 +27,12 @@
 
 1. 打开 Settings > Services，点击 OpenAI Codex 的 **Check Status**。
 2. 显示 `Sign-in required` 时点击 **Sign in**；需要换账号时点击 **Sign in again**，在官方 Terminal 流程中完成登录。
-3. 显示 `CLI not installed` 或 app-server 不可用时，安装或升级 OpenAI Codex CLI。
+3. 显示 `CLI not installed` 时先完全退出并升级 AI Token Meter 至 `0.1.2` 或更高版本；该版本会自动发现 nvm、常见 Node 管理器和 ChatGPT/Codex App 内置 CLI。确实未安装时点击 **Open Install Guide**。
 4. 回到 AI Token Meter 手动刷新。
 
 AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式变化时会显示明确状态，不会回退到脆弱的终端截图识别。
+
+如果终端能运行 `codex`、Finder 启动的旧版应用却显示未安装，可用 `command -v codex` 核对。路径位于 `~/.nvm/versions/node/.../bin/codex` 表示是旧版定位器未覆盖 nvm，不需要重新安装 CLI；安装 `0.1.2` 后重新打开应用即可。新版还会把该目录置于子进程 PATH 首位，避免 `env: node: No such file or directory`。
 
 ### 百分比和官方客户端不同
 

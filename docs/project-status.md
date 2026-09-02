@@ -2,7 +2,7 @@
 
 - **事实快照：** 2026-09-02
 - **产品：** AI Token Meter
-- **应用版本：** `0.1.1`（build `2`）
+- **应用版本：** `0.1.2`（build `3`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
@@ -15,7 +15,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 
 | 能力 | Claude Code | OpenAI Codex | DeepSeek |
 | --- | --- | --- | --- |
-| 主要来源 | CLI `/usage` | CLI `app-server` JSON-RPC | 官方余额 API |
+| 主要来源 | CLI `/usage` | 自动发现的 CLI/桌面 App 内置 `app-server` JSON-RPC | 官方余额 API |
 | 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 |
 | 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 |
 | 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 |
@@ -52,7 +52,7 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 
 - Swift 6 / SwiftPM；无第三方 Package 依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 完整自动化基线：**312 项测试、63 个测试组**，另有环境门控的 Keychain 与真实 CLI 冒烟检查；
+- 完整自动化基线：**318 项测试、64 个测试组**，另有环境门控的 Keychain 与真实 CLI 冒烟检查；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证主应用资源位于可跨机器解析的标准目录；
 - 当前没有 Git remote、Git tag、公开 Release、CI、Developer ID 公证或许可证声明。

@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前 `Info.plist` 版本为 `0.1.1`、build `2`。仓库尚未创建 Git tag；在真正发布下一版本前，后续改动保留在 `CHANGELOG.md` 的 `Unreleased`。
+当前 `Info.plist` 版本为 `0.1.2`、build `3`。仓库尚未创建 Git tag；在真正发布下一版本前，后续改动保留在 `CHANGELOG.md` 的 `Unreleased`。
 
 ## 发布前检查清单
 

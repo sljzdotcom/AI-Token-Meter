@@ -55,6 +55,8 @@ Claude Code 详情页上方始终是官方额度，下方 **Last 30 days · This
 
 AI Token Meter 启动已安装的 OpenAI Codex CLI `app-server`，通过 JSON-RPC 调用 `account/rateLimits/read`，读取账户返回的结构化速率限制。
 
+定位器依次检查当前 PATH、用户级目录、常见 Node 管理器、Homebrew/系统目录，并以后备方式检查用户或系统 Applications 中 ChatGPT/Codex App 的内置 `codex`。nvm/npm 脚本启动时会把自身 `bin` 目录置于子进程 PATH 首位，使脚本使用相邻 Node 运行时；不会写死某个 Node 版本，也不会修改用户 Shell 配置。
+
 ### 数据口径
 
 - 优先展示顶层通用额度，不用模型专属窗口覆盖通用额度；

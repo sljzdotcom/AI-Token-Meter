@@ -86,6 +86,8 @@ AI Token Meter 不在用户项目中运行 `/usage`，而是在兼容目录 `App
 
 AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账户速率限制，不解析终端全屏界面。详情页下方还会读取本机 OpenAI Codex 状态库中的三个数值/时间列，计算近 30 天 Token、连续活动天数和最长会话；这些值不包含其他设备活动。
 
+从 Finder 启动时，AI Token Meter 不依赖 `.zshrc`：它会自动检查 `~/.local/bin`、Homebrew、nvm 与常见 Node 管理器目录，也能使用已安装 ChatGPT/Codex App 内置的原生 `codex`。通过 nvm/npm 安装的脚本会自动配对同目录 Node，无需手工修改 `launchctl PATH`。确实没有可执行文件时，可在 Settings > Services 点击 **Open Install Guide**。
+
 ## 6. 配置 DeepSeek
 
 ### 余额

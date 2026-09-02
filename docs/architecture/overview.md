@@ -38,6 +38,7 @@ UserDefaults ────────────> UI preferences / threshold st
 - `ClaudeCollector`：定位 Claude Code CLI、检查认证、在隔离工作区通过 PTY 执行 `/usage`，并行附加可选的本机活动聚合；官方额度失败立即返回，本机读取最多等待 2 秒，失败或超时不影响官方结果。
 - `ClaudeLocalActivityReader`：在 utility 后台任务中只读枚举 `~/.claude/projects/**/*.jsonl`，对白名单计量字段做 30 日聚合；按文件修改时间剪枝、按块流式读取，并限制单行、单文件、总字节、文件数、持续时间和符号链接。
 - `CodexCollector`：启动 OpenAI Codex 的 `codex app-server` 读取 JSON-RPC 速率限制，并以只读 SQLite 查询补充本机线程活动聚合；本地查询失败不会拖累官方额度。
+- `ExecutableLocator`：统一服务账户、登录和采集的 CLI 发现；除进程 PATH 与标准目录外，覆盖 nvm/常见 Node 管理器和 ChatGPT/Codex App 内置二进制。Codex 子进程将可执行文件同目录置于 PATH 首位，以配对 Node shebang 运行时。
 - `DeepSeekCollector`：从 `SecretStore` 取得 Keychain 密钥并调用余额 API。
 - `ClaudeUsageParser`、`CodexUsageParser`：把外部格式转换成统一指标。
 - `CommandRunner`、`PTYCommandRunner`：负责超时、进程终止和输出收集。

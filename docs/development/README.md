@@ -33,6 +33,7 @@
 | [2026-09-02](2026-09-02-project-retrospective.md) | 全仓库复盘、文档单一来源、设计资料统一、自动一致性检查与本地残留清理 | 308 个测试、61 个测试组、文档检查、Release 构建/签名与清理证据见日志 |
 | [2026-09-02](2026-09-02-macbook-arm64-package.md) | MacBook Pro M4 Max Apple Silicon 分发包 | 308 个测试、arm64 Release、ZIP 完整性、解压后严格签名和 SHA-256 验证通过 |
 | [2026-09-02](2026-09-02-portable-resource-crash-fix.md) | 修复跨 Mac 的 SwiftPM 资源装载崩溃并重新发布 0.1.1 | 312 个测试、标准资源门禁、解压后隐藏构建目录启动、签名与 SHA-256 验证通过 |
+| [2026-09-02](2026-09-02-codex-cli-discovery.md) | 修复 Finder 环境下 nvm Codex 误报未安装并重新发布 0.1.2 | 318 个测试、nvm Node shebang、桌面 App 后备、Release 与跨目录分发验收通过 |
 
 ## 新日志模板
 

@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **312 个测试、63 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **318 个测试、64 个测试组全部通过**。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 普通测试覆盖：
 
@@ -21,6 +21,7 @@ bash scripts/test.sh
 - OpenAI Codex 重置额度映射；
 - OpenAI Codex 重置券到期自然日状态、稳定排序、不完整明细提示和自适应详情高度；
 - OpenAI Codex 本机 SQLite 数值行解析、30 天窗口、连续天数、最长会话与紧凑文案；
+- OpenAI Codex 的 nvm/Node 管理器目录发现、桌面 App 内置二进制后备、搜索优先级，以及 Node shebang 在 Finder 环境中的运行 PATH；
 - DeepSeek 30 天补零、缓存、当前官网 amount/cost 分片解析与完整性合并。
 - 浮岛位置偏好默认值、NaN/损坏回退、持久化和垂直夹紧；
 - 左右贴边、自动吸附、固定侧拖动、显示器断开回退和详情展开方向；
