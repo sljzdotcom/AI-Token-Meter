@@ -57,4 +57,52 @@ struct FloatingPanelPositioningPolicyTests {
 
         #expect(action == .migrate(from: "3", to: "uuid:display"))
     }
+
+    @Test("A Settings edge change binds first launch to the resolved display")
+    func settingsEdgeChangeBindsFirstLaunchDisplay() {
+        let position = FloatingStripPosition(
+            preference: .left,
+            lastResolvedEdge: .left,
+            normalizedCenterY: 0.5,
+            screenIdentifier: nil
+        )
+        let resolution = FloatingStripScreenResolution(
+            selectedIdentifier: "uuid:primary",
+            usesFallbackScreen: false,
+            migratedIdentifier: nil
+        )
+
+        let placement = FloatingStripPositionPersistencePolicy.resolvedPlacement(
+            position: position,
+            resolution: resolution,
+            userInitiated: true
+        )
+
+        #expect(placement.persistenceAction == .save(to: "uuid:primary"))
+    }
+
+    @Test("A Settings edge change replaces an offline target with the fallback display")
+    func settingsEdgeChangeRebindsFallbackDisplay() {
+        let position = FloatingStripPosition(
+            preference: .right,
+            lastResolvedEdge: .right,
+            normalizedCenterY: 0.48,
+            screenIdentifier: "uuid:offline"
+        )
+        let resolution = FloatingStripScreenResolution(
+            selectedIdentifier: "uuid:primary",
+            usesFallbackScreen: true,
+            migratedIdentifier: nil
+        )
+
+        let placement = FloatingStripPositionPersistencePolicy.resolvedPlacement(
+            position: position,
+            resolution: resolution,
+            userInitiated: true
+        )
+
+        #expect(placement.edge == .right)
+        #expect(placement.normalizedCenterY == 0.48)
+        #expect(placement.persistenceAction == .save(to: "uuid:primary"))
+    }
 }

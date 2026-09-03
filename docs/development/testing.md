@@ -6,9 +6,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **384 个测试、72 个测试组全部通过**。默认完整验证会先运行 372 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **386 个测试、72 个测试组全部通过**。默认完整验证会先运行 374 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。当前本机 Windows 基线为 14 项前端测试与 115 项 Rust 测试，严格 Clippy 和 production 前端构建通过；Windows-only 分支、Tauri 壳与 NSIS 继续由 GitHub `windows-latest` 复验。
+以上数字是当前 macOS 基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。当前本机 Windows 基线为 14 项前端测试与 118 项 Rust 测试，严格 Clippy 和 production 前端构建通过；Windows-only 分支、Tauri 壳与 NSIS 继续由 GitHub `windows-latest` 复验。
 
 普通测试覆盖：
 
@@ -26,7 +26,7 @@ bash scripts/test.sh
 - OpenAI Codex 的 nvm/Node 管理器目录发现、桌面 App 内置二进制后备、搜索优先级，以及 Node shebang 在 Finder 环境中的运行 PATH；
 - DeepSeek 30 天补零、缓存、当前官网 amount/cost 分片解析与完整性合并。
 - 浮岛位置偏好默认值、NaN/损坏回退、持久化和垂直夹紧；
-- 左右贴边、自动吸附、固定侧拖动、稳定显示器身份、旧编号迁移、主副屏目标优先、显示器断开无损回退和详情展开方向；
+- 左右贴边、自动吸附、固定侧拖动、稳定显示器身份、旧编号迁移、主副屏目标优先、Settings 主动重绑定、显示器断开无损回退和详情展开方向；
 - 浮岛轮廓渲染边缘、品牌 Logo 光学校正、视觉层级和 App Icon Bundle 声明；
 - 玻璃拖动命中区、AppKit 指针状态、无障碍移动、详情交互状态所有权、键盘/VoiceOver 自动隐藏暂停和非颜色状态标记；
 - App 启动不被 Keychain 阻塞，以及 DeepSeek 密钥读取的隔离超时与单次在途保护。
@@ -124,7 +124,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
 npm --prefix windows run tauri build
 ```
 
-真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture、GDI `HRGN`、显示器 API、更新状态与完整 NSIS 生成。CI 上传的 debug NSIS 只用于构建回验；正式 updater archive 必须由 Release workflow 注入 Tauri signing secret。
+真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture、GDI `HRGN`、物理显示器接口身份与拓扑监听、更新状态与完整 NSIS 生成。CI 上传的 debug NSIS 只用于构建回验；正式 updater archive 必须由 Release workflow 注入 Tauri signing secret。
 
 交互式 Windows 真机还必须手工覆盖：左右贴边、125%/200% DPI、多显示器拔插、全屏 Edge 隐藏/恢复、普通窗口上方详情、外部点击关闭、真实指针拖动、Native/WSL 账号显示、DeepSeek WebView2 登录与 30 日图表。CI runner 没有可替代这些视觉/账户证据的桌面会话。
 

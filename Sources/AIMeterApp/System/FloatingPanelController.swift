@@ -5,6 +5,7 @@ import SwiftUI
 enum FloatingStripPositionPersistenceAction: Equatable {
     case preserve
     case migrate(from: String, to: String)
+    case save(to: String)
 }
 
 struct FloatingStripResolvedScreenPlacement: Equatable {
@@ -26,7 +27,8 @@ enum FloatingStripPositionPersistencePolicy {
 
     static func resolvedPlacement(
         position: FloatingStripPosition,
-        resolution: FloatingStripScreenResolution
+        resolution: FloatingStripScreenResolution,
+        userInitiated: Bool = false
     ) -> FloatingStripResolvedScreenPlacement {
         let edge: FloatingStripEdge = switch position.preference {
         case .automatic:
@@ -36,13 +38,19 @@ enum FloatingStripPositionPersistencePolicy {
         case .right:
             .right
         }
-        return FloatingStripResolvedScreenPlacement(
-            edge: edge,
-            normalizedCenterY: position.normalizedCenterY,
-            persistenceAction: action(
+        let persistenceAction: FloatingStripPositionPersistenceAction
+        if userInitiated, let selectedIdentifier = resolution.selectedIdentifier {
+            persistenceAction = .save(to: selectedIdentifier)
+        } else {
+            persistenceAction = action(
                 savedIdentifier: position.screenIdentifier,
                 resolution: resolution
             )
+        }
+        return FloatingStripResolvedScreenPlacement(
+            edge: edge,
+            normalizedCenterY: position.normalizedCenterY,
+            persistenceAction: persistenceAction
         )
     }
 }
@@ -173,8 +181,8 @@ final class FloatingPanelController {
         )
     }
 
-    func reposition() {
-        positionPanels()
+    func applyUserPositionPreference() {
+        positionPanels(userInitiated: true)
     }
 
     private func renderSelection(_ provider: UsageProvider?) {
@@ -287,8 +295,8 @@ final class FloatingPanelController {
         return window.convertPoint(toScreen: event.locationInWindow)
     }
 
-    private func positionPanels() {
-        guard let context = placementContext() else { return }
+    private func positionPanels(userInitiated: Bool = false) {
+        guard let context = placementContext(userInitiated: userInitiated) else { return }
         let screen = context.screen
         let edge = context.edge
         displayState.resolvedEdge = edge
@@ -301,10 +309,19 @@ final class FloatingPanelController {
         )
         stripPanel.setFrame(stripFrame, display: true, animate: false)
         positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
-        if case let .migrate(from: oldIdentifier, to: newIdentifier) = context.persistenceAction {
+        switch context.persistenceAction {
+        case .preserve:
+            break
+        case let .migrate(from: oldIdentifier, to: newIdentifier):
             model.migrateFloatingStripScreenIdentifier(
                 from: oldIdentifier,
                 to: newIdentifier
+            )
+        case let .save(to: screenIdentifier):
+            model.saveFloatingStripPlacement(
+                edge: edge,
+                normalizedCenterY: context.normalizedCenterY,
+                screenIdentifier: screenIdentifier
             )
         }
     }
@@ -402,7 +419,7 @@ final class FloatingPanelController {
         return detailSize
     }
 
-    private func placementContext() -> (
+    private func placementContext(userInitiated: Bool = false) -> (
         screen: NSScreen,
         edge: FloatingStripEdge,
         normalizedCenterY: Double,
@@ -420,7 +437,8 @@ final class FloatingPanelController {
         })?.screen else { return nil }
         let placement = FloatingStripPositionPersistencePolicy.resolvedPlacement(
             position: model.floatingStripPosition,
-            resolution: resolution
+            resolution: resolution,
+            userInitiated: userInitiated
         )
         return (
             screen,

@@ -43,7 +43,7 @@
 | REQ-20260903-006 | 发布文档缺陷 | Windows 实施计划将仓库目录作为公开发布脚本的位置参数传入，脚本会误把目录当成 Release ZIP 并报告归档不存在 | 中 | 已完成 | 2026-09-03 | 无 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、文档门禁回归测试 |
 | REQ-20260903-007 | 共享合同门禁缺陷 | Task 5 计划新增 Windows CLI 位置 fixture，但门禁把 `contracts/fixtures` 中全部 JSON 都当作四份用量快照，按计划新增必然失败 | 高 | 已完成 | 2026-09-03 | 无 | [辅助 CLI fixture](../contracts/fixtures/auxiliary/windows-cli-locations.json)、[Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、`d481a44`、合同门禁仍确认直接目录恰好 4 份用量快照 |
 | REQ-20260903-008 | macOS CI 稳定性 | 修复高并发 CI 中 DeepSeek 即时 Keychain/SecretStore 读取被低优先级任务饿死、错误等待满 2 秒并报告超时或钥匙串失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | [开发日志](development/2026-09-03-deepseek-secret-read-priority.md) · `eea044b` · `2c6a194` · [macOS main CI 33745691851](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691851) · [Windows main CI 33745691724](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691724) |
-| REQ-20260903-009 | 浮动条位置缺陷 | 修复浮动条重启或运行一段时间后丢失用户摆放位置、从左侧自行回到右侧或从主屏跳到副屏的问题；持久保存具体显示器、贴边侧和垂直位置，多屏变单屏时临时回到当前主屏 | 高 | 进行中 | 2026-09-03 | macOS 稳定 UUID、无损主屏回退、旧配置迁移与 Windows 对等合同已完成；进入全量验证、独立审查和双平台 CI | [设计规格](design/specifications/2026-09-03-floating-strip-placement-persistence-design.md) · [实施计划](design/implementation-plans/2026-09-03-floating-strip-placement-persistence.md) · [开发日志](development/2026-09-03-floating-strip-placement-persistence.md) · `8a487e3` · `08bb254` |
+| REQ-20260903-009 | 浮动条位置缺陷 | 修复浮动条重启或运行一段时间后丢失用户摆放位置、从左侧自行回到右侧或从主屏跳到副屏的问题；持久保存具体显示器、贴边侧和垂直位置，多屏变单屏时临时回到当前主屏 | 高 | 进行中 | 2026-09-03 | 审查补强已接通：Settings 主动操作绑定当前屏；Windows 使用哈希物理身份并监听连接、断开、主屏角色和工作区变化；进入完整门禁与二次审查 | [设计规格](design/specifications/2026-09-03-floating-strip-placement-persistence-design.md) · [实施计划](design/implementation-plans/2026-09-03-floating-strip-placement-persistence.md) · [开发日志](development/2026-09-03-floating-strip-placement-persistence.md) · `8a487e3` · `08bb254` · `964aaf2` |
 
 ## 分类索引
 
@@ -264,3 +264,5 @@
 | 2026-09-03 | REQ-20260903-009 | 进行中 | 稳定显示器 UUID、旧配置迁移、目标屏优先、主屏无损回退、重连恢复和仅用户操作写入的正式规格已完成并通过占位符、矛盾、范围与模糊性自检。 |
 | 2026-09-03 | REQ-20260903-009 | 进行中 | 测试驱动实施计划已覆盖 macOS 身份/解析、控制器写入边界、Windows 对等合同、完整验证、文档和 Git/CI 检查点；隔离 worktree 基线 362 项主测试、12 项 PTY 及全部门禁通过。 |
 | 2026-09-03 | REQ-20260903-009 | 进行中 | macOS 已改用 Core Graphics 稳定 UUID，系统重排不会覆盖保存目标；旧数字配置只迁移标识，目标断开时保留原侧边和高度并临时回当前主屏。位置相关 31 项及 Windows monitor 合同 4 项通过，进入全量门禁。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 首轮独立审查无 Critical，发现三项 Important：macOS Settings 改边未建立当前屏目标；Windows 尚无运行中拓扑变化监听；Windows `MONITORINFOEX.szDevice`/几何回退并非稳定物理身份。暂缓合并并进入补充 TDD。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 审查三项 Important 已测试先行补齐：macOS Settings 主动改边会把当前解析屏保存为目标；Windows 以 Win32 设备接口路径的 SHA-256 标识物理屏幕，兼容旧运行时名称迁移，并以运行时拓扑监听实现断开回退与重连恢复。macOS 策略 5 项、Windows monitor 7 项及本机严格 Clippy/rustfmt 通过，进入全量验证。 |

@@ -124,6 +124,30 @@ impl RuntimeState {
             .unwrap_or((Edge::Right, 0.5, None))
     }
 
+    pub(crate) fn migrate_meter_monitor_id(
+        &self,
+        previous_identifier: Option<&str>,
+        migrated_identifier: Option<String>,
+    ) -> Result<(), String> {
+        let (Some(previous_identifier), Some(migrated_identifier)) =
+            (previous_identifier, migrated_identifier)
+        else {
+            return Ok(());
+        };
+        if previous_identifier == migrated_identifier {
+            return Ok(());
+        }
+        let mut settings = self
+            .settings
+            .lock()
+            .map_err(|_| "Settings are temporarily unavailable".to_owned())?;
+        if settings.meter_monitor_id.as_deref() != Some(previous_identifier) {
+            return Ok(());
+        }
+        settings.meter_monitor_id = Some(migrated_identifier);
+        persist_settings(self.settings_path.as_deref(), &settings)
+    }
+
     #[cfg(windows)]
     pub(crate) fn threshold_notice(&self, snapshot: &UsageSnapshot) -> Option<(u8, String)> {
         let enabled = self
@@ -259,6 +283,7 @@ fn set_meter_edge(
     let normalized_y = f64::from(settings.meter_vertical_per_mille.min(1000)) / 1000.0;
     place_meter(&meter, edge_from_settings(edge), normalized_y)
         .map_err(|_| "The meter could not be moved".to_owned())?;
+    settings.meter_monitor_id = current_monitor_identifier(&meter).ok().flatten();
     persist_settings(state.settings_path.as_deref(), &settings)?;
     app.emit("meter-edge-changed", edge)
         .map_err(|_| "The meter display could not be updated".to_owned())
@@ -790,7 +815,10 @@ pub fn run() {
                     )
                 })
                 .unwrap_or((Edge::Right, 0.5, None));
-            configure_initial_windows(app.handle(), edge, normalized_y, monitor_id.as_deref())?;
+            let migrated_monitor_id =
+                configure_initial_windows(app.handle(), edge, normalized_y, monitor_id.as_deref())?;
+            app.state::<RuntimeState>()
+                .migrate_meter_monitor_id(monitor_id.as_deref(), migrated_monitor_id)?;
             crate::platform::windows::tray::install(app.handle())?;
             #[cfg(windows)]
             {
@@ -800,6 +828,7 @@ pub fn run() {
                     app.handle().clone(),
                     enabled,
                 );
+                crate::platform::windows::display_topology::start_monitoring(app.handle().clone());
             }
             if let Some(settings) = app.get_webview_window("settings") {
                 let settings_for_close = settings.clone();

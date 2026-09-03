@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isVisible ? panelController?.show() : panelController?.hide()
         }
         model.floatingPositionHandler = { [weak panelController] in
-            panelController?.reposition()
+            panelController?.applyUserPositionPreference()
         }
         if !model.isRunningDemoMode {
             let notificationService = NotificationService()

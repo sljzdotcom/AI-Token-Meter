@@ -5,6 +5,7 @@ pub mod credential_manager;
 pub mod credential_prompt;
 pub mod deepseek_webview;
 pub mod desktop_visibility;
+pub mod display_topology;
 pub mod environment;
 pub mod executable_locator;
 pub mod monitor;

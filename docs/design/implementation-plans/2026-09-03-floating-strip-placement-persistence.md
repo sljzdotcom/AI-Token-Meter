@@ -4,7 +4,7 @@
 
 **目标：** 让浮动条跨重启、休眠和显示器拓扑变化稳定恢复用户保存的物理屏幕、侧边与高度，并在目标屏缺失时只无损回退当前主屏。
 
-**架构：** 把屏幕身份和选择规则从 AppKit 控制器提取为纯策略：macOS 以 Core Graphics UUID 为稳定身份、兼容旧 `NSScreenNumber`；控制器只把当前屏幕映射成身份列表，任何系统重排都不写回临时回退。只有明确用户操作和无损旧标识迁移能更新偏好。Windows 保持现有 JSON 原子持久化，并用测试锁定相同的目标屏优先/主屏回退语义。
+**架构：** 把屏幕身份和选择规则从窗口控制器提取为纯策略：macOS 以 Core Graphics UUID 为稳定身份、兼容旧 `NSScreenNumber`；Windows 以哈希后的设备接口路径为稳定身份、兼容旧运行时名称。两平台都监听屏幕拓扑变化，任何系统重排都不写回临时回退；只有明确用户操作和带旧值守卫的无损标识迁移能更新偏好。
 
 **技术栈：** Swift 6、AppKit/CoreGraphics、Swift Testing、UserDefaults；Rust、Tauri 2、Serde、Cargo test；Markdown 文档与现有项目门禁。
 
@@ -19,7 +19,9 @@
 - 修改 `Tests/AIMeterAppTests/FloatingStripLayoutTests.swift`：覆盖稳定目标、多屏、单屏回退和旧标识迁移。
 - 修改 `Tests/AIMeterAppTests/FloatingPanelPositioningPolicyTests.swift`：把旧“普通重排写回默认”断言替换为“只允许旧标识迁移写入”的合同。
 - 修改 `Tests/AIMeterAppTests/AppModelStartupTests.swift`：验证迁移只更新显示器身份。
-- 修改 `windows/src-tauri/src/platform/windows/monitor.rs`：补足目标屏优先和主屏回退的 Rust 回归测试，不改变已正确的选择实现。
+- 修改 `windows/src-tauri/src/platform/windows/monitor.rs`：实现稳定物理身份、旧标识迁移、目标屏优先、主屏回退与拓扑变化跟踪。
+- 创建 `windows/src-tauri/src/platform/windows/display_topology.rs`：运行中监听显示器连接、断开、主屏角色与工作区变化并重新定位。
+- 修改 `windows/src-tauri/src/platform/windows/window_controller.rs`、`windows/src-tauri/src/lib.rs`：接通稳定身份、启动迁移、用户设置写入与拓扑恢复。
 - 修改 `docs/user-guide/settings.md`、`docs/user-guide/troubleshooting.md`、`docs/development/testing.md`：更新用户可见行为、排障与双屏验收口径。
 - 创建 `docs/development/2026-09-03-floating-strip-placement-persistence.md`：记录根因、红绿测试、迁移、安全边界和验证证据。
 - 修改 `docs/requirements-backlog.md`：持续记录阶段状态，最终只在证据完整后标记完成。
@@ -185,7 +187,8 @@ model.migrateFloatingStripScreenIdentifier(from: "3", to: "uuid:display")
 ```bash
 CLANG_MODULE_CACHE_PATH=/private/tmp/ai-meter-placement-controller-red-clang \
 AI_METER_TEST_BUILD_DIR=/private/tmp/ai-meter-placement-controller-red-build \
-bash scripts/test.sh --filter "Floating panel positioning policy|App model startup"
+bash scripts/test.sh --filter FloatingPanelPositioningPolicyTests
+bash scripts/test.sh --filter AppModelStartupTests
 ```
 
 预期：新迁移方法与 `FloatingStripPositionPersistencePolicy` 不存在，旧策略仍允许普通重排写回默认位置。
@@ -219,7 +222,10 @@ func migrateFloatingStripScreenIdentifier(from old: String, to new: String) {
 ```bash
 CLANG_MODULE_CACHE_PATH=/private/tmp/ai-meter-placement-controller-green-clang \
 AI_METER_TEST_BUILD_DIR=/private/tmp/ai-meter-placement-controller-green-build \
-bash scripts/test.sh --filter "Floating strip position|Floating strip layout|Floating panel positioning policy|App model startup"
+bash scripts/test.sh --filter FloatingStripPositionTests
+bash scripts/test.sh --filter FloatingStripLayoutTests
+bash scripts/test.sh --filter FloatingPanelPositioningPolicyTests
+bash scripts/test.sh --filter AppModelStartupTests
 ```
 
 预期：位置、解析、迁移与启动测试全部通过，0 失败。
@@ -268,7 +274,7 @@ fn missing_monitor_falls_back_only_to_primary() {
 }
 ```
 
-同时静态核对 `position_meter_on_preferred` 不调用 `persist_settings`；只有 `meter_drag_ended` 更新 `meter_monitor_id`。
+同时验证运行时断开与重新接入都会触发重新定位，而临时回退不返回迁移标识；只有用户拖动、用户在 Settings 主动改边，或旧运行时名称无损迁移时更新 `meter_monitor_id`。
 
 - [x] **步骤 2：运行 Windows Rust 定向测试**
 
@@ -310,7 +316,7 @@ git diff --check
 
 预期：Swift 主测试与独立 PTY 测试、跨平台合同、文档/安全门禁、Rust format/clippy/test、前端测试与生产构建全部通过。
 
-- [ ] **步骤 5：提交文档与对等合同检查点**
+- [x] **步骤 5：提交文档与对等合同检查点**
 
 ```bash
 git add windows/src-tauri/src/platform/windows/monitor.rs \
