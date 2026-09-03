@@ -9,6 +9,7 @@ pub mod codex_app_server;
 pub mod deepseek;
 pub mod deepseek_history;
 pub mod refresh;
+pub mod refresh_schedule;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CollectionError {

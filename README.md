@@ -48,8 +48,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 | 服务 | 数据来源 | 主要显示内容 | 首次准备 |
 | --- | --- | --- | --- |
-| Claude Code | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage` | 当前会话、周额度、重置时间 | 安装并登录 Claude Code；首次可能需批准 AI Token Meter 私有工作区 |
-| OpenAI Codex | OpenAI Codex CLI 官方 `app-server` JSON-RPC + 本机 OpenAI Codex 状态库的聚合列 | 通用用量窗口、重置额度、近 30 天本机活动 | 安装并登录 OpenAI Codex CLI |
+| Claude Code | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage`；Windows 本机活动跟随所选 Native/WSL profile | 当前会话、周额度、重置时间、近 30 天本机活动 | 安装并登录 Claude Code；首次可能需批准 AI Token Meter 私有工作区 |
+| OpenAI Codex | OpenAI Codex CLI 官方 `app-server` JSON-RPC + 当前 Native/WSL profile 状态库的允许聚合列 | 通用用量窗口、重置额度、近 30 天本机活动 | 安装并登录 OpenAI Codex CLI |
 | DeepSeek | 官方余额 API + App 内隔离的 `platform.deepseek.com` WebKit 会话 | 余额、基准消耗环、近 30 天成本/请求/Token 图表 | 在设置中保存 API Key；历史图表首次需登录官网 |
 
 详细的数据口径、降级行为与限制见 [服务与指标说明](docs/user-guide/providers.md)。

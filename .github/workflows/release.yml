@@ -147,6 +147,14 @@ jobs:
           Copy-Item $signature[0].FullName "$stage/$updaterName.sig"
           $hash = (Get-FileHash "$stage/$installerName" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $installerName" | Set-Content "$stage/$installerName.sha256" -Encoding ascii
+      - name: Verify Windows updater signature with the embedded public key
+        shell: pwsh
+        run: |
+          $updater = "windows-release/AI-Token-Meter-${env:VERSION}-windows-x64.nsis.zip"
+          cargo run --locked --manifest-path windows/src-tauri/Cargo.toml --example verify_update_signature -- `
+            $updater `
+            "$updater.sig" `
+            "windows/src-tauri/tauri.conf.json"
       - name: Upload signed Windows assets
         uses: actions/upload-artifact@v4
         with:
@@ -200,7 +208,48 @@ jobs:
           test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
           gh release upload "v$VERSION" windows-release/* --clobber
           gh release edit "v${VERSION}" --draft=false
-      - name: Update the fixed Windows preview feed after assets are public
+      - name: Publish the stable macOS appcast after assets are public
+        if: ${{ !contains(inputs.version, '-preview.') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          feed_dir="$RUNNER_TEMP/stable-appcast"
+          mkdir -p "$feed_dir"
+          gh release download "v$VERSION" --dir "$feed_dir" --pattern appcast.xml
+          git fetch origin main
+          git checkout -B main origin/main
+          test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
+          cp "$feed_dir/appcast.xml" appcast.xml
+          if git diff --quiet -- appcast.xml; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "release: publish appcast v$VERSION"
+          git push origin HEAD:main
+      - name: Update the fixed Windows preview feed after preview assets are public
+        if: ${{ contains(inputs.version, '-preview.') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp windows-release/latest.json windows-release/latest-preview.json
+          if gh release view windows-preview-feed >/dev/null 2>&1; then
+            gh release upload windows-preview-feed windows-release/latest-preview.json --clobber
+          else
+            gh release create windows-preview-feed \
+              --prerelease \
+              --title "Windows preview update feed" \
+              --notes "Machine-readable update feed for AI Token Meter Windows preview builds." \
+              windows-release/latest-preview.json
+          fi
+      - name: Rollback an unpublished preview feed
+        if: ${{ failure() && contains(inputs.version, '-preview.') }}
+        shell: bash
+        run: |
+          gh release edit "v${VERSION}" --draft=true
+      - name: Advance preview users to a verified stable release
+        if: ${{ !contains(inputs.version, '-preview.') }}
         shell: bash
         run: |
           set -euo pipefail

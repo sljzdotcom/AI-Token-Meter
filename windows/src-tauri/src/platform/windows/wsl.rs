@@ -61,6 +61,38 @@ pub fn build_wsl_invocation(
     }
 }
 
+pub fn wsl_profile_path(distribution: &str, home: &str) -> Option<PathBuf> {
+    let distribution = distribution.trim();
+    if distribution.is_empty()
+        || distribution.len() > 128
+        || distribution == "."
+        || distribution == ".."
+        || distribution.contains(['\\', '/', ':', '\0', '\n', '\r'])
+    {
+        return None;
+    }
+    let home = home.trim();
+    if !home.starts_with('/') || home.contains(['\\', ':', '\0', '\n', '\r']) {
+        return None;
+    }
+    let components = home
+        .split('/')
+        .filter(|component| !component.is_empty())
+        .collect::<Vec<_>>();
+    if components.is_empty()
+        || components
+            .iter()
+            .any(|component| *component == "." || *component == "..")
+    {
+        return None;
+    }
+    Some(PathBuf::from(format!(
+        r"\\wsl.localhost\{}\{}",
+        distribution,
+        components.join("\\")
+    )))
+}
+
 fn looks_like_utf16_le(bytes: &[u8]) -> bool {
     let (pairs, remainder) = bytes.as_chunks::<2>();
     bytes.starts_with(&[0xff, 0xfe])

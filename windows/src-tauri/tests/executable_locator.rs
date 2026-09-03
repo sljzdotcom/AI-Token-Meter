@@ -7,7 +7,7 @@ use ai_token_meter_windows::platform::windows::executable_locator::{
     CandidateOrigin, DiscoveryBudget, ExecutableLocator, RuntimeSource,
 };
 use ai_token_meter_windows::platform::windows::wsl::{
-    build_wsl_invocation, build_wsl_list_invocation, decode_distribution_list,
+    build_wsl_invocation, build_wsl_list_invocation, decode_distribution_list, wsl_profile_path,
 };
 use tempfile::tempdir;
 
@@ -345,4 +345,15 @@ fn discovery_budget_enforces_one_deadline_and_a_total_process_limit() {
         expired.next_process_timeout(std::time::Duration::from_secs(4)),
         None
     );
+}
+
+#[test]
+fn wsl_profile_paths_are_scoped_to_one_valid_distribution_and_absolute_home() {
+    assert_eq!(
+        wsl_profile_path("Ubuntu-24.04", "/home/miller"),
+        Some(PathBuf::from(r"\\wsl.localhost\Ubuntu-24.04\home\miller"))
+    );
+    assert_eq!(wsl_profile_path("../Ubuntu", "/home/miller"), None);
+    assert_eq!(wsl_profile_path("Ubuntu", "/home/../root"), None);
+    assert_eq!(wsl_profile_path("Ubuntu", "relative/home"), None);
 }

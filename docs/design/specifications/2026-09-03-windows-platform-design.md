@@ -244,7 +244,7 @@ Tauri 2 提供托盘图标、菜单和鼠标事件能力。设计依据：<https
 Windows Settings 延续 Appearance、Monitoring、Services、About 分类：
 
 - Settings 永远使用 Windows 系统字体；
-- Appearance：侧边、位置、背景、展示字体与字号；
+- Appearance：浮动条显隐、Left/Right 侧边与展示字体；深海背景、产品内容字号与 Logo 视觉保持产品固定设计，不额外暴露容易造成视觉漂移的选择器；
 - Monitoring：刷新、启动项、阈值、详情自动隐藏；
 - Services：当前账户、CLI 来源、健康状态、重新登录、DeepSeek Key 替换和 WSL 选择；
 - About：产品名、作者 Miller、版本、隐私、GitHub、检查更新和立即更新。

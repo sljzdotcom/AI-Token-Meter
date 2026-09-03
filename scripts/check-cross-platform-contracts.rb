@@ -88,6 +88,8 @@ if release_workflow_path.file?
   errors << "Tagged releases must run the synchronized version contract" unless release_workflow.include?("ruby scripts/check-cross-platform-contracts.rb .")
   errors << "Preview releases must use the isolated config and feed" unless release_workflow.include?("tauri.preview.release.conf.json") && release_workflow.include?("windows-preview-feed") && release_workflow.include?("latest-preview.json")
   errors << "Cross-platform release must keep GitHub assets in a draft until verification passes" unless release_workflow.include?('gh release edit "v${VERSION}" --draft=false')
+  errors << "Windows updater archive must be verified with the embedded Tauri public key" unless release_workflow.include?("--example verify_update_signature")
+  errors << "Preview publication must return to draft if its feed cannot be updated" unless release_workflow.include?("Rollback an unpublished preview feed")
 else
   errors << "Cross-platform release workflow is missing"
 end
@@ -99,6 +101,10 @@ if cross_platform_release_path.file?
   errors << "Cross-platform release entry must create a draft" unless release_script.include?("gh release create") && release_script.include?("--draft")
   errors << "Cross-platform release entry must dispatch the tagged workflow" unless release_script.include?("gh workflow run release.yml") && release_script.include?('--ref "v$VERSION"')
   errors << "Preview packaging must not modify the stable appcast" unless release_script.include?("AI_METER_RELEASE_CHANNEL") && release_script.include?("preview-appcast.xml")
+  unless release_script.include?("SmartScreen") && release_script.include?("unknown publisher")
+    errors << "Windows Preview release notes must explain the SmartScreen unknown-publisher warning"
+  end
+  errors << "Stable appcast must not be pushed before the GitHub assets are public" if release_script.include?("git add appcast.xml")
   errors << "Cross-platform release entry must be executable" unless cross_platform_release_path.executable?
 else
   errors << "Cross-platform release script is missing"

@@ -424,3 +424,7 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - CLI 自动发现已移入 Provider 刷新 closure，因此协调器登记完成后才开始。一次发现共用 8 秒绝对时限和 12 次子进程预算，Auto 模式先检查原生候选，只有失败后才枚举 WSL；WSL 列表与每个健康检查都继承同一取消令牌和剩余时限；
 - Claude/Codex 本机活动改为官方额度成功后的独立可选任务，统一最多等待 2 秒。超时会取消底层 JSONL 扫描或 SQLite 查询但保留官方额度；Codex 为 SQLite 注册 progress handler，使长查询能响应取消。相关定向测试、全目标严格 Clippy、14 项前端测试和 production build 通过；
 - meter 在小工作区和高 DPI 下按 116:450 比例缩小并实际更新 Win32 窗口尺寸，CSS 环形控件和裁剪轮廓改用视口比例；Settings 采用固定 header/tab + 可滚动内容区，长 Services/Monitoring 页面不再被 760×560 容器裁掉。纯几何回归验证 800×600、200% DPI 等效输入会缩放为 151×584，标准尺寸保持不变。
+- WSL 本机活动现跟随实际所选发行版：后端用固定 `wsl.exe --distribution <name> --exec printenv HOME` 查询 profile，经过发行版名、绝对路径和 traversal 校验后只读 `\\wsl.localhost` 中的 `.claude/projects` 或 `.codex/state_5.sqlite`；定位失败时只省略活动，不回退 Windows profile。Native/WSL 两种来源仍共享 2 秒可取消预算，官方额度不受影响；
+- Windows updater 归档新增独立 minisign 验证器，Release runner 在上传前用 `tauri.conf.json` 内嵌公钥验证真实 `.nsis.zip`/`.sig`，篡改 fixture 会被拒绝。稳定 appcast 不再由本机发布脚本提前写入主分支，只有 Release 资产公开后 workflow 才推进；Preview feed 更新失败会回滚为草稿，发布说明固定披露 SmartScreen unknown-publisher 边界；
+- 定时刷新改为可唤醒调度器，Monitoring 保存新间隔后立即取消旧倒计时并重新计时；三个数字输入采用本地草稿，失焦/Enter 才提交合法值，Escape 或非法值恢复，避免清空输入时瞬间写入 0。
+- 本轮本机收尾验证重新执行而非沿用旧结果：Windows Rust 全套测试（含 WSL 路径、活动超时、刷新排空、调度与 updater 篡改拒绝）、严格 Clippy/rustfmt、前端 14 项与 production build、macOS 360 项主测试 + 11 项独立 PTY、4 份共享 fixture、128 份 Markdown、公开安全扫描全部通过；另外逐段解析 `release.yml`，9 个 Bash body 均通过 `bash -n`，期间确实捕获并修复 Preview feed 的错位 `fi`。

@@ -47,7 +47,7 @@ if [[ "$RELEASE_CHANNEL" == "preview" ]]; then
     APPCAST_ASSET="$RELEASE_DIR/preview-appcast.xml"
     cp "$RELEASE_DIR/appcast.xml" "$APPCAST_ASSET"
 else
-    APPCAST_ASSET="$PROJECT_DIR/appcast.xml"
+    APPCAST_ASSET="$RELEASE_DIR/appcast.xml"
 fi
 for asset in "$RELEASE_DIR/$MAC_ARCHIVE" "$RELEASE_DIR/$MAC_SHA" "$APPCAST_ASSET"; do
     if [[ ! -s "$asset" ]]; then
@@ -56,14 +56,8 @@ for asset in "$RELEASE_DIR/$MAC_ARCHIVE" "$RELEASE_DIR/$MAC_SHA" "$APPCAST_ASSET
     fi
 done
 
-if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
-    git add appcast.xml
-    if ! git diff --cached --quiet; then
-        git commit -m "release: prepare appcast v$VERSION"
-    fi
-fi
 if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
-    echo "only the generated appcast may change during release preparation" >&2
+    echo "release preparation must not modify tracked source or the public appcast" >&2
     exit 1
 fi
 
@@ -73,7 +67,10 @@ git push origin "v$VERSION"
 
 release_args=("v$VERSION" --repo "$REPOSITORY_SLUG" --verify-tag --draft --generate-notes)
 if [[ "$VERSION" == *-preview.* ]]; then
-    release_args+=(--prerelease)
+    release_args+=(
+        --prerelease
+        --notes "Windows Preview notice: this installer is not Authenticode-signed yet, so Microsoft Defender SmartScreen may show an unknown publisher warning. Verify the published SHA-256 before choosing Run anyway. In-app updates remain protected by the separate Tauri minisign signature."
+    )
 fi
 gh release create "${release_args[@]}" \
     "$RELEASE_DIR/$MAC_ARCHIVE" \

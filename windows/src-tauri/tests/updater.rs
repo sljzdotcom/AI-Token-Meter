@@ -1,4 +1,6 @@
+use ai_token_meter_windows::updater::signature::verify_tauri_signature;
 use ai_token_meter_windows::updater::{UpdatePhase, UpdateState};
+use base64::Engine;
 
 #[test]
 fn update_state_allows_only_explicit_check_then_explicit_install() {
@@ -21,6 +23,18 @@ fn update_state_allows_only_explicit_check_then_explicit_install() {
     assert_eq!(state.progress_percent, Some(25));
     state.mark_installing();
     assert_eq!(state.phase, UpdatePhase::Installing);
+}
+
+#[test]
+fn embedded_tauri_public_key_accepts_only_the_matching_archive_bytes() {
+    let public_key = "untrusted comment: minisign public key E7620F1842B4E81F\nRWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
+    let signature = "untrusted comment: signature from minisign secret key\nRWQf6LRCGA9i59SLOFxz6NxvASXDJeRtuZykwQepbDEGt87ig1BNpWaVWuNrm73YiIiJbq71Wi+dP9eKL8OC351vwIasSSbXxwA=\ntrusted comment: timestamp:1555779966\tfile:test\nQtKMXWyYcwdpZAlPF7tE2ENJkRd1ujvKjlj1m9RtHTBnZPa5WKU5uWRs5GoP5M/VqE81QFuMKI5k/SfNQUaOAA==";
+    let encoder = base64::engine::general_purpose::STANDARD;
+    let encoded_key = encoder.encode(public_key);
+    let encoded_signature = encoder.encode(signature);
+
+    assert!(verify_tauri_signature(b"test", &encoded_signature, &encoded_key).is_ok());
+    assert!(verify_tauri_signature(b"tampered", &encoded_signature, &encoded_key).is_err());
 }
 
 #[test]

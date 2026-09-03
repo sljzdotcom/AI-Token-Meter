@@ -145,24 +145,23 @@ export function SettingsWindow({
         {activeTab === "Monitoring" ? (
           <>
             <SettingRow label="Refresh interval" hint="Scheduled refreshes never overlap; a manual refresh replaces an older task.">
-              <input
-                aria-label="Refresh interval seconds"
-                max="86400"
-                min="30"
-                onChange={(event) => onRefreshIntervalSecondsChange(Number(event.target.value))}
-                type="number"
+              <DraftNumberInput
+                ariaLabel="Refresh interval seconds"
+                max={86_400}
+                min={30}
+                onCommit={onRefreshIntervalSecondsChange}
                 value={refreshIntervalSeconds}
               /> seconds
             </SettingRow>
             <SettingRow label="DeepSeek balance baseline" hint="The DeepSeek ring shows the amount consumed from this reference balance.">
-              ¥ <input
-                aria-label="DeepSeek balance baseline"
-                max="1000000"
-                min="1"
-                onChange={(event) => onDeepSeekBalanceBaselineCentsChange(Math.round(Number(event.target.value) * 100))}
-                step="0.01"
-                type="number"
-                value={deepseekBalanceBaselineCents / 100}
+              ¥ <DraftNumberInput
+                ariaLabel="DeepSeek balance baseline"
+                format={(value) => String(value / 100)}
+                max={1_000_000}
+                min={1}
+                onCommit={(value) => onDeepSeekBalanceBaselineCentsChange(Math.round(value * 100))}
+                step={0.01}
+                value={deepseekBalanceBaselineCents}
               />
             </SettingRow>
             <SettingRow label="Usage alerts" hint="Notify once at 70% and again at 90%; dropping below 10% re-arms the alerts.">
@@ -182,12 +181,11 @@ export function SettingsWindow({
               />
             </SettingRow>
             <SettingRow label="Detail auto-hide" hint="Interaction pauses the countdown.">
-              <input
-                aria-label="Detail auto-hide seconds"
-                max="300"
-                min="1"
-                onChange={(event) => onDetailAutoHideSecondsChange(Number(event.target.value))}
-                type="number"
+              <DraftNumberInput
+                ariaLabel="Detail auto-hide seconds"
+                max={300}
+                min={1}
+                onCommit={onDetailAutoHideSecondsChange}
                 value={detailAutoHideSeconds}
               /> seconds
             </SettingRow>
@@ -261,6 +259,52 @@ export function SettingsWindow({
         ) : null}
       </div>
     </section>
+  )
+}
+
+function DraftNumberInput({
+  ariaLabel,
+  format = String,
+  max,
+  min,
+  onCommit,
+  step = 1,
+  value,
+}: {
+  ariaLabel: string
+  format?: (value: number) => string
+  max: number
+  min: number
+  onCommit: (value: number) => void
+  step?: number
+  value: number
+}) {
+  const formattedValue = format(value)
+  const [draft, setDraft] = useState(formattedValue)
+  useEffect(() => setDraft(formattedValue), [formattedValue])
+  const commit = () => {
+    const parsed = Number(draft)
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+      setDraft(formattedValue)
+      return
+    }
+    onCommit(parsed)
+  }
+  return (
+    <input
+      aria-label={ariaLabel}
+      max={max}
+      min={min}
+      onBlur={commit}
+      onChange={(event) => setDraft(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit()
+        if (event.key === "Escape") setDraft(formattedValue)
+      }}
+      step={step}
+      type="number"
+      value={draft}
+    />
   )
 }
 

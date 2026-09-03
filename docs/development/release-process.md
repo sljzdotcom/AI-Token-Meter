@@ -110,9 +110,9 @@ scripts/package-update-release.sh 0.2.2 6
 
 - `AI-Token-Meter-X.Y.Z-macOS-arm64.zip`；
 - 同名 `.sha256`；
-- 主分支根目录中的 `appcast.xml`。
+- Release staging 目录中的 `appcast.xml`。
 
-先提交最终 appcast 和版本文档，再创建 tag、推送 `main` 与 tag，并从同一个 ZIP 创建 GitHub Release。发布后匿名核对 raw appcast、ZIP 下载、SHA-256 和签名。不要让 appcast 指向草稿、私有、已替换或不存在的资产。
+先提交版本与文档，再创建 tag、推送 `main` 与 tag，并从同一个 ZIP 创建 GitHub 草稿 Release。稳定版根 `appcast.xml` 只能在 Release 资产已公开后由发布 workflow 更新，避免已安装用户读到指向草稿、私有或不存在资产的 enclosure。发布后匿名核对 raw appcast、ZIP 下载、SHA-256 和签名。
 
 ## 双平台草稿 Release
 
@@ -128,13 +128,14 @@ scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
 该入口按以下顺序工作：
 
 1. 本机完整测试并用 Keychain 生成已签名 macOS ZIP、SHA-256 和 appcast；
-2. 仅提交生成的 appcast，创建并推送同版本 tag；
+2. 确认生成过程没有修改源码或公开稳定 appcast，创建并推送同版本 tag；
 3. 创建包含 macOS 三项资产的 GitHub 草稿 Release；
 4. 以该 tag 触发 `release.yml`；
-5. macOS job 重新下载草稿资产、核对 SHA 与 Sparkle 签名事实；Windows job 重跑测试并生成 NSIS、`.nsis.zip`、`.sig` 和 SHA；
-6. publish job 生成只含 `windows-x86_64` 的 `latest.json`，上传 Windows 资产，随后才把草稿改为公开。
+5. macOS job 重新下载草稿资产、核对 SHA 与 Sparkle 签名事实；Windows job 重跑测试并生成 NSIS、`.nsis.zip`、`.sig` 和 SHA，并用应用内同一 Tauri 公钥实际验证 updater archive；
+6. publish job 生成只含 `windows-x86_64` 的 `latest.json`，校验并上传 Windows 资产，随后才把草稿改为公开；
+7. 稳定版在资产公开后才提交根 `appcast.xml`，Preview 则更新独立 `windows-preview-feed`；Preview Release Notes 会明确说明无 Authenticode 时的 SmartScreen `unknown publisher` 提示、SHA-256 人工核验与 minisign 更新边界。
 
-任一步失败，Release 保持草稿，已安装用户不会通过 `latest.json` 看到半成品。Windows updater endpoint 固定为 GitHub Release 的 `latest/download/latest.json`；macOS 继续读取仓库根 appcast。双方版本必须相同，但清单格式不混用。
+公开前任一步失败，Release 保持草稿，已安装用户不会通过更新清单看到半成品。Preview feed 更新失败时 workflow 会把刚公开的目标恢复为草稿；稳定 appcast 推送失败时 Release 资产虽已公开，但旧 appcast 不会引用它，可安全修复后重跑发布步骤。Windows updater endpoint 固定为 GitHub Release 的 `latest/download/latest.json`；macOS 继续读取仓库根 appcast。双方版本必须相同，但清单格式不混用。
 
 ## 本机替换与恢复
 

@@ -149,8 +149,13 @@ describe("Windows meter interface", () => {
     )
 
     fireEvent.change(screen.getByLabelText("Refresh interval seconds"), { target: { value: "120" } })
+    expect(refresh).not.toHaveBeenCalled()
+    expect(screen.getByLabelText("Refresh interval seconds")).toHaveValue(120)
+    fireEvent.blur(screen.getByLabelText("Refresh interval seconds"))
     expect(refresh).toHaveBeenCalledWith(120)
     fireEvent.change(screen.getByLabelText("DeepSeek balance baseline"), { target: { value: "250.5" } })
+    expect(baseline).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByLabelText("DeepSeek balance baseline"), { key: "Enter" })
     expect(baseline).toHaveBeenCalledWith(25_050)
   })
 

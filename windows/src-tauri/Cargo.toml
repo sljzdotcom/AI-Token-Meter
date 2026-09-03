@@ -21,9 +21,11 @@ tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
 async-trait = "0.1.92"
+base64 = "0.22"
 futures-util = "0.3"
 getrandom = "0.3"
 regex = "1"
+minisign-verify = "0.2.5"
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "native-tls-no-alpn", "stream"] }
 rusqlite = { version = "0.37", features = ["bundled", "hooks"] }
 serde = { version = "1", features = ["derive"] }

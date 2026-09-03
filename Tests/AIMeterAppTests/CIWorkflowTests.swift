@@ -55,6 +55,11 @@ struct CIWorkflowTests {
         #expect(workflow.contains("windows-preview-feed"))
         #expect(workflow.contains("needs: [macos-preflight, windows-release]"))
         #expect(workflow.contains("gh release edit \"v${VERSION}\" --draft=false"))
+        #expect(workflow.contains("--example verify_update_signature"))
+        #expect(workflow.contains("Rollback an unpublished preview feed"))
+        let publishRange = try #require(workflow.range(of: "--draft=false"))
+        let stableFeedRange = try #require(workflow.range(of: "Publish the stable macOS appcast"))
+        #expect(publishRange.lowerBound < stableFeedRange.lowerBound)
     }
 
     @Test("Local release entry preserves the macOS Keychain boundary")
@@ -76,6 +81,9 @@ struct CIWorkflowTests {
         #expect(script.contains("AI-Token-Meter-${VERSION}-macOS-arm64.zip"))
         #expect(script.contains("AI_METER_RELEASE_CHANNEL"))
         #expect(script.contains("preview-appcast.xml"))
+        #expect(script.contains("SmartScreen"))
+        #expect(script.contains("unknown publisher"))
+        #expect(!script.contains("git add appcast.xml"))
         #expect(!script.contains("TAURI_SIGNING_PRIVATE_KEY="))
         #expect(!script.contains("security export"))
     }

@@ -61,8 +61,8 @@ Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时�
 
 ### Refresh interval
 
-- 固定：5 分钟。
-- 启动时会先刷新一次，也可从菜单栏手动刷新。
+- macOS 固定为 5 分钟；Windows 可设置 30 秒至 24 小时，默认仍为 5 分钟。
+- 启动时会先刷新一次，也可从菜单栏/系统托盘手动刷新。Windows 保存新间隔后会立即废弃旧倒计时并从新间隔重新计时，不需要重启。
 
 ### Usage alerts at 70% and 90%
 
@@ -94,7 +94,9 @@ Windows 在每张 Claude Code/OpenAI Codex 服务卡内提供运行方式：
 - **Automatic**：先查找原生 Windows CLI，找不到后才尝试 WSL；
 - **Native Windows**：只使用 Windows CLI，可填写可选的自定义 CLI 路径；
 - **WSL**：只使用所选发行版；显式发行版不存在时不会静默切到其他发行版；
-- 账户检查、Sign in 与后台额度采集始终使用同一份选择，WSL 官方额度不会拼接 Windows profile 的本机活动。
+- 账户检查、Sign in 与后台额度采集始终使用同一份选择。本机活动同样跟随实际来源：Native 读取当前 Windows profile，WSL 只读取所选发行版由 `HOME` 指向的 profile；任一 profile 不可访问时只隐藏本机活动，不影响官方额度，也不会跨环境拼接旧缓存。
+- 自定义 CLI 路径在保存前会规范化，并核对文件类型、Provider 名称、launcher 与固定 `--version` 健康检查；失败时保留原设置。
+- 登录和后台采集使用同一份最小环境，只保留 Windows 系统目录、当前用户 profile/app-data 与解释器目录，不继承可能令两条链路登录到不同 profile 的 Provider 覆盖变量。
 
 ### Claude Code workspace setup
 
@@ -108,7 +110,7 @@ Windows 在每张 Claude Code/OpenAI Codex 服务卡内提供运行方式：
 - 最小有效值：¥1。
 - 作用：决定 DeepSeek 圆环的参考起点，不会影响账户、充值或消费。
 
-Windows 的 Monitoring 还允许把定时刷新设置为 30 秒至 24 小时；默认仍为 5 分钟。手动刷新会取消同一 Provider 的旧任务，定时刷新不会与在途任务重叠。
+Windows 数字项允许先清空或修改草稿，只有失焦或按 Enter 时才提交合法值；按 Escape 或输入超出范围时恢复上一个已保存值。手动刷新会取消同一 Provider 的旧任务，定时刷新不会与在途任务重叠。
 
 ### Usage alerts 与 Launch at login
 

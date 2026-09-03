@@ -14,12 +14,12 @@ use crate::persistence::{AppSettings, CliRuntimeMode, ProviderCliSettings};
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
 use crate::platform::windows::environment::DiscoveryInputs;
 use crate::platform::windows::executable_locator::{
-    DiscoveryBudget, ExecutableCandidate, ExecutableLocator,
+    DiscoveryBudget, ExecutableCandidate, ExecutableLocator, RuntimeSource,
 };
 use crate::platform::windows::process::{
     BoundedProcessRunner, CancellationToken, ProcessRequest, command_for_candidate,
 };
-use crate::platform::windows::wsl::build_wsl_list_invocation;
+use crate::platform::windows::wsl::{build_wsl_list_invocation, wsl_profile_path};
 
 use super::CollectionError;
 use super::activity_timeout::collect_optional_with_timeout;
@@ -29,6 +29,7 @@ use super::codex::collect_usage_from_candidate_with_cancellation as collect_code
 use super::codex_activity::read_codex_activity_with_shared_cancellation;
 use super::deepseek::{DeepSeekBalanceClient, DeepSeekCollector};
 use super::refresh::{ProviderRefreshRequest, RefreshPriority, RefreshResult};
+use super::refresh_schedule::{RefreshWake, wait_for_refresh};
 
 pub fn start(app: &AppHandle) {
     let manual_app = app.clone();
@@ -38,14 +39,21 @@ pub fn start(app: &AppHandle) {
 
     trigger(app, RefreshPriority::Scheduled);
 
+    let (schedule_sender, schedule_receiver) = std::sync::mpsc::channel();
+    app.listen("app-settings-changed", move |_| {
+        let _ = schedule_sender.send(());
+    });
     let scheduled_app = app.clone();
     std::thread::spawn(move || {
         loop {
             let seconds = scheduled_app
                 .state::<RuntimeState>()
                 .refresh_interval_seconds();
-            std::thread::sleep(Duration::from_secs(seconds.max(30)));
-            trigger(&scheduled_app, RefreshPriority::Scheduled);
+            match wait_for_refresh(&schedule_receiver, Duration::from_secs(seconds.max(30))) {
+                RefreshWake::Due => trigger(&scheduled_app, RefreshPriority::Scheduled),
+                RefreshWake::SettingsChanged => continue,
+                RefreshWake::Stopped => break,
+            }
         }
     });
 }
@@ -152,7 +160,7 @@ fn build_requests(
             &fetched_at,
             Arc::clone(&cancellation),
         )?;
-        attach_claude_activity(&mut snapshot, &candidate.source, &cancellation)?;
+        attach_claude_activity(&mut snapshot, &candidate, &cancellation)?;
         if cancellation.is_cancelled() {
             Err(CollectionError::Cancelled)
         } else {
@@ -182,7 +190,7 @@ fn build_requests(
             &fetched_at,
             Arc::clone(&cancellation),
         )?;
-        attach_codex_activity(&mut snapshot, &candidate.source, &cancellation)?;
+        attach_codex_activity(&mut snapshot, &candidate, &cancellation)?;
         if cancellation.is_cancelled() {
             Err(CollectionError::Cancelled)
         } else {
@@ -318,23 +326,23 @@ pub(crate) fn validate_custom_path(
 
 fn attach_claude_activity(
     snapshot: &mut UsageSnapshot,
-    source: &crate::platform::windows::executable_locator::RuntimeSource,
+    candidate: &ExecutableCandidate,
     cancellation: &Arc<CancellationToken>,
 ) -> Result<(), CollectionError> {
-    if !source.may_read_windows_profile() {
-        snapshot.local_activity = None;
-        return Ok(());
-    }
-    let Some(root) = user_profile().map(|path| path.join(".claude")) else {
-        return Ok(());
-    };
     let (start, end) = activity_window();
-    let projects = root.join("projects");
+    let candidate = candidate.clone();
     match collect_optional_with_timeout(
         Arc::clone(cancellation),
         Duration::from_secs(2),
         move |activity_cancellation| {
-            read_claude_activity_with_cancellation(&projects, start, end, &activity_cancellation)
+            let root = activity_profile(&candidate, Arc::clone(&activity_cancellation))?
+                .ok_or(super::ActivityError::Unavailable)?;
+            read_claude_activity_with_cancellation(
+                &root.join(".claude").join("projects"),
+                start,
+                end,
+                &activity_cancellation,
+            )
         },
     ) {
         Ok(activity) => snapshot.local_activity = activity,
@@ -346,24 +354,19 @@ fn attach_claude_activity(
 
 fn attach_codex_activity(
     snapshot: &mut UsageSnapshot,
-    source: &crate::platform::windows::executable_locator::RuntimeSource,
+    candidate: &ExecutableCandidate,
     cancellation: &Arc<CancellationToken>,
 ) -> Result<(), CollectionError> {
-    if !source.may_read_windows_profile() {
-        snapshot.local_activity = None;
-        return Ok(());
-    }
-    let Some(root) = user_profile().map(|path| path.join(".codex")) else {
-        return Ok(());
-    };
     let (start, end) = activity_window();
-    let database = root.join("state_5.sqlite");
+    let candidate = candidate.clone();
     match collect_optional_with_timeout(
         Arc::clone(cancellation),
         Duration::from_secs(2),
         move |activity_cancellation| {
+            let root = activity_profile(&candidate, Arc::clone(&activity_cancellation))?
+                .ok_or(super::ActivityError::Unavailable)?;
             read_codex_activity_with_shared_cancellation(
-                &database,
+                &root.join(".codex").join("state_5.sqlite"),
                 start,
                 end,
                 activity_cancellation,
@@ -375,6 +378,39 @@ fn attach_codex_activity(
         Err(_) => snapshot.local_activity = None,
     }
     Ok(())
+}
+
+fn activity_profile(
+    candidate: &ExecutableCandidate,
+    cancellation: Arc<CancellationToken>,
+) -> Result<Option<PathBuf>, super::ActivityError> {
+    match &candidate.source {
+        RuntimeSource::NativeWindows => Ok(user_profile()),
+        RuntimeSource::Wsl { distribution } => {
+            let mut request = ProcessRequest::new(
+                candidate.executable.clone(),
+                ["--distribution", distribution, "--exec", "printenv", "HOME"]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            );
+            request.timeout = Duration::from_secs(1);
+            request.max_output_bytes = 4 * 1024;
+            request.cancellation = cancellation;
+            let output = BoundedProcessRunner
+                .run(request)
+                .map_err(|error| match error.kind() {
+                    crate::platform::windows::process::ProcessErrorKind::Cancelled => {
+                        super::ActivityError::Cancelled
+                    }
+                    _ => super::ActivityError::Unavailable,
+                })?;
+            if output.exit_code != Some(0) {
+                return Ok(None);
+            }
+            Ok(wsl_profile_path(distribution, &output.stdout))
+        }
+    }
 }
 
 fn activity_window() -> (i64, i64) {

@@ -134,12 +134,7 @@ if [[ ! -s "$GENERATED_APPCAST" ]] \
     exit 1
 fi
 
-if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
-    cp "$GENERATED_APPCAST" "$PROJECT_DIR/appcast.xml"
-    VERIFIED_APPCAST="$PROJECT_DIR/appcast.xml"
-else
-    VERIFIED_APPCAST="$GENERATED_APPCAST"
-fi
+VERIFIED_APPCAST="$GENERATED_APPCAST"
 SPARKLE_TOOLS_DIR="$SPARKLE_TOOLS_DIR" \
     "$PROJECT_DIR/scripts/verify-update-archive.sh" "$VERIFIED_APPCAST" "$ARCHIVE"
 "$PROJECT_DIR/scripts/check-public-release.sh" --repository "$PROJECT_DIR" --archive "$ARCHIVE"
