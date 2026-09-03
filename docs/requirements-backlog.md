@@ -216,3 +216,4 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 最终 Windows CI `33717589098` 全绿，真实 runner 已验证 ConPTY 完整往返、Credential Manager、Job Object、受限进程和固定登录动作；Task 6 关闭，进入 Claude Code/OpenAI Codex 采集。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Claude/Codex 跨平台解析 fixture 与 6 项失败先行测试完成：促销百分比、登录/信任提示、未知通知、额度窗口和 Reset Credit 均有明确口径，不再把解析失败显示为 0%。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Claude 固定 `/usage` ConPTY 采集与 Codex initialize/account/rateLimits JSON-RPC 会话已接入受限进程边界；Codex 跨平台进程测试通过，Claude Windows-only 端到端 fixture 等待 runner。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33718718700` 的 Claude Transport 定位为 ESM 测试夹具含非法顶层 `return`，已修正；同时完成 Claude/Codex 白名单本机活动与 300 秒并发刷新协调，本机 56 项 Rust 回归及零警告 Clippy 通过。 |

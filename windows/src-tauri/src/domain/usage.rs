@@ -8,7 +8,7 @@ use time::format_description::well_known::Rfc3339;
 
 const CURRENT_SCHEMA_VERSION: u64 = 1;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderId {
     Claude,

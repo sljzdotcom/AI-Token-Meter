@@ -3,9 +3,7 @@ const argumentsAfterScript = process.argv.slice(2);
 if (argumentsAfterScript[0] === "auth" && argumentsAfterScript[1] === "status") {
   process.stdout.write("Logged in\n");
   process.exit(0);
-}
-
-if (argumentsAfterScript.includes("--ax-screen-reader")) {
+} else if (argumentsAfterScript.includes("--ax-screen-reader")) {
   process.stdin.setEncoding("utf8");
   process.stdout.write("Claude Code ready\r\n");
   process.stdin.once("data", (input) => {
@@ -22,8 +20,7 @@ if (argumentsAfterScript.includes("--ax-screen-reader")) {
       setTimeout(() => process.exit(0), 100);
     }
   });
-  return;
+} else {
+  process.stderr.write("unsupported fixture arguments");
+  process.exit(2);
 }
-
-process.stderr.write("unsupported fixture arguments");
-process.exit(2);

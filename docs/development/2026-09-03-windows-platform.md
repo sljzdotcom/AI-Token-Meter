@@ -234,6 +234,19 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - app-server 子进程使用同一最小环境和 Windows Job Object，完成或失败都会终止进程树；跨平台 Node fixture 已完成真实 stdin/stdout 会话测试；
 - 当前 Claude Windows-only fixture 将在下一轮 runner 验证真实 ConPTY 端到端采集；macOS 交叉构建仍会因缺少 `llvm-rc` 停在 Tauri 资源阶段，此边界不冒充 Windows 结果。
 
+### Provider runner 首轮反馈
+
+- Windows CI [33718718700](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33718718700) 通过前端、构建、格式和 Windows Clippy，但 Claude 端到端 fixture 在 0.26 秒内返回 Transport；耗时排除了 8 秒 ConPTY 等待超时；
+- 检查 fixture 发现其按 ESM 执行却包含顶层 `return`，Node 会在进入 `auth status` 分支前语法退出。fixture 已改为完整 `if / else if / else`，保留非预期参数退出码 2，下一轮 runner 将验证产品路径。
+
+### 本机 30 日活动与刷新协调
+
+- Claude 活动只解码 timestamp、sessionId 和四个 usage 计数字段；对话内容、cwd 与其他字段不会进入模型；JSONL 枚举拒绝符号链接，并限制 16,384 个目录项、4,096 个文件、单文件 256 MiB、总计 512 MiB 和单行 2 MiB；
+- Codex 活动以 SQLite `READ_ONLY | NO_MUTEX`、`query_only=ON` 和 1 秒 busy timeout 查询 `threads` 的 tokens_used/created_at/updated_at，最多 100,000 行，不读取对话文本；
+- 两种来源都输出共享的 period、sessions、tokens、active days 和 longest session；原生与 WSL 路径由调用方分别传入，不会合并为一个统计；
+- 刷新协调器默认 300 秒，三个 Provider 使用独立线程并行；计划刷新对同 Provider 去重，手动刷新取消旧 token 后替换，旧任务结束时不能误删新任务；单项失败只进入该 Provider 结果；
+- 本机完整 Rust 回归共 56 项通过，新增 3 项活动和 3 项协调器测试；格式与全目标零警告 Clippy 通过。
+
 ## 尚未完成
 
 - DeepSeek 真机 Key 验收；
