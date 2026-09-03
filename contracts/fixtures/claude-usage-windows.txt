@@ -1,0 +1,9 @@
+[1mCurrent session[0m
+████░░░░░░░░░░░░░░░░ 23% used
+Resets in 3 hr 42 min
+
+Current week (all models)
+█░░░░░░░░░░░░░░░░░░░ 5% used
+Resets Sep 6 at 8:00am
+
+Your weekly Claude Code limit is 50% higher through September 30.

@@ -432,7 +432,7 @@ git commit -m "feat: run Windows AI CLIs through bounded processes"
 - 创建：`contracts/fixtures/claude-usage-windows.txt`
 - 创建：`contracts/fixtures/codex-app-server-windows.jsonl`
 
-- [ ] **步骤 1：移植脱敏解析 fixture 并写失败测试**
+- [x] **步骤 1：移植脱敏解析 fixture 并写失败测试**
 
 同一 fixture 在 Swift 与 Rust 中应得到相同 session/weekly 比例、重置时间、促销说明和 Reset Credit。错误文本、登录提示和版本变化必须映射到合同状态而非零值。
 

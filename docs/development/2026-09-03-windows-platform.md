@@ -216,7 +216,16 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
 - Windows 前端尚无秘密接口，也没有任意命令执行能力；
-- Windows Credential Manager、CLI 输出边界和 WebView2 allowlist 将在后续任务以独立测试实现。
+- Windows Credential Manager 与 CLI 输出边界已有独立测试和真实 runner 证据；WebView2 allowlist 将在 DeepSeek 图表阶段实现。
+
+## Phase 2：Claude Code 与 OpenAI Codex 采集（进行中）
+
+### 跨平台解析合同
+
+- 先新增 Windows Claude 终端与 Codex app-server JSONL 脱敏 fixture；失败测试确认采集模块和统一错误类型尚不存在后再实现；
+- Claude 解析器支持 ANSI 清理、used/remaining 转换、两级额度和相邻重置说明；促销中的 `50% higher` 不会被误识别为额度，未登录、工作区未信任和未知输出不会伪装成 `0%`；
+- Codex 解析器按请求 ID 选取响应并忽略未知通知；解析主/周额度、Unix 重置时间和仅 `available` 的 Full Reset Credit，时间统一输出 RFC 3339；
+- 6 项解析测试、格式与零警告 Clippy 通过。下一步接入真实 Claude ConPTY 会话、Codex app-server 进程及本机 30 日活动。
 
 ## 尚未完成
 
