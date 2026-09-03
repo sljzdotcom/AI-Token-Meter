@@ -133,9 +133,11 @@ scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
 4. 以该 tag 触发 `release.yml`；
 5. macOS job 重新下载草稿资产、核对 SHA 与 Sparkle 签名事实；Windows job 重跑测试并生成 NSIS、`.nsis.zip`、`.sig` 和 SHA，并用应用内同一 Tauri 公钥实际验证 updater archive；
 6. publish job 生成只含 `windows-x86_64` 的 `latest.json`，校验并上传 Windows 资产，随后才把草稿改为公开；
-7. 稳定版在资产公开后才提交根 `appcast.xml`，Preview 则更新独立 `windows-preview-feed`；Preview Release Notes 会明确说明无 Authenticode 时的 SmartScreen `unknown publisher` 提示、SHA-256 人工核验与 minisign 更新边界。
+7. 稳定版在资产公开后才提交根 `appcast.xml`，随后稳定版与 Preview 都推进独立 `windows-preview-feed`；Preview Release Notes 会明确说明无 Authenticode 时的 SmartScreen `unknown publisher` 提示、SHA-256 人工核验与 minisign 更新边界。
 
-公开前任一步失败，Release 保持草稿，已安装用户不会通过更新清单看到半成品。Preview feed 更新失败时 workflow 会把刚公开的目标恢复为草稿；稳定 appcast 推送失败时 Release 资产虽已公开，但旧 appcast 不会引用它，可安全修复后重跑发布步骤。Windows updater endpoint 固定为 GitHub Release 的 `latest/download/latest.json`；macOS 继续读取仓库根 appcast。双方版本必须相同，但清单格式不混用。
+workflow 会先备份根 `appcast.xml` 与固定 Preview feed，并用全局并发锁串行化不同版本的发布。公开后的 feed 步骤失败时，补偿步骤只恢复本轮实际触碰过的 feed；随后重新读取两份公开 feed，只有二者均确认不再引用目标版本，且本轮确实执行过草稿到公开的转换，才把目标 Release 改回草稿。任何恢复、鉴权、网络或存在性探测失败都会保留公开资产，避免形成“更新源可见但下载资产被撤下”的断链。只有明确 HTTP 404 才代表 Preview feed 不存在。
+
+同版本恢复重跑可识别已经公开的 Release，下载并复用线上实际 Windows installer/updater/signature 来重建 feed，不使用可能字节不同的重编译归档，也绝不会因为重跑失败而撤下既有公开版本。公开前失败则 Release 原本就保持草稿。Windows updater endpoint 固定为 GitHub Release 的 `latest/download/latest.json`；macOS 继续读取仓库根 appcast。双方版本必须相同，但清单格式不混用。
 
 ## 本机替换与恢复
 

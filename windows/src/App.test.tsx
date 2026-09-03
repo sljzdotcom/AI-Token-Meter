@@ -153,10 +153,18 @@ describe("Windows meter interface", () => {
     expect(screen.getByLabelText("Refresh interval seconds")).toHaveValue(120)
     fireEvent.blur(screen.getByLabelText("Refresh interval seconds"))
     expect(refresh).toHaveBeenCalledWith(120)
+    fireEvent.change(screen.getByLabelText("Refresh interval seconds"), { target: { value: "120.5" } })
+    fireEvent.keyDown(screen.getByLabelText("Refresh interval seconds"), { key: "Enter" })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText("Refresh interval seconds")).toHaveValue(300)
     fireEvent.change(screen.getByLabelText("DeepSeek balance baseline"), { target: { value: "250.5" } })
     expect(baseline).not.toHaveBeenCalled()
     fireEvent.keyDown(screen.getByLabelText("DeepSeek balance baseline"), { key: "Enter" })
     expect(baseline).toHaveBeenCalledWith(25_050)
+    fireEvent.change(screen.getByLabelText("DeepSeek balance baseline"), { target: { value: "250.505" } })
+    fireEvent.blur(screen.getByLabelText("DeepSeek balance baseline"))
+    expect(baseline).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText("DeepSeek balance baseline")).toHaveValue(100)
   })
 
   it("keeps usage alerts and launch-at-login as explicit Monitoring toggles", () => {

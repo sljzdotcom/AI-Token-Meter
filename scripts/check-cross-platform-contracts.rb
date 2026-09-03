@@ -89,7 +89,15 @@ if release_workflow_path.file?
   errors << "Preview releases must use the isolated config and feed" unless release_workflow.include?("tauri.preview.release.conf.json") && release_workflow.include?("windows-preview-feed") && release_workflow.include?("latest-preview.json")
   errors << "Cross-platform release must keep GitHub assets in a draft until verification passes" unless release_workflow.include?('gh release edit "v${VERSION}" --draft=false')
   errors << "Windows updater archive must be verified with the embedded Tauri public key" unless release_workflow.include?("--example verify_update_signature")
-  errors << "Preview publication must return to draft if its feed cannot be updated" unless release_workflow.include?("Rollback an unpublished preview feed")
+  unless release_workflow.include?("group: cross-platform-release") && release_workflow.include?("Back up public update feeds before publication")
+    errors << "Cross-platform publications must serialize and back up both public update feeds"
+  end
+  unless release_workflow.include?("Rollback public update feeds and release visibility") && release_workflow.include?("prior-appcast.xml") && release_workflow.include?("prior-preview-feed.json") && release_workflow.include?("release_may_return_to_draft") && release_workflow.include?("publication-attempted") && release_workflow.include?('--draft=true')
+    errors << "Failed publication must restore both feeds and return the target release to draft"
+  end
+  unless release_workflow.include?("probe_github_release") && release_workflow.include?("exact public recovery assets")
+    errors << "Recovery must distinguish an explicit 404 and reuse the exact public assets"
+  end
 else
   errors << "Cross-platform release workflow is missing"
 end

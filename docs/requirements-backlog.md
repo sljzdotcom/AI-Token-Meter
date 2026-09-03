@@ -238,3 +238,6 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 合并前 Important 修复继续完成：更新安装会暂停并排空采集，登录/采集使用同一受限 profile 环境，自定义 CLI 保存前真实验证；CLI 发现具备总时限/进程预算/取消，本机活动独立限时 2 秒并可中断 SQLite；meter 小屏 DPI 等比缩放，Settings 内容可滚动。失败先行定向测试、严格 Clippy、前端 14 项和 production build 通过，等待 Windows runner。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33737903436` 已验证上述 Important 修复、完整 Rust/前端测试、严格 Clippy、Tauri 壳与 NSIS 全绿。继续补齐 WSL 当前发行版活动、可唤醒刷新间隔、数字输入草稿、真实 updater minisign 复验、稳定 appcast 延后公开和 SmartScreen Release Notes 门禁；仍需新一轮 Windows runner 与最终审查。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 收尾改动已完成本机全量门禁：Windows Rust、严格 Clippy/rustfmt、前端 14 项与构建，macOS 360 + 11 项、共享合同、128 份文档、公开安全扫描和 9 段 Release Bash 语法均通过；等待提交后的 Windows CI 对 Windows-only 分支及 NSIS 做最终确认。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 最终复审新增两项 Important：整数设置暂存小数时 UI 与持久化值不一致；Release 公开后 appcast/preview feed 失败缺少旧 feed 恢复与公开版本重试。暂缓合并，按失败先行测试实现输入 step 校验及跨 feed 补偿回滚。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第二轮复审发现回滚仍可能在 feed 恢复失败或已公开版本重跑失败时盲目撤下 Release，并会把鉴权/网络错误误判为 Preview feed 不存在。现已增加 draft→public 尝试标记、两份 feed 反向引用验证、只在安全条件成立时 redraft、明确 HTTP 404 探测及线上资产恢复重用；进入全量门禁与再次独立复审。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第三轮独立复审未发现 Critical/Important；macOS 360+11、Windows Rust 全套、前端 14 项/构建、严格 lint、发布事务、10 段 workflow Bash、128 份文档与公开安全门禁全部通过。准备提交并由 Windows runner 复验 Windows-only 编译、运行测试与 NSIS。 |

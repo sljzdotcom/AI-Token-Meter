@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ inputs.version }}
+  group: cross-platform-release
   cancel-in-progress: false
 
 jobs:
@@ -49,11 +49,12 @@ jobs:
         run: |
           bash scripts/test.sh
           ruby scripts/check-cross-platform-contracts.rb .
-      - name: Verify signed macOS assets in the draft release
+      - name: Verify signed macOS assets in the draft or public recovery release
         shell: bash
         run: |
           set -euo pipefail
-          test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          [[ "$release_state" == "true" || "$release_state" == "false" ]]
           if [[ "$VERSION" == *-preview.* ]]; then
             appcast="preview-appcast.xml"
           else
@@ -180,7 +181,27 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: ai-token-meter-windows-x64-release
-          path: windows-release
+          path: windows-build
+      - name: Select verified build assets or exact public recovery assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p windows-release
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          if [[ "$release_state" == "true" ]]; then
+            cp windows-build/* windows-release/
+          elif [[ "$release_state" == "false" ]]; then
+            installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
+            updater="AI-Token-Meter-${VERSION}-windows-x64.nsis.zip"
+            gh release download "v$VERSION" --dir windows-release \
+              --pattern "$installer" \
+              --pattern "$installer.sha256" \
+              --pattern "$updater" \
+              --pattern "$updater.sig"
+          else
+            echo "Unable to determine release visibility for v$VERSION" >&2
+            exit 1
+          fi
       - name: Verify Windows assets and create updater manifest
         shell: bash
         run: |
@@ -201,21 +222,58 @@ jobs:
             '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
             > latest.json
           jq -e --arg version "$VERSION" '.version == $version and (.platforms["windows-x86_64"].signature | length > 0)' latest.json >/dev/null
+      - name: Back up public update feeds before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/release-feed-utils.sh
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
+          mkdir -p "$backup_dir"
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          [[ "$release_state" == "true" || "$release_state" == "false" ]]
+          printf '%s\n' "$release_state" > "$backup_dir/target-release-was-draft"
+          git fetch origin main
+          git show origin/main:appcast.xml > "$backup_dir/prior-appcast.xml"
+          preview_state="$(probe_github_release windows-preview-feed "$backup_dir/probes")"
+          printf '%s\n' "$preview_state" > "$backup_dir/preview-feed-state"
+          if [[ "$preview_state" == "present" ]]; then
+            gh release download windows-preview-feed \
+              --dir "$backup_dir/preview-download" \
+              --pattern latest-preview.json
+            mv "$backup_dir/preview-download/latest-preview.json" \
+              "$backup_dir/prior-preview-feed.json"
+          fi
       - name: Upload Windows assets and publish the verified draft
         shell: bash
         run: |
           set -euo pipefail
-          test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
-          gh release upload "v$VERSION" windows-release/* --clobber
-          gh release edit "v${VERSION}" --draft=false
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
+          release_state="$(cat "$backup_dir/target-release-was-draft")"
+          if [[ "$release_state" == "true" ]]; then
+            gh release upload "v$VERSION" windows-release/* --clobber
+            touch "$backup_dir/publication-attempted"
+            gh release edit "v${VERSION}" --draft=false
+          elif [[ "$release_state" == "false" ]]; then
+            assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+            installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
+            updater="AI-Token-Meter-${VERSION}-windows-x64.nsis.zip"
+            for expected in "$installer" "$installer.sha256" "$updater" "$updater.sig" latest.json; do
+              grep -Fxq "$expected" <<<"$assets"
+            done
+          else
+            echo "Unable to determine release visibility for v$VERSION" >&2
+            exit 1
+          fi
       - name: Publish the stable macOS appcast after assets are public
         if: ${{ !contains(inputs.version, '-preview.') }}
         shell: bash
         run: |
           set -euo pipefail
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
           feed_dir="$RUNNER_TEMP/stable-appcast"
           mkdir -p "$feed_dir"
           gh release download "v$VERSION" --dir "$feed_dir" --pattern appcast.xml
+          touch "$backup_dir/stable-feed-update-attempted"
           git fetch origin main
           git checkout -B main origin/main
           test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
@@ -228,13 +286,16 @@ jobs:
           git add appcast.xml
           git commit -m "release: publish appcast v$VERSION"
           git push origin HEAD:main
-      - name: Update the fixed Windows preview feed after preview assets are public
-        if: ${{ contains(inputs.version, '-preview.') }}
+      - name: Update the fixed Windows preview feed after assets are public
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/release-feed-utils.sh
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
           cp windows-release/latest.json windows-release/latest-preview.json
-          if gh release view windows-preview-feed >/dev/null 2>&1; then
+          preview_state="$(probe_github_release windows-preview-feed "$backup_dir/update-probes")"
+          touch "$backup_dir/preview-feed-update-attempted"
+          if [[ "$preview_state" == "present" ]]; then
             gh release upload windows-preview-feed windows-release/latest-preview.json --clobber
           else
             gh release create windows-preview-feed \
@@ -243,23 +304,79 @@ jobs:
               --notes "Machine-readable update feed for AI Token Meter Windows preview builds." \
               windows-release/latest-preview.json
           fi
-      - name: Rollback an unpublished preview feed
-        if: ${{ failure() && contains(inputs.version, '-preview.') }}
-        shell: bash
-        run: |
-          gh release edit "v${VERSION}" --draft=true
-      - name: Advance preview users to a verified stable release
-        if: ${{ !contains(inputs.version, '-preview.') }}
+      - name: Rollback public update feeds and release visibility
+        if: ${{ failure() }}
         shell: bash
         run: |
           set -euo pipefail
-          cp windows-release/latest.json windows-release/latest-preview.json
-          if gh release view windows-preview-feed >/dev/null 2>&1; then
-            gh release upload windows-preview-feed windows-release/latest-preview.json --clobber
-          else
-            gh release create windows-preview-feed \
-              --prerelease \
-              --title "Windows preview update feed" \
-              --notes "Machine-readable update feed for AI Token Meter Windows preview builds." \
-              windows-release/latest-preview.json
+          source scripts/release-feed-utils.sh
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
+          rollback_failed=0
+
+          if [[ -f "$backup_dir/stable-feed-update-attempted" ]]; then
+            if [[ ! -s "$backup_dir/prior-appcast.xml" ]]; then
+              rollback_failed=1
+            fi
+            git fetch origin main || rollback_failed=1
+            git checkout -B main origin/main || rollback_failed=1
+            cp "$backup_dir/prior-appcast.xml" appcast.xml || rollback_failed=1
+            if [[ "$rollback_failed" == 0 ]] && ! git diff --quiet -- appcast.xml; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add appcast.xml
+              git commit -m "release: rollback appcast v$VERSION" || rollback_failed=1
+              git push origin HEAD:main || rollback_failed=1
+            fi
           fi
+
+          if [[ -f "$backup_dir/preview-feed-update-attempted" ]]; then
+            preview_state="$(cat "$backup_dir/preview-feed-state")"
+            if [[ "$preview_state" == "present" && -s "$backup_dir/prior-preview-feed.json" ]]; then
+              rollback_dir="$RUNNER_TEMP/preview-feed-rollback"
+              mkdir -p "$rollback_dir"
+              cp "$backup_dir/prior-preview-feed.json" "$rollback_dir/latest-preview.json"
+              gh release upload windows-preview-feed "$rollback_dir/latest-preview.json" --clobber \
+                || rollback_failed=1
+            elif [[ "$preview_state" == "absent" ]]; then
+              current_preview_state="unknown"
+              if ! current_preview_state="$(probe_github_release windows-preview-feed "$backup_dir/rollback-probes")"; then
+                rollback_failed=1
+              elif [[ "$current_preview_state" == "present" ]]; then
+                gh release delete windows-preview-feed --yes --cleanup-tag || rollback_failed=1
+              fi
+            elif [[ "$preview_state" != "absent" ]]; then
+              rollback_failed=1
+            fi
+          fi
+
+          if [[ -f "$backup_dir/publication-attempted" ]]; then
+            feeds_safe=1
+            stable_now="$backup_dir/current-appcast.xml"
+            if ! git fetch origin main \
+              || ! git show origin/main:appcast.xml > "$stable_now" \
+              || grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" "$stable_now"; then
+              feeds_safe=0
+            fi
+
+            current_preview_state="unknown"
+            if ! current_preview_state="$(probe_github_release windows-preview-feed "$backup_dir/verify-probes")"; then
+              feeds_safe=0
+            elif [[ "$current_preview_state" == "present" ]]; then
+              verify_dir="$RUNNER_TEMP/preview-feed-verification"
+              mkdir -p "$verify_dir"
+              if ! gh release download windows-preview-feed \
+                --dir "$verify_dir" --pattern latest-preview.json --clobber \
+                || ! jq -e --arg version "$VERSION" '.version != $version' \
+                  "$verify_dir/latest-preview.json" >/dev/null; then
+                feeds_safe=0
+              fi
+            fi
+
+            if release_may_return_to_draft "$backup_dir" "$rollback_failed" "$feeds_safe"; then
+              gh release edit "v${VERSION}" --draft=true || rollback_failed=1
+            else
+              echo "Keeping v${VERSION} public because update-feed recovery is not proven safe." >&2
+              rollback_failed=1
+            fi
+          fi
+          exit "$rollback_failed"

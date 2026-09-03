@@ -284,7 +284,10 @@ function DraftNumberInput({
   useEffect(() => setDraft(formattedValue), [formattedValue])
   const commit = () => {
     const parsed = Number(draft)
-    if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    const stepOffset = (parsed - min) / step
+    const stepTolerance = Number.EPSILON * Math.max(1, Math.abs(stepOffset)) * 16
+    const followsStep = Math.abs(stepOffset - Math.round(stepOffset)) <= stepTolerance
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max || !followsStep) {
       setDraft(formattedValue)
       return
     }
