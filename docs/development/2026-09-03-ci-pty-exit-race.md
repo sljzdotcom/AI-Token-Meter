@@ -62,3 +62,17 @@
 `v0.2.2` 的同一提交先通过 PR CI，但随后 `main` CI `33701394513` 在独立 PTY 测试进程中再次报告 32 路并发输出缺失。重新审计发现，产品 `PTYCommandRunner` 并未出现新的退出或读取错误；问题来自测试 fixture 在每个交互 Shell 中用 `printf | tr` 清理一行输入。32 路测试因此会额外短时派生 64 个子进程，GitHub runner 资源紧张时其中一条 fixture 可异常退出，而旧断言只检查正文、没有检查退出码，表现得像 PTY 丢失输出。
 
 补充修复保持产品代码不变：fixture 直接使用终端规范模式下 `read` 得到的行，不再启动清理管道；并发测试同时断言 32 个 `CommandResult` 都以退出码 0 完成，再检查固定身份输出。修复后聚焦 PTY suite 11/11 通过，并发用例在本机连续 200 轮通过；[PR CI 33702291460](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702291460) 与 [最终 main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) 均通过。修复提交 `c11da0a` 是 `v0.2.2` 标签目标。
+
+## Windows 合并后的第二次复发
+
+Windows 平台并入 `main` 后，`eea044b` 的 [macOS CI 33744944628](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33744944628) 中 362 项普通测试全部通过，但独立 PTY suite 的 `A parent exit cannot leave the runner waiting on a descendant PTY` 在 2.429 秒后误报 `timedOut`。其 fixture 的 Python 父进程会立即 `os._exit(0)`，只有脱离会话的后代继续持有 PTY；因此等待的对象应是已经退出的父 PID，而不是后代或 PTY EOF。
+
+重新审计发现，负责直接调用 `Process.waitUntilExit()` 的并发 fallback queue 仍固定为 `.utility`。它正是 Foundation termination handler 延迟时的退出事实来源，却可能在 runner 高负载下被 2 秒 timeout task 抢先。新增失败先行的 QoS 合同测试后，把该专用队列提升为 `.userInitiated`，不改变 timeout 数值、信号处理、PTY 尾部排空或后代清理。
+
+修复后：
+
+- 失败先行 QoS 合同测试通过；
+- PTY suite 12/12 通过，父进程退出用例约 0.85 秒完成；
+- 父进程退出用例连续 20 轮通过；
+- 本机完整回归为 362 项普通测试 + 12 项独立 PTY，共 374 项、72 个测试组；共享合同、Release feed、129 份 Markdown 与公开安全门禁通过；
+- 新提交的远端 main CI 待补录，未通过前本需求重新保持“进行中”。

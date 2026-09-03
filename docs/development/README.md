@@ -37,10 +37,10 @@
 | [2026-09-02](2026-09-02-public-github-release.md) | MIT 开源、作者信息、标准社区文档、脱敏截图、完整历史安全扫描与 v0.1.2 GitHub Release | 331 个测试、67 个测试组、公开 CI、正式标签、双资产 Release 和匿名 SHA-256 下载终验全部通过 |
 | [2026-09-02](2026-09-02-github-app-update.md) | Settings 手动检查与安装 GitHub 稳定版、Sparkle EdDSA 信任链和可复现发布入口 | 360 个测试、70 个测试组、Release/Sparkle/归档/篡改门禁和 0.1.9 → 0.2.0 隔离真实更新通过 |
 | [2026-09-03](2026-09-03-pty-allocation-race.md) | macOS 高并发 `openpty` 分配竞争修复 | 修复前 32 路回归可复现；修复后聚焦压力与 360 个完整测试通过 |
-| [2026-09-03](2026-09-03-ci-pty-exit-race.md) | GitHub runner 高负载下 PTY 退出回调、输出尾部与测试隔离修复 | 361 项完整回归、11 项聚焦测试和连续 10 轮压力复验通过；公开 CI 33654906546 与 v0.2.1 最终 CI 33655946917 通过 |
+| [2026-09-03](2026-09-03-ci-pty-exit-race.md) | GitHub runner 高负载下 PTY 退出回调、输出尾部与测试隔离修复 | 第二次复发已定位为备用退出确认的低 QoS 调度；20/20 压力与 12 项 PTY 回归通过，远端复验待补录 |
 | [2026-09-03](2026-09-03-update-status-window-frontmost.md) | Sparkle 安装状态窗口自动置前与 v0.2.2 公开升级终验 | 362 项回归、最终 CI 33702415007、公开资产/EdDSA/严格签名和隔离 0.2.1 → 0.2.2 原位升级与自动重启通过 |
 | [2026-09-03](2026-09-03-windows-platform.md) | Windows 11 x64 Tauri/Rust/React 版本与双平台同步发布 | 进行中；共享合同、三 Provider、Native/WSL、Win32 窗口、Services、DeepSeek WebView2、Updater、NSIS 与 Windows CI 已实现；交互式真机、签名升级演练和 Preview Release待完成 |
-| [2026-09-03](2026-09-03-deepseek-secret-read-priority.md) | 高并发 macOS CI 中 DeepSeek Keychain 读取的优先级反转修复 | 失败先行测试已固定调度优先级；完整回归与远端 CI 待补录 |
+| [2026-09-03](2026-09-03-deepseek-secret-read-priority.md) | 高并发 macOS CI 中 DeepSeek Keychain 读取的优先级反转修复 | 失败先行测试和 374 项完整回归通过；远端 CI 待补录 |
 
 ## 新日志模板
 

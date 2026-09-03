@@ -183,9 +183,11 @@ public struct PTYCommandRunner: CommandRunning {
 }
 
 final class ProcessTerminationWaiter: @unchecked Sendable {
+    static let fallbackWaitQoSClass = DispatchQoS.QoSClass.userInitiated
+
     private static let fallbackQueue = DispatchQueue(
         label: "com.millerpan.AIMeter.process-termination",
-        qos: .utility,
+        qos: DispatchQoS(qosClass: fallbackWaitQoSClass, relativePriority: 0),
         attributes: .concurrent
     )
 

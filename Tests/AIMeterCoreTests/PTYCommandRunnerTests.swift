@@ -4,6 +4,11 @@ import Testing
 
 @Suite("PTY command runner", .serialized)
 struct PTYCommandRunnerTests {
+    @Test("Fallback process waits use user initiated quality of service")
+    func fallbackProcessWaitQoS() {
+        #expect(ProcessTerminationWaiter.fallbackWaitQoSClass == .userInitiated)
+    }
+
     @Test("Sends fixed input and preserves the child exit status")
     func sendsInputAndPreservesExitStatus() async throws {
         let runner = PTYCommandRunner()
