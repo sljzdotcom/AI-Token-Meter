@@ -59,11 +59,16 @@ struct FloatingDetailSessionTests {
 
     @Test("The active provider is cleared when its timeout expires")
     @MainActor
-    func timeoutDismisses() async throws {
-        let session = FloatingDetailSession()
-        session.present(.deepSeek, autoHideAfter: .milliseconds(20))
-        try await Task.sleep(for: .milliseconds(50))
-        #expect(session.selectedProvider == nil)
+    func timeoutDismisses() async {
+        let sleeper = ControlledAutoHideSleeper()
+        let session = FloatingDetailSession { duration in
+            try await sleeper.sleep(for: duration)
+        }
+        session.present(.deepSeek, autoHideAfter: .seconds(30))
+        #expect(await eventually { await sleeper.startCount == 1 })
+
+        await sleeper.resumeLatest()
+        #expect(await eventually { session.selectedProvider == nil })
     }
 
     @Test("Paused detail does not auto-hide until resumed")
