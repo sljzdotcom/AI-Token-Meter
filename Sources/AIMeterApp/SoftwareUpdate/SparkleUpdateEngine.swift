@@ -7,6 +7,12 @@ final class SparkleUpdateEngine: NSObject, SoftwareUpdateEngine, SPUUpdaterDeleg
 
     private var controller: SPUStandardUpdaterController?
     private var currentRelease: SoftwareUpdateRelease?
+    private let windowPresenter: SoftwareUpdateWindowPresenter
+
+    init(windowPresenter: SoftwareUpdateWindowPresenter = SoftwareUpdateWindowPresenter()) {
+        self.windowPresenter = windowPresenter
+        super.init()
+    }
 
     var canCheckForUpdates: Bool {
         controller?.updater.canCheckForUpdates ?? false
@@ -26,6 +32,7 @@ final class SparkleUpdateEngine: NSObject, SoftwareUpdateEngine, SPUUpdaterDeleg
     }
 
     func presentAvailableUpdate() {
+        windowPresenter.prepareForInstallation()
         controller?.checkForUpdates(nil)
     }
 
