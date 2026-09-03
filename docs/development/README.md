@@ -43,7 +43,7 @@
 | [2026-09-03](2026-09-03-deepseek-secret-read-priority.md) | 高并发 macOS CI 中 DeepSeek Keychain 读取的优先级反转修复 | 失败先行测试、374 项完整回归及双平台 main CI 通过 |
 | [2026-09-03](2026-09-03-floating-strip-placement-persistence.md) | 稳定保存浮动条的物理显示器、侧边和高度，多屏断开时无损回退主屏 | 三轮独立审查无剩余 Critical/Important；macOS/Windows PR 与精确合并头 CI 全绿，已合入 `main` |
 | [2026-09-03](2026-09-03-deepseek-timeout-starvation.md) | DeepSeek Keychain 阻塞读取不再饿死截止时间 | 失败重跑复现、独立单调时钟修复、386 项回归及 macOS PR/main CI 通过 |
-| [2026-09-04](2026-09-04-v0.3.0-preview.0-release.md) | 首个 macOS/Windows 同版本 Preview Release | 进行中；版本、Release notes 与密码保护的 Windows 更新签名身份准备完成，等待 Secret、双平台门禁与公开资产复验 |
+| [2026-09-04](2026-09-04-v0.3.0-preview.0-release.md) | 首个 macOS/Windows 同版本 Preview Release | 已完成；Actions Secret、双平台门禁、公开 prerelease、两平台签名与公网重下复验均有证据 |
 
 ## 新日志模板
 
