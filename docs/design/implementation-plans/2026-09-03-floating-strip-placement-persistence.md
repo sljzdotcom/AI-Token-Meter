@@ -31,7 +31,7 @@
 - 修改：`Sources/AIMeterApp/System/FloatingStripScreenResolver.swift`
 - 测试：`Tests/AIMeterAppTests/FloatingStripLayoutTests.swift`
 
-- [ ] **步骤 1：编写失败的多屏与迁移测试**
+- [x] **步骤 1：编写失败的多屏与迁移测试**
 
 将旧的“缺失显示器回到右侧中点”测试替换为以下合同，并补充旧标识迁移：
 
@@ -80,7 +80,7 @@ func matchingLegacyIdentifierMigrates() {
 
 另加：旧数字标识在单屏但编号改变时安全迁移；稳定 UUID 缺失时即使只剩单屏也不得迁移；屏幕集合为空返回 `nil`；没有保存目标时优先主屏。
 
-- [ ] **步骤 2：运行定向测试并确认按预期失败**
+- [x] **步骤 2：运行定向测试并确认按预期失败**
 
 运行：
 
@@ -92,7 +92,7 @@ bash scripts/test.sh --filter "Floating strip layout"
 
 预期：编译失败，指出新 `screens` 参数、`FloatingStripScreenIdentity` 或新结果字段尚不存在；不能接受与目标无关的失败。
 
-- [ ] **步骤 3：实现最小纯身份与解析模型**
+- [x] **步骤 3：实现最小纯身份与解析模型**
 
 在新文件定义：
 
@@ -124,11 +124,11 @@ let stableIdentifier = displayID
 
 UUID 不可用时用 `legacy:<number>` 作为本次可选择身份，同时保留裸数字 `legacyIdentifier` 供旧配置匹配；不得返回空字符串。
 
-- [ ] **步骤 4：运行定向测试确认绿色**
+- [x] **步骤 4：运行定向测试确认绿色**
 
 运行与步骤 2 相同的筛选命令。预期：`Floating strip layout` 全部通过，0 失败。
 
-- [ ] **步骤 5：提交身份和解析策略检查点**
+- [x] **步骤 5：提交身份和解析策略检查点**
 
 ```bash
 git add Sources/AIMeterApp/System/FloatingStripScreenIdentity.swift \
@@ -145,7 +145,7 @@ git commit -m "fix: resolve floating strip by stable display identity"
 - 测试：`Tests/AIMeterAppTests/FloatingPanelPositioningPolicyTests.swift`
 - 测试：`Tests/AIMeterAppTests/AppModelStartupTests.swift`
 
-- [ ] **步骤 1：编写失败的无损重排和迁移测试**
+- [x] **步骤 1：编写失败的无损重排和迁移测试**
 
 把旧策略测试改成任何系统触发的临时回退都不持久化，只有 resolver 明确给出的旧标识迁移可以写入：
 
@@ -178,7 +178,7 @@ model.migrateFloatingStripScreenIdentifier(from: "3", to: "uuid:display")
 #expect(model.floatingStripPosition.screenIdentifier == "uuid:display")
 ```
 
-- [ ] **步骤 2：运行测试确认旧行为失败**
+- [x] **步骤 2：运行测试确认旧行为失败**
 
 运行：
 
@@ -190,7 +190,7 @@ bash scripts/test.sh --filter "Floating panel positioning policy|App model start
 
 预期：新迁移方法与 `FloatingStripPositionPersistencePolicy` 不存在，旧策略仍允许普通重排写回默认位置。
 
-- [ ] **步骤 3：接通稳定身份和无损回退**
+- [x] **步骤 3：接通稳定身份和无损回退**
 
 实施以下最小变更：
 
@@ -212,7 +212,7 @@ func migrateFloatingStripScreenIdentifier(from old: String, to new: String) {
 }
 ```
 
-- [ ] **步骤 4：运行位置相关测试确认绿色**
+- [x] **步骤 4：运行位置相关测试确认绿色**
 
 运行：
 
@@ -224,7 +224,7 @@ bash scripts/test.sh --filter "Floating strip position|Floating strip layout|Flo
 
 预期：位置、解析、迁移与启动测试全部通过，0 失败。
 
-- [ ] **步骤 5：提交控制器检查点**
+- [x] **步骤 5：提交控制器检查点**
 
 ```bash
 git add Sources/AIMeterApp/System/FloatingPanelController.swift \
@@ -244,7 +244,7 @@ git commit -m "fix: preserve floating strip placement across display changes"
 - 创建：`docs/development/2026-09-03-floating-strip-placement-persistence.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：增加 Windows 目标屏与回退测试**
+- [x] **步骤 1：增加 Windows 目标屏与回退测试**
 
 在 `monitor.rs` 增加：
 
@@ -270,7 +270,7 @@ fn missing_monitor_falls_back_only_to_primary() {
 
 同时静态核对 `position_meter_on_preferred` 不调用 `persist_settings`；只有 `meter_drag_ended` 更新 `meter_monitor_id`。
 
-- [ ] **步骤 2：运行 Windows Rust 定向测试**
+- [x] **步骤 2：运行 Windows Rust 定向测试**
 
 运行：
 
@@ -280,7 +280,7 @@ cargo test --manifest-path windows/src-tauri/Cargo.toml platform::windows::monit
 
 预期：目标屏优先与主屏回退测试通过；若非 Windows 主机条件编译裁掉模块，则运行 `cargo test --manifest-path windows/src-tauri/Cargo.toml` 并由现有 Windows CI 补充真实目标验证。
 
-- [ ] **步骤 3：更新当前文档与开发证据**
+- [x] **步骤 3：更新当前文档与开发证据**
 
 文档必须明确：
 
@@ -292,7 +292,7 @@ cargo test --manifest-path windows/src-tauri/Cargo.toml platform::windows::monit
 
 同步把 `REQ-20260903-009` 的阶段证据写入 backlog；在完整验证与 CI 之前保持 `进行中`。
 
-- [ ] **步骤 4：运行双平台和文档完整门禁**
+- [x] **步骤 4：运行双平台和文档完整门禁**
 
 运行：
 

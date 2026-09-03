@@ -41,6 +41,7 @@
 | [2026-09-03](2026-09-03-update-status-window-frontmost.md) | Sparkle 安装状态窗口自动置前与 v0.2.2 公开升级终验 | 362 项回归、最终 CI 33702415007、公开资产/EdDSA/严格签名和隔离 0.2.1 → 0.2.2 原位升级与自动重启通过 |
 | [2026-09-03](2026-09-03-windows-platform.md) | Windows 11 x64 Tauri/Rust/React 版本与双平台同步发布 | 进行中；共享合同、三 Provider、Native/WSL、Win32 窗口、Services、DeepSeek WebView2、Updater、NSIS 与 Windows CI 已实现；交互式真机、签名升级演练和 Preview Release待完成 |
 | [2026-09-03](2026-09-03-deepseek-secret-read-priority.md) | 高并发 macOS CI 中 DeepSeek Keychain 读取的优先级反转修复 | 失败先行测试、374 项完整回归及双平台 main CI 通过 |
+| [2026-09-03](2026-09-03-floating-strip-placement-persistence.md) | 稳定保存浮动条的物理显示器、侧边和高度，多屏断开时无损回退主屏 | macOS 稳定 UUID/旧配置迁移和 Windows 对等合同已实现；完整验证与 CI 证据见日志 |
 
 ## 新日志模板
 
