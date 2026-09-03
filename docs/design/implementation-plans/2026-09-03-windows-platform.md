@@ -520,9 +520,11 @@ git commit -m "feat: build Windows meter interface"
 
 前端以固定 `usage_snapshots` command 和 `snapshot-updated` 事件接收脱敏 DTO；无任意命令或路径入口。5 项组件/交互测试、TypeScript 检查和 Vite 正式构建通过；本机 Chromium 预览确认深海背景覆盖主体与上下肩部。真实 WebView2、Win32 透明窗口形状、DPI 和高对比度验收仍属于任务 9，不用浏览器预览冒充 Windows 真机证据。
 
-- [ ] **步骤 6：接通 Services 账号与凭据管理**
+- [x] **步骤 6：接通 Services 账号与凭据管理**
 
 Settings 启动时读取 Claude Code、OpenAI Codex 与 DeepSeek 的真实状态；只显示 CLI 返回的账号标识、订阅类型、原生/WSL 来源和版本，不显示 CLI 路径或凭据。Claude Code/OpenAI Codex 的按钮只启动固定官方登录命令；DeepSeek 候选 Key 必须先由官方余额接口验证，再原子替换 Windows Credential Manager 中的旧 Key。失败时保留旧 Key，界面只展示分类错误。
+
+Windows CI `33728660845` 已在真实 `windows-latest` runner 通过严格 Clippy、完整 Rust 运行测试和 Tauri/NSIS 构建，确认 Services 的 Windows 条件编译、CLI account/read 会话和 Credential Manager 路径可用；真实个人账号显示仍属于不记录身份信息的真机视觉验收。
 
 ---
 
@@ -638,7 +640,7 @@ AI-Token-Meter-X.Y.Z-windows-x64-setup.exe.sig
 
 首个 Preview 可无 Authenticode，但 README 和 Release Notes 必须明确 SmartScreen 提示；稳定版取得证书前不得声称“已签名发布者”。
 
-- [ ] **步骤 4：建立 Windows CI**
+- [x] **步骤 4：建立 Windows CI**
 
 `windows-ci.yml` 在 `windows-latest` 执行：
 
@@ -662,6 +664,8 @@ AI-Token-Meter-X.Y.Z-windows-x64-setup.exe.sig
 ```
 
 macOS CI 同时运行共享合同检查。正式 Release workflow 必须等待两个平台 job 成功，再发布双方产物。
+
+Windows CI `33728660845` 已生成并上传 `AI Token Meter_0.2.2_x64-setup.exe`（SHA-256 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`）；该 debug/current-user NSIS 仅作为构建证据，不作为已签名 Preview Release。
 
 - [ ] **步骤 5：执行隔离升级演练**
 
@@ -702,13 +706,15 @@ git commit -m "feat: add Windows installer and signed updates"
 - 创建：`docs/assets/screenshots/windows-settings.png`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] **步骤 1：先扩展文档门禁**
+- [x] **步骤 1：先扩展文档门禁**
 
 要求 README 同时列出 macOS 14+ Apple Silicon 与 Windows 11 x64；安装说明区分 DMG/ZIP 与 NSIS；截图无账户、路径、Key、手机号、邮箱；每个平台的限制、更新签名和 SmartScreen 边界真实可查。
 
 - [ ] **步骤 2：补齐面向用户和维护者的文档**
 
 记录：三 Provider 数据口径；原生/WSL 选择；Credential Manager；CLI 找不到时的一键检测/登录；左右贴边；全屏隐藏；Settings；手动更新；日志目录；卸载与隐私；双平台发版和回滚。
+
+README、用户指南、服务口径、架构、目录、隐私、安全政策、开发环境、测试、维护、发布、CHANGELOG、项目状态与提交索引的 Windows 文字已同步；三张 Windows 产品截图必须来自交互式 Windows 11 真机，当前不使用浏览器 mock 冒充，因此本步骤在截图加入前保持未完成。
 
 - [ ] **步骤 3：运行完整门禁**
 

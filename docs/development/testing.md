@@ -6,7 +6,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **368 个测试、72 个测试组全部通过**。默认完整验证会先运行 357 项普通测试，再从独立测试进程运行 11 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **371 个测试、72 个测试组全部通过**。默认完整验证会先运行 360 项普通测试，再从独立测试进程运行 11 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+
+以上数字是当前 macOS 稳定分支基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。Windows CI `33728660845` 已通过 11 项前端测试、全部 Rust 测试、严格 Clippy、Tauri 壳与 NSIS 构建。
 
 普通测试覆盖：
 
@@ -108,6 +110,24 @@ test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 - Logo 与深海背景直接位于 `Contents/Resources` 的标准子目录，可在脱离源码与 SwiftPM 构建缓存后加载。
 - `Sparkle.framework`、Updater、Autoupdate 与两个 XPC helper 完整，主程序通过正确 `@rpath` 加载，并且 feed、公钥和禁用后台检查的键存在。
 
+## Windows 测试与 NSIS
+
+在 Windows 11 x64 开发机执行：
+
+```powershell
+npm --prefix windows ci
+npm --prefix windows test
+npm --prefix windows run build
+cargo fmt --check --manifest-path windows/src-tauri/Cargo.toml
+cargo clippy --locked --all-targets --manifest-path windows/src-tauri/Cargo.toml -- -D warnings
+cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
+npm --prefix windows run tauri build
+```
+
+真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture、GDI `HRGN`、显示器 API、更新状态与完整 NSIS 生成。CI 上传的 debug NSIS 只用于构建回验；正式 updater archive 必须由 Release workflow 注入 Tauri signing secret。
+
+交互式 Windows 真机还必须手工覆盖：左右贴边、125%/200% DPI、多显示器拔插、全屏 Edge 隐藏/恢复、普通窗口上方详情、外部点击关闭、真实指针拖动、Native/WSL 账号显示、DeepSeek WebView2 登录与 30 日图表。CI runner 没有可替代这些视觉/账户证据的桌面会话。
+
 包含 Widget 时再运行：
 
 ```bash
@@ -135,6 +155,15 @@ scripts/verify-update-archive.sh \
 ```
 
 验证器会读取 appcast enclosure，核对字节长度、版本、build、ZIP 内 App 与签名，并创建临时篡改副本确认验证失败；不会修改正式 ZIP。
+
+双平台发布从维护者 Mac 执行：
+
+```bash
+SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
+scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
+```
+
+脚本使用本机 Keychain 生成 macOS Sparkle 资产，创建草稿 Release，再触发 `.github/workflows/release.yml`。工作流重新验证 macOS ZIP/appcast，构建 Windows `.exe` 与 minisign `.nsis.zip`，生成 `latest.json`，只有两项 job 都通过才解除草稿。Windows 签名 Secret 未配置时必须失败并保留草稿。
 
 ## 文档和差异检查
 

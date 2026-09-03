@@ -16,6 +16,8 @@ AI Token Meter 不把三家服务强行换算成同一个“额度”。每个�
 
 AI Token Meter 先检查 Claude Code CLI 的认证状态，再在专用空工作区内通过伪终端启动 Claude Code，并执行 `/usage`。输出经 ANSI 清理后解析为统一快照。
 
+Windows 可选择 Native 或 WSL CLI，使用 ConPTY、固定终端输入、超时和 Job Object；macOS 使用 PTY。Services 展示实际来源和版本，但两平台都只把解析后的额度字段交给 UI。
+
 ### 为什么使用隔离工作区
 
 - 避免打开用户代码仓库时加载项目指令和工具；
@@ -57,6 +59,8 @@ AI Token Meter 启动已安装的 OpenAI Codex CLI `app-server`，通过 JSON-RP
 
 定位器依次检查当前 PATH、用户级目录、常见 Node 管理器、Homebrew/系统目录，并以后备方式检查用户或系统 Applications 中 ChatGPT/Codex App 的内置 `codex`。nvm/npm 脚本启动时会把自身 `bin` 目录置于子进程 PATH 首位，使脚本使用相邻 Node 运行时；不会写死某个 Node 版本，也不会修改用户 Shell 配置。
 
+Windows 定位器检查环境与注册表 PATH、常见 Node 安装和 WSL 发行版；选定后通过同一 `app-server` 协议读取 account/rateLimits。Native 与 WSL 状态不会混合，找不到 CLI 时不会用伪造 0% 代替。
+
 ### 数据口径
 
 - 优先展示顶层通用额度，不用模型专属窗口覆盖通用额度；
@@ -78,7 +82,7 @@ OpenAI Codex 详情把官方额度放在上方，下面单独标记 **Last 30 da
 
 ### 余额
 
-余额来自 DeepSeek 官方 `/user/balance` API，API Key 从 macOS Keychain 读取。圆环的计算方式为：
+余额来自 DeepSeek 官方 `/user/balance` API，API Key 在 macOS 从 Keychain、在 Windows 从 Credential Manager 读取。圆环的计算方式为：
 
 ```text
 已消耗比例 = clamp((余额基准 - 当前余额) / 余额基准, 0, 1)
@@ -88,7 +92,7 @@ OpenAI Codex 详情把官方额度放在上方，下面单独标记 **Last 30 da
 
 ### 最近 30 天使用情况
 
-DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 天图表数据。AI Token Meter 因此使用应用内隔离 WebKit 会话打开官方用量页，并只处理官方来源的相关 JSON 数据。当前官网分别返回每日用量与每日费用；AI Token Meter 会等待两组数据到齐、按日期合并后才替换完整缓存，避免半份响应把现有图表清空。
+DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 天图表数据。AI Token Meter 因此使用应用内隔离网页会话（macOS WebKit、Windows WebView2）打开官方用量页，并只处理官方来源的相关 JSON 数据。当前官网分别返回每日用量与每日费用；AI Token Meter 会等待两组数据到齐、按日期合并后才替换完整缓存，避免半份响应把现有图表清空。
 
 标准化后保存的字段只有：
 

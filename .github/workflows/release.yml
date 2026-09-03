@@ -1,0 +1,185 @@
+name: Cross-platform release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version already committed and tagged (without v)
+        required: true
+        type: string
+      build:
+        description: Monotonic macOS build number
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  macos-preflight:
+    name: Verify tagged macOS release
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ inputs.build }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: v${{ inputs.version }}
+          fetch-depth: 0
+      - name: Verify version, build, and tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-preview\.[0-9]+)?$ ]]
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Sources/AIMeterApp/Resources/Info.plist)" = "$VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Sources/AIMeterApp/Resources/Info.plist)" = "$BUILD_NUMBER"
+          test "$(git describe --tags --exact-match HEAD)" = "v$VERSION"
+      - name: Test and validate tagged source
+        run: bash scripts/test.sh
+      - name: Verify signed macOS assets in the draft release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
+          mkdir -p "$RUNNER_TEMP/macos-release"
+          gh release download "v$VERSION" --dir "$RUNNER_TEMP/macos-release" \
+            --pattern "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+            --pattern "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" \
+            --pattern appcast.xml
+          cd "$RUNNER_TEMP/macos-release"
+          shasum -a 256 -c "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256"
+          grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" appcast.xml
+          grep -Fq "sparkle:edSignature=" appcast.xml
+
+  windows-release:
+    name: Build signed Windows release
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      VERSION: ${{ inputs.version }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: v${{ inputs.version }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy
+      - name: Select Rust toolchain
+        shell: pwsh
+        run: rustup default 1.88.0
+      - name: Verify signing credentials are configured
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "TAURI_SIGNING_PRIVATE_KEY is not configured"
+          }
+      - name: Install and test Windows source
+        working-directory: windows
+        run: npm ci
+      - name: Test frontend
+        working-directory: windows
+        run: npm test
+      - name: Build frontend
+        working-directory: windows
+        run: npm run build
+      - name: Check, lint, and test Rust
+        working-directory: windows/src-tauri
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+      - name: Build signed Windows updater and NSIS installer
+        working-directory: windows
+        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
+      - name: Normalize and hash Windows assets
+        shell: pwsh
+        run: |
+          $source = "windows/src-tauri/target/release/bundle/nsis"
+          $stage = "windows-release"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          $installer = @(Get-ChildItem $source -Filter "*-setup.exe")
+          $updater = @(Get-ChildItem $source -Filter "*.nsis.zip")
+          $signature = @(Get-ChildItem $source -Filter "*.nsis.zip.sig")
+          if ($installer.Count -ne 1 -or $updater.Count -ne 1 -or $signature.Count -ne 1) {
+            throw "Expected one NSIS installer, updater archive, and updater signature"
+          }
+          $installerName = "AI-Token-Meter-${env:VERSION}-windows-x64-setup.exe"
+          $updaterName = "AI-Token-Meter-${env:VERSION}-windows-x64.nsis.zip"
+          Copy-Item $installer[0].FullName "$stage/$installerName"
+          Copy-Item $updater[0].FullName "$stage/$updaterName"
+          Copy-Item $signature[0].FullName "$stage/$updaterName.sig"
+          $hash = (Get-FileHash "$stage/$installerName" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $installerName" | Set-Content "$stage/$installerName.sha256" -Encoding ascii
+      - name: Upload signed Windows assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-token-meter-windows-x64-release
+          path: windows-release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish synchronized release
+    needs: [macos-preflight, windows-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: v${{ inputs.version }}
+      - name: Download Windows release assets
+        uses: actions/download-artifact@v5
+        with:
+          name: ai-token-meter-windows-x64-release
+          path: windows-release
+      - name: Verify Windows assets and create updater manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
+          updater="AI-Token-Meter-${VERSION}-windows-x64.nsis.zip"
+          cd windows-release
+          sha256sum -c "$installer.sha256"
+          test -s "$updater"
+          test -s "$updater.sig"
+          signature="$(tr -d '\r\n' < "$updater.sig")"
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "See the GitHub release notes for AI Token Meter $VERSION." \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg signature "$signature" \
+            --arg url "https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v${VERSION}/${updater}" \
+            '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
+            > latest.json
+          jq -e --arg version "$VERSION" '.version == $version and (.platforms["windows-x86_64"].signature | length > 0)' latest.json >/dev/null
+      - name: Upload Windows assets and publish the verified draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
+          gh release upload "v$VERSION" windows-release/* --clobber
+          gh release edit "v${VERSION}" --draft=false

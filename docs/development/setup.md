@@ -1,6 +1,6 @@
 # 开发环境
 
-## 工具链
+## macOS 工具链
 
 - Apple Silicon Mac；
 - macOS 14 或更新版本；
@@ -16,6 +16,26 @@ git --version
 ```
 
 项目采用 Swift Package，不依赖 Xcode 工程文件或第三方包管理器。推荐使用 `scripts/test.sh`，因为它会把 SwiftPM 与 Clang 缓存放入临时目录，在 Dropbox、受限执行环境和用户级缓存不可写时仍能稳定运行。
+
+## Windows 工具链
+
+- Windows 11 x64；
+- Node.js 24 与 npm lockfile；
+- Rust 1.88（rustfmt、Clippy）；
+- Microsoft C++ Build Tools；
+- WebView2 Runtime；
+- Git。
+
+```powershell
+cd windows
+npm ci
+npm test
+npm run build
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+npm run tauri build
+```
+
+Rust/React 生成内容位于 `windows/dist`、`windows/node_modules` 和 `windows/src-tauri/target`，均不得提交。Windows-only 系统行为必须在 `windows-latest` 或交互式 Windows 11 真机验证，macOS 上通过条件编译不算完成。
 
 ## 获取与构建
 
@@ -63,6 +83,8 @@ Demo 模式不会启动三项实时采集器，适合布局、无障碍和窗口
 ## 代码约定
 
 - App 层只处理 macOS 生命周期和 UI；可测试业务逻辑放入 `AIMeterCore`。
+- Windows 平台壳位于 `windows/`；系统调用放 Rust/Win32 层，React 只接收固定脱敏 DTO。
+- 双方可序列化语义先进入 `contracts/`，由共享 fixture 和门禁锁定。
 - 新数据源先转换成 `UsageSnapshot`，不要让 View 解析外部响应。
 - 进程、网络和网页响应必须设置超时、大小或来源边界。
 - 错误消息进入缓存、日志或通知前必须去敏。

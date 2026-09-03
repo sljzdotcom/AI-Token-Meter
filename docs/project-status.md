@@ -9,7 +9,7 @@
 
 ## 一句话定位
 
-AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。
+AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。稳定版目前仍为 macOS；Windows 代码和 NSIS 已通过 CI，公开 Preview 仍等待真机交互与签名升级演练。
 
 ## 当前能力矩阵
 
@@ -34,6 +34,8 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 - 显示字体：System、Antonio、DIN Condensed、Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi；未安装项禁用并安全回退；
 - Widget 源码：Small、Medium、Large 三种布局已实现，但只有带有效 Apple Development 身份和 App Group 的构建才能安装到桌面。
 
+Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单栏入口；Win32 窗口默认右侧贴边，可切左侧并记忆显示器/纵向位置；同显示器全屏应用出现时隐藏；详情临时置前并按相同秒数或外部点击关闭。Windows Widget 暂不在 Preview 范围。
+
 ## 数据与持久化
 
 | 数据 | 位置/所有者 | 是否敏感 |
@@ -47,16 +49,19 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 | DeepSeek 官网会话 | App 隔离 WebKit 数据存储 | 敏感，由 WebKit 管理 |
 | Widget 快照 | 签名 App Group 容器 | 最小脱敏展示数据 |
 
+Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDATA%\AI Token Meter\cache\` 和独立 WebView2 数据目录；DeepSeek Key 使用 Windows Credential Manager。两平台都不保存 Claude Code/OpenAI Codex 凭证。
+
 产品已改名，但 Bundle ID `com.millerpan.AIMeter`、可执行文件 `AIMeterApp`、Keychain 服务和 `Application Support/AI Meter` 保持不变，这是兼容策略，不是遗漏。
 
 ## 构建与验证基线
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 完整自动化基线：**362 项测试、71 个测试组**，其中 11 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
+- macOS 完整自动化基线：**371 项测试、72 个测试组**，其中 11 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；[最终 CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007)、公开重新下载、EdDSA、严格签名及隔离 `0.2.1 → 0.2.2` 原位升级与自动重启均通过。
+- Windows CI [33728660845](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33728660845) 已通过 11 项前端测试、完整 Rust 测试/严格 Clippy、Tauri 壳和 current-user NSIS 构建；下载回验 SHA-256 为 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`。它是 debug CI 证据，不是正式 Release。
 
 ## 明确未完成或受限
 
@@ -67,6 +72,9 @@ AI Token Meter 是面向 Apple Silicon、macOS 14+ 的原生菜单栏与桌面�
 | 稳定签名下旧 DeepSeek Key 再录入 | 维护提示 | 有稳定签名发行包时重新保存一次可信 Key |
 | M4 Max nvm Codex 真实界面复验 | 待用户确认 | 在 M4 Max 安装 0.1.2 或更高版本，重新打开后检查 OpenAI Codex 账户与详情 |
 | Developer ID 与 Apple 公证 | 当前限制 | 公开包使用 ad-hoc 签名；首次打开可能需要 Finder 右键“打开” |
+| Windows 11 真机视觉、DPI、全屏、拖动与 DeepSeek 网页登录 | 受环境限制 | 在交互式 Windows 11 x64 用户会话安装 Preview 后逐项验收 |
+| Windows `preview.0 → preview.1` 签名更新演练 | 受环境限制 | 配置 Tauri 发布私钥 Secret，发布两份隔离 Preview 并证明错误签名不会替换旧版 |
+| Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
 

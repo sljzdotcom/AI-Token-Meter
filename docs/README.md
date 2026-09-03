@@ -28,6 +28,8 @@
 | [Provider 用户可见名称统一设计](design/specifications/2026-09-02-provider-visible-name-standardization-design.md) | Claude Code、OpenAI Codex 当前名称及兼容边界 |
 | [GitHub 应用内更新设计](design/specifications/2026-09-02-github-app-update-design.md) | 手动检查、一键安全更新、Sparkle、签名与首次升级边界 |
 | [GitHub 应用内更新实施计划](design/implementation-plans/2026-09-02-github-app-update.md) | 状态模型、Sparkle 适配、构建签名、appcast、集成验收与发布任务 |
+| [Windows 跨平台设计](design/specifications/2026-09-03-windows-platform-design.md) | Windows 11 x64 架构、原生/WSL、Win32 窗口、安全更新与同步发布边界 |
+| [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md) | 共享合同、Tauri/Rust、Provider、窗口、Updater、NSIS、CI 与真机验收任务 |
 
 ## 开发与维护
 
@@ -46,6 +48,7 @@
 | [v0.2.0 Release notes](releases/v0.2.0.md) | GitHub Release 使用的安装、变化、安全和首次升级说明 |
 | [v0.2.1 Release notes](releases/v0.2.1.md) | PTY 高负载稳定性修复、应用内升级和安全边界 |
 | [v0.2.2 Release notes](releases/v0.2.2.md) | Sparkle 安装窗口置前修复、升级路径和安全边界 |
+| [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |

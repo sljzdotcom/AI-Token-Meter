@@ -34,6 +34,13 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 如果终端能运行 `codex`、Finder 启动的旧版应用却显示未安装，可用 `command -v codex` 核对。路径位于 `~/.nvm/versions/node/.../bin/codex` 表示是旧版定位器未覆盖 nvm，不需要重新安装 CLI；安装 `0.1.2` 后重新打开应用即可。新版还会把该目录置于子进程 PATH 首位，避免 `env: node: No such file or directory`。
 
+Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
+
+1. 在 Services 查看来源是否为 `Native Windows` 或 `WSL`，点击 **Check Status**；
+2. 重新打开应用，让它重新读取注册表 PATH 和 WSL 发行版；
+3. 原生 npm/Node 脚本必须能找到配套 `node.exe`，应用不会执行任意 PowerShell profile；
+4. WSL CLI 必须能在所选发行版非交互启动。不要把 Linux 路径手工填入设置，应用只使用受控发现结果。
+
 ### 百分比和官方客户端不同
 
 - AI Token Meter 展示顶层通用额度，不用模型专属额度覆盖它；
@@ -91,6 +98,8 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 - `0.1.2` 没有更新按钮；先从 GitHub Release 手动安装当前版本，之后版本才能应用内更新。
 - 安装阶段确保 App 位于当前用户可替换的位置，通常为 `/Applications/AI Token Meter.app`，并完全处理 macOS 显示的权限提示。
 - 如果 Sparkle 报告签名或归档验证失败，不要绕过。继续使用当前版本，并从项目官方 GitHub Release 重新下载或报告问题。
+- Windows 若提示 updater signature、target 或 manifest 无效，同样不要绕过；当前版本会保留不变。确认 `latest.json` 与 `.nsis.zip.sig` 来自同一个 GitHub Release，而不是只供 CI 调试的安装器。
+- Windows SmartScreen 的“未知发布者”来自当前尚无 Authenticode 证书，并不代表 minisign 更新验证失败。只从官方 Release 下载并核对 `.sha256`；来源不符时取消安装。
 - 需要回退时，完全退出应用，从官方 Release 下载上一版本并手动替换。偏好和非敏感缓存通常保留；操作前仍建议备份 `Application Support/AI Meter`。
 
 ### Widget Gallery 找不到 AI Token Meter
@@ -117,6 +126,8 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 AI Token Meter 不提供“始终置顶”开关。浮岛按设计不会覆盖普通应用或全屏应用；只有用户点击 Provider 后的临时详情会显示在普通应用窗口上方，并在关闭、自动隐藏或切换 Space 后退出。返回桌面后浮岛仍会使用此前保存的侧边与垂直位置。Mission Control 中不悬在 Space 缩略图上方也是设计目标，但当前候选尚未完成该场景的直接实机验收；如果发现异常悬浮，请记录 macOS 版本和复现步骤。
 
+Windows 会在浮岛所在显示器出现全屏前台应用时主动隐藏，离开全屏后恢复；若普通窗口模式也一直不见，请从系统托盘启用 **Show Meter**，再检查已保存显示器是否已断开。问题报告请包含 Windows 版本、缩放比例（100/125/200%）和显示器布局，但不要包含账户截图。
+
 ### 详情一直不消失
 
 - 点击屏幕空白处；
@@ -128,6 +139,7 @@ AI Token Meter 不提供“始终置顶”开关。浮岛按设计不会覆盖�
 
 - macOS 崩溃报告：`~/Library/Logs/DiagnosticReports/AIMeterApp-*.ips`
 - 实时系统日志：打开“控制台”App，以进程名 `AIMeterApp` 筛选。
+- Windows 非敏感诊断位于当前用户 LocalAppData 下的 AI Token Meter 目录，也可结合“事件查看器”检查应用崩溃；提交前仍需人工移除姓名、邮箱、手机号与账户标识。
 - 开发与验收记录：[开发日志索引](../development/README.md)
 
 报告问题前请删除截图或日志中的姓名、邮箱、API Key、Bearer Token、Cookie 和账户标识。安全问题请按 [SECURITY.md](../../SECURITY.md) 私下报告。

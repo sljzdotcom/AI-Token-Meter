@@ -1,12 +1,14 @@
 # 设置参考
 
-使用菜单栏齿轮或 `⌘,` 打开设置。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用 macOS 系统字体。
+使用 macOS 菜单栏或 Windows 系统托盘的齿轮打开设置；macOS 也可按 `⌘,`。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用平台系统字体，不受显示字体偏好影响。
 
 ## Appearance
 
 ### Desktop Widget
 
 Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Settings 不重复提供尺寸或刷新频率选项。Widget 始终使用系统字体和深海背景，不继承浮动条的 Antonio/DIN 选择；主应用刷新或 DeepSeek 余额基准变化后会发布脱敏快照并请求系统更新时间线。
+
+Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。
 
 ### Show floating meter
 
@@ -22,7 +24,7 @@ Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Setti
 - 设置变更立即生效，不需要重启应用。
 - AI Token Meter 会保存当前显示器、最后侧边和相对垂直位置；已保存显示器断开时回到主屏幕、Automatic、右侧和垂直中点，可见区域改变时自动夹紧。
 
-浮岛固定使用 macOS 桌面层，这不是可切换偏好。普通应用窗口和全屏应用会覆盖浮岛；点击 Provider 后出现的临时详情使用标准 floating 层级，会显示在普通应用窗口上方，但不会跨入全屏应用 Space 或覆盖系统级对话框。详情关闭或自动隐藏后立即退出窗口栈。返回 Finder 桌面或普通桌面 Space 后，浮岛会按已保存的显示器、Left/Right 侧边和垂直位置重新出现；切换 Space 会关闭当前详情，但不会改写这些位置偏好。
+macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 使用无任务栏 Win32 工具窗口，并在同显示器出现全屏前台应用时隐藏。点击 Provider 后的临时详情都会在普通应用窗口上方显示，关闭或自动隐藏后立即撤销临时置前。两平台都会保存显示器、Left/Right 侧边与归一化垂直位置；显示器断开时回退主屏。
 
 三个服务圆环只负责打开详情。移动浮岛可从顶部、圆环之间或底部的玻璃空白处开始；Logo 命中区和透明肩部不会触发拖动，因此不会与服务点击互相冲突。
 
@@ -30,15 +32,15 @@ Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Setti
 
 ### Display font
 
-- **System Default（默认）**：使用 macOS 系统字体 San Francisco，并保留界面原有的 Rounded 设计请求。
+- **System Default（默认）**：使用当前平台系统 UI 字体；macOS 为 San Francisco。
 - **Antonio**：使用本机已经安装的 Antonio 字体家族。
 - **DIN Condensed**：使用本机已经安装的 DIN Condensed 字体家族。
 - **Alimama FangYuanTi VF**：使用本机已安装的阿里妈妈方圆体可变字体。
 - **Fira Code**：优先使用 `Fira Code`，兼容 `Fira Code VF` 家族名。
 - **Leigo**：使用 Ricardo Medina 的 Leigo Regular，兼容 `Leigo` 与 `Leigo Regular` 家族名。
-- **Menlo**：使用 macOS 提供的 Menlo 等宽字体。
+- **Menlo**：使用本机提供的 Menlo 等宽字体；Windows 未安装时按缺失字体处理。
 - **Alimama DaoLiTi**：使用本机已安装的阿里妈妈刀隶体。
-- Settings 始终使用 macOS 系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、八个选项名称、说明或按钮的字形和大小。
+- Settings 始终使用平台系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、八个选项名称、说明或按钮的字形和大小。
 - 切换会立即应用到菜单点击面板、浮动条及 Provider 详情，不需要退出或重新打开窗口；三个选项只显示名称，不提供对应字体的字形预览。
 - `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
 - 任意自定义字体未安装时，对应选项会显示 `Not installed` 且不能选择。已保存的字体临时不可用时，AI Token Meter 会安全回退到系统字体，但保留偏好；重新安装后可自动恢复。
@@ -65,13 +67,13 @@ Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时�
 ### Usage alerts at 70% and 90%
 
 - 默认：关闭。
-- 开启时 macOS 会请求通知权限。
+- 开启时系统会请求通知权限；首个 Windows Preview 的通知对等状态以功能矩阵和 Release Notes 为准。
 - 只对有明确上限的额度比例生效，并抑制同一周期的重复通知。
 
 ### Open AI Token Meter at login
 
 - 默认：关闭。
-- 使用 macOS 登录项服务注册当前应用。
+- macOS 使用登录项服务；Windows 使用当前用户启动项。移动或重装应用后应重新切换一次。
 - 移动应用位置后应关闭再开启一次，以刷新路径。
 
 ## Services
@@ -83,7 +85,7 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 - 已连接时显示 CLI 报告的账户标识；Claude Code 优先显示邮箱与认证方式，OpenAI Codex 的 ChatGPT 账户显示邮箱和套餐，API Key 登录只显示 `API Key account`。
 - 未连接时显示 **Sign in**，已连接时仍显示 **Sign in again**，方便换账号或修复过期登录。
 - 按钮只会打开固定的官方命令 `claude auth login` 或 `codex login`；密码、浏览器授权和 MFA 仍由官方流程处理。
-- 打开登录后，应用每 3 秒检查一次，最长 2 分钟；也可随时点击 **Check Status**。重复点击同一服务会取消旧回查任务。
+- 打开登录后可随时点击 **Check Status**。macOS 会进行最长 2 分钟的定时回查；Windows Preview 使用固定登录终端并由用户完成后手动检查，界面不会接收密码或 MFA。
 - 账户信息读取失败时不会把“无法检查”误写成“已退出登录”，也不会影响已缓存的额度显示。
 - OpenAI Codex 显示 `CLI not installed` 时，登录按钮会替换为 **Open Install Guide**，只打开 OpenAI 官方安装说明；安装后点击 **Check Status**。AI Token Meter 会自动发现 nvm 等 Node 管理器目录和 ChatGPT/Codex App 内置二进制。
 
@@ -102,7 +104,7 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 ### DeepSeek API Key
 
 - 当前 Key 只显示 `API Key ••••ABCD` 形式的最后四位；输入框始终为空，不回填完整 Key。
-- **Save API Key / Replace API Key**：先用候选 Key 调用 DeepSeek 官方余额接口；只有验证成功才更新 macOS Keychain 并刷新。
+- **Save API Key / Replace API Key**：先用候选 Key 调用 DeepSeek 官方余额接口；只有验证成功才更新 macOS Keychain 或 Windows Credential Manager 并刷新。
 - 401 会提示 Key 无效；网络、超时、响应异常或 Keychain 写入失败都会保留旧 Key，并保留输入内容供修改重试。
 - **Remove**：从 Keychain 删除密钥并刷新状态。
 - 验证期间按钮和输入框会暂时禁用，并显示 `Verifying…`。
@@ -118,13 +120,15 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 | DeepSeek 官网登录会话 | App 隔离 WebKit 数据存储 | 敏感会话，由 WebKit 管理，不写入业务缓存 |
 | Widget 展示快照 | Apple Development 签名双方专用 App Group | 非敏感最小展示数据；主应用刷新覆盖 |
 
+Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\AI Token Meter`，DeepSeek Key 位于 Windows Credential Manager，官网历史位于独立 WebView2 用户数据目录。Windows 不创建 Widget App Group。
+
 显示名称已经改为 AI Token Meter，但 Bundle Identifier、可执行文件名、Keychain 身份和 `Application Support/AI Meter` 目录暂时保留。这是有意的兼容设计，用于沿用升级前的偏好、密钥访问、缓存与 Claude Code 工作区批准。
 
 ## About
 
 - 显示 App Icon、**AI Token Meter**、副标题 **Private AI usage monitor**、版本号和 build 号。
 - 显示简短隐私说明；不包含外部账户入口、账户操作或诊断数据上传。
-- **Check for Updates**：只有点击时才读取项目的 GitHub appcast；应用启动、定时刷新和后台驻留都不会检查更新。
+- **Check for Updates**：只有点击时才读取项目的 GitHub 更新清单；macOS 使用 appcast，Windows 使用 `latest.json`。应用启动、定时刷新和后台驻留都不会检查更新。
 - 检查结果会显示正在检查、已是最新版、发现版本、离线或安全失败；`Last checked` 只记录本次用户操作的时间。
-- **Update Now**：仅在本轮已发现更高稳定版本时启用。点击后使用 Sparkle 标准窗口下载，EdDSA 验证通过后才替换 App 并重新启动；应用不会静默安装。
+- **Update Now**：仅在本轮已发现更高版本时启用。macOS 使用 Sparkle EdDSA，Windows 使用 Tauri minisign + NSIS；验证通过后才替换并重新启动，应用不会静默安装。
 - `0.1.2` 没有这两个按钮，因此需要从 GitHub Release 手动安装一次当前版本。之后的稳定版本可以从本页更新。

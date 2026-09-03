@@ -47,6 +47,7 @@
 | v0.2.0 签名应用内更新 | `8937d29`–`407c2f7` | 手动检查/安装状态、Sparkle 2.9.4 适配、完整嵌入签名、发布资产/appcast 与隔离真实自更新验收 |
 | v0.2.1 PTY 稳定性补丁 | `d6cbe76`–`cc30859` | 串行化 PTY 分配、加固退出确认与尾部排空、隔离系统资源测试，并发布可由 0.2.0 发现的签名补丁 |
 | v0.2.2 更新窗口与 CI 稳定性补丁 | `4092d1f`–`c11da0a` | Settings 自动让位、Sparkle 安装窗口置前、事件驱动详情超时测试、无进程扇出的 PTY fixture、签名发布与真实公开升级终验 |
+| Windows 11 x64 Preview 开发 | `20b53bf`–`24c81c5` | 共享合同、Tauri/Rust/React、Native/WSL、三 Provider、ConPTY/Job Object、Win32 浮岛、WebView2 历史、Services、Updater 与 NSIS；Windows CI `33728660845` 通过，真机与公开 Preview 仍待完成 |
 
 ## 2026-08-28
 
@@ -363,6 +364,16 @@
 | `2317aa9`、`4460dab` | release | 准备并固化 v0.2.2（build 6）版本、appcast、EdDSA enclosure 与发布资产 |
 | `f14f14a` | test | 用可控睡眠器和事件驱动等待替代详情自动隐藏测试的固定墙钟假设 |
 | `c11da0a` | test | 移除 32 路 PTY fixture 的额外进程扇出，并显式验证所有子命令退出码；作为 `v0.2.2` 标签目标，最终 CI 33702415007 通过 |
+
+### Windows 11 x64 Preview 开发
+
+| 提交 | 类型 | 变更 |
+| --- | --- | --- |
+| `20b53bf`–`d481a44` | feat/test | 建立根版本、共享 Schema/fixture/展示/对等合同与 Windows Tauri/Rust/React 骨架 |
+| `c3a4b33`–`a18f27b` | feat/fix | 实现受限进程、ConPTY、Job Object 与固定登录动作，并在多轮 Windows CI 中修正终端握手/句柄/路径边界 |
+| `c30ccb2`–`a80f72b` | feat | 接通 Claude Code、OpenAI Codex、DeepSeek、Win32 三窗口/托盘与隔离 WebView2 最近 30 天历史 |
+| `fe625ff`–`cbbf875` | feat/fix | 接通启动、定时和手动刷新生命周期；Windows CI `33726552828` 验证真实应用运行路径 |
+| `910f8fd`、`24c81c5` | feat/fix | 增加 Services 当前账号/重新登录/DeepSeek 换 Key、Tauri Updater 与完整 NSIS CI；Windows CI `33728660845` 全绿并上传有效 x64 NSIS |
 
 ## 维护方式
 

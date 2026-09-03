@@ -71,6 +71,28 @@ else
   errors << "Windows CI workflow is missing"
 end
 
+release_workflow_path = root + ".github/workflows/release.yml"
+if release_workflow_path.file?
+  release_workflow = release_workflow_path.read
+  errors << "Cross-platform release must require the Tauri signing secret" unless release_workflow.include?("secrets.TAURI_SIGNING_PRIVATE_KEY")
+  errors << "Cross-platform release must wait for both platform jobs" unless release_workflow.include?("needs: [macos-preflight, windows-release]")
+  errors << "Cross-platform release must publish the Windows updater manifest" unless release_workflow.include?("latest.json") && release_workflow.include?("windows-x86_64")
+  errors << "Cross-platform release must keep GitHub assets in a draft until verification passes" unless release_workflow.include?('gh release edit "v${VERSION}" --draft=false')
+else
+  errors << "Cross-platform release workflow is missing"
+end
+
+cross_platform_release_path = root + "scripts/package-cross-platform-release.sh"
+if cross_platform_release_path.file?
+  release_script = cross_platform_release_path.read
+  errors << "Cross-platform release entry must preserve local Sparkle signing" unless release_script.include?("package-update-release.sh")
+  errors << "Cross-platform release entry must create a draft" unless release_script.include?("gh release create") && release_script.include?("--draft")
+  errors << "Cross-platform release entry must dispatch the tagged workflow" unless release_script.include?("gh workflow run release.yml") && release_script.include?('--ref "v$VERSION"')
+  errors << "Cross-platform release entry must be executable" unless cross_platform_release_path.executable?
+else
+  errors << "Cross-platform release script is missing"
+end
+
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
 expected_providers = %w[claude codex deepseek]

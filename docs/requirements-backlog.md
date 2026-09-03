@@ -228,3 +228,5 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33725559642` 在功能测试前被 Windows-only Clippy 截止；根因是 `collectors::application` 同时在父模块与文件内重复声明 `cfg(windows)`，已按最小差异移除文件级重复属性并进入完整复验。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33726552828` 全绿，确认真实应用生命周期、Windows-only Clippy、完整 Rust 运行测试和 Tauri 壳均通过；Task 7 关闭。Settings Services 已按 macOS 语义接通当前账号、CLI 来源/版本、固定登录命令和验证后替换 DeepSeek Key，等待下一轮 runner。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33728220354` 已通过前端测试与构建，但 Services 命令的两个 Windows-only 分支被严格 Clippy 判定为多余 `return`；已按编译器建议做最小修正，等待完整 runner 复验及 NSIS 产物。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33728660845` 全绿：Services、更新器、完整 Rust/前端测试及真实 NSIS 构建通过，上传的 x64 debug 安装器已重新下载并核对为有效 PE/NSIS，SHA-256 为 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`；进入双平台 Release 门禁与公开文档阶段。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 双平台草稿 Release workflow、本机 macOS Keychain 编排入口与 Windows Tauri 签名资产/`latest.json` 门禁完成；用户、架构、隐私、安全、测试、维护和发布文档已同步。macOS 371 项回归、Release Bundle/Sparkle 严格签名、128 份 Markdown 与公开安全检查通过；Windows 真机截图、交互验收和签名升级演练仍未完成。 |

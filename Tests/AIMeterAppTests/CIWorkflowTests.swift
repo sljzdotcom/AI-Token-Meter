@@ -30,4 +30,47 @@ struct CIWorkflowTests {
         #expect(testScript.contains("--filter PTYCommandRunnerTests"))
         #expect(testScript.contains("--skip-build"))
     }
+
+    @Test("Cross-platform releases wait for macOS verification and a signed Windows updater")
+    func crossPlatformReleaseGate() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let workflow = try String(
+            contentsOf: projectRoot.appending(path: ".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+
+        #expect(workflow.contains("workflow_dispatch:"))
+        #expect(workflow.contains("runs-on: macos-15"))
+        #expect(workflow.contains("runs-on: windows-latest"))
+        #expect(workflow.contains("TAURI_SIGNING_PRIVATE_KEY"))
+        #expect(workflow.contains("tauri.release.conf.json"))
+        #expect(workflow.contains("AI-Token-Meter-${VERSION}-windows-x64-setup.exe"))
+        #expect(workflow.contains("latest.json"))
+        #expect(workflow.contains("needs: [macos-preflight, windows-release]"))
+        #expect(workflow.contains("gh release edit \"v${VERSION}\" --draft=false"))
+    }
+
+    @Test("Local release entry preserves the macOS Keychain boundary")
+    func localCrossPlatformReleaseEntry() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let script = try String(
+            contentsOf: projectRoot.appending(path: "scripts/package-cross-platform-release.sh"),
+            encoding: .utf8
+        )
+
+        #expect(script.contains("package-update-release.sh"))
+        #expect(script.contains("gh release create"))
+        #expect(script.contains("--draft"))
+        #expect(script.contains("gh workflow run release.yml"))
+        #expect(script.contains("--ref \"v$VERSION\""))
+        #expect(script.contains("AI-Token-Meter-${VERSION}-macOS-arm64.zip"))
+        #expect(!script.contains("TAURI_SIGNING_PRIVATE_KEY="))
+        #expect(!script.contains("security export"))
+    }
 }

@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`。该版本的 ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到下一版本资产、appcast、签名验证和 CI 一并完成。
+当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`。该版本的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。首个 Windows 版本以 Preview 交付，此后 macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到双方资产、清单、签名验证和 CI 一并完成。
 
 ## 发布前检查清单
 
@@ -22,9 +22,12 @@ AI Token Meter 使用语义化版本思路：
 - [ ] `scripts/verify-update-bundle.sh "dist/AI Token Meter.app"` 确认 Sparkle framework、helper、`@rpath`、feed、公钥、手动检查策略和严格签名；
 - [ ] 若发布 Widget，`AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh` 与 `scripts/verify-widget-bundle.sh` 通过；
 - [ ] `git diff --check` 无错误。
+- [ ] `ruby scripts/check-cross-platform-contracts.rb .` 确认根版本、macOS plist、Windows npm/Cargo/Tauri、Provider Schema、fixture 与发布工作流一致。
 - [ ] `scripts/check-docs.sh` 无断链、版本或目录治理错误。
 - [ ] `scripts/check-public-release.sh <release.zip>` 对当前内容、完整 Git 历史和分发包无未处理的高置信度秘密。
 - [ ] `scripts/verify-update-archive.sh appcast.xml <release.zip>` 核对 enclosure 并证明篡改副本会被拒绝。
+- [ ] Windows CI 在 `windows-latest` 通过 frontend、Rust、Credential Manager/ConPTY/Win32 集成测试并生成 current-user NSIS。
+- [ ] Windows Release job 生成唯一 `.nsis.zip` 与 `.sig`，错误/缺失 Tauri 签名 secret 会失败而不是生成未签名更新清单。
 
 ### 文档
 
@@ -35,6 +38,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] `docs/development/commit-history.md` 已记录发布节点；
 - [ ] `docs/project-status.md` 的版本、验证和未完成事项已更新；
 - [ ] 所有 Markdown 相对链接有效。
+- [ ] README/用户指南区分 macOS ZIP 与 Windows NSIS，诚实说明 Gatekeeper、SmartScreen、Widget 和真机验收边界。
 
 ### 版本元数据
 
@@ -44,6 +48,15 @@ AI Token Meter 使用语义化版本思路：
 - `CFBundleVersion`：递增构建号。
 
 不要只修改 README 徽章而遗漏 App Bundle 版本。
+
+还必须同步修改：
+
+- 根 `VERSION`；
+- `windows/package.json` 与 `package-lock.json`；
+- `windows/src-tauri/Cargo.toml` 与 `Cargo.lock`；
+- `windows/src-tauri/tauri.conf.json`。
+
+`scripts/check-cross-platform-contracts.rb` 会阻止上述任一版本漂移。macOS build 号继续单独递增；Windows 使用同一语义版本。
 
 ### 打包与签名
 
@@ -78,6 +91,8 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 - 可验证的发布校验和（GitHub 预览发行已经要求）；
 - 清晰的软件许可证（当前为 MIT）。
 
+Windows NSIS 使用 current-user 安装模式与 WebView2 download bootstrapper。首个 Preview 可没有 Authenticode，但必须附 SHA-256 并说明 SmartScreen；应用内更新仍必须有 Tauri minisign 签名。Authenticode 与 updater signature 解决不同问题，文档不得混称“已签名发布者”。
+
 ### 生成签名更新资产
 
 Sparkle 固定为 `2.9.4`。生产私钥只保存在维护者 macOS Keychain 的 `com.millerpan.AIMeter` 账户中，不得使用导出私钥命令，也不得把 `.key`、`.pem`、Keychain 导出或原始签名环境写入仓库与日志。
@@ -99,6 +114,28 @@ scripts/package-update-release.sh 0.2.2 6
 
 先提交最终 appcast 和版本文档，再创建 tag、推送 `main` 与 tag，并从同一个 ZIP 创建 GitHub Release。发布后匿名核对 raw appcast、ZIP 下载、SHA-256 和签名。不要让 appcast 指向草稿、私有、已替换或不存在的资产。
 
+## 双平台草稿 Release
+
+macOS Sparkle 私钥继续只保存在维护者 Keychain；Windows Tauri 私钥只允许存入 GitHub Actions Secret `TAURI_SIGNING_PRIVATE_KEY`，密码（如有）使用 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。两种私钥都不得进入 Git、命令输出、Artifact 或 Release。
+
+完成版本/CHANGELOG/文档提交后，在 `main` 干净工作树执行：
+
+```bash
+SPARKLE_TOOLS_DIR="/absolute/path/to/Sparkle/bin" \
+scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
+```
+
+该入口按以下顺序工作：
+
+1. 本机完整测试并用 Keychain 生成已签名 macOS ZIP、SHA-256 和 appcast；
+2. 仅提交生成的 appcast，创建并推送同版本 tag；
+3. 创建包含 macOS 三项资产的 GitHub 草稿 Release；
+4. 以该 tag 触发 `release.yml`；
+5. macOS job 重新下载草稿资产、核对 SHA 与 Sparkle 签名事实；Windows job 重跑测试并生成 NSIS、`.nsis.zip`、`.sig` 和 SHA；
+6. publish job 生成只含 `windows-x86_64` 的 `latest.json`，上传 Windows 资产，随后才把草稿改为公开。
+
+任一步失败，Release 保持草稿，已安装用户不会通过 `latest.json` 看到半成品。Windows updater endpoint 固定为 GitHub Release 的 `latest/download/latest.json`；macOS 继续读取仓库根 appcast。双方版本必须相同，但清单格式不混用。
+
 ## 本机替换与恢复
 
 开发验收时替换 `/Applications/AI Token Meter.app` 前：
@@ -111,6 +148,8 @@ scripts/package-update-release.sh 0.2.2 6
 6. 若包含 Widget，在 Gallery 验证三种尺寸、共享数据和点击唤醒；
 7. 失败时退出并恢复备份。
 
+Windows 隔离升级必须使用普通测试用户，从 `preview.0` 手动检查并升级到 `preview.1`，确认设置/Credential Manager 保留、采集子进程在安装前结束、NSIS 置前、原位替换和重新启动。另用错误签名 feed 证明旧版本仍可启动。没有这两组证据不能把 Windows 更新标为完成。
+
 不要在应用仍运行时直接覆盖 Bundle。
 
 ## Git 发布节点
@@ -120,7 +159,7 @@ scripts/package-update-release.sh 0.2.2 6
 3. 创建 `release: AI Token Meter vX.Y.Z` 提交；
 4. 创建带注释 tag：`vX.Y.Z`；
 5. 保存构建校验和和验收结果到开发日志；
-6. 推送 `main` 与 tag，创建 GitHub Release 并上传经过验证的同一份 ZIP/SHA；
+6. 通过跨平台入口推送 `main` 与 tag、创建草稿 Release，并由双平台 workflow 上传经验证的同一组 macOS/Windows 资产；
 7. 等待公开 CI 成功，再匿名下载 Release 资产并与本地 SHA-256 对比；
 8. 用当前版隔离副本读取线上 appcast，确认显示最新版且不会触发下载。
 

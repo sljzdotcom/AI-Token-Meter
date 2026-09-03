@@ -14,7 +14,7 @@ if [[ -z "$VERSION" || -z "$BUILD" || $# -ne 2 ]]; then
     echo "usage: SPARKLE_TOOLS_DIR=/absolute/path/to/Sparkle/bin $0 VERSION BUILD" >&2
     exit 2
 fi
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$BUILD" =~ ^[1-9][0-9]*$ ]]; then
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-preview\.[0-9]+)?$ || ! "$BUILD" =~ ^[1-9][0-9]*$ ]]; then
     echo "version must be semantic and build must be a positive integer" >&2
     exit 2
 fi

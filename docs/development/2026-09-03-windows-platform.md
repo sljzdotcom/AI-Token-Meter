@@ -388,3 +388,13 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 - Windows CI [33728220354](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33728220354) 已通过前端测试、生产构建和 Rust 格式检查，随后在严格 Clippy 阶段发现两个仅由 Windows 条件分支暴露的多余 `return`；该运行尚未执行 Rust 测试或 NSIS 打包，因此不作为安装包成功证据；
 - 问题仅位于 Tauri command 的返回表达式风格，不涉及账号、凭据或更新状态逻辑；按 Clippy 精确建议移除多余 `return`，其余实现保持不变，进入完整 runner 复验。
+- Windows CI [33728660845](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33728660845) 随后全绿：11 项前端测试、TypeScript/Vite production build、严格 Rust Clippy、完整 Windows Rust 运行测试、Tauri 桌面应用和 current-user NSIS 均通过；
+- CI 上传的 `AI Token Meter_0.2.2_x64-setup.exe` 已重新下载核对为 PE/NSIS 自解压安装器，大小约 5.89 MB，SHA-256 为 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`。该产物是 debug CI 安装器，不带 Preview 更新签名，也不冒充 Windows 真机交互验收或正式 Release。
+
+## Phase 5：双平台发布门禁与公开文档
+
+- 新增 `release.yml`：只接受已提交并带 tag 的版本；macOS job 重新下载草稿 Release 中的 ZIP/SHA/appcast 并核对，Windows job 重跑 frontend/Rust 测试后使用 Tauri Secret 生成 NSIS updater archive/signature，publish job 验证资产并生成 `windows-x86_64` `latest.json`；只有两项 job 同时成功才解除草稿；
+- 新增 `package-cross-platform-release.sh`：维护者 Mac 继续从 Keychain 生成 Sparkle 资产，不导出私钥；脚本提交 appcast、推送 tag、建立草稿并触发 Windows job。Windows 私钥不在仓库，未配置 Secret 时流程必须失败并保留草稿；
+- README、CHANGELOG、项目状态、安装、设置、Provider、排障、架构/决策/目录、隐私、安全政策、开发环境、测试、维护、发布、贡献和提交索引均已加入 Windows 事实与平台差异；文档门禁新增 Windows 11 x64、SmartScreen 和 Authenticode 防回退检查；
+- 本机完整回归为 360 项普通测试 + 11 项独立 PTY 测试，共 371 项、72 个测试组；128 份 Markdown、跨平台合同和公开安全扫描通过。无 Widget macOS Release 重新构建成功，标准资源、Sparkle framework/helpers、`@rpath` 和严格签名全部通过；
+- Windows 产品截图、DPI/全屏/拖动/账号/DeepSeek WebView2 真机证据和 `preview.0 → preview.1` 签名升级/错误签名保留旧版仍须在交互式 Windows 11 环境完成，不能用 Chromium mock 或 CI 安装器代替。

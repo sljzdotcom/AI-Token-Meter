@@ -11,7 +11,11 @@ AI Token Meter 的架构围绕四个约束设计：
 
 长期取舍及重新评估条件见[架构决策记录](decisions.md)，当前产品与发布状态见[项目状态](../project-status.md)。
 
-## 模块边界
+## 跨平台边界
+
+根 `contracts/` 定义双方共同的 Provider ID、状态、比例语义、版本化 JSON Schema、最小 fixture 与功能对等矩阵。macOS 的 Swift 领域模型和 Windows 的 Rust 领域模型分别解析同一合同；不共享进程、凭据或平台 UI 代码。`scripts/check-cross-platform-contracts.rb` 在两端版本或用户可见语义漂移时阻止合并。
+
+## macOS 模块边界
 
 ```text
 Claude Code CLI ─┐
@@ -32,6 +36,28 @@ Settings About ─> SoftwareUpdateCoordinator ─> Sparkle ─> GitHub appcast
                                                         │
 App relaunch <─ verified replacement <─ EdDSA signed ZIP┘
 ```
+
+## Windows 模块边界
+
+```text
+Native Windows CLI ─┐
+WSL CLI ────────────┼─> bounded process / ConPTY ─> Rust collectors ─┐
+DeepSeek balance API┘                                                │
+                                                                     ├─> UsageRuntime
+Credential Manager ─> DeepSeek secret ───────────────────────────────┤     │
+DeepSeek WebView2 ─> nonce/chunk bridge ─> normalized 30-day history ┘     ├─ cache
+                                                                           └─ Tauri events
+                                                                                 │
+React meter / detail / settings <────────────────────────────────────────────────┘
+          │
+          └─ Win32 window controller / tray / fullscreen monitor
+
+Settings About ─> Tauri Updater ─> GitHub latest.json ─> minisign-verified NSIS archive
+```
+
+Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发刷新三项 Provider，并以 generation 防止已取消旧请求回写。Native 与 WSL 候选都经过固定发现、健康检查和参数边界；CLI 账号状态、实际用量与登录动作共享所选候选，避免跨环境串号。
+
+三个 Tauri 窗口分别为 `meter`、`detail`、`settings`。前端只订阅固定脱敏 DTO 和事件；Win32 层负责无任务栏窗口、Bezier `HRGN`、DPI/显示器定位、全屏隐藏、详情临时置前和托盘生命周期。DeepSeek 历史使用独立 WebView2 数据目录、官方 HTTPS allowlist、短期 nonce 和有界分片，远程页面不能调用通用文件或 Shell 能力。
 
 ## AIMeterCore
 
@@ -129,6 +155,8 @@ Widget 扩展是独立的受沙箱进程，只从双方签名授权的 App Group
 - Large：三项 Provider 行、最近重置、OpenAI Codex 重置券数量与最近到期；
 - 根视图使用 `aitokenmeter://open` 唤醒主应用，不提供登录、兑换或其他账户操作。
 
+WidgetKit 是 macOS 专属扩展；Windows 首个 Preview 不包含 Widget。该差异在 `contracts/parity/features.yml` 中明确记录，不由 Windows UI 放置无效入口。
+
 ## 状态与降级
 
 外部采集统一映射为以下状态：
@@ -152,6 +180,7 @@ UI 必须展示状态含义和更新时间，不能用旧数据覆盖失败而�
 - 详情自动隐藏、全局点击监听和刷新循环都在退出时取消；
 - 更新检查与用量刷新是独立生命周期，重复点击由更新协调器去重；
 - 进程执行器在超时、取消和正常结束之间只完成一次 continuation。
+- Windows 采集子进程附加 Job Object，更新安装前统一取消；ConPTY 会处理终端握手、固定输入与超时，不能接受前端传入的任意命令。
 
 ## 可测试性
 

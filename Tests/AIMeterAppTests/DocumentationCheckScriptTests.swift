@@ -128,6 +128,22 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("public author credit"))
     }
 
+    @Test("A README missing the Windows support boundary fails")
+    func rejectsMissingWindowsSupportBoundary() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let readmeURL = fixture.appendingPathComponent("README.md")
+        let original = try String(contentsOf: readmeURL, encoding: .utf8)
+        try original
+            .replacingOccurrences(of: "Windows 11 x64", with: "desktop preview")
+            .write(to: readmeURL, atomically: true, encoding: .utf8)
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("Windows 11 x64 support boundary"))
+    }
+
     private func makeFixture(
         bundleVersion: String = "0.1.0",
         readmeVersion: String = "0.1.0",
@@ -158,7 +174,9 @@ struct DocumentationCheckScriptTests {
         ![Version \(readmeVersion)](https://img.shields.io/badge/version-\(readmeVersion)-green)
         ![Tests 305](https://img.shields.io/badge/tests-305%20passed-green)
 
-        A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek.
+        A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek.
+
+        Windows 11 x64 preview. The installer may show SmartScreen until Authenticode is available.
 
         ![Floating strip](docs/assets/screenshots/floating-strip.png)
         ![Provider detail](docs/assets/screenshots/provider-detail.png)

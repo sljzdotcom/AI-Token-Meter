@@ -4,8 +4,11 @@
 
 ```text
 AI-Meter/
+├── VERSION                    # 两平台唯一公开版本源
+├── contracts/                 # 共享 Schema、fixture、展示与对等合同
 ├── Sources/                    # 产品源码
 ├── Tests/                      # 自动化测试与 fixture
+├── windows/                    # Windows Tauri/Rust/React 应用
 ├── docs/                       # 用户、架构、开发和历史设计文档
 ├── scripts/                    # 可移植测试、构建与维护脚本
 ├── appcast.xml                 # Sparkle 稳定版更新清单
@@ -22,8 +25,45 @@ AI-Meter/
 - `dist/`：打包后的 `.app`；
 - `DerivedData/`：Xcode 派生文件；
 - `.worktrees/`：本地隔离开发工作树。
+- `windows/node_modules/`、`windows/dist/`、`windows/src-tauri/target/`：Windows 前端与 Rust 生成内容。
 
 `scripts/test.sh` 把 SwiftPM 与 Clang 缓存隔离到临时目录；无额外参数时先运行普通测试、再从独立进程运行 PTY 系统资源测试，传入参数时则原样转发给单次 `swift test`；`scripts/generate-app-icon.swift` 确定性绘制所有 macOS 图标尺寸；`scripts/build-app.sh` 执行 release 构建、图标打包、主应用/Widget 条件组装、Sparkle 嵌入与签名验证；`scripts/verify-widget-bundle.sh` 检查扩展；`scripts/verify-update-bundle.sh`、`package-update-release.sh` 和 `verify-update-archive.sh` 分别验证 App、生成正式更新资产并核对/抗篡改验证 appcast。
+
+`scripts/check-cross-platform-contracts.rb` 锁定版本、Provider 和发布配置；`scripts/package-cross-platform-release.sh` 在维护者 Mac 本地生成 Sparkle 资产、创建草稿 Release，再触发 GitHub 的 Windows 签名构建。`.github/workflows/release.yml` 只有在 macOS 草稿资产和 Windows job 同时通过时才公开 Release。
+
+## `contracts`
+
+```text
+contracts/
+├── schemas/                   # UsageSnapshot JSON Schema
+├── fixtures/                  # Swift/Rust 共用脱敏快照与辅助 CLI fixture
+├── presentation/              # Provider 顺序、正式名称、颜色与进度语义
+└── parity/                    # macOS/Windows 功能对等矩阵与证据
+```
+
+合同只描述可序列化语义，不包含 CLI 路径、账户、密钥或平台窗口实现。新增 Provider 字段时先更新兼容规则和双方 fixture，再更新平台模型。
+
+## `windows`
+
+```text
+windows/
+├── src/                       # React 浮动条、详情、Settings 与安全 Tauri bridge
+├── src-tauri/
+│   ├── src/accounts/          # Services 当前账号、登录和 DeepSeek 换 Key
+│   ├── src/collectors/        # Claude/Codex/DeepSeek 与 30 天聚合
+│   ├── src/domain/            # 共享合同对应 Rust 类型与展示语义
+│   ├── src/persistence/       # AppData 原子设置/缓存
+│   ├── src/platform/windows/  # Credential Manager、ConPTY、Job、Win32 窗口、托盘、WebView2
+│   ├── src/security/          # Secret 容器、脱敏与凭据协议
+│   ├── src/updater/           # 手动检查、下载、安装状态机
+│   ├── tests/                 # 纯逻辑与 windows-latest 集成测试
+│   ├── tauri.conf.json        # 普通 NSIS 与运行配置
+│   └── tauri.release.conf.json # 仅 Release 启用 updater artifacts
+├── package.json
+└── package-lock.json
+```
+
+前端不能接收任意文件路径、命令或凭据读取能力；Windows-only 系统调用放在 `cfg(windows)` 模块，并必须由 `windows-latest` CI 实际编译/运行。普通 CI 安装器不带 updater 私钥，不能作为正式 Release。
 
 ## `Sources/AIMeterApp`
 
@@ -202,4 +242,6 @@ Sources/AIMeterCore/
 - 跨 UI 与采集共享的数据结构放入 `Domain/`；
 - 只与界面计算有关的纯逻辑放入 `Presentation/` 或 `UI/`；
 - macOS API、窗口、通知、登录项和 WebKit 生命周期放入 App 的 `System/`；
+- Windows API、Credential Manager、ConPTY、WebView2 与窗口生命周期放入 `windows/src-tauri/src/platform/windows/`；
+- 两平台共同语义进入 `contracts/`，不得通过复制用户可见数字规则来“保持一致”；
 - 不把密钥、真实账户响应、生成的 `.app` 或构建缓存提交到仓库。

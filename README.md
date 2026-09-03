@@ -1,17 +1,19 @@
 # AI Token Meter
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
+![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Version 0.2.2](https://img.shields.io/badge/version-0.2.2-2ea44f)
-![Tests 368](https://img.shields.io/badge/tests-368%20passed-2ea44f)
+![Tests 371](https://img.shields.io/badge/tests-371%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的桌面悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。
+AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的贴边悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
 
-> **English:** A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek. It keeps credentials with the official CLIs or macOS Keychain, presents official quota and local aggregate activity in a compact edge meter, and is open source under the MIT License.
+> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 项目状态：个人本地工具，当前稳定版本为 `0.2.2`（build `6`）。后续变更统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+> 项目状态：当前稳定版 `0.2.2`（build `6`）仍为 macOS Apple Silicon 发行版；Windows 11 x64 版本正在 Preview 分支完成真机验收，尚未作为稳定下载发布。后续变更统一记录在 [Unreleased](CHANGELOG.md#unreleased)，不得把 CI 安装器冒充正式 Release。
 
 ## Screenshots
 
@@ -54,6 +56,8 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 ## 系统要求
 
+### macOS
+
 - Apple Silicon Mac（M1 或更新机型）。
 - macOS 14 Sonoma 或更新版本。
 - 从源码构建时需要 Xcode Command Line Tools 与 Swift 6 工具链。
@@ -61,9 +65,16 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 - Claude Code 与 OpenAI Codex 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。
 - DeepSeek 是可选服务；余额需要 API Key，30 天用量图表需要在 App 的隔离网页中登录 DeepSeek 平台。
 
+### Windows
+
+- Windows 11 x64；需要 Microsoft Edge WebView2 Runtime（安装器可引导下载）。
+- Claude Code 与 OpenAI Codex 可使用 Windows 原生安装，也可从 WSL 发行版发现；应用明确显示实际来源和 CLI 版本。
+- DeepSeek API Key 保存在当前 Windows 用户的 Credential Manager；30 天历史使用应用独立的 WebView2 用户数据目录。
+- Windows Widget 不在首个 Preview 范围内。当前无 Authenticode 证书，Preview 安装器可能出现 SmartScreen 提示；只应从本项目 GitHub Release 下载并核对 SHA-256。
+
 ## 下载与安装
 
-**[Download v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2)** from GitHub Releases and choose `AI-Token-Meter-0.2.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
+**[Download v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2)** from GitHub Releases and choose `AI-Token-Meter-0.2.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download. Windows 安装器将在首个双平台 Preview 验收后以 `AI-Token-Meter-X.Y.Z-windows-x64-setup.exe` 名称出现在同一 Release；当前 `v0.2.2` 没有 Windows 正式资产。
 
 1. 完全退出已有的 AI Token Meter。
 2. 解压 ZIP，并把 `AI Token Meter.app` 移到 `/Applications`。
@@ -75,6 +86,8 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 `0.1.2` 尚未包含应用内更新器，因此需要手动安装一次当前版本。从 `0.2.0` 开始，可在 Settings → About 点击 **Check for Updates**，发现新版后再点击 **Update Now**；只有这两个用户动作会触发联网和安装。
 
 ## 从源码安装
+
+### macOS
 
 ```bash
 git clone https://github.com/sljzdotcom/AI-Token-Meter.git
@@ -94,6 +107,18 @@ AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh
 日常使用时，退出 AI Token Meter 后把应用移到 `/Applications`，再从“应用程序”启动。如果移动了应用路径，请重新开关一次“登录时启动”。
 
 完整步骤见 [安装与首次使用](docs/user-guide/getting-started.md)。
+
+### Windows 11 x64
+
+```powershell
+git clone https://github.com/sljzdotcom/AI-Token-Meter.git
+cd AI-Token-Meter\windows
+npm ci
+npm test
+npm run tauri build
+```
+
+需要 Node.js 24、Rust 1.88 与 Microsoft C++ Build Tools。生成的 current-user NSIS 位于 `windows\src-tauri\target\release\bundle\nsis\`。普通源码构建不需要更新私钥；只有维护者发布流程会启用 `tauri.release.conf.json` 生成签名更新归档。
 
 ## 第一次使用
 
@@ -118,6 +143,8 @@ Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter
 
 ```text
 AI-Meter/
+├── VERSION                     # macOS/Windows 共享版本
+├── contracts/                  # 跨平台 Schema、fixture、展示与功能对等合同
 ├── Sources/
 │   ├── AIMeterApp/              # SwiftUI App、系统集成与界面
 │   ├── AIMeterCore/             # 采集、领域模型、缓存、安全与协调逻辑
@@ -126,6 +153,7 @@ AI-Meter/
 │   ├── AIMeterCoreTests/        # 领域、解析器、协调与真实 CLI 冒烟测试
 │   ├── AIMeterAppTests/         # 浮岛输入、启动、打包和 AppKit/SwiftUI 边界测试
 │   └── AIMeterWidgetExtensionTests/ # Widget 布局、时间线和安全合同
+├── windows/                    # Tauri 2 + Rust + React + Win32 Windows 应用
 ├── docs/
 │   ├── user-guide/              # 安装、服务配置、设置和排障
 │   ├── architecture/            # 架构与源码目录说明
@@ -181,11 +209,13 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - Services 中的 Claude Code/OpenAI Codex 邮箱、套餐和 DeepSeek Key 后四位只存在内存，不进入缓存、Widget、通知或登录脚本。
 - OpenAI Codex 本机活动只读取线程表中的 Token 数与创建/更新时间，不读取标题、预览、提示词或回复。
 - DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
+- Windows 版 DeepSeek API Key 保存在 Windows Credential Manager；候选 Key 先通过官方余额 API 验证，成功后才替换旧项。
 - DeepSeek 历史用量使用 App 自己的隔离 WebKit 会话，不读取 Safari、Chrome 或其他浏览器 Cookie。
 - 历史页面的原始响应不会进入业务缓存；AI Token Meter 只保存标准化后的逐日成本、请求数和 Token 总数。
 - Widget 只读取主应用写入 App Group 的脱敏展示快照，不联网、不运行 CLI、不读取 Keychain，也不能登录或兑换重置券。
 - 缓存、状态消息与通知会先经过敏感文本清理。
 - 更新 ZIP 由 Sparkle EdDSA 签名；生产私钥只保存在维护者的 macOS Keychain，不进入仓库、日志或 Release。应用只包含公开验证键，签名不匹配时保持现有版本不变。
+- Windows Updater 使用 Tauri minisign 公钥验证 `.nsis.zip`；GitHub Actions 私钥仅通过仓库 Secret 注入。当前无 Authenticode，SmartScreen 发布者身份提示与更新内容签名是两个不同边界。
 
 完整说明见 [隐私与安全](docs/security-and-privacy.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 

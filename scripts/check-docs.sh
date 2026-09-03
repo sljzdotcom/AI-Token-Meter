@@ -109,7 +109,10 @@ if readme_path.file? && plist_path.file?
   end
 
   public_readme_requirements = {
-    "English project summary" => "A native macOS usage meter",
+    "English project summary" => "macOS and Windows usage meter",
+    "Windows 11 x64 support boundary" => "Windows 11 x64",
+    "Windows SmartScreen boundary" => "SmartScreen",
+    "Windows Authenticode boundary" => "Authenticode",
     "public author credit" => "Author: Miller",
     "MIT license notice" => "MIT License",
     "v#{plist_version} download guidance" => "Download v#{plist_version}",
