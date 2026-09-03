@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "open3"
 require "pathname"
 require "time"
 
@@ -16,6 +17,22 @@ rescue Errno::ENOENT
 rescue JSON::ParserError => error
   errors << "Invalid JSON in #{path}: #{error.message}"
   nil
+end
+
+def git_tracks_executable?(root, path)
+  relative_path = path.relative_path_from(root).to_s
+  output, status = Open3.capture2(
+    "git",
+    "-C",
+    root.to_s,
+    "ls-files",
+    "--stage",
+    "--",
+    relative_path,
+  )
+  status.success? && output.each_line.any? { |line| line.start_with?("100755 ") }
+rescue Errno::ENOENT
+  false
 end
 
 version_path = root + "VERSION"
@@ -113,7 +130,7 @@ if cross_platform_release_path.file?
     errors << "Windows Preview release notes must explain the SmartScreen unknown-publisher warning"
   end
   errors << "Stable appcast must not be pushed before the GitHub assets are public" if release_script.include?("git add appcast.xml")
-  errors << "Cross-platform release entry must be executable" unless cross_platform_release_path.executable?
+  errors << "Cross-platform release entry must be executable" unless git_tracks_executable?(root, cross_platform_release_path)
 else
   errors << "Cross-platform release script is missing"
 end
