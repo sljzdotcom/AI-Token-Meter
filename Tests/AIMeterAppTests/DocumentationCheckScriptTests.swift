@@ -31,6 +31,30 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("docs/missing.md"))
     }
 
+    @Test("Third-party npm documentation is outside the project documentation boundary")
+    func ignoresNodeModulesDocumentation() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let dependency = fixture.appendingPathComponent(
+            "windows/node_modules/example-package",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: dependency,
+            withIntermediateDirectories: true
+        )
+        try "[Missing upstream file](docs/not-published.md)\n".write(
+            to: dependency.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status == 0)
+        #expect(result.output.contains("Documentation checks passed"))
+    }
+
     @Test("A README and bundle version mismatch fails")
     func rejectsVersionMismatch() throws {
         let fixture = try makeFixture(bundleVersion: "0.2.0")
@@ -40,6 +64,30 @@ struct DocumentationCheckScriptTests {
 
         #expect(result.status != 0)
         #expect(result.output.contains("README version 0.1.0 does not match Info.plist 0.2.0"))
+    }
+
+    @Test("A release safety example cannot pass the repository as an archive")
+    func rejectsAmbiguousPublicReleaseSafetyInvocation() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        try """
+        # Release plan
+
+        ```bash
+        bash scripts/check-public-release.sh .
+        ```
+        """.write(
+            to: fixture.appendingPathComponent(
+                "docs/design/implementation-plans/release.md"
+            ),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("--repository"))
     }
 
     @Test("README download guidance follows the bundle version")
@@ -80,6 +128,22 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("public author credit"))
     }
 
+    @Test("A README missing the Windows support boundary fails")
+    func rejectsMissingWindowsSupportBoundary() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let readmeURL = fixture.appendingPathComponent("README.md")
+        let original = try String(contentsOf: readmeURL, encoding: .utf8)
+        try original
+            .replacingOccurrences(of: "Windows 11 x64", with: "desktop preview")
+            .write(to: readmeURL, atomically: true, encoding: .utf8)
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("Windows 11 x64 support boundary"))
+    }
+
     private func makeFixture(
         bundleVersion: String = "0.1.0",
         readmeVersion: String = "0.1.0",
@@ -110,7 +174,9 @@ struct DocumentationCheckScriptTests {
         ![Version \(readmeVersion)](https://img.shields.io/badge/version-\(readmeVersion)-green)
         ![Tests 305](https://img.shields.io/badge/tests-305%20passed-green)
 
-        A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek.
+        A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek.
+
+        Windows 11 x64 preview. The installer may show SmartScreen until Authenticode is available.
 
         ![Floating strip](docs/assets/screenshots/floating-strip.png)
         ![Provider detail](docs/assets/screenshots/provider-detail.png)

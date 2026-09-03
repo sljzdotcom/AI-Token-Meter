@@ -1,0 +1,47 @@
+schema_version: 1
+features:
+  - id: provider-usage-summary
+    requirement: REQ-20260903-004
+    platform_scope: cross-platform
+    macos:
+      status: complete
+      evidence: Tests/AIMeterCoreTests/UsageModelsTests.swift
+    windows:
+      status: in-progress
+      evidence: windows/src-tauri/tests/deepseek_collector.rs
+  - id: cli-discovery
+    requirement: REQ-20260903-004
+    platform_scope: platform-equivalent
+    macos:
+      status: complete
+      evidence: Tests/AIMeterCoreTests/ExecutableLocatorTests.swift
+    windows:
+      status: complete
+      evidence: windows/src-tauri/tests/executable_locator.rs
+  - id: edge-floating-meter
+    requirement: REQ-20260903-004
+    platform_scope: cross-platform
+    macos:
+      status: complete
+      evidence: Tests/AIMeterAppTests/FloatingStripLayoutTests.swift
+    windows:
+      status: planned
+      evidence: docs/design/implementation-plans/2026-09-03-windows-platform.md
+  - id: platform-status-entry
+    requirement: REQ-20260903-004
+    platform_scope: platform-equivalent
+    macos:
+      status: complete
+      evidence: Tests/AIMeterAppTests/MenuBarMeterIconTests.swift
+    windows:
+      status: planned
+      evidence: docs/design/implementation-plans/2026-09-03-windows-platform.md
+  - id: widget
+    requirement: REQ-20260901-003
+    platform_scope: macos-only
+    macos:
+      status: deferred
+      evidence: docs/development/2026-09-01-widgetkit-extension.md
+    windows:
+      status: not-applicable
+      evidence: docs/design/specifications/2026-09-03-windows-platform-design.md

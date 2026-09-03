@@ -1,0 +1,45 @@
+[package]
+name = "ai-token-meter-windows"
+version = "0.2.2"
+description = "Windows client for AI Token Meter"
+authors = ["Miller"]
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/sljzdotcom/AI-Token-Meter"
+
+[lib]
+name = "ai_token_meter_windows"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "ai-token-meter-windows"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+async-trait = "0.1.92"
+base64 = "0.22"
+futures-util = "0.3"
+getrandom = "0.3"
+regex = "1"
+minisign-verify = "0.2.5"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "native-tls-no-alpn", "stream"] }
+rusqlite = { version = "0.37", features = ["bundled", "hooks"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "=2.11.5", features = ["tray-icon"] }
+tauri-plugin-updater = "2"
+tauri-plugin-notification = "2"
+time = { version = "0.3", features = ["formatting", "parsing"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+zeroize = "1.9.0"
+
+[dev-dependencies]
+tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security_Credentials", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_Pipes", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+winreg = "0.55.0"

@@ -24,6 +24,9 @@
 | Widget | Core snapshot contract、publisher、extension、build script | status、architecture、security、release、Widget 日志 |
 | 版本/发布 | 两个 Info.plist、README 徽章、CHANGELOG | release、commit history、项目状态 |
 | 应用更新 | `SoftwareUpdate/`、About、Info.plist、Sparkle Bundle/归档验证 | settings、architecture、security、release、更新日志 |
+| 跨平台共享语义 | `VERSION`、`contracts/`、Swift/Rust fixture、对等矩阵 | README、status、architecture、CHANGELOG |
+| Windows 系统集成 | `windows/src-tauri/platform/windows`、Windows-only tests、Tauri capability | settings、troubleshooting、security、Windows 开发日志 |
+| 双平台发布 | macOS plist/appcast、Windows npm/Cargo/Tauri、两份更新清单 | release、status、commit history、Release Notes |
 
 ## 三服务诊断顺序
 
@@ -51,6 +54,8 @@
 4. 官网结构变化时允许历史不可用，不允许解析任意来源或保存原始响应；
 5. 圆环计算始终是 `(基准 - 余额) / 基准` 的 0...1 夹紧值。
 
+Windows 排障先确认 Native/WSL 来源与 CLI 版本，再看采集状态；不得为了“能运行”把任意 Shell、文件浏览或凭据读取命令暴露给 React。DeepSeek WebView2 只使用应用专属数据目录和官方 host，余额与历史失败互不覆盖。
+
 ## 本地数据与安全处置
 
 - 普通排障优先手动刷新和查看“更新时间/状态”，不要先删缓存；
@@ -69,6 +74,8 @@ codesign --verify --deep --strict --verbose=2 "dist/AI Token Meter.app"
 scripts/verify-update-bundle.sh "dist/AI Token Meter.app"
 ```
 
+Windows 完整验证在 Windows 11 x64 执行 `npm --prefix windows ci/test/run build`、`cargo fmt/clippy/test` 和 `npm --prefix windows run tauri build`；真实 runner 证据不能替代 DPI、全屏、拖动和登录网页的交互式真机验收。
+
 真实 CLI/Keychain 门控和 Widget 强制构建命令见[测试指南](testing.md)。安装验收：
 
 1. 完全退出当前 App；
@@ -86,6 +93,8 @@ scripts/verify-update-bundle.sh "dist/AI Token Meter.app"
 - 确认许可证、远程、tag、Developer ID、公证、校验和与支持范围是真实存在的；
 - 没有证书时明确发布“无 Widget 主应用”，不要声称 Widget 可安装。
 - 更新发布必须使用 Keychain 中的 Sparkle EdDSA 私钥，经单一脚本生成 ZIP、SHA-256 和 appcast；不得手改 enclosure 签名或在生成 appcast 后重建 ZIP。
+- Windows 发布必须由 `release.yml` 使用 GitHub Actions Secret 中的 Tauri 私钥生成 `.nsis.zip.sig`；普通 CI NSIS 不能上传为 Release 更新资产。
+- 同一版本必须在一个草稿 Release 中同时通过 macOS 和 Windows job 后公开；任一失败都保留草稿。
 - 发布后必须验证 raw appcast、Release 下载和匿名 SHA-256；更新失败或签名异常时保留当前 App，禁止指导用户绕过验证。
 
 ## 更新故障与密钥轮换
@@ -94,11 +103,13 @@ scripts/verify-update-bundle.sh "dist/AI Token Meter.app"
 2. `Update Now` 禁用时先确认当前状态是否真的发现更高版本；最新版和失败状态按设计禁用。
 3. 下载后拒绝安装时，依次核对 enclosure 长度、版本/build、ZIP 是否在签名后被修改，以及 App 内公开键是否匹配。
 4. 私钥只允许留在维护者 Keychain；任何疑似泄露都按[发布流程](release-process.md#回滚更新发布)停止发布并轮换信任根。
+5. Windows Tauri 私钥疑似泄露时立即停用对应 GitHub Secret、保留失败草稿并更换应用内公钥；不要重用已发布版本号或签名归档。
 
 ## 日志与证据
 
 - 系统崩溃：`~/Library/Logs/DiagnosticReports/AIMeterApp-*.ips`；
 - 实时日志：Console.app 按进程 `AIMeterApp` 筛选；
+- Windows：LocalAppData 下的脱敏日志与 Windows 事件查看器；记录 OS build、DPI 和来源，不记录账户身份或 CLI 原始输出；
 - 功能阶段：新增 `docs/development/YYYY-MM-DD-topic.md` 并加入[日志索引](README.md)；
 - Git 关键节点：更新[提交历史](commit-history.md)；
 - 用户可见变化：更新根 [CHANGELOG](../../CHANGELOG.md)；

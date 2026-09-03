@@ -11,11 +11,14 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 - 登录与凭证生命周期由官方 CLI 管理；
 - AI Token Meter 调用已登录 CLI，不读取、复制或保存凭证文件；
 - Settings 的登录按钮只生成权限为 `0700` 的本地命令文件，内容固定为官方 `claude auth login` 或 `codex login`，不拼接用户输入或秘密；
+- Windows 登录同样只允许固定 Provider/固定参数，并在新的终端窗口运行；前端不能传入命令、路径或 Shell 片段。原生 CLI 与 WSL 候选经白名单发现和版本健康检查，受控子进程附加 Job Object；
+- Windows 登录与后台采集清空继承环境，只恢复系统目录、当前用户 profile/app-data 和已验证 CLI/解释器目录；`CODEX_HOME`、`CLAUDE_CONFIG_DIR`、`WSLENV` 等 Provider 覆盖不会造成登录账户与监控账户分裂；
 - CLI 返回的邮箱、套餐和认证方式只保留在当前 App 进程的内存展示状态，不进入统一快照、Widget、通知、脚本或日志；
 - OpenAI Codex 本机活动只查询本地线程表的 `tokens_used`、`created_at`、`updated_at`，不读取标题、预览、提示词、回复或凭证；
 - Claude Code 本机活动只解码本地 JSONL 的 `timestamp`、`sessionId`、`message.model` 和 `message.usage` 白名单字段；提示词、回复、项目路径、标题、分支和文件内容不会进入领域模型、缓存或日志；
 - Claude Code JSONL 扫描按块流式读取，只处理 30 日窗口内最近修改的文件，并跳过符号链接、损坏记录、负计数和超出上限的行/文件；扫描还有总字节、文件数和持续时间上限，子代理 Token 可计入总量，但不会被重复算作主会话；
 - Claude Code 模型标识只接受有限长度的字母、数字和 `-._:/`；旧缓存解码和新快照写入都会重新规范化，零 Token、未知或疑似敏感值不展示；本机活动最多等待 2 秒，失败或超时不改变官方额度；
+- Windows 原生本机活动只读取当前 Windows profile；WSL 模式使用固定参数查询所选发行版的 `HOME`，经发行版名、绝对 Linux 路径与 traversal 校验后映射到只读 `\\wsl.localhost` 路径。无法安全定位时不显示本机活动，绝不回退到另一 profile 或沿用旧来源缓存；
 - CLI 标准输出会在解析后转换为统一字段，原始账户输出不写入业务缓存；
 - 一次性 Claude Code 工作区批准由用户在终端确认。
 
@@ -23,6 +26,7 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 
 - 只通过设置界面接收；
 - 使用 macOS Keychain 保存；
+- Windows 版使用当前用户 Windows Credential Manager，固定 target 为 `AI Token Meter/DeepSeek API Key`；
 - Keychain 可访问级别为 `AfterFirstUnlockThisDeviceOnly`；
 - 不写入 `UserDefaults`、普通文件、通知、截图或日志；
 - 设置界面不回显已保存的 Key，只在内存中显示最后四位遮罩；
@@ -40,6 +44,8 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 - 单个被处理的响应受大小限制，防止无限负载进入应用；
 - 仅标准化保存日期、成本、请求数、Token 数和更新时间。
 
+Windows 对应实现使用独立 WebView2 用户数据目录，只允许 `https://platform.deepseek.com` 精确官方来源。网页桥使用短期随机 nonce、有界分片、总大小上限与严格 DTO；API Key 名称、tracking ID、Cookie、Authorization 和 DOM 文本不得进入 Rust 或前端业务状态。
+
 App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSeek 官方条款约束。共享设备上应使用独立的 macOS 用户账户，并在不再使用时退出登录或清理应用数据。
 
 ## 本地数据
@@ -55,6 +61,8 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 | DeepSeek 每日聚合 | `Application Support/AI Meter` | 新数据覆盖或用户删除缓存 |
 | DeepSeek 登录会话 | App WebKit 数据存储 | 退出登录或清理应用网站数据 |
 | Widget 展示快照 | 签名双方专用 App Group | 主应用刷新覆盖；只含脱敏展示字段 |
+
+Windows 的非敏感设置与快照分别位于 `%APPDATA%\AI Token Meter`、`%LOCALAPPDATA%\AI Token Meter`；写入使用同目录临时文件、flush 与原子替换。DeepSeek Credential Manager 项和 WebView2 登录会话与普通缓存分离，卸载时不会未经确认自动删除官方 CLI 登录或秘密。
 
 显示名称迁移不会改变安全身份：Bundle Identifier 仍为 `com.millerpan.AIMeter`，可执行文件仍为 `AIMeterApp`，既有 Keychain 项目与 `Application Support/AI Meter` 兼容目录继续使用，避免重新暴露或复制密钥与会话数据。
 
@@ -82,6 +90,8 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 - OpenAI Codex：由 OpenAI Codex CLI 及其 `app-server` 提供本地结构化账户数据；
 - DeepSeek 余额：直接访问官方 API；
 - DeepSeek 历史：App 内 WebKit 访问官方平台；
+- Windows DeepSeek 历史：独立 WebView2 访问同一官方平台；
+- 更新：只有用户点击检查时访问固定 GitHub Release appcast/`latest.json`；
 - AI Token Meter 没有自建遥测、广告或分析服务。
 
 ## 日志
@@ -102,6 +112,8 @@ App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSe
 - ad-hoc 签名只用于本机开发，不提供公开发行所需的身份保证；
 - 应用内更新只在用户点击检查时访问固定 GitHub appcast，发现新版后仍需用户点击安装；不做后台检查或静默更新；
 - 更新 ZIP 必须通过 App 内公开键的 Sparkle EdDSA 验证。生产私钥仅保存在维护者 macOS Keychain，不进入源码、构建日志或 Release；签名失败会保留当前 App；
+- Windows 更新归档必须通过应用内 Tauri minisign 公钥验证；私钥仅允许通过 GitHub Actions Secret 注入正式 Release job，普通 CI 和本地构建不需要私钥。错误签名、错误 target、错误版本或损坏归档都不得替换当前安装；
+- Windows 首个 Preview 没有 Authenticode 证书，可能出现 SmartScreen 未知发布者提示。minisign 保护应用内更新内容，不能替代操作系统对安装器发布者身份的认证；Release Notes 必须持续说明该边界；
 - 当前公开包为 ad-hoc signed、not notarized，首次安装仍可能触发 Gatekeeper；EdDSA 保护更新内容完整性与发布者授权，但不替代 Developer ID 和 Apple 公证；
 - 项目尚未进行第三方安全审计。
 

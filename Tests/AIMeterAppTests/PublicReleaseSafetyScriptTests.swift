@@ -71,6 +71,24 @@ struct PublicReleaseSafetyScriptTests {
         #expect(result.output.contains("current repository content"))
         #expect(!result.output.contains(marker))
     }
+
+    @Test("Gitleaks scans only files eligible for the public Git worktree")
+    func gitleaksUsesFilteredWorktreeSnapshot() throws {
+        let fixture = try PublicReleaseFixture()
+        defer { fixture.remove() }
+        try fixture.commit(path: "README.md", contents: "# Safe public project\n")
+        let probePath = try fixture.installGitleaksProbe()
+
+        let result = try fixture.runSafetyCheck(
+            environment: [
+                "PATH": "\(probePath):\(ProcessInfo.processInfo.environment["PATH"] ?? "")",
+                "EXPECTED_REPOSITORY": fixture.root.path,
+            ]
+        )
+
+        #expect(result.status == 0)
+        #expect(result.output.contains("Public release safety checks passed"))
+    }
 }
 
 private final class PublicReleaseFixture {
@@ -87,7 +105,11 @@ private final class PublicReleaseFixture {
     }
 
     func write(path: String, contents: String) throws {
-        let url = root.appendingPathComponent(path)
+        try write(at: root, path: path, contents: contents)
+    }
+
+    func write(at repository: URL, path: String, contents: String) throws {
+        let url = repository.appendingPathComponent(path)
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -101,8 +123,30 @@ private final class PublicReleaseFixture {
         _ = try command("git", ["commit", "-q", "-m", "fixture update"])
     }
 
-    func runSafetyCheck() throws -> CommandResult {
-        try command(repositoryScript.path, ["--repository", root.path])
+    func runSafetyCheck(environment: [String: String] = [:]) throws -> CommandResult {
+        try command(
+            repositoryScript.path,
+            ["--repository", root.path],
+            environment: environment
+        )
+    }
+
+    func installGitleaksProbe() throws -> String {
+        let directory = root.appendingPathComponent("test-bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let executable = directory.appendingPathComponent("gitleaks")
+        try """
+        #!/bin/sh
+        if [ "$1" = "dir" ] && [ "$2" = "$EXPECTED_REPOSITORY" ]; then
+          exit 19
+        fi
+        exit 0
+        """.write(to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: executable.path
+        )
+        return directory.path
     }
 
     func remove() {
@@ -118,7 +162,11 @@ private final class PublicReleaseFixture {
     }
 
     @discardableResult
-    private func command(_ executable: String, _ arguments: [String]) throws -> CommandResult {
+    private func command(
+        _ executable: String,
+        _ arguments: [String],
+        environment: [String: String] = [:]
+    ) throws -> CommandResult {
         let process = Process()
         let output = Pipe()
         if executable.contains("/") {
@@ -129,6 +177,9 @@ private final class PublicReleaseFixture {
             process.arguments = [executable] + arguments
         }
         process.currentDirectoryURL = root
+        process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, override in
+            override
+        }
         process.standardOutput = output
         process.standardError = output
         do {

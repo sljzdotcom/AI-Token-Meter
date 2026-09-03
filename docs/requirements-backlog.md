@@ -38,7 +38,10 @@
 | REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 已完成 | 2026-09-03 | 无 | [开发记录](development/2026-09-03-ci-pty-exit-race.md) · `c11da0a` · [PR CI 33702291460](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702291460) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
 | REQ-20260903-002 | 更新交互缺陷 | 下载完成后的 Sparkle “Install and Relaunch”窗口被 Settings 遮挡，导致界面看似长期停在 Preparing；安装流程窗口应自动置前 | 高 | 已完成 | 2026-09-03 | 无 | [设计规格](design/specifications/2026-09-03-update-status-window-frontmost-design.md) · [实施计划](design/implementation-plans/2026-09-03-update-status-window-frontmost.md) · [真实升级终验](development/2026-09-03-update-status-window-frontmost.md) · `6057b3e` · [`v0.2.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) |
 | REQ-20260903-003 | 测试稳定性 | 修复 GitHub Actions 高负载下详情自动隐藏测试依赖固定 50ms 等待、偶发尚未收到异步超时回调而失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | `f14f14a` · [失败 CI 33700918921](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33700918921) · [PR CI 33701250078](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33701250078) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
-| REQ-20260903-004 | 跨平台 | 制作功能对等的 Windows 版本；此后产品功能、版本号、文档、测试和 GitHub Release 原则上保持 macOS 与 Windows 同步 | 高 | 待用户确认 | 2026-09-03 | 用户已选择方案 A；正式书面规格已完成并通过自检，等待最后一次规格复核后进入实施计划与开发 | [设计规格](design/specifications/2026-09-03-windows-platform-design.md) |
+| REQ-20260903-004 | 跨平台 | 制作功能对等的 Windows 版本；此后产品功能、版本号、文档、测试和 GitHub Release 原则上保持 macOS 与 Windows 同步 | 高 | 进行中 | 2026-09-03 | 接通启动/定时/手动刷新、缓存与界面事件并等待 Windows CI；随后完成 Services、更新、NSIS、真机验收与双平台 Preview Release | [设计规格](design/specifications/2026-09-03-windows-platform-design.md)、[实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[开发日志](development/2026-09-03-windows-platform.md) |
+| REQ-20260903-005 | 文档门禁缺陷 | 新增 Windows npm/Rust 依赖后，文档和秘密检查器错误扫描 `node_modules`/`target` 内第三方文件并报告无关坏链或二进制假阳性 | 高 | 已完成 | 2026-09-03 | 无 | [Windows 开发日志](development/2026-09-03-windows-platform.md)、回归测试与 Windows 骨架检查点 |
+| REQ-20260903-006 | 发布文档缺陷 | Windows 实施计划将仓库目录作为公开发布脚本的位置参数传入，脚本会误把目录当成 Release ZIP 并报告归档不存在 | 中 | 已完成 | 2026-09-03 | 无 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、文档门禁回归测试 |
+| REQ-20260903-007 | 共享合同门禁缺陷 | Task 5 计划新增 Windows CLI 位置 fixture，但门禁把 `contracts/fixtures` 中全部 JSON 都当作四份用量快照，按计划新增必然失败 | 高 | 已完成 | 2026-09-03 | 无 | [辅助 CLI fixture](../contracts/fixtures/auxiliary/windows-cli-locations.json)、[Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、`d481a44`、合同门禁仍确认直接目录恰好 4 份用量快照 |
 
 ## 分类索引
 
@@ -98,6 +101,12 @@
 ### 跨平台
 
 - `REQ-20260903-004`：新增 Windows 桌面版本，并建立 macOS/Windows 同版本、同功能、同 Release 的同步发布规则。
+
+### 文档门禁
+
+- `REQ-20260903-005`：文档检查器必须忽略 npm 第三方依赖目录，只审计项目维护的 Markdown。
+- `REQ-20260903-006`：发布安全脚本的仓库检查示例必须使用具名 `--repository` 参数，不能把目录误当归档。
+- `REQ-20260903-007`：共享 fixture 门禁须允许经过声明的非用量辅助 fixture，不能与四份快照数量约束冲突。
 
 ## 状态变更记录
 
@@ -187,3 +196,49 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 用户确认首版采用推荐范围：Windows 11 x64、系统托盘、贴边浮动条、三服务、详情、Settings、自动更新和同版本 Release；Widget 暂不纳入。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 → 待用户确认 | 完成当前 SwiftUI/AppKit 架构审计与 Windows 技术验证；推荐保留 macOS 原生应用、在同仓库新增 Tauri 2 + Rust Windows 应用，并以共享合同和双平台发布门禁保持同步，等待一次重大架构确认。 |
 | 2026-09-03 | REQ-20260903-004 | 待用户确认 | 用户选择方案 A；已将代码边界、共享合同、原生/WSL Provider、Windows 窗口、凭据、更新、双平台 CI/Release、测试与停止条件写入正式规格并完成自检。 |
+| 2026-09-03 | REQ-20260903-004 | 待用户确认 → 进行中 | 用户确认正式书面规格；进入详细实施计划、测试驱动开发和分阶段 Git 检查点。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 根版本、共享 Schema/fixture/展示合同/对等矩阵及门禁完成；365 项 macOS 回归通过，Windows Tauri 前端与 Rust 骨架本机构建通过。 |
+| 2026-09-03 | REQ-20260903-005 | 新建 → 进行中 | 安装 Windows npm 依赖后稳定复现第三方 README 坏链噪声；错误路径全部位于 `windows/node_modules`，检查器排除列表没有该目录。 |
+| 2026-09-03 | REQ-20260903-005 | 进行中 → 已完成 | 文档检查排除 npm 依赖；Gitleaks 只扫描 Git 公开候选快照而非 Rust 构建二进制，同时保留未忽略源码和完整历史扫描；两项失败先行回归均通过。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows 领域模型、共享展示合同、过期判定、原子设置/缓存和日志脱敏完成；16 项 Rust 测试、格式与零警告 Clippy 通过，进入安全凭据和 DeepSeek 采集。 |
+| 2026-09-03 | REQ-20260903-006 | 新建 → 进行中 | Task 3 验证时按计划中的 `check-public-release.sh .` 执行，稳定复现仓库目录被误判为 ZIP；正确的具名仓库参数调用已单独验证通过。 |
+| 2026-09-03 | REQ-20260903-006 | 进行中 → 已完成 | 新增失败先行的文档门禁回归并修正计划命令；368 项 macOS 回归、Windows Rust/前端测试、文档和公开仓库安全扫描通过。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | DeepSeek 固定官方端点、响应上限、超时缓存、验证后换 Key、零化 Secret 和 Windows Credential Manager 已实现；24 项 Rust 测试及 Windows API 源码目标编译通过，真实凭据往返等待 Windows runner。 |
+| 2026-09-03 | REQ-20260903-007 | 新建 → 进行中 | 开始 Task 5 前对照计划发现 `windows-cli-locations.json` 会被现有“恰好四份 JSON 快照”门禁误判；先修复合同边界再新增 fixture。 |
+| 2026-09-03 | REQ-20260903-007 | 进行中 → 已完成 | 将非用量 fixture 放入显式 `auxiliary/` 子目录；四份用量快照计数、Rust fixture 测试、128 份文档和公开安全门禁均通过。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 原生/WSL CLI 发现完成：环境候选、注册表 PATH、Node/CMD 显式 launcher、UTF-16 WSL 列表和参数隔离均有测试；32 项 Rust、Windows 目标源码编译和全仓门禁通过，进入安全进程与 ConPTY。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 受限非交互 runner、Job Object、ConPTY 进程附加、固定输入/等待和 Claude/Codex 固定登录动作已实现；本机行为测试及 Windows 目标源码编译通过，已提前加入 Windows CI，等待真实 runner 结果。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 首次 Windows CI `33714907252` 已证明前端、构建、格式、Clippy、Rust 编译及 ConPTY 创建/缩放通过；输入往返在 CRLF 终端序列下超时，现改用单 CR 并增加“仅终端回显/真实进程响应”诊断，等待真实 runner 复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第二次 Windows CI `33715538395` 仍在任何受控文本出现前超时；结合微软 ConPTY 实现确认启动会先发 `ESC[6n` 光标查询，宿主不回复便暂停输入。现已实现 `ESC[1;1R` 最小终端握手，并把真机测试拆为 `ready → input → received`。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第三次 Windows CI `33716133098` 在运行测试前被 Windows 条件编译专属的 Clippy `items_after_test_module` 截止；测试模块已移至文件末尾，并补充 Windows 目标静态检查，ConPTY 握手仍待下一轮 runner 证实。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第四次 Windows CI `33716538082` 显示夹具 `ready` 泄露到父 CI 控制台而非 ConPTY pipe；根因是 STARTUPINFO 标准句柄虽置空却遗漏 `STARTF_USESTDHANDLES`，Windows 因而复制父标准句柄。现已按生产级 ConPTY 做法补齐标志。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第五次 Windows CI `33717040377` 已通过 ConPTY 完整输入输出、Credential Manager、Job Object 和其余 Windows 运行测试；唯一失败是同一临时目录的 8.3 短路径与 verbatim 长路径字符串不相等。测试已改为比较规范化后的目录身份，等待最终复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 最终 Windows CI `33717589098` 全绿，真实 runner 已验证 ConPTY 完整往返、Credential Manager、Job Object、受限进程和固定登录动作；Task 6 关闭，进入 Claude Code/OpenAI Codex 采集。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Claude/Codex 跨平台解析 fixture 与 6 项失败先行测试完成：促销百分比、登录/信任提示、未知通知、额度窗口和 Reset Credit 均有明确口径，不再把解析失败显示为 0%。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Claude 固定 `/usage` ConPTY 采集与 Codex initialize/account/rateLimits JSON-RPC 会话已接入受限进程边界；Codex 跨平台进程测试通过，Claude Windows-only 端到端 fixture 等待 runner。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33718718700` 的 Claude Transport 定位为 ESM 测试夹具含非法顶层 `return`，已修正；同时完成 Claude/Codex 白名单本机活动与 300 秒并发刷新协调，本机 56 项 Rust 回归及零警告 Clippy 通过。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33719315118` 进一步证明 Claude 夹具把 ConPTY 光标握手回复误当成唯一业务输入并提前退出；夹具改为累计终端输入直至固定 `/usage`，本机终端序列、56 项 Rust、5 项前端和正式构建通过，等待 runner 复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows 前端浮动条、统一 Logo 圆环、三品牌色、丰富详情、Reset Credit、30 日本机统计、DeepSeek 历史占位、Settings tabs、字体目录、自动隐藏和点击外部关闭完成；安全桥只订阅固定脱敏事件，进入托盘与 Win32 窗口阶段。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33720000356` 将 Claude 失败限定为测试替身输出后 100ms 退出与 ConPTY 读取竞争；替身改为持续交互并交由 Job Object 回收，等待 runner 复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Win32 三窗口、动态托盘、左右镜像 S 曲线、拖动与显示器位置持久化、全屏隐藏、详情临时置顶和真实 Settings 同步已实现；本机门禁通过，等待 Windows runner 桌面壳构建及真机视觉验收。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33722059809` 否定 Claude 替身退出竞态为主因；根因收敛为 Windows 规范化 `\\?\` 路径不应原样传给 Node/CMD 解释器，已增加本地/UNC 失败先行测试并在命令边界安全转换，等待 runner 复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33722886734` 全绿，验证 Claude/Codex 采集、Credential Manager、GDI 区域和 Tauri 多窗口桌面壳；DeepSeek 30 日历史完成独立 WebView2、官方域名白名单、nonce 分片、严格脱敏聚合和详情图表，本机 73 项 Rust/9 项前端通过，等待 Windows 真机登录验收。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33724498418` 在提交 `a80f72b` 上全绿，确认 DeepSeek 历史的 Windows 条件编译、桥接测试和完整 Tauri 壳均通过；真实账户登录后的官方网页兼容性仍保留为真机验收。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 阶段审计发现库级采集器尚未接入应用生命周期，已新增明确计划项；启动缓存、启动/定时/托盘刷新、失败隔离、刷新世代防回写和详情实时更新已按测试先行实现，等待 Windows runner 编译运行后关闭该缺口。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33725559642` 在功能测试前被 Windows-only Clippy 截止；根因是 `collectors::application` 同时在父模块与文件内重复声明 `cfg(windows)`，已按最小差异移除文件级重复属性并进入完整复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33726552828` 全绿，确认真实应用生命周期、Windows-only Clippy、完整 Rust 运行测试和 Tauri 壳均通过；Task 7 关闭。Settings Services 已按 macOS 语义接通当前账号、CLI 来源/版本、固定登录命令和验证后替换 DeepSeek Key，等待下一轮 runner。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33728220354` 已通过前端测试与构建，但 Services 命令的两个 Windows-only 分支被严格 Clippy 判定为多余 `return`；已按编译器建议做最小修正，等待完整 runner 复验及 NSIS 产物。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33728660845` 全绿：Services、更新器、完整 Rust/前端测试及真实 NSIS 构建通过，上传的 x64 debug 安装器已重新下载并核对为有效 PE/NSIS，SHA-256 为 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`；进入双平台 Release 门禁与公开文档阶段。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 双平台草稿 Release workflow、本机 macOS Keychain 编排入口与 Windows Tauri 签名资产/`latest.json` 门禁完成；用户、架构、隐私、安全、测试、维护和发布文档已同步。macOS 371 项回归、Release Bundle/Sparkle 严格签名、128 份 Markdown 与公开安全检查通过；Windows 真机截图、交互验收和签名升级演练仍未完成。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 合并前独立审查发现三项发布阻断：WSL 官方额度会错误拼接 Windows 本机活动、DeepSeek Key 曾进入 WebView/IPC、Preview 被写入稳定 appcast 且 GitHub `releases/latest` 不解析 prerelease；同时登记取消未下传、版本同步门禁和详情窗口状态等重要缺口。当前明确保持不可合并，按失败先行测试逐项修复。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 三项阻断已完成代码级修正：WSL 不再读取 Windows 活动，DeepSeek Key 改由非持久化 Win32 Credential UI 在 Rust 内接收，稳定/Preview appcast 与 Windows feed 分离；tagged workflow 增加版本同步门禁。前端、Rust、Swift 发布合同及静态安全检查通过，等待 Windows CI 编译原生分支后进入 Important 修复。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 阻断修复已由 Windows CI `33732500779` 全绿验证。继续完成审查中的 Important 项：详情关闭状态与小工作区/DPI 自适应、Claude/Codex 独立 Auto/Native/WSL/自定义路径设置、刷新取消下传到 CLI/HTTP/活动扫描、发现资源上限，以及 Monitoring 的刷新周期、DeepSeek 基准、70%/90% 通知和登录启动；本机前端/Rust 定向测试与严格 Clippy 已通过，等待新提交的 Windows runner 复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33734781055` 在严格 Clippy 的 Windows-only WSL 列表分支发现 `Vec<String>` 与受限进程边界 `Vec<OsString>` 类型不匹配，Rust 测试与 NSIS 因此未运行；已在命令边界逐项转换为 `OsString`，不放宽参数隔离，进入 runner 复验。同期 macOS 完整门禁为 360 项主测试、11 项独立 PTY、跨平台合同、128 份 Markdown 与公开安全检查全部通过。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 独立复审发现上一份 Native Windows 本机活动仍可能被缓存层补到后续 WSL 快照；失败先行测试已稳定复现并证明根因为 `UsageRuntime` 对 `localActivity = nil` 的无条件回填。现改为成功刷新始终采纳当前来源的本机活动结果，仅 DeepSeek 独立历史继续保留，彻底阻止运行方式切换或重启后混数。CI `33735360341` 同时暴露 Windows-only `needless_return`，已按严格 Clippy 最小修正。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 合并前 Important 修复继续完成：更新安装会暂停并排空采集，登录/采集使用同一受限 profile 环境，自定义 CLI 保存前真实验证；CLI 发现具备总时限/进程预算/取消，本机活动独立限时 2 秒并可中断 SQLite；meter 小屏 DPI 等比缩放，Settings 内容可滚动。失败先行定向测试、严格 Clippy、前端 14 项和 production build 通过，等待 Windows runner。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33737903436` 已验证上述 Important 修复、完整 Rust/前端测试、严格 Clippy、Tauri 壳与 NSIS 全绿。继续补齐 WSL 当前发行版活动、可唤醒刷新间隔、数字输入草稿、真实 updater minisign 复验、稳定 appcast 延后公开和 SmartScreen Release Notes 门禁；仍需新一轮 Windows runner 与最终审查。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 收尾改动已完成本机全量门禁：Windows Rust、严格 Clippy/rustfmt、前端 14 项与构建，macOS 360 + 11 项、共享合同、128 份文档、公开安全扫描和 9 段 Release Bash 语法均通过；等待提交后的 Windows CI 对 Windows-only 分支及 NSIS 做最终确认。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 最终复审新增两项 Important：整数设置暂存小数时 UI 与持久化值不一致；Release 公开后 appcast/preview feed 失败缺少旧 feed 恢复与公开版本重试。暂缓合并，按失败先行测试实现输入 step 校验及跨 feed 补偿回滚。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第二轮复审发现回滚仍可能在 feed 恢复失败或已公开版本重跑失败时盲目撤下 Release，并会把鉴权/网络错误误判为 Preview feed 不存在。现已增加 draft→public 尝试标记、两份 feed 反向引用验证、只在安全条件成立时 redraft、明确 HTTP 404 探测及线上资产恢复重用；进入全量门禁与再次独立复审。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第三轮独立复审未发现 Critical/Important；macOS 360+11、Windows Rust 全套、前端 14 项/构建、严格 lint、发布事务、10 段 workflow Bash、128 份文档与公开安全门禁全部通过。准备提交并由 Windows runner 复验 Windows-only 编译、运行测试与 NSIS。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 提交 `96e6a92` 的最终 Windows CI `33741425083` 全绿，Windows-only 运行测试、Release Tauri/NSIS 和安装器上传通过；三轮独立复审无剩余 Critical/Important，进入文档证据提交与 `main` 合并。真实 Windows 11 交互、截图及签名 Preview 升级仍保持环境限制。 |

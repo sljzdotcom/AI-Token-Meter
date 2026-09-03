@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "id": "claude",
+      "displayName": "Claude Code",
+      "logoKey": "claude-code",
+      "accentColor": "#D9A45B",
+      "progressSemantics": "usedQuota"
+    },
+    {
+      "id": "codex",
+      "displayName": "OpenAI Codex",
+      "logoKey": "openai-codex",
+      "accentColor": "#B26BEA",
+      "progressSemantics": "usedQuota"
+    },
+    {
+      "id": "deepseek",
+      "displayName": "DeepSeek",
+      "logoKey": "deepseek",
+      "accentColor": "#7386FF",
+      "progressSemantics": "consumedFromBalanceBaseline"
+    }
+  ]
+}

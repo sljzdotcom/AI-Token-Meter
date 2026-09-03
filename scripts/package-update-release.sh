@@ -10,12 +10,25 @@ REPOSITORY_SLUG="sljzdotcom/AI-Token-Meter"
 
 VERSION="${1:-}"
 BUILD="${2:-}"
+RELEASE_CHANNEL="${AI_METER_RELEASE_CHANNEL:-stable}"
 if [[ -z "$VERSION" || -z "$BUILD" || $# -ne 2 ]]; then
     echo "usage: SPARKLE_TOOLS_DIR=/absolute/path/to/Sparkle/bin $0 VERSION BUILD" >&2
     exit 2
 fi
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$BUILD" =~ ^[1-9][0-9]*$ ]]; then
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-preview\.[0-9]+)?$ || ! "$BUILD" =~ ^[1-9][0-9]*$ ]]; then
     echo "version must be semantic and build must be a positive integer" >&2
+    exit 2
+fi
+if [[ "$RELEASE_CHANNEL" != "stable" && "$RELEASE_CHANNEL" != "preview" ]]; then
+    echo "AI_METER_RELEASE_CHANNEL must be stable or preview" >&2
+    exit 2
+fi
+if [[ "$RELEASE_CHANNEL" == "preview" && "$VERSION" != *-preview.* ]]; then
+    echo "preview channel requires a preview version" >&2
+    exit 2
+fi
+if [[ "$RELEASE_CHANNEL" == "stable" && "$VERSION" == *-preview.* ]]; then
+    echo "preview versions cannot modify the stable appcast" >&2
     exit 2
 fi
 
@@ -101,7 +114,7 @@ if [[ "$SIGNATURE_OUTPUT" != *"sparkle:edSignature="* || "$SIGNATURE_OUTPUT" != 
     exit 1
 fi
 
-if [[ -f "$PROJECT_DIR/appcast.xml" ]]; then
+if [[ "$RELEASE_CHANNEL" == "stable" && -f "$PROJECT_DIR/appcast.xml" ]]; then
     cp "$PROJECT_DIR/appcast.xml" "$GENERATED_APPCAST"
 fi
 "$GENERATE_APPCAST" \
@@ -121,11 +134,11 @@ if [[ ! -s "$GENERATED_APPCAST" ]] \
     exit 1
 fi
 
-cp "$GENERATED_APPCAST" "$PROJECT_DIR/appcast.xml"
+VERIFIED_APPCAST="$GENERATED_APPCAST"
 SPARKLE_TOOLS_DIR="$SPARKLE_TOOLS_DIR" \
-    "$PROJECT_DIR/scripts/verify-update-archive.sh" "$PROJECT_DIR/appcast.xml" "$ARCHIVE"
+    "$PROJECT_DIR/scripts/verify-update-archive.sh" "$VERIFIED_APPCAST" "$ARCHIVE"
 "$PROJECT_DIR/scripts/check-public-release.sh" --repository "$PROJECT_DIR" --archive "$ARCHIVE"
 
 echo "Signed update release prepared: $ARCHIVE"
 echo "SHA-256: $RELEASE_DIR/$SHA_NAME"
-echo "Appcast: $PROJECT_DIR/appcast.xml"
+echo "Appcast: $VERIFIED_APPCAST"

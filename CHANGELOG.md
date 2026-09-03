@@ -4,6 +4,19 @@
 
 ## Unreleased
 
+### Added
+
+- 新增 Windows 11 x64 应用：Tauri 2 + Rust + React 界面、Win32 左右贴边浮动条、系统托盘、全屏应用隐藏、详情置前、设置页与三服务状态。
+- Windows 可从原生安装和 WSL 发现 Claude Code/OpenAI Codex CLI，显示当前账号、运行来源与版本，并提供固定官方重新登录入口。
+- Windows DeepSeek 使用 Credential Manager 保存 API Key，先经官方余额接口验证再替换；隔离 WebView2 会话可聚合官网最近 30 天成本、请求与 Token。
+- 新增 Windows current-user NSIS、手动检查/立即更新、Tauri minisign 更新验证，以及 macOS/Windows 同版本草稿 Release 门禁。
+- 新增根 `VERSION`、跨平台用量 Schema、展示合同、共享 fixture、功能对等矩阵和 Windows CI。
+
+### Security
+
+- Windows CLI 进程使用受限参数、Job Object 与 ConPTY，登录只允许固定官方命令；日志、事件、缓存和网页桥均拒绝凭据与个人身份字段。
+- Windows 更新私钥不进入源码或普通 CI；未配置仓库 Secret 时正式发布工作流明确失败并保留草稿 Release。首个 Preview 在取得 Authenticode 证书前会如实说明 SmartScreen 边界。
+
 ## 0.2.2 - 2026-09-03
 
 ### Fixed

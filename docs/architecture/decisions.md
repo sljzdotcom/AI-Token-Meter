@@ -2,13 +2,13 @@
 
 本页记录仍约束当前实现的长期决策。每项包含动机、代价和重新评估条件；历史视觉细节查[设计记录](../design/README.md)。
 
-## D001：原生 SwiftUI + AppKit 菜单栏应用
+## D001：macOS 保持原生 SwiftUI + AppKit
 
 - **状态：** 接受。
 - **决定：** 使用 Swift 6、SwiftUI、AppKit、WebKit 和 WidgetKit，不引入 Electron 或常驻 Web 服务。
 - **原因：** 需要桌面层窗口、菜单栏模板着色、Keychain、登录项、Space 行为和 WidgetKit 的原生控制。
-- **代价：** 仅支持 macOS，窗口层级和签名验收必须在真实系统上完成。
-- **重新评估：** 产品明确要求跨平台，且能接受独立平台壳层时。
+- **代价：** 不能把 macOS UI 代码直接复用到 Windows，窗口层级和签名验收必须在真实系统上完成。
+- **重新评估：** Apple 平台能力可在不降低 Widget、Space、Keychain 和菜单栏体验的前提下由共享壳层替代时。
 
 ## D002：统一 `UsageSnapshot` 是展示唯一数据入口
 
@@ -121,3 +121,19 @@
 - **原因：** GitHub 提供稳定公开分发，但 HTTPS、Release 页面或 SHA-256 本身都不能代替发布者签名；手动触发同时符合本地优先产品的网络边界。
 - **代价：** 发布过程必须维护 appcast 和离线签名密钥；`0.1.2` 到 `0.2.0` 需要手动替换一次，且 ad-hoc/not notarized 分发仍可能触发 Gatekeeper 提示。
 - **重新评估：** 项目获得 Developer ID、公证和可信自动发布基础设施，或分发渠道迁移到 Mac App Store 时。
+
+## D016：Windows 使用独立 Tauri/Rust 壳层，共享合同而非 UI 代码
+
+- **状态：** 接受，Preview 真机验收中。
+- **决定：** 保留 macOS SwiftUI/AppKit；Windows 使用 Tauri 2、Rust、React 与 Win32。双方通过根 `VERSION`、JSON Schema、展示合同、脱敏 fixture 与功能对等矩阵保持语义一致，不共享凭据或平台进程。
+- **原因：** Windows 需要 Credential Manager、ConPTY、Job Object、WebView2、系统托盘和 Win32 窗口区域；直接移植 AppKit 不可行，把 macOS 改成跨平台 Web 壳又会破坏已验证能力。
+- **代价：** 同一功能需要两份平台实现和各自真机验收；合同门禁只能证明数据/配置一致，不能证明像素或操作系统行为一致。
+- **重新评估：** 两个平台壳层产生无法维护的长期重复，或出现能覆盖双方系统集成且不降低隐私边界的成熟共享框架时。
+
+## D017：双平台共用版本与草稿 Release，更新信任根分离
+
+- **状态：** 接受，首次 Preview 待演练。
+- **决定：** macOS Sparkle 私钥留在维护者 Keychain，Windows Tauri 私钥只在 GitHub Actions Secret；同一版本/tag/Release 先保持草稿，macOS 资产复验和 Windows 签名构建均成功后才公开。macOS 读取 appcast，Windows 读取 `latest.json`。
+- **原因：** 两平台签名工具和密钥托管条件不同，但用户需要一次 Release 获得同版本资产；草稿门禁避免任何平台先看到半成品更新。
+- **代价：** 发布需要本机 macOS 签名步骤和云端 Windows job；缺少任一密钥时只能保留草稿。Windows 无 Authenticode 时仍会有 SmartScreen 发布者提示。
+- **重新评估：** 建立可审计的硬件/云密钥托管、Developer ID 公证与 Authenticode 后，可把双方签名完全自动化，但仍保留双 job 发布门禁。

@@ -55,6 +55,19 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 真实 CLI 与 Keychain 测试需要显式许可，具体见 [测试指南](docs/development/testing.md)。Pull Request 不应要求 CI 使用个人账户凭证。
 
+涉及 Windows 时还需执行：
+
+```powershell
+npm --prefix windows ci
+npm --prefix windows test
+npm --prefix windows run build
+cargo fmt --check --manifest-path windows/src-tauri/Cargo.toml
+cargo clippy --locked --all-targets --manifest-path windows/src-tauri/Cargo.toml -- -D warnings
+cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
+```
+
+Win32、Credential Manager、ConPTY、WSL、WebView2 或 NSIS 改动必须有 `windows-latest` 证据；视觉、DPI、拖动和真实网页登录仍需交互式 Windows 真机证据。
+
 ## 新数据源要求
 
 新增服务或指标必须说明：
@@ -77,6 +90,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - 模块或目录变化：更新代码库结构；
 - 凭证、网络、缓存变化：更新隐私与安全文档；
 - 发布：更新版本号、发布流程记录和提交历史。
+- 跨平台改动：同步根 `VERSION`、共享合同/对等矩阵与两平台证据；不得单独发布一个平台的同版本半成品。
 
 ## 代码评审重点
 

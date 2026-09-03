@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "providerId": "deepseek",
+  "displayName": "DeepSeek",
+  "status": "fresh",
+  "usedRatio": 0.2201,
+  "primaryMetric": {
+    "label": "Available balance",
+    "current": 77.99,
+    "limit": null,
+    "unit": "cny",
+    "kind": "balance",
+    "resetAt": null
+  },
+  "secondaryMetric": {
+    "label": "Balance baseline",
+    "current": 22.01,
+    "limit": 100,
+    "unit": "cny",
+    "kind": "localBudget",
+    "resetAt": null
+  },
+  "fetchedAt": "2026-09-03T00:00:00Z",
+  "staleAfterSeconds": 300,
+  "sourceVersion": "fixture"
+}

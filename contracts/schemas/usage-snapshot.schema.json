@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sljzdotcom/AI-Token-Meter/contracts/schemas/usage-snapshot.schema.json",
+  "title": "AI Token Meter Usage Snapshot",
+  "description": "Versioned, secret-free provider usage data exchanged by platform implementations.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "providerId",
+    "displayName",
+    "status",
+    "fetchedAt",
+    "staleAfterSeconds"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "providerId": {
+      "enum": ["claude", "codex", "deepseek"]
+    },
+    "displayName": {
+      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek"]
+    },
+    "status": {
+      "enum": [
+        "fresh",
+        "cached",
+        "refreshing",
+        "notInstalled",
+        "authenticationRequired",
+        "setupRequired",
+        "unavailable",
+        "unrecognizedOutput"
+      ]
+    },
+    "usedRatio": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "primaryMetric": {
+      "$ref": "#/$defs/metric"
+    },
+    "secondaryMetric": {
+      "$ref": "#/$defs/metric"
+    },
+    "fetchedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "staleAfterSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sourceVersion": {
+      "type": ["string", "null"],
+      "maxLength": 64
+    },
+    "statusMessage": {
+      "type": ["string", "null"],
+      "maxLength": 240
+    },
+    "resetCredits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resetCredit"
+      }
+    },
+    "localActivity": {
+      "$ref": "#/$defs/localActivity"
+    },
+    "dailyHistory": {
+      "type": "array",
+      "maxItems": 31,
+      "items": {
+        "$ref": "#/$defs/dailyHistoryEntry"
+      }
+    },
+    "historyFetchedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "metric": {
+      "type": ["object", "null"],
+      "required": ["label", "current", "unit", "kind"],
+      "properties": {
+        "label": { "type": "string", "maxLength": 120 },
+        "current": { "type": "number" },
+        "limit": { "type": ["number", "null"] },
+        "unit": { "enum": ["percent", "cny", "usd", "tokens", "requests"] },
+        "kind": { "enum": ["officialLimit", "balance", "localBudget"] },
+        "resetAt": { "type": ["string", "null"], "format": "date-time" },
+        "resetDescription": { "type": ["string", "null"], "maxLength": 160 }
+      },
+      "additionalProperties": true
+    },
+    "resetCredit": {
+      "type": "object",
+      "required": ["kind", "count", "expiresAt"],
+      "properties": {
+        "kind": { "enum": ["fullUsageReset"] },
+        "count": { "type": "integer", "minimum": 0 },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "localActivity": {
+      "type": ["object", "null"],
+      "properties": {
+        "periodDays": { "const": 30 },
+        "sessions": { "type": "integer", "minimum": 0 },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "activeDays": { "type": "integer", "minimum": 0, "maximum": 30 },
+        "longestSessionSeconds": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["periodDays", "sessions", "tokens", "activeDays"],
+      "additionalProperties": false
+    },
+    "dailyHistoryEntry": {
+      "type": "object",
+      "required": ["date", "costCny", "requests", "tokens"],
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "costCny": { "type": "number", "minimum": 0 },
+        "requests": { "type": "integer", "minimum": 0 },
+        "tokens": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

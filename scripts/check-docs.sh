@@ -56,13 +56,17 @@ forbidden_paths.each do |path|
   errors << "Obsolete documentation path still exists: #{path}" if (root + path).exist?
 end
 
-skip_components = %w[.git .build .worktrees .superpowers dist]
+skip_components = %w[.git .build .worktrees .superpowers dist node_modules]
 markdown_files = root.glob("**/*.md").reject do |path|
   path.relative_path_from(root).each_filename.any? { |component| skip_components.include?(component) }
 end
 
 markdown_files.each do |source|
   content = source.read
+  if content.match?(/^\s*(?:bash\s+)?scripts\/check-public-release\.sh\s+\.\s*$/)
+    relative_source = source.relative_path_from(root)
+    errors << "Ambiguous public release safety invocation in #{relative_source}; use --repository for a repository scan"
+  end
   content.scan(/!?\[[^\]]*\]\(([^)]+)\)/).flatten.each do |raw_target|
     target = raw_target.strip
     target = target[1...target.index(">")].to_s if target.start_with?("<") && target.include?(">")
@@ -105,7 +109,10 @@ if readme_path.file? && plist_path.file?
   end
 
   public_readme_requirements = {
-    "English project summary" => "A native macOS usage meter",
+    "English project summary" => "macOS and Windows usage meter",
+    "Windows 11 x64 support boundary" => "Windows 11 x64",
+    "Windows SmartScreen boundary" => "SmartScreen",
+    "Windows Authenticode boundary" => "Authenticode",
     "public author credit" => "Author: Miller",
     "MIT license notice" => "MIT License",
     "v#{plist_version} download guidance" => "Download v#{plist_version}",

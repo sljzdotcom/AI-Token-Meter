@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "providerId": "codex",
+  "displayName": "OpenAI Codex",
+  "status": "fresh",
+  "usedRatio": 0.05,
+  "primaryMetric": {
+    "label": "Weekly limit",
+    "current": 5,
+    "limit": 100,
+    "unit": "percent",
+    "kind": "officialLimit",
+    "resetAt": "2026-09-06T00:00:00Z"
+  },
+  "resetCredits": [
+    {
+      "kind": "fullUsageReset",
+      "count": 1,
+      "expiresAt": "2026-09-21T00:25:00Z"
+    }
+  ],
+  "fetchedAt": "2026-09-03T00:00:00Z",
+  "staleAfterSeconds": 300,
+  "sourceVersion": "fixture"
+}

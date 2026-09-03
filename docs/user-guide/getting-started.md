@@ -2,7 +2,7 @@
 
 ## 1. 准备环境
 
-AI Token Meter 当前支持 Apple Silicon Mac 与 macOS 14 或更新版本。从源码构建需要：
+AI Token Meter 稳定版支持 Apple Silicon Mac 与 macOS 14 或更新版本；Windows 11 x64 版正在 Preview 验收。从源码构建的共同依赖是 Git，平台依赖分别为：
 
 - Xcode Command Line Tools；
 - Swift 6 工具链；
@@ -10,6 +10,8 @@ AI Token Meter 当前支持 Apple Silicon Mac 与 macOS 14 或更新版本。从
 - Claude Code CLI（可选）；
 - OpenAI Codex CLI（可选）；
 - DeepSeek API Key（可选）。
+
+Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView2 Runtime；macOS 需要 Xcode Command Line Tools 与 Swift 6。三项 Provider 在两平台均为可选服务。
 
 三项服务彼此独立。没有安装或配置某项服务时，其他服务仍可正常使用。
 
@@ -25,7 +27,11 @@ shasum -a 256 -c AI-Token-Meter-0.2.2-macOS-arm64.zip.sha256
 
 `0.1.2` 不含更新器，因此要手动安装一次当前版本。安装 `0.2.0` 或更新版本后，后续稳定版本可在 Settings → About 手动检查和安装。
 
+首个 Windows Preview 发布后，同一 GitHub Release 会包含 `AI-Token-Meter-X.Y.Z-windows-x64-setup.exe` 与同名 `.sha256`。当前 `v0.2.2` 没有 Windows 资产；不要从第三方网盘取得所谓 Windows 版本。Preview 安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。
+
 ## 3. 从源码构建
+
+### macOS
 
 ```bash
 git clone https://github.com/sljzdotcom/AI-Token-Meter.git
@@ -53,6 +59,18 @@ open "dist/AI Token Meter.app"
 2. 登录 Apple Account，并让 Xcode 创建 Apple Development 证书；
 3. 返回仓库执行 `AI_METER_INCLUDE_WIDGET=1 bash scripts/build-app.sh`；
 4. 脚本会自动计算双方相同的 App Group、先签 Widget、再签主应用并验证嵌套包。
+
+### Windows 11 x64
+
+```powershell
+git clone https://github.com/sljzdotcom/AI-Token-Meter.git
+cd AI-Token-Meter\windows
+npm ci
+npm test
+npm run tauri build
+```
+
+NSIS 安装器输出到 `windows\src-tauri\target\release\bundle\nsis\`。普通构建不会生成可发布的 updater signature，也不需要任何私钥。安装后从系统托盘打开 Settings；Windows Widget 尚未实现。
 
 ## 4. 安装到应用程序
 
@@ -90,6 +108,8 @@ open "dist/AI Token Meter.app"
 
 AI Token Meter 不在用户项目中运行 `/usage`，而是在兼容目录 `Application Support/AI Meter` 下的私有空工作区执行，以减少项目指令、MCP 服务或当前会话对额度查询的干扰。显示名称改版后继续保留该目录，以沿用既有批准和缓存。
 
+Windows 会先查原生 CLI，再查可用 WSL 发行版；Services 会明确显示 `Native Windows` 或 `WSL · <发行版>` 与 CLI 版本。登录按钮只打开固定官方登录命令，不会把密码、Token 或自定义 Shell 文本交给应用。
+
 ## 6. 配置 OpenAI Codex
 
 1. 在终端启动 OpenAI Codex CLI。
@@ -100,13 +120,15 @@ AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账
 
 从 Finder 启动时，AI Token Meter 不依赖 `.zshrc`：它会自动检查 `~/.local/bin`、Homebrew、nvm 与常见 Node 管理器目录，也能使用已安装 ChatGPT/Codex App 内置的原生 `codex`。通过 nvm/npm 安装的脚本会自动配对同目录 Node，无需手工修改 `launchctl PATH`。确实没有可执行文件时，可在 Settings > Services 点击 **Open Install Guide**。
 
+Windows 同样不依赖交互式 PowerShell 配置：会检查当前进程环境、注册表 PATH、常见 Node 安装和 WSL。Native/WSL 发现、账号读取和实际采集始终使用同一候选，避免状态页与用量页来自不同账号。
+
 ## 7. 配置 DeepSeek
 
 ### 余额
 
 1. 打开 AI Token Meter 设置，并进入 **Services** Tab。
 2. 在 **DeepSeek API Key** 中粘贴密钥并点击 **Save**。
-3. 确认页面显示 **Stored securely in Keychain**。
+3. 确认页面显示安全保存状态；macOS 使用 Keychain，Windows 使用 Credential Manager。
 4. 设置 **Balance baseline**；默认值为 ¥100。
 
 余额基准只是圆环参考值，不会修改 DeepSeek 账户或设置消费上限。例如基准 ¥100、余额 ¥77.99 时，显示约 22.01% 已消耗。
@@ -124,9 +146,9 @@ AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账
 1. 打开 Settings → About。
 2. 点击 **Check for Updates**。只有此时应用才访问 GitHub 更新清单。
 3. 如果显示新版本，点击 **Update Now**。
-4. 在 Sparkle 标准窗口确认安装；签名验证通过后应用会原位替换并重新启动。
+4. macOS 在 Sparkle 标准窗口确认安装；Windows 在 Tauri/NSIS 安装流程中确认。两平台都只在更新签名验证通过后替换并重新启动。
 
-显示 `You're up to date` 时，**Update Now** 会保持禁用。离线、清单不可用、签名不匹配或目标不可写时，当前应用保持不变；参见[故障排查](troubleshooting.md#检查更新失败或-update-now-不可用)。
+显示 `You're up to date` 时，**Update Now** 会保持禁用。离线、清单不可用、签名不匹配或目标不可写时，当前应用保持不变。Windows 使用固定 GitHub `latest.json` 与内置 minisign 公钥；macOS 使用固定 appcast 与 Sparkle EdDSA 公钥。参见[故障排查](troubleshooting.md#检查更新失败或-update-now-不可用)。
 
 ## 9. 常用操作
 
@@ -149,3 +171,5 @@ AI Token Meter 通过 OpenAI Codex CLI 的 `app-server` 结构化接口读取账
 4. 删除应用。
 
 如需彻底清除非敏感缓存与偏好，可另外删除用户 `Application Support` 中的 `AI Meter` 目录及相关 `UserDefaults`。执行前请先备份需要保留的数据。
+
+Windows 可从 Settings > Apps > Installed apps 卸载；如需彻底清理非敏感状态，再删除当前用户 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\AI Token Meter`。Credential Manager 中的 DeepSeek 项和官方 CLI 登录不会被静默删除，必须由用户明确移除。

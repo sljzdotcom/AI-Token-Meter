@@ -1,0 +1,63 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main, codex/windows-platform]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Windows frontend and Rust runtime
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy
+      - name: Select Rust toolchain
+        shell: pwsh
+        run: rustup default 1.88.0
+      - name: Install frontend dependencies
+        working-directory: windows
+        run: npm ci
+      - name: Test frontend
+        working-directory: windows
+        run: npm test
+      - name: Build frontend
+        working-directory: windows
+        run: npm run build
+      - name: Check Rust formatting
+        working-directory: windows/src-tauri
+        run: cargo fmt --check
+      - name: Lint Rust
+        working-directory: windows/src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test Windows runtime
+        working-directory: windows/src-tauri
+        run: cargo test --locked
+      - name: Build Windows NSIS installer
+        working-directory: windows
+        run: npm run tauri build -- --debug
+      - name: Upload Windows NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-token-meter-windows-x64-debug-nsis
+          path: windows/src-tauri/target/debug/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 7

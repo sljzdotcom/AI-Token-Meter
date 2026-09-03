@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "providerId": "codex",
+  "displayName": "OpenAI Codex",
+  "status": "authenticationRequired",
+  "usedRatio": null,
+  "primaryMetric": null,
+  "secondaryMetric": null,
+  "fetchedAt": "2026-09-03T00:00:00Z",
+  "staleAfterSeconds": 300,
+  "sourceVersion": "fixture",
+  "statusMessage": "Sign in with the official CLI"
+}

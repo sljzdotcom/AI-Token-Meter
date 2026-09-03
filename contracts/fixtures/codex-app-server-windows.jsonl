@@ -1,0 +1,3 @@
+{"id":1,"result":{"userAgent":"fixture"}}
+{"method":"account/updated","params":{"account":null}}
+{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":23,"windowDurationMins":300,"resetsAt":1788422400},"secondary":{"usedPercent":5,"windowDurationMins":10080,"resetsAt":1788652800}},"rateLimitsByLimitId":{},"rateLimitResetCredits":{"availableCount":1,"credits":[{"status":"available","title":"Full usage reset","expiresAt":1789950300},{"status":"consumed","title":"Used credit","expiresAt":1789000000}]}}}
