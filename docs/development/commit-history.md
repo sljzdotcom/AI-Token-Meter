@@ -378,6 +378,7 @@
 | `9f3876a`–`9e69d22` | feat/fix | 完成运行源选择、取消/时限/资源上限、登录同源环境、可唤醒刷新、小屏 DPI 与 Settings 滚动 |
 | `3fafa3a` | fix | 接通当前 WSL 发行版活动、真实 updater 签名复验、稳定 appcast 延迟推进、数字草稿与 SmartScreen 发布门禁 |
 | `96e6a92` | fix | 严格校验数字 step；为 stable/Preview feed 增加备份、明确 404 探测、安全补偿和已公开版本恢复重跑；最终 Windows CI `33741425083` 全绿 |
+| `5288df1`、`3920dae` | docs/merge | 固化最终 CI、独立复审和环境限制证据，并将 Windows 11 x64 平台分支以明确合并节点并入 `main`；精确合并头 CI `33742313609` 全绿 |
 
 ## 维护方式
 

@@ -242,3 +242,4 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第二轮复审发现回滚仍可能在 feed 恢复失败或已公开版本重跑失败时盲目撤下 Release，并会把鉴权/网络错误误判为 Preview feed 不存在。现已增加 draft→public 尝试标记、两份 feed 反向引用验证、只在安全条件成立时 redraft、明确 HTTP 404 探测及线上资产恢复重用；进入全量门禁与再次独立复审。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第三轮独立复审未发现 Critical/Important；macOS 360+11、Windows Rust 全套、前端 14 项/构建、严格 lint、发布事务、10 段 workflow Bash、128 份文档与公开安全门禁全部通过。准备提交并由 Windows runner 复验 Windows-only 编译、运行测试与 NSIS。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 提交 `96e6a92` 的最终 Windows CI `33741425083` 全绿，Windows-only 运行测试、Release Tauri/NSIS 和安装器上传通过；三轮独立复审无剩余 Critical/Important，进入文档证据提交与 `main` 合并。真实 Windows 11 交互、截图及签名 Preview 升级仍保持环境限制。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 精确合并头 `5288df1` 的 Windows CI `33742313609` 全绿，合并节点 `3920dae` 已把 Windows 平台并入 `main`。代码/审查/CI 阶段完成；需求继续保持进行中，下一阶段为交互式 Windows 11 真机视觉与功能验收、产品截图及签名 Preview 升级演练。 |
