@@ -38,8 +38,9 @@
 | REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 已完成 | 2026-09-03 | 无 | [开发记录](development/2026-09-03-ci-pty-exit-race.md) · `c11da0a` · [PR CI 33702291460](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702291460) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
 | REQ-20260903-002 | 更新交互缺陷 | 下载完成后的 Sparkle “Install and Relaunch”窗口被 Settings 遮挡，导致界面看似长期停在 Preparing；安装流程窗口应自动置前 | 高 | 已完成 | 2026-09-03 | 无 | [设计规格](design/specifications/2026-09-03-update-status-window-frontmost-design.md) · [实施计划](design/implementation-plans/2026-09-03-update-status-window-frontmost.md) · [真实升级终验](development/2026-09-03-update-status-window-frontmost.md) · `6057b3e` · [`v0.2.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) |
 | REQ-20260903-003 | 测试稳定性 | 修复 GitHub Actions 高负载下详情自动隐藏测试依赖固定 50ms 等待、偶发尚未收到异步超时回调而失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | `f14f14a` · [失败 CI 33700918921](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33700918921) · [PR CI 33701250078](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33701250078) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
-| REQ-20260903-004 | 跨平台 | 制作功能对等的 Windows 版本；此后产品功能、版本号、文档、测试和 GitHub Release 原则上保持 macOS 与 Windows 同步 | 高 | 进行中 | 2026-09-03 | Phase 1 共享合同已完成；Tauri/Rust/React 骨架在 macOS 编译验证通过，继续实现 Windows 领域与平台层 | [设计规格](design/specifications/2026-09-03-windows-platform-design.md)、[实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[开发日志](development/2026-09-03-windows-platform.md) |
+| REQ-20260903-004 | 跨平台 | 制作功能对等的 Windows 版本；此后产品功能、版本号、文档、测试和 GitHub Release 原则上保持 macOS 与 Windows 同步 | 高 | 进行中 | 2026-09-03 | 共享合同、Tauri 骨架及 Windows 强类型领域/原子持久化/脱敏已完成；继续实现 Credential Manager 与 DeepSeek 采集 | [设计规格](design/specifications/2026-09-03-windows-platform-design.md)、[实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[开发日志](development/2026-09-03-windows-platform.md) |
 | REQ-20260903-005 | 文档门禁缺陷 | 新增 Windows npm/Rust 依赖后，文档和秘密检查器错误扫描 `node_modules`/`target` 内第三方文件并报告无关坏链或二进制假阳性 | 高 | 已完成 | 2026-09-03 | 无 | [Windows 开发日志](development/2026-09-03-windows-platform.md)、回归测试与 Windows 骨架检查点 |
+| REQ-20260903-006 | 发布文档缺陷 | Windows 实施计划将仓库目录作为公开发布脚本的位置参数传入，脚本会误把目录当成 Release ZIP 并报告归档不存在 | 中 | 已完成 | 2026-09-03 | 无 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、文档门禁回归测试 |
 
 ## 分类索引
 
@@ -103,6 +104,7 @@
 ### 文档门禁
 
 - `REQ-20260903-005`：文档检查器必须忽略 npm 第三方依赖目录，只审计项目维护的 Markdown。
+- `REQ-20260903-006`：发布安全脚本的仓库检查示例必须使用具名 `--repository` 参数，不能把目录误当归档。
 
 ## 状态变更记录
 
@@ -196,3 +198,6 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 根版本、共享 Schema/fixture/展示合同/对等矩阵及门禁完成；365 项 macOS 回归通过，Windows Tauri 前端与 Rust 骨架本机构建通过。 |
 | 2026-09-03 | REQ-20260903-005 | 新建 → 进行中 | 安装 Windows npm 依赖后稳定复现第三方 README 坏链噪声；错误路径全部位于 `windows/node_modules`，检查器排除列表没有该目录。 |
 | 2026-09-03 | REQ-20260903-005 | 进行中 → 已完成 | 文档检查排除 npm 依赖；Gitleaks 只扫描 Git 公开候选快照而非 Rust 构建二进制，同时保留未忽略源码和完整历史扫描；两项失败先行回归均通过。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Windows 领域模型、共享展示合同、过期判定、原子设置/缓存和日志脱敏完成；16 项 Rust 测试、格式与零警告 Clippy 通过，进入安全凭据和 DeepSeek 采集。 |
+| 2026-09-03 | REQ-20260903-006 | 新建 → 进行中 | Task 3 验证时按计划中的 `check-public-release.sh .` 执行，稳定复现仓库目录被误判为 ZIP；正确的具名仓库参数调用已单独验证通过。 |
+| 2026-09-03 | REQ-20260903-006 | 进行中 → 已完成 | 新增失败先行的文档门禁回归并修正计划命令；368 项 macOS 回归、Windows Rust/前端测试、文档和公开仓库安全扫描通过。 |

@@ -21,11 +21,14 @@ dependencies = [
 name = "ai-token-meter-windows"
 version = "0.2.2"
 dependencies = [
+ "regex",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tempfile",
+ "time",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -66,6 +66,30 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("README version 0.1.0 does not match Info.plist 0.2.0"))
     }
 
+    @Test("A release safety example cannot pass the repository as an archive")
+    func rejectsAmbiguousPublicReleaseSafetyInvocation() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        try """
+        # Release plan
+
+        ```bash
+        bash scripts/check-public-release.sh .
+        ```
+        """.write(
+            to: fixture.appendingPathComponent(
+                "docs/design/implementation-plans/release.md"
+            ),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("--repository"))
+    }
+
     @Test("README download guidance follows the bundle version")
     func rejectsStaleDownloadGuidance() throws {
         let fixture = try makeFixture(bundleVersion: "0.2.0", readmeVersion: "0.2.0", downloadVersion: "0.1.2")

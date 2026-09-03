@@ -243,7 +243,7 @@ git commit -m "feat: scaffold Windows Tauri application"
 - 创建：`windows/src-tauri/tests/shared_contract.rs`
 - 创建：`windows/src-tauri/tests/persistence.rs`
 
-- [ ] **步骤 1：写共享 fixture 和兼容性失败测试**
+- [x] **步骤 1：写共享 fixture 和兼容性失败测试**
 
 覆盖正常快照、旧缓存缺字段、未知附加字段、未知主版本、损坏 JSON、过期快照和原子写入中断：
 
@@ -257,19 +257,19 @@ fn unknown_major_schema_never_surfaces_a_number() {
 }
 ```
 
-- [ ] **步骤 2：实现强类型领域模型**
+- [x] **步骤 2：实现强类型领域模型**
 
 Rust enum 使用 `serde(rename_all = "camelCase")` 与 Schema 对齐；比例构造器钳制有限数值并拒绝 NaN/Infinity。Provider 名称和颜色从嵌入的共享展示合同加载，不在 React 中复制。
 
-- [ ] **步骤 3：实现原子持久化**
+- [x] **步骤 3：实现原子持久化**
 
 设置保存到 `%APPDATA%\AI Token Meter\settings.json`，缓存保存到 `%LOCALAPPDATA%\AI Token Meter\cache\`。写入流程为同目录临时文件、flush、rename；权限或损坏错误返回分类错误且保留旧文件。
 
-- [ ] **步骤 4：实现日志脱敏器**
+- [x] **步骤 4：实现日志脱敏器**
 
 测试覆盖 API Key、Authorization、Cookie、邮箱、手机号、用户目录；日志允许 Provider、阶段、耗时、错误分类和已泛化路径，不允许原始 CLI 响应。
 
-- [ ] **步骤 5：运行测试并提交**
+- [x] **步骤 5：运行测试并提交**
 
 ```bash
 cd windows/src-tauri && cargo test domain persistence security
@@ -696,7 +696,7 @@ macOS：
 bash scripts/test.sh
 bash scripts/build-app.sh release
 bash scripts/verify-app-resources.sh dist/AI\ Token\ Meter.app
-bash scripts/check-public-release.sh .
+bash scripts/check-public-release.sh --repository .
 ```
 
 Windows：

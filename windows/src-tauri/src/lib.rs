@@ -1,5 +1,9 @@
 use serde::Deserialize;
 
+pub mod domain;
+pub mod persistence;
+pub mod security;
+
 const PRODUCT_NAME: &str = "AI Token Meter";
 const SHARED_VERSION: &str = include_str!("../../../VERSION");
 const PROVIDER_CONTRACT: &str = include_str!("../../../contracts/presentation/providers.json");

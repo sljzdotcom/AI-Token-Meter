@@ -63,6 +63,10 @@ end
 
 markdown_files.each do |source|
   content = source.read
+  if content.match?(/^\s*(?:bash\s+)?scripts\/check-public-release\.sh\s+\.\s*$/)
+    relative_source = source.relative_path_from(root)
+    errors << "Ambiguous public release safety invocation in #{relative_source}; use --repository for a repository scan"
+  end
   content.scan(/!?\[[^\]]*\]\(([^)]+)\)/).flatten.each do |raw_target|
     target = raw_target.strip
     target = target[1...target.index(">")].to_s if target.start_with?("<") && target.include?(">")

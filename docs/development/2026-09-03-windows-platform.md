@@ -85,6 +85,35 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 加入两项门禁回归后的完整结果为 356 项普通测试 + 11 项 PTY 测试，共 367 项、72 个测试组通过；128 份 Markdown、共享合同和公开发布安全门禁通过。
 
+## Phase 2：Windows 领域、缓存、设置与脱敏
+
+### 失败证据
+
+- 先加入共享 fixture、未知 Schema、比例越界、设置/缓存原子写入和敏感日志测试；首次编译按预期因 `domain`、`persistence`、`security` 模块不存在而失败；
+- 第一轮最小实现暴露未知 Schema 的版本号没有传入安全降级辅助函数，编译失败后只修正该数据流；
+- 对照正式计划补入旧缓存、未知字段、过期时间、共享品牌合同、损坏 JSON、Cookie 和 Windows 数据目录测试；新增断言分别先因缺少展示合同、过期 API、分类错误和路径模型而失败，再进入实现。
+
+### 实现
+
+- `UsageSnapshot`、Provider、状态、指标、重置券、本机活动和每日历史均使用与共享 JSON Schema 对齐的强类型 Rust 模型；
+- `Ratio` 只接受 `0...1` 的有限数值，越界值不会被静默钳制；未知主 Schema 只保留身份和时间元数据，并强制降级为不显示数值的 `Unavailable`；
+- Provider 名称、Logo、品牌色和 DeepSeek 圆环语义直接从嵌入的根级展示合同读取，不在 Windows UI 重复维护；
+- Settings 使用 `%APPDATA%\AI Token Meter\settings.json`，缓存使用 `%LOCALAPPDATA%\AI Token Meter\cache\`；
+- JSON 先完整序列化，再写同目录临时文件、flush/sync 并替换目标；Windows 使用 `MoveFileExW` 的 replace + write-through 语义，失败会清理临时文件且不改动旧内容；
+- 持久化错误分为 serialize、decode、I/O、invalidPath 和 missingEnvironment，便于 UI 给出可恢复提示；
+- 日志脱敏覆盖 API Key、Bearer、Cookie、邮箱、中国大陆手机号和 Windows 用户目录，同时保留普通诊断文本。
+
+### 验证
+
+- Rust 16 项测试全部通过：1 项元数据、7 项共享领域、5 项持久化、3 项脱敏；
+- `cargo fmt --check`、完整 `cargo test` 与 `cargo clippy --all-targets --all-features -- -D warnings` 通过；
+- macOS 完整回归为 357 项普通测试 + 11 项独立 PTY 测试，共 368 项、72 个测试组；前端 2 项测试与生产构建、共享合同、128 份 Markdown 和公开发布安全门禁同时通过；
+- Windows 专属 `MoveFileExW` 分支仍需随后由 Windows GitHub runner 编译和真机验证，当前未用 macOS 结果冒充 Windows 证据。
+
+### 验证命令勘误
+
+实施计划原先将 `scripts/check-public-release.sh .` 写成仓库扫描示例，但该脚本的位置参数代表 Release ZIP，因此会正确报告“归档不存在”。新增 Swift 文档门禁测试先复现此误导，随后把计划修正为 `scripts/check-public-release.sh --repository .`，并让文档检查器持续拒绝歧义写法；聚焦测试、完整回归和正确的公开仓库扫描均通过。此项由 `REQ-20260903-006` 独立留档。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
@@ -93,7 +122,6 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 ## 尚未完成
 
-- Windows 强类型领域、缓存和设置；
 - Credential Manager 与 DeepSeek API；
 - 原生/WSL CLI 发现、ConPTY、Claude Code 和 OpenAI Codex 采集；
 - 系统托盘、贴边窗口、详情、完整 Settings 和真机交互；
