@@ -6,7 +6,7 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **371 个测试、72 个测试组全部通过**。默认完整验证会先运行 360 项普通测试，再从独立测试进程运行 11 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **373 个测试、72 个测试组全部通过**。默认完整验证会先运行 362 项普通测试，再从独立测试进程运行 11 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 以上数字是当前 macOS 稳定分支基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。Windows CI `33728660845` 已通过 11 项前端测试、全部 Rust 测试、严格 Clippy、Tauri 壳与 NSIS 构建。
 

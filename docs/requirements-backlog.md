@@ -42,6 +42,7 @@
 | REQ-20260903-005 | 文档门禁缺陷 | 新增 Windows npm/Rust 依赖后，文档和秘密检查器错误扫描 `node_modules`/`target` 内第三方文件并报告无关坏链或二进制假阳性 | 高 | 已完成 | 2026-09-03 | 无 | [Windows 开发日志](development/2026-09-03-windows-platform.md)、回归测试与 Windows 骨架检查点 |
 | REQ-20260903-006 | 发布文档缺陷 | Windows 实施计划将仓库目录作为公开发布脚本的位置参数传入，脚本会误把目录当成 Release ZIP 并报告归档不存在 | 中 | 已完成 | 2026-09-03 | 无 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、文档门禁回归测试 |
 | REQ-20260903-007 | 共享合同门禁缺陷 | Task 5 计划新增 Windows CLI 位置 fixture，但门禁把 `contracts/fixtures` 中全部 JSON 都当作四份用量快照，按计划新增必然失败 | 高 | 已完成 | 2026-09-03 | 无 | [辅助 CLI fixture](../contracts/fixtures/auxiliary/windows-cli-locations.json)、[Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、`d481a44`、合同门禁仍确认直接目录恰好 4 份用量快照 |
+| REQ-20260903-008 | macOS CI 稳定性 | 修复高并发 CI 中 DeepSeek 即时 Keychain/SecretStore 读取被低优先级任务饿死、错误等待满 2 秒并报告超时或钥匙串失败的问题 | 高 | 进行中 | 2026-09-03 | 以失败先行测试固定读取任务优先级，修复两个独立读取器并完成本机全量与双平台 main CI | [失败 macOS CI 33744143766](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33744143766) |
 
 ## 分类索引
 
@@ -107,6 +108,10 @@
 - `REQ-20260903-005`：文档检查器必须忽略 npm 第三方依赖目录，只审计项目维护的 Markdown。
 - `REQ-20260903-006`：发布安全脚本的仓库检查示例必须使用具名 `--repository` 参数，不能把目录误当归档。
 - `REQ-20260903-007`：共享 fixture 门禁须允许经过声明的非用量辅助 fixture，不能与四份快照数量约束冲突。
+
+### macOS CI 稳定性
+
+- `REQ-20260903-008`：避免 DeepSeek 凭据读取任务在并发 CI 中发生优先级反转并误报超时。
 
 ## 状态变更记录
 
@@ -243,3 +248,5 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第三轮独立复审未发现 Critical/Important；macOS 360+11、Windows Rust 全套、前端 14 项/构建、严格 lint、发布事务、10 段 workflow Bash、128 份文档与公开安全门禁全部通过。准备提交并由 Windows runner 复验 Windows-only 编译、运行测试与 NSIS。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 提交 `96e6a92` 的最终 Windows CI `33741425083` 全绿，Windows-only 运行测试、Release Tauri/NSIS 和安装器上传通过；三轮独立复审无剩余 Critical/Important，进入文档证据提交与 `main` 合并。真实 Windows 11 交互、截图及签名 Preview 升级仍保持环境限制。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 精确合并头 `5288df1` 的 Windows CI `33742313609` 全绿，合并节点 `3920dae` 已把 Windows 平台并入 `main`。代码/审查/CI 阶段完成；需求继续保持进行中，下一阶段为交互式 Windows 11 真机视觉与功能验收、产品截图及签名 Preview 升级演练。 |
+| 2026-09-03 | REQ-20260903-008 | 新建 → 进行中 | 文档证据提交触发的 macOS CI `33744143766` 中，两条普通即时 SecretStore 读取均在默认 2 秒边界超时；同一源码此前通过且失败集中在低优先级 detached 读取，进入失败先行复现与优先级反转修复。 |
+| 2026-09-03 | REQ-20260903-008 | 进行中 | 两条失败先行测试稳定记录读取优先级 `21 < 25`；两个读取器改用 `.userInitiated` 后，6 项聚焦行为和 362+11 项完整 macOS 回归通过，原有阻塞读取超时语义保持不变。等待提交后的双平台 main CI。 |

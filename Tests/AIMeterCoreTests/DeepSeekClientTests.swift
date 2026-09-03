@@ -130,6 +130,21 @@ struct DeepSeekClientTests {
         #expect(recorder.lastRequest == nil)
     }
 
+    @Test("Collector credential reads are not scheduled below user initiated work")
+    func collectorCredentialReadPriority() async {
+        let recorder = RequestRecorder(response: .json(500, "{}"))
+        let store = PriorityRecordingSecretStore(secret: nil)
+        let collector = DeepSeekCollector(
+            client: DeepSeekClient(session: recorder.session),
+            secretStore: store
+        )
+
+        await #expect(throws: UsageCollectionError.authenticationRequired) {
+            try await collector.collect()
+        }
+        #expect(store.readPriority.rawValue >= TaskPriority.userInitiated.rawValue)
+    }
+
     @Test("Direct client rejects an empty API key before making a request")
     func clientRejectsEmptyKey() async {
         let recorder = RequestRecorder(response: .json(500, "{}"))
@@ -207,6 +222,26 @@ private struct SlowSecretStore: SecretStore {
 
     func save(_ secret: String) throws {}
     func delete() throws {}
+}
+
+private final class PriorityRecordingSecretStore: SecretStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private let secret: String?
+    private var recordedPriority: TaskPriority = .background
+
+    init(secret: String?) {
+        self.secret = secret
+    }
+
+    func read() throws -> String? {
+        lock.withLock { recordedPriority = Task.currentPriority }
+        return secret
+    }
+
+    func save(_ secret: String) throws {}
+    func delete() throws {}
+
+    var readPriority: TaskPriority { lock.withLock { recordedPriority } }
 }
 
 private final class RequestRecorder: @unchecked Sendable {

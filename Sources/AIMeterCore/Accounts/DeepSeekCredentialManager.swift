@@ -140,7 +140,7 @@ private actor DeepSeekCredentialReader {
 
         let token = UUID()
         let secretStore = self.secretStore
-        let task = Task.detached(priority: .utility) {
+        let task = Task.detached(priority: .userInitiated) {
             do {
                 return DeepSeekCredentialReadOutcome.value(try secretStore.read())
             } catch {

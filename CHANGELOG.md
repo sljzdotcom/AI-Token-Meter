@@ -17,6 +17,10 @@
 - Windows CLI 进程使用受限参数、Job Object 与 ConPTY，登录只允许固定官方命令；日志、事件、缓存和网页桥均拒绝凭据与个人身份字段。
 - Windows 更新私钥不进入源码或普通 CI；未配置仓库 Secret 时正式发布工作流明确失败并保留草稿 Release。首个 Preview 在取得 Authenticode 证书前会如实说明 SmartScreen 边界。
 
+### Fixed
+
+- macOS DeepSeek Keychain 读取不再以低于交互操作的任务优先级运行，避免高并发环境中即时凭据读取被饿死到 2 秒边界并误报超时；真正阻塞的读取仍保留原有截止时间。
+
 ## 0.2.2 - 2026-09-03
 
 ### Fixed

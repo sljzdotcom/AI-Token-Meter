@@ -23,6 +23,19 @@ struct DeepSeekCredentialManagerTests {
         #expect(status.accountLabel == nil)
     }
 
+    @Test("Credential reads are not scheduled below user initiated work")
+    func credentialReadPriority() async {
+        let store = PriorityRecordingCredentialStore(secret: "priority-key")
+
+        let status = await DeepSeekCredentialManager(
+            secretStore: store,
+            validate: { _ in }
+        ).readStatus()
+
+        #expect(status.connectionState == .connected)
+        #expect(store.readPriority.rawValue >= TaskPriority.userInitiated.rawValue)
+    }
+
     @Test("An invalid candidate never replaces a working Key")
     func invalidCandidateKeepsOldKey() async {
         let store = RecordingCredentialStore(initial: "old-working-key")
@@ -184,4 +197,24 @@ private final class LockedCounter: @unchecked Sendable {
     private var count = 0
     func increment() { lock.withLock { count += 1 } }
     var value: Int { lock.withLock { count } }
+}
+
+private final class PriorityRecordingCredentialStore: SecretStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private let secret: String?
+    private var recordedPriority: TaskPriority = .background
+
+    init(secret: String?) {
+        self.secret = secret
+    }
+
+    func read() throws -> String? {
+        lock.withLock { recordedPriority = Task.currentPriority }
+        return secret
+    }
+
+    func save(_ secret: String) throws {}
+    func delete() throws {}
+
+    var readPriority: TaskPriority { lock.withLock { recordedPriority } }
 }
