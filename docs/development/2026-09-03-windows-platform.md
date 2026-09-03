@@ -201,6 +201,7 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 微软 Terminal 的 ConPTY 实现说明：伪终端创建后会立即发出 Device Status Report 光标位置查询 `ESC[6n`，若终端宿主不回复 `ESC[row;columnR`，ConPTY 将暂停处理输入；此前 `read_until` 会读取该控制序列但没有实现回复，正好解释“创建/缩放成功，进程输入输出停滞”；
 - `read_until` 现会按原始字节流识别完整光标查询，并以保守的 `ESC[1;1R` 回复；分片查询不会被误判，多次查询会逐一应答；
 - Windows 运行测试改为先等待夹具主动输出 `ready`（验证启动、输出管道和 DSR 握手），再发送固定输入并等待 `received:hello`（验证输入管道和子进程 stdin），避免单一超时掩盖故障层。
+- Windows CI [33716133098](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33716133098) 在运行测试前由零警告 Clippy 发现条件编译后的 `items_after_test_module`；macOS 会裁掉后续 Windows 项而未触发该 lint，测试模块现已移至文件最终位置，并将 Windows 目标静态检查纳入本地复核。
 
 ## 安全与隐私
 

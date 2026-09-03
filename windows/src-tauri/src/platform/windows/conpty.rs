@@ -413,22 +413,6 @@ fn count_subsequence(haystack: &[u8], needle: &[u8]) -> usize {
         .count()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{CURSOR_POSITION_QUERY, count_subsequence};
-
-    #[test]
-    fn cursor_queries_are_counted_across_surrounding_terminal_output() {
-        let output = b"before\x1b[6nafter\x1b[6n";
-        assert_eq!(count_subsequence(output, CURSOR_POSITION_QUERY), 2);
-    }
-
-    #[test]
-    fn partial_cursor_query_is_not_treated_as_complete() {
-        assert_eq!(count_subsequence(b"\x1b[6", CURSOR_POSITION_QUERY), 0);
-    }
-}
-
 #[cfg(windows)]
 fn windows_command_line(
     executable: &std::path::Path,
@@ -592,5 +576,21 @@ impl Drop for ConPtyChild {
             CloseHandle(self.process);
             CloseHandle(self.job);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CURSOR_POSITION_QUERY, count_subsequence};
+
+    #[test]
+    fn cursor_queries_are_counted_across_surrounding_terminal_output() {
+        let output = b"before\x1b[6nafter\x1b[6n";
+        assert_eq!(count_subsequence(output, CURSOR_POSITION_QUERY), 2);
+    }
+
+    #[test]
+    fn partial_cursor_query_is_not_treated_as_complete() {
+        assert_eq!(count_subsequence(b"\x1b[6", CURSOR_POSITION_QUERY), 0);
     }
 }
