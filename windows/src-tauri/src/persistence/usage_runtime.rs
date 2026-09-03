@@ -104,9 +104,6 @@ impl UsageRuntime {
             return false;
         }
         let previous = self.snapshot(provider);
-        if snapshot.local_activity.is_none() {
-            snapshot.local_activity = previous.local_activity;
-        }
         if snapshot.daily_history.is_empty() {
             snapshot.daily_history = previous.daily_history;
             snapshot.history_fetched_at = previous.history_fetched_at;

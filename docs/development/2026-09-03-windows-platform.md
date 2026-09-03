@@ -417,3 +417,5 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 本机已通过 12 项前端测试、TypeScript/Vite production build、详情/持久化/CLI/活动/取消定向 Rust 测试与全目标零警告 Clippy。Windows 专属通知、注册表、ConPTY 取消及完整 Tauri/NSIS 仍等待下一次 `windows-latest` 复验，不能以 macOS 编译替代。
 - Windows CI [33734781055](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33734781055) 在严格 Clippy 编译 Windows-only `available_wsl_distributions` 时发现 WSL 调用参数仍为 `Vec<String>`，而受限进程边界要求 `Vec<OsString>`；前端、production build 与 rustfmt 已通过，Rust 运行测试和 NSIS 因编译失败未执行。修复只在进入进程边界前逐项转换参数类型，不引入 shell 拼接或路径回退；
 - 同期 macOS 完整门禁重新执行并通过：360 项主测试、11 项独立 PTY 测试、4 份跨平台 fixture、128 份 Markdown 和公开 Release 安全检查。Windows 原生分支仍以修复后的 runner 结果为准。
+- 独立复审继续沿数据流发现缓存边界缺口：Native Windows 快照已经含 `localActivity` 时，后续 WSL 新快照虽明确为 `nil`，`UsageRuntime::complete_success` 仍会无条件回填旧活动，导致运行方式切换或重启后的首轮成功刷新继续混数。新增真实缓存生命周期测试先稳定失败，再删除该隐式回填；当前来源未给出本机活动时现在明确显示不可用，DeepSeek `dailyHistory` 的独立保留语义不变。聚焦回归 6 项与严格 Clippy 通过；
+- Windows CI [33735360341](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33735360341) 已越过前一类型错误，随后被 Windows-only `needless_return` 截止；前端、production build 和 rustfmt 仍通过，Rust 运行测试/NSIS 未执行。已按严格 Clippy 建议把 Windows cfg block 的结果改为尾表达式，不改变错误或数据处理逻辑。

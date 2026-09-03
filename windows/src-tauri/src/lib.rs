@@ -468,12 +468,12 @@ fn available_wsl_distributions() -> Vec<String> {
         );
         request.timeout = Duration::from_secs(4);
         request.max_output_bytes = 64 * 1024;
-        return crate::platform::windows::process::BoundedProcessRunner
+        crate::platform::windows::process::BoundedProcessRunner
             .run(request)
             .map(|output| {
                 crate::platform::windows::wsl::decode_distribution_list(output.stdout.as_bytes())
             })
-            .unwrap_or_default();
+            .unwrap_or_default()
     }
     #[cfg(not(windows))]
     {

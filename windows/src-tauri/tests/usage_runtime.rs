@@ -1,7 +1,7 @@
 use tempfile::tempdir;
 
 use ai_token_meter_windows::collectors::CollectionError;
-use ai_token_meter_windows::domain::{ProviderId, UsageSnapshot, UsageStatus};
+use ai_token_meter_windows::domain::{LocalActivity, ProviderId, UsageSnapshot, UsageStatus};
 use ai_token_meter_windows::persistence::{SnapshotCache, UsageRuntime};
 
 const NOW: &str = "2026-09-03T12:00:00Z";
@@ -131,6 +131,29 @@ fn balance_refresh_preserves_separately_collected_deepseek_history() {
     let snapshot = runtime.snapshot(ProviderId::DeepSeek);
     assert_eq!(snapshot.daily_history, historical.daily_history);
     assert_eq!(snapshot.history_fetched_at, historical.history_fetched_at);
+}
+
+#[test]
+fn successful_refresh_does_not_reuse_local_activity_omitted_by_current_runtime_source() {
+    let directory = tempdir().expect("temporary directory");
+    let cache = SnapshotCache::new(directory.path());
+    let mut native_snapshot = fixture(ProviderId::Codex);
+    native_snapshot.local_activity = Some(LocalActivity {
+        period_days: 30,
+        sessions: 12,
+        tokens: 42_000,
+        active_days: 6,
+        longest_session_seconds: Some(900),
+    });
+    cache.save(&native_snapshot).expect("save native cache");
+    let runtime = UsageRuntime::load(cache, NOW);
+
+    let generation = runtime.begin_refresh(ProviderId::Codex);
+    let current_source_snapshot = fixture(ProviderId::Codex);
+    assert!(current_source_snapshot.local_activity.is_none());
+    assert!(runtime.complete_success(ProviderId::Codex, generation, current_source_snapshot,));
+
+    assert_eq!(runtime.snapshot(ProviderId::Codex).local_activity, None);
 }
 
 fn snapshot(snapshots: &[UsageSnapshot], provider: ProviderId) -> &UsageSnapshot {
