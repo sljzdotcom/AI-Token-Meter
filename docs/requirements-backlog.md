@@ -36,6 +36,7 @@
 | REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 待用户确认 | 2026-09-02 | 隔离 0.2.0 已从正式 GitHub appcast 发现 0.2.1；等待用户动作时确认后点击 Update Now，验收原位替换和重启 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) · [实施计划](design/implementation-plans/2026-09-02-github-app-update.md) · [开发与验收记录](development/2026-09-02-github-app-update.md) · [`v0.2.1` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.1) |
 | REQ-20260902-020 | 运行稳定性 | 修复 macOS 并发分配 PTY 时 `openpty` 偶发失败，导致并发 CLI 命令误报 `transportFailure` 和发布回归不稳定 | 高 | 已完成 | 2026-09-02 | 无 | [PTY 分配竞态日志](development/2026-09-03-pty-allocation-race.md) · `d6cbe76` · 361 项测试 · [最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33655946917) |
 | REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 已完成 | 2026-09-03 | 无 | [开发与验收记录](development/2026-09-03-ci-pty-exit-race.md) · `9f50b78` · `a627f0b` · [最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33655946917) · [`v0.2.1` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.1) |
+| REQ-20260903-002 | 更新交互缺陷 | 下载完成后的 Sparkle “Install and Relaunch”窗口被 Settings 遮挡，导致界面看似长期停在 Preparing；安装流程窗口应自动置前 | 高 | 进行中 | 2026-09-03 | 采用推荐方案：进入 Sparkle 安装交互前让 Settings 让位并激活应用；保留标准双确认、EdDSA 与错误回调，以先失败测试约束窗口选择策略 | 真实 0.2.0 → 0.2.1 已证明 EdDSA 通过；Window 菜单手动置前后安装、替换、重启、签名和哈希全部通过 |
 
 ## 分类索引
 
@@ -167,3 +168,4 @@
 | 2026-09-03 | REQ-20260902-020 | 进行中 → 已完成 | 串行化唯一 PTY 分配临界区；361 项本机回归、11 项独立 PTY 测试和 v0.2.1 最终公开 CI 全部通过。 |
 | 2026-09-03 | REQ-20260903-001 | 进行中 → 已完成 | 增加独立退出确认、有限尾部排空并隔离 PTY 系统资源测试；两轮公开 CI 通过，v0.2.1 补丁已发布且资产复验一致。 |
 | 2026-09-03 | REQ-20260902-019 | 进行中 → 待用户确认 | v0.2.0 与 v0.2.1 Release、公开 appcast、EdDSA ZIP、远端 CI 和公开下载复验均通过；隔离 0.2.0 已发现 0.2.1，等待实际安装动作确认。 |
+| 2026-09-03 | REQ-20260903-002 | 新建 → 进行中 | 用户授权真实安装后，界面停在 Preparing；系统化诊断确认 EdDSA 已通过、代码签名差异日志不是阻断，真正等待的是被 Settings 遮挡的 Ready to Install 窗口。手动置前并点击后，0.2.1 原位替换与重启通过。 |
