@@ -138,6 +138,30 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - Credential Manager 生产源文件通过 `x86_64-pc-windows-msvc` 最小外壳编译，确认 Win32 API 类型和调用签名有效；
 - 完整 Tauri Windows 交叉检查已越过 Rust 网络栈，因 macOS 缺少 Windows Resource Compiler `llvm-rc` 停止；Credential Manager 真正读写测试必须由后续 Windows CI/真机执行，当前不标记为运行时验收通过。
 
+## Phase 2：原生 Windows 与 WSL CLI 发现
+
+### 失败证据与合同边界修复
+
+- 先加入候选优先级、无效文件、Node shebang、CMD 包装器、UTF-16 WSL 列表和参数隔离测试；首次编译按预期因账户类型、环境输入、发现器和 WSL 模块不存在而失败；
+- 实施计划原拟把 `windows-cli-locations.json` 直接放进 `contracts/fixtures/`，会被“该目录恰好四份用量快照”的合同门禁正确拒绝；辅助发现 fixture 改放 `contracts/fixtures/auxiliary/`，既保留四份用量快照的严格约束，也能版本化非用量测试数据；
+- 复核首轮绿灯时发现只实现了解码器，尚未接入 `wsl.exe --list --quiet` 和原生优先/WSL 兜底顺序；新增失败测试准确暴露两个缺失 API 后再补齐，没有把局部实现标为完成。
+
+### 实现
+
+- 候选顺序固定为：已验证自定义路径、当前进程 PATH、用户注册表 PATH、系统注册表 PATH、npm/nvm/fnm/Volta 约定、桌面应用目录、WSL；
+- Windows 环境采集读取 HKCU/HKLM PATH，并覆盖 `%APPDATA%\\npm`、`.volta\\bin`、`NVM_HOME`、`NVM_SYMLINK`、`FNM_MULTISHELL_PATH` 与 fnm 会话目录，不写死用户名或 Node 版本；
+- 只接受名称匹配的普通文件；目录、错误名称、符号链接循环、缺少运行时或健康检查失败的候选会被跳过；
+- `.cmd` 必须由已验证的 `%SystemRoot%\\System32\\cmd.exe` 启动；`#!/usr/bin/env node` 脚本必须在同一安装树找到明确的 `node.exe`，不依赖 Finder/GUI 进程 PATH；
+- WSL 列表调用固定为 `wsl.exe --list --quiet`，支持 UTF-8/UTF-16LE 和 NUL/BOM 清理；发行版及 Provider 参数始终分开传递，不拼接 shell 字符串；
+- 原生候选始终优先；WSL 只在原生候选均无效时参与选择，运行时来源和发行版保留在强类型结果中，后续不会默默合并账户或活动。
+
+### 验证与环境边界
+
+- 8 项发现器测试通过，完整 Rust 套件共 32 项通过；`cargo fmt --check` 和零警告 Clippy 通过；
+- 前端 2 项测试与生产构建、四份共享用量 fixture、128 份 Markdown 和公开发布安全门禁通过；辅助 fixture 不再进入四份用量快照计数；
+- 环境、发现器、WSL 和既有 Credential Manager 的同一生产源文件通过 `x86_64-pc-windows-msvc` 最小编译外壳；
+- 当前阶段只生成结构化进程调用并注入健康检查，真正的超时、进程树回收、`wsl.exe` 往返和 Windows 注册表运行时证据属于下一任务及 Windows runner，仍明确保留为未验收。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
@@ -147,7 +171,7 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 ## 尚未完成
 
 - Credential Manager Windows runner 往返测试与 DeepSeek 真机 Key 验收；
-- 原生/WSL CLI 发现、ConPTY、Claude Code 和 OpenAI Codex 采集；
+- 安全进程 runner、ConPTY、Claude Code 和 OpenAI Codex 采集；
 - 系统托盘、贴边窗口、详情、完整 Settings 和真机交互；
 - DeepSeek WebView2 30 日图表；
 - NSIS、Tauri Updater、Windows CI 和双平台 Preview Release。

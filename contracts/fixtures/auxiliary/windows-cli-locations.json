@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "candidateOrder": [
+    "custom",
+    "processPath",
+    "userRegistryPath",
+    "systemRegistryPath",
+    "conventional",
+    "desktopApplication",
+    "wsl"
+  ],
+  "providers": {
+    "claude": ["claude.exe", "claude.cmd", "claude"],
+    "codex": ["codex.exe", "codex.cmd", "codex"]
+  },
+  "nodeScriptRule": "An env-node script requires an explicit node.exe launcher from the same installation tree.",
+  "wslArgumentRule": "Distribution names and CLI arguments are passed as separate process arguments."
+}

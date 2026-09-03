@@ -36,3 +36,4 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_Storage_FileSystem"] }
+winreg = "0.55.0"

@@ -9,6 +9,15 @@ features:
     windows:
       status: in-progress
       evidence: windows/src-tauri/tests/deepseek_collector.rs
+  - id: cli-discovery
+    requirement: REQ-20260903-004
+    platform_scope: platform-equivalent
+    macos:
+      status: complete
+      evidence: Tests/AIMeterCoreTests/ExecutableLocatorTests.swift
+    windows:
+      status: complete
+      evidence: windows/src-tauri/tests/executable_locator.rs
   - id: edge-floating-meter
     requirement: REQ-20260903-004
     platform_scope: cross-platform

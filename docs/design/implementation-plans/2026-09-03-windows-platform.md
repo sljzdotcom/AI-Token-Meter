@@ -337,13 +337,13 @@ Windows Credential Manager 集成测试源码和目标隔离清理已实现；�
 - 创建：`windows/src-tauri/src/accounts/cli_account.rs`
 - 创建：`windows/src-tauri/tests/executable_locator.rs`
 - 创建：`windows/src-tauri/tests/wsl_locator_windows.rs`
-- 创建：`contracts/fixtures/windows-cli-locations.json`
+- 创建：`contracts/fixtures/auxiliary/windows-cli-locations.json`
 
-- [ ] **步骤 1：写候选优先级和安全失败测试**
+- [x] **步骤 1：写候选优先级和安全失败测试**
 
 覆盖自定义路径、进程 PATH、用户/系统注册表 PATH、npm/nvm/fnm/Volta 常见目录、桌面应用候选和 WSL；拒绝目录、符号链接循环、错误文件名、超时健康检查与 shell 元字符注入。
 
-- [ ] **步骤 2：实现候选模型**
+- [x] **步骤 2：实现候选模型**
 
 ```rust
 pub enum RuntimeSource {
@@ -360,11 +360,11 @@ pub struct ExecutableCandidate {
 
 Node shebang 脚本必须解析同目录或安装树中可验证的 `node.exe`，并以显式 executable + arguments 启动；不得依赖 GUI 进程 PATH 中的 `env node`。
 
-- [ ] **步骤 3：实现 WSL 探测**
+- [x] **步骤 3：实现 WSL 探测**
 
 调用 `wsl.exe --list --quiet`，逐行清理 UTF-16/空字符；发行版名称作为独立参数传给 `wsl.exe --distribution <name> --exec`。原生与 WSL 结果分别展示，不自动合并账户或活动。
 
-- [ ] **步骤 4：运行跨平台单测和 Windows 集成测试后提交**
+- [x] **步骤 4：运行跨平台单测和 Windows 集成测试后提交**
 
 ```bash
 cd windows/src-tauri && cargo test executable_locator
@@ -372,6 +372,8 @@ cargo test --test wsl_locator_windows
 git add contracts/fixtures windows/src-tauri
 git commit -m "feat: discover native and WSL AI CLIs on Windows"
 ```
+
+发现器纯逻辑测试、完整 Rust 回归、零警告 Clippy 与同一 Windows 专属源文件的 `x86_64-pc-windows-msvc` 最小编译外壳均已通过。`wsl.exe --list --quiet` 和 Provider 调用已建模为分离参数；真正启动进程、超时健康检查及 Windows/WSL 运行时往返由任务 6 的受限 runner 和任务 11 的 Windows runner 完成，未以 macOS 结果冒充真机验收。
 
 ---
 
