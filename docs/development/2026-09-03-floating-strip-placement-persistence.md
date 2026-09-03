@@ -64,8 +64,9 @@ Windows 已用原子 JSON 设置保存 `edge`、`meterVerticalPerMille`、`meter
 - Windows monitor 合同 9 项测试通过；
 - macOS 完整 374 项主测试与 12 项独立 PTY 测试通过，共 386 项、72 个测试组；
 - Windows 完整 122 项 Rust 测试、严格 Clippy/rustfmt、14 项前端测试和 production 前端构建通过；
-- 4 份跨平台 fixture、Release feed probe、132 份 Markdown 与公开发布安全门禁通过；
-- Release App 已在不含 Widget 的可移植分发模式下完成资源、Sparkle 嵌套组件与签名结构验证；二次独立代码审查和双平台 CI 结果在本日志收尾时补充。
+- 4 份跨平台 fixture、Release feed probe、133 份 Markdown 与公开发布安全门禁通过；
+- Release App 已在不含 Widget 的可移植分发模式下完成资源、Sparkle 嵌套组件与签名结构验证；
+- PR #4 最终提交的 macOS CI `33766095915` 与 Windows CI `33766096437` 通过；精确合并头 `c2d2e64` 的 macOS main CI `33766955625` 与 Windows main CI `33766955622` 再次全绿。
 
 ## 安全与隐私
 
@@ -80,7 +81,13 @@ Windows 已用原子 JSON 设置保存 `edge`、`meterVerticalPerMille`、`meter
 - `8a487e3`：稳定显示器身份与解析策略；
 - `08bb254`：系统重排无损回退、旧配置迁移和位置写入边界；
 - `964aaf2`：Windows 对等合同、用户文档和首轮完整回归；
-- 审查补强、最终审查、合并与 CI 提交将在完成后追加。
+- `4920e6d`：首轮审查后的 macOS Settings 绑定、Windows 物理身份与运行时拓扑监听；
+- `6445e90`：Windows 迁移、持久化与瞬时拓扑失败的重试韧性；
+- `0ae1cbe`：修复分支门禁暴露的独立 DeepSeek 截止时间饥饿；
+- `4f6c3af`：根据最终审查精确化单调时钟文档；
+- `c2d2e64`：PR #4 合并到 `main`。
+
+最终独立审查未发现 Critical/Important。保留的一项 Minor 是通用截止时间工具对零或负时长不保证超时方先胜；DeepSeek 生产调用均为明确正时长，本次不扩大范围。
 
 ## 本机与界面验收
 

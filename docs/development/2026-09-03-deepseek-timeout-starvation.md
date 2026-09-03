@@ -39,4 +39,8 @@
 
 ## Git 与 CI
 
-本地修复提交、复审和更新后的双平台 CI 证据将在完成后补充。PR 为 [#4](https://github.com/sljzdotcom/AI-Token-Meter/pull/4)。
+- `0ae1cbe`：独立 GCD 单调时钟截止时间与两条 DeepSeek 调用链收敛；
+- `4f6c3af`：复审后修正单调时钟术语；
+- 独立复审未发现 Critical/Important；
+- [PR #4](https://github.com/sljzdotcom/AI-Token-Meter/pull/4) 的 [macOS CI 33766095915](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766095915) 与 [Windows CI 33766096437](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766096437) 通过；
+- 合并提交 `c2d2e64` 的 [macOS main CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows main CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 再次通过。

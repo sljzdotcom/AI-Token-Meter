@@ -27,7 +27,7 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 ## 当前界面
 
 - 菜单栏：18×18pt Quantum Dial 模板图像，显示三项服务中最高有效已用比例和精确百分比；
-- 桌面浮岛：默认右侧贴边，可 Automatic/Left/Right，记录屏幕和纵向位置，只在桌面层显示；
+- 桌面浮岛：默认右侧贴边，可 Automatic/Left/Right，按稳定物理显示器身份记录目标屏、侧边和纵向位置；目标屏断开时仅临时回当前主屏，重新接入后自动恢复；只在桌面层显示；
 - 详情：用户点击后临时位于普通应用窗口上方，空白点击或 3/5/8/15/30 秒无交互后关闭；
 - Settings：Appearance、Monitoring、Services、About 四个 Tab，始终使用系统字体；
 - About：显示当前版本与手动更新状态；仅在用户点击检查时访问 GitHub，发现新版后可明确启动签名更新；
@@ -62,6 +62,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；[最终 CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007)、公开重新下载、EdDSA、严格签名及隔离 `0.2.1 → 0.2.2` 原位升级与自动重启均通过。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
+- 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 
 ## 明确未完成或受限
 
