@@ -6,8 +6,10 @@ if (argumentsAfterScript[0] === "auth" && argumentsAfterScript[1] === "status") 
 } else if (argumentsAfterScript.includes("--ax-screen-reader")) {
   process.stdin.setEncoding("utf8");
   process.stdout.write("Claude Code ready\r\n");
-  process.stdin.once("data", (input) => {
-    if (input.includes("/usage")) {
+  let terminalInput = "";
+  process.stdin.on("data", (input) => {
+    terminalInput += input;
+    if (terminalInput.includes("/usage")) {
       process.stdout.write([
         "Current session",
         "23% used",
@@ -17,6 +19,7 @@ if (argumentsAfterScript[0] === "auth" && argumentsAfterScript[1] === "status") 
         "Resets Sep 6 at 8:00am",
         "",
       ].join("\r\n"));
+      process.stdin.removeAllListeners("data");
       setTimeout(() => process.exit(0), 100);
     }
   });
