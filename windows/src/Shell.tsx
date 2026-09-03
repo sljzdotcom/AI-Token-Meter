@@ -73,16 +73,22 @@ function DetailSurface() {
 
   useEffect(() => {
     let disposed = false
-    let stop: (() => void) | undefined
-    listen<UsageSnapshot>("active-detail-changed", (event) => {
+    const stops: Array<() => void> = []
+    const active = listen<UsageSnapshot>("active-detail-changed", (event) => {
       if (!disposed) setSnapshot(event.payload)
-    }).then((unlisten) => {
-      if (disposed) unlisten()
-      else stop = unlisten
+    })
+    const refreshed = listen<UsageSnapshot>("snapshot-updated", (event) => {
+      if (!disposed) {
+        setSnapshot((current) => current?.providerId === event.payload.providerId ? event.payload : current)
+      }
+    })
+    void Promise.all([active, refreshed]).then((unlisten) => {
+      if (disposed) unlisten.forEach((stop) => stop())
+      else stops.push(...unlisten)
     }).catch(() => {})
     return () => {
       disposed = true
-      stop?.()
+      stops.forEach((stop) => stop())
     }
   }, [])
 

@@ -340,3 +340,24 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 先行测试覆盖官方 origin、仿冒 origin、乱序分片、超时、nonce、分片/总量上限、敏感字段、严格格式、30 日裁剪、重复日期合并、溢出和余额隔离；7 项 Rust 历史测试通过；
 - 真实注入脚本用当前官方控制台 `by_api_key` 脱敏响应 fixture 验证：金额、请求、Token 聚合正确，API Key 名称与 tracking ID 不会进入 payload；2 项桥接测试与 7 项界面测试通过；
 - 本机完整 Rust 73 项、前端 9 项、TypeScript/Vite production build、格式及零警告 Clippy 均通过。独立 WebView2 的真实登录持久化、网页响应兼容性和自动隐藏仍须 Windows 11 用户会话验收，Task 10 步骤 4 保持未完成。
+- Windows CI [33724498418](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33724498418) 在 `a80f72b` 上通过前端、Rust、Windows 条件编译与完整 Tauri 桌面壳构建；这关闭了代码/runner 风险，但不能替代用户账户下的 WebView2 登录和网页数据真机验收。
+
+## Phase 2 补验：应用刷新生命周期
+
+### 审计发现
+
+- Provider 解析器、进程采集器与 `RefreshCoordinator` 已分别通过测试及 Windows CI，但 `RuntimeState` 启动时仍写入三份 `Unavailable` 占位；托盘 Refresh 也只发出前端事件，没有后端订阅者；
+- 因此此前证据只能证明采集库可运行，不能证明安装后的应用会自动取得数据。实施计划新增 Task 7 步骤 6，原“Task 7 关闭”表述收紧为采集器和 runner 边界完成。
+
+### 测试先行修复
+
+- 新增 `UsageRuntime`，先用 5 项失败测试固定缓存启动、刷新中保留旧数值、Provider 失败隔离、认证错误不伪装成零用量、DeepSeek 余额刷新保留 30 日历史；
+- 新增协调器回归，证明手动刷新取消后，即使旧采集器忽略取消并返回成功，也只能得到 `Cancelled`，不能发布旧快照；重复计划刷新不会运行开始生命周期，避免把界面永久留在 `Refreshing`；
+- Windows 应用现在启动时加载 `%LOCALAPPDATA%` 独立缓存并发刷新三项，后台读取设置的刷新周期，托盘 Refresh 使用手动优先级；每次开始和有效完成发出同一 `snapshot-updated` 脱敏 DTO，浮动条、托盘及已打开详情同步更新；
+- Native/WSL CLI 在运行时按既定优先级发现并用固定 `--version` 健康检查；Claude/Codex 成功快照附加白名单 30 日本机活动，DeepSeek 从 Credential Manager 读取 Key；缓存写入只接受成功的 fresh 快照，格式/认证/安装失败不制造数值。
+
+### 当前验证
+
+- 新增 6 项运行时/协调器回归后，两组聚焦测试共 10 项通过；本机完整 Rust 80 项通过（DeepSeek loopback 测试经允许运行），全目标零警告 Clippy 和 rustfmt 通过；
+- 前端 9 项测试、TypeScript 检查及 Vite production build 通过；
+- Windows 专属生命周期模块已进入下一轮 `windows-latest` CI。由于 macOS 缺少 MSVC C 工具链，`rusqlite bundled` 的 Windows 交叉检查停在 C 编译器环境，不把该结果视为源码失败或 Windows 编译成功。

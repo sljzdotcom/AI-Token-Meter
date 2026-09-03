@@ -457,6 +457,18 @@ git add contracts/fixtures windows/src-tauri
 git commit -m "feat: collect Claude Code and OpenAI Codex usage on Windows"
 ```
 
+- [ ] **步骤 6：把采集器接入真实应用生命周期**
+
+启动时先读取三 Provider 的独立缓存并立即发起刷新；托盘 Refresh 使用手动优先级取消旧任务；后台按设置周期刷新。刷新开始、完成与失败都通过同一脱敏事件更新浮动条、详情和托盘。旧任务即使忽略取消并延迟返回，也不得覆盖新结果；单项失败只回退该 Provider 缓存，登录失效和未安装不得显示为 `0%`。DeepSeek 余额刷新必须保留独立 WebView2 已采集的历史。
+
+```bash
+cd windows/src-tauri
+cargo test --test usage_runtime --test refresh_coordinator
+cargo test --locked
+git add windows/src-tauri windows/src docs
+git commit -m "feat: connect Windows provider refresh runtime"
+```
+
 ---
 
 ## 任务 8：实现前端状态、浮动条、详情和 Settings

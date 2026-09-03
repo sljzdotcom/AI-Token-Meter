@@ -80,6 +80,46 @@ fn scheduled_duplicates_are_deduplicated() {
 }
 
 #[test]
+fn a_deduplicated_request_never_runs_its_start_lifecycle() {
+    let coordinator = Arc::new(RefreshCoordinator::new());
+    let (started_sender, started_receiver) = mpsc::channel();
+    let release = Arc::new(AtomicBool::new(false));
+    let first = {
+        let coordinator = coordinator.clone();
+        let release = release.clone();
+        thread::spawn(move || {
+            coordinator.refresh(
+                ProviderRefreshRequest::new(ProviderId::Claude, move |_| {
+                    started_sender.send(()).expect("started");
+                    while !release.load(Ordering::Acquire) {
+                        thread::yield_now();
+                    }
+                    Ok(fixture(ProviderId::Claude))
+                }),
+                RefreshPriority::Scheduled,
+            )
+        })
+    };
+    started_receiver.recv().expect("first refresh started");
+    let lifecycle_ran = Arc::new(AtomicBool::new(false));
+    let lifecycle_for_request = Arc::clone(&lifecycle_ran);
+
+    let duplicate = coordinator.refresh(
+        ProviderRefreshRequest::new(ProviderId::Claude, |_| Ok(fixture(ProviderId::Claude)))
+            .on_start(move || lifecycle_for_request.store(true, Ordering::Release)),
+        RefreshPriority::Scheduled,
+    );
+
+    assert_eq!(duplicate, RefreshResult::AlreadyRefreshing);
+    assert!(!lifecycle_ran.load(Ordering::Acquire));
+    release.store(true, Ordering::Release);
+    assert!(matches!(
+        first.join().expect("first join"),
+        RefreshResult::Snapshot(_)
+    ));
+}
+
+#[test]
 fn manual_refresh_cancels_the_previous_provider_task() {
     let coordinator = Arc::new(RefreshCoordinator::new());
     let (started_sender, started_receiver) = mpsc::channel();
@@ -106,6 +146,38 @@ fn manual_refresh_cancels_the_previous_provider_task() {
     );
 
     assert!(matches!(replacement, RefreshResult::Snapshot(_)));
+    assert_eq!(old.join().expect("old join"), RefreshResult::Cancelled);
+}
+
+#[test]
+fn a_collector_that_finishes_after_cancellation_cannot_publish_its_snapshot() {
+    let coordinator = Arc::new(RefreshCoordinator::new());
+    let (started_sender, started_receiver) = mpsc::channel();
+    let release = Arc::new(AtomicBool::new(false));
+    let old = {
+        let coordinator = coordinator.clone();
+        let release = release.clone();
+        thread::spawn(move || {
+            coordinator.refresh(
+                ProviderRefreshRequest::new(ProviderId::Codex, move |_| {
+                    started_sender.send(()).expect("started");
+                    while !release.load(Ordering::Acquire) {
+                        thread::yield_now();
+                    }
+                    Ok(fixture(ProviderId::Codex))
+                }),
+                RefreshPriority::Scheduled,
+            )
+        })
+    };
+    started_receiver.recv().expect("old refresh started");
+
+    let replacement = coordinator.refresh(
+        ProviderRefreshRequest::new(ProviderId::Codex, |_| Ok(fixture(ProviderId::Codex))),
+        RefreshPriority::Manual,
+    );
+    assert!(matches!(replacement, RefreshResult::Snapshot(_)));
+    release.store(true, Ordering::Release);
     assert_eq!(old.join().expect("old join"), RefreshResult::Cancelled);
 }
 

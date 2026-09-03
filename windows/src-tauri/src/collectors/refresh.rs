@@ -32,6 +32,22 @@ impl ProviderRefreshRequest {
             collector: Box::new(collector),
         }
     }
+
+    pub fn provider(&self) -> ProviderId {
+        self.provider
+    }
+
+    pub fn on_start<F>(self, start: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        let provider = self.provider;
+        let collector = self.collector;
+        Self::new(provider, move |cancellation| {
+            start();
+            collector(cancellation)
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,6 +107,9 @@ impl RefreshCoordinator {
         }
         drop(in_flight);
 
+        if token.is_cancelled() {
+            return RefreshResult::Cancelled;
+        }
         match outcome {
             Ok(snapshot) => RefreshResult::Snapshot(Box::new(snapshot)),
             Err(CollectionError::Cancelled) => RefreshResult::Cancelled,

@@ -1,3 +1,5 @@
+#[cfg(windows)]
+pub mod application;
 pub mod claude;
 pub mod claude_activity;
 pub mod codex;

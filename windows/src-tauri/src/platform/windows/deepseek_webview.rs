@@ -153,15 +153,9 @@ fn apply_completed_history(
     history: &crate::collectors::deepseek_history::DeepSeekHistory,
 ) {
     let state = app.state::<RuntimeState>();
-    let updated = state.snapshots.lock().ok().and_then(|mut snapshots| {
-        let snapshot = snapshots
-            .iter_mut()
-            .find(|snapshot| snapshot.provider_id == ProviderId::DeepSeek)?;
-        let updated = apply_history(snapshot, history).ok()?;
-        *snapshot = updated.clone();
-        Some(updated)
-    });
+    let updated = apply_history(&state.usage.snapshot(ProviderId::DeepSeek), history).ok();
     if let Some(updated) = updated {
+        state.usage.replace_external(updated.clone());
         let _ = app.emit("snapshot-updated", &updated);
         let _ = app.emit("active-detail-changed", &updated);
     }

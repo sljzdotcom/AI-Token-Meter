@@ -6,8 +6,8 @@ use std::sync::atomic::AtomicBool;
 use serde::Deserialize;
 use tauri::{Emitter, Manager, State};
 
-use crate::domain::{ProviderId, UsageSnapshot, UsageStatus};
-use crate::persistence::{AppSettings, AtomicJsonStore, MeterEdge};
+use crate::domain::{ProviderId, UsageSnapshot};
+use crate::persistence::{AppSettings, AtomicJsonStore, MeterEdge, UsageRuntime};
 use crate::platform::windows::window_controller::{
     Edge, METER_WINDOW_LABEL, configure_initial_windows, current_monitor_identifier,
     hide_detail_window, place_meter, show_detail_window, show_settings_window,
@@ -67,7 +67,9 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
 }
 
 pub struct RuntimeState {
-    pub(crate) snapshots: Mutex<Vec<UsageSnapshot>>,
+    pub(crate) usage: Arc<UsageRuntime>,
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub(crate) refresh_coordinator: Arc<crate::collectors::refresh::RefreshCoordinator>,
     settings: Mutex<AppSettings>,
     settings_path: Option<PathBuf>,
     pub(crate) meter_enabled: Arc<AtomicBool>,
@@ -79,7 +81,8 @@ impl Default for RuntimeState {
     fn default() -> Self {
         let (settings, settings_path) = load_settings();
         Self {
-            snapshots: Mutex::new(unavailable_snapshots()),
+            usage: Arc::new(load_usage_runtime()),
+            refresh_coordinator: Arc::new(crate::collectors::refresh::RefreshCoordinator::new()),
             settings: Mutex::new(settings),
             settings_path,
             meter_enabled: Arc::new(AtomicBool::new(true)),
@@ -101,14 +104,19 @@ impl RuntimeState {
             })
             .unwrap_or((Edge::Right, 0.5, None))
     }
+
+    #[cfg(windows)]
+    pub(crate) fn refresh_interval_seconds(&self) -> u64 {
+        self.settings
+            .lock()
+            .map(|settings| settings.refresh_interval_seconds)
+            .unwrap_or(300)
+    }
 }
 
 #[tauri::command]
 fn usage_snapshots(state: State<'_, RuntimeState>) -> Vec<UsageSnapshot> {
-    state
-        .snapshots
-        .lock()
-        .map_or_else(|_| unavailable_snapshots(), |snapshots| snapshots.clone())
+    state.usage.snapshots()
 }
 
 #[tauri::command]
@@ -117,14 +125,7 @@ fn show_provider_detail(
     state: State<'_, RuntimeState>,
     provider_id: ProviderId,
 ) -> Result<UsageSnapshot, String> {
-    let snapshot = state
-        .snapshots
-        .lock()
-        .map_err(|_| "Usage state is temporarily unavailable".to_owned())?
-        .iter()
-        .find(|snapshot| snapshot.provider_id == provider_id)
-        .cloned()
-        .ok_or_else(|| "Unknown provider".to_owned())?;
+    let snapshot = state.usage.snapshot(provider_id);
     let edge = state
         .settings
         .lock()
@@ -245,33 +246,6 @@ fn open_deepseek_history(
     )
 }
 
-fn unavailable_snapshots() -> Vec<UsageSnapshot> {
-    [
-        (ProviderId::Claude, "Claude Code"),
-        (ProviderId::Codex, "OpenAI Codex"),
-        (ProviderId::DeepSeek, "DeepSeek"),
-    ]
-    .into_iter()
-    .map(|(provider_id, display_name)| UsageSnapshot {
-        schema_version: 1,
-        provider_id,
-        display_name: display_name.to_owned(),
-        status: UsageStatus::Unavailable,
-        used_ratio: None,
-        primary_metric: None,
-        secondary_metric: None,
-        fetched_at: "1970-01-01T00:00:00Z".to_owned(),
-        stale_after_seconds: 300,
-        source_version: None,
-        status_message: None,
-        reset_credits: Vec::new(),
-        local_activity: None,
-        daily_history: Vec::new(),
-        history_fetched_at: None,
-    })
-    .collect()
-}
-
 fn edge_from_settings(edge: MeterEdge) -> Edge {
     match edge {
         MeterEdge::Left => Edge::Left,
@@ -304,6 +278,24 @@ fn load_settings() -> (AppSettings, Option<PathBuf>) {
         return (settings, Some(paths.settings_file));
     }
     (AppSettings::default(), None)
+}
+
+fn load_usage_runtime() -> UsageRuntime {
+    #[cfg(windows)]
+    if let Ok(paths) = crate::persistence::AppStoragePaths::discover() {
+        return UsageRuntime::load(
+            crate::persistence::SnapshotCache::new(paths.cache_directory),
+            &current_timestamp(),
+        );
+    }
+    UsageRuntime::unavailable(&current_timestamp())
+}
+
+fn current_timestamp() -> String {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -339,6 +331,7 @@ pub fn run() {
             crate::platform::windows::tray::install(app.handle())?;
             #[cfg(windows)]
             {
+                crate::collectors::application::start(app.handle());
                 let enabled = app.state::<RuntimeState>().meter_enabled.clone();
                 crate::platform::windows::desktop_visibility::start_monitoring(
                     app.handle().clone(),
