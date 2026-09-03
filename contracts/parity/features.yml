@@ -7,8 +7,8 @@ features:
       status: complete
       evidence: Tests/AIMeterCoreTests/UsageModelsTests.swift
     windows:
-      status: planned
-      evidence: docs/design/implementation-plans/2026-09-03-windows-platform.md
+      status: in-progress
+      evidence: windows/src-tauri/tests/deepseek_collector.rs
   - id: edge-floating-meter
     requirement: REQ-20260903-004
     platform_scope: cross-platform

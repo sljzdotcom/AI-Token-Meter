@@ -293,11 +293,11 @@ git commit -m "feat: add Windows usage domain and persistence"
 - 创建：`windows/src-tauri/tests/deepseek_collector.rs`
 - 创建：`windows/src-tauri/tests/credential_manager_windows.rs`
 
-- [ ] **步骤 1：写 Fake Credential Store 与 HTTP server 测试**
+- [x] **步骤 1：写 Fake Credential Store 与 HTTP server 测试**
 
 验证：无 Key 为 `setupRequired`；401 为 `authenticationRequired`；超时使用可辨识缓存；新 Key 必须先成功调用余额接口才能替换；失败时旧 Key 保留且任何错误文本不含候选 Key。
 
-- [ ] **步骤 2：实现窄协议和 DeepSeek collector**
+- [x] **步骤 2：实现窄协议和 DeepSeek collector**
 
 ```rust
 #[async_trait]
@@ -310,11 +310,11 @@ pub trait CredentialStore: Send + Sync {
 
 HTTP 客户端固定官方 HTTPS origin、10 秒总超时、响应大小上限和结构化解析。Secret 使用零化容器，不能实现 `Debug` 明文输出。
 
-- [ ] **步骤 3：实现 Windows Credential Manager**
+- [x] **步骤 3：实现 Windows Credential Manager**
 
 仅 `cfg(windows)` 编译 `CredReadW`、`CredWriteW`、`CredDeleteW`；target 名固定为 `AI Token Meter/DeepSeek API Key`。Windows 集成测试写入随机测试 target 并在 `drop`/清理阶段删除，不接触真实 Key。
 
-- [ ] **步骤 4：运行测试和秘密扫描后提交**
+- [x] **步骤 4：运行测试和秘密扫描后提交**
 
 ```bash
 cd windows/src-tauri && cargo test deepseek credential
@@ -322,6 +322,8 @@ ruby ../../scripts/check-cross-platform-contracts.rb ../..
 git add windows/src-tauri
 git commit -m "feat: add secure Windows DeepSeek collector"
 ```
+
+Windows Credential Manager 集成测试源码和目标隔离清理已实现；同一生产源文件已通过 `x86_64-pc-windows-msvc` 最小编译外壳检查。由于 macOS 不提供 Tauri 所需的 `llvm-rc` 和真实 Windows Credential Manager，往返测试必须在任务 11 建立的 Windows runner 与后续真机上执行，未把本机检查记录为运行时通过。
 
 ---
 

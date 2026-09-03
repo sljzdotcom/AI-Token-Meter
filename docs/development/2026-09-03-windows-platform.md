@@ -114,6 +114,30 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 实施计划原先将 `scripts/check-public-release.sh .` 写成仓库扫描示例，但该脚本的位置参数代表 Release ZIP，因此会正确报告“归档不存在”。新增 Swift 文档门禁测试先复现此误导，随后把计划修正为 `scripts/check-public-release.sh --repository .`，并让文档检查器持续拒绝歧义写法；聚焦测试、完整回归和正确的公开仓库扫描均通过。此项由 `REQ-20260903-006` 独立留档。
 
+## Phase 2：DeepSeek 凭据与余额采集
+
+### 失败证据
+
+- 先写 Fake Credential Store 与回环 HTTP server 集成测试；补齐测试运行依赖后，首次有效编译因 `accounts`、`collectors`、Credential Store 和 Secret 类型不存在而失败；
+- 测试覆盖无 Key、401、超时缓存、候选 Key 成功替换、验证失败保留旧 Key、凭据写入中断回滚、响应上限和任意网络来源拒绝；
+- 沙箱内不允许绑定回环端口，故网络测试使用受控的本机临时端口权限运行；没有访问真实 DeepSeek 账号或 Key。
+
+### 实现
+
+- `CredentialStore` 只暴露 read、replace verified 和 delete；`SecretString` 使用 `zeroize` 容器，Debug 永远只输出 `[REDACTED]`；
+- DeepSeek 正式客户端固定 `https://api.deepseek.com/user/balance`，禁止重定向，使用 10 秒总超时和 64 KiB 流式响应上限；调试测试只额外允许 `/user/balance` 的回环 HTTP 地址；
+- HTTPS 使用 Windows 原生 Schannel/系统证书栈，避免把自带 CA 或跨平台 C 加密后端引入 Windows 包；
+- 401 映射为 `AuthenticationRequired`，缺 Key 映射为 `SetupRequired`，超时或可恢复网络失败保留并明确标记缓存；
+- DeepSeek 圆环仍以用户基准余额计算已消耗比例，默认 ¥100，余额和本地基准指标保持分离；
+- 新 Key 先通过官方余额调用验证，再写 Windows Credential Manager；写入失败会恢复旧 Key 或删除首次失败的残留；所有错误是固定安全文案；
+- Windows Generic Credential target 固定为 `AI Token Meter/DeepSeek API Key`，测试使用进程/时间隔离 target 并在结束前删除。
+
+### 验证与环境边界
+
+- 当前 Rust 全套 24 项通过，其中 DeepSeek 行为/安全测试 8 项；格式和零警告 Clippy 通过；
+- Credential Manager 生产源文件通过 `x86_64-pc-windows-msvc` 最小外壳编译，确认 Win32 API 类型和调用签名有效；
+- 完整 Tauri Windows 交叉检查已越过 Rust 网络栈，因 macOS 缺少 Windows Resource Compiler `llvm-rc` 停止；Credential Manager 真正读写测试必须由后续 Windows CI/真机执行，当前不标记为运行时验收通过。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
@@ -122,7 +146,7 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 ## 尚未完成
 
-- Credential Manager 与 DeepSeek API；
+- Credential Manager Windows runner 往返测试与 DeepSeek 真机 Key 验收；
 - 原生/WSL CLI 发现、ConPTY、Claude Code 和 OpenAI Codex 采集；
 - 系统托盘、贴边窗口、详情、完整 Settings 和真机交互；
 - DeepSeek WebView2 30 日图表；

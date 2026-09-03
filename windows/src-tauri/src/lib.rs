@@ -1,7 +1,10 @@
 use serde::Deserialize;
 
+pub mod accounts;
+pub mod collectors;
 pub mod domain;
 pub mod persistence;
+pub mod platform;
 pub mod security;
 
 const PRODUCT_NAME: &str = "AI Token Meter";
