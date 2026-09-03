@@ -212,3 +212,4 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第二次 Windows CI `33715538395` 仍在任何受控文本出现前超时；结合微软 ConPTY 实现确认启动会先发 `ESC[6n` 光标查询，宿主不回复便暂停输入。现已实现 `ESC[1;1R` 最小终端握手，并把真机测试拆为 `ready → input → received`。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第三次 Windows CI `33716133098` 在运行测试前被 Windows 条件编译专属的 Clippy `items_after_test_module` 截止；测试模块已移至文件末尾，并补充 Windows 目标静态检查，ConPTY 握手仍待下一轮 runner 证实。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第四次 Windows CI `33716538082` 显示夹具 `ready` 泄露到父 CI 控制台而非 ConPTY pipe；根因是 STARTUPINFO 标准句柄虽置空却遗漏 `STARTF_USESTDHANDLES`，Windows 因而复制父标准句柄。现已按生产级 ConPTY 做法补齐标志。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第五次 Windows CI `33717040377` 已通过 ConPTY 完整输入输出、Credential Manager、Job Object 和其余 Windows 运行测试；唯一失败是同一临时目录的 8.3 短路径与 verbatim 长路径字符串不相等。测试已改为比较规范化后的目录身份，等待最终复验。 |

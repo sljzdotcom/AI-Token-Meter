@@ -98,14 +98,15 @@ fn working_directory_and_minimal_explicit_environment_are_applied() {
     let output = runner().run(request).expect("environment output");
     let value: serde_json::Value = serde_json::from_str(&output.stdout).expect("environment JSON");
 
+    let reported_cwd = PathBuf::from(value["cwd"].as_str().expect("working directory string"))
+        .canonicalize()
+        .expect("canonical reported working directory");
     assert_eq!(
-        value["cwd"],
+        reported_cwd,
         directory
             .path()
             .canonicalize()
             .expect("canonical working directory")
-            .to_string_lossy()
-            .as_ref()
     );
     assert_eq!(value["allowed"], "fixture-value");
     assert_eq!(value["path"], expected_path);

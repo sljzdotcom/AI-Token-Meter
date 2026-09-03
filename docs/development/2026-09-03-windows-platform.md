@@ -205,6 +205,12 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - Windows CI [33716538082](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33716538082) 通过 Windows Clippy 后，夹具的 `ready` 出现在父 CI 日志而 ConPTY 输出 pipe 仍超时；这直接证明子进程启动成功、但标准输出仍绑定父控制台；
 - Windows 在 `bInheritHandles = false` 且未设置 `STARTF_USESTDHANDLES` 时仍可能复制父进程标准句柄。当前 `STARTUPINFOEXW` 已按生产级 ConPTY 实现设置 `STARTF_USESTDHANDLES`，并继续使用清零的 stdin/stdout/stderr，由伪终端建立新的控制台连接。
 
+### Windows 运行边界复验
+
+- Windows CI [33717040377](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33717040377) 已在真实 `windows-latest` runner 上通过 ConPTY 的创建、缩放、`ready → input → received` 完整往返，证明标准句柄隔离修复有效；Credential Manager 真实写入/读取/删除、Job Object 后代回收、超时、取消、输出上限、编码归一化和固定登录命令也全部通过；
+- 该轮唯一失败不是运行时功能，而是工作目录测试把 Node 报告的 8.3 短路径 `C:\Users\RUNNER~1\...` 与 Rust `canonicalize` 得到的 verbatim 长路径 `\\?\C:\Users\runneradmin\...` 直接按字符串比较；两者指向同一目录；
+- 测试现先把子进程报告的路径重新规范化，再与预期规范路径比较，验证的是目录身份而非 Windows 可变的文本表示。本机聚焦测试、格式、零警告 Clippy 与 Windows 目标静态检查均通过，等待下一轮 Windows CI 关闭 Task 6 检查点。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
