@@ -476,15 +476,15 @@ git commit -m "feat: collect Claude Code and OpenAI Codex usage on Windows"
 - 创建：`windows/src/**/*.test.tsx`
 - 创建：`windows/src/styles.css`
 
-- [ ] **步骤 1：先写组件和交互失败测试**
+- [x] **步骤 1：先写组件和交互失败测试**
 
 覆盖：三个 Logo 视觉尺寸一致；品牌色区分；DeepSeek 77.99/100 显示约 22.01% 已消耗；缓存/不可用不显示为 0%；详情标题正式命名；Settings 永远系统字体；字体与字号只作用于浮动条、菜单和详情。
 
-- [ ] **步骤 2：建立单向状态流**
+- [x] **步骤 2：建立单向状态流**
 
 前端只持有脱敏 `UsageSnapshot` 和非秘密设置；Tauri command 返回 Rust 领域 DTO；事件只包含 `snapshot-updated`、`account-status-updated`、`update-state-changed` 和窗口可见性。禁止把任意路径/命令执行能力暴露给页面。
 
-- [ ] **步骤 3：实现已确认视觉**
+- [x] **步骤 3：实现已确认视觉**
 
 - 深海黑蓝背景覆盖 S 曲线全部肩部；
 - 三个圆环仅显示放大的 Logo；
@@ -493,11 +493,11 @@ git commit -m "feat: collect Claude Code and OpenAI Codex usage on Windows"
 - Settings 分类使用 tab，所有 Settings 文本保持 Windows 系统字体；
 - 可访问名称、键盘焦点、200% 字号和高对比度下仍可操作。
 
-- [ ] **步骤 4：实现详情自动隐藏行为**
+- [x] **步骤 4：实现详情自动隐藏行为**
 
 同一时间一张详情；点击当前 Logo 切换关闭；点击外部关闭；按设置秒数自动关闭；鼠标/键盘/WebView2 交互暂停计时；关闭时清空 topmost 请求。
 
-- [ ] **步骤 5：运行前端测试、构建和视觉快照后提交**
+- [x] **步骤 5：运行前端测试、构建和视觉快照后提交**
 
 ```bash
 cd windows && npm test
@@ -505,6 +505,8 @@ npm run build
 git add windows/src
 git commit -m "feat: build Windows meter interface"
 ```
+
+前端以固定 `usage_snapshots` command 和 `snapshot-updated` 事件接收脱敏 DTO；无任意命令或路径入口。5 项组件/交互测试、TypeScript 检查和 Vite 正式构建通过；本机 Chromium 预览确认深海背景覆盖主体与上下肩部。真实 WebView2、Win32 透明窗口形状、DPI 和高对比度验收仍属于任务 9，不用浏览器预览冒充 Windows 真机证据。
 
 ---
 

@@ -247,11 +247,40 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 刷新协调器默认 300 秒，三个 Provider 使用独立线程并行；计划刷新对同 Provider 去重，手动刷新取消旧 token 后替换，旧任务结束时不能误删新任务；单项失败只进入该 Provider 结果；
 - 本机完整 Rust 回归共 56 项通过，新增 3 项活动和 3 项协调器测试；格式与全目标零警告 Clippy 通过。
 
+### Windows runner 第二轮 Provider 反馈
+
+- Windows CI [33719315118](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33719315118) 已证明 ESM 语法修复有效，但 Claude 端到端 fixture 仍在约 0.07 秒返回 Transport，继续排除 ConPTY 的 8/12 秒读取超时；
+- 根因是 ConPTY 为完成终端握手先向子进程 stdin 写入 `ESC[1;1R`，fixture 使用 `stdin.once("data")` 把这段协议回复误当成唯一业务输入，未见 `/usage` 即移除监听并退出；生产 Claude CLI 本身会正确处理终端协议，缺陷位于测试替身；
+- fixture 改为有界累计输入并在看到固定 `/usage` 后才输出脱敏额度，随后移除监听并退出；本机以“终端握手回复 + `/usage`”组合序列复验成功；
+- 修复提交 `16258c8` 已触发 Windows runner，结果未通过前仍不关闭 Task 7。
+
+## Phase 3：Windows 浮动条、详情和 Settings 前端
+
+### 测试先行范围
+
+- 组件测试覆盖三枚 Logo 统一 34×34 视觉框、三个等尺寸圆环、Claude Code 黄色、OpenAI Codex 紫色和 DeepSeek 蓝色合同来源；
+- DeepSeek 以 ¥100 基准和 ¥77.99 余额显示 22.01% 已消耗；不可用、未安装、待登录和格式变化均不提供伪造 `aria-valuenow=0`；
+- 点击 Provider 只打开一张详情；再次点击、外部指针和设置秒数到期均关闭；指针或键盘交互暂停自动隐藏计时；
+- Settings 使用 Appearance、Monitoring、Services、About 四个 tab，自身及全部子控件强制 Windows 系统字体；展示字体列表包含 System、Antonio、DIN Condensed、Alimama、Fira Code、Leigo 和 Menlo。
+
+### 实现
+
+- 浮动条复用仓库既有 `floating-strip-deep-sea.png`，黑蓝背景覆盖主体及上下肩部，不新增第二套视觉资源；圆环只显示放大的 Provider Logo，不放 Provider 名称或数值文字；
+- 详情保留官方额度优先：Codex 显示 Reset Credit 数量和到期时间，Claude/Codex 显示明确标注 `This PC` 的 30 日本机统计，DeepSeek 预留官方 30 日图表区域；Claude 不恢复用户已要求移除的 Token composition、Top models 和隐私说明；
+- 前端单向状态桥只调用固定 `usage_snapshots` 并订阅 `snapshot-updated`；对 Provider、状态、比例和必需字段再次做边界校验，无任意 executable、路径或 shell 接口；
+- 默认展示字体为 Antonio，所有交互有可访问名称、键盘焦点和 reduced-motion/high-contrast 规则；200% 缩放使用自适应详情高度和响应式卡片。
+
+### 验证与边界
+
+- Vitest 5 项通过，TypeScript 无输出检查与 Vite production build 通过；构建包含 27 个模块；
+- 本机 Chromium 800×900 视觉预览确认统一 Logo、深海背景、贴右布局和透明外围；预览图只用于样式自检，没有作为 Windows WebView2 或真实透明窗口证据；
+- Win32 无任务栏窗口、左右贴边、全屏隐藏、拖动、详情临时 topmost、系统托盘和实际窗口 S 曲线仍属于下一阶段。
+
 ## 尚未完成
 
 - DeepSeek 真机 Key 验收；
-- Claude Code/OpenAI Codex 采集；
-- 系统托盘、贴边窗口、详情、完整 Settings 和真机交互；
+- Claude Code/OpenAI Codex 真实 Windows CI 复验；
+- 系统托盘、贴边窗口、实际详情/Settings 窗口和真机交互；
 - DeepSeek WebView2 30 日图表；
 - NSIS、Tauri Updater、Windows CI 和双平台 Preview Release。
 
