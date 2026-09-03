@@ -107,18 +107,18 @@ struct SoftwareUpdatePackagingTests {
         #expect(source.contains("CFBundleVersion"))
     }
 
-    @Test("Published appcast advertises the signed 0.2.1 release before packaging")
+    @Test("Stable appcast advertises the signed 0.2.2 release")
     func stableAppcastContract() throws {
         let source = try String(
             contentsOf: Self.projectRoot.appending(path: "appcast.xml"),
             encoding: .utf8
         )
 
-        #expect(source.contains("<sparkle:version>5</sparkle:version>"))
-        #expect(source.contains("<sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>"))
+        #expect(source.contains("<sparkle:version>6</sparkle:version>"))
+        #expect(source.contains("<sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>"))
         #expect(source.contains("sparkle:edSignature="))
         #expect(source.contains("length="))
-        #expect(source.contains("releases/download/v0.2.1/AI-Token-Meter-0.2.1-macOS-arm64.zip"))
+        #expect(source.contains("releases/download/v0.2.2/AI-Token-Meter-0.2.2-macOS-arm64.zip"))
         #expect(source.contains("<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>"))
     }
 
