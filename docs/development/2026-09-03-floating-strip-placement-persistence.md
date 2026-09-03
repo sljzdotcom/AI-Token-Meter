@@ -19,7 +19,7 @@
 - 一次短暂的显示器枚举缺失因此永久覆盖用户位置；
 - 没有命中保存目标时，面板当前所在屏幕也可能影响选择，从而产生主副屏漂移。
 
-Windows 已使用系统显示器稳定标识和原子 JSON 设置保存 `edge`、`meterVerticalPerMille`、`meterMonitorId`；其目标屏缺失分支不会写回配置，本次用合同测试锁定语义。
+Windows 已用原子 JSON 设置保存 `edge`、`meterVerticalPerMille`、`meterMonitorId`，但旧实现把会重编号的运行时显示器名称或几何信息写入 `meterMonitorId`，也没有运行中拓扑监听；目标屏缺失分支原本不会写回配置，本次保留并用合同测试锁定该语义。
 
 ## 实现与关键决定
 
@@ -49,6 +49,8 @@ Windows 已使用系统显示器稳定标识和原子 JSON 设置保存 `edge`�
 
 首轮独立审查没有 Critical，但发现三项 Important：macOS Settings 改边未绑定当前屏；Windows 缺少运行中拓扑监听；Windows 旧名称不是稳定物理身份。三项均以失败先行测试复现，并按上述策略修复。计划中的组合测试筛选也改为逐测试类型执行，避免命令示例因显示名称不匹配而实际漏测。
 
+二次审查又识别三个瞬时失败边界并阻止了过早合并：设备接口短暂不可用时保存的 `runtime:` 哈希现在会作为迁移别名，接口恢复后可升级为 `device:`；旧标识迁移先持久化候选副本，失败时保留旧内存配置且不阻断启动；拓扑监听初始枚举失败会继续轮询，定位失败前不提交新 topology，下一轮仍会重试。测试同时覆盖非主目标屏、主屏角色变化和工作区变化。
+
 ## 测试驱动证据
 
 失败先行测试先要求尚不存在的稳定身份解析、迁移入口和位置持久化策略，确认旧实现无法满足新契约。随后用最小实现转绿，并补充两个边界：
@@ -59,9 +61,9 @@ Windows 已使用系统显示器稳定标识和原子 JSON 设置保存 `edge`�
 阶段验证：
 
 - macOS 位置相关 4 个测试组、31 项测试通过；
-- Windows monitor 合同 7 项测试通过；
+- Windows monitor 合同 9 项测试通过；
 - macOS 完整 374 项主测试与 12 项独立 PTY 测试通过，共 386 项、72 个测试组；
-- Windows 完整 118 项 Rust 测试、严格 Clippy/rustfmt、14 项前端测试和 production 前端构建通过；
+- Windows 完整 122 项 Rust 测试、严格 Clippy/rustfmt、14 项前端测试和 production 前端构建通过；
 - 4 份跨平台 fixture、Release feed probe、132 份 Markdown 与公开发布安全门禁通过；
 - Release App 已在不含 Widget 的可移植分发模式下完成资源、Sparkle 嵌套组件与签名结构验证；二次独立代码审查和双平台 CI 结果在本日志收尾时补充。
 

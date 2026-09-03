@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 pub struct MonitorIdentity {
     pub stable_id: String,
     pub legacy_id: Option<String>,
+    pub runtime_id: Option<String>,
     pub is_primary: bool,
 }
 
@@ -12,6 +13,7 @@ impl MonitorIdentity {
         Self {
             stable_id: stable_id.into(),
             legacy_id: None,
+            runtime_id: None,
             is_primary,
         }
     }
@@ -21,15 +23,19 @@ impl MonitorIdentity {
         legacy_id: impl Into<String>,
         is_primary: bool,
     ) -> Self {
+        let legacy_id = legacy_id.into();
         Self {
             stable_id: stable_id.into(),
-            legacy_id: Some(legacy_id.into()),
+            runtime_id: stable_runtime_identifier(&legacy_id),
+            legacy_id: Some(legacy_id),
             is_primary,
         }
     }
 
     fn matches(&self, identifier: &str) -> bool {
-        self.stable_id == identifier || self.legacy_id.as_deref() == Some(identifier)
+        self.stable_id == identifier
+            || self.legacy_id.as_deref() == Some(identifier)
+            || self.runtime_id.as_deref() == Some(identifier)
     }
 }
 
@@ -130,13 +136,15 @@ impl MonitorTopologyTracker {
         Self { previous: initial }
     }
 
-    pub fn update(&mut self, mut current: Vec<MonitorTopology>) -> bool {
+    pub fn has_changed(&self, current: &[MonitorTopology]) -> bool {
+        let mut current = current.to_vec();
         current.sort();
-        if self.previous == current {
-            return false;
-        }
+        self.previous != current
+    }
+
+    pub fn commit(&mut self, mut current: Vec<MonitorTopology>) {
+        current.sort();
         self.previous = current;
-        true
     }
 }
 
@@ -167,12 +175,11 @@ mod tests {
     fn missing_saved_monitor_temporarily_falls_back_to_primary() {
         let monitors = monitors();
 
-        let selected = choose_monitor(&monitors, Some("disconnected-display"));
+        let resolution = super::resolve_monitor(&monitors, Some("disconnected-display"))
+            .expect("primary fallback");
 
-        assert_eq!(
-            selected.map(|monitor| monitor.stable_id.as_str()),
-            Some("primary-display")
-        );
+        assert_eq!(resolution.selected.stable_id.as_str(), "primary-display");
+        assert_eq!(resolution.migrated_identifier, None);
     }
 
     #[test]
@@ -214,6 +221,27 @@ mod tests {
     }
 
     #[test]
+    fn hashed_runtime_fallback_migrates_when_physical_identity_becomes_available() {
+        let runtime_name = "\\\\.\\DISPLAY2";
+        let monitors = vec![
+            MonitorIdentity::with_legacy_id("device:primary-hash", "\\\\.\\DISPLAY1", true),
+            MonitorIdentity::with_legacy_id("device:stable-hash", runtime_name, false),
+        ];
+        let saved_runtime_id =
+            super::stable_runtime_identifier(runtime_name).expect("runtime identity");
+
+        let resolution = super::resolve_monitor(&monitors, Some(&saved_runtime_id))
+            .expect("runtime fallback should still resolve after Win32 recovery");
+
+        assert_eq!(resolution.selected.stable_id, "device:stable-hash");
+        assert!(!resolution.selected.is_primary);
+        assert_eq!(
+            resolution.migrated_identifier.as_deref(),
+            Some("device:stable-hash")
+        );
+    }
+
+    #[test]
     fn physical_identifier_is_normalized_hashed_and_never_exposes_the_device_path() {
         let raw = r"\\?\DISPLAY#DEL40A9#5&1234&0&UID4357#{identifier}";
 
@@ -244,8 +272,33 @@ mod tests {
 
         let mut tracker = super::MonitorTopologyTracker::new(dual.clone());
 
-        assert!(tracker.update(single));
-        assert!(tracker.update(dual.clone()));
-        assert!(!tracker.update(dual));
+        assert!(tracker.has_changed(&single));
+        assert!(tracker.has_changed(&single));
+        tracker.commit(single.clone());
+        assert!(!tracker.has_changed(&single));
+        assert!(tracker.has_changed(&dual));
+        tracker.commit(dual.clone());
+        assert!(!tracker.has_changed(&dual));
+    }
+
+    #[test]
+    fn primary_role_and_work_area_changes_trigger_runtime_repositioning() {
+        let original = vec![
+            super::MonitorTopology::new("device:first", true, 0, 0, 1920, 1040),
+            super::MonitorTopology::new("device:second", false, 1920, 0, 2560, 1400),
+        ];
+        let primary_swapped = vec![
+            super::MonitorTopology::new("device:first", false, 0, 0, 1920, 1040),
+            super::MonitorTopology::new("device:second", true, 1920, 0, 2560, 1400),
+        ];
+        let work_area_changed = vec![
+            super::MonitorTopology::new("device:first", false, 0, 0, 1920, 1040),
+            super::MonitorTopology::new("device:second", true, 1920, 0, 2560, 1360),
+        ];
+        let mut tracker = super::MonitorTopologyTracker::new(original);
+
+        assert!(tracker.has_changed(&primary_swapped));
+        tracker.commit(primary_swapped);
+        assert!(tracker.has_changed(&work_area_changed));
     }
 }

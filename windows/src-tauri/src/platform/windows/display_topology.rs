@@ -8,17 +8,17 @@ pub fn start_monitoring(app: tauri::AppHandle) {
         else {
             return;
         };
-        let Ok(initial) = super::window_controller::monitor_topology(&meter) else {
-            return;
-        };
-        let mut tracker = super::monitor::MonitorTopologyTracker::new(initial);
+        let mut tracker: Option<super::monitor::MonitorTopologyTracker> = None;
 
         loop {
             std::thread::sleep(Duration::from_millis(750));
             let Ok(current) = super::window_controller::monitor_topology(&meter) else {
                 continue;
             };
-            if !tracker.update(current) {
+            if tracker
+                .as_ref()
+                .is_some_and(|tracker| !tracker.has_changed(&current))
+            {
                 continue;
             }
             let state = app.state::<crate::RuntimeState>();
@@ -29,8 +29,13 @@ pub fn start_monitoring(app: tauri::AppHandle) {
                 normalized_y,
                 preferred_monitor_id.as_deref(),
             ) {
-                let _ = state
+                state
                     .migrate_meter_monitor_id(preferred_monitor_id.as_deref(), migrated_identifier);
+                if let Some(tracker) = tracker.as_mut() {
+                    tracker.commit(current);
+                } else {
+                    tracker = Some(super::monitor::MonitorTopologyTracker::new(current));
+                }
             }
         }
     });
