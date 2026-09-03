@@ -5,7 +5,7 @@
 **版本：** `0.2.0`（build `4`）
 
 **日期：** 2026-09-02
-**状态：** 已完成并公开发布；v0.2.1 补丁链路复验通过
+**状态：** 已完成并公开发布；v0.2.2 真实公开升级终验通过
 
 ## 交付范围
 
@@ -79,6 +79,15 @@
 - `v0.2.1`（build 5）继续使用同一固定公钥和手动更新策略，修复 PTY 高负载稳定性；GitHub 最终 CI 33655946917 通过。
 - 公开下载 ZIP 为 3,467,098 字节，SHA-256 `39334e1ea706e121c30d5cc85720142ff336b0cd696c8eb544336caa7c8724a0`；重新下载后校验一致，包内版本为 `0.2.1 (5)`。
 - 隔离 `0.2.0 (4)` 测试副本从正式 GitHub appcast 发现 `0.2.1`，About 正确启用 `Update Now`；最终原位替换与重启结果记录在 v0.2.1 收尾提交中。
+
+## v0.2.2 公开升级终验
+
+- `v0.2.2`（build 6）修复从 Settings 发起更新时 Sparkle 安装状态窗口被遮挡的问题，公开 Release 与最终 CI 均已完成。
+- 正式 ZIP 为 3,469,343 字节，SHA-256 `9d7c38b2f9420ac7814bfb15493d1391215f5bfaf95689e4e9245af152f241d9`；公开重新下载、包内 `0.2.2 (6)`、严格深层签名、EdDSA enclosure 和篡改拒绝全部通过。
+- 真实验收从 `/private/tmp` 中的隔离 `0.2.1 (5)` 开始，Settings → About 保持打开；应用从正式 GitHub appcast 发现 `0.2.2`。
+- 点击 `Update Now` 后 Settings 自动让位；点击 `Install Update` 并下载完成后，`Ready to Install / Install and Relaunch` 自动位于前台，不需要再从 Window 菜单找回。
+- 点击 `Install and Relaunch` 后完成原位替换和自动重启；升级后主二进制 SHA-256 `120cf2cac468f624a5e7f1e5503c8acbabd3202fd79630077963873aee65aac1` 与公开 Release 完全一致。
+- 完整窗口、发布与验收证据见 [Sparkle 安装状态窗口置前与 v0.2.2 真实升级验收](2026-09-03-update-status-window-frontmost.md)。
 
 ## 已处理故障
 

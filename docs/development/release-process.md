@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前发布候选为 `0.2.2`、build `6`；最近稳定 tag 为 `v0.2.1`。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到新的版本资产、appcast、签名验证和 CI 一并完成。
+当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`。该版本的 ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到下一版本资产、appcast、签名验证和 CI 一并完成。
 
 ## 发布前检查清单
 

@@ -61,4 +61,4 @@
 
 `v0.2.2` 的同一提交先通过 PR CI，但随后 `main` CI `33701394513` 在独立 PTY 测试进程中再次报告 32 路并发输出缺失。重新审计发现，产品 `PTYCommandRunner` 并未出现新的退出或读取错误；问题来自测试 fixture 在每个交互 Shell 中用 `printf | tr` 清理一行输入。32 路测试因此会额外短时派生 64 个子进程，GitHub runner 资源紧张时其中一条 fixture 可异常退出，而旧断言只检查正文、没有检查退出码，表现得像 PTY 丢失输出。
 
-补充修复保持产品代码不变：fixture 直接使用终端规范模式下 `read` 得到的行，不再启动清理管道；并发测试同时断言 32 个 `CommandResult` 都以退出码 0 完成，再检查固定身份输出。修复后聚焦 PTY suite 11/11 通过，并发用例在本机连续 200 轮通过。远端 PR 与 `main` 的最终 CI 证据将在发布完成后回填。
+补充修复保持产品代码不变：fixture 直接使用终端规范模式下 `read` 得到的行，不再启动清理管道；并发测试同时断言 32 个 `CommandResult` 都以退出码 0 完成，再检查固定身份输出。修复后聚焦 PTY suite 11/11 通过，并发用例在本机连续 200 轮通过；[PR CI 33702291460](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702291460) 与 [最终 main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) 均通过。修复提交 `c11da0a` 是 `v0.2.2` 标签目标。

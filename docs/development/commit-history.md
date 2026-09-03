@@ -4,13 +4,13 @@
 
 ## 当前版本边界
 
-- App Bundle 版本：`0.2.1`（build `5`）。
+- App Bundle 版本：`0.2.2`（build `6`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 最新 Git tag：`v0.2.1`；发布提交、公开 CI 与 Release 资产证据见本页 `v0.2.1` 节、[应用内更新日志](2026-09-02-github-app-update.md)和[PTY 稳定性日志](2026-09-03-ci-pty-exit-race.md)。
-- `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离。两个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
+- 最新 Git tag：`v0.2.2`；发布提交、公开 CI 与 Release 资产证据见本页 `v0.2.2` 节、[应用内更新日志](2026-09-02-github-app-update.md)、[PTY 稳定性日志](2026-09-03-ci-pty-exit-race.md)和[窗口置前终验](2026-09-03-update-status-window-frontmost.md)。
+- `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
 
@@ -46,6 +46,7 @@
 | 公开 CI 兼容与稳定性 | `84e81f2`–`616ce76` | 跨 Swift/Xcode 工具链兼容、PTY 输出排空、确定性异步测试及非阻塞进程退出；331 项测试和公开 CI 通过 |
 | v0.2.0 签名应用内更新 | `8937d29`–`407c2f7` | 手动检查/安装状态、Sparkle 2.9.4 适配、完整嵌入签名、发布资产/appcast 与隔离真实自更新验收 |
 | v0.2.1 PTY 稳定性补丁 | `d6cbe76`–`cc30859` | 串行化 PTY 分配、加固退出确认与尾部排空、隔离系统资源测试，并发布可由 0.2.0 发现的签名补丁 |
+| v0.2.2 更新窗口与 CI 稳定性补丁 | `4092d1f`–`c11da0a` | Settings 自动让位、Sparkle 安装窗口置前、事件驱动详情超时测试、无进程扇出的 PTY fixture、签名发布与真实公开升级终验 |
 
 ## 2026-08-28
 
@@ -352,6 +353,16 @@
 | `a627f0b` | test | 将 11 项 PTY 系统资源测试与 350 项普通测试分进程执行；公开 CI 33654906546 通过 |
 | `7177530` | release | 准备 v0.2.1（build 5）版本、Changelog、README 和发布说明 |
 | `cc30859` | release | 固化 v0.2.1 appcast、EdDSA enclosure、归档哈希与打包契约；公开 CI 33655946917 通过 |
+
+### v0.2.2 更新窗口与 CI 稳定性补丁
+
+| 提交 | 类型 | 变更 |
+| --- | --- | --- |
+| `4092d1f` | docs | 记录 Sparkle 安装状态窗口被 Settings 遮挡的根因和窗口让位设计 |
+| `6057b3e` | fix | 只隐藏 SwiftUI Settings 并激活应用，让 Sparkle 标准安装交互自动置前 |
+| `2317aa9`、`4460dab` | release | 准备并固化 v0.2.2（build 6）版本、appcast、EdDSA enclosure 与发布资产 |
+| `f14f14a` | test | 用可控睡眠器和事件驱动等待替代详情自动隐藏测试的固定墙钟假设 |
+| `c11da0a` | test | 移除 32 路 PTY fixture 的额外进程扇出，并显式验证所有子命令退出码；作为 `v0.2.2` 标签目标，最终 CI 33702415007 通过 |
 
 ## 维护方式
 

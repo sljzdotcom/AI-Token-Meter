@@ -35,9 +35,9 @@
 ### 任务 3：0.2.2 发布与真实验收
 
 - [x] 将主应用和 Widget 版本升级为 `0.2.2 (6)`，同步 README、CHANGELOG、发布说明和测试期望。
-- [ ] 运行 `scripts/test.sh`、文档检查、公开安全检查和正式更新打包；验证 ZIP、SHA-256、EdDSA 和篡改拒绝。
-- [ ] 推送分支并确认公开 CI，通过审查后快进合入 `main`。
-- [ ] 创建并推送 `v0.2.2`，发布 ZIP 与 SHA-256，不修改 `v0.2.1`。
-- [ ] 从 GitHub 重新下载资产并核验 SHA-256、`0.2.2 (6)` 与严格签名。
-- [ ] 启动隔离 `0.2.1`，保持 Settings 打开，执行 `Check for Updates`、`Update Now`、`Install Update`、`Install and Relaunch`；确认状态窗口自动置前、原位升级与自动重启。
-- [ ] 对比升级后二进制与正式 Release 哈希；更新需求台账、开发日志和提交历史，重新运行文档/安全门禁并提交收尾证据。
+- [x] 运行 `scripts/test.sh`、文档检查、公开安全检查和正式更新打包；验证 ZIP、SHA-256、EdDSA 和篡改拒绝。
+- [x] 推送分支并确认公开 CI，通过审查后快进合入 `main`。
+- [x] 创建并推送 `v0.2.2`，发布 ZIP 与 SHA-256，不修改 `v0.2.1`。
+- [x] 从 GitHub 重新下载资产并核验 SHA-256、`0.2.2 (6)` 与严格签名。
+- [x] 启动隔离 `0.2.1`，保持 Settings 打开，执行 `Check for Updates`、`Update Now`、`Install Update`、`Install and Relaunch`；确认状态窗口自动置前、原位升级与自动重启。
+- [x] 对比升级后二进制与正式 Release 哈希；更新需求台账、开发日志和提交历史，重新运行文档/安全门禁并提交收尾证据。

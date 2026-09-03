@@ -33,11 +33,11 @@
 | REQ-20260902-016 | 服务发现 | 修复 M4 Max 上 OpenAI Codex 显示 `CLI not installed`；区分 CLI 确实缺失与 GUI App 启动环境找不到用户安装路径，并提供可操作恢复入口 | 高 | 待用户确认 | 2026-09-02 | 安装 `0.1.2` 后在 M4 Max 完整退出/重开并点击 Check Status，确认 nvm `0.148.0` 的账户、额度和详情恢复 | [设计规格](design/specifications/2026-09-02-codex-cli-discovery-design.md)、[实施计划](design/implementation-plans/2026-09-02-codex-cli-discovery.md)、[开发与交付记录](development/2026-09-02-codex-cli-discovery.md)、`6fe2382`、`d7b4467`、`55b5251`、ZIP SHA-256 `a2c76017…d143f` |
 | REQ-20260902-017 | 公开发布 | 将项目安全发布到用户 GitHub 账户：建立公开仓库，补齐标准开源文档和产品截图，提供可下载 Release，确保源码、历史和产物不含个人 Key，并在 About 中标注作者 Miller | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-public-github-release-design.md)、[实施计划](design/implementation-plans/2026-09-02-public-github-release.md)、[发布日志](development/2026-09-02-public-github-release.md)、[v0.1.2 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.1.2)、[最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33642220151)、`24ab4a5` |
 | REQ-20260902-018 | 发布缺陷 | 修复 GitHub Actions 在 macOS 15 runner 上编译 Claude 本机活动 token 数组时的 Swift 类型推断失败，恢复公开仓库 CI | 高 | 已完成 | 2026-09-02 | 无 | [首次失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33634543141)、[中间成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637095658)、[复验失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33637436534)、[最终成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33638241625)、`616ce76` |
-| REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 待用户确认 | 2026-09-02 | 隔离 0.2.0 已从正式 GitHub appcast 发现 0.2.1；等待用户动作时确认后点击 Update Now，验收原位替换和重启 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) · [实施计划](design/implementation-plans/2026-09-02-github-app-update.md) · [开发与验收记录](development/2026-09-02-github-app-update.md) · [`v0.2.1` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.1) |
+| REQ-20260902-019 | 应用更新 | 在 Settings 增加“检查更新”和“立即更新”；从 GitHub 发现高于当前版本的新 Release 后，可安全自动下载、校验、替换应用并重新启动 | 高 | 已完成 | 2026-09-02 | 无 | [设计规格](design/specifications/2026-09-02-github-app-update-design.md) · [实施计划](design/implementation-plans/2026-09-02-github-app-update.md) · [开发与验收记录](development/2026-09-02-github-app-update.md) · [v0.2.2 窗口终验](development/2026-09-03-update-status-window-frontmost.md) · [`v0.2.2` Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) |
 | REQ-20260902-020 | 运行稳定性 | 修复 macOS 并发分配 PTY 时 `openpty` 偶发失败，导致并发 CLI 命令误报 `transportFailure` 和发布回归不稳定 | 高 | 已完成 | 2026-09-02 | 无 | [PTY 分配竞态日志](development/2026-09-03-pty-allocation-race.md) · `d6cbe76` · 361 项测试 · [最终 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33655946917) |
-| REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 进行中 | 2026-09-03 | v0.2.2 main CI 再现 32 路并发输出缺失；重新审计读取/退出同步并加入可诊断断言，连续远端通过后再关闭 | [原开发记录](development/2026-09-03-ci-pty-exit-race.md) · [复发 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33701394513) · `9f50b78` · `a627f0b` |
-| REQ-20260903-002 | 更新交互缺陷 | 下载完成后的 Sparkle “Install and Relaunch”窗口被 Settings 遮挡，导致界面看似长期停在 Preparing；安装流程窗口应自动置前 | 高 | 进行中 | 2026-09-03 | 采用推荐方案：进入 Sparkle 安装交互前让 Settings 让位并激活应用；保留标准双确认、EdDSA 与错误回调，以先失败测试约束窗口选择策略 | 真实 0.2.0 → 0.2.1 已证明 EdDSA 通过；Window 菜单手动置前后安装、替换、重启、签名和哈希全部通过 |
-| REQ-20260903-003 | 测试稳定性 | 修复 GitHub Actions 高负载下详情自动隐藏测试依赖固定 50ms 等待、偶发尚未收到异步超时回调而失败的问题 | 高 | 进行中 | 2026-09-03 | 用事件驱动等待替代固定墙钟假设，保留实际自动隐藏行为与超时取消覆盖；修复后重新通过 PR/main CI 再发布 0.2.2 | [失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33700918921) |
+| REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 已完成 | 2026-09-03 | 无 | [开发记录](development/2026-09-03-ci-pty-exit-race.md) · `c11da0a` · [PR CI 33702291460](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702291460) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
+| REQ-20260903-002 | 更新交互缺陷 | 下载完成后的 Sparkle “Install and Relaunch”窗口被 Settings 遮挡，导致界面看似长期停在 Preparing；安装流程窗口应自动置前 | 高 | 已完成 | 2026-09-03 | 无 | [设计规格](design/specifications/2026-09-03-update-status-window-frontmost-design.md) · [实施计划](design/implementation-plans/2026-09-03-update-status-window-frontmost.md) · [真实升级终验](development/2026-09-03-update-status-window-frontmost.md) · `6057b3e` · [`v0.2.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) |
+| REQ-20260903-003 | 测试稳定性 | 修复 GitHub Actions 高负载下详情自动隐藏测试依赖固定 50ms 等待、偶发尚未收到异步超时回调而失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | `f14f14a` · [失败 CI 33700918921](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33700918921) · [PR CI 33701250078](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33701250078) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
 
 ## 分类索引
 
@@ -91,6 +91,8 @@
 - `REQ-20260902-019`：Settings 内检查 GitHub 新版本并安全自动下载安装。
 - `REQ-20260902-020`：串行化 macOS PTY 分配，消除并发 CLI 采集的瞬时 `openpty` 失败。
 - `REQ-20260903-001`：消除 GitHub macOS runner 高负载下 PTY 退出与尾部读取竞态。
+- `REQ-20260903-002`：让 Sparkle 安装状态窗口从 Settings 启动时自动置前。
+- `REQ-20260903-003`：移除详情自动隐藏回归测试中的固定墙钟假设。
 
 ## 状态变更记录
 
@@ -172,3 +174,7 @@
 | 2026-09-03 | REQ-20260903-002 | 新建 → 进行中 | 用户授权真实安装后，界面停在 Preparing；系统化诊断确认 EdDSA 已通过、代码签名差异日志不是阻断，真正等待的是被 Settings 遮挡的 Ready to Install 窗口。手动置前并点击后，0.2.1 原位替换与重启通过。 |
 | 2026-09-03 | REQ-20260903-003 | 新建 → 进行中 | v0.2.2 同一提交的 PR CI 已通过，但 main CI 中 `The active provider is cleared when its timeout expires` 在固定等待后仍看到 DeepSeek；进入时序证据与事件驱动测试修复。 |
 | 2026-09-03 | REQ-20260903-001 | 已完成 → 进行中 | v0.2.2 的第二次 main CI 在独立 PTY 进程中再现并发输出缺失；原结论过早，发布暂停并重新进入系统化调试。 |
+| 2026-09-03 | REQ-20260903-003 | 进行中 → 已完成 | 改用可控睡眠器和事件驱动等待；聚焦测试连续 30 轮、本机完整回归、PR CI 33701250078 和最终 main CI 33702415007 均通过。 |
+| 2026-09-03 | REQ-20260903-001 | 进行中 → 已完成 | 确认复发来自 PTY 测试 fixture 的 64 个额外子进程扇出；改用 Shell 内建读取并断言退出码后，本机并发用例连续 200 轮、PR CI 33702291460 与 main CI 33702415007 均通过。 |
+| 2026-09-03 | REQ-20260903-002 | 进行中 → 已完成 | v0.2.2 从 Settings 启动时自动隐藏 Settings 并激活 Sparkle；隔离 0.2.1 从公开 appcast 下载、置前、原位替换和自动重启通过，落盘版本、签名及二进制哈希与公开 Release 一致。 |
+| 2026-09-03 | REQ-20260902-019 | 待用户确认 → 已完成 | 用户授权真实安装；公开 v0.2.2 EdDSA 更新在隔离 0.2.1 上完成检查、下载、双确认、原位替换与自动重启，应用内更新端到端闭环成立。 |
