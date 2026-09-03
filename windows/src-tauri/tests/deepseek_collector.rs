@@ -5,10 +5,12 @@ use std::thread;
 use std::time::Duration;
 
 use ai_token_meter_windows::accounts::deepseek::DeepSeekAccountService;
+use ai_token_meter_windows::collectors::CollectionError;
 use ai_token_meter_windows::collectors::deepseek::{
     DeepSeekBalanceClient, DeepSeekClientError, DeepSeekCollector,
 };
 use ai_token_meter_windows::domain::{ProviderId, UsageSnapshot, UsageStatus};
+use ai_token_meter_windows::platform::windows::process::CancellationToken;
 use ai_token_meter_windows::security::{
     CredentialAccount, CredentialStore, CredentialStoreError, SecretString,
 };
@@ -30,6 +32,26 @@ async fn missing_key_returns_setup_required_without_calling_the_network() {
     assert_eq!(snapshot.provider_id, ProviderId::DeepSeek);
     assert_eq!(snapshot.status, UsageStatus::SetupRequired);
     assert_eq!(snapshot.used_ratio, None);
+}
+
+#[tokio::test]
+async fn cancelled_balance_refresh_stops_before_reading_credentials_or_network() {
+    let store = Arc::new(FakeCredentialStore::new(Some("stored-test-key")));
+    let client = DeepSeekBalanceClient::for_endpoint(
+        "http://127.0.0.1:9/user/balance",
+        Duration::from_secs(10),
+        16 * 1024,
+    )
+    .expect("test endpoint");
+    let collector = DeepSeekCollector::new(store, client, 100.0);
+    let cancellation = Arc::new(CancellationToken::new());
+    cancellation.cancel();
+
+    let result = collector
+        .collect_with_cancellation(None, FETCHED_AT, cancellation)
+        .await;
+
+    assert_eq!(result, Err(CollectionError::Cancelled));
 }
 
 #[tokio::test]

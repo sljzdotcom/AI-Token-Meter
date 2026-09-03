@@ -30,6 +30,29 @@ type SettingsWindowProps = {
   onBeginServiceSignIn?: (providerId: "claude" | "codex") => void
   onReplaceDeepSeekKey?: () => Promise<boolean> | boolean | void
   serviceMessage?: string | null
+  cliSettings?: Record<"claude" | "codex", ProviderCliSettings>
+  onCliSettingsChange?: (providerId: "claude" | "codex", value: ProviderCliSettings) => void
+  wslDistributions?: string[]
+  refreshIntervalSeconds?: number
+  onRefreshIntervalSecondsChange?: (seconds: number) => void
+  deepseekBalanceBaselineCents?: number
+  onDeepSeekBalanceBaselineCentsChange?: (cents: number) => void
+  notificationsEnabled?: boolean
+  onNotificationsEnabledChange?: (enabled: boolean) => void
+  launchAtLogin?: boolean
+  onLaunchAtLoginChange?: (enabled: boolean) => void
+}
+
+export type ProviderCliSettings = {
+  mode: "auto" | "nativeWindows" | "wsl"
+  customPath: string | null
+  wslDistribution: string | null
+}
+
+const defaultCliSettings: ProviderCliSettings = {
+  mode: "auto",
+  customPath: null,
+  wslDistribution: null,
 }
 
 export type ServiceAccountStatus = {
@@ -71,6 +94,17 @@ export function SettingsWindow({
   onBeginServiceSignIn = () => {},
   onReplaceDeepSeekKey = () => {},
   serviceMessage,
+  cliSettings = { claude: defaultCliSettings, codex: defaultCliSettings },
+  onCliSettingsChange = () => {},
+  wslDistributions = [],
+  refreshIntervalSeconds = 300,
+  onRefreshIntervalSecondsChange = () => {},
+  deepseekBalanceBaselineCents = 10_000,
+  onDeepSeekBalanceBaselineCentsChange = () => {},
+  notificationsEnabled = false,
+  onNotificationsEnabledChange = () => {},
+  launchAtLogin = false,
+  onLaunchAtLoginChange = () => {},
 }: SettingsWindowProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Appearance")
   useEffect(() => {
@@ -109,16 +143,55 @@ export function SettingsWindow({
           </>
         ) : null}
         {activeTab === "Monitoring" ? (
-          <SettingRow label="Detail auto-hide" hint="Interaction pauses the countdown.">
-            <input
-              aria-label="Detail auto-hide seconds"
-              max="300"
-              min="1"
-              onChange={(event) => onDetailAutoHideSecondsChange(Number(event.target.value))}
-              type="number"
-              value={detailAutoHideSeconds}
-            /> seconds
-          </SettingRow>
+          <>
+            <SettingRow label="Refresh interval" hint="Scheduled refreshes never overlap; a manual refresh replaces an older task.">
+              <input
+                aria-label="Refresh interval seconds"
+                max="86400"
+                min="30"
+                onChange={(event) => onRefreshIntervalSecondsChange(Number(event.target.value))}
+                type="number"
+                value={refreshIntervalSeconds}
+              /> seconds
+            </SettingRow>
+            <SettingRow label="DeepSeek balance baseline" hint="The DeepSeek ring shows the amount consumed from this reference balance.">
+              ¥ <input
+                aria-label="DeepSeek balance baseline"
+                max="1000000"
+                min="1"
+                onChange={(event) => onDeepSeekBalanceBaselineCentsChange(Math.round(Number(event.target.value) * 100))}
+                step="0.01"
+                type="number"
+                value={deepseekBalanceBaselineCents / 100}
+              />
+            </SettingRow>
+            <SettingRow label="Usage alerts" hint="Notify once at 70% and again at 90%; dropping below 10% re-arms the alerts.">
+              <input
+                aria-label="Usage alerts at 70% and 90%"
+                checked={notificationsEnabled}
+                onChange={(event) => onNotificationsEnabledChange(event.target.checked)}
+                type="checkbox"
+              />
+            </SettingRow>
+            <SettingRow label="Launch at login" hint="Start the meter after you sign in to Windows.">
+              <input
+                aria-label="Open AI Token Meter at login"
+                checked={launchAtLogin}
+                onChange={(event) => onLaunchAtLoginChange(event.target.checked)}
+                type="checkbox"
+              />
+            </SettingRow>
+            <SettingRow label="Detail auto-hide" hint="Interaction pauses the countdown.">
+              <input
+                aria-label="Detail auto-hide seconds"
+                max="300"
+                min="1"
+                onChange={(event) => onDetailAutoHideSecondsChange(Number(event.target.value))}
+                type="number"
+                value={detailAutoHideSeconds}
+              /> seconds
+            </SettingRow>
+          </>
         ) : null}
         {activeTab === "Services" ? (
           <div className="service-list">
@@ -127,6 +200,12 @@ export function SettingsWindow({
               const status = statusFor(serviceStatuses, providerId)
               return (
                 <Service key={providerId} name={name} status={status}>
+                  <CliRuntimeControls
+                    name={name}
+                    onChange={(value) => onCliSettingsChange(providerId, value)}
+                    value={cliSettings[providerId]}
+                    wslDistributions={wslDistributions}
+                  />
                   <button
                     aria-label={`${status.connectionState === "connected" ? "Sign in again to" : "Sign in to"} ${name}`}
                     disabled={status.connectionState === "notInstalled" || status.connectionState === "checking"}
@@ -182,6 +261,56 @@ export function SettingsWindow({
         ) : null}
       </div>
     </section>
+  )
+}
+
+function CliRuntimeControls({
+  name,
+  onChange,
+  value,
+  wslDistributions,
+}: {
+  name: string
+  onChange: (value: ProviderCliSettings) => void
+  value: ProviderCliSettings
+  wslDistributions: string[]
+}) {
+  return (
+    <div className="cli-runtime-controls">
+      <select
+        aria-label={`${name} runtime`}
+        onChange={(event) => {
+          const mode = event.target.value as ProviderCliSettings["mode"]
+          onChange({ ...value, mode, wslDistribution: mode === "wsl" ? value.wslDistribution : null })
+        }}
+        value={value.mode}
+      >
+        <option value="auto">Automatic</option>
+        <option value="nativeWindows">Native Windows</option>
+        <option value="wsl">WSL</option>
+      </select>
+      {value.mode === "wsl" ? (
+        <select
+          aria-label={`${name} WSL distribution`}
+          onChange={(event) => onChange({ ...value, wslDistribution: event.target.value || null })}
+          value={value.wslDistribution ?? ""}
+        >
+          <option value="">Choose distribution</option>
+          {wslDistributions.map((distribution) => (
+            <option key={distribution} value={distribution}>{distribution}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          aria-label={`${name} custom CLI path`}
+          key={`${name}-${value.customPath ?? "automatic"}`}
+          defaultValue={value.customPath ?? ""}
+          onBlur={(event) => onChange({ ...value, customPath: event.target.value || null })}
+          placeholder="Optional custom CLI path"
+          type="text"
+        />
+      )}
+    </div>
   )
 }
 

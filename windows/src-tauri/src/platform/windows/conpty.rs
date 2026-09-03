@@ -16,6 +16,7 @@ pub enum ConPtyError {
     ReadFailed,
     TimedOut,
     OutputLimitExceeded,
+    Cancelled,
 }
 
 pub struct ConPty {
@@ -107,13 +108,28 @@ impl ConPty {
         timeout: std::time::Duration,
         max_output_bytes: usize,
     ) -> Result<String, ConPtyError> {
+        self.read_until_with_cancellation(
+            patterns,
+            timeout,
+            max_output_bytes,
+            &super::process::CancellationToken::new(),
+        )
+    }
+
+    pub fn read_until_with_cancellation(
+        &mut self,
+        patterns: &[&str],
+        timeout: std::time::Duration,
+        max_output_bytes: usize,
+        cancellation: &super::process::CancellationToken,
+    ) -> Result<String, ConPtyError> {
         #[cfg(windows)]
         {
-            self.read_until_windows(patterns, timeout, max_output_bytes)
+            self.read_until_windows(patterns, timeout, max_output_bytes, cancellation)
         }
         #[cfg(not(windows))]
         {
-            let _ = (patterns, timeout, max_output_bytes);
+            let _ = (patterns, timeout, max_output_bytes, cancellation);
             Err(ConPtyError::UnsupportedPlatform)
         }
     }
@@ -341,6 +357,7 @@ impl ConPty {
         patterns: &[&str],
         timeout: std::time::Duration,
         max_output_bytes: usize,
+        cancellation: &super::process::CancellationToken,
     ) -> Result<String, ConPtyError> {
         use std::thread;
         use std::time::{Duration, Instant};
@@ -351,6 +368,9 @@ impl ConPty {
         let mut output = Vec::new();
         let mut answered_cursor_queries = 0;
         loop {
+            if cancellation.is_cancelled() {
+                return Err(ConPtyError::Cancelled);
+            }
             if Instant::now() >= deadline {
                 return Err(ConPtyError::TimedOut);
             }

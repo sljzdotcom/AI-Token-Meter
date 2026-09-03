@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -17,7 +18,7 @@ use crate::domain::{
 
 use super::CollectionError;
 use crate::platform::windows::process::{
-    CommandInvocation, ProcessJob, configure_restricted_command,
+    CancellationToken, CommandInvocation, ProcessJob, configure_restricted_command,
 };
 
 const STALE_AFTER_SECONDS: u64 = 300;
@@ -30,20 +31,42 @@ pub fn collect_rate_limits_from_invocation(
     fetched_at: &str,
     timeout: Duration,
 ) -> Result<UsageSnapshot, CollectionError> {
-    with_initialized_session(invocation, working_directory, timeout, |input, receiver| {
-        write_request(
-            input,
-            serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
-        )?;
-        let account = receive_response(receiver, 2, timeout)?;
-        parse_account_response(&account, 2)?;
-        write_request(
-            input,
-            serde_json::json!({ "id": 3, "method": "account/rateLimits/read", "params": null }),
-        )?;
-        let limits = receive_response(receiver, 3, timeout)?;
-        parse_rate_limits_response(&limits, 3, fetched_at)
-    })
+    collect_rate_limits_from_invocation_with_cancellation(
+        invocation,
+        working_directory,
+        fetched_at,
+        timeout,
+        Arc::new(CancellationToken::new()),
+    )
+}
+
+pub fn collect_rate_limits_from_invocation_with_cancellation(
+    invocation: &CommandInvocation,
+    working_directory: Option<&Path>,
+    fetched_at: &str,
+    timeout: Duration,
+    cancellation: Arc<CancellationToken>,
+) -> Result<UsageSnapshot, CollectionError> {
+    with_initialized_session(
+        invocation,
+        working_directory,
+        timeout,
+        cancellation,
+        |input, receiver, cancellation| {
+            write_request(
+                input,
+                serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
+            )?;
+            let account = receive_response_with_cancellation(receiver, 2, timeout, cancellation)?;
+            parse_account_response(&account, 2)?;
+            write_request(
+                input,
+                serde_json::json!({ "id": 3, "method": "account/rateLimits/read", "params": null }),
+            )?;
+            let limits = receive_response_with_cancellation(receiver, 3, timeout, cancellation)?;
+            parse_rate_limits_response(&limits, 3, fetched_at)
+        },
+    )
 }
 
 pub fn collect_account_status_from_invocation(
@@ -52,24 +75,32 @@ pub fn collect_account_status_from_invocation(
     checked_at: &str,
     timeout: Duration,
 ) -> Result<ServiceAccountStatus, CollectionError> {
-    with_initialized_session(invocation, working_directory, timeout, |input, receiver| {
-        write_request(
-            input,
-            serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
-        )?;
-        let account = receive_response(receiver, 2, timeout)?;
-        parse_codex_account_status(&account, 2, checked_at)
-            .map_err(|_| CollectionError::InvalidResponse)
-    })
+    with_initialized_session(
+        invocation,
+        working_directory,
+        timeout,
+        Arc::new(CancellationToken::new()),
+        |input, receiver, cancellation| {
+            write_request(
+                input,
+                serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
+            )?;
+            let account = receive_response_with_cancellation(receiver, 2, timeout, cancellation)?;
+            parse_codex_account_status(&account, 2, checked_at)
+                .map_err(|_| CollectionError::InvalidResponse)
+        },
+    )
 }
 
 fn with_initialized_session<T>(
     invocation: &CommandInvocation,
     working_directory: Option<&Path>,
     timeout: Duration,
+    cancellation: Arc<CancellationToken>,
     operation: impl FnOnce(
         &mut std::process::ChildStdin,
         &Receiver<Result<Vec<u8>, ()>>,
+        &CancellationToken,
     ) -> Result<T, CollectionError>,
 ) -> Result<T, CollectionError> {
     let mut command = Command::new(&invocation.executable);
@@ -123,9 +154,9 @@ fn with_initialized_session<T>(
                 }
             }),
         )?;
-        let _ = receive_response(&receiver, 1, timeout)?;
+        let _ = receive_response_with_cancellation(&receiver, 1, timeout, &cancellation)?;
         write_request(&mut input, serde_json::json!({ "method": "initialized" }))?;
-        operation(&mut input, &receiver)
+        operation(&mut input, &receiver, &cancellation)
     })();
 
     drop(input);
@@ -143,23 +174,31 @@ fn write_request(input: &mut impl Write, value: Value) -> Result<(), CollectionE
         .map_err(|_| CollectionError::Transport)
 }
 
-fn receive_response(
+fn receive_response_with_cancellation(
     receiver: &Receiver<Result<Vec<u8>, ()>>,
     expected_id: u64,
     timeout: Duration,
+    cancellation: &CancellationToken,
 ) -> Result<String, CollectionError> {
     let deadline = Instant::now() + timeout;
-    for _ in 0..MAX_RESPONSE_LINES {
+    let mut response_lines = 0;
+    while response_lines < MAX_RESPONSE_LINES {
+        if cancellation.is_cancelled() {
+            return Err(CollectionError::Cancelled);
+        }
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
             return Err(CollectionError::TimedOut);
         }
-        let bytes = match receiver.recv_timeout(remaining) {
-            Ok(Ok(bytes)) => bytes,
+        let bytes = match receiver.recv_timeout(remaining.min(Duration::from_millis(20))) {
+            Ok(Ok(bytes)) => {
+                response_lines += 1;
+                bytes
+            }
             Ok(Err(())) | Err(RecvTimeoutError::Disconnected) => {
                 return Err(CollectionError::Transport);
             }
-            Err(RecvTimeoutError::Timeout) => return Err(CollectionError::TimedOut),
+            Err(RecvTimeoutError::Timeout) => continue,
         };
         let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
             continue;
@@ -329,4 +368,26 @@ struct ResetCreditEntry {
     status: String,
     #[serde(default)]
     expires_at: Option<i64>,
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+
+    #[test]
+    fn waiting_for_an_app_server_response_honours_cancellation() {
+        let (_sender, receiver) = mpsc::sync_channel(1);
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+
+        assert_eq!(
+            receive_response_with_cancellation(
+                &receiver,
+                1,
+                Duration::from_secs(10),
+                &cancellation,
+            ),
+            Err(CollectionError::Cancelled),
+        );
+    }
 }

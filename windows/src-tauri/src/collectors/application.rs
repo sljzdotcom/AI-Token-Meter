@@ -10,6 +10,7 @@ use time::format_description::well_known::Rfc3339;
 use crate::RuntimeState;
 use crate::accounts::cli_account::CliProvider;
 use crate::domain::{ProviderId, UsageSnapshot, UsageStatus};
+use crate::persistence::{AppSettings, CliRuntimeMode, ProviderCliSettings};
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
 use crate::platform::windows::environment::DiscoveryInputs;
 use crate::platform::windows::executable_locator::{ExecutableCandidate, ExecutableLocator};
@@ -19,10 +20,10 @@ use crate::platform::windows::process::{
 use crate::platform::windows::wsl::build_wsl_list_invocation;
 
 use super::CollectionError;
-use super::claude::collect_usage_from_candidate as collect_claude;
-use super::claude_activity::read_claude_activity;
-use super::codex::collect_usage_from_candidate as collect_codex;
-use super::codex_activity::read_codex_activity;
+use super::claude::collect_usage_from_candidate_with_cancellation as collect_claude;
+use super::claude_activity::read_claude_activity_with_cancellation;
+use super::codex::collect_usage_from_candidate_with_cancellation as collect_codex;
+use super::codex_activity::read_codex_activity_with_cancellation;
 use super::deepseek::{DeepSeekBalanceClient, DeepSeekCollector};
 use super::refresh::{ProviderRefreshRequest, RefreshPriority, RefreshResult};
 
@@ -50,11 +51,12 @@ pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
     let state = app.state::<RuntimeState>();
     let runtime = Arc::clone(&state.usage);
     let coordinator = Arc::clone(&state.refresh_coordinator);
+    let settings = state.app_settings_snapshot();
     let app = app.clone();
 
     std::thread::spawn(move || {
         let generations = Arc::new(Mutex::new(HashMap::new()));
-        let requests = build_requests(&runtime)
+        let requests = build_requests(&runtime, &settings)
             .into_iter()
             .map(|request| {
                 let provider = request.provider();
@@ -91,18 +93,39 @@ pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
                 RefreshResult::AlreadyRefreshing | RefreshResult::Cancelled => false,
             };
             if applied {
-                let _ = app.emit("snapshot-updated", runtime.snapshot(provider));
+                let snapshot = runtime.snapshot(provider);
+                show_threshold_notification(&app, &snapshot);
+                let _ = app.emit("snapshot-updated", snapshot);
             }
         }
     });
 }
 
-fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<ProviderRefreshRequest> {
+fn show_threshold_notification(app: &AppHandle, snapshot: &UsageSnapshot) {
+    use tauri_plugin_notification::NotificationExt;
+
+    let state = app.state::<RuntimeState>();
+    let Some((level, metric)) = state.threshold_notice(snapshot) else {
+        return;
+    };
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("{} usage reached {level}%", snapshot.display_name))
+        .body(format!("{metric} is now at or above {level}%."))
+        .show();
+}
+
+fn build_requests(
+    runtime: &Arc<crate::persistence::UsageRuntime>,
+    settings: &AppSettings,
+) -> Vec<ProviderRefreshRequest> {
     let working_directory = user_profile().unwrap_or_else(std::env::temp_dir);
-    let claude = locate(CliProvider::Claude);
-    let codex = locate(CliProvider::Codex);
+    let claude = locate(CliProvider::Claude, &settings.claude_cli);
+    let codex = locate(CliProvider::Codex, &settings.codex_cli);
     let credentials = Arc::new(WindowsCredentialManager::new());
     let deepseek_client = DeepSeekBalanceClient::new().ok();
+    let deepseek_balance_baseline = settings.deepseek_balance_baseline_cents as f64 / 100.0;
 
     let claude_request = ProviderRefreshRequest::new(ProviderId::Claude, move |cancellation| {
         let Some(candidate) = claude.as_ref() else {
@@ -116,8 +139,13 @@ fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<Provid
             return Err(CollectionError::Cancelled);
         }
         let fetched_at = now_rfc3339();
-        let mut snapshot = collect_claude(candidate, &working_directory, &fetched_at)?;
-        attach_claude_activity(&mut snapshot, &candidate.source);
+        let mut snapshot = collect_claude(
+            candidate,
+            &working_directory,
+            &fetched_at,
+            Arc::clone(&cancellation),
+        )?;
+        attach_claude_activity(&mut snapshot, &candidate.source, &cancellation)?;
         if cancellation.is_cancelled() {
             Err(CollectionError::Cancelled)
         } else {
@@ -137,8 +165,13 @@ fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<Provid
             return Err(CollectionError::Cancelled);
         }
         let fetched_at = now_rfc3339();
-        let mut snapshot = collect_codex(candidate, user_profile().as_deref(), &fetched_at)?;
-        attach_codex_activity(&mut snapshot, &candidate.source);
+        let mut snapshot = collect_codex(
+            candidate,
+            user_profile().as_deref(),
+            &fetched_at,
+            Arc::clone(&cancellation),
+        )?;
+        attach_codex_activity(&mut snapshot, &candidate.source, &cancellation)?;
         if cancellation.is_cancelled() {
             Err(CollectionError::Cancelled)
         } else {
@@ -154,21 +187,29 @@ fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<Provid
         if cancellation.is_cancelled() {
             return Err(CollectionError::Cancelled);
         }
-        let collector = DeepSeekCollector::new(Arc::clone(&credentials), client, 100.0);
-        let snapshot =
-            tauri::async_runtime::block_on(collector.collect(Some(&cached), &now_rfc3339()));
-        if cancellation.is_cancelled() {
-            Err(CollectionError::Cancelled)
-        } else {
-            Ok(snapshot)
-        }
+        let collector =
+            DeepSeekCollector::new(Arc::clone(&credentials), client, deepseek_balance_baseline);
+        tauri::async_runtime::block_on(collector.collect_with_cancellation(
+            Some(&cached),
+            &now_rfc3339(),
+            cancellation,
+        ))
     });
 
     vec![claude_request, codex_request, deepseek_request]
 }
 
-pub(crate) fn locate(provider: CliProvider) -> Option<ExecutableCandidate> {
-    let inputs = DiscoveryInputs::capture(None);
+pub(crate) fn locate(
+    provider: CliProvider,
+    configuration: &ProviderCliSettings,
+) -> Option<ExecutableCandidate> {
+    let custom_path = configuration
+        .custom_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    let inputs = DiscoveryInputs::capture(custom_path);
     let wsl_output = inputs
         .system_root
         .as_deref()
@@ -185,11 +226,23 @@ pub(crate) fn locate(provider: CliProvider) -> Option<ExecutableCandidate> {
                 .ok()
                 .map(|output| output.stdout)
         });
-    ExecutableLocator::new(inputs).locate_with_wsl_output(
-        provider,
-        wsl_output.as_deref().map(str::as_bytes),
-        |candidate| candidate_is_healthy(candidate, provider),
-    )
+    let locator = ExecutableLocator::new(inputs);
+    match configuration.mode {
+        CliRuntimeMode::Auto => locator.locate_with_wsl_output(
+            provider,
+            wsl_output.as_deref().map(str::as_bytes),
+            |candidate| candidate_is_healthy(candidate, provider),
+        ),
+        CliRuntimeMode::NativeWindows => locator.locate(provider, |candidate| {
+            candidate_is_healthy(candidate, provider)
+        }),
+        CliRuntimeMode::Wsl => locator.locate_wsl_with_output(
+            provider,
+            wsl_output.as_deref()?.as_bytes(),
+            configuration.wsl_distribution.as_deref(),
+            |candidate| candidate_is_healthy(candidate, provider),
+        ),
+    }
 }
 
 fn candidate_is_healthy(candidate: &ExecutableCandidate, provider: CliProvider) -> bool {
@@ -207,31 +260,48 @@ fn candidate_is_healthy(candidate: &ExecutableCandidate, provider: CliProvider) 
 fn attach_claude_activity(
     snapshot: &mut UsageSnapshot,
     source: &crate::platform::windows::executable_locator::RuntimeSource,
-) {
+    cancellation: &crate::platform::windows::process::CancellationToken,
+) -> Result<(), CollectionError> {
     if !source.may_read_windows_profile() {
         snapshot.local_activity = None;
-        return;
+        return Ok(());
     }
     let Some(root) = user_profile().map(|path| path.join(".claude")) else {
-        return;
+        return Ok(());
     };
     let (start, end) = activity_window();
-    snapshot.local_activity = read_claude_activity(&root.join("projects"), start, end).ok();
+    match read_claude_activity_with_cancellation(&root.join("projects"), start, end, cancellation) {
+        Ok(activity) => snapshot.local_activity = Some(activity),
+        Err(super::ActivityError::Cancelled) => return Err(CollectionError::Cancelled),
+        Err(_) => snapshot.local_activity = None,
+    }
+    Ok(())
 }
 
 fn attach_codex_activity(
     snapshot: &mut UsageSnapshot,
     source: &crate::platform::windows::executable_locator::RuntimeSource,
-) {
+    cancellation: &crate::platform::windows::process::CancellationToken,
+) -> Result<(), CollectionError> {
     if !source.may_read_windows_profile() {
         snapshot.local_activity = None;
-        return;
+        return Ok(());
     }
     let Some(root) = user_profile().map(|path| path.join(".codex")) else {
-        return;
+        return Ok(());
     };
     let (start, end) = activity_window();
-    snapshot.local_activity = read_codex_activity(&root.join("state_5.sqlite"), start, end).ok();
+    match read_codex_activity_with_cancellation(
+        &root.join("state_5.sqlite"),
+        start,
+        end,
+        cancellation,
+    ) {
+        Ok(activity) => snapshot.local_activity = Some(activity),
+        Err(super::ActivityError::Cancelled) => return Err(CollectionError::Cancelled),
+        Err(_) => snapshot.local_activity = None,
+    }
+    Ok(())
 }
 
 fn activity_window() -> (i64, i64) {

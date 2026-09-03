@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use ai_token_meter_windows::domain::{ProviderId, UsageSnapshot};
 use ai_token_meter_windows::persistence::{
-    AppSettings, AppStoragePaths, AtomicJsonStore, SnapshotCache,
+    AppSettings, AppStoragePaths, AtomicJsonStore, CliRuntimeMode, ProviderCliSettings,
+    SnapshotCache,
 };
 use serde::ser::{Error as _, Serialize, Serializer};
 use tempfile::tempdir;
@@ -18,6 +19,7 @@ fn settings_round_trip_atomically() {
         refresh_interval_seconds: 420,
         detail_auto_hide_seconds: 12,
         display_font: "Antonio".to_owned(),
+        ..AppSettings::default()
     };
 
     AtomicJsonStore::write(&path, &settings).expect("write settings");
@@ -47,6 +49,62 @@ fn settings_accept_only_supported_fonts_and_safe_auto_hide_intervals() {
     assert!(settings.set_detail_auto_hide_seconds(0).is_err());
     assert!(settings.set_detail_auto_hide_seconds(301).is_err());
     assert_eq!(settings.detail_auto_hide_seconds, 30);
+
+    settings
+        .set_refresh_interval_seconds(120)
+        .expect("safe refresh interval");
+    assert_eq!(settings.refresh_interval_seconds, 120);
+    assert!(settings.set_refresh_interval_seconds(10).is_err());
+
+    settings
+        .set_deepseek_balance_baseline_cents(25_050)
+        .expect("safe balance baseline");
+    assert_eq!(settings.deepseek_balance_baseline_cents, 25_050);
+    assert!(settings.set_deepseek_balance_baseline_cents(0).is_err());
+
+    settings.notifications_enabled = true;
+    settings.launch_at_login = true;
+    assert!(settings.notifications_enabled);
+    assert!(settings.launch_at_login);
+}
+
+#[test]
+fn cli_runtime_settings_are_provider_scoped_and_validate_untrusted_text() {
+    let mut settings = AppSettings::default();
+    let configuration = ProviderCliSettings {
+        mode: CliRuntimeMode::Wsl,
+        custom_path: None,
+        wsl_distribution: Some("Ubuntu-24.04".to_owned()),
+    };
+
+    settings
+        .set_cli_settings(ProviderId::Codex, configuration.clone())
+        .expect("valid WSL selection");
+    assert_eq!(
+        settings.cli_settings(ProviderId::Codex),
+        Some(&configuration)
+    );
+    assert_eq!(
+        settings.cli_settings(ProviderId::Claude),
+        Some(&ProviderCliSettings::default())
+    );
+    assert!(
+        settings
+            .set_cli_settings(ProviderId::DeepSeek, configuration)
+            .is_err()
+    );
+    assert!(
+        settings
+            .set_cli_settings(
+                ProviderId::Claude,
+                ProviderCliSettings {
+                    mode: CliRuntimeMode::NativeWindows,
+                    custom_path: Some("C:\\tools\\claude.exe\nunsafe".to_owned()),
+                    wsl_distribution: None,
+                },
+            )
+            .is_err()
+    );
 }
 
 #[test]

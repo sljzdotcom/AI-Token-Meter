@@ -188,6 +188,43 @@ fn wsl_is_only_considered_after_native_candidates_and_uses_structured_list_argum
 }
 
 #[test]
+fn an_explicit_wsl_distribution_never_falls_back_to_another_distribution() {
+    let fixture = LocatorFixture::new();
+    let system_root = fixture.root().join("Windows");
+    fixture.file("Windows/System32/wsl.exe", "wsl fixture");
+    let distributions = "Ubuntu\r\nDebian Test\r\n";
+    let locator = ExecutableLocator::new(DiscoveryInputs {
+        system_root: Some(system_root),
+        ..fixture.inputs()
+    });
+
+    let selected = locator
+        .locate_wsl_with_output(
+            CliProvider::Claude,
+            distributions.as_bytes(),
+            Some("Debian Test"),
+            |_| true,
+        )
+        .expect("selected WSL candidate");
+    assert_eq!(
+        selected.source,
+        RuntimeSource::Wsl {
+            distribution: "Debian Test".to_owned(),
+        }
+    );
+    assert!(
+        locator
+            .locate_wsl_with_output(
+                CliProvider::Claude,
+                distributions.as_bytes(),
+                Some("Missing"),
+                |_| true,
+            )
+            .is_none()
+    );
+}
+
+#[test]
 fn auxiliary_fixture_documents_the_stable_candidate_order() {
     let value: serde_json::Value = serde_json::from_str(include_str!(
         "../../../contracts/fixtures/auxiliary/windows-cli-locations.json"

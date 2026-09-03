@@ -405,3 +405,13 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - DeepSeek Key 输入从 React password field、WebView state 和字符串 IPC 全部移除。Settings 只发出无参数动作，Rust 打开 `CredUIPromptForCredentialsW` 保护输入框并设置 `DO_NOT_PERSIST`；宽字符缓冲与 `SecretString` 均自动零化，验证成功后才写入 Credential Manager，前端只收到掩码后的状态；
 - Stable 与 Preview 更新源正式拆开。Preview 只生成 Release 内的 `preview-appcast.xml`，不会修改仓库根稳定 appcast；Windows Preview 构建读取固定 `windows-preview-feed/latest-preview.json`，该 feed 只在目标 Release 资产公开后更新。稳定版仍读取 GitHub `releases/latest`，并在发布时把 Preview feed 推进到同一稳定版，使 Preview 用户可以回到稳定通道；
 - tagged Release 的 macOS 与 Windows job 都执行跨平台版本合同，阻止用 workflow 输入把旧版本二进制重命名成新版本。新增 Swift 发布门禁、Rust 来源测试、前端无 Key 测试与静态安全合同；当前修正仍须 `windows-latest` 编译原生 Credential UI 后才可关闭。
+
+### Windows runner 复验与 Important 项
+
+- Windows CI [33732500779](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33732500779) 在提交 `92cf73c` 上全绿：原生 Credential UI、WSL/Windows 活动隔离、前端、Rust、严格 Clippy、完整 NSIS 均通过，三项发布阻断关闭；
+- 详情窗口关闭后会向 meter 发出 `detail-closed`，前端同步清空选中 Provider；下一次单击可一次重新打开。详情尺寸按当前显示器工作区与缩放比例钳制，不再固定为可能超出小屏/高 DPI 工作区的 440×760；
+- Claude Code 与 OpenAI Codex 各自保存 Auto、Native Windows、WSL 和自定义 CLI 路径；显式 WSL 发行版不存在时不会静默切到另一个发行版。账户检查、登录动作与实际额度采集共用同一配置；
+- 手动刷新替换旧任务时，取消信号现在下传到 Claude 认证进程与 ConPTY、Codex app-server/Job Object、DeepSeek HTTP future、Claude JSONL 和 Codex SQLite 活动扫描；旧进程不能继续占用资源或回写快照；
+- CLI 自动发现每种来源最多检查 128 个目录，WSL 最多检查 64 个发行版；Node shebang 只读文件头 256 bytes，不再把任意大脚本完整读入内存；
+- Windows Monitoring 现已接通刷新周期、DeepSeek 余额基准、70%/90% 去重提醒和登录时启动。阈值降到 10% 以下会重新布防；启动项只写当前用户 `HKCU\\...\\Run`，不要求管理员权限；
+- 本机已通过 12 项前端测试、TypeScript/Vite production build、详情/持久化/CLI/活动/取消定向 Rust 测试与全目标零警告 Clippy。Windows 专属通知、注册表、ConPTY 取消及完整 Tauri/NSIS 仍等待下一次 `windows-latest` 复验，不能以 macOS 编译替代。

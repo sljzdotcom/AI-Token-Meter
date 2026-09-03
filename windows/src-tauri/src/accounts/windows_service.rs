@@ -9,6 +9,7 @@ use crate::accounts::service_status::{
 use crate::collectors::application::locate;
 use crate::collectors::codex_app_server::collect_account_status_from_invocation;
 use crate::domain::ProviderId;
+use crate::persistence::{AppSettings, ProviderCliSettings};
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
 use crate::platform::windows::process::{
     BoundedProcessRunner, ProcessRequest, command_for_candidate,
@@ -19,14 +20,16 @@ use super::claude::claude_login_command;
 use super::cli_account::CliProvider;
 use super::codex::codex_login_command;
 
-pub async fn read_all(checked_at: &str) -> Vec<ServiceAccountStatus> {
+pub async fn read_all(checked_at: &str, settings: AppSettings) -> Vec<ServiceAccountStatus> {
     let claude_checked_at = checked_at.to_owned();
     let codex_checked_at = checked_at.to_owned();
+    let claude_settings = settings.claude_cli;
+    let codex_settings = settings.codex_cli;
     let claude = tauri::async_runtime::spawn_blocking(move || {
-        read_cli_status(CliProvider::Claude, &claude_checked_at)
+        read_cli_status(CliProvider::Claude, &claude_settings, &claude_checked_at)
     });
     let codex = tauri::async_runtime::spawn_blocking(move || {
-        read_cli_status(CliProvider::Codex, &codex_checked_at)
+        read_cli_status(CliProvider::Codex, &codex_settings, &codex_checked_at)
     });
     let deepseek = read_deepseek_status(checked_at).await;
     vec![
@@ -40,20 +43,26 @@ pub async fn read_all(checked_at: &str) -> Vec<ServiceAccountStatus> {
     ]
 }
 
-pub async fn read_one(provider: ProviderId, checked_at: &str) -> ServiceAccountStatus {
+pub async fn read_one(
+    provider: ProviderId,
+    checked_at: &str,
+    settings: AppSettings,
+) -> ServiceAccountStatus {
     match provider {
         ProviderId::Claude => {
             let checked_at = checked_at.to_owned();
+            let configuration = settings.claude_cli;
             tauri::async_runtime::spawn_blocking(move || {
-                read_cli_status(CliProvider::Claude, &checked_at)
+                read_cli_status(CliProvider::Claude, &configuration, &checked_at)
             })
             .await
             .unwrap_or_else(|_| ServiceAccountStatus::unavailable(provider, &now_rfc3339()))
         }
         ProviderId::Codex => {
             let checked_at = checked_at.to_owned();
+            let configuration = settings.codex_cli;
             tauri::async_runtime::spawn_blocking(move || {
-                read_cli_status(CliProvider::Codex, &checked_at)
+                read_cli_status(CliProvider::Codex, &configuration, &checked_at)
             })
             .await
             .unwrap_or_else(|_| ServiceAccountStatus::unavailable(provider, &now_rfc3339()))
@@ -62,10 +71,13 @@ pub async fn read_one(provider: ProviderId, checked_at: &str) -> ServiceAccountS
     }
 }
 
-pub fn launch_login(provider: CliProvider) -> Result<(), &'static str> {
+pub fn launch_login(
+    provider: CliProvider,
+    configuration: &ProviderCliSettings,
+) -> Result<(), &'static str> {
     use std::os::windows::process::CommandExt;
 
-    let candidate = locate(provider).ok_or("CLI is not installed")?;
+    let candidate = locate(provider, configuration).ok_or("CLI is not installed")?;
     let invocation = match provider {
         CliProvider::Claude => claude_login_command(&candidate),
         CliProvider::Codex => codex_login_command(&candidate),
@@ -84,12 +96,16 @@ pub fn launch_login(provider: CliProvider) -> Result<(), &'static str> {
         .map_err(|_| "The sign-in window could not be opened")
 }
 
-fn read_cli_status(provider: CliProvider, checked_at: &str) -> ServiceAccountStatus {
+fn read_cli_status(
+    provider: CliProvider,
+    configuration: &ProviderCliSettings,
+    checked_at: &str,
+) -> ServiceAccountStatus {
     let provider_id = match provider {
         CliProvider::Claude => ProviderId::Claude,
         CliProvider::Codex => ProviderId::Codex,
     };
-    let Some(candidate) = locate(provider) else {
+    let Some(candidate) = locate(provider, configuration) else {
         return ServiceAccountStatus::not_installed(provider_id, checked_at);
     };
     let version = cli_version(&candidate, provider);

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::accounts::cli_account::CliProvider;
@@ -42,6 +43,10 @@ pub struct ExecutableLocator {
     inputs: DiscoveryInputs,
 }
 
+const MAX_DIRECTORIES_PER_SOURCE: usize = 128;
+const MAX_WSL_DISTRIBUTIONS: usize = 64;
+const SHEBANG_READ_LIMIT: u64 = 256;
+
 impl ExecutableLocator {
     pub fn new(inputs: DiscoveryInputs) -> Self {
         Self { inputs }
@@ -71,9 +76,34 @@ impl ExecutableLocator {
             return Some(candidate);
         }
 
-        let output = distribution_output?;
+        self.locate_wsl_with_output(provider, distribution_output?, None, health_check)
+    }
+
+    pub fn locate_wsl_with_output<F>(
+        &self,
+        _provider: CliProvider,
+        distribution_output: &[u8],
+        preferred_distribution: Option<&str>,
+        mut health_check: F,
+    ) -> Option<ExecutableCandidate>
+    where
+        F: FnMut(&ExecutableCandidate) -> bool,
+    {
         let executable = build_wsl_list_invocation(self.inputs.system_root.as_ref()?)?.executable;
-        for distribution in decode_distribution_list(output) {
+        let mut distributions = decode_distribution_list(distribution_output);
+        if let Some(preferred) = preferred_distribution
+            && let Some(index) = distributions
+                .iter()
+                .position(|distribution| distribution == preferred)
+        {
+            let selected = distributions.remove(index);
+            distributions.insert(0, selected);
+        }
+        if preferred_distribution.is_some() {
+            distributions
+                .retain(|distribution| Some(distribution.as_str()) == preferred_distribution);
+        }
+        for distribution in distributions.into_iter().take(MAX_WSL_DISTRIBUTIONS) {
             let candidate = ExecutableCandidate {
                 executable: executable.clone(),
                 launcher: None,
@@ -192,7 +222,7 @@ fn append_directory_candidates(
     provider: CliProvider,
     origin: CandidateOrigin,
 ) {
-    for directory in directories {
+    for directory in directories.iter().take(MAX_DIRECTORIES_PER_SOURCE) {
         for name in provider.executable_names() {
             output.push((directory.join(name), origin));
         }
@@ -210,9 +240,17 @@ fn name_matches(path: &Path, provider: CliProvider) -> bool {
 }
 
 fn has_env_node_shebang(path: &Path) -> bool {
-    let Ok(bytes) = fs::read(path) else {
+    let Ok(file) = File::open(path) else {
         return false;
     };
+    let mut bytes = Vec::with_capacity(SHEBANG_READ_LIMIT as usize);
+    if file
+        .take(SHEBANG_READ_LIMIT)
+        .read_to_end(&mut bytes)
+        .is_err()
+    {
+        return false;
+    }
     let first_line = bytes
         .split(|byte| *byte == b'\n')
         .next()

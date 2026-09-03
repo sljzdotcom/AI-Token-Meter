@@ -25,4 +25,5 @@ pub enum ActivityError {
     Unavailable,
     InvalidData,
     ReadFailure,
+    Cancelled,
 }

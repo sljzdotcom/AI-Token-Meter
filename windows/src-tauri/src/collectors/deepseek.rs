@@ -10,7 +10,10 @@ use serde::Deserialize;
 use crate::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot, UsageStatus,
 };
+use crate::platform::windows::process::CancellationToken;
 use crate::security::{CredentialAccount, CredentialStore, SecretString};
+
+use super::CollectionError;
 
 const OFFICIAL_ENDPOINT: &str = "https://api.deepseek.com/user/balance";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -155,6 +158,25 @@ where
             }
             Err(_) => cached_or_unavailable(cached, fetched_at, "refresh unavailable"),
         }
+    }
+
+    pub async fn collect_with_cancellation(
+        &self,
+        cached: Option<&UsageSnapshot>,
+        fetched_at: &str,
+        cancellation: Arc<CancellationToken>,
+    ) -> Result<UsageSnapshot, CollectionError> {
+        tokio::select! {
+            biased;
+            _ = wait_for_cancellation(&cancellation) => Err(CollectionError::Cancelled),
+            snapshot = self.collect(cached, fetched_at) => Ok(snapshot),
+        }
+    }
+}
+
+async fn wait_for_cancellation(cancellation: &CancellationToken) {
+    while !cancellation.is_cancelled() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 

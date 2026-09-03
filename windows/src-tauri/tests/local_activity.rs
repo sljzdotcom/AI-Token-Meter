@@ -1,7 +1,13 @@
 use std::fs;
 
-use ai_token_meter_windows::collectors::claude_activity::read_claude_activity;
-use ai_token_meter_windows::collectors::codex_activity::read_codex_activity;
+use ai_token_meter_windows::collectors::ActivityError;
+use ai_token_meter_windows::collectors::claude_activity::{
+    read_claude_activity, read_claude_activity_with_cancellation,
+};
+use ai_token_meter_windows::collectors::codex_activity::{
+    read_codex_activity, read_codex_activity_with_cancellation,
+};
+use ai_token_meter_windows::platform::windows::process::CancellationToken;
 use rusqlite::Connection;
 
 #[test]
@@ -33,6 +39,31 @@ fn claude_activity_reads_only_allowlisted_usage_fields() {
     assert_eq!(summary.tokens, 110);
     assert_eq!(summary.active_days, 1);
     assert_eq!(summary.longest_session_seconds, Some(5_400));
+}
+
+#[test]
+fn local_activity_scans_stop_before_touching_storage_when_cancelled() {
+    let cancellation = CancellationToken::new();
+    cancellation.cancel();
+
+    assert_eq!(
+        read_claude_activity_with_cancellation(
+            std::path::Path::new("missing-claude-directory"),
+            1,
+            2,
+            &cancellation,
+        ),
+        Err(ActivityError::Cancelled),
+    );
+    assert_eq!(
+        read_codex_activity_with_cancellation(
+            std::path::Path::new("missing-codex-database"),
+            1,
+            2,
+            &cancellation,
+        ),
+        Err(ActivityError::Cancelled),
+    );
 }
 
 #[test]

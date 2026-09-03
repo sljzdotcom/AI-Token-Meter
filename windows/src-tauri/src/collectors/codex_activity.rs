@@ -6,6 +6,7 @@ use rusqlite::{Connection, OpenFlags, params};
 use time::OffsetDateTime;
 
 use crate::domain::LocalActivity;
+use crate::platform::windows::process::CancellationToken;
 
 use super::ActivityError;
 
@@ -14,6 +15,23 @@ pub fn read_codex_activity(
     window_start_epoch: i64,
     window_end_epoch: i64,
 ) -> Result<LocalActivity, ActivityError> {
+    read_codex_activity_with_cancellation(
+        database,
+        window_start_epoch,
+        window_end_epoch,
+        &CancellationToken::new(),
+    )
+}
+
+pub fn read_codex_activity_with_cancellation(
+    database: &Path,
+    window_start_epoch: i64,
+    window_end_epoch: i64,
+    cancellation: &CancellationToken,
+) -> Result<LocalActivity, ActivityError> {
+    if cancellation.is_cancelled() {
+        return Err(ActivityError::Cancelled);
+    }
     if window_end_epoch <= window_start_epoch || !database.is_file() {
         return Err(ActivityError::Unavailable);
     }
@@ -46,6 +64,9 @@ pub fn read_codex_activity(
     let mut active_days = HashSet::new();
     let mut longest = None;
     for row in rows {
+        if cancellation.is_cancelled() {
+            return Err(ActivityError::Cancelled);
+        }
         let (row_tokens, created_at, updated_at) = row.map_err(|_| ActivityError::ReadFailure)?;
         if row_tokens < 0 {
             continue;

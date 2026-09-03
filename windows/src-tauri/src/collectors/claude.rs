@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::accounts::cli_account::CliProvider;
@@ -10,7 +11,8 @@ use crate::platform::windows::conpty::{ConPty, ConPtyError, ConPtySize};
 use crate::platform::windows::executable_locator::ExecutableCandidate;
 use crate::platform::windows::process::normalize_output;
 use crate::platform::windows::process::{
-    BoundedProcessRunner, ProcessRequest, command_for_candidate, restricted_environment_for,
+    BoundedProcessRunner, CancellationToken, ProcessErrorKind, ProcessRequest,
+    command_for_candidate, restricted_environment_for,
 };
 
 use super::CollectionError;
@@ -22,7 +24,21 @@ pub fn collect_usage_from_candidate(
     working_directory: &Path,
     fetched_at: &str,
 ) -> Result<UsageSnapshot, CollectionError> {
-    verify_authentication(candidate, working_directory)?;
+    collect_usage_from_candidate_with_cancellation(
+        candidate,
+        working_directory,
+        fetched_at,
+        Arc::new(CancellationToken::new()),
+    )
+}
+
+pub fn collect_usage_from_candidate_with_cancellation(
+    candidate: &ExecutableCandidate,
+    working_directory: &Path,
+    fetched_at: &str,
+    cancellation: Arc<CancellationToken>,
+) -> Result<UsageSnapshot, CollectionError> {
+    verify_authentication(candidate, working_directory, Arc::clone(&cancellation))?;
     let command = command_for_candidate(
         candidate,
         CliProvider::Claude,
@@ -40,7 +56,7 @@ pub fn collect_usage_from_candidate(
         .map_err(map_terminal_error)?;
 
     let initial = terminal
-        .read_until(
+        .read_until_with_cancellation(
             &[
                 "Claude",
                 "Permission Required",
@@ -49,6 +65,7 @@ pub fn collect_usage_from_candidate(
             ],
             Duration::from_secs(8),
             64 * 1024,
+            &cancellation,
         )
         .map_err(map_terminal_error)?;
     detect_blocking_prompt(&initial)?;
@@ -56,7 +73,7 @@ pub fn collect_usage_from_candidate(
         .send_fixed_input(b"/usage\r")
         .map_err(map_terminal_error)?;
     let first = terminal
-        .read_until(
+        .read_until_with_cancellation(
             &[
                 "Current week",
                 "All models",
@@ -66,6 +83,7 @@ pub fn collect_usage_from_candidate(
             ],
             Duration::from_secs(12),
             64 * 1024,
+            &cancellation,
         )
         .map_err(map_terminal_error)?;
     let mut combined = initial;
@@ -77,10 +95,11 @@ pub fn collect_usage_from_candidate(
         return Ok(snapshot);
     }
     let tail = terminal
-        .read_until(
+        .read_until_with_cancellation(
             &["Resets", "重置", "Permission Required", "Not logged in"],
             Duration::from_secs(8),
             64 * 1024,
+            &cancellation,
         )
         .map_err(map_terminal_error)?;
     combined.push_str(&tail);
@@ -92,15 +111,21 @@ pub fn collect_usage_from_candidate(
 fn verify_authentication(
     candidate: &ExecutableCandidate,
     working_directory: &Path,
+    cancellation: Arc<CancellationToken>,
 ) -> Result<(), CollectionError> {
     let invocation = command_for_candidate(candidate, CliProvider::Claude, &["auth", "status"])
         .map_err(|_| CollectionError::Transport)?;
     let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
     request.working_directory = Some(working_directory.to_owned());
     request.timeout = Duration::from_secs(5);
+    request.cancellation = cancellation;
     let output = BoundedProcessRunner
         .run(request)
-        .map_err(|_| CollectionError::Transport)?;
+        .map_err(|error| match error.kind() {
+            ProcessErrorKind::Cancelled => CollectionError::Cancelled,
+            ProcessErrorKind::TimedOut => CollectionError::TimedOut,
+            _ => CollectionError::Transport,
+        })?;
     detect_blocking_prompt(&format!("{}\n{}", output.stdout, output.stderr))?;
     if output.exit_code != Some(0) {
         return Err(CollectionError::Transport);
@@ -126,6 +151,7 @@ fn detect_blocking_prompt(output: &str) -> Result<(), CollectionError> {
 fn map_terminal_error(error: ConPtyError) -> CollectionError {
     match error {
         ConPtyError::TimedOut => CollectionError::TimedOut,
+        ConPtyError::Cancelled => CollectionError::Cancelled,
         _ => CollectionError::Transport,
     }
 }

@@ -22,6 +22,22 @@ impl PhysicalSize {
     }
 }
 
+pub fn fitted_detail_size(work_area: PhysicalRect, desired: PhysicalSize) -> PhysicalSize {
+    const WORK_AREA_MARGIN: u32 = 48;
+    PhysicalSize::new(
+        desired
+            .width
+            .min(work_area.size.width.saturating_sub(WORK_AREA_MARGIN).max(1)),
+        desired.height.min(
+            work_area
+                .size
+                .height
+                .saturating_sub(WORK_AREA_MARGIN)
+                .max(1),
+        ),
+    )
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PhysicalRect {
     pub origin: PhysicalPoint,
@@ -394,13 +410,15 @@ pub fn snap_meter_after_drag(meter: &tauri::WebviewWindow) -> tauri::Result<(Edg
 }
 
 pub fn hide_detail_window(app: &tauri::AppHandle) -> tauri::Result<()> {
-    use tauri::Manager;
+    use tauri::{Emitter, Manager};
 
     let detail = app
         .get_webview_window(DETAIL_WINDOW_LABEL)
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
     detail.set_always_on_top(false)?;
-    detail.hide()
+    detail.hide()?;
+    app.emit("detail-closed", ())?;
+    Ok(())
 }
 
 pub fn show_settings_window(app: &tauri::AppHandle) -> tauri::Result<()> {
@@ -501,7 +519,13 @@ fn position_detail_next_to_meter(
     let work = from_tauri_rect(monitor.work_area());
     let meter_origin = meter.outer_position()?;
     let meter_size = meter.inner_size()?;
-    let detail_size = detail.inner_size()?;
+    let desired: tauri::PhysicalSize<u32> =
+        tauri::LogicalSize::new(440.0, 760.0).to_physical(detail.scale_factor()?);
+    let detail_size = fitted_detail_size(work, PhysicalSize::new(desired.width, desired.height));
+    detail.set_size(tauri::PhysicalSize::new(
+        detail_size.width,
+        detail_size.height,
+    ))?;
     let placement = WindowPlacement::detail(
         work,
         WindowPlacement::new(
@@ -509,7 +533,7 @@ fn position_detail_next_to_meter(
             meter_origin.y,
             PhysicalSize::new(meter_size.width, meter_size.height),
         ),
-        PhysicalSize::new(detail_size.width, detail_size.height),
+        detail_size,
         edge,
     );
     detail.set_position(tauri::PhysicalPosition::new(

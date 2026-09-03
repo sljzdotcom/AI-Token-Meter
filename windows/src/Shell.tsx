@@ -7,7 +7,12 @@ import type { CSSProperties } from "react"
 import { App } from "./App"
 import { FloatingStrip } from "./components/FloatingStrip"
 import { ProviderDetail } from "./details/ProviderDetail"
-import { SettingsWindow, type ServiceAccountStatus, type UpdateState } from "./settings/SettingsWindow"
+import {
+  SettingsWindow,
+  type ProviderCliSettings,
+  type ServiceAccountStatus,
+  type UpdateState,
+} from "./settings/SettingsWindow"
 import type { ProviderId, UsageSnapshot } from "./state/usage"
 import { TauriUsageBridge } from "./state/usageBridge"
 import { useUsageSnapshots } from "./state/useUsageSnapshots"
@@ -16,12 +21,24 @@ type RuntimeSettings = {
   displayFont: string
   edge: "left" | "right"
   detailAutoHideSeconds: number
+  refreshIntervalSeconds: number
+  deepseekBalanceBaselineCents: number
+  notificationsEnabled: boolean
+  launchAtLogin: boolean
+  claudeCli: ProviderCliSettings
+  codexCli: ProviderCliSettings
 }
 
 const defaultSettings: RuntimeSettings = {
   displayFont: "Antonio",
   edge: "right",
   detailAutoHideSeconds: 8,
+  refreshIntervalSeconds: 300,
+  deepseekBalanceBaselineCents: 10_000,
+  notificationsEnabled: false,
+  launchAtLogin: false,
+  claudeCli: { mode: "auto", customPath: null, wslDistribution: null },
+  codexCli: { mode: "auto", customPath: null, wslDistribution: null },
 }
 
 export function Shell() {
@@ -43,6 +60,20 @@ function MeterSurface() {
     }
     window.addEventListener("meter-drag-requested", startDrag)
     return () => window.removeEventListener("meter-drag-requested", startDrag)
+  }, [])
+  useEffect(() => {
+    let disposed = false
+    let stop: (() => void) | undefined
+    listen("detail-closed", () => {
+      if (!disposed) setActiveProvider(null)
+    }).then((unlisten) => {
+      if (disposed) unlisten()
+      else stop = unlisten
+    }).catch(() => {})
+    return () => {
+      disposed = true
+      stop?.()
+    }
   }, [])
   return (
     <main
@@ -121,6 +152,7 @@ function SettingsSurface() {
   const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.2.2" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
   const [serviceMessage, setServiceMessage] = useState<string | null>(null)
+  const [wslDistributions, setWslDistributions] = useState<string[]>([])
   const [requestedTab, setRequestedTab] = useState<"Appearance" | "Monitoring" | "Services" | "About">()
   useEffect(() => {
     let disposed = false
@@ -135,6 +167,13 @@ function SettingsSurface() {
       disposed = true
       stop?.()
     }
+  }, [])
+  useEffect(() => {
+    let disposed = false
+    invoke<string[]>("available_wsl_distributions").then((distributions) => {
+      if (!disposed) setWslDistributions(distributions)
+    }).catch(() => {})
+    return () => { disposed = true }
   }, [])
   useEffect(() => {
     let disposed = false
@@ -181,12 +220,34 @@ function SettingsSurface() {
   return (
     <SettingsWindow
       detailAutoHideSeconds={settings.detailAutoHideSeconds}
+      refreshIntervalSeconds={settings.refreshIntervalSeconds}
+      deepseekBalanceBaselineCents={settings.deepseekBalanceBaselineCents}
+      notificationsEnabled={settings.notificationsEnabled}
+      launchAtLogin={settings.launchAtLogin}
       displayFont={settings.displayFont}
       edge={settings.edge}
       onDetailAutoHideSecondsChange={(seconds) => {
         if (Number.isInteger(seconds) && seconds >= 1 && seconds <= 300) {
           void invoke("set_detail_auto_hide_seconds", { seconds })
         }
+      }}
+      onRefreshIntervalSecondsChange={(seconds) => {
+        if (Number.isInteger(seconds) && seconds >= 30 && seconds <= 86_400) {
+          void invoke("set_refresh_interval_seconds", { seconds })
+        }
+      }}
+      onDeepSeekBalanceBaselineCentsChange={(cents) => {
+        if (Number.isInteger(cents) && cents >= 100 && cents <= 100_000_000) {
+          void invoke("set_deepseek_balance_baseline_cents", { cents })
+        }
+      }}
+      onNotificationsEnabledChange={(enabled) => {
+        void invoke("set_notifications_enabled", { enabled })
+      }}
+      onLaunchAtLoginChange={(enabled) => {
+        setServiceMessage(null)
+        void invoke("set_launch_at_login", { enabled })
+          .catch(() => setServiceMessage("Launch at login could not be changed."))
       }}
       onDisplayFontChange={(font) => void invoke("set_display_font", { font })}
       onEdgeChange={(nextEdge) => {
@@ -198,6 +259,17 @@ function SettingsSurface() {
       onInstallUpdate={() => void invoke("install_update").catch(() => {})}
       serviceStatuses={serviceStatuses}
       serviceMessage={serviceMessage}
+      cliSettings={{ claude: settings.claudeCli, codex: settings.codexCli }}
+      wslDistributions={wslDistributions}
+      onCliSettingsChange={(providerId, value) => {
+        setServiceMessage("Saving CLI runtime and refreshing this service…")
+        void invoke<RuntimeSettings>("set_provider_cli_settings", { providerId, value })
+          .then(() => {
+            setServiceMessage("CLI runtime saved.")
+            checkServiceStatus(providerId)
+          })
+          .catch(() => setServiceMessage("The CLI runtime setting could not be saved."))
+      }}
       onCheckServiceStatus={checkServiceStatus}
       onBeginServiceSignIn={(providerId) => {
         setServiceMessage(null)
@@ -240,6 +312,9 @@ function useRuntimeSettings() {
       }),
       listen<number>("detail-auto-hide-changed", (event) => {
         if (!disposed) setSettings((current) => ({ ...current, detailAutoHideSeconds: event.payload }))
+      }),
+      listen<RuntimeSettings>("app-settings-changed", (event) => {
+        if (!disposed) setSettings(event.payload)
       }),
     ]
     void Promise.all(subscriptions).then((unlisten) => {

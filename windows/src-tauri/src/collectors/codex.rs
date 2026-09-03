@@ -1,13 +1,17 @@
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::accounts::cli_account::CliProvider;
 use crate::domain::UsageSnapshot;
 use crate::platform::windows::executable_locator::ExecutableCandidate;
+use crate::platform::windows::process::CancellationToken;
 use crate::platform::windows::process::command_for_candidate;
 
 use super::CollectionError;
-use super::codex_app_server::collect_rate_limits_from_invocation;
+use super::codex_app_server::{
+    collect_rate_limits_from_invocation, collect_rate_limits_from_invocation_with_cancellation,
+};
 
 pub fn collect_usage_from_candidate(
     candidate: &ExecutableCandidate,
@@ -22,5 +26,23 @@ pub fn collect_usage_from_candidate(
         working_directory,
         fetched_at,
         Duration::from_secs(10),
+    )
+}
+
+pub fn collect_usage_from_candidate_with_cancellation(
+    candidate: &ExecutableCandidate,
+    working_directory: Option<&Path>,
+    fetched_at: &str,
+    cancellation: Arc<CancellationToken>,
+) -> Result<UsageSnapshot, CollectionError> {
+    let invocation =
+        command_for_candidate(candidate, CliProvider::Codex, &["app-server", "--stdio"])
+            .map_err(|_| CollectionError::Transport)?;
+    collect_rate_limits_from_invocation_with_cancellation(
+        &invocation,
+        working_directory,
+        fetched_at,
+        Duration::from_secs(10),
+        cancellation,
     )
 }

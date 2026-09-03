@@ -4,7 +4,7 @@ use ai_token_meter_windows::platform::windows::desktop_visibility::{
 use ai_token_meter_windows::platform::windows::monitor::{MonitorIdentity, choose_monitor};
 use ai_token_meter_windows::platform::windows::window_controller::{
     DetailCommand, DetailState, Edge, PhysicalRect, PhysicalSize, WindowPlacement,
-    meter_shape_points,
+    fitted_detail_size, meter_shape_points,
 };
 
 #[test]
@@ -57,6 +57,19 @@ fn detail_opens_inward_and_remains_inside_the_work_area() {
     assert_eq!(
         WindowPlacement::detail(work, left_meter, detail_size, Edge::Left),
         WindowPlacement::new(130, 0, detail_size)
+    );
+}
+
+#[test]
+fn detail_size_is_capped_to_small_high_dpi_work_areas() {
+    let work = PhysicalRect::new(0, 0, 1280, 720);
+    assert_eq!(
+        fitted_detail_size(work, PhysicalSize::new(1320, 2280)),
+        PhysicalSize::new(1232, 672)
+    );
+    assert_eq!(
+        fitted_detail_size(work, PhysicalSize::new(660, 1140)),
+        PhysicalSize::new(660, 672)
     );
 }
 

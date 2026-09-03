@@ -8,6 +8,7 @@ use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use crate::domain::LocalActivity;
+use crate::platform::windows::process::CancellationToken;
 
 use super::ActivityError;
 
@@ -22,11 +23,26 @@ pub fn read_claude_activity(
     window_start_epoch: i64,
     window_end_epoch: i64,
 ) -> Result<LocalActivity, ActivityError> {
+    read_claude_activity_with_cancellation(
+        projects_directory,
+        window_start_epoch,
+        window_end_epoch,
+        &CancellationToken::new(),
+    )
+}
+
+pub fn read_claude_activity_with_cancellation(
+    projects_directory: &Path,
+    window_start_epoch: i64,
+    window_end_epoch: i64,
+    cancellation: &CancellationToken,
+) -> Result<LocalActivity, ActivityError> {
+    check_cancellation(cancellation)?;
     if window_end_epoch <= window_start_epoch {
         return Err(ActivityError::InvalidData);
     }
     let mut files = Vec::new();
-    collect_jsonl_files(projects_directory, &mut files)?;
+    collect_jsonl_files(projects_directory, &mut files, cancellation)?;
     files.sort();
     let mut total_bytes = 0_u64;
     let mut sessions = HashSet::new();
@@ -35,6 +51,7 @@ pub fn read_claude_activity(
     let mut tokens = 0_u64;
 
     for path in files.into_iter().take(MAX_FILE_COUNT) {
+        check_cancellation(cancellation)?;
         let metadata = fs::symlink_metadata(&path).map_err(|_| ActivityError::ReadFailure)?;
         if metadata.file_type().is_symlink()
             || !metadata.is_file()
@@ -47,7 +64,7 @@ pub fn read_claude_activity(
         let is_subagent = path
             .components()
             .any(|component| component.as_os_str() == "subagents");
-        for_each_bounded_line(&path, |line| {
+        for_each_bounded_line(&path, cancellation, |line| {
             let Ok(entry) = serde_json::from_slice::<ClaudeLogEntry>(line) else {
                 return;
             };
@@ -103,7 +120,11 @@ pub fn read_claude_activity(
     })
 }
 
-fn collect_jsonl_files(directory: &Path, output: &mut Vec<PathBuf>) -> Result<(), ActivityError> {
+fn collect_jsonl_files(
+    directory: &Path,
+    output: &mut Vec<PathBuf>,
+    cancellation: &CancellationToken,
+) -> Result<(), ActivityError> {
     let metadata = fs::symlink_metadata(directory).map_err(|_| ActivityError::Unavailable)?;
     if metadata.file_type().is_symlink() || !metadata.is_dir() {
         return Err(ActivityError::Unavailable);
@@ -111,7 +132,9 @@ fn collect_jsonl_files(directory: &Path, output: &mut Vec<PathBuf>) -> Result<()
     let mut pending = vec![directory.to_owned()];
     let mut visited_entries = 0_usize;
     while let Some(current) = pending.pop() {
+        check_cancellation(cancellation)?;
         for entry in fs::read_dir(current).map_err(|_| ActivityError::ReadFailure)? {
+            check_cancellation(cancellation)?;
             visited_entries += 1;
             if visited_entries > MAX_ENTRY_COUNT {
                 return Ok(());
@@ -137,13 +160,18 @@ fn collect_jsonl_files(directory: &Path, output: &mut Vec<PathBuf>) -> Result<()
     Ok(())
 }
 
-fn for_each_bounded_line(path: &Path, mut body: impl FnMut(&[u8])) -> Result<(), ActivityError> {
+fn for_each_bounded_line(
+    path: &Path,
+    cancellation: &CancellationToken,
+    mut body: impl FnMut(&[u8]),
+) -> Result<(), ActivityError> {
     let file = File::open(path).map_err(|_| ActivityError::ReadFailure)?;
     let mut reader = BufReader::new(file);
     let mut chunk = [0_u8; 64 * 1024];
     let mut line = Vec::new();
     let mut discarding = false;
     loop {
+        check_cancellation(cancellation)?;
         let count = reader
             .read(&mut chunk)
             .map_err(|_| ActivityError::ReadFailure)?;
@@ -171,6 +199,14 @@ fn for_each_bounded_line(path: &Path, mut body: impl FnMut(&[u8])) -> Result<(),
         body(&line);
     }
     Ok(())
+}
+
+fn check_cancellation(cancellation: &CancellationToken) -> Result<(), ActivityError> {
+    if cancellation.is_cancelled() {
+        Err(ActivityError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 fn period_days(start: i64, end: i64) -> u64 {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { UsageRing } from "./components/UsageRing"
 import { SettingsWindow } from "./settings/SettingsWindow"
-import type { ServiceAccountStatus } from "./settings/SettingsWindow"
+import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
 import type { UsageSnapshot } from "./state/usage"
 
 const snapshots: UsageSnapshot[] = [
@@ -133,6 +133,48 @@ describe("Windows meter interface", () => {
     expect(screen.getByRole("tab", { name: "About" })).toBeVisible()
   })
 
+  it("edits refresh cadence and DeepSeek balance baseline in Monitoring", () => {
+    const refresh = vi.fn()
+    const baseline = vi.fn()
+    render(
+      <SettingsWindow
+        deepseekBalanceBaselineCents={10_000}
+        displayFont="Antonio"
+        onDeepSeekBalanceBaselineCentsChange={baseline}
+        onDisplayFontChange={() => {}}
+        onRefreshIntervalSecondsChange={refresh}
+        refreshIntervalSeconds={300}
+        requestedTab="Monitoring"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText("Refresh interval seconds"), { target: { value: "120" } })
+    expect(refresh).toHaveBeenCalledWith(120)
+    fireEvent.change(screen.getByLabelText("DeepSeek balance baseline"), { target: { value: "250.5" } })
+    expect(baseline).toHaveBeenCalledWith(25_050)
+  })
+
+  it("keeps usage alerts and launch-at-login as explicit Monitoring toggles", () => {
+    const alerts = vi.fn()
+    const launch = vi.fn()
+    render(
+      <SettingsWindow
+        displayFont="Antonio"
+        launchAtLogin={false}
+        notificationsEnabled={false}
+        onDisplayFontChange={() => {}}
+        onLaunchAtLoginChange={launch}
+        onNotificationsEnabledChange={alerts}
+        requestedTab="Monitoring"
+      />,
+    )
+
+    fireEvent.click(screen.getByLabelText("Usage alerts at 70% and 90%"))
+    expect(alerts).toHaveBeenCalledWith(true)
+    fireEvent.click(screen.getByLabelText("Open AI Token Meter at login"))
+    expect(launch).toHaveBeenCalledWith(true)
+  })
+
   it("checks and installs updates only through separate explicit About actions", () => {
     const check = vi.fn()
     const install = vi.fn()
@@ -215,5 +257,48 @@ describe("Windows meter interface", () => {
     expect(replaceKey).toHaveBeenCalledWith()
     expect(screen.queryByLabelText("DeepSeek API Key")).not.toBeInTheDocument()
     expect(screen.getByText("Windows opens a protected credential prompt; the Key never enters this WebView.")).toBeVisible()
+  })
+
+  it("lets each CLI service choose Auto, native Windows or an explicit WSL distribution", () => {
+    const change = vi.fn()
+    const claude: ProviderCliSettings = {
+      mode: "auto",
+      customPath: null,
+      wslDistribution: null,
+    }
+    const codex: ProviderCliSettings = {
+      mode: "wsl",
+      customPath: null,
+      wslDistribution: "Ubuntu-24.04",
+    }
+
+    render(
+      <SettingsWindow
+        cliSettings={{ claude, codex }}
+        displayFont="Antonio"
+        onCliSettingsChange={change}
+        onDisplayFontChange={() => {}}
+        requestedTab="Services"
+        wslDistributions={["Ubuntu-24.04", "Debian"]}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText("Claude Code runtime"), {
+      target: { value: "nativeWindows" },
+    })
+    expect(change).toHaveBeenCalledWith("claude", {
+      ...claude,
+      mode: "nativeWindows",
+      wslDistribution: null,
+    })
+
+    expect(screen.getByLabelText("OpenAI Codex WSL distribution")).toHaveValue("Ubuntu-24.04")
+    fireEvent.change(screen.getByLabelText("OpenAI Codex WSL distribution"), {
+      target: { value: "Debian" },
+    })
+    expect(change).toHaveBeenCalledWith("codex", {
+      ...codex,
+      wslDistribution: "Debian",
+    })
   })
 })
