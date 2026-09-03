@@ -122,12 +122,12 @@ npm run tauri build
 
 ## 第一次使用
 
-1. 启动 AI Token Meter。屏幕右侧出现贴边浮岛和三个用量环，菜单栏出现 AI Token Meter 图标。
-2. 点击菜单栏图标，再点击齿轮，或按 `⌘,` 打开设置。
+1. 启动 AI Token Meter。屏幕右侧出现贴边浮岛和三个用量环；macOS 使用菜单栏图标，Windows 使用系统托盘图标。
+2. 从菜单栏或系统托盘打开 Settings；macOS 也可以按 `⌘,`。
 3. 在 Services 查看 Claude Code 与 OpenAI Codex 当前账户；需要登录或换账号时点击 **Sign in** / **Sign in again**，在打开的官方终端流程中完成登录。如 Claude Code 提示工作区设置，再点击 **Authorize Usage Workspace** 并批准。
-4. 如需 DeepSeek，在 Services 输入 API Key；应用验证成功后才写入 Keychain。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
+4. 如需 DeepSeek，在 Services 选择 **Replace API Key**。macOS 使用受保护输入，Windows 打开系统 Credential UI；应用验证成功后才写入 Keychain/Credential Manager，Key 不进入 Windows WebView。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
-6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。
+6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。Windows 还可分别为 Claude Code/OpenAI Codex 选择 Automatic、Native Windows、WSL 发行版或自定义 CLI 路径。
 7. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
 
 Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。

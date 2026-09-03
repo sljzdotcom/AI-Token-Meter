@@ -415,3 +415,5 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - CLI 自动发现每种来源最多检查 128 个目录，WSL 最多检查 64 个发行版；Node shebang 只读文件头 256 bytes，不再把任意大脚本完整读入内存；
 - Windows Monitoring 现已接通刷新周期、DeepSeek 余额基准、70%/90% 去重提醒和登录时启动。阈值降到 10% 以下会重新布防；启动项只写当前用户 `HKCU\\...\\Run`，不要求管理员权限；
 - 本机已通过 12 项前端测试、TypeScript/Vite production build、详情/持久化/CLI/活动/取消定向 Rust 测试与全目标零警告 Clippy。Windows 专属通知、注册表、ConPTY 取消及完整 Tauri/NSIS 仍等待下一次 `windows-latest` 复验，不能以 macOS 编译替代。
+- Windows CI [33734781055](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33734781055) 在严格 Clippy 编译 Windows-only `available_wsl_distributions` 时发现 WSL 调用参数仍为 `Vec<String>`，而受限进程边界要求 `Vec<OsString>`；前端、production build 与 rustfmt 已通过，Rust 运行测试和 NSIS 因编译失败未执行。修复只在进入进程边界前逐项转换参数类型，不引入 shell 拼接或路径回退；
+- 同期 macOS 完整门禁重新执行并通过：360 项主测试、11 项独立 PTY 测试、4 份跨平台 fixture、128 份 Markdown 和公开 Release 安全检查。Windows 原生分支仍以修复后的 runner 结果为准。

@@ -89,6 +89,13 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 - 账户信息读取失败时不会把“无法检查”误写成“已退出登录”，也不会影响已缓存的额度显示。
 - OpenAI Codex 显示 `CLI not installed` 时，登录按钮会替换为 **Open Install Guide**，只打开 OpenAI 官方安装说明；安装后点击 **Check Status**。AI Token Meter 会自动发现 nvm 等 Node 管理器目录和 ChatGPT/Codex App 内置二进制。
 
+Windows 在每张 Claude Code/OpenAI Codex 服务卡内提供运行方式：
+
+- **Automatic**：先查找原生 Windows CLI，找不到后才尝试 WSL；
+- **Native Windows**：只使用 Windows CLI，可填写可选的自定义 CLI 路径；
+- **WSL**：只使用所选发行版；显式发行版不存在时不会静默切到其他发行版；
+- 账户检查、Sign in 与后台额度采集始终使用同一份选择，WSL 官方额度不会拼接 Windows profile 的本机活动。
+
 ### Claude Code workspace setup
 
 - 仅在 Claude Code 的隔离用量工作区需要首次批准时使用。
@@ -101,10 +108,17 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 - 最小有效值：¥1。
 - 作用：决定 DeepSeek 圆环的参考起点，不会影响账户、充值或消费。
 
+Windows 的 Monitoring 还允许把定时刷新设置为 30 秒至 24 小时；默认仍为 5 分钟。手动刷新会取消同一 Provider 的旧任务，定时刷新不会与在途任务重叠。
+
+### Usage alerts 与 Launch at login
+
+- **Usage alerts at 70% and 90%**：每项额度在 70% 和 90% 各提醒一次；降到 10% 以下或进入新的重置周期后重新布防。Windows 使用系统通知，macOS 使用通知中心；
+- **Open AI Token Meter at login**：只为当前系统用户启用。Windows 写入当前用户启动项，不要求管理员权限；macOS 使用系统登录项服务。
+
 ### DeepSeek API Key
 
 - 当前 Key 只显示 `API Key ••••ABCD` 形式的最后四位；输入框始终为空，不回填完整 Key。
-- **Save API Key / Replace API Key**：先用候选 Key 调用 DeepSeek 官方余额接口；只有验证成功才更新 macOS Keychain 或 Windows Credential Manager 并刷新。
+- **Save API Key / Replace API Key**：先用候选 Key 调用 DeepSeek 官方余额接口；只有验证成功才更新 macOS Keychain 或 Windows Credential Manager 并刷新。Windows 候选 Key 由原生 Credential UI 直接交给 Rust 后端，不进入 React/WebView 状态或字符串 IPC。
 - 401 会提示 Key 无效；网络、超时、响应异常或 Keychain 写入失败都会保留旧 Key，并保留输入内容供修改重试。
 - **Remove**：从 Keychain 删除密钥并刷新状态。
 - 验证期间按钮和输入框会暂时禁用，并显示 `Verifying…`。

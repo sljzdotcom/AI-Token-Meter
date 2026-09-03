@@ -464,7 +464,7 @@ fn available_wsl_distributions() -> Vec<String> {
         };
         let mut request = crate::platform::windows::process::ProcessRequest::new(
             invocation.executable,
-            invocation.arguments,
+            invocation.arguments.into_iter().map(Into::into).collect(),
         );
         request.timeout = Duration::from_secs(4);
         request.max_output_bytes = 64 * 1024;
