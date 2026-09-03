@@ -1,0 +1,58 @@
+:root {
+  color: #f7f8fc;
+  background: transparent;
+  font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  background: #0a101d;
+}
+
+button {
+  font: inherit;
+}
+
+.meter-shell {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.provider-button {
+  --provider-accent: #7386ff;
+  display: grid;
+  width: 88px;
+  min-height: 88px;
+  place-items: center;
+  border: 2px solid color-mix(in srgb, var(--provider-accent), #222b3b 55%);
+  border-radius: 50%;
+  color: #fff;
+  background: #080d17;
+}
+
+.provider-mark {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.provider-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

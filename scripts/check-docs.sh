@@ -56,7 +56,7 @@ forbidden_paths.each do |path|
   errors << "Obsolete documentation path still exists: #{path}" if (root + path).exist?
 end
 
-skip_components = %w[.git .build .worktrees .superpowers dist]
+skip_components = %w[.git .build .worktrees .superpowers dist node_modules]
 markdown_files = root.glob("**/*.md").reject do |path|
   path.relative_path_from(root).each_filename.any? { |component| skip_components.include?(component) }
 end

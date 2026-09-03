@@ -1,0 +1,28 @@
+[package]
+name = "ai-token-meter-windows"
+version = "0.2.2"
+description = "Windows client for AI Token Meter"
+authors = ["Miller"]
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/sljzdotcom/AI-Token-Meter"
+
+[lib]
+name = "ai_token_meter_windows"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "ai-token-meter-windows"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "=2.11.5", features = [] }
+
+[dev-dependencies]
+tempfile = "3"

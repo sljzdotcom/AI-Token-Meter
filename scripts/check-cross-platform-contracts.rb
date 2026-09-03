@@ -27,6 +27,22 @@ if shared_version && plist_version && shared_version != plist_version
   errors << "Shared version #{shared_version} does not match macOS bundle version #{plist_version}"
 end
 
+windows_package = read_json(root + "windows/package.json", errors)
+tauri_config = read_json(root + "windows/src-tauri/tauri.conf.json", errors)
+cargo_path = root + "windows/src-tauri/Cargo.toml"
+cargo_version = cargo_path.file? ? cargo_path.read[/\A\[package\].*?^version\s*=\s*"([^"]+)"/m, 1] : nil
+if shared_version
+  {
+    "Windows package" => windows_package&.fetch("version", nil),
+    "Tauri config" => tauri_config&.fetch("version", nil),
+    "Cargo package" => cargo_version,
+  }.each do |label, platform_version|
+    errors << "#{label} version #{platform_version || "missing"} does not match #{shared_version}" unless platform_version == shared_version
+  end
+end
+errors << "Windows npm lockfile is missing" unless (root + "windows/package-lock.json").file?
+errors << "Windows Cargo lockfile is missing" unless (root + "windows/src-tauri/Cargo.lock").file?
+
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
 expected_providers = %w[claude codex deepseek]

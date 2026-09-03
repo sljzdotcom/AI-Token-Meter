@@ -31,6 +31,30 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("docs/missing.md"))
     }
 
+    @Test("Third-party npm documentation is outside the project documentation boundary")
+    func ignoresNodeModulesDocumentation() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let dependency = fixture.appendingPathComponent(
+            "windows/node_modules/example-package",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: dependency,
+            withIntermediateDirectories: true
+        )
+        try "[Missing upstream file](docs/not-published.md)\n".write(
+            to: dependency.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status == 0)
+        #expect(result.output.contains("Documentation checks passed"))
+    }
+
     @Test("A README and bundle version mismatch fails")
     func rejectsVersionMismatch() throws {
         let fixture = try makeFixture(bundleVersion: "0.2.0")

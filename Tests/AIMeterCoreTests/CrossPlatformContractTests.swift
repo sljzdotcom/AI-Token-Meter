@@ -21,6 +21,31 @@ struct CrossPlatformContractTests {
 
         #expect(sharedVersion == "0.2.2")
         #expect(sharedVersion == plist["CFBundleShortVersionString"] as? String)
+
+        let packageData = try Data(
+            contentsOf: Self.repositoryRoot.appending(path: "windows/package.json")
+        )
+        let package = try #require(
+            JSONSerialization.jsonObject(with: packageData) as? [String: Any]
+        )
+        let tauriData = try Data(
+            contentsOf: Self.repositoryRoot.appending(
+                path: "windows/src-tauri/tauri.conf.json"
+            )
+        )
+        let tauri = try #require(
+            JSONSerialization.jsonObject(with: tauriData) as? [String: Any]
+        )
+        let cargo = try String(
+            contentsOf: Self.repositoryRoot.appending(
+                path: "windows/src-tauri/Cargo.toml"
+            ),
+            encoding: .utf8
+        )
+
+        #expect(package["version"] as? String == sharedVersion)
+        #expect(tauri["version"] as? String == sharedVersion)
+        #expect(cargo.contains("\nversion = \"\(sharedVersion)\"\n"))
     }
 
     @Test("The presentation contract preserves provider identity and progress semantics")

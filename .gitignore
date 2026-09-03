@@ -4,5 +4,8 @@
 DerivedData/
 .build/
 dist/
+windows/node_modules/
+windows/dist/
+windows/src-tauri/target/
 *.xcuserstate
 xcuserdata/

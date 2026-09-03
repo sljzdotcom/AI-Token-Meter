@@ -93,7 +93,17 @@ fi
 
 GITLEAKS_CONFIG="$SCRIPT_DIR/../.gitleaks.toml"
 if command -v gitleaks >/dev/null 2>&1; then
-    gitleaks dir "$REPOSITORY" --config "$GITLEAKS_CONFIG" --no-banner --redact \
+    WORKTREE_SCAN_DIR="$TEMP_DIR/worktree"
+    mkdir -p "$WORKTREE_SCAN_DIR"
+    while IFS= read -r -d '' relative_path; do
+        source_file="$REPOSITORY/$relative_path"
+        [[ -f "$source_file" && ! -L "$source_file" ]] || continue
+        destination_file="$WORKTREE_SCAN_DIR/$relative_path"
+        mkdir -p "$(dirname "$destination_file")"
+        cp -p "$source_file" "$destination_file"
+    done < <(git -C "$REPOSITORY" ls-files -co --exclude-standard -z)
+
+    gitleaks dir "$WORKTREE_SCAN_DIR" --config "$GITLEAKS_CONFIG" --no-banner --redact \
         > "$TEMP_DIR/gitleaks-worktree.log" 2>&1 \
         || fail "Gitleaks rejected the current repository content"
     gitleaks git "$REPOSITORY" --config "$GITLEAKS_CONFIG" --no-banner --redact \

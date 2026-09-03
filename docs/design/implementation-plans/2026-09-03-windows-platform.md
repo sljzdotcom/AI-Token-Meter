@@ -165,7 +165,7 @@ git commit -m "feat: establish cross-platform product contracts"
 - 创建：`windows/src-tauri/icons/*`
 - 修改：`.gitignore`
 
-- [ ] **步骤 1：先写失败的前端 smoke test**
+- [x] **步骤 1：先写失败的前端 smoke test**
 
 ```tsx
 it("renders the three providers using the shared names", async () => {
@@ -176,7 +176,7 @@ it("renders the three providers using the shared names", async () => {
 })
 ```
 
-- [ ] **步骤 2：创建固定依赖的最小前端**
+- [x] **步骤 2：创建固定依赖的最小前端**
 
 使用 `npm ci` 可重现的 lockfile；脚本固定为：
 
@@ -191,7 +191,7 @@ it("renders the three providers using the shared names", async () => {
 
 首屏只渲染三个无文字 Logo 的语义按钮和可访问名称；不得提前伪造真实额度。
 
-- [ ] **步骤 3：先写失败的 Rust 启动合同测试**
+- [x] **步骤 3：先写失败的 Rust 启动合同测试**
 
 ```rust
 #[test]
@@ -203,11 +203,11 @@ fn product_metadata_matches_shared_contract() {
 }
 ```
 
-- [ ] **步骤 4：实现最小 Tauri 应用**
+- [x] **步骤 4：实现最小 Tauri 应用**
 
 Rust library 暴露可测试的 `app_metadata()`；`main.rs` 只调用 library 的 `run()`。Tauri capability 仅允许窗口和事件所需能力，不安装通用 shell 插件。`tauri.conf.json` 的版本由检查脚本与根 `VERSION` 强制同步。
 
-- [ ] **步骤 5：运行本机可行验证**
+- [x] **步骤 5：运行本机可行验证**
 
 运行：
 
@@ -219,7 +219,7 @@ npm run build
 
 若当前 macOS 未安装 Rust，只记录 Rust 本机验证未执行；不得因此跳过随后 Windows CI。安装依赖前先核对 lockfile 和官方 registry 来源。
 
-- [ ] **步骤 6：提交检查点**
+- [x] **步骤 6：提交检查点**
 
 ```bash
 git add windows .gitignore
