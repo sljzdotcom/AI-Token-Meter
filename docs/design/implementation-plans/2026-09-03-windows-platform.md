@@ -436,19 +436,19 @@ git commit -m "feat: run Windows AI CLIs through bounded processes"
 
 同一 fixture 在 Swift 与 Rust 中应得到相同 session/weekly 比例、重置时间、促销说明和 Reset Credit。错误文本、登录提示和版本变化必须映射到合同状态而非零值。
 
-- [ ] **步骤 2：实现 Claude collector**
+- [x] **步骤 2：实现 Claude collector**
 
 在应用专属空目录启动交互式 `/usage`；首次信任、未登录、超时和格式未知分别返回明确状态；30 日本机活动只读取 Windows/WSL 对应环境的白名单聚合字段。
 
-- [ ] **步骤 3：实现 Codex app-server collector**
+- [x] **步骤 3：实现 Codex app-server collector**
 
 完成 initialize、account/read、rateLimits/read 和 thread/list 所需最小 JSON-RPC；请求 ID 单调递增；忽略未知通知；对 Reset Credit 到期日做 RFC 3339 归一化。原生与 WSL 的 `.codex` 活动不混合。
 
-- [ ] **步骤 4：实现并发刷新协调器**
+- [x] **步骤 4：实现并发刷新协调器**
 
 三个 Provider 并发、同 Provider 去重、单项失败隔离、300 秒默认周期、前台手动刷新可取消旧任务；更新检查不能复用此网络周期。
 
-- [ ] **步骤 5：运行共享解析、集成测试并提交**
+- [x] **步骤 5：运行共享解析、集成测试并提交**
 
 ```bash
 cd windows/src-tauri && cargo test claude_collector codex_collector refresh
@@ -565,15 +565,15 @@ git commit -m "feat: add Windows tray and edge window behavior"
 - 创建：`windows/src/deepseek-web/bridge.ts`
 - 修改：`windows/src/details/DeepSeekDetail.tsx`
 
-- [ ] **步骤 1：写 payload 分片、来源和降级测试**
+- [x] **步骤 1：写 payload 分片、来源和降级测试**
 
 覆盖官方 HTTPS allowlist、错误 origin、分片重组、超时、格式变化、30 天裁剪、重复日期合并和费用/请求/Token 汇总。历史失败不覆盖余额 API 快照。
 
-- [ ] **步骤 2：实现独立 WebView2 会话**
+- [x] **步骤 2：实现独立 WebView2 会话**
 
 用户数据目录固定为应用 LocalAppData；不读取浏览器 Cookie；只允许 DeepSeek 官方登录与控制台域名；脚本桥只接收带 nonce 的结构化统计消息，拒绝 Authorization、Cookie、DOM 文本和非 allowlist 导航。
 
-- [ ] **步骤 3：实现详情图表**
+- [x] **步骤 3：实现详情图表**
 
 提供最近 30 天费用柱状图、总费用、请求数和 Token；图表明确标注官方网页来源和更新时间；失败时显示可重试历史区域，不影响余额及圆环。
 

@@ -76,6 +76,10 @@
       "items": {
         "$ref": "#/$defs/dailyHistoryEntry"
       }
+    },
+    "historyFetchedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
     }
   },
   "additionalProperties": true,

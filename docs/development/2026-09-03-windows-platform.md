@@ -291,9 +291,8 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 ## 尚未完成
 
 - DeepSeek 真机 Key 验收；
-- Claude Code/OpenAI Codex 真实 Windows CI 复验；
-- Win32 桌面壳构建、左右贴边/DPI/全屏/拖动的 Windows 真机交互验收；
-- DeepSeek WebView2 30 日图表；
+- Win32 左右贴边/DPI/全屏/拖动的 Windows 真机交互验收；
+- DeepSeek WebView2 独立登录和 30 日图表真机验收；
 - NSIS、Tauri Updater、Windows CI 和双平台 Preview Release。
 
 上述项目保持 `进行中`，不会因为 macOS 上的骨架编译通过而提前标记完成。
@@ -319,3 +318,25 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 托盘包含三个 Provider 脱敏摘要、Refresh、Settings、Show/Hide Meter、About 和 Quit；摘要按事件动态更新，DeepSeek 显示可用余额，Claude Code/OpenAI Codex 显示已用比例，不可用状态不会伪造 `0%`；
 - 本机 7 项窗口策略、1 项托盘摘要、6 项设置持久化、完整 65 项 Rust 回归、5 项前端、TypeScript/Vite 构建、格式和零警告 Clippy 已通过；128 份 Markdown、共享合同与公开安全门禁通过；
 - Windows CI 增加完整 `tauri build --debug --no-bundle`，下一轮将同时验证真实 Win32 条件编译、GDI 区域、显示器 API、多窗口 capability 与桌面壳构建；左右贴边、125%/200% DPI、全屏 Edge、普通窗口覆盖和真实指针拖动仍需 Windows 真机视觉验收，Task 9 步骤 5 因此保持未完成。
+
+### Windows runner 桌面壳与 Provider 终验
+
+- Windows CI [33722886734](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33722886734) 在提交 `04da07b` 上完整通过；Claude Code 的真实 ConPTY 替身、Credential Manager、Job Object、GDI 窗口区域、显示器 API和完整 Tauri 多窗口桌面壳均在 `windows-latest` 编译/运行通过；
+- 该结果验证了 Node/CMD 解释器参数边界将 `\\?\` 本地/UNC 路径转换为解释器可接受形式，同时内部规范路径仍用于身份校验；Task 7 据此关闭；
+- Task 9 的 runner 部分已完成，但左右贴边、125%/200% DPI、全屏 Edge 与真实指针拖动仍需要交互式 Windows 11 桌面，步骤 5 继续保持未完成。
+
+## Phase 4：DeepSeek 独立 WebView2 历史（实现完成，等待真机登录）
+
+### 数据来源与安全边界
+
+- 官方公开 API 目前只提供余额 `/user/balance`；最近 30 天费用、请求和 Token 来自官方控制台使用的私有 dashboard 端点，属于可能变化的网页接口。实现同时支持当前 `usage/by_api_key/amount` 与 `usage/by_api_key/cost` 响应对，并把格式变化视为历史不可用，绝不影响余额快照；
+- 历史窗口使用 `%LOCALAPPDATA%\AI Token Meter\WebView2\DeepSeek` 独立目录，不读取 Edge/Chrome Cookie，也不复用外部浏览器会话；导航只允许 HTTPS 的 `platform.deepseek.com` 精确主机，仿冒子域、HTTP、userinfo 和其他 DeepSeek 主机均被拒绝；
+- 注入桥接只拦截官方页面已经发起的用量响应，在页面内先丢弃 `api_key`、tracking ID、名称和其他身份字段，再输出日期、人民币费用、请求数和三类 Token 汇总；Rust 边界继续验证 128-bit nonce、20 秒会话、64 分片、16 KiB 单片、256 KiB 总量、严格 DTO 和敏感字段黑名单；
+- 桥接通过应用私有、不可导航的 `aimeter-deepseek://history` 回调传递分片，不向远程网页开放 Tauri commands、文件、进程或凭据能力。历史失败不写余额；成功只更新 `dailyHistory` 和独立的 `historyFetchedAt`。
+
+### 详情与测试证据
+
+- DeepSeek 详情现在显示 30 日费用柱状图、总费用、请求数、Token、官方网页来源和独立更新时间；没有历史时提供“Sync official history”，点击 DeepSeek 且无历史也会自动打开独立登录/同步窗口；
+- 先行测试覆盖官方 origin、仿冒 origin、乱序分片、超时、nonce、分片/总量上限、敏感字段、严格格式、30 日裁剪、重复日期合并、溢出和余额隔离；7 项 Rust 历史测试通过；
+- 真实注入脚本用当前官方控制台 `by_api_key` 脱敏响应 fixture 验证：金额、请求、Token 聚合正确，API Key 名称与 tracking ID 不会进入 payload；2 项桥接测试与 7 项界面测试通过；
+- 本机完整 Rust 73 项、前端 9 项、TypeScript/Vite production build、格式及零警告 Clippy 均通过。独立 WebView2 的真实登录持久化、网页响应兼容性和自动隐藏仍须 Windows 11 用户会话验收，Task 10 步骤 4 保持未完成。

@@ -67,10 +67,12 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
 }
 
 pub struct RuntimeState {
-    snapshots: Mutex<Vec<UsageSnapshot>>,
+    pub(crate) snapshots: Mutex<Vec<UsageSnapshot>>,
     settings: Mutex<AppSettings>,
     settings_path: Option<PathBuf>,
     pub(crate) meter_enabled: Arc<AtomicBool>,
+    deepseek_history_session:
+        Arc<Mutex<Option<crate::collectors::deepseek_history::DeepSeekHistoryAssembler>>>,
 }
 
 impl Default for RuntimeState {
@@ -81,6 +83,7 @@ impl Default for RuntimeState {
             settings: Mutex::new(settings),
             settings_path,
             meter_enabled: Arc::new(AtomicBool::new(true)),
+            deepseek_history_session: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -131,6 +134,10 @@ fn show_provider_detail(
         .map_err(|_| "The detail window could not be shown".to_owned())?;
     app.emit("active-detail-changed", &snapshot)
         .map_err(|_| "The detail window could not be updated".to_owned())?;
+    if snapshot.provider_id == ProviderId::DeepSeek && snapshot.daily_history.is_empty() {
+        let session = Arc::clone(&state.deepseek_history_session);
+        let _ = crate::platform::windows::deepseek_webview::open_history_window(&app, session);
+    }
     Ok(snapshot)
 }
 
@@ -227,6 +234,17 @@ fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
     show_settings_window(&app).map_err(|_| "Settings could not be opened".to_owned())
 }
 
+#[tauri::command]
+fn open_deepseek_history(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    crate::platform::windows::deepseek_webview::open_history_window(
+        &app,
+        Arc::clone(&state.deepseek_history_session),
+    )
+}
+
 fn unavailable_snapshots() -> Vec<UsageSnapshot> {
     [
         (ProviderId::Claude, "Claude Code"),
@@ -249,6 +267,7 @@ fn unavailable_snapshots() -> Vec<UsageSnapshot> {
         reset_credits: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
+        history_fetched_at: None,
     })
     .collect()
 }
@@ -300,7 +319,8 @@ pub fn run() {
             set_meter_edge,
             app_settings,
             set_display_font,
-            set_detail_auto_hide_seconds
+            set_detail_auto_hide_seconds,
+            open_deepseek_history
         ])
         .setup(|app| {
             let (edge, normalized_y, monitor_id) = app

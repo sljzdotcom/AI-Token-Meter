@@ -101,6 +101,7 @@ function DetailSurface() {
       <ProviderDetail
         onInteractionEnd={() => setPaused(false)}
         onInteractionStart={() => setPaused(true)}
+        onDeepSeekHistorySync={() => void invoke("open_deepseek_history")}
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}
         snapshot={snapshot}

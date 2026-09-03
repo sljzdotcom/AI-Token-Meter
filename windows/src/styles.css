@@ -379,7 +379,79 @@ button {
   align-items: center;
   color: #8995a8;
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
   min-height: 112px;
+}
+
+.history-placeholder button {
+  background: color-mix(in srgb, var(--detail-accent) 18%, #121a29);
+  border: 1px solid color-mix(in srgb, var(--detail-accent) 50%, transparent);
+  border-radius: 999px;
+  color: #f5f7ff;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 14px;
+}
+
+.deepseek-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.history-summary article {
+  background: rgb(255 255 255 / 5%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px;
+}
+
+.history-summary strong {
+  color: var(--detail-accent);
+  font-size: 21px;
+}
+
+.history-summary small,
+.history-source {
+  color: #8f9bad;
+}
+
+.history-chart {
+  align-items: end;
+  background: linear-gradient(180deg, rgb(115 134 255 / 10%), rgb(19 27 41 / 88%));
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 16px;
+  display: flex;
+  gap: 4px;
+  height: 130px;
+  padding: 14px;
+}
+
+.history-chart__day {
+  align-items: end;
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-width: 3px;
+}
+
+.history-chart__day i {
+  background: linear-gradient(180deg, #7dd9ff, var(--detail-accent));
+  border-radius: 5px 5px 2px 2px;
+  display: block;
+  min-height: 3px;
+  width: 100%;
 }
 
 .provider-detail footer {

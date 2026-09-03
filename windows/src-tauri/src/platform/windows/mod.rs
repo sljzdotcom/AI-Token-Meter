@@ -1,6 +1,7 @@
 pub mod conpty;
 #[cfg(windows)]
 pub mod credential_manager;
+pub mod deepseek_webview;
 pub mod desktop_visibility;
 pub mod environment;
 pub mod executable_locator;

@@ -2,6 +2,7 @@ import type { PointerEventHandler } from "react"
 
 import type { UsageMetric, UsageSnapshot } from "../state/usage"
 import { ProviderLogo } from "../components/ProviderLogo"
+import { DeepSeekHistory } from "./DeepSeekDetail"
 
 type ProviderDetailProps = {
   snapshot: UsageSnapshot
@@ -9,6 +10,7 @@ type ProviderDetailProps = {
   onPointerLeave: PointerEventHandler<HTMLElement>
   onInteractionStart: () => void
   onInteractionEnd: () => void
+  onDeepSeekHistorySync?: () => void
 }
 
 export function ProviderDetail({
@@ -17,6 +19,7 @@ export function ProviderDetail({
   onPointerLeave,
   onInteractionStart,
   onInteractionEnd,
+  onDeepSeekHistorySync,
 }: ProviderDetailProps) {
   const percent = snapshot.usedRatio == null ? null : Math.round(snapshot.usedRatio * 100)
   return (
@@ -78,7 +81,7 @@ export function ProviderDetail({
       {snapshot.providerId === "deepseek" ? (
         <section className="detail-section detail-section--history">
           <h2>Last 30 days · Official website</h2>
-          <div className="history-placeholder">Usage history will appear here after official-page sync.</div>
+          <DeepSeekHistory onSync={onDeepSeekHistorySync} snapshot={snapshot} />
         </section>
       ) : null}
 

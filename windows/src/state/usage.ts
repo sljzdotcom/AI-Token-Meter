@@ -39,6 +39,13 @@ export type UsageSnapshot = {
     activeDays: number
     longestSessionSeconds?: number | null
   } | null
+  dailyHistory?: Array<{
+    date: string
+    costCny: number
+    requests: number
+    tokens: number
+  }>
+  historyFetchedAt?: string | null
 }
 
 export const unavailableSnapshots: UsageSnapshot[] = [

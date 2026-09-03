@@ -233,6 +233,7 @@ pub(crate) fn snapshot_from_balance(
         reset_credits: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
+        history_fetched_at: None,
     }
 }
 
@@ -252,6 +253,7 @@ fn status_snapshot(status: UsageStatus, fetched_at: &str, message: Option<&str>)
         reset_credits: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
+        history_fetched_at: None,
     }
 }
 

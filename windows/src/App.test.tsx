@@ -38,6 +38,10 @@ const snapshots: UsageSnapshot[] = [
     primaryMetric: { label: "Available balance", current: 77.99, unit: "cny", kind: "balance" },
     fetchedAt: "2026-09-03T00:00:00Z",
     staleAfterSeconds: 300,
+    dailyHistory: [
+      { date: "2026-09-02", costCny: 1.25, requests: 4, tokens: 1000 },
+      { date: "2026-09-03", costCny: 2.5, requests: 7, tokens: 2500 },
+    ],
   },
 ]
 
@@ -76,6 +80,28 @@ describe("Windows meter interface", () => {
 
     fireEvent.pointerDown(document.body)
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("renders official DeepSeek history totals and a scaled daily chart", () => {
+    render(<App initialSnapshots={snapshots} />)
+    fireEvent.click(screen.getByRole("button", { name: "DeepSeek usage" }))
+
+    expect(screen.getByRole("img", { name: "DeepSeek cost for the last 30 days" })).toBeVisible()
+    expect(screen.getByText("¥3.75")).toBeVisible()
+    expect(screen.getByText("11", { selector: "strong" })).toBeVisible()
+    expect(screen.getByText("3.5K")).toBeVisible()
+    expect(screen.queryByText("Usage history will appear here after official-page sync.")).not.toBeInTheDocument()
+  })
+
+  it("offers a working retry when DeepSeek history is unavailable", () => {
+    const sync = vi.fn()
+    const withoutHistory = snapshots.map((snapshot) => snapshot.providerId === "deepseek"
+      ? { ...snapshot, dailyHistory: [] }
+      : snapshot)
+    render(<App initialSnapshots={withoutHistory} onDeepSeekHistorySync={sync} />)
+    fireEvent.click(screen.getByRole("button", { name: "DeepSeek usage" }))
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    expect(sync).toHaveBeenCalledOnce()
   })
 
   it("auto-hides details and pauses the timer while the user interacts", () => {

@@ -218,6 +218,7 @@ pub fn parse_rate_limits_response(
         reset_credits,
         local_activity: None,
         daily_history: Vec::new(),
+        history_fetched_at: None,
     })
 }
 

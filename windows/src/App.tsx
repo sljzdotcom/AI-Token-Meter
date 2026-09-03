@@ -12,9 +12,10 @@ type AppProps = {
   initialSnapshots?: UsageSnapshot[]
   detailAutoHideSeconds?: number
   usageBridge?: UsageBridge
+  onDeepSeekHistorySync?: () => void
 }
 
-export function App({ initialSnapshots, detailAutoHideSeconds = 8, usageBridge }: AppProps) {
+export function App({ initialSnapshots, detailAutoHideSeconds = 8, usageBridge, onDeepSeekHistorySync }: AppProps) {
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null)
   const [interactionPaused, setInteractionPaused] = useState(false)
   const detailRef = useRef<HTMLDivElement>(null)
@@ -52,6 +53,7 @@ export function App({ initialSnapshots, detailAutoHideSeconds = 8, usageBridge }
           <ProviderDetail
             onInteractionEnd={() => setInteractionPaused(false)}
             onInteractionStart={() => setInteractionPaused(true)}
+            onDeepSeekHistorySync={onDeepSeekHistorySync}
             onPointerEnter={() => setInteractionPaused(true)}
             onPointerLeave={() => setInteractionPaused(false)}
             snapshot={activeSnapshot}

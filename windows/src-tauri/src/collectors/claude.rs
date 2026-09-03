@@ -231,6 +231,7 @@ pub fn parse_usage_output(
         reset_credits: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
+        history_fetched_at: None,
     })
 }
 

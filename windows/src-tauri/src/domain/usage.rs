@@ -160,6 +160,8 @@ pub struct UsageSnapshot {
     pub local_activity: Option<LocalActivity>,
     #[serde(default)]
     pub daily_history: Vec<DailyHistoryEntry>,
+    #[serde(default)]
+    pub history_fetched_at: Option<String>,
 }
 
 impl UsageSnapshot {
@@ -238,6 +240,7 @@ impl UsageSnapshot {
             reset_credits: Vec::new(),
             local_activity: None,
             daily_history: Vec::new(),
+            history_fetched_at: None,
         })
     }
 }
