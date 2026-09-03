@@ -64,7 +64,7 @@ Windows Widget 不在本计划范围内。macOS Widget 的证书与真实桌面�
 - 修改：`scripts/test.sh`
 - 修改：`docs/design/README.md`
 
-- [ ] **步骤 1：先写失败的 Swift 合同测试**
+- [x] **步骤 1：先写失败的 Swift 合同测试**
 
 测试从仓库根目录读取 `VERSION` 和合同文件，验证：
 
@@ -89,13 +89,13 @@ func providerContractIsComplete() throws {
 }
 ```
 
-- [ ] **步骤 2：运行聚焦测试并确认失败**
+- [x] **步骤 2：运行聚焦测试并确认失败**
 
 运行：`bash scripts/test.sh --filter CrossPlatformContractTests`
 
 预期：因 `VERSION` 和 `contracts/` 尚不存在而失败。
 
-- [ ] **步骤 3：实现版本、Schema 和展示合同**
+- [x] **步骤 3：实现版本、Schema 和展示合同**
 
 `usage-snapshot.schema.json` 固定 `schemaVersion: 1`，要求：
 
@@ -109,11 +109,11 @@ func providerContractIsComplete() throws {
 
 `providers.json` 将 DeepSeek 的 `progressSemantics` 固定为 `consumedFromBalanceBaseline`，避免 Windows 误画成余额剩余。
 
-- [ ] **步骤 4：实现 Ruby 合同门禁**
+- [x] **步骤 4：实现 Ruby 合同门禁**
 
 脚本使用 Ruby 标准库，不增加全局依赖；验证 JSON 语法、必填字段、ID 唯一性、版本同步、fixture 脱敏、对等矩阵状态值和每项 REQ 证据字段。秘密扫描至少拒绝：Bearer Token、Telegram Bot Token、OpenAI/Anthropic/DeepSeek Key、Cookie 和手机号。
 
-- [ ] **步骤 5：把合同检查接入总测试**
+- [x] **步骤 5：把合同检查接入总测试**
 
 在 `scripts/test.sh` 的文档与公开安全检查之前执行：
 
@@ -121,7 +121,7 @@ func providerContractIsComplete() throws {
 ruby scripts/check-cross-platform-contracts.rb "$PROJECT_DIR"
 ```
 
-- [ ] **步骤 6：运行验证**
+- [x] **步骤 6：运行验证**
 
 运行：
 
@@ -134,7 +134,7 @@ git diff --check
 
 预期：聚焦测试、合同门禁和文档检查均通过。
 
-- [ ] **步骤 7：提交检查点**
+- [x] **步骤 7：提交检查点**
 
 ```bash
 git add VERSION contracts scripts/check-cross-platform-contracts.rb scripts/test.sh Tests/AIMeterCoreTests/CrossPlatformContractTests.swift docs/design docs/requirements-backlog.md

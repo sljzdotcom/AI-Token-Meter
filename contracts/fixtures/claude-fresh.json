@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "providerId": "claude",
+  "displayName": "Claude Code",
+  "status": "fresh",
+  "usedRatio": 0.23,
+  "primaryMetric": {
+    "label": "Current session",
+    "current": 23,
+    "limit": 100,
+    "unit": "percent",
+    "kind": "officialLimit",
+    "resetAt": "2026-09-03T08:00:00Z"
+  },
+  "fetchedAt": "2026-09-03T00:00:00Z",
+  "staleAfterSeconds": 300,
+  "sourceVersion": "fixture"
+}

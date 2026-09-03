@@ -26,5 +26,6 @@ else
     run_swift_tests "$@"
 fi
 
+ruby "$PROJECT_DIR/scripts/check-cross-platform-contracts.rb" "$PROJECT_DIR"
 "$PROJECT_DIR/scripts/check-docs.sh"
 "$PROJECT_DIR/scripts/check-public-release.sh"
