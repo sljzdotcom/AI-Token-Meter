@@ -42,6 +42,7 @@
 | [2026-09-03](2026-09-03-windows-platform.md) | Windows 11 x64 Tauri/Rust/React 版本与双平台同步发布 | 进行中；共享合同、三 Provider、Native/WSL、Win32 窗口、Services、DeepSeek WebView2、Updater、NSIS 与 Windows CI 已实现；交互式真机、签名升级演练和 Preview Release待完成 |
 | [2026-09-03](2026-09-03-deepseek-secret-read-priority.md) | 高并发 macOS CI 中 DeepSeek Keychain 读取的优先级反转修复 | 失败先行测试、374 项完整回归及双平台 main CI 通过 |
 | [2026-09-03](2026-09-03-floating-strip-placement-persistence.md) | 稳定保存浮动条的物理显示器、侧边和高度，多屏断开时无损回退主屏 | macOS 稳定 UUID/旧配置迁移和 Windows 对等合同已实现；完整验证与 CI 证据见日志 |
+| [2026-09-03](2026-09-03-deepseek-timeout-starvation.md) | DeepSeek Keychain 阻塞读取不再饿死截止时间 | CI 失败重跑复现；独立墙钟截止时间实现后 386 项 macOS 测试及文档/安全门禁通过 |
 
 ## 新日志模板
 

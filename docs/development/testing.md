@@ -29,7 +29,7 @@ bash scripts/test.sh
 - 左右贴边、自动吸附、固定侧拖动、稳定显示器身份、旧编号迁移、主副屏目标优先、Settings 主动重绑定、显示器断开无损回退和详情展开方向；
 - 浮岛轮廓渲染边缘、品牌 Logo 光学校正、视觉层级和 App Icon Bundle 声明；
 - 玻璃拖动命中区、AppKit 指针状态、无障碍移动、详情交互状态所有权、键盘/VoiceOver 自动隐藏暂停和非颜色状态标记；
-- App 启动不被 Keychain 阻塞，以及 DeepSeek 密钥读取的隔离超时与单次在途保护。
+- App 启动不被 Keychain 阻塞，以及 DeepSeek 密钥读取的隔离超时、独立墙钟截止时间与单次在途保护；即使 Swift 协作线程池被阻塞，迟到凭据也不能进入网络层。
 - Settings 四 Tab 顺序、服务/登录项反馈路由、品牌文案与真实 `Info.plist` 兼容身份。
 - Widget 脱敏快照、固定 Provider 顺序、DeepSeek 基准消耗、最近重置与充值券摘要；
 - Widget 原子 App Group 存储、损坏/未知版本降级和个人标识/凭证回归；
