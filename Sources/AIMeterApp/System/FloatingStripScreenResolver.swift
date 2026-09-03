@@ -1,14 +1,7 @@
-import AIMeterCore
-
 struct FloatingStripScreenResolution: Equatable {
     let selectedIdentifier: String?
     let usesFallbackScreen: Bool
     let migratedIdentifier: String?
-
-    var identifier: String? { selectedIdentifier }
-    var usesDefaultPlacement: Bool { usesFallbackScreen }
-    var defaultEdge: FloatingStripEdge { .right }
-    var defaultNormalizedCenterY: Double { 0.5 }
 }
 
 enum FloatingStripScreenResolver {
@@ -27,8 +20,11 @@ enum FloatingStripScreenResolver {
             )
         }
 
-        if let savedIdentifier,
-           let legacyMatch = screens.first(where: { $0.legacyIdentifier == savedIdentifier }) {
+        let savedLegacyIdentifier = savedIdentifier.flatMap(legacyIdentifier(from:))
+        if let savedLegacyIdentifier,
+           let legacyMatch = screens.first(where: {
+               $0.legacyIdentifier == savedLegacyIdentifier
+           }) {
             return FloatingStripScreenResolution(
                 selectedIdentifier: legacyMatch.stableIdentifier,
                 usesFallbackScreen: false,
@@ -36,8 +32,7 @@ enum FloatingStripScreenResolver {
             )
         }
 
-        if let savedIdentifier,
-           Int(savedIdentifier) != nil,
+        if savedLegacyIdentifier != nil,
            screens.count == 1,
            let onlyScreen = screens.first {
             return FloatingStripScreenResolution(
@@ -55,18 +50,13 @@ enum FloatingStripScreenResolver {
         )
     }
 
-    static func resolve(
-        savedIdentifier: String,
-        availableIdentifiers: [String],
-        mainIdentifier: String?
-    ) -> FloatingStripScreenResolution {
-        let isAvailable = availableIdentifiers.contains(savedIdentifier)
-        return FloatingStripScreenResolution(
-            selectedIdentifier: isAvailable
-                ? savedIdentifier
-                : (mainIdentifier ?? availableIdentifiers.first),
-            usesFallbackScreen: !isAvailable,
-            migratedIdentifier: nil
-        )
+    private static func legacyIdentifier(from savedIdentifier: String) -> String? {
+        if Int(savedIdentifier) != nil {
+            return savedIdentifier
+        }
+        let prefix = "legacy:"
+        guard savedIdentifier.hasPrefix(prefix) else { return nil }
+        let value = String(savedIdentifier.dropFirst(prefix.count))
+        return Int(value) == nil ? nil : value
     }
 }

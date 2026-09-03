@@ -2,25 +2,48 @@ import AppKit
 import AIMeterCore
 import SwiftUI
 
-enum FloatingPanelRepositioningReason {
-    case ordinary
-    case activeSpaceChange
+enum FloatingStripPositionPersistenceAction: Equatable {
+    case preserve
+    case migrate(from: String, to: String)
 }
 
-enum FloatingStripRecoveryAction: Equatable {
-    case persistScreenLossRecovery
-    case preserveSavedPlacement
+struct FloatingStripResolvedScreenPlacement: Equatable {
+    let edge: FloatingStripEdge
+    let normalizedCenterY: Double
+    let persistenceAction: FloatingStripPositionPersistenceAction
 }
 
-enum FloatingStripRecoveryPolicy {
+enum FloatingStripPositionPersistencePolicy {
     static func action(
-        for reason: FloatingPanelRepositioningReason,
-        usesDefaultPlacement: Bool
-    ) -> FloatingStripRecoveryAction {
-        guard usesDefaultPlacement, reason != .activeSpaceChange else {
-            return .preserveSavedPlacement
+        savedIdentifier: String?,
+        resolution: FloatingStripScreenResolution
+    ) -> FloatingStripPositionPersistenceAction {
+        guard let savedIdentifier,
+              let migratedIdentifier = resolution.migratedIdentifier,
+              savedIdentifier != migratedIdentifier else { return .preserve }
+        return .migrate(from: savedIdentifier, to: migratedIdentifier)
+    }
+
+    static func resolvedPlacement(
+        position: FloatingStripPosition,
+        resolution: FloatingStripScreenResolution
+    ) -> FloatingStripResolvedScreenPlacement {
+        let edge: FloatingStripEdge = switch position.preference {
+        case .automatic:
+            position.lastResolvedEdge
+        case .left:
+            .left
+        case .right:
+            .right
         }
-        return .persistScreenLossRecovery
+        return FloatingStripResolvedScreenPlacement(
+            edge: edge,
+            normalizedCenterY: position.normalizedCenterY,
+            persistenceAction: action(
+                savedIdentifier: position.screenIdentifier,
+                resolution: resolution
+            )
+        )
     }
 }
 
@@ -253,7 +276,7 @@ final class FloatingPanelController {
         session.dismiss()
         detailPanel.makeFirstResponder(nil)
         detailPanel.orderOut(nil)
-        positionPanels(for: .activeSpaceChange)
+        positionPanels()
         if stripPanel.isVisible {
             stripPanel.orderFrontRegardless()
         }
@@ -264,7 +287,7 @@ final class FloatingPanelController {
         return window.convertPoint(toScreen: event.locationInWindow)
     }
 
-    private func positionPanels(for reason: FloatingPanelRepositioningReason = .ordinary) {
+    private func positionPanels() {
         guard let context = placementContext() else { return }
         let screen = context.screen
         let edge = context.edge
@@ -278,12 +301,10 @@ final class FloatingPanelController {
         )
         stripPanel.setFrame(stripFrame, display: true, animate: false)
         positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
-        if FloatingStripRecoveryPolicy.action(
-            for: reason,
-            usesDefaultPlacement: context.usesDefaultPlacement
-        ) == .persistScreenLossRecovery {
-            model.recoverFloatingStripAfterScreenLoss(
-                screenIdentifier: Self.identifier(for: screen)
+        if case let .migrate(from: oldIdentifier, to: newIdentifier) = context.persistenceAction {
+            model.migrateFloatingStripScreenIdentifier(
+                from: oldIdentifier,
+                to: newIdentifier
             )
         }
     }
@@ -339,7 +360,7 @@ final class FloatingPanelController {
         model.saveFloatingStripPlacement(
             edge: placement.edge,
             normalizedCenterY: placement.normalizedCenterY,
-            screenIdentifier: Self.identifier(for: screen)
+            screenIdentifier: Self.identity(for: screen)?.stableIdentifier
         )
         positionDetail(relativeTo: finalFrame, edge: placement.edge, on: screen, animate: true)
     }
@@ -381,57 +402,42 @@ final class FloatingPanelController {
         return detailSize
     }
 
-    private func resolvedEdgeForCurrentPreference() -> FloatingStripEdge {
-        switch model.floatingStripPosition.preference {
-        case .automatic:
-            model.floatingStripPosition.lastResolvedEdge
-        case .left:
-            .left
-        case .right:
-            .right
-        }
-    }
-
     private func placementContext() -> (
         screen: NSScreen,
         edge: FloatingStripEdge,
         normalizedCenterY: Double,
-        usesDefaultPlacement: Bool
+        persistenceAction: FloatingStripPositionPersistenceAction
     )? {
-        if let savedIdentifier = model.floatingStripPosition.screenIdentifier,
-           !NSScreen.screens.contains(where: { Self.identifier(for: $0) == savedIdentifier }) {
-            let resolution = FloatingStripScreenResolver.resolve(
-                savedIdentifier: savedIdentifier,
-                availableIdentifiers: NSScreen.screens.compactMap(Self.identifier(for:)),
-                mainIdentifier: NSScreen.main.flatMap(Self.identifier(for:))
-            )
-            guard let screen = NSScreen.screens.first(where: {
-                Self.identifier(for: $0) == resolution.identifier
-            }) ?? NSScreen.main ?? NSScreen.screens.first else { return nil }
-            return (
-                screen,
-                resolution.defaultEdge,
-                resolution.defaultNormalizedCenterY,
-                resolution.usesDefaultPlacement
-            )
-        }
-        guard let screen = model.floatingStripPosition.screenIdentifier.flatMap({ identifier in
-            NSScreen.screens.first(where: { Self.identifier(for: $0) == identifier })
-        }) ?? stripPanel.screen ?? NSScreen.main ?? NSScreen.screens.first else { return nil }
+        let pairs = screenIdentityPairs()
+        let savedIdentifier = model.floatingStripPosition.screenIdentifier
+        guard let resolution = FloatingStripScreenResolver.resolve(
+            savedIdentifier: savedIdentifier,
+            screens: pairs.map(\.identity)
+        ),
+        let selectedIdentifier = resolution.selectedIdentifier,
+        let screen = pairs.first(where: {
+            $0.identity.stableIdentifier == selectedIdentifier
+        })?.screen else { return nil }
+        let placement = FloatingStripPositionPersistencePolicy.resolvedPlacement(
+            position: model.floatingStripPosition,
+            resolution: resolution
+        )
         return (
             screen,
-            resolvedEdgeForCurrentPreference(),
-            model.floatingStripPosition.normalizedCenterY,
-            false
+            placement.edge,
+            placement.normalizedCenterY,
+            placement.persistenceAction
         )
     }
 
     private func preferredScreenForDragging() -> NSScreen? {
+        let pairs = screenIdentityPairs()
         if let savedIdentifier = model.floatingStripPosition.screenIdentifier,
-           let savedScreen = NSScreen.screens.first(where: {
-               Self.identifier(for: $0) == savedIdentifier
+           let savedPair = pairs.first(where: {
+               $0.identity.stableIdentifier == savedIdentifier
+                   || $0.identity.legacyIdentifier == savedIdentifier
            }) {
-            return savedScreen
+            return savedPair.screen
         }
         return stripPanel.screen ?? NSScreen.main ?? NSScreen.screens.first
     }
@@ -440,9 +446,14 @@ final class FloatingPanelController {
         NSScreen.screens.first(where: { $0.visibleFrame.contains(point) })
     }
 
-    private static func identifier(for screen: NSScreen) -> String? {
-        let key = NSDeviceDescriptionKey("NSScreenNumber")
-        return (screen.deviceDescription[key] as? NSNumber)?.stringValue
+    private func screenIdentityPairs() -> [(screen: NSScreen, identity: FloatingStripScreenIdentity)] {
+        NSScreen.screens.compactMap { screen in
+            Self.identity(for: screen).map { (screen, $0) }
+        }
+    }
+
+    private static func identity(for screen: NSScreen) -> FloatingStripScreenIdentity? {
+        FloatingStripScreenIdentifier.identity(for: screen, mainScreen: NSScreen.main)
     }
 
     private func applyDetailInteractionState() {
@@ -469,7 +480,8 @@ final class FloatingPanelController {
         model.saveFloatingStripPlacement(
             edge: placement.edge,
             normalizedCenterY: placement.normalizedCenterY,
-            screenIdentifier: preferredScreenForDragging().flatMap(Self.identifier(for:))
+            screenIdentifier: preferredScreenForDragging().flatMap(Self.identity(for:))?
+                .stableIdentifier
         )
         positionPanels()
     }

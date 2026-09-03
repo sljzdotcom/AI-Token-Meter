@@ -24,6 +24,7 @@ enum FloatingStripScreenIdentifier {
         guard let displayNumber = screen.deviceDescription[key] as? NSNumber else { return nil }
         let displayID = CGDirectDisplayID(displayNumber.uint32Value)
         let legacyIdentifier = displayNumber.stringValue
+        let mainDisplayID = (mainScreen?.deviceDescription[key] as? NSNumber)?.uint32Value
         let uuidString = CGDisplayCreateUUIDFromDisplayID(displayID)
             .map { $0.takeRetainedValue() }
             .flatMap { CFUUIDCreateString(nil, $0) as String? }
@@ -34,7 +35,7 @@ enum FloatingStripScreenIdentifier {
         return FloatingStripScreenIdentity(
             stableIdentifier: stableIdentifier,
             legacyIdentifier: legacyIdentifier,
-            isMain: screen === mainScreen
+            isMain: mainDisplayID == displayID
         )
     }
 }

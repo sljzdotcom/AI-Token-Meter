@@ -263,13 +263,10 @@ final class AppModel {
         floatingStripPositionStore.save(floatingStripPosition)
     }
 
-    func recoverFloatingStripAfterScreenLoss(screenIdentifier: String?) {
-        floatingStripPosition = FloatingStripPosition(
-            preference: .automatic,
-            lastResolvedEdge: .right,
-            normalizedCenterY: 0.5,
-            screenIdentifier: screenIdentifier
-        )
+    func migrateFloatingStripScreenIdentifier(from oldIdentifier: String, to newIdentifier: String) {
+        guard floatingStripPosition.screenIdentifier == oldIdentifier,
+              oldIdentifier != newIdentifier else { return }
+        floatingStripPosition.screenIdentifier = newIdentifier
         floatingStripPositionStore.save(floatingStripPosition)
     }
 

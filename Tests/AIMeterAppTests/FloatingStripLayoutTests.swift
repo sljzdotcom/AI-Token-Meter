@@ -210,6 +210,24 @@ struct FloatingStripLayoutTests {
         #expect(result?.migratedIdentifier == "uuid:target")
     }
 
+    @Test("A namespaced legacy fallback migrates when a UUID becomes available")
+    func namespacedLegacyIdentifierMigrates() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "legacy:3",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:target",
+                    legacyIdentifier: "3",
+                    isMain: true
+                ),
+            ]
+        )
+
+        #expect(result?.selectedIdentifier == "uuid:target")
+        #expect(result?.usesFallbackScreen == false)
+        #expect(result?.migratedIdentifier == "uuid:target")
+    }
+
     @Test("A stale legacy number safely binds to the only current screen")
     func staleLegacyIdentifierMigratesOnSingleScreen() {
         let result = FloatingStripScreenResolver.resolve(
