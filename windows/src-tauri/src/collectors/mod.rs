@@ -1,3 +1,4 @@
+pub mod activity_timeout;
 #[cfg(windows)]
 pub mod application;
 pub mod claude;

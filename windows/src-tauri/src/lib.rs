@@ -427,6 +427,8 @@ fn set_provider_cli_settings(
     provider_id: ProviderId,
     value: ProviderCliSettings,
 ) -> Result<AppSettings, String> {
+    #[cfg(windows)]
+    let value = validated_provider_cli_settings(provider_id, value)?;
     let updated = {
         let mut settings = state
             .settings
@@ -446,6 +448,27 @@ fn set_provider_cli_settings(
         crate::collectors::refresh::RefreshPriority::Manual,
     );
     Ok(updated)
+}
+
+#[cfg(windows)]
+fn validated_provider_cli_settings(
+    provider_id: ProviderId,
+    mut value: ProviderCliSettings,
+) -> Result<ProviderCliSettings, String> {
+    if value.mode != crate::persistence::CliRuntimeMode::Wsl
+        && let Some(path) = value.custom_path.as_deref()
+    {
+        let provider = match provider_id {
+            ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
+            ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
+            ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI".to_owned()),
+        };
+        value.custom_path = Some(
+            crate::collectors::application::validate_custom_path(provider, path)
+                .map_err(str::to_owned)?,
+        );
+    }
+    Ok(value)
 }
 
 #[tauri::command]

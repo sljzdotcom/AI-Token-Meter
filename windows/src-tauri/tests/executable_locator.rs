@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use ai_token_meter_windows::accounts::cli_account::CliProvider;
 use ai_token_meter_windows::platform::windows::environment::DiscoveryInputs;
 use ai_token_meter_windows::platform::windows::executable_locator::{
-    CandidateOrigin, ExecutableLocator, RuntimeSource,
+    CandidateOrigin, DiscoveryBudget, ExecutableLocator, RuntimeSource,
 };
 use ai_token_meter_windows::platform::windows::wsl::{
     build_wsl_invocation, build_wsl_list_invocation, decode_distribution_list,
@@ -28,6 +28,29 @@ fn custom_path_wins_over_every_automatic_location() {
 
     assert_eq!(candidate.executable, canonical(&custom));
     assert_eq!(candidate.origin, CandidateOrigin::Custom);
+}
+
+#[test]
+fn an_explicit_custom_path_is_canonicalized_and_must_pass_its_own_health_check() {
+    let fixture = LocatorFixture::new();
+    let custom = fixture.executable("custom/child/..", "codex.exe");
+    let locator = ExecutableLocator::new(fixture.inputs());
+
+    let accepted = locator
+        .validate_custom(CliProvider::Codex, &custom, |_| true)
+        .expect("healthy custom candidate");
+    assert_eq!(accepted.executable, canonical(&custom));
+    assert_eq!(accepted.origin, CandidateOrigin::Custom);
+    assert!(
+        locator
+            .validate_custom(CliProvider::Codex, &custom, |_| false)
+            .is_none()
+    );
+    assert!(
+        locator
+            .validate_custom(CliProvider::Claude, &custom, |_| true)
+            .is_none()
+    );
 }
 
 #[test]
@@ -297,5 +320,29 @@ fn only_native_windows_runtime_may_read_windows_profile_activity() {
             distribution: "Ubuntu".to_owned(),
         }
         .may_read_windows_profile()
+    );
+}
+
+#[test]
+fn discovery_budget_enforces_one_deadline_and_a_total_process_limit() {
+    let mut budget = DiscoveryBudget::new(std::time::Duration::from_secs(10), 2);
+    assert_eq!(
+        budget.next_process_timeout(std::time::Duration::from_secs(4)),
+        Some(std::time::Duration::from_secs(4))
+    );
+    assert!(
+        budget
+            .next_process_timeout(std::time::Duration::from_secs(4))
+            .is_some_and(|timeout| timeout <= std::time::Duration::from_secs(4))
+    );
+    assert_eq!(
+        budget.next_process_timeout(std::time::Duration::from_secs(4)),
+        None
+    );
+
+    let mut expired = DiscoveryBudget::new(std::time::Duration::ZERO, 4);
+    assert_eq!(
+        expired.next_process_timeout(std::time::Duration::from_secs(4)),
+        None
     );
 }

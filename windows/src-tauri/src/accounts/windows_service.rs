@@ -12,7 +12,7 @@ use crate::domain::ProviderId;
 use crate::persistence::{AppSettings, ProviderCliSettings};
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
 use crate::platform::windows::process::{
-    BoundedProcessRunner, ProcessRequest, command_for_candidate,
+    BoundedProcessRunner, ProcessRequest, command_for_candidate, configure_restricted_command,
 };
 use crate::security::{CredentialAccount, CredentialStore};
 
@@ -83,9 +83,10 @@ pub fn launch_login(
         CliProvider::Codex => codex_login_command(&candidate),
     }
     .map_err(|_| "The sign-in command could not be prepared")?;
-    let mut command = Command::new(invocation.executable);
+    let mut command = Command::new(&invocation.executable);
+    configure_restricted_command(&mut command, &invocation.executable);
     command
-        .args(invocation.arguments)
+        .args(&invocation.arguments)
         .creation_flags(CREATE_NEW_CONSOLE);
     if let Some(profile) = std::env::var_os("USERPROFILE") {
         command.current_dir(profile);

@@ -1,4 +1,5 @@
 use std::fs;
+use std::sync::Arc;
 
 use ai_token_meter_windows::collectors::ActivityError;
 use ai_token_meter_windows::collectors::claude_activity::{
@@ -6,6 +7,7 @@ use ai_token_meter_windows::collectors::claude_activity::{
 };
 use ai_token_meter_windows::collectors::codex_activity::{
     read_codex_activity, read_codex_activity_with_cancellation,
+    read_codex_activity_with_shared_cancellation,
 };
 use ai_token_meter_windows::platform::windows::process::CancellationToken;
 use rusqlite::Connection;
@@ -61,6 +63,22 @@ fn local_activity_scans_stop_before_touching_storage_when_cancelled() {
             1,
             2,
             &cancellation,
+        ),
+        Err(ActivityError::Cancelled),
+    );
+}
+
+#[test]
+fn codex_sqlite_reader_accepts_shared_cancellation_for_query_interruption() {
+    let cancellation = Arc::new(CancellationToken::new());
+    cancellation.cancel();
+
+    assert_eq!(
+        read_codex_activity_with_shared_cancellation(
+            std::path::Path::new("missing-codex-database"),
+            1,
+            2,
+            cancellation,
         ),
         Err(ActivityError::Cancelled),
     );

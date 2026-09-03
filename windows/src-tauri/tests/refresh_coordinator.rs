@@ -216,6 +216,95 @@ fn shutdown_cancels_every_in_flight_provider_before_update_installation() {
     assert_eq!(coordinator.cancel_all(), 0);
 }
 
+#[test]
+fn update_suspension_cancels_and_drains_collectors_before_installation() {
+    let coordinator = Arc::new(RefreshCoordinator::new());
+    let (started_sender, started_receiver) = mpsc::channel();
+    let finished = Arc::new(AtomicBool::new(false));
+    let worker = {
+        let coordinator = Arc::clone(&coordinator);
+        let finished = Arc::clone(&finished);
+        thread::spawn(move || {
+            coordinator.refresh(
+                ProviderRefreshRequest::new(ProviderId::Claude, move |cancellation| {
+                    started_sender.send(()).expect("started");
+                    while !cancellation.is_cancelled() {
+                        thread::yield_now();
+                    }
+                    thread::sleep(Duration::from_millis(25));
+                    finished.store(true, Ordering::Release);
+                    Err(CollectionError::Cancelled)
+                }),
+                RefreshPriority::Scheduled,
+            )
+        })
+    };
+    started_receiver.recv().expect("refresh started");
+
+    assert!(coordinator.suspend_and_wait(Duration::from_secs(1)));
+    assert!(finished.load(Ordering::Acquire));
+    assert_eq!(
+        worker.join().expect("collector join"),
+        RefreshResult::Cancelled
+    );
+
+    let ran_while_suspended = Arc::new(AtomicBool::new(false));
+    let marker = Arc::clone(&ran_while_suspended);
+    assert_eq!(
+        coordinator.refresh(
+            ProviderRefreshRequest::new(ProviderId::Codex, move |_| {
+                marker.store(true, Ordering::Release);
+                Ok(fixture(ProviderId::Codex))
+            }),
+            RefreshPriority::Manual,
+        ),
+        RefreshResult::Cancelled
+    );
+    assert!(!ran_while_suspended.load(Ordering::Acquire));
+
+    coordinator.resume();
+    assert!(matches!(
+        coordinator.refresh(
+            ProviderRefreshRequest::new(ProviderId::Codex, |_| Ok(fixture(ProviderId::Codex))),
+            RefreshPriority::Manual,
+        ),
+        RefreshResult::Snapshot(_)
+    ));
+}
+
+#[test]
+fn update_suspension_times_out_when_a_collector_does_not_exit() {
+    let coordinator = Arc::new(RefreshCoordinator::new());
+    let (started_sender, started_receiver) = mpsc::channel();
+    let release = Arc::new(AtomicBool::new(false));
+    let worker = {
+        let coordinator = Arc::clone(&coordinator);
+        let release = Arc::clone(&release);
+        thread::spawn(move || {
+            coordinator.refresh(
+                ProviderRefreshRequest::new(ProviderId::DeepSeek, move |_| {
+                    started_sender.send(()).expect("started");
+                    while !release.load(Ordering::Acquire) {
+                        thread::yield_now();
+                    }
+                    Ok(fixture(ProviderId::DeepSeek))
+                }),
+                RefreshPriority::Scheduled,
+            )
+        })
+    };
+    started_receiver.recv().expect("refresh started");
+
+    assert!(!coordinator.suspend_and_wait(Duration::from_millis(20)));
+
+    release.store(true, Ordering::Release);
+    assert_eq!(
+        worker.join().expect("collector join"),
+        RefreshResult::Cancelled
+    );
+    coordinator.resume();
+}
+
 fn fixture(provider: ProviderId) -> UsageSnapshot {
     let value = match provider {
         ProviderId::Claude => include_str!("../../../contracts/fixtures/claude-fresh.json"),

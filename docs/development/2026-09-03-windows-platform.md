@@ -419,3 +419,8 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 同期 macOS 完整门禁重新执行并通过：360 项主测试、11 项独立 PTY 测试、4 份跨平台 fixture、128 份 Markdown 和公开 Release 安全检查。Windows 原生分支仍以修复后的 runner 结果为准。
 - 独立复审继续沿数据流发现缓存边界缺口：Native Windows 快照已经含 `localActivity` 时，后续 WSL 新快照虽明确为 `nil`，`UsageRuntime::complete_success` 仍会无条件回填旧活动，导致运行方式切换或重启后的首轮成功刷新继续混数。新增真实缓存生命周期测试先稳定失败，再删除该隐式回填；当前来源未给出本机活动时现在明确显示不可用，DeepSeek `dailyHistory` 的独立保留语义不变。聚焦回归 6 项与严格 Clippy 通过；
 - Windows CI [33735360341](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33735360341) 已越过前一类型错误，随后被 Windows-only `needless_return` 截止；前端、production build 和 rustfmt 仍通过，Rust 运行测试/NSIS 未执行。已按严格 Clippy 建议把 Windows cfg block 的结果改为尾表达式，不改变错误或数据处理逻辑。
+- 更新安装不再只发送取消信号后立即替换程序：`RefreshCoordinator` 进入 suspended 状态、拒绝新任务、取消并等待全部活动采集退出；5 秒内未排空会停止安装并恢复刷新，下载或安装失败也会恢复。两个失败先行测试覆盖正常排空、暂停期间拒绝刷新、恢复和不合作采集器的超时回退；
+- Claude Code/OpenAI Codex 登录窗口与后台采集统一清空继承环境，只保留 Windows 系统目录、当前用户 profile/app-data 和 CLI 解释器目录；`CODEX_HOME`、`CLAUDE_CONFIG_DIR`、`WSLENV` 等 Provider 覆盖不再造成登录账户与监控账户分裂。自定义 CLI 路径在保存前必须完成规范化、名称/launcher 校验和固定 `--version` 健康检查，失败不覆盖旧设置；
+- CLI 自动发现已移入 Provider 刷新 closure，因此协调器登记完成后才开始。一次发现共用 8 秒绝对时限和 12 次子进程预算，Auto 模式先检查原生候选，只有失败后才枚举 WSL；WSL 列表与每个健康检查都继承同一取消令牌和剩余时限；
+- Claude/Codex 本机活动改为官方额度成功后的独立可选任务，统一最多等待 2 秒。超时会取消底层 JSONL 扫描或 SQLite 查询但保留官方额度；Codex 为 SQLite 注册 progress handler，使长查询能响应取消。相关定向测试、全目标严格 Clippy、14 项前端测试和 production build 通过；
+- meter 在小工作区和高 DPI 下按 116:450 比例缩小并实际更新 Win32 窗口尺寸，CSS 环形控件和裁剪轮廓改用视口比例；Settings 采用固定 header/tab + 可滚动内容区，长 Services/Monitoring 页面不再被 760×560 容器裁掉。纯几何回归验证 800×600、200% DPI 等效输入会缩放为 151×584，标准尺寸保持不变。

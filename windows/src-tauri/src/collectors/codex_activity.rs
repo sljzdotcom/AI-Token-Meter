@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use rusqlite::{Connection, OpenFlags, params};
@@ -29,6 +30,37 @@ pub fn read_codex_activity_with_cancellation(
     window_end_epoch: i64,
     cancellation: &CancellationToken,
 ) -> Result<LocalActivity, ActivityError> {
+    read_codex_activity_internal(
+        database,
+        window_start_epoch,
+        window_end_epoch,
+        cancellation,
+        None,
+    )
+}
+
+pub fn read_codex_activity_with_shared_cancellation(
+    database: &Path,
+    window_start_epoch: i64,
+    window_end_epoch: i64,
+    cancellation: Arc<CancellationToken>,
+) -> Result<LocalActivity, ActivityError> {
+    read_codex_activity_internal(
+        database,
+        window_start_epoch,
+        window_end_epoch,
+        &cancellation,
+        Some(Arc::clone(&cancellation)),
+    )
+}
+
+fn read_codex_activity_internal(
+    database: &Path,
+    window_start_epoch: i64,
+    window_end_epoch: i64,
+    cancellation: &CancellationToken,
+    shared_cancellation: Option<Arc<CancellationToken>>,
+) -> Result<LocalActivity, ActivityError> {
     if cancellation.is_cancelled() {
         return Err(ActivityError::Cancelled);
     }
@@ -44,12 +76,15 @@ pub fn read_codex_activity_with_cancellation(
         .busy_timeout(Duration::from_secs(1))
         .and_then(|_| connection.pragma_update(None, "query_only", true))
         .map_err(|_| ActivityError::ReadFailure)?;
+    if let Some(cancellation) = shared_cancellation {
+        connection.progress_handler(1_000, Some(move || cancellation.is_cancelled()));
+    }
     let mut statement = connection
         .prepare(
             "SELECT tokens_used, created_at, updated_at FROM threads \
              WHERE updated_at >= ?1 AND updated_at < ?2 ORDER BY updated_at LIMIT 100000",
         )
-        .map_err(|_| ActivityError::ReadFailure)?;
+        .map_err(|_| activity_error(cancellation))?;
     let rows = statement
         .query_map(params![window_start_epoch, window_end_epoch], |row| {
             Ok((
@@ -58,7 +93,7 @@ pub fn read_codex_activity_with_cancellation(
                 row.get::<_, i64>(2)?,
             ))
         })
-        .map_err(|_| ActivityError::ReadFailure)?;
+        .map_err(|_| activity_error(cancellation))?;
     let mut sessions = 0_u64;
     let mut tokens = 0_u64;
     let mut active_days = HashSet::new();
@@ -67,7 +102,7 @@ pub fn read_codex_activity_with_cancellation(
         if cancellation.is_cancelled() {
             return Err(ActivityError::Cancelled);
         }
-        let (row_tokens, created_at, updated_at) = row.map_err(|_| ActivityError::ReadFailure)?;
+        let (row_tokens, created_at, updated_at) = row.map_err(|_| activity_error(cancellation))?;
         if row_tokens < 0 {
             continue;
         }
@@ -93,4 +128,12 @@ pub fn read_codex_activity_with_cancellation(
         active_days: active_days.len() as u64,
         longest_session_seconds: longest,
     })
+}
+
+fn activity_error(cancellation: &CancellationToken) -> ActivityError {
+    if cancellation.is_cancelled() {
+        ActivityError::Cancelled
+    } else {
+        ActivityError::ReadFailure
+    }
 }

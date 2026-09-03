@@ -13,17 +13,20 @@ use crate::domain::{ProviderId, UsageSnapshot, UsageStatus};
 use crate::persistence::{AppSettings, CliRuntimeMode, ProviderCliSettings};
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
 use crate::platform::windows::environment::DiscoveryInputs;
-use crate::platform::windows::executable_locator::{ExecutableCandidate, ExecutableLocator};
+use crate::platform::windows::executable_locator::{
+    DiscoveryBudget, ExecutableCandidate, ExecutableLocator,
+};
 use crate::platform::windows::process::{
-    BoundedProcessRunner, ProcessRequest, command_for_candidate,
+    BoundedProcessRunner, CancellationToken, ProcessRequest, command_for_candidate,
 };
 use crate::platform::windows::wsl::build_wsl_list_invocation;
 
 use super::CollectionError;
+use super::activity_timeout::collect_optional_with_timeout;
 use super::claude::collect_usage_from_candidate_with_cancellation as collect_claude;
 use super::claude_activity::read_claude_activity_with_cancellation;
 use super::codex::collect_usage_from_candidate_with_cancellation as collect_codex;
-use super::codex_activity::read_codex_activity_with_cancellation;
+use super::codex_activity::read_codex_activity_with_shared_cancellation;
 use super::deepseek::{DeepSeekBalanceClient, DeepSeekCollector};
 use super::refresh::{ProviderRefreshRequest, RefreshPriority, RefreshResult};
 
@@ -121,14 +124,18 @@ fn build_requests(
     settings: &AppSettings,
 ) -> Vec<ProviderRefreshRequest> {
     let working_directory = user_profile().unwrap_or_else(std::env::temp_dir);
-    let claude = locate(CliProvider::Claude, &settings.claude_cli);
-    let codex = locate(CliProvider::Codex, &settings.codex_cli);
+    let claude_settings = settings.claude_cli.clone();
+    let codex_settings = settings.codex_cli.clone();
     let credentials = Arc::new(WindowsCredentialManager::new());
     let deepseek_client = DeepSeekBalanceClient::new().ok();
     let deepseek_balance_baseline = settings.deepseek_balance_baseline_cents as f64 / 100.0;
 
     let claude_request = ProviderRefreshRequest::new(ProviderId::Claude, move |cancellation| {
-        let Some(candidate) = claude.as_ref() else {
+        let Some(candidate) = locate_with_cancellation(
+            CliProvider::Claude,
+            &claude_settings,
+            Arc::clone(&cancellation),
+        ) else {
             return Ok(status_snapshot(
                 ProviderId::Claude,
                 UsageStatus::NotInstalled,
@@ -140,7 +147,7 @@ fn build_requests(
         }
         let fetched_at = now_rfc3339();
         let mut snapshot = collect_claude(
-            candidate,
+            &candidate,
             &working_directory,
             &fetched_at,
             Arc::clone(&cancellation),
@@ -154,7 +161,11 @@ fn build_requests(
     });
 
     let codex_request = ProviderRefreshRequest::new(ProviderId::Codex, move |cancellation| {
-        let Some(candidate) = codex.as_ref() else {
+        let Some(candidate) = locate_with_cancellation(
+            CliProvider::Codex,
+            &codex_settings,
+            Arc::clone(&cancellation),
+        ) else {
             return Ok(status_snapshot(
                 ProviderId::Codex,
                 UsageStatus::NotInstalled,
@@ -166,7 +177,7 @@ fn build_requests(
         }
         let fetched_at = now_rfc3339();
         let mut snapshot = collect_codex(
-            candidate,
+            &candidate,
             user_profile().as_deref(),
             &fetched_at,
             Arc::clone(&cancellation),
@@ -203,6 +214,14 @@ pub(crate) fn locate(
     provider: CliProvider,
     configuration: &ProviderCliSettings,
 ) -> Option<ExecutableCandidate> {
+    locate_with_cancellation(provider, configuration, Arc::new(CancellationToken::new()))
+}
+
+fn locate_with_cancellation(
+    provider: CliProvider,
+    configuration: &ProviderCliSettings,
+    cancellation: Arc<CancellationToken>,
+) -> Option<ExecutableCandidate> {
     let custom_path = configuration
         .custom_path
         .as_deref()
@@ -210,6 +229,22 @@ pub(crate) fn locate(
         .filter(|value| !value.is_empty())
         .map(PathBuf::from);
     let inputs = DiscoveryInputs::capture(custom_path);
+    let locator = ExecutableLocator::new(inputs.clone());
+    let mut budget = DiscoveryBudget::new(Duration::from_secs(8), 12);
+
+    if configuration.mode != CliRuntimeMode::Wsl {
+        let native = locator.locate(provider, |candidate| {
+            candidate_is_healthy(candidate, provider, &cancellation, &mut budget)
+        });
+        if native.is_some() || configuration.mode == CliRuntimeMode::NativeWindows {
+            return native;
+        }
+    }
+
+    if cancellation.is_cancelled() {
+        return None;
+    }
+    let timeout = budget.next_process_timeout(Duration::from_secs(3))?;
     let wsl_output = inputs
         .system_root
         .as_deref()
@@ -219,48 +254,72 @@ pub(crate) fn locate(
                 invocation.executable,
                 invocation.arguments.into_iter().map(Into::into).collect(),
             );
-            request.timeout = Duration::from_secs(3);
+            request.timeout = timeout;
             request.max_output_bytes = 16 * 1024;
+            request.cancellation = Arc::clone(&cancellation);
             BoundedProcessRunner
                 .run(request)
                 .ok()
                 .map(|output| output.stdout)
         });
-    let locator = ExecutableLocator::new(inputs);
-    match configuration.mode {
-        CliRuntimeMode::Auto => locator.locate_with_wsl_output(
-            provider,
-            wsl_output.as_deref().map(str::as_bytes),
-            |candidate| candidate_is_healthy(candidate, provider),
-        ),
-        CliRuntimeMode::NativeWindows => locator.locate(provider, |candidate| {
-            candidate_is_healthy(candidate, provider)
-        }),
-        CliRuntimeMode::Wsl => locator.locate_wsl_with_output(
-            provider,
-            wsl_output.as_deref()?.as_bytes(),
-            configuration.wsl_distribution.as_deref(),
-            |candidate| candidate_is_healthy(candidate, provider),
-        ),
-    }
+    locator.locate_wsl_with_output(
+        provider,
+        wsl_output.as_deref()?.as_bytes(),
+        if configuration.mode == CliRuntimeMode::Wsl {
+            configuration.wsl_distribution.as_deref()
+        } else {
+            None
+        },
+        |candidate| candidate_is_healthy(candidate, provider, &cancellation, &mut budget),
+    )
 }
 
-fn candidate_is_healthy(candidate: &ExecutableCandidate, provider: CliProvider) -> bool {
+fn candidate_is_healthy(
+    candidate: &ExecutableCandidate,
+    provider: CliProvider,
+    cancellation: &Arc<CancellationToken>,
+    budget: &mut DiscoveryBudget,
+) -> bool {
+    if cancellation.is_cancelled() {
+        return false;
+    }
+    let Some(timeout) = budget.next_process_timeout(Duration::from_secs(4)) else {
+        return false;
+    };
     let Ok(invocation) = command_for_candidate(candidate, provider, &["--version"]) else {
         return false;
     };
     let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
-    request.timeout = Duration::from_secs(4);
+    request.timeout = timeout;
     request.max_output_bytes = 16 * 1024;
+    request.cancellation = Arc::clone(cancellation);
     BoundedProcessRunner
         .run(request)
         .is_ok_and(|output| output.exit_code == Some(0))
 }
 
+pub(crate) fn validate_custom_path(
+    provider: CliProvider,
+    path: &str,
+) -> Result<String, &'static str> {
+    let inputs = DiscoveryInputs::capture(None);
+    let locator = ExecutableLocator::new(inputs);
+    let cancellation = Arc::new(CancellationToken::new());
+    let mut budget = DiscoveryBudget::new(Duration::from_secs(4), 1);
+    let candidate = locator
+        .validate_custom(
+            provider,
+            PathBuf::from(path.trim()).as_path(),
+            |candidate| candidate_is_healthy(candidate, provider, &cancellation, &mut budget),
+        )
+        .ok_or("The custom CLI path is not a working provider executable")?;
+    Ok(candidate.executable.to_string_lossy().into_owned())
+}
+
 fn attach_claude_activity(
     snapshot: &mut UsageSnapshot,
     source: &crate::platform::windows::executable_locator::RuntimeSource,
-    cancellation: &crate::platform::windows::process::CancellationToken,
+    cancellation: &Arc<CancellationToken>,
 ) -> Result<(), CollectionError> {
     if !source.may_read_windows_profile() {
         snapshot.local_activity = None;
@@ -270,8 +329,15 @@ fn attach_claude_activity(
         return Ok(());
     };
     let (start, end) = activity_window();
-    match read_claude_activity_with_cancellation(&root.join("projects"), start, end, cancellation) {
-        Ok(activity) => snapshot.local_activity = Some(activity),
+    let projects = root.join("projects");
+    match collect_optional_with_timeout(
+        Arc::clone(cancellation),
+        Duration::from_secs(2),
+        move |activity_cancellation| {
+            read_claude_activity_with_cancellation(&projects, start, end, &activity_cancellation)
+        },
+    ) {
+        Ok(activity) => snapshot.local_activity = activity,
         Err(super::ActivityError::Cancelled) => return Err(CollectionError::Cancelled),
         Err(_) => snapshot.local_activity = None,
     }
@@ -281,7 +347,7 @@ fn attach_claude_activity(
 fn attach_codex_activity(
     snapshot: &mut UsageSnapshot,
     source: &crate::platform::windows::executable_locator::RuntimeSource,
-    cancellation: &crate::platform::windows::process::CancellationToken,
+    cancellation: &Arc<CancellationToken>,
 ) -> Result<(), CollectionError> {
     if !source.may_read_windows_profile() {
         snapshot.local_activity = None;
@@ -291,13 +357,20 @@ fn attach_codex_activity(
         return Ok(());
     };
     let (start, end) = activity_window();
-    match read_codex_activity_with_cancellation(
-        &root.join("state_5.sqlite"),
-        start,
-        end,
-        cancellation,
+    let database = root.join("state_5.sqlite");
+    match collect_optional_with_timeout(
+        Arc::clone(cancellation),
+        Duration::from_secs(2),
+        move |activity_cancellation| {
+            read_codex_activity_with_shared_cancellation(
+                &database,
+                start,
+                end,
+                activity_cancellation,
+            )
+        },
     ) {
-        Ok(activity) => snapshot.local_activity = Some(activity),
+        Ok(activity) => snapshot.local_activity = activity,
         Err(super::ActivityError::Cancelled) => return Err(CollectionError::Cancelled),
         Err(_) => snapshot.local_activity = None,
     }

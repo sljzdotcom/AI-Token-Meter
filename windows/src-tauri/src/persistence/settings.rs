@@ -133,7 +133,7 @@ fn validate_cli_settings(value: &ProviderCliSettings) -> Result<(), &'static str
         .into_iter()
         .flatten()
     {
-        if text.is_empty() || text.len() > 4096 || text.contains(['\0', '\n', '\r']) {
+        if text.trim().is_empty() || text.len() > 4096 || text.contains(['\0', '\n', '\r']) {
             return Err("invalid CLI runtime setting");
         }
     }

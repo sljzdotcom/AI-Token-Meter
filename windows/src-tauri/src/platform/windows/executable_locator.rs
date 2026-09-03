@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use crate::accounts::cli_account::CliProvider;
 
@@ -47,6 +48,32 @@ const MAX_DIRECTORIES_PER_SOURCE: usize = 128;
 const MAX_WSL_DISTRIBUTIONS: usize = 64;
 const SHEBANG_READ_LIMIT: u64 = 256;
 
+pub struct DiscoveryBudget {
+    deadline: Instant,
+    remaining_processes: usize,
+}
+
+impl DiscoveryBudget {
+    pub fn new(total_timeout: Duration, maximum_processes: usize) -> Self {
+        Self {
+            deadline: Instant::now() + total_timeout,
+            remaining_processes: maximum_processes,
+        }
+    }
+
+    pub fn next_process_timeout(&mut self, per_process_limit: Duration) -> Option<Duration> {
+        if self.remaining_processes == 0 {
+            return None;
+        }
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return None;
+        }
+        self.remaining_processes -= 1;
+        Some(remaining.min(per_process_limit))
+    }
+}
+
 impl ExecutableLocator {
     pub fn new(inputs: DiscoveryInputs) -> Self {
         Self { inputs }
@@ -61,6 +88,20 @@ impl ExecutableLocator {
         F: FnMut(&ExecutableCandidate) -> bool,
     {
         self.locate_native(provider, &mut health_check)
+    }
+
+    pub fn validate_custom<F>(
+        &self,
+        provider: CliProvider,
+        path: &Path,
+        mut health_check: F,
+    ) -> Option<ExecutableCandidate>
+    where
+        F: FnMut(&ExecutableCandidate) -> bool,
+    {
+        let candidate =
+            self.validate_candidate(path.to_owned(), provider, CandidateOrigin::Custom)?;
+        health_check(&candidate).then_some(candidate)
     }
 
     pub fn locate_with_wsl_output<F>(

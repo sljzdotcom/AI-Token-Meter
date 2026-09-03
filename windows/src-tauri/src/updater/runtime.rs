@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
@@ -67,7 +68,15 @@ pub async fn install(
         return Err("The available update changed; check again".to_owned());
     }
 
-    refresh_coordinator.cancel_all();
+    if !refresh_coordinator.suspend_and_wait(Duration::from_secs(5)) {
+        refresh_coordinator.resume();
+        fail(
+            &app,
+            &state,
+            "Active usage checks did not stop; try the update again",
+        );
+        return Err("Active usage checks did not stop; try the update again".to_owned());
+    }
 
     let downloaded = Arc::new(Mutex::new(0_u64));
     let progress_state = Arc::clone(&state);
@@ -96,6 +105,7 @@ pub async fn install(
         )
         .await;
     if result.is_err() {
+        refresh_coordinator.resume();
         fail(&app, &state, "The signed update could not be installed");
         return Err("The signed update could not be installed".to_owned());
     }

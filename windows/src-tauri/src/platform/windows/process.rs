@@ -331,10 +331,7 @@ fn validate_executable(path: &Path) -> Result<PathBuf, ProcessRunError> {
 fn inherited_windows_environment() -> Vec<(OsString, OsString)> {
     #[cfg(windows)]
     {
-        ["SystemRoot", "WINDIR", "TEMP", "TMP"]
-            .into_iter()
-            .filter_map(|key| std::env::var_os(key).map(|value| (OsString::from(key), value)))
-            .collect()
+        allowed_environment_from(|key| std::env::var_os(key))
     }
     #[cfg(not(windows))]
     {
@@ -352,7 +349,37 @@ pub(crate) fn configure_restricted_command(command: &mut Command, executable: &P
 }
 
 pub(crate) fn restricted_environment_for(executable: &Path) -> Vec<(OsString, OsString)> {
-    let mut environment = inherited_windows_environment();
+    restricted_environment_from(executable, |key| std::env::var_os(key))
+}
+
+const ALLOWED_WINDOWS_ENVIRONMENT: [&str; 11] = [
+    "SystemRoot",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "COMSPEC",
+    "PROGRAMDATA",
+];
+
+fn allowed_environment_from(
+    lookup: impl Fn(&str) -> Option<OsString>,
+) -> Vec<(OsString, OsString)> {
+    ALLOWED_WINDOWS_ENVIRONMENT
+        .into_iter()
+        .filter_map(|key| lookup(key).map(|value| (OsString::from(key), value)))
+        .collect()
+}
+
+fn restricted_environment_from(
+    executable: &Path,
+    lookup: impl Fn(&str) -> Option<OsString>,
+) -> Vec<(OsString, OsString)> {
+    let mut environment = allowed_environment_from(lookup);
     if let Some(parent) = executable.parent() {
         environment.push((OsString::from("PATH"), parent.as_os_str().to_owned()));
     }
@@ -582,5 +609,44 @@ impl Drop for ProcessJob {
         unsafe {
             windows_sys::Win32::Foundation::CloseHandle(self.handle);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn restricted_environment_keeps_profile_paths_but_drops_provider_overrides() {
+        let executable = Path::new("/tools/node.exe");
+        let source = [
+            ("SystemRoot", r"C:\Windows"),
+            ("USERPROFILE", r"C:\Users\Miller"),
+            ("APPDATA", r"C:\Users\Miller\AppData\Roaming"),
+            ("LOCALAPPDATA", r"C:\Users\Miller\AppData\Local"),
+            ("CODEX_HOME", r"D:\alternate-codex"),
+            ("CLAUDE_CONFIG_DIR", r"D:\alternate-claude"),
+            ("WSLENV", "CODEX_HOME/u"),
+        ];
+
+        let environment = restricted_environment_from(executable, |key| {
+            source
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(key))
+                .map(|(_, value)| OsString::from(value))
+        });
+        let names = environment
+            .iter()
+            .map(|(name, _)| name.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(names.contains(&"SystemRoot".to_owned()));
+        assert!(names.contains(&"USERPROFILE".to_owned()));
+        assert!(names.contains(&"APPDATA".to_owned()));
+        assert!(names.contains(&"LOCALAPPDATA".to_owned()));
+        assert!(names.contains(&"PATH".to_owned()));
+        assert!(!names.contains(&"CODEX_HOME".to_owned()));
+        assert!(!names.contains(&"CLAUDE_CONFIG_DIR".to_owned()));
+        assert!(!names.contains(&"WSLENV".to_owned()));
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::domain::{ProviderId, UsageSnapshot};
 use crate::platform::windows::process::CancellationToken;
@@ -65,8 +65,28 @@ pub enum RefreshResult {
 }
 
 #[derive(Default)]
+struct RefreshState {
+    in_flight: HashMap<ProviderId, Arc<CancellationToken>>,
+    active_count: usize,
+    suspended: bool,
+}
+
 pub struct RefreshCoordinator {
-    in_flight: Mutex<HashMap<ProviderId, Arc<CancellationToken>>>,
+    state: Mutex<RefreshState>,
+    drained: Condvar,
+}
+
+impl Default for RefreshCoordinator {
+    fn default() -> Self {
+        Self {
+            state: Mutex::new(RefreshState {
+                in_flight: HashMap::new(),
+                active_count: 0,
+                suspended: false,
+            }),
+            drained: Condvar::new(),
+        }
+    }
 }
 
 impl RefreshCoordinator {
@@ -81,31 +101,34 @@ impl RefreshCoordinator {
     ) -> RefreshResult {
         let token = Arc::new(CancellationToken::new());
         {
-            let mut in_flight = self
-                .in_flight
-                .lock()
-                .unwrap_or_else(|lock| lock.into_inner());
-            if let Some(existing) = in_flight.get(&request.provider) {
+            let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+            if state.suspended {
+                return RefreshResult::Cancelled;
+            }
+            if let Some(existing) = state.in_flight.get(&request.provider) {
                 if priority == RefreshPriority::Scheduled {
                     return RefreshResult::AlreadyRefreshing;
                 }
                 existing.cancel();
             }
-            in_flight.insert(request.provider, token.clone());
+            state.in_flight.insert(request.provider, token.clone());
+            state.active_count = state.active_count.saturating_add(1);
         }
 
         let outcome = (request.collector)(token.clone());
-        let mut in_flight = self
+        let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+        if state
             .in_flight
-            .lock()
-            .unwrap_or_else(|lock| lock.into_inner());
-        if in_flight
             .get(&request.provider)
             .is_some_and(|current| Arc::ptr_eq(current, &token))
         {
-            in_flight.remove(&request.provider);
+            state.in_flight.remove(&request.provider);
         }
-        drop(in_flight);
+        state.active_count = state.active_count.saturating_sub(1);
+        if state.active_count == 0 {
+            self.drained.notify_all();
+        }
+        drop(state);
 
         if token.is_cancelled() {
             return RefreshResult::Cancelled;
@@ -146,13 +169,39 @@ impl RefreshCoordinator {
     }
 
     pub fn cancel_all(&self) -> usize {
-        let in_flight = self
-            .in_flight
-            .lock()
-            .unwrap_or_else(|lock| lock.into_inner());
-        for token in in_flight.values() {
+        let state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+        for token in state.in_flight.values() {
             token.cancel();
         }
-        in_flight.len()
+        state.in_flight.len()
+    }
+
+    pub fn suspend_and_wait(&self, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+        state.suspended = true;
+        for token in state.in_flight.values() {
+            token.cancel();
+        }
+        while state.active_count > 0 {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            let (next, result) = self
+                .drained
+                .wait_timeout(state, remaining)
+                .unwrap_or_else(|lock| lock.into_inner());
+            state = next;
+            if result.timed_out() && state.active_count > 0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn resume(&self) {
+        let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+        state.suspended = false;
     }
 }

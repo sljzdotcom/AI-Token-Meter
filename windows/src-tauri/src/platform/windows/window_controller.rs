@@ -38,6 +38,26 @@ pub fn fitted_detail_size(work_area: PhysicalRect, desired: PhysicalSize) -> Phy
     )
 }
 
+pub fn fitted_meter_size(work_area: PhysicalRect, desired: PhysicalSize) -> PhysicalSize {
+    const WORK_AREA_MARGIN: u32 = 16;
+    let available_width = work_area.size.width.saturating_sub(WORK_AREA_MARGIN).max(1);
+    let available_height = work_area
+        .size
+        .height
+        .saturating_sub(WORK_AREA_MARGIN)
+        .max(1);
+    if desired.width <= available_width && desired.height <= available_height {
+        return desired;
+    }
+    let scale = (f64::from(available_width) / f64::from(desired.width.max(1)))
+        .min(f64::from(available_height) / f64::from(desired.height.max(1)))
+        .min(1.0);
+    PhysicalSize::new(
+        (f64::from(desired.width) * scale).round().max(1.0) as u32,
+        (f64::from(desired.height) * scale).round().max(1.0) as u32,
+    )
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PhysicalRect {
     pub origin: PhysicalPoint,
@@ -298,13 +318,12 @@ pub fn place_meter(
         return Ok(());
     };
     let work = from_tauri_rect(monitor.work_area());
-    let size = meter.inner_size()?;
-    let placement = WindowPlacement::meter(
-        work,
-        PhysicalSize::new(size.width, size.height),
-        edge,
-        normalized_y,
-    );
+    let meter_size = fitted_meter_size(work, desired_meter_size(meter)?);
+    meter.set_size(tauri::PhysicalSize::new(
+        meter_size.width,
+        meter_size.height,
+    ))?;
+    let placement = WindowPlacement::meter(work, meter_size, edge, normalized_y);
     meter.set_position(tauri::PhysicalPosition::new(
         placement.origin.x,
         placement.origin.y,
@@ -480,13 +499,12 @@ fn position_meter_on_preferred(
         return Ok(());
     };
     let work = from_tauri_rect(monitor.work_area());
-    let size = meter.inner_size()?;
-    let placement = WindowPlacement::meter(
-        work,
-        PhysicalSize::new(size.width, size.height),
-        edge,
-        normalized_y,
-    );
+    let meter_size = fitted_meter_size(work, desired_meter_size(meter)?);
+    meter.set_size(tauri::PhysicalSize::new(
+        meter_size.width,
+        meter_size.height,
+    ))?;
+    let placement = WindowPlacement::meter(work, meter_size, edge, normalized_y);
     meter.set_position(tauri::PhysicalPosition::new(
         placement.origin.x,
         placement.origin.y,
@@ -549,4 +567,10 @@ fn from_tauri_rect(rect: &tauri::PhysicalRect<i32, u32>) -> PhysicalRect {
         rect.size.width,
         rect.size.height,
     )
+}
+
+fn desired_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSize> {
+    let desired: tauri::PhysicalSize<u32> =
+        tauri::LogicalSize::new(116.0, 450.0).to_physical(meter.scale_factor()?);
+    Ok(PhysicalSize::new(desired.width, desired.height))
 }
