@@ -209,7 +209,8 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 - Windows CI [33717040377](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33717040377) 已在真实 `windows-latest` runner 上通过 ConPTY 的创建、缩放、`ready → input → received` 完整往返，证明标准句柄隔离修复有效；Credential Manager 真实写入/读取/删除、Job Object 后代回收、超时、取消、输出上限、编码归一化和固定登录命令也全部通过；
 - 该轮唯一失败不是运行时功能，而是工作目录测试把 Node 报告的 8.3 短路径 `C:\Users\RUNNER~1\...` 与 Rust `canonicalize` 得到的 verbatim 长路径 `\\?\C:\Users\runneradmin\...` 直接按字符串比较；两者指向同一目录；
-- 测试现先把子进程报告的路径重新规范化，再与预期规范路径比较，验证的是目录身份而非 Windows 可变的文本表示。本机聚焦测试、格式、零警告 Clippy 与 Windows 目标静态检查均通过，等待下一轮 Windows CI 关闭 Task 6 检查点。
+- 测试现先把子进程报告的路径重新规范化，再与预期规范路径比较，验证的是目录身份而非 Windows 可变的文本表示。本机聚焦测试、格式、零警告 Clippy 与 Windows 目标静态检查均通过；
+- 最终 Windows CI [33717589098](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33717589098) 在同一提交 `432d728` 上完整通过前端测试/构建、Rust 格式、零警告 Clippy 和全部 Windows 运行测试。Task 6 的进程、凭据、ConPTY 与登录入口检查点据此关闭。
 
 ## 安全与隐私
 
@@ -219,8 +220,8 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 ## 尚未完成
 
-- Credential Manager Windows runner 往返测试与 DeepSeek 真机 Key 验收；
-- Windows runner 上的 Credential Manager、进程树与 ConPTY 往返，以及 Claude Code/OpenAI Codex 采集；
+- DeepSeek 真机 Key 验收；
+- Claude Code/OpenAI Codex 采集；
 - 系统托盘、贴边窗口、详情、完整 Settings 和真机交互；
 - DeepSeek WebView2 30 日图表；
 - NSIS、Tauri Updater、Windows CI 和双平台 Preview Release。

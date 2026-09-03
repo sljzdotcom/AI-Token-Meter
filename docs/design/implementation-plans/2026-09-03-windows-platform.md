@@ -407,7 +407,7 @@ git commit -m "feat: discover native and WSL AI CLIs on Windows"
 - 对 WSL 使用同一已选择发行版；
 - 自定义路径只作为 executable，不接受额外参数文本。
 
-- [ ] **步骤 5：运行 Windows 进程集成测试并提交**
+- [x] **步骤 5：运行 Windows 进程集成测试并提交**
 
 ```bash
 cd windows/src-tauri && cargo test process_runner
