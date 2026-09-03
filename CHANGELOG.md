@@ -10,6 +10,7 @@
 
 - 从 Settings 启动更新时，应用会在展示 Sparkle 标准安装流程前隐藏 Settings 并激活自身，避免下载完成后的 **Install and Relaunch** 窗口被设置窗口遮挡、界面看似长期停在 Preparing。
 - 只让 SwiftUI Settings 窗口临时让位，不关闭普通窗口，不改变手动检查、用户确认、EdDSA 签名验证、失败回退或重新启动行为。
+- 发布回归中的 32 路并发 PTY fixture 改为只使用 Shell 内建读取，避免测试自身额外派生 64 个进程并在 GitHub runner 资源紧张时产生假性输出缺失；同时显式验证每个子命令退出码。
 
 ## 0.2.1 - 2026-09-03
 

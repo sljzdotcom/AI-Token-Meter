@@ -154,7 +154,7 @@ struct PTYCommandRunnerTests {
 
     @Test("Concurrent terminal commands do not lose their output")
     func concurrentCommandsPreserveOutput() async throws {
-        let outputs = try await withThrowingTaskGroup(of: String.self) { group in
+        let results = try await withThrowingTaskGroup(of: (Int, CommandResult).self) { group in
             for index in 0..<32 {
                 group.addTask {
                     let result = try await PTYCommandRunner().run(CommandRequest(
@@ -162,19 +162,20 @@ struct PTYCommandRunnerTests {
                         inputLines: ["identity"],
                         timeout: 3
                     ))
-                    return "\(index):\(result.output)"
+                    return (index, result)
                 }
             }
 
-            var collected: [String] = []
-            for try await output in group {
-                collected.append(output)
+            var collected: [(Int, CommandResult)] = []
+            for try await result in group {
+                collected.append(result)
             }
             return collected
         }
 
-        #expect(outputs.count == 32)
-        #expect(outputs.allSatisfy { $0.contains("user:\(NSUserName())") })
+        #expect(results.count == 32)
+        #expect(results.allSatisfy { $0.1.exitCode == 0 })
+        #expect(results.allSatisfy { $0.1.output.contains("user:\(NSUserName())") })
     }
 
     private var fixtureExecutable: URL {

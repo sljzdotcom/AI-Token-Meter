@@ -36,7 +36,6 @@ if [ "$1" = "app-server" ]; then
 fi
 
 IFS= read -r ai_meter_command
-ai_meter_command=$(printf '%s' "$ai_meter_command" | tr -d '\r\004\010')
 
 case "$ai_meter_command" in
   fail)
