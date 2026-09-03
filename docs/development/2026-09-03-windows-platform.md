@@ -202,6 +202,8 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - `read_until` 现会按原始字节流识别完整光标查询，并以保守的 `ESC[1;1R` 回复；分片查询不会被误判，多次查询会逐一应答；
 - Windows 运行测试改为先等待夹具主动输出 `ready`（验证启动、输出管道和 DSR 握手），再发送固定输入并等待 `received:hello`（验证输入管道和子进程 stdin），避免单一超时掩盖故障层。
 - Windows CI [33716133098](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33716133098) 在运行测试前由零警告 Clippy 发现条件编译后的 `items_after_test_module`；macOS 会裁掉后续 Windows 项而未触发该 lint，测试模块现已移至文件最终位置，并将 Windows 目标静态检查纳入本地复核。
+- Windows CI [33716538082](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33716538082) 通过 Windows Clippy 后，夹具的 `ready` 出现在父 CI 日志而 ConPTY 输出 pipe 仍超时；这直接证明子进程启动成功、但标准输出仍绑定父控制台；
+- Windows 在 `bInheritHandles = false` 且未设置 `STARTF_USESTDHANDLES` 时仍可能复制父进程标准句柄。当前 `STARTUPINFOEXW` 已按生产级 ConPTY 实现设置 `STARTF_USESTDHANDLES`，并继续使用清零的 stdin/stdout/stderr，由伪终端建立新的控制台连接。
 
 ## 安全与隐私
 
