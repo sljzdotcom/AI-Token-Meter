@@ -383,3 +383,8 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 新增 6 项运行时/协调器回归后，两组聚焦测试共 10 项通过；本机完整 Rust 80 项通过（DeepSeek loopback 测试经允许运行），全目标零警告 Clippy 和 rustfmt 通过；
 - 前端 9 项测试、TypeScript 检查及 Vite production build 通过；
 - Windows 专属生命周期模块已进入下一轮 `windows-latest` CI。由于 macOS 缺少 MSVC C 工具链，`rusqlite bundled` 的 Windows 交叉检查停在 C 编译器环境，不把该结果视为源码失败或 Windows 编译成功。
+
+## Phase 4 补验：Services 与 Windows 更新器
+
+- Windows CI [33728220354](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33728220354) 已通过前端测试、生产构建和 Rust 格式检查，随后在严格 Clippy 阶段发现两个仅由 Windows 条件分支暴露的多余 `return`；该运行尚未执行 Rust 测试或 NSIS 打包，因此不作为安装包成功证据；
+- 问题仅位于 Tauri command 的返回表达式风格，不涉及账号、凭据或更新状态逻辑；按 Clippy 精确建议移除多余 `return`，其余实现保持不变，进入完整 runner 复验。

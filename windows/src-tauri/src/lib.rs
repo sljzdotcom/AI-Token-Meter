@@ -322,7 +322,7 @@ fn begin_service_sign_in(provider_id: ProviderId) -> Result<(), String> {
     };
     #[cfg(windows)]
     {
-        return crate::accounts::windows_service::launch_login(provider).map_err(str::to_owned);
+        crate::accounts::windows_service::launch_login(provider).map_err(str::to_owned)
     }
     #[cfg(not(windows))]
     {
@@ -358,10 +358,10 @@ async fn replace_deepseek_api_key(
             "snapshot-updated",
             state.usage.snapshot(ProviderId::DeepSeek),
         );
-        return Ok(crate::accounts::service_status::deepseek_status(
+        Ok(crate::accounts::service_status::deepseek_status(
             Some(&candidate),
             &checked_at,
-        ));
+        ))
     }
     #[cfg(not(windows))]
     {
