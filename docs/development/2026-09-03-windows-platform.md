@@ -162,6 +162,32 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 环境、发现器、WSL 和既有 Credential Manager 的同一生产源文件通过 `x86_64-pc-windows-msvc` 最小编译外壳；
 - 当前阶段只生成结构化进程调用并注入健康检查，真正的超时、进程树回收、`wsl.exe` 往返和 Windows 注册表运行时证据属于下一任务及 Windows runner，仍明确保留为未验收。
 
+## Phase 2：受限进程、ConPTY 与登录入口（进行中）
+
+### 失败证据
+
+- 固定 Node 测试夹具先覆盖参数元字符、输出洪泛、睡眠、UTF-16/ANSI、工作目录与最小环境；首次编译按预期因进程、ConPTY 和登录模块不存在而失败；
+- 首轮 Windows 目标编译暴露 `HPCON` 在绑定中是整数句柄而非裸指针，按实际 Win32 类型修正；
+- 加入输入/输出后，Windows 目标编译进一步暴露 `ReadFile` / `WriteFile` 需要显式 `Win32_System_IO` feature，补齐最小 API feature 后通过；
+- 测试夹具最初使用 CommonJS `require`，但 Windows 前端包声明 ESM；有效运行因此统一失败，改为 Node ESM import 后恢复，未掩盖成 runner 缺陷。
+
+### 当前实现
+
+- 非交互 runner 只接收显式 executable 与 argument 数组，不经过 PowerShell 或 shell；工作目录和环境均显式设置，Windows 仅继承 SystemRoot/WINDIR/TEMP/TMP，并把所选 executable 目录作为子进程 PATH；
+- stdout/stderr 由有界队列并发排空，总输出默认限制 64 KiB；超限、超时、取消、启动和进程控制错误只返回固定分类，错误 Debug 不含原始输出；
+- Windows 子进程进入带 `KILL_ON_JOB_CLOSE` 的 Job Object，父进程完成、超时或取消都会终止残留进程树；
+- ANSI 控制序列在内存中清理，UTF-8/UTF-16LE 输出统一后再交给 parser；原始输出不进入错误对象；
+- ConPTY 使用 `CreatePseudoConsole` 创建默认 120×40 终端，支持 resize、最大 4 KiB 固定输入、限时/限量 pattern 等待；进程以 `STARTUPINFOEXW` 附加伪终端，先 suspended 创建并加入 Job Object，再恢复主线程，消除子进程树逃逸窗口；
+- Windows 命令行按 `CommandLineToArgvW` 反向规则引用；ConPTY 子进程使用显式 executable、最小 Unicode 环境块和可选工作目录；
+- Claude Code 登录固定为 `claude auth login`，OpenAI Codex 固定为 `codex login`；WSL 发行版和所有参数保持独立；Node launcher 显式传脚本，CMD wrapper 启用 `/d` 且拒绝路径或固定参数中的 CMD 元字符。
+
+### 当前验证
+
+- macOS 上 8 项进程行为测试与 1 项平台前置校验通过，零警告 Clippy 通过；
+- 同一生产源文件通过 `x86_64-pc-windows-msvc` 最小编译外壳，覆盖 Job Object、CreateProcessW、ConPTY、pipe I/O 与账户命令；
+- `.github/workflows/windows-ci.yml` 提前落地真实 Windows 核心验证，后续分支推送将执行前端、格式、Clippy、完整 Rust、Credential Manager、进程树和 ConPTY 往返；
+- Task 6 的最终检查点仍等待 Windows CI 真实运行结果，当前不会提前标为完成。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
@@ -171,7 +197,7 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 ## 尚未完成
 
 - Credential Manager Windows runner 往返测试与 DeepSeek 真机 Key 验收；
-- 安全进程 runner、ConPTY、Claude Code 和 OpenAI Codex 采集；
+- Windows runner 上的 Credential Manager、进程树与 ConPTY 往返，以及 Claude Code/OpenAI Codex 采集；
 - 系统托盘、贴边窗口、详情、完整 Settings 和真机交互；
 - DeepSeek WebView2 30 日图表；
 - NSIS、Tauri Updater、Windows CI 和双平台 Preview Release。

@@ -388,19 +388,19 @@ git commit -m "feat: discover native and WSL AI CLIs on Windows"
 - 创建：`windows/src-tauri/tests/process_runner.rs`
 - 创建：`windows/src-tauri/tests/conpty_windows.rs`
 
-- [ ] **步骤 1：写进程边界失败测试**
+- [x] **步骤 1：写进程边界失败测试**
 
 覆盖参数数组、最大输出、超时、取消、父进程退出后子进程树终止、UTF-8/UTF-16 解码、ANSI 清理和日志脱敏。测试命令使用仓库内固定 fixture，不加载 PowerShell profile 或 CMD AutoRun。
 
-- [ ] **步骤 2：实现非交互 runner**
+- [x] **步骤 2：实现非交互 runner**
 
 使用 Job Object 管理整个进程树；创建进程时显式 executable、argument quoting、工作目录和最小环境；超时后先取消读取再终止 Job，最终排空有限输出。
 
-- [ ] **步骤 3：实现 ConPTY adapter**
+- [x] **步骤 3：实现 ConPTY adapter**
 
 通过 `CreatePseudoConsole` 建立 120×40 终端；暴露发送固定输入、等待模式、超时和 resize。原始终端输出只传给 parser，不落盘。
 
-- [ ] **步骤 4：实现固定登录动作**
+- [x] **步骤 4：实现固定登录动作**
 
 - Claude Code：固定 `claude auth login`；
 - OpenAI Codex：固定 `codex login`；
