@@ -254,6 +254,12 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - fixture 改为有界累计输入并在看到固定 `/usage` 后才输出脱敏额度，随后移除监听并退出；本机以“终端握手回复 + `/usage`”组合序列复验成功；
 - 修复提交 `16258c8` 已触发 Windows runner，结果未通过前仍不关闭 Task 7。
 
+### Windows runner 第三轮 Provider 反馈
+
+- Windows CI [33720000356](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33720000356) 再次通过前端、格式、Windows Clippy 和全部先行编译；Claude 端到端测试仍在约 0.09 秒返回 `Transport`，故障继续只存在于测试替身生命周期；
+- 替身在输出额度后固定 100ms 主动退出，而采集器正在从 ConPTY 读取第二段输出；管道关闭与读取形成竞态。真实 Claude Code 是持续交互进程，其生命周期由调用方结束，不具备该提前退出行为；
+- 替身现只输出一次额度并保持交互会话，由生产代码已有的 Job Object 在采集返回时回收。这样同时验证稳定读取与无残留进程清理，不再依赖任意 100ms 墙钟窗口。
+
 ## Phase 3：Windows 浮动条、详情和 Settings 前端
 
 ### 测试先行范围

@@ -7,9 +7,11 @@ if (argumentsAfterScript[0] === "auth" && argumentsAfterScript[1] === "status") 
   process.stdin.setEncoding("utf8");
   process.stdout.write("Claude Code ready\r\n");
   let terminalInput = "";
+  let usageRendered = false;
   process.stdin.on("data", (input) => {
     terminalInput += input;
-    if (terminalInput.includes("/usage")) {
+    if (!usageRendered && terminalInput.includes("/usage")) {
+      usageRendered = true;
       process.stdout.write([
         "Current session",
         "23% used",
@@ -19,8 +21,6 @@ if (argumentsAfterScript[0] === "auth" && argumentsAfterScript[1] === "status") 
         "Resets Sep 6 at 8:00am",
         "",
       ].join("\r\n"));
-      process.stdin.removeAllListeners("data");
-      setTimeout(() => process.exit(0), 100);
     }
   });
 } else {
