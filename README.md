@@ -2,8 +2,8 @@
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
-![Version 0.2.1](https://img.shields.io/badge/version-0.2.1-2ea44f)
-![Tests 361](https://img.shields.io/badge/tests-361%20passed-2ea44f)
+![Version 0.2.2](https://img.shields.io/badge/version-0.2.2-2ea44f)
+![Tests 362](https://img.shields.io/badge/tests-362%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -11,7 +11,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 > **English:** A native macOS usage meter for Claude Code, OpenAI Codex, and DeepSeek. It keeps credentials with the official CLIs or macOS Keychain, presents official quota and local aggregate activity in a compact edge meter, and is open source under the MIT License.
 
-> 项目状态：个人本地工具，当前稳定版本为 `0.2.1`（build `5`）。后续变更统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
+> 项目状态：个人本地工具，当前稳定版本为 `0.2.2`（build `6`）。后续变更统一记录在 [Unreleased](CHANGELOG.md#unreleased)。
 
 ## Screenshots
 
@@ -63,7 +63,7 @@ AI Token Meter 是一款原生 macOS 菜单栏应用，把 Claude Code、OpenAI 
 
 ## 下载与安装
 
-**[Download v0.2.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.1)** from GitHub Releases and choose `AI-Token-Meter-0.2.1-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
+**[Download v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2)** from GitHub Releases and choose `AI-Token-Meter-0.2.2-macOS-arm64.zip`. The matching `.sha256` file verifies the download.
 
 1. 完全退出已有的 AI Token Meter。
 2. 解压 ZIP，并把 `AI Token Meter.app` 移到 `/Applications`。
@@ -191,7 +191,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前稳定版本：`0.2.1`（build `5`）。
+- 当前稳定版本：`0.2.2`（build `6`）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+## 0.2.2 - 2026-09-03
+
+### Fixed
+
+- 从 Settings 启动更新时，应用会在展示 Sparkle 标准安装流程前隐藏 Settings 并激活自身，避免下载完成后的 **Install and Relaunch** 窗口被设置窗口遮挡、界面看似长期停在 Preparing。
+- 只让 SwiftUI Settings 窗口临时让位，不关闭普通窗口，不改变手动检查、用户确认、EdDSA 签名验证、失败回退或重新启动行为。
+
 ## 0.2.1 - 2026-09-03
 
 ### Fixed

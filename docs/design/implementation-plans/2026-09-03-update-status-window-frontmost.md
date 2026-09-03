@@ -20,21 +20,21 @@
 
 ### 任务 1：窗口让位行为
 
-- [ ] 在 `SoftwareUpdateWindowPresenterTests.swift` 创建一个 Settings 标识窗口、一个普通窗口和一个无标识窗口，先断言调用不存在或 Settings 仍可见，运行 `scripts/test.sh --filter SoftwareUpdateWindowPresenterTests` 并看到预期失败。
-- [ ] 实现 `SoftwareUpdateWindowPresenter.prepareForInstallation(windows:activate:)`：仅对标识为 `com_apple_SwiftUI_Settings_window` 的窗口调用 `orderOut(nil)`，然后调用一次 `activate`。
-- [ ] 重新运行聚焦测试，确认 Settings 隐藏、其他窗口保持、激活次数为一。
-- [ ] 提交测试和最小实现。
+- [x] 在 `SoftwareUpdateWindowPresenterTests.swift` 创建 Settings、普通与无标识窗口替身，先运行并看到缺少 presenter 的预期失败；真实 `NSWindow` 在无窗口服务器测试环境触发崩溃，因此把边界收敛为协议替身。
+- [x] 实现 `SoftwareUpdateWindowPresenter.prepareForInstallation()`：仅对标识为 `com_apple_SwiftUI_Settings_window` 的窗口调用 `orderOut(nil)`，然后调用一次 `activate`。
+- [x] 重新运行聚焦测试，确认 Settings 隐藏、其他窗口保持、激活次数为一。
+- [x] 提交测试和最小实现（`6057b3e`）。
 
 ### 任务 2：Sparkle 集成顺序
 
-- [ ] 在 `SoftwareUpdatePackagingTests.swift` 增加源码契约，要求 `presentAvailableUpdate()` 在 `controller?.checkForUpdates(nil)` 前调用 `SoftwareUpdateWindowPresenter.prepareForInstallation`；先运行并看到失败。
-- [ ] 修改 `SparkleUpdateEngine.swift`，传入 `NSApp.windows` 和 `NSApp.activate(ignoringOtherApps: true)`，不改变其他 Sparkle 委托或失败映射。
-- [ ] 运行两个更新聚焦测试组并确认通过。
-- [ ] 提交集成节点。
+- [x] 通过 `SparkleUpdateEngine` 的 presenter 注入测试锁定 `presentAvailableUpdate()` 的窗口让位行为，并先观察预期失败。
+- [x] 修改 `SparkleUpdateEngine.swift`，在标准 Sparkle UI 前调用 presenter；默认实现读取 `NSApp.windows` 并执行 `NSApp.activate(ignoringOtherApps: true)`，不改变其他 Sparkle 委托或失败映射。
+- [x] 运行窗口展示与更新打包聚焦测试并确认通过。
+- [x] 提交集成节点（`6057b3e`）。
 
 ### 任务 3：0.2.2 发布与真实验收
 
-- [ ] 将主应用和 Widget 版本升级为 `0.2.2 (6)`，同步 README、CHANGELOG、发布说明和测试期望。
+- [x] 将主应用和 Widget 版本升级为 `0.2.2 (6)`，同步 README、CHANGELOG、发布说明和测试期望。
 - [ ] 运行 `scripts/test.sh`、文档检查、公开安全检查和正式更新打包；验证 ZIP、SHA-256、EdDSA 和篡改拒绝。
 - [ ] 推送分支并确认公开 CI，通过审查后快进合入 `main`。
 - [ ] 创建并推送 `v0.2.2`，发布 ZIP 与 SHA-256，不修改 `v0.2.1`。
