@@ -29,6 +29,7 @@ end
 
 windows_package = read_json(root + "windows/package.json", errors)
 tauri_config = read_json(root + "windows/src-tauri/tauri.conf.json", errors)
+tauri_release_config = read_json(root + "windows/src-tauri/tauri.release.conf.json", errors)
 cargo_path = root + "windows/src-tauri/Cargo.toml"
 cargo_version = cargo_path.file? ? cargo_path.read[/\A\[package\].*?^version\s*=\s*"([^"]+)"/m, 1] : nil
 if shared_version
@@ -42,6 +43,33 @@ if shared_version
 end
 errors << "Windows npm lockfile is missing" unless (root + "windows/package-lock.json").file?
 errors << "Windows Cargo lockfile is missing" unless (root + "windows/src-tauri/Cargo.lock").file?
+
+if tauri_config
+  updater = tauri_config.dig("plugins", "updater")
+  errors << "Windows updater public key is missing" if updater&.fetch("pubkey", "").empty?
+  endpoints = updater&.fetch("endpoints", [])
+  unless endpoints == ["https://github.com/sljzdotcom/AI-Token-Meter/releases/latest/download/latest.json"]
+    errors << "Windows updater endpoint must use the fixed public GitHub Release feed"
+  end
+  if tauri_config.dig("bundle", "createUpdaterArtifacts") == true
+    errors << "Ordinary Windows builds must not require updater signing credentials"
+  end
+end
+
+unless tauri_release_config&.dig("bundle", "createUpdaterArtifacts") == true
+  errors << "Windows release config must create signed updater artifacts"
+end
+
+windows_ci_path = root + ".github/workflows/windows-ci.yml"
+if windows_ci_path.file?
+  windows_ci = windows_ci_path.read
+  if windows_ci.include?("--no-bundle")
+    errors << "Windows CI must build the NSIS installer, not only the desktop executable"
+  end
+  errors << "Windows CI must upload the NSIS installer artifact" unless windows_ci.include?("actions/upload-artifact@") && windows_ci.include?("bundle/nsis")
+else
+  errors << "Windows CI workflow is missing"
+end
 
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)

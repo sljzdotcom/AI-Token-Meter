@@ -167,7 +167,7 @@ fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<Provid
     vec![claude_request, codex_request, deepseek_request]
 }
 
-fn locate(provider: CliProvider) -> Option<ExecutableCandidate> {
+pub(crate) fn locate(provider: CliProvider) -> Option<ExecutableCandidate> {
     let inputs = DiscoveryInputs::capture(None);
     let wsl_output = inputs
         .system_root

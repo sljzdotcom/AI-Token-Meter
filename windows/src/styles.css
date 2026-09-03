@@ -566,6 +566,48 @@ button {
   gap: 10px;
 }
 
+.service-card {
+  align-items: flex-start !important;
+}
+
+.service-identity {
+  min-width: 190px;
+}
+
+.service-card--connected .service-identity > small:first-of-type {
+  color: #176b4d;
+  font-weight: 650;
+}
+
+.service-card--signInRequired .service-identity > small:first-of-type,
+.service-card--notInstalled .service-identity > small:first-of-type,
+.service-card--unavailable .service-identity > small:first-of-type {
+  color: #a44d1a;
+  font-weight: 650;
+}
+
+.service-actions {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.service-actions input {
+  min-width: 220px;
+}
+
+.service-message {
+  background: #edf2ff;
+  border: 1px solid #ced9fb;
+  border-radius: 10px;
+  color: #32446f;
+  margin: 0;
+  padding: 10px 12px;
+}
+
 .about-card {
   align-items: flex-start;
   flex-direction: column;
@@ -573,6 +615,16 @@ button {
 
 .about-card p {
   margin: 0;
+}
+
+.update-status {
+  min-height: 1.4em;
+}
+
+.update-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 :focus-visible {

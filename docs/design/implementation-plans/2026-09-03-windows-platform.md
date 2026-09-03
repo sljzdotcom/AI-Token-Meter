@@ -457,7 +457,7 @@ git add contracts/fixtures windows/src-tauri
 git commit -m "feat: collect Claude Code and OpenAI Codex usage on Windows"
 ```
 
-- [ ] **步骤 6：把采集器接入真实应用生命周期**
+- [x] **步骤 6：把采集器接入真实应用生命周期**
 
 启动时先读取三 Provider 的独立缓存并立即发起刷新；托盘 Refresh 使用手动优先级取消旧任务；后台按设置周期刷新。刷新开始、完成与失败都通过同一脱敏事件更新浮动条、详情和托盘。旧任务即使忽略取消并延迟返回，也不得覆盖新结果；单项失败只回退该 Provider 缓存，登录失效和未安装不得显示为 `0%`。DeepSeek 余额刷新必须保留独立 WebView2 已采集的历史。
 
@@ -519,6 +519,10 @@ git commit -m "feat: build Windows meter interface"
 ```
 
 前端以固定 `usage_snapshots` command 和 `snapshot-updated` 事件接收脱敏 DTO；无任意命令或路径入口。5 项组件/交互测试、TypeScript 检查和 Vite 正式构建通过；本机 Chromium 预览确认深海背景覆盖主体与上下肩部。真实 WebView2、Win32 透明窗口形状、DPI 和高对比度验收仍属于任务 9，不用浏览器预览冒充 Windows 真机证据。
+
+- [ ] **步骤 6：接通 Services 账号与凭据管理**
+
+Settings 启动时读取 Claude Code、OpenAI Codex 与 DeepSeek 的真实状态；只显示 CLI 返回的账号标识、订阅类型、原生/WSL 来源和版本，不显示 CLI 路径或凭据。Claude Code/OpenAI Codex 的按钮只启动固定官方登录命令；DeepSeek 候选 Key 必须先由官方余额接口验证，再原子替换 Windows Credential Manager 中的旧 Key。失败时保留旧 Key，界面只展示分类错误。
 
 ---
 
@@ -614,15 +618,15 @@ git commit -m "feat: add Windows DeepSeek usage history"
 - 修改：`.github/workflows/ci.yml`
 - 修改：`scripts/check-public-release.sh`
 
-- [ ] **步骤 1：写更新状态与签名失败测试**
+- [x] **步骤 1：写更新状态与签名失败测试**
 
 覆盖 idle、checking、up-to-date、available、downloading、ready、failed；只有用户点击 Check 才联网；只有 available 可 Update Now；错误不删除当前版本；无签名、错版本、错 target 和 hash 不一致全部失败。
 
-- [ ] **步骤 2：接入 Tauri Updater**
+- [x] **步骤 2：接入 Tauri Updater**
 
 公钥进入应用配置；私钥只由 GitHub Actions Secret 提供。`latest.json` 同时描述 `windows-x86_64` 和现有 macOS appcast 的同版本事实；Windows 更新前保存非敏感状态、终止采集子进程并退出旧实例。
 
-- [ ] **步骤 3：配置当前用户 NSIS 安装器**
+- [x] **步骤 3：配置当前用户 NSIS 安装器**
 
 产物名固定：
 

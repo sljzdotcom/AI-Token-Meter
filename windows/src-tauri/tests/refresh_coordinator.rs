@@ -181,6 +181,41 @@ fn a_collector_that_finishes_after_cancellation_cannot_publish_its_snapshot() {
     assert_eq!(old.join().expect("old join"), RefreshResult::Cancelled);
 }
 
+#[test]
+fn shutdown_cancels_every_in_flight_provider_before_update_installation() {
+    let coordinator = Arc::new(RefreshCoordinator::new());
+    let gate = Arc::new(Barrier::new(4));
+    let handles = [ProviderId::Claude, ProviderId::Codex, ProviderId::DeepSeek]
+        .into_iter()
+        .map(|provider| {
+            let coordinator = Arc::clone(&coordinator);
+            let gate = Arc::clone(&gate);
+            thread::spawn(move || {
+                coordinator.refresh(
+                    ProviderRefreshRequest::new(provider, move |cancellation| {
+                        gate.wait();
+                        while !cancellation.is_cancelled() {
+                            thread::yield_now();
+                        }
+                        Err(CollectionError::Cancelled)
+                    }),
+                    RefreshPriority::Scheduled,
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    gate.wait();
+
+    assert_eq!(coordinator.cancel_all(), 3);
+    for handle in handles {
+        assert_eq!(
+            handle.join().expect("collector join"),
+            RefreshResult::Cancelled
+        );
+    }
+    assert_eq!(coordinator.cancel_all(), 0);
+}
+
 fn fixture(provider: ProviderId) -> UsageSnapshot {
     let value = match provider {
         ProviderId::Claude => include_str!("../../../contracts/fixtures/claude-fresh.json"),

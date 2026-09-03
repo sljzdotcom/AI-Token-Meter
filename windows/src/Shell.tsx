@@ -7,7 +7,7 @@ import type { CSSProperties } from "react"
 import { App } from "./App"
 import { FloatingStrip } from "./components/FloatingStrip"
 import { ProviderDetail } from "./details/ProviderDetail"
-import { SettingsWindow } from "./settings/SettingsWindow"
+import { SettingsWindow, type ServiceAccountStatus, type UpdateState } from "./settings/SettingsWindow"
 import type { ProviderId, UsageSnapshot } from "./state/usage"
 import { TauriUsageBridge } from "./state/usageBridge"
 import { useUsageSnapshots } from "./state/useUsageSnapshots"
@@ -118,12 +118,57 @@ function DetailSurface() {
 
 function SettingsSurface() {
   const settings = useRuntimeSettings()
+  const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.2.2" })
+  const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
+  const [serviceMessage, setServiceMessage] = useState<string | null>(null)
   const [requestedTab, setRequestedTab] = useState<"Appearance" | "Monitoring" | "Services" | "About">()
   useEffect(() => {
     let disposed = false
     let stop: (() => void) | undefined
     listen<"Appearance" | "Monitoring" | "Services" | "About">("settings-tab-requested", (event) => {
       if (!disposed) setRequestedTab(event.payload)
+    }).then((unlisten) => {
+      if (disposed) unlisten()
+      else stop = unlisten
+    }).catch(() => {})
+    return () => {
+      disposed = true
+      stop?.()
+    }
+  }, [])
+  useEffect(() => {
+    let disposed = false
+    invoke<ServiceAccountStatus[]>("service_account_statuses").then((statuses) => {
+      if (!disposed) setServiceStatuses(statuses)
+    }).catch(() => {
+      if (!disposed) setServiceMessage("Account status is temporarily unavailable.")
+    })
+    return () => { disposed = true }
+  }, [])
+  const applyServiceStatus = (status: ServiceAccountStatus) => {
+    setServiceStatuses((current) => [
+      ...current.filter((item) => item.providerId !== status.providerId),
+      status,
+    ])
+  }
+  const checkServiceStatus = (providerId: ProviderId) => {
+    applyServiceStatus({ providerId, connectionState: "checking" })
+    setServiceMessage(null)
+    void invoke<ServiceAccountStatus>("service_account_status", { providerId })
+      .then(applyServiceStatus)
+      .catch(() => {
+        applyServiceStatus({ providerId, connectionState: "unavailable" })
+        setServiceMessage("The account status check did not complete.")
+      })
+  }
+  useEffect(() => {
+    let disposed = false
+    let stop: (() => void) | undefined
+    invoke<UpdateState>("update_state").then((value) => {
+      if (!disposed) setUpdateState(value)
+    }).catch(() => {})
+    listen<UpdateState>("update-state-changed", (event) => {
+      if (!disposed) setUpdateState(event.payload)
     }).then((unlisten) => {
       if (disposed) unlisten()
       else stop = unlisten
@@ -148,6 +193,32 @@ function SettingsSurface() {
         void invoke("set_meter_edge", { edge: nextEdge })
       }}
       requestedTab={requestedTab}
+      updateState={updateState}
+      onCheckForUpdates={() => void invoke<UpdateState>("check_for_updates").then(setUpdateState).catch(() => {})}
+      onInstallUpdate={() => void invoke("install_update").catch(() => {})}
+      serviceStatuses={serviceStatuses}
+      serviceMessage={serviceMessage}
+      onCheckServiceStatus={checkServiceStatus}
+      onBeginServiceSignIn={(providerId) => {
+        setServiceMessage(null)
+        void invoke("begin_service_sign_in", { providerId }).then(() => {
+          setServiceMessage("Complete sign-in in the new terminal window, then choose Check Status.")
+        }).catch(() => {
+          setServiceMessage("The sign-in window could not be opened.")
+        })
+      }}
+      onReplaceDeepSeekKey={async (candidate) => {
+        setServiceMessage("Verifying the replacement API Key…")
+        try {
+          const status = await invoke<ServiceAccountStatus>("replace_deepseek_api_key", { candidate })
+          applyServiceStatus(status)
+          setServiceMessage("DeepSeek accepted the replacement API Key.")
+          return true
+        } catch {
+          setServiceMessage("The replacement was not saved. The existing API Key remains active.")
+          return false
+        }
+      }}
     />
   )
 }

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { UsageRing } from "./components/UsageRing"
 import { SettingsWindow } from "./settings/SettingsWindow"
+import type { ServiceAccountStatus } from "./settings/SettingsWindow"
 import type { UsageSnapshot } from "./state/usage"
 
 const snapshots: UsageSnapshot[] = [
@@ -130,5 +131,89 @@ describe("Windows meter interface", () => {
     expect(screen.getByRole("tab", { name: "Monitoring" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "Services" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "About" })).toBeVisible()
+  })
+
+  it("checks and installs updates only through separate explicit About actions", () => {
+    const check = vi.fn()
+    const install = vi.fn()
+    const { rerender } = render(
+      <SettingsWindow
+        displayFont="Antonio"
+        onDisplayFontChange={() => {}}
+        onCheckForUpdates={check}
+        onInstallUpdate={install}
+        requestedTab="About"
+        updateState={{ phase: "idle", currentVersion: "0.2.2" }}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Check for Updates" }))
+    expect(check).toHaveBeenCalledOnce()
+    expect(screen.getByRole("button", { name: "Update Now" })).toBeDisabled()
+
+    rerender(
+      <SettingsWindow
+        displayFont="Antonio"
+        onDisplayFontChange={() => {}}
+        onCheckForUpdates={check}
+        onInstallUpdate={install}
+        requestedTab="About"
+        updateState={{ phase: "available", currentVersion: "0.2.2", availableVersion: "0.3.0-preview.1" }}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Update Now" }))
+    expect(install).toHaveBeenCalledOnce()
+    expect(screen.getByText("Version 0.3.0-preview.1 is available.")).toBeVisible()
+  })
+
+  it("shows current service identities and keeps sign-in and API replacement explicit", () => {
+    const signIn = vi.fn()
+    const check = vi.fn()
+    const replaceKey = vi.fn()
+    const statuses: ServiceAccountStatus[] = [
+      {
+        providerId: "claude",
+        connectionState: "connected",
+        accountLabel: "member@example.com",
+        accountDetail: "Claude Code · Max",
+        runtimeSource: "Native Windows",
+        cliVersion: "2.1.223",
+      },
+      {
+        providerId: "codex",
+        connectionState: "signInRequired",
+        runtimeSource: "WSL · Ubuntu",
+        cliVersion: "0.148.0",
+      },
+      {
+        providerId: "deepseek",
+        connectionState: "connected",
+        accountLabel: "API Key ••••7xyz",
+        accountDetail: "Windows Credential Manager",
+      },
+    ]
+    render(
+      <SettingsWindow
+        displayFont="Antonio"
+        onBeginServiceSignIn={signIn}
+        onCheckServiceStatus={check}
+        onDisplayFontChange={() => {}}
+        onReplaceDeepSeekKey={replaceKey}
+        requestedTab="Services"
+        serviceStatuses={statuses}
+      />,
+    )
+
+    expect(screen.getByText("member@example.com")).toBeVisible()
+    expect(screen.getByText("Native Windows · CLI 2.1.223")).toBeVisible()
+    expect(screen.getByText("WSL · Ubuntu · CLI 0.148.0")).toBeVisible()
+    fireEvent.click(screen.getByRole("button", { name: "Sign in again to Claude Code" }))
+    expect(signIn).toHaveBeenCalledWith("claude")
+    fireEvent.click(screen.getByRole("button", { name: "Check OpenAI Codex status" }))
+    expect(check).toHaveBeenCalledWith("codex")
+
+    fireEvent.change(screen.getByLabelText("DeepSeek API Key"), { target: { value: "candidate-secret" } })
+    fireEvent.click(screen.getByRole("button", { name: "Replace DeepSeek API Key" }))
+    expect(replaceKey).toHaveBeenCalledWith("candidate-secret")
+    expect(screen.getByLabelText("DeepSeek API Key")).toHaveAttribute("type", "password")
   })
 })

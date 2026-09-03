@@ -51,6 +51,13 @@ jobs:
       - name: Test Windows runtime
         working-directory: windows/src-tauri
         run: cargo test --locked
-      - name: Compile Tauri desktop shell
+      - name: Build Windows NSIS installer
         working-directory: windows
-        run: npm run tauri build -- --debug --no-bundle
+        run: npm run tauri build -- --debug
+      - name: Upload Windows NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-token-meter-windows-x64-debug-nsis
+          path: windows/src-tauri/target/debug/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 7

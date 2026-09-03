@@ -20,6 +20,7 @@ pub mod domain;
 pub mod persistence;
 pub mod platform;
 pub mod security;
+pub mod updater;
 
 const PRODUCT_NAME: &str = "AI Token Meter";
 const SHARED_VERSION: &str = include_str!("../../../VERSION");
@@ -75,6 +76,7 @@ pub struct RuntimeState {
     pub(crate) meter_enabled: Arc<AtomicBool>,
     deepseek_history_session:
         Arc<Mutex<Option<crate::collectors::deepseek_history::DeepSeekHistoryAssembler>>>,
+    update_state: Arc<Mutex<crate::updater::UpdateState>>,
 }
 
 impl Default for RuntimeState {
@@ -87,6 +89,9 @@ impl Default for RuntimeState {
             settings_path,
             meter_enabled: Arc::new(AtomicBool::new(true)),
             deepseek_history_session: Arc::new(Mutex::new(None)),
+            update_state: Arc::new(Mutex::new(crate::updater::UpdateState::new(
+                SHARED_VERSION.trim(),
+            ))),
         }
     }
 }
@@ -246,6 +251,125 @@ fn open_deepseek_history(
     )
 }
 
+#[tauri::command]
+fn update_state(state: State<'_, RuntimeState>) -> crate::updater::UpdateState {
+    crate::updater::runtime::snapshot(&state.update_state)
+}
+
+#[tauri::command]
+async fn check_for_updates(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<crate::updater::UpdateState, String> {
+    crate::updater::runtime::check(app, Arc::clone(&state.update_state)).await
+}
+
+#[tauri::command]
+async fn install_update(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    crate::updater::runtime::install(
+        app,
+        Arc::clone(&state.update_state),
+        Arc::clone(&state.refresh_coordinator),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn service_account_statuses() -> Vec<crate::accounts::service_status::ServiceAccountStatus> {
+    let checked_at = current_timestamp();
+    #[cfg(windows)]
+    {
+        return crate::accounts::windows_service::read_all(&checked_at).await;
+    }
+    #[cfg(not(windows))]
+    {
+        [ProviderId::Claude, ProviderId::Codex, ProviderId::DeepSeek]
+            .into_iter()
+            .map(|provider| {
+                crate::accounts::service_status::ServiceAccountStatus::unavailable(
+                    provider,
+                    &checked_at,
+                )
+            })
+            .collect()
+    }
+}
+
+#[tauri::command]
+async fn service_account_status(
+    provider_id: ProviderId,
+) -> crate::accounts::service_status::ServiceAccountStatus {
+    let checked_at = current_timestamp();
+    #[cfg(windows)]
+    {
+        return crate::accounts::windows_service::read_one(provider_id, &checked_at).await;
+    }
+    #[cfg(not(windows))]
+    {
+        crate::accounts::service_status::ServiceAccountStatus::unavailable(provider_id, &checked_at)
+    }
+}
+
+#[tauri::command]
+fn begin_service_sign_in(provider_id: ProviderId) -> Result<(), String> {
+    let provider = match provider_id {
+        ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
+        ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
+        ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
+    };
+    #[cfg(windows)]
+    {
+        return crate::accounts::windows_service::launch_login(provider).map_err(str::to_owned);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = provider;
+        Err("Service sign-in is available in the Windows app".to_owned())
+    }
+}
+
+#[tauri::command]
+async fn replace_deepseek_api_key(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+    candidate: String,
+) -> Result<crate::accounts::service_status::ServiceAccountStatus, String> {
+    #[cfg(windows)]
+    {
+        let checked_at = current_timestamp();
+        let credentials =
+            Arc::new(crate::platform::windows::credential_manager::WindowsCredentialManager::new());
+        let client = crate::collectors::deepseek::DeepSeekBalanceClient::new()
+            .map_err(|_| "DeepSeek verification is currently unavailable".to_owned())?;
+        let service =
+            crate::accounts::deepseek::DeepSeekAccountService::new(credentials, client, 100.0);
+        let snapshot = service
+            .replace_key(&candidate, &checked_at)
+            .await
+            .map_err(|error| error.to_string())?;
+        let generation = state.usage.begin_refresh(ProviderId::DeepSeek);
+        state
+            .usage
+            .complete_success(ProviderId::DeepSeek, generation, snapshot);
+        let _ = app.emit(
+            "snapshot-updated",
+            state.usage.snapshot(ProviderId::DeepSeek),
+        );
+        return Ok(crate::accounts::service_status::deepseek_status(
+            Some(&candidate),
+            &checked_at,
+        ));
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, state, candidate);
+        Err("DeepSeek credential management is available in the Windows app".to_owned())
+    }
+}
+
 fn edge_from_settings(edge: MeterEdge) -> Edge {
     match edge {
         MeterEdge::Left => Edge::Left,
@@ -312,8 +436,16 @@ pub fn run() {
             app_settings,
             set_display_font,
             set_detail_auto_hide_seconds,
-            open_deepseek_history
+            open_deepseek_history,
+            update_state,
+            check_for_updates,
+            install_update,
+            service_account_statuses,
+            service_account_status,
+            begin_service_sign_in,
+            replace_deepseek_api_key
         ])
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let (edge, normalized_y, monitor_id) = app
                 .state::<RuntimeState>()

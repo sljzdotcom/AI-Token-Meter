@@ -266,6 +266,28 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 与已通过的通用 ConPTY Node 测试逐项比较后，唯一剩余差异是 `ExecutableLocator` 为安全校验保存了 Windows `canonicalize` 产生的 `\\?\` 扩展路径，并把该路径原样作为 Node/CMD 的脚本参数。Win32 API 接受该形式，但解释器入口并不保证接受；
 - 新增失败先行测试，分别覆盖本地 `\\?\C:\...` 与网络 `\\?\UNC\...`。内部候选继续保留规范路径用于身份/文件校验，只在生成 Node/CMD 参数时转换为普通 DOS/UNC 路径，且所有参数仍保持分离、不经过 shell 拼接。
 
+## Phase 4：应用生命周期、服务账号与 Windows 更新
+
+### 真实应用生命周期
+
+- 启动先加载每个 Provider 的独立缓存，再立即触发计划刷新；后续按设置周期刷新，托盘 Refresh 使用手动优先级并取消同 Provider 的旧任务；
+- 刷新开始、成功与失败通过同一 `snapshot-updated` 事件同步浮动条、详情和托盘；刷新世代阻止已取消旧任务回写，DeepSeek 余额更新保留独立网页会话写入的 30 日历史；
+- 首轮 Windows CI `33725559642` 只暴露父模块和文件重复 `cfg(windows)` 的零警告 Clippy 错误；最小修复后 Windows CI `33726552828` 全绿，Task 7 据此关闭。
+
+### Settings Services
+
+- Claude Code 使用官方 `auth status --json`，显示可用的账号、登录方式与订阅类型；OpenAI Codex 使用官方 app-server `account/read`，容忍未来新增的 plan 名称；DeepSeek 只显示 Credential Manager 中 Key 的末四位；
+- CLI 来源只显示 `Native Windows` 或 `WSL · 发行版` 及经过约束的版本号，不把用户路径返回前端；登录按钮只允许固定的 `claude auth login` / `codex login`，在新控制台窗口中由官方 CLI 完成认证；
+- DeepSeek 替换先请求固定官方余额端点验证候选 Key，成功后才替换旧凭据；失败保留旧 Key，前端密码框不回显已存储内容；
+- 解析与界面测试覆盖登录、未登录、未知 Codex plan、外部 Provider、末四位掩码、原生/WSL 来源和显式按钮行为。Codex app-server 行为以官方文档为准：<https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>。
+
+### Tauri Updater 与 NSIS
+
+- About 只在用户点击 `Check for Updates` 时访问固定 GitHub `latest.json`；发现新版后才启用独立的 `Update Now`，无后台检查或静默安装；
+- updater 公钥进入应用，私钥留在维护者机器/GitHub Actions Secret；日常配置不生成签名更新资产，`tauri.release.conf.json` 仅在正式 Release 开启 `createUpdaterArtifacts`；
+- NSIS 使用 current-user 安装与 passive 更新，更新开始前取消全部在途采集进程；Tauri 自身强制验证 updater signature。实现依据：<https://v2.tauri.app/plugin/updater/>、<https://v2.tauri.app/distribute/windows-installer/>；
+- 本机 4 项更新状态测试、10 项前端测试、零警告 Clippy、TypeScript 与 Vite build 已通过；签名产物与隔离升级仍必须由 Windows Release runner 和真机完成，不能用 macOS 构建结果替代。
+
 ## Phase 3：Windows 浮动条、详情和 Settings 前端
 
 ### 测试先行范围

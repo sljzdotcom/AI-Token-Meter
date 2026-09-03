@@ -144,4 +144,15 @@ impl RefreshCoordinator {
                 .collect()
         })
     }
+
+    pub fn cancel_all(&self) -> usize {
+        let in_flight = self
+            .in_flight
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
+        for token in in_flight.values() {
+            token.cancel();
+        }
+        in_flight.len()
+    }
 }

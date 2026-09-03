@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
+use crate::accounts::service_status::{ServiceAccountStatus, parse_codex_account_status};
 use crate::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, ResetCredit, ResetCreditKind, UsageMetric,
     UsageSnapshot, UsageStatus,
@@ -29,6 +30,48 @@ pub fn collect_rate_limits_from_invocation(
     fetched_at: &str,
     timeout: Duration,
 ) -> Result<UsageSnapshot, CollectionError> {
+    with_initialized_session(invocation, working_directory, timeout, |input, receiver| {
+        write_request(
+            input,
+            serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
+        )?;
+        let account = receive_response(receiver, 2, timeout)?;
+        parse_account_response(&account, 2)?;
+        write_request(
+            input,
+            serde_json::json!({ "id": 3, "method": "account/rateLimits/read", "params": null }),
+        )?;
+        let limits = receive_response(receiver, 3, timeout)?;
+        parse_rate_limits_response(&limits, 3, fetched_at)
+    })
+}
+
+pub fn collect_account_status_from_invocation(
+    invocation: &CommandInvocation,
+    working_directory: Option<&Path>,
+    checked_at: &str,
+    timeout: Duration,
+) -> Result<ServiceAccountStatus, CollectionError> {
+    with_initialized_session(invocation, working_directory, timeout, |input, receiver| {
+        write_request(
+            input,
+            serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
+        )?;
+        let account = receive_response(receiver, 2, timeout)?;
+        parse_codex_account_status(&account, 2, checked_at)
+            .map_err(|_| CollectionError::InvalidResponse)
+    })
+}
+
+fn with_initialized_session<T>(
+    invocation: &CommandInvocation,
+    working_directory: Option<&Path>,
+    timeout: Duration,
+    operation: impl FnOnce(
+        &mut std::process::ChildStdin,
+        &Receiver<Result<Vec<u8>, ()>>,
+    ) -> Result<T, CollectionError>,
+) -> Result<T, CollectionError> {
     let mut command = Command::new(&invocation.executable);
     command
         .args(&invocation.arguments)
@@ -82,18 +125,7 @@ pub fn collect_rate_limits_from_invocation(
         )?;
         let _ = receive_response(&receiver, 1, timeout)?;
         write_request(&mut input, serde_json::json!({ "method": "initialized" }))?;
-        write_request(
-            &mut input,
-            serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
-        )?;
-        let account = receive_response(&receiver, 2, timeout)?;
-        parse_account_response(&account, 2)?;
-        write_request(
-            &mut input,
-            serde_json::json!({ "id": 3, "method": "account/rateLimits/read", "params": null }),
-        )?;
-        let limits = receive_response(&receiver, 3, timeout)?;
-        parse_rate_limits_response(&limits, 3, fetched_at)
+        operation(&mut input, &receiver)
     })();
 
     drop(input);
