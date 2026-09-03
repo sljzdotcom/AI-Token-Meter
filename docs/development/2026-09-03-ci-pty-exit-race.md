@@ -75,4 +75,4 @@ Windows 平台并入 `main` 后，`eea044b` 的 [macOS CI 33744944628](https://g
 - PTY suite 12/12 通过，父进程退出用例约 0.85 秒完成；
 - 父进程退出用例连续 20 轮通过；
 - 本机完整回归为 362 项普通测试 + 12 项独立 PTY，共 374 项、72 个测试组；共享合同、Release feed、129 份 Markdown 与公开安全门禁通过；
-- 新提交的远端 main CI 待补录，未通过前本需求重新保持“进行中”。
+- 精确提交 `2c6a194` 的 [macOS main CI 33745691851](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691851) 全绿；同提交的 [Windows main CI 33745691724](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691724) 通过完整 runtime 与 NSIS 安装器构建。需求据此重新关闭。

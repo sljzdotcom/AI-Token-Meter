@@ -35,7 +35,8 @@ Windows 平台合并后的文档证据提交 `efdebb9` 没有修改产品源码�
 - 修复后聚焦测试：优先级、缺 Key、成功替换以及两个真实阻塞超时场景共 6/6 通过；
 - 完整 macOS 回归：362 项普通测试、12 项独立 PTY 测试，共 374 项、72 个测试组通过；
 - 4 份跨平台合同、Release feed 探测、129 份 Markdown 与公开发布安全门禁通过；
-- 远端双平台 CI：待提交后补录。
+- 精确提交 `2c6a194` 的 [macOS main CI 33745691851](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691851) 在 1 分 55 秒内全绿；
+- 同一提交的 [Windows main CI 33745691724](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691724) 在 7 分 42 秒内通过完整 runtime 与 NSIS 安装器构建。
 
 ## 本机与界面验收
 
@@ -47,7 +48,8 @@ Windows 平台合并后的文档证据提交 `efdebb9` 没有修改产品源码�
 
 ## Git 节点
 
-待本阶段提交后补录。
+- `eea044b`：DeepSeek 两条读取路径提升为 `.userInitiated`，增加失败先行优先级回归并同步测试/需求文档；
+- `2c6a194`：补齐 PTY fallback wait 的同类 QoS 修复和最终 374 项基线。
 
 ## 已知限制与后续工作
 
