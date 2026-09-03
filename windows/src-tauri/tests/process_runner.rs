@@ -173,6 +173,35 @@ fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
     );
 }
 
+#[test]
+fn interpreter_arguments_remove_windows_extended_path_prefixes() {
+    let node_candidate = ExecutableCandidate {
+        executable: PathBuf::from(r"\\?\C:\Users\Example\AppData\Roaming\npm\codex"),
+        launcher: Some(PathBuf::from("node.exe")),
+        source: RuntimeSource::NativeWindows,
+        origin: CandidateOrigin::Custom,
+    };
+    let node = command_for_candidate(&node_candidate, CliProvider::Codex, &["login"])
+        .expect("Node invocation");
+    assert_eq!(
+        node.arguments[0],
+        OsString::from(r"C:\Users\Example\AppData\Roaming\npm\codex")
+    );
+
+    let network_candidate = ExecutableCandidate {
+        executable: PathBuf::from(r"\\?\UNC\server\tools\claude.cmd"),
+        launcher: Some(PathBuf::from("cmd.exe")),
+        source: RuntimeSource::NativeWindows,
+        origin: CandidateOrigin::Custom,
+    };
+    let cmd = command_for_candidate(&network_candidate, CliProvider::Claude, &["auth", "status"])
+        .expect("CMD invocation");
+    assert_eq!(
+        cmd.arguments[3],
+        OsString::from(r"\\server\tools\claude.cmd")
+    );
+}
+
 #[cfg(windows)]
 #[test]
 fn a_parent_exit_does_not_leave_a_descendant_running() {

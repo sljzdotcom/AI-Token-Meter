@@ -260,6 +260,12 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 替身在输出额度后固定 100ms 主动退出，而采集器正在从 ConPTY 读取第二段输出；管道关闭与读取形成竞态。真实 Claude Code 是持续交互进程，其生命周期由调用方结束，不具备该提前退出行为；
 - 替身现只输出一次额度并保持交互会话，由生产代码已有的 Job Object 在采集返回时回收。这样同时验证稳定读取与无残留进程清理，不再依赖任意 100ms 墙钟窗口。
 
+### Windows runner 第四轮 Provider 反馈
+
+- Windows CI [33722059809](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33722059809) 在替身保持存活后仍于约 0.08 秒返回 `Transport`，因此否定“100ms 退出竞态”是主因；此前改动仍保留，因为它让替身更符合真实交互式 CLI；
+- 与已通过的通用 ConPTY Node 测试逐项比较后，唯一剩余差异是 `ExecutableLocator` 为安全校验保存了 Windows `canonicalize` 产生的 `\\?\` 扩展路径，并把该路径原样作为 Node/CMD 的脚本参数。Win32 API 接受该形式，但解释器入口并不保证接受；
+- 新增失败先行测试，分别覆盖本地 `\\?\C:\...` 与网络 `\\?\UNC\...`。内部候选继续保留规范路径用于身份/文件校验，只在生成 Node/CMD 参数时转换为普通 DOS/UNC 路径，且所有参数仍保持分离、不经过 shell 拼接。
+
 ## Phase 3：Windows 浮动条、详情和 Settings 前端
 
 ### 测试先行范围

@@ -71,7 +71,7 @@ pub fn command_for_candidate(
         .and_then(OsStr::to_str)
         .unwrap_or_default();
     if launcher_name.eq_ignore_ascii_case("node.exe") {
-        let mut arguments = vec![candidate.executable.clone().into_os_string()];
+        let mut arguments = vec![interpreter_path(&candidate.executable).into_os_string()];
         arguments.extend(provider_arguments.iter().map(OsString::from));
         return Ok(CommandInvocation {
             executable: launcher.clone(),
@@ -92,7 +92,7 @@ pub fn command_for_candidate(
             OsString::from("/d"),
             OsString::from("/s"),
             OsString::from("/c"),
-            candidate.executable.clone().into_os_string(),
+            interpreter_path(&candidate.executable).into_os_string(),
         ];
         arguments.extend(provider_arguments.iter().map(OsString::from));
         return Ok(CommandInvocation {
@@ -110,6 +110,16 @@ fn contains_cmd_metacharacter(path: &OsStr) -> bool {
             '&' | '|' | '<' | '>' | '^' | '%' | '!' | '\n' | '\r'
         )
     })
+}
+
+fn interpreter_path(path: &Path) -> PathBuf {
+    let value = path.as_os_str().to_string_lossy();
+    if let Some(network_path) = value.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{network_path}"));
+    }
+    value
+        .strip_prefix(r"\\?\")
+        .map_or_else(|| path.to_owned(), PathBuf::from)
 }
 
 #[derive(Clone)]
