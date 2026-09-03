@@ -117,7 +117,7 @@ fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<Provid
         }
         let fetched_at = now_rfc3339();
         let mut snapshot = collect_claude(candidate, &working_directory, &fetched_at)?;
-        attach_claude_activity(&mut snapshot);
+        attach_claude_activity(&mut snapshot, &candidate.source);
         if cancellation.is_cancelled() {
             Err(CollectionError::Cancelled)
         } else {
@@ -138,7 +138,7 @@ fn build_requests(runtime: &Arc<crate::persistence::UsageRuntime>) -> Vec<Provid
         }
         let fetched_at = now_rfc3339();
         let mut snapshot = collect_codex(candidate, user_profile().as_deref(), &fetched_at)?;
-        attach_codex_activity(&mut snapshot);
+        attach_codex_activity(&mut snapshot, &candidate.source);
         if cancellation.is_cancelled() {
             Err(CollectionError::Cancelled)
         } else {
@@ -204,22 +204,30 @@ fn candidate_is_healthy(candidate: &ExecutableCandidate, provider: CliProvider) 
         .is_ok_and(|output| output.exit_code == Some(0))
 }
 
-fn attach_claude_activity(snapshot: &mut UsageSnapshot) {
-    let Some(root) = std::env::var_os("CLAUDE_CONFIG_DIR")
-        .map(PathBuf::from)
-        .or_else(|| user_profile().map(|path| path.join(".claude")))
-    else {
+fn attach_claude_activity(
+    snapshot: &mut UsageSnapshot,
+    source: &crate::platform::windows::executable_locator::RuntimeSource,
+) {
+    if !source.may_read_windows_profile() {
+        snapshot.local_activity = None;
+        return;
+    }
+    let Some(root) = user_profile().map(|path| path.join(".claude")) else {
         return;
     };
     let (start, end) = activity_window();
     snapshot.local_activity = read_claude_activity(&root.join("projects"), start, end).ok();
 }
 
-fn attach_codex_activity(snapshot: &mut UsageSnapshot) {
-    let Some(root) = std::env::var_os("CODEX_HOME")
-        .map(PathBuf::from)
-        .or_else(|| user_profile().map(|path| path.join(".codex")))
-    else {
+fn attach_codex_activity(
+    snapshot: &mut UsageSnapshot,
+    source: &crate::platform::windows::executable_locator::RuntimeSource,
+) {
+    if !source.may_read_windows_profile() {
+        snapshot.local_activity = None;
+        return;
+    }
+    let Some(root) = user_profile().map(|path| path.join(".codex")) else {
         return;
     };
     let (start, end) = activity_window();

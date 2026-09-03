@@ -20,6 +20,10 @@ impl SecretString {
     pub fn expose(&self) -> &str {
         self.0.as_str()
     }
+
+    pub fn into_trimmed(self) -> Self {
+        Self(Zeroizing::new(self.0.trim().to_owned()))
+    }
 }
 
 impl Debug for SecretString {

@@ -30,6 +30,7 @@ end
 windows_package = read_json(root + "windows/package.json", errors)
 tauri_config = read_json(root + "windows/src-tauri/tauri.conf.json", errors)
 tauri_release_config = read_json(root + "windows/src-tauri/tauri.release.conf.json", errors)
+tauri_preview_release_config = read_json(root + "windows/src-tauri/tauri.preview.release.conf.json", errors)
 cargo_path = root + "windows/src-tauri/Cargo.toml"
 cargo_version = cargo_path.file? ? cargo_path.read[/\A\[package\].*?^version\s*=\s*"([^"]+)"/m, 1] : nil
 if shared_version
@@ -59,6 +60,13 @@ end
 unless tauri_release_config&.dig("bundle", "createUpdaterArtifacts") == true
   errors << "Windows release config must create signed updater artifacts"
 end
+unless tauri_preview_release_config&.dig("bundle", "createUpdaterArtifacts") == true
+  errors << "Windows preview release config must create signed updater artifacts"
+end
+preview_endpoints = tauri_preview_release_config&.dig("plugins", "updater", "endpoints")
+unless preview_endpoints == ["https://github.com/sljzdotcom/AI-Token-Meter/releases/download/windows-preview-feed/latest-preview.json"]
+  errors << "Windows preview updater must use its fixed public preview feed"
+end
 
 windows_ci_path = root + ".github/workflows/windows-ci.yml"
 if windows_ci_path.file?
@@ -77,6 +85,8 @@ if release_workflow_path.file?
   errors << "Cross-platform release must require the Tauri signing secret" unless release_workflow.include?("secrets.TAURI_SIGNING_PRIVATE_KEY")
   errors << "Cross-platform release must wait for both platform jobs" unless release_workflow.include?("needs: [macos-preflight, windows-release]")
   errors << "Cross-platform release must publish the Windows updater manifest" unless release_workflow.include?("latest.json") && release_workflow.include?("windows-x86_64")
+  errors << "Tagged releases must run the synchronized version contract" unless release_workflow.include?("ruby scripts/check-cross-platform-contracts.rb .")
+  errors << "Preview releases must use the isolated config and feed" unless release_workflow.include?("tauri.preview.release.conf.json") && release_workflow.include?("windows-preview-feed") && release_workflow.include?("latest-preview.json")
   errors << "Cross-platform release must keep GitHub assets in a draft until verification passes" unless release_workflow.include?('gh release edit "v${VERSION}" --draft=false')
 else
   errors << "Cross-platform release workflow is missing"
@@ -88,9 +98,29 @@ if cross_platform_release_path.file?
   errors << "Cross-platform release entry must preserve local Sparkle signing" unless release_script.include?("package-update-release.sh")
   errors << "Cross-platform release entry must create a draft" unless release_script.include?("gh release create") && release_script.include?("--draft")
   errors << "Cross-platform release entry must dispatch the tagged workflow" unless release_script.include?("gh workflow run release.yml") && release_script.include?('--ref "v$VERSION"')
+  errors << "Preview packaging must not modify the stable appcast" unless release_script.include?("AI_METER_RELEASE_CHANNEL") && release_script.include?("preview-appcast.xml")
   errors << "Cross-platform release entry must be executable" unless cross_platform_release_path.executable?
 else
   errors << "Cross-platform release script is missing"
+end
+
+settings_source = root + "windows/src/settings/SettingsWindow.tsx"
+shell_source = root + "windows/src/Shell.tsx"
+rust_entry = root + "windows/src-tauri/src/lib.rs"
+credential_prompt = root + "windows/src-tauri/src/platform/windows/credential_prompt.rs"
+if [settings_source, shell_source, rust_entry, credential_prompt].all?(&:file?)
+  settings_text = settings_source.read
+  shell_text = shell_source.read
+  rust_text = rust_entry.read
+  prompt_text = credential_prompt.read
+  if settings_text.include?('type="password"') || settings_text.include?("pendingDeepSeekKey") || shell_text.include?('{ candidate }') || rust_text.match?(/replace_deepseek_api_key[\s\S]{0,250}candidate:\s*String/)
+    errors << "DeepSeek API Key must never enter the WebView or string IPC"
+  end
+  unless prompt_text.include?("CredUIPromptForCredentialsW") && prompt_text.include?("CREDUI_FLAGS_DO_NOT_PERSIST")
+    errors << "DeepSeek replacement must use the non-persistent native Windows credential prompt"
+  end
+else
+  errors << "DeepSeek protected native credential flow is incomplete"
 end
 
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)

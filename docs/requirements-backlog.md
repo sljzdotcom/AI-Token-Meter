@@ -230,3 +230,5 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33728220354` 已通过前端测试与构建，但 Services 命令的两个 Windows-only 分支被严格 Clippy 判定为多余 `return`；已按编译器建议做最小修正，等待完整 runner 复验及 NSIS 产物。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Windows CI `33728660845` 全绿：Services、更新器、完整 Rust/前端测试及真实 NSIS 构建通过，上传的 x64 debug 安装器已重新下载并核对为有效 PE/NSIS，SHA-256 为 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`；进入双平台 Release 门禁与公开文档阶段。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 双平台草稿 Release workflow、本机 macOS Keychain 编排入口与 Windows Tauri 签名资产/`latest.json` 门禁完成；用户、架构、隐私、安全、测试、维护和发布文档已同步。macOS 371 项回归、Release Bundle/Sparkle 严格签名、128 份 Markdown 与公开安全检查通过；Windows 真机截图、交互验收和签名升级演练仍未完成。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 合并前独立审查发现三项发布阻断：WSL 官方额度会错误拼接 Windows 本机活动、DeepSeek Key 曾进入 WebView/IPC、Preview 被写入稳定 appcast 且 GitHub `releases/latest` 不解析 prerelease；同时登记取消未下传、版本同步门禁和详情窗口状态等重要缺口。当前明确保持不可合并，按失败先行测试逐项修复。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 三项阻断已完成代码级修正：WSL 不再读取 Windows 活动，DeepSeek Key 改由非持久化 Win32 Credential UI 在 Rust 内接收，稳定/Preview appcast 与 Windows feed 分离；tagged workflow 增加版本同步门禁。前端、Rust、Swift 发布合同及静态安全检查通过，等待 Windows CI 编译原生分支后进入 Important 修复。 |

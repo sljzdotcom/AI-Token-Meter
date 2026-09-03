@@ -252,3 +252,13 @@ fn parent(path: &Path) -> PathBuf {
 fn canonical(path: &Path) -> PathBuf {
     path.canonicalize().expect("canonical fixture")
 }
+#[test]
+fn only_native_windows_runtime_may_read_windows_profile_activity() {
+    assert!(RuntimeSource::NativeWindows.may_read_windows_profile());
+    assert!(
+        !RuntimeSource::Wsl {
+            distribution: "Ubuntu".to_owned(),
+        }
+        .may_read_windows_profile()
+    );
+}

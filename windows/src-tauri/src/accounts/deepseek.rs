@@ -28,14 +28,13 @@ where
 
     pub async fn replace_key(
         &self,
-        candidate: &str,
+        candidate: SecretString,
         fetched_at: &str,
     ) -> Result<UsageSnapshot, DeepSeekReplacementError> {
-        let candidate = candidate.trim();
-        if candidate.is_empty() {
+        let candidate = candidate.into_trimmed();
+        if candidate.expose().is_empty() {
             return Err(DeepSeekReplacementError::EmptyCandidate);
         }
-        let candidate = SecretString::new(candidate);
         let balance = self
             .client
             .fetch_balance(&candidate)

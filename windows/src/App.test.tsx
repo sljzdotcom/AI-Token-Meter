@@ -211,9 +211,9 @@ describe("Windows meter interface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check OpenAI Codex status" }))
     expect(check).toHaveBeenCalledWith("codex")
 
-    fireEvent.change(screen.getByLabelText("DeepSeek API Key"), { target: { value: "candidate-secret" } })
     fireEvent.click(screen.getByRole("button", { name: "Replace DeepSeek API Key" }))
-    expect(replaceKey).toHaveBeenCalledWith("candidate-secret")
-    expect(screen.getByLabelText("DeepSeek API Key")).toHaveAttribute("type", "password")
+    expect(replaceKey).toHaveBeenCalledWith()
+    expect(screen.queryByLabelText("DeepSeek API Key")).not.toBeInTheDocument()
+    expect(screen.getByText("Windows opens a protected credential prompt; the Key never enters this WebView.")).toBeVisible()
   })
 })

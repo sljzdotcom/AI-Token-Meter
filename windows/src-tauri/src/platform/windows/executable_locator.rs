@@ -13,6 +13,12 @@ pub enum RuntimeSource {
     Wsl { distribution: String },
 }
 
+impl RuntimeSource {
+    pub fn may_read_windows_profile(&self) -> bool {
+        matches!(self, Self::NativeWindows)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CandidateOrigin {
     Custom,

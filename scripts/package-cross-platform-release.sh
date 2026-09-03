@@ -31,21 +31,36 @@ if git rev-parse "v$VERSION" >/dev/null 2>&1; then
 fi
 
 gh auth status --hostname github.com >/dev/null
-SPARKLE_TOOLS_DIR="${SPARKLE_TOOLS_DIR:-}" "$SCRIPT_DIR/package-update-release.sh" "$VERSION" "$BUILD"
+if [[ "$VERSION" == *-preview.* ]]; then
+    RELEASE_CHANNEL="preview"
+else
+    RELEASE_CHANNEL="stable"
+fi
+AI_METER_RELEASE_CHANNEL="$RELEASE_CHANNEL" \
+    SPARKLE_TOOLS_DIR="${SPARKLE_TOOLS_DIR:-}" \
+    "$SCRIPT_DIR/package-update-release.sh" "$VERSION" "$BUILD"
 
 RELEASE_DIR="$PROJECT_DIR/dist/releases/$VERSION"
 MAC_ARCHIVE="AI-Token-Meter-${VERSION}-macOS-arm64.zip"
 MAC_SHA="$MAC_ARCHIVE.sha256"
-for asset in "$RELEASE_DIR/$MAC_ARCHIVE" "$RELEASE_DIR/$MAC_SHA" "$PROJECT_DIR/appcast.xml"; do
+if [[ "$RELEASE_CHANNEL" == "preview" ]]; then
+    APPCAST_ASSET="$RELEASE_DIR/preview-appcast.xml"
+    cp "$RELEASE_DIR/appcast.xml" "$APPCAST_ASSET"
+else
+    APPCAST_ASSET="$PROJECT_DIR/appcast.xml"
+fi
+for asset in "$RELEASE_DIR/$MAC_ARCHIVE" "$RELEASE_DIR/$MAC_SHA" "$APPCAST_ASSET"; do
     if [[ ! -s "$asset" ]]; then
         echo "required release asset is missing: $asset" >&2
         exit 1
     fi
 done
 
-git add appcast.xml
-if ! git diff --cached --quiet; then
-    git commit -m "release: prepare appcast v$VERSION"
+if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
+    git add appcast.xml
+    if ! git diff --cached --quiet; then
+        git commit -m "release: prepare appcast v$VERSION"
+    fi
 fi
 if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
     echo "only the generated appcast may change during release preparation" >&2
@@ -63,7 +78,7 @@ fi
 gh release create "${release_args[@]}" \
     "$RELEASE_DIR/$MAC_ARCHIVE" \
     "$RELEASE_DIR/$MAC_SHA" \
-    "$PROJECT_DIR/appcast.xml"
+    "$APPCAST_ASSET"
 
 gh workflow run release.yml \
     --repo "$REPOSITORY_SLUG" \

@@ -46,21 +46,28 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Sources/AIMeterApp/Resources/Info.plist)" = "$BUILD_NUMBER"
           test "$(git describe --tags --exact-match HEAD)" = "v$VERSION"
       - name: Test and validate tagged source
-        run: bash scripts/test.sh
+        run: |
+          bash scripts/test.sh
+          ruby scripts/check-cross-platform-contracts.rb .
       - name: Verify signed macOS assets in the draft release
         shell: bash
         run: |
           set -euo pipefail
           test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
+          if [[ "$VERSION" == *-preview.* ]]; then
+            appcast="preview-appcast.xml"
+          else
+            appcast="appcast.xml"
+          fi
           mkdir -p "$RUNNER_TEMP/macos-release"
           gh release download "v$VERSION" --dir "$RUNNER_TEMP/macos-release" \
             --pattern "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
             --pattern "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" \
-            --pattern appcast.xml
+            --pattern "$appcast"
           cd "$RUNNER_TEMP/macos-release"
           shasum -a 256 -c "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256"
-          grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" appcast.xml
-          grep -Fq "sparkle:edSignature=" appcast.xml
+          grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" "$appcast"
+          grep -Fq "sparkle:edSignature=" "$appcast"
 
   windows-release:
     name: Build signed Windows release
@@ -108,9 +115,19 @@ jobs:
           cargo fmt --check
           cargo clippy --locked --all-targets -- -D warnings
           cargo test --locked
+      - name: Verify synchronized source versions
+        shell: bash
+        run: ruby scripts/check-cross-platform-contracts.rb .
       - name: Build signed Windows updater and NSIS installer
         working-directory: windows
-        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
+        shell: pwsh
+        run: |
+          $config = if ($env:VERSION -match "-preview\.") {
+            "src-tauri/tauri.preview.release.conf.json"
+          } else {
+            "src-tauri/tauri.release.conf.json"
+          }
+          npm run tauri build -- --config $config
       - name: Normalize and hash Windows assets
         shell: pwsh
         run: |
@@ -183,3 +200,17 @@ jobs:
           test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = "true"
           gh release upload "v$VERSION" windows-release/* --clobber
           gh release edit "v${VERSION}" --draft=false
+      - name: Update the fixed Windows preview feed after assets are public
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp windows-release/latest.json windows-release/latest-preview.json
+          if gh release view windows-preview-feed >/dev/null 2>&1; then
+            gh release upload windows-preview-feed windows-release/latest-preview.json --clobber
+          else
+            gh release create windows-preview-feed \
+              --prerelease \
+              --title "Windows preview update feed" \
+              --notes "Machine-readable update feed for AI Token Meter Windows preview builds." \
+              windows-release/latest-preview.json
+          fi

@@ -47,8 +47,12 @@ struct CIWorkflowTests {
         #expect(workflow.contains("runs-on: windows-latest"))
         #expect(workflow.contains("TAURI_SIGNING_PRIVATE_KEY"))
         #expect(workflow.contains("tauri.release.conf.json"))
+        #expect(workflow.contains("tauri.preview.release.conf.json"))
+        #expect(workflow.contains("ruby scripts/check-cross-platform-contracts.rb ."))
         #expect(workflow.contains("AI-Token-Meter-${VERSION}-windows-x64-setup.exe"))
         #expect(workflow.contains("latest.json"))
+        #expect(workflow.contains("latest-preview.json"))
+        #expect(workflow.contains("windows-preview-feed"))
         #expect(workflow.contains("needs: [macos-preflight, windows-release]"))
         #expect(workflow.contains("gh release edit \"v${VERSION}\" --draft=false"))
     }
@@ -70,6 +74,8 @@ struct CIWorkflowTests {
         #expect(script.contains("gh workflow run release.yml"))
         #expect(script.contains("--ref \"v$VERSION\""))
         #expect(script.contains("AI-Token-Meter-${VERSION}-macOS-arm64.zip"))
+        #expect(script.contains("AI_METER_RELEASE_CHANNEL"))
+        #expect(script.contains("preview-appcast.xml"))
         #expect(!script.contains("TAURI_SIGNING_PRIVATE_KEY="))
         #expect(!script.contains("security export"))
     }

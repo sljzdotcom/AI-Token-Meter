@@ -28,7 +28,7 @@ type SettingsWindowProps = {
   serviceStatuses?: ServiceAccountStatus[]
   onCheckServiceStatus?: (providerId: ProviderId) => void
   onBeginServiceSignIn?: (providerId: "claude" | "codex") => void
-  onReplaceDeepSeekKey?: (candidate: string) => Promise<boolean> | boolean | void
+  onReplaceDeepSeekKey?: () => Promise<boolean> | boolean | void
   serviceMessage?: string | null
 }
 
@@ -73,7 +73,6 @@ export function SettingsWindow({
   serviceMessage,
 }: SettingsWindowProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Appearance")
-  const [pendingDeepSeekKey, setPendingDeepSeekKey] = useState("")
   useEffect(() => {
     if (requestedTab) setActiveTab(requestedTab)
   }, [requestedTab])
@@ -144,20 +143,11 @@ export function SettingsWindow({
               )
             })}
             <Service name="DeepSeek" status={statusFor(serviceStatuses, "deepseek")}>
-              <input
-                aria-label="DeepSeek API Key"
-                autoComplete="off"
-                onChange={(event) => setPendingDeepSeekKey(event.target.value)}
-                placeholder="Enter a replacement API Key"
-                type="password"
-                value={pendingDeepSeekKey}
-              />
+              <small>Windows opens a protected credential prompt; the Key never enters this WebView.</small>
               <button
                 aria-label="Replace DeepSeek API Key"
-                disabled={!pendingDeepSeekKey.trim()}
                 onClick={async () => {
-                  const result = await onReplaceDeepSeekKey(pendingDeepSeekKey)
-                  if (result !== false) setPendingDeepSeekKey("")
+                  await onReplaceDeepSeekKey()
                 }}
                 type="button"
               >Replace API Key</button>

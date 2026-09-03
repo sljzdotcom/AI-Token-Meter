@@ -69,7 +69,7 @@ async fn verified_candidate_replaces_the_previous_key() {
     let account = DeepSeekAccountService::new(Arc::clone(&store), server.client(), 100.0);
 
     let snapshot = account
-        .replace_key("  new-working-key  ", FETCHED_AT)
+        .replace_key(SecretString::new("  new-working-key  "), FETCHED_AT)
         .await
         .expect("verified replacement");
 
@@ -86,7 +86,7 @@ async fn rejected_candidate_preserves_the_previous_key_and_never_leaks() {
     let candidate = "candidate-private-value";
 
     let error = account
-        .replace_key(candidate, FETCHED_AT)
+        .replace_key(SecretString::new(candidate), FETCHED_AT)
         .await
         .expect_err("candidate should fail verification");
 
@@ -105,7 +105,7 @@ async fn credential_write_failure_restores_the_previous_key() {
     let account = DeepSeekAccountService::new(Arc::clone(&store), server.client(), 100.0);
 
     let error = account
-        .replace_key("new-working-key", FETCHED_AT)
+        .replace_key(SecretString::new("new-working-key"), FETCHED_AT)
         .await
         .expect_err("credential write should fail");
 

@@ -207,10 +207,10 @@ function SettingsSurface() {
           setServiceMessage("The sign-in window could not be opened.")
         })
       }}
-      onReplaceDeepSeekKey={async (candidate) => {
-        setServiceMessage("Verifying the replacement API Key…")
+      onReplaceDeepSeekKey={async () => {
+        setServiceMessage("Open the protected Windows prompt to replace the API Key.")
         try {
-          const status = await invoke<ServiceAccountStatus>("replace_deepseek_api_key", { candidate })
+          const status = await invoke<ServiceAccountStatus>("replace_deepseek_api_key")
           applyServiceStatus(status)
           setServiceMessage("DeepSeek accepted the replacement API Key.")
           return true

@@ -335,10 +335,25 @@ fn begin_service_sign_in(provider_id: ProviderId) -> Result<(), String> {
 async fn replace_deepseek_api_key(
     app: tauri::AppHandle,
     state: State<'_, RuntimeState>,
-    candidate: String,
 ) -> Result<crate::accounts::service_status::ServiceAccountStatus, String> {
     #[cfg(windows)]
     {
+        let parent = app
+            .get_webview_window("settings")
+            .and_then(|window| window.hwnd().ok())
+            .map_or(std::ptr::null_mut(), |handle| handle.0 as _);
+        let candidate = crate::platform::windows::credential_prompt::prompt_deepseek_api_key(
+            parent,
+        )
+        .map_err(|error| match error {
+            crate::platform::windows::credential_prompt::CredentialPromptError::Cancelled => {
+                "Credential replacement was cancelled".to_owned()
+            }
+            crate::platform::windows::credential_prompt::CredentialPromptError::Empty => {
+                "API Key is required".to_owned()
+            }
+            _ => "The protected credential prompt is unavailable".to_owned(),
+        })?;
         let checked_at = current_timestamp();
         let credentials =
             Arc::new(crate::platform::windows::credential_manager::WindowsCredentialManager::new());
@@ -347,7 +362,7 @@ async fn replace_deepseek_api_key(
         let service =
             crate::accounts::deepseek::DeepSeekAccountService::new(credentials, client, 100.0);
         let snapshot = service
-            .replace_key(&candidate, &checked_at)
+            .replace_key(candidate, &checked_at)
             .await
             .map_err(|error| error.to_string())?;
         let generation = state.usage.begin_refresh(ProviderId::DeepSeek);
@@ -358,14 +373,11 @@ async fn replace_deepseek_api_key(
             "snapshot-updated",
             state.usage.snapshot(ProviderId::DeepSeek),
         );
-        Ok(crate::accounts::service_status::deepseek_status(
-            Some(&candidate),
-            &checked_at,
-        ))
+        Ok(crate::accounts::windows_service::read_one(ProviderId::DeepSeek, &checked_at).await)
     }
     #[cfg(not(windows))]
     {
-        let _ = (app, state, candidate);
+        let _ = (app, state);
         Err("DeepSeek credential management is available in the Windows app".to_owned())
     }
 }

@@ -398,3 +398,10 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - README、CHANGELOG、项目状态、安装、设置、Provider、排障、架构/决策/目录、隐私、安全政策、开发环境、测试、维护、发布、贡献和提交索引均已加入 Windows 事实与平台差异；文档门禁新增 Windows 11 x64、SmartScreen 和 Authenticode 防回退检查；
 - 本机完整回归为 360 项普通测试 + 11 项独立 PTY 测试，共 371 项、72 个测试组；128 份 Markdown、跨平台合同和公开安全扫描通过。无 Widget macOS Release 重新构建成功，标准资源、Sparkle framework/helpers、`@rpath` 和严格签名全部通过；
 - Windows 产品截图、DPI/全屏/拖动/账号/DeepSeek WebView2 真机证据和 `preview.0 → preview.1` 签名升级/错误签名保留旧版仍须在交互式 Windows 11 环境完成，不能用 Chromium mock 或 CI 安装器代替。
+
+## 合并前审查：账户、凭据与更新通道修正
+
+- 独立代码审查确认 WSL CLI 快照会错误拼接 `%USERPROFILE%` 本机活动。活动挂载现在显式受 `RuntimeSource` 约束：只有 Native Windows 可读取 Windows profile；WSL 快照保持 `localActivity = nil`，在所选发行版内的受限聚合完成前绝不回退或混数。Native 活动也固定跟随受限 CLI 实际使用的默认 profile，不再读取未传给子进程的宿主自定义环境变量；
+- DeepSeek Key 输入从 React password field、WebView state 和字符串 IPC 全部移除。Settings 只发出无参数动作，Rust 打开 `CredUIPromptForCredentialsW` 保护输入框并设置 `DO_NOT_PERSIST`；宽字符缓冲与 `SecretString` 均自动零化，验证成功后才写入 Credential Manager，前端只收到掩码后的状态；
+- Stable 与 Preview 更新源正式拆开。Preview 只生成 Release 内的 `preview-appcast.xml`，不会修改仓库根稳定 appcast；Windows Preview 构建读取固定 `windows-preview-feed/latest-preview.json`，该 feed 只在目标 Release 资产公开后更新。稳定版仍读取 GitHub `releases/latest`，并在发布时把 Preview feed 推进到同一稳定版，使 Preview 用户可以回到稳定通道；
+- tagged Release 的 macOS 与 Windows job 都执行跨平台版本合同，阻止用 workflow 输入把旧版本二进制重命名成新版本。新增 Swift 发布门禁、Rust 来源测试、前端无 Key 测试与静态安全合同；当前修正仍须 `windows-latest` 编译原生 Credential UI 后才可关闭。
