@@ -43,6 +43,8 @@
 | REQ-20260903-006 | 发布文档缺陷 | Windows 实施计划将仓库目录作为公开发布脚本的位置参数传入，脚本会误把目录当成 Release ZIP 并报告归档不存在 | 中 | 已完成 | 2026-09-03 | 无 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、文档门禁回归测试 |
 | REQ-20260903-007 | 共享合同门禁缺陷 | Task 5 计划新增 Windows CLI 位置 fixture，但门禁把 `contracts/fixtures` 中全部 JSON 都当作四份用量快照，按计划新增必然失败 | 高 | 已完成 | 2026-09-03 | 无 | [辅助 CLI fixture](../contracts/fixtures/auxiliary/windows-cli-locations.json)、[Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、`d481a44`、合同门禁仍确认直接目录恰好 4 份用量快照 |
 | REQ-20260903-008 | macOS CI 稳定性 | 修复高并发 CI 中 DeepSeek 即时 Keychain/SecretStore 读取被低优先级任务饿死、错误等待满 2 秒并报告超时或钥匙串失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | [开发日志](development/2026-09-03-deepseek-secret-read-priority.md) · `eea044b` · `2c6a194` · [macOS main CI 33745691851](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691851) · [Windows main CI 33745691724](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691724) |
+| REQ-20260903-009 | 浮动条位置缺陷 | 修复浮动条重启或运行一段时间后丢失用户摆放位置、从左侧自行回到右侧或从主屏跳到副屏的问题；持久保存具体显示器、贴边侧和垂直位置，多屏变单屏时临时回到当前主屏 | 高 | 进行中 | 2026-09-03 | 二次审查的三个 Windows 瞬时失败边界已测试先行修复，122 项 Rust 与文档/安全门禁通过；等待复审及更新后的双平台 PR CI | [设计规格](design/specifications/2026-09-03-floating-strip-placement-persistence-design.md) · [实施计划](design/implementation-plans/2026-09-03-floating-strip-placement-persistence.md) · [开发日志](development/2026-09-03-floating-strip-placement-persistence.md) · `8a487e3` · `08bb254` · `964aaf2` · `4920e6d` |
+| REQ-20260903-010 | macOS CI / DeepSeek 韧性 | 修复高并发下阻塞 Keychain 读取使超时任务被饿死、读取结束后错误进入 DeepSeek 网络请求并返回 `transportFailure` 的竞态 | 高 | 进行中 | 2026-09-03 | 独立 GCD 单调时钟截止时间已覆盖用量采集与 Settings 状态读取；386 项 macOS 测试和文档/安全门禁通过，等待独立复审与更新后的双平台 CI | [开发日志](development/2026-09-03-deepseek-timeout-starvation.md) · CI `33764239141` |
 
 ## 分类索引
 
@@ -112,6 +114,11 @@
 ### macOS CI 稳定性
 
 - `REQ-20260903-008`：避免 DeepSeek 凭据读取任务在并发 CI 中发生优先级反转并误报超时。
+- `REQ-20260903-010`：让 DeepSeek Keychain 读取超时不受高并发任务饥饿影响，迟到凭据不得触发网络请求。
+
+### 浮动条位置
+
+- `REQ-20260903-009`：持久保存并稳定恢复浮动条的具体显示器、左右贴边和垂直位置；禁止主屏/副屏间自行漂移，多屏变单屏时临时回到当前主屏。
 
 ## 状态变更记录
 
@@ -254,3 +261,14 @@
 | 2026-09-03 | REQ-20260903-001 | 进行中 | 失败先行测试固定 fallback wait 必须使用用户级 QoS；提升专用队列后 PTY 12/12、父进程退出压力 20/20、完整 362+12 回归通过。等待新提交的 main CI。 |
 | 2026-09-03 | REQ-20260903-001 | 进行中 → 已完成 | 精确提交 `2c6a194` 的 macOS CI `33745691851` 全绿；同提交 Windows CI `33745691724` 也通过完整运行测试与 NSIS 构建，低 QoS 退出确认复发已关闭。 |
 | 2026-09-03 | REQ-20260903-008 | 进行中 → 已完成 | `eea044b` 已使 CI 中原失败的 DeepSeek 两条即时读取和全部 362 项主测试通过；合并 PTY 调度修复后的精确提交 `2c6a194` 再获 macOS 与 Windows 双平台 main CI 全绿。 |
+| 2026-09-03 | REQ-20260903-009 | 新建 → 进行中 | 用户反馈浮动条在左侧摆放后，会在重启或运行一段时间后自行回到右侧；先核对现有持久化字段、屏幕标识及所有自动重排入口，定位实际覆盖点。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 用户确认方案 A，并补充多显示器口径：主屏摆放不得自行跳到副屏；保存具体显示器位置；多屏变单屏时浮动条应回到当前主屏，同时不得用临时回退覆盖原位置。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 稳定显示器 UUID、旧配置迁移、目标屏优先、主屏无损回退、重连恢复和仅用户操作写入的正式规格已完成并通过占位符、矛盾、范围与模糊性自检。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 测试驱动实施计划已覆盖 macOS 身份/解析、控制器写入边界、Windows 对等合同、完整验证、文档和 Git/CI 检查点；隔离 worktree 基线 362 项主测试、12 项 PTY 及全部门禁通过。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | macOS 已改用 Core Graphics 稳定 UUID，系统重排不会覆盖保存目标；旧数字配置只迁移标识，目标断开时保留原侧边和高度并临时回当前主屏。位置相关 31 项及 Windows monitor 合同 4 项通过，进入全量门禁。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 首轮独立审查无 Critical，发现三项 Important：macOS Settings 改边未建立当前屏目标；Windows 尚无运行中拓扑变化监听；Windows `MONITORINFOEX.szDevice`/几何回退并非稳定物理身份。暂缓合并并进入补充 TDD。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 审查三项 Important 已测试先行补齐：macOS Settings 主动改边会把当前解析屏保存为目标；Windows 以 Win32 设备接口路径的 SHA-256 标识物理屏幕，兼容旧运行时名称迁移，并以运行时拓扑监听实现断开回退与重连恢复。macOS 策略 5 项、Windows monitor 7 项及本机严格 Clippy/rustfmt 通过，进入全量验证。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 二次独立审查要求继续处理三个 Windows 韧性边界：接口恢复后将 `runtime:` 安全降级标识迁移为 `device:`；旧标识迁移持久化失败不得中止 App；拓扑初始枚举与定位瞬时失败不得永久停止监听或提前提交状态。保持未完成并补失败先行测试。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 二次审查问题已修复：`runtime:` 作为迁移别名支持接口恢复升级；标识迁移以候选副本事务式持久化且失败不阻断启动；拓扑监听只在成功定位后提交状态并对初始枚举/定位失败持续重试。非主目标、主屏角色、工作区变化、陈旧写入与磁盘错误均有回归测试，Windows 完整 122 项通过。 |
+| 2026-09-03 | REQ-20260903-010 | 新建 → 进行中 | PR #4 macOS CI 首次运行及失败重跑均在 `blockedSecretReadTimesOut` 复现：高优先级阻塞读取先于协作式超时任务返回，导致迟到 API Key 发起网络请求。登记为独立韧性缺陷并按系统化调试处理。 |
+| 2026-09-03 | REQ-20260903-010 | 进行中 | 用独立 GCD 单调时钟队列替代协作式 `Task.sleep` 截止时间，并让 DeepSeek 用量采集与 Settings 凭据状态共用实现；两个 200 ms 阻塞读取均在约 20 ms 安全降级，386 项 macOS 测试及全部文档/公开安全门禁通过。 |

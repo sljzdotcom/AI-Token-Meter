@@ -290,7 +290,7 @@ pub fn configure_initial_windows(
     edge: Edge,
     normalized_y: f64,
     preferred_monitor_id: Option<&str>,
-) -> tauri::Result<()> {
+) -> tauri::Result<Option<String>> {
     use tauri::Manager;
 
     let meter = app
@@ -299,13 +299,14 @@ pub fn configure_initial_windows(
     meter.set_skip_taskbar(true)?;
     meter.set_focusable(false)?;
     meter.set_always_on_top(false)?;
-    position_meter_on_preferred(&meter, edge, normalized_y, preferred_monitor_id)?;
+    let migrated_identifier =
+        position_meter_on_preferred(&meter, edge, normalized_y, preferred_monitor_id)?;
 
     if let Some(detail) = app.get_webview_window(DETAIL_WINDOW_LABEL) {
         detail.set_skip_taskbar(true)?;
         detail.set_always_on_top(false)?;
     }
-    Ok(())
+    Ok(migrated_identifier)
 }
 
 pub fn place_meter(
@@ -471,32 +472,44 @@ pub fn toggle_meter_window(
     }
 }
 
+pub fn restore_meter_position(
+    meter: &tauri::WebviewWindow,
+    edge: Edge,
+    normalized_y: f64,
+    preferred_monitor_id: Option<&str>,
+) -> tauri::Result<Option<String>> {
+    position_meter_on_preferred(meter, edge, normalized_y, preferred_monitor_id)
+}
+
 fn position_meter_on_preferred(
     meter: &tauri::WebviewWindow,
     edge: Edge,
     normalized_y: f64,
     preferred_monitor_id: Option<&str>,
-) -> tauri::Result<()> {
+) -> tauri::Result<Option<String>> {
     let monitors = meter.available_monitors()?;
-    let primary_id = meter.primary_monitor()?.as_ref().map(monitor_identifier);
+    let primary_id = meter
+        .primary_monitor()?
+        .as_ref()
+        .map(legacy_monitor_identifier);
     let identities = monitors
         .iter()
         .map(|monitor| {
-            super::monitor::MonitorIdentity::new(
-                monitor_identifier(monitor),
-                primary_id.as_deref() == Some(monitor_identifier(monitor).as_str()),
-            )
+            let legacy_id = legacy_monitor_identifier(monitor);
+            monitor_identity(monitor, primary_id.as_deref() == Some(legacy_id.as_str()))
         })
         .collect::<Vec<_>>();
-    let selected = super::monitor::choose_monitor(&identities, preferred_monitor_id)
-        .and_then(|identity| {
+    let resolution = super::monitor::resolve_monitor(&identities, preferred_monitor_id);
+    let selected = resolution
+        .as_ref()
+        .and_then(|resolution| {
             identities
                 .iter()
-                .position(|candidate| candidate == identity)
+                .position(|candidate| candidate == resolution.selected)
         })
         .and_then(|index| monitors.get(index));
     let Some(monitor) = selected else {
-        return Ok(());
+        return Ok(None);
     };
     let work = from_tauri_rect(monitor.work_area());
     let meter_size = fitted_meter_size(work, desired_meter_size(meter)?);
@@ -509,14 +522,57 @@ fn position_meter_on_preferred(
         placement.origin.x,
         placement.origin.y,
     ))?;
-    apply_windows_meter_style(meter, edge)
+    apply_windows_meter_style(meter, edge)?;
+    Ok(resolution.and_then(|resolution| resolution.migrated_identifier))
 }
 
 pub fn current_monitor_identifier(meter: &tauri::WebviewWindow) -> tauri::Result<Option<String>> {
-    Ok(meter.current_monitor()?.as_ref().map(monitor_identifier))
+    Ok(meter
+        .current_monitor()?
+        .as_ref()
+        .map(|monitor| monitor_identity(monitor, false).stable_id))
 }
 
-fn monitor_identifier(monitor: &tauri::Monitor) -> String {
+pub fn monitor_topology(
+    meter: &tauri::WebviewWindow,
+) -> tauri::Result<Vec<super::monitor::MonitorTopology>> {
+    let monitors = meter.available_monitors()?;
+    let primary_id = meter
+        .primary_monitor()?
+        .as_ref()
+        .map(legacy_monitor_identifier);
+    let mut topology = monitors
+        .iter()
+        .map(|monitor| {
+            let legacy_id = legacy_monitor_identifier(monitor);
+            let identity =
+                monitor_identity(monitor, primary_id.as_deref() == Some(legacy_id.as_str()));
+            let work = monitor.work_area();
+            super::monitor::MonitorTopology::new(
+                identity.stable_id,
+                identity.is_primary,
+                work.position.x,
+                work.position.y,
+                work.size.width,
+                work.size.height,
+            )
+        })
+        .collect::<Vec<_>>();
+    topology.sort();
+    Ok(topology)
+}
+
+fn monitor_identity(monitor: &tauri::Monitor, is_primary: bool) -> super::monitor::MonitorIdentity {
+    let legacy_id = legacy_monitor_identifier(monitor);
+    let stable_id = display_device_interface_name(&legacy_id)
+        .as_deref()
+        .and_then(super::monitor::stable_physical_identifier)
+        .or_else(|| super::monitor::stable_runtime_identifier(&legacy_id))
+        .unwrap_or_else(|| legacy_id.clone());
+    super::monitor::MonitorIdentity::with_legacy_id(stable_id, legacy_id, is_primary)
+}
+
+fn legacy_monitor_identifier(monitor: &tauri::Monitor) -> String {
     monitor.name().cloned().unwrap_or_else(|| {
         let work = monitor.work_area();
         format!(
@@ -524,6 +580,44 @@ fn monitor_identifier(monitor: &tauri::Monitor) -> String {
             work.position.x, work.position.y, work.size.width, work.size.height
         )
     })
+}
+
+#[cfg(windows)]
+fn display_device_interface_name(display_name: &str) -> Option<String> {
+    use std::mem::{size_of, zeroed};
+    use windows_sys::Win32::Graphics::Gdi::{DISPLAY_DEVICEW, EnumDisplayDevicesW};
+    use windows_sys::Win32::UI::WindowsAndMessaging::EDD_GET_DEVICE_INTERFACE_NAME;
+
+    let display_name = display_name
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let mut device: DISPLAY_DEVICEW = unsafe { zeroed() };
+    device.cb = size_of::<DISPLAY_DEVICEW>() as u32;
+    if unsafe {
+        EnumDisplayDevicesW(
+            display_name.as_ptr(),
+            0,
+            &mut device,
+            EDD_GET_DEVICE_INTERFACE_NAME,
+        )
+    } == 0
+    {
+        return None;
+    }
+    let length = device
+        .DeviceID
+        .iter()
+        .position(|value| *value == 0)
+        .unwrap_or(device.DeviceID.len());
+    String::from_utf16(&device.DeviceID[..length])
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+}
+
+#[cfg(not(windows))]
+fn display_device_interface_name(_display_name: &str) -> Option<String> {
+    None
 }
 
 fn position_detail_next_to_meter(

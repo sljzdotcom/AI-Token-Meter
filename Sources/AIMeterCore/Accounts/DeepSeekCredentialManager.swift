@@ -170,30 +170,10 @@ private actor DeepSeekCredentialReader {
         from task: Task<DeepSeekCredentialReadOutcome, Never>,
         timeout: Duration
     ) async -> DeepSeekCredentialReadOutcome {
-        await withCheckedContinuation { continuation in
-            let gate = CredentialOneShotContinuation(continuation)
-            Task.detached { gate.resume(returning: await task.value) }
-            Task.detached {
-                try? await Task.sleep(for: timeout)
-                gate.resume(returning: .timedOut)
-            }
-        }
-    }
-}
-
-private final class CredentialOneShotContinuation<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Value, Never>?
-
-    init(_ continuation: CheckedContinuation<Value, Never>) {
-        self.continuation = continuation
-    }
-
-    func resume(returning value: Value) {
-        let continuation = lock.withLock {
-            defer { self.continuation = nil }
-            return self.continuation
-        }
-        continuation?.resume(returning: value)
+        await NonStarvingDeadline.firstResult(
+            from: task,
+            timeout: timeout,
+            timedOutValue: .timedOut
+        )
     }
 }

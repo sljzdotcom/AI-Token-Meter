@@ -146,30 +146,169 @@ struct FloatingStripLayoutTests {
         #expect(abs(result.normalizedCenterY - 0.563_063) < 0.001)
     }
 
-    @Test("A missing saved display falls back to the main display at right center")
-    func missingDisplayFallback() {
+    @Test("A saved physical display wins even when another display is primary")
+    func savedDisplayWins() {
         let result = FloatingStripScreenResolver.resolve(
-            savedIdentifier: "disconnected",
-            availableIdentifiers: ["secondary", "main"],
-            mainIdentifier: "main"
+            savedIdentifier: "uuid:target",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:primary",
+                    legacyIdentifier: "1",
+                    isMain: true
+                ),
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:target",
+                    legacyIdentifier: "3",
+                    isMain: false
+                ),
+            ]
         )
 
-        #expect(result.identifier == "main")
-        #expect(result.usesDefaultPlacement)
-        #expect(result.defaultEdge == .right)
-        #expect(result.defaultNormalizedCenterY == 0.5)
+        #expect(result?.selectedIdentifier == "uuid:target")
+        #expect(result?.usesFallbackScreen == false)
+        #expect(result?.migratedIdentifier == nil)
     }
 
-    @Test("An available saved display preserves the saved placement")
-    func availableDisplaySelection() {
+    @Test("A missing display falls back only to the primary without replacing its identity")
+    func missingDisplayUsesPrimaryTemporarily() {
         let result = FloatingStripScreenResolver.resolve(
-            savedIdentifier: "secondary",
-            availableIdentifiers: ["secondary", "main"],
-            mainIdentifier: "main"
+            savedIdentifier: "uuid:disconnected",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:secondary",
+                    legacyIdentifier: "2",
+                    isMain: false
+                ),
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:primary",
+                    legacyIdentifier: "1",
+                    isMain: true
+                ),
+            ]
         )
 
-        #expect(result.identifier == "secondary")
-        #expect(!result.usesDefaultPlacement)
+        #expect(result?.selectedIdentifier == "uuid:primary")
+        #expect(result?.usesFallbackScreen == true)
+        #expect(result?.migratedIdentifier == nil)
+    }
+
+    @Test("A matching legacy display number migrates to the stable identity")
+    func matchingLegacyIdentifierMigrates() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "3",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:target",
+                    legacyIdentifier: "3",
+                    isMain: true
+                ),
+            ]
+        )
+
+        #expect(result?.selectedIdentifier == "uuid:target")
+        #expect(result?.usesFallbackScreen == false)
+        #expect(result?.migratedIdentifier == "uuid:target")
+    }
+
+    @Test("A namespaced legacy fallback migrates when a UUID becomes available")
+    func namespacedLegacyIdentifierMigrates() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "legacy:3",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:target",
+                    legacyIdentifier: "3",
+                    isMain: true
+                ),
+            ]
+        )
+
+        #expect(result?.selectedIdentifier == "uuid:target")
+        #expect(result?.usesFallbackScreen == false)
+        #expect(result?.migratedIdentifier == "uuid:target")
+    }
+
+    @Test("A stale legacy number safely binds to the only current screen")
+    func staleLegacyIdentifierMigratesOnSingleScreen() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "3",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:only",
+                    legacyIdentifier: "1",
+                    isMain: true
+                ),
+            ]
+        )
+
+        #expect(result?.selectedIdentifier == "uuid:only")
+        #expect(result?.usesFallbackScreen == false)
+        #expect(result?.migratedIdentifier == "uuid:only")
+    }
+
+    @Test("A missing stable target stays recoverable even when only one screen remains")
+    func stableIdentifierDoesNotMigrateOnSingleScreen() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: "uuid:disconnected",
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:only",
+                    legacyIdentifier: "1",
+                    isMain: true
+                ),
+            ]
+        )
+
+        #expect(result?.selectedIdentifier == "uuid:only")
+        #expect(result?.usesFallbackScreen == true)
+        #expect(result?.migratedIdentifier == nil)
+    }
+
+    @Test("An empty screen list leaves the existing panel untouched")
+    func emptyScreenListHasNoResolution() {
+        #expect(FloatingStripScreenResolver.resolve(
+            savedIdentifier: "uuid:target",
+            screens: []
+        ) == nil)
+    }
+
+    @Test("First launch chooses the primary display without inventing a migration")
+    func firstLaunchUsesPrimary() {
+        let result = FloatingStripScreenResolver.resolve(
+            savedIdentifier: nil,
+            screens: [
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:secondary",
+                    legacyIdentifier: "2",
+                    isMain: false
+                ),
+                FloatingStripScreenIdentity(
+                    stableIdentifier: "uuid:primary",
+                    legacyIdentifier: "1",
+                    isMain: true
+                ),
+            ]
+        )
+
+        #expect(result?.selectedIdentifier == "uuid:primary")
+        #expect(result?.usesFallbackScreen == false)
+        #expect(result?.migratedIdentifier == nil)
+    }
+
+    @Test("Display UUIDs are normalized and legacy identifiers remain namespaced fallbacks")
+    func stableScreenIdentifierFormatting() {
+        #expect(FloatingStripScreenIdentifier.make(
+            uuidString: "A1B2-C3D4",
+            legacyIdentifier: "3"
+        ) == "uuid:a1b2-c3d4")
+        #expect(FloatingStripScreenIdentifier.make(
+            uuidString: nil,
+            legacyIdentifier: "3"
+        ) == "legacy:3")
+        #expect(FloatingStripScreenIdentifier.make(
+            uuidString: nil,
+            legacyIdentifier: nil
+        ) == nil)
     }
 
     @Test("Accessibility movement uses bounded vertical steps and explicit edges")

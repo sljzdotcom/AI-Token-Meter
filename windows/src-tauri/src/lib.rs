@@ -124,6 +124,22 @@ impl RuntimeState {
             .unwrap_or((Edge::Right, 0.5, None))
     }
 
+    pub(crate) fn migrate_meter_monitor_id(
+        &self,
+        previous_identifier: Option<&str>,
+        migrated_identifier: Option<String>,
+    ) {
+        let Ok(mut settings) = self.settings.lock() else {
+            return;
+        };
+        let _ = apply_meter_monitor_id_migration(
+            &mut settings,
+            previous_identifier,
+            migrated_identifier,
+            |candidate| persist_settings(self.settings_path.as_deref(), candidate),
+        );
+    }
+
     #[cfg(windows)]
     pub(crate) fn threshold_notice(&self, snapshot: &UsageSnapshot) -> Option<(u8, String)> {
         let enabled = self
@@ -144,6 +160,31 @@ impl RuntimeState {
             .map(|settings| settings.refresh_interval_seconds)
             .unwrap_or(300)
     }
+}
+
+fn apply_meter_monitor_id_migration(
+    settings: &mut AppSettings,
+    previous_identifier: Option<&str>,
+    migrated_identifier: Option<String>,
+    persist: impl FnOnce(&AppSettings) -> Result<(), String>,
+) -> bool {
+    let (Some(previous_identifier), Some(migrated_identifier)) =
+        (previous_identifier, migrated_identifier)
+    else {
+        return false;
+    };
+    if previous_identifier == migrated_identifier
+        || settings.meter_monitor_id.as_deref() != Some(previous_identifier)
+    {
+        return false;
+    }
+    let mut candidate = settings.clone();
+    candidate.meter_monitor_id = Some(migrated_identifier);
+    if persist(&candidate).is_err() {
+        return false;
+    }
+    *settings = candidate;
+    true
 }
 
 #[cfg_attr(not(any(windows, test)), allow(dead_code))]
@@ -259,6 +300,7 @@ fn set_meter_edge(
     let normalized_y = f64::from(settings.meter_vertical_per_mille.min(1000)) / 1000.0;
     place_meter(&meter, edge_from_settings(edge), normalized_y)
         .map_err(|_| "The meter could not be moved".to_owned())?;
+    settings.meter_monitor_id = current_monitor_identifier(&meter).ok().flatten();
     persist_settings(state.settings_path.as_deref(), &settings)?;
     app.emit("meter-edge-changed", edge)
         .map_err(|_| "The meter display could not be updated".to_owned())
@@ -790,7 +832,10 @@ pub fn run() {
                     )
                 })
                 .unwrap_or((Edge::Right, 0.5, None));
-            configure_initial_windows(app.handle(), edge, normalized_y, monitor_id.as_deref())?;
+            let migrated_monitor_id =
+                configure_initial_windows(app.handle(), edge, normalized_y, monitor_id.as_deref())?;
+            app.state::<RuntimeState>()
+                .migrate_meter_monitor_id(monitor_id.as_deref(), migrated_monitor_id);
             crate::platform::windows::tray::install(app.handle())?;
             #[cfg(windows)]
             {
@@ -800,6 +845,7 @@ pub fn run() {
                     app.handle().clone(),
                     enabled,
                 );
+                crate::platform::windows::display_topology::start_monitoring(app.handle().clone());
             }
             if let Some(settings) = app.get_webview_window("settings") {
                 let settings_for_close = settings.clone();
@@ -858,5 +904,52 @@ mod threshold_tests {
             Some(70)
         );
         assert_eq!(evaluate_threshold(false, &mut levels, &snapshot), None);
+    }
+
+    #[test]
+    fn failed_monitor_identifier_persistence_keeps_the_previous_setting() {
+        let mut settings = AppSettings {
+            meter_monitor_id: Some("\\\\.\\DISPLAY2".to_owned()),
+            ..AppSettings::default()
+        };
+
+        let migrated = apply_meter_monitor_id_migration(
+            &mut settings,
+            Some("\\\\.\\DISPLAY2"),
+            Some("device:stable-hash".to_owned()),
+            |_| Err("disk full".to_owned()),
+        );
+
+        assert!(!migrated);
+        assert_eq!(
+            settings.meter_monitor_id.as_deref(),
+            Some("\\\\.\\DISPLAY2")
+        );
+    }
+
+    #[test]
+    fn stale_monitor_identifier_migration_cannot_overwrite_a_newer_target() {
+        let mut settings = AppSettings {
+            meter_monitor_id: Some("device:new-target".to_owned()),
+            ..AppSettings::default()
+        };
+        let mut persistence_called = false;
+
+        let migrated = apply_meter_monitor_id_migration(
+            &mut settings,
+            Some("\\\\.\\DISPLAY2"),
+            Some("device:old-target".to_owned()),
+            |_| {
+                persistence_called = true;
+                Ok(())
+            },
+        );
+
+        assert!(!migrated);
+        assert!(!persistence_called);
+        assert_eq!(
+            settings.meter_monitor_id.as_deref(),
+            Some("device:new-target")
+        );
     }
 }

@@ -39,6 +39,55 @@ struct AppModelStartupTests {
         #expect(DisplayFontPreferenceStore(defaults: defaults).load() == .system)
     }
 
+    @Test("Display identity migration preserves every user placement field")
+    @MainActor
+    func displayIdentityMigrationPreservesPlacement() {
+        let context = makeContext("DisplayMigration")
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let store = FloatingStripPositionStore(defaults: context.defaults)
+        store.save(FloatingStripPosition(
+            preference: .automatic,
+            lastResolvedEdge: .left,
+            normalizedCenterY: 0.48,
+            screenIdentifier: "3"
+        ))
+        let model = AppModel(
+            defaults: context.defaults,
+            secretStore: ReadCountingSecretStore()
+        )
+
+        model.migrateFloatingStripScreenIdentifier(from: "3", to: "uuid:display")
+
+        #expect(model.floatingStripPosition.preference == .automatic)
+        #expect(model.floatingStripPosition.lastResolvedEdge == .left)
+        #expect(model.floatingStripPosition.normalizedCenterY == 0.48)
+        #expect(model.floatingStripPosition.screenIdentifier == "uuid:display")
+        #expect(store.load() == model.floatingStripPosition)
+    }
+
+    @Test("A stale migration cannot overwrite a newer explicit placement")
+    @MainActor
+    func staleDisplayIdentityMigrationIsIgnored() {
+        let context = makeContext("StaleDisplayMigration")
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let store = FloatingStripPositionStore(defaults: context.defaults)
+        store.save(FloatingStripPosition(
+            preference: .right,
+            lastResolvedEdge: .right,
+            normalizedCenterY: 0.72,
+            screenIdentifier: "uuid:new-target"
+        ))
+        let model = AppModel(
+            defaults: context.defaults,
+            secretStore: ReadCountingSecretStore()
+        )
+
+        model.migrateFloatingStripScreenIdentifier(from: "3", to: "uuid:stale-target")
+
+        #expect(model.floatingStripPosition == store.load())
+        #expect(model.floatingStripPosition.screenIdentifier == "uuid:new-target")
+    }
+
     @Test("Demo startup publishes its initial Widget snapshot once")
     @MainActor
     func demoStartupPublishesWidgetSnapshot() {
