@@ -20,6 +20,7 @@ switch (mode) {
   }
   case "stdin":
     process.stdin.setEncoding("utf8");
+    process.stdout.write("ready\r\n");
     process.stdin.once("data", (input) => {
       process.stdout.write(`received:${input.trim()}\r\n`);
       process.exit(0);

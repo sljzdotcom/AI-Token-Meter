@@ -27,6 +27,11 @@ pub struct ConPty {
     output_read: windows_sys::Win32::Foundation::HANDLE,
 }
 
+#[cfg(any(windows, test))]
+const CURSOR_POSITION_QUERY: &[u8] = b"\x1b[6n";
+#[cfg(windows)]
+const DEFAULT_CURSOR_POSITION: &[u8] = b"\x1b[1;1R";
+
 impl ConPty {
     pub fn open(size: ConPtySize) -> Result<Self, ConPtyError> {
         validate_size(size)?;
@@ -88,26 +93,7 @@ impl ConPty {
         }
         #[cfg(windows)]
         {
-            use windows_sys::Win32::Storage::FileSystem::WriteFile;
-
-            let mut offset = 0;
-            while offset < input.len() {
-                let mut written = 0;
-                let succeeded = unsafe {
-                    WriteFile(
-                        self.input_write,
-                        input[offset..].as_ptr().cast(),
-                        (input.len() - offset) as u32,
-                        &mut written,
-                        std::ptr::null_mut(),
-                    )
-                };
-                if succeeded == 0 || written == 0 {
-                    return Err(ConPtyError::WriteFailed);
-                }
-                offset += written as usize;
-            }
-            Ok(())
+            self.write_all_windows(input)
         }
         #[cfg(not(windows))]
         {
@@ -180,6 +166,29 @@ fn validate_size(size: ConPtySize) -> Result<(), ConPtyError> {
 
 #[cfg(windows)]
 impl ConPty {
+    fn write_all_windows(&mut self, input: &[u8]) -> Result<(), ConPtyError> {
+        use windows_sys::Win32::Storage::FileSystem::WriteFile;
+
+        let mut offset = 0;
+        while offset < input.len() {
+            let mut written = 0;
+            let succeeded = unsafe {
+                WriteFile(
+                    self.input_write,
+                    input[offset..].as_ptr().cast(),
+                    (input.len() - offset) as u32,
+                    &mut written,
+                    std::ptr::null_mut(),
+                )
+            };
+            if succeeded == 0 || written == 0 {
+                return Err(ConPtyError::WriteFailed);
+            }
+            offset += written as usize;
+        }
+        Ok(())
+    }
+
     fn spawn_windows(
         &mut self,
         command: &super::process::CommandInvocation,
@@ -338,6 +347,7 @@ impl ConPty {
 
         let deadline = Instant::now() + timeout;
         let mut output = Vec::new();
+        let mut answered_cursor_queries = 0;
         loop {
             if Instant::now() >= deadline {
                 return Err(ConPtyError::TimedOut);
@@ -379,11 +389,43 @@ impl ConPty {
                 return Err(ConPtyError::ReadFailed);
             }
             output.extend_from_slice(&chunk[..bytes_read as usize]);
+            let cursor_queries = count_subsequence(&output, CURSOR_POSITION_QUERY);
+            while answered_cursor_queries < cursor_queries {
+                self.write_all_windows(DEFAULT_CURSOR_POSITION)?;
+                answered_cursor_queries += 1;
+            }
             let normalized = super::process::normalize_output(&output);
             if patterns.iter().any(|pattern| normalized.contains(pattern)) {
                 return Ok(normalized);
             }
         }
+    }
+}
+
+#[cfg(any(windows, test))]
+fn count_subsequence(haystack: &[u8], needle: &[u8]) -> usize {
+    if needle.is_empty() {
+        return 0;
+    }
+    haystack
+        .windows(needle.len())
+        .filter(|window| *window == needle)
+        .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CURSOR_POSITION_QUERY, count_subsequence};
+
+    #[test]
+    fn cursor_queries_are_counted_across_surrounding_terminal_output() {
+        let output = b"before\x1b[6nafter\x1b[6n";
+        assert_eq!(count_subsequence(output, CURSOR_POSITION_QUERY), 2);
+    }
+
+    #[test]
+    fn partial_cursor_query_is_not_treated_as_complete() {
+        assert_eq!(count_subsequence(b"\x1b[6", CURSOR_POSITION_QUERY), 0);
     }
 }
 

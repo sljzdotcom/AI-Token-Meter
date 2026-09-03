@@ -195,6 +195,13 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - 后续修正使用 Windows 控制台 Enter 的单 `CR` 序列，并临时允许捕获受控夹具的 `hello` 回显，以便下一轮 CI 明确区分“输入已到伪终端但未到 Node stdin”和“完整响应成功”；最终断言仍要求 `received:hello`，不会把回显误判为成功；
 - CI 同步升级到 `actions/setup-node@v6`，消除旧 Node 20 action runtime 的弃用告警。
 
+### ConPTY 输入停滞根因
+
+- Windows CI [33715538395](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33715538395) 再次通过前端、格式、Clippy、Rust 编译和 ConPTY 创建/缩放，但即便等待终端回显也没有出现任何受控文本，排除了 CRLF/CR 差异；
+- 微软 Terminal 的 ConPTY 实现说明：伪终端创建后会立即发出 Device Status Report 光标位置查询 `ESC[6n`，若终端宿主不回复 `ESC[row;columnR`，ConPTY 将暂停处理输入；此前 `read_until` 会读取该控制序列但没有实现回复，正好解释“创建/缩放成功，进程输入输出停滞”；
+- `read_until` 现会按原始字节流识别完整光标查询，并以保守的 `ESC[1;1R` 回复；分片查询不会被误判，多次查询会逐一应答；
+- Windows 运行测试改为先等待夹具主动输出 `ready`（验证启动、输出管道和 DSR 握手），再发送固定输入并等待 `received:hello`（验证输入管道和子进程 stdin），避免单一超时掩盖故障层。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；

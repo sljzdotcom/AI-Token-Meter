@@ -209,3 +209,4 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 原生/WSL CLI 发现完成：环境候选、注册表 PATH、Node/CMD 显式 launcher、UTF-16 WSL 列表和参数隔离均有测试；32 项 Rust、Windows 目标源码编译和全仓门禁通过，进入安全进程与 ConPTY。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 受限非交互 runner、Job Object、ConPTY 进程附加、固定输入/等待和 Claude/Codex 固定登录动作已实现；本机行为测试及 Windows 目标源码编译通过，已提前加入 Windows CI，等待真实 runner 结果。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 首次 Windows CI `33714907252` 已证明前端、构建、格式、Clippy、Rust 编译及 ConPTY 创建/缩放通过；输入往返在 CRLF 终端序列下超时，现改用单 CR 并增加“仅终端回显/真实进程响应”诊断，等待真实 runner 复验。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | 第二次 Windows CI `33715538395` 仍在任何受控文本出现前超时；结合微软 ConPTY 实现确认启动会先发 `ESC[6n` 光标查询，宿主不回复便暂停输入。现已实现 `ESC[1;1R` 最小终端握手，并把真机测试拆为 `ready → input → received`。 |
