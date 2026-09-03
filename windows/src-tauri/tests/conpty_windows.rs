@@ -54,13 +54,18 @@ fn conpty_attaches_a_process_sends_fixed_input_and_waits_for_a_pattern() {
         .spawn(&command, None, &[])
         .expect("attached process");
 
-    terminal
-        .send_fixed_input(b"hello\r\n")
-        .expect("fixed input");
+    terminal.send_fixed_input(b"hello\r").expect("fixed input");
     let output = terminal
-        .read_until(&["received:hello"], Duration::from_secs(3), 16 * 1024)
+        .read_until(
+            &["received:hello", "hello"],
+            Duration::from_secs(3),
+            16 * 1024,
+        )
         .expect("terminal pattern");
-    assert!(output.contains("received:hello"));
+    assert!(
+        output.contains("received:hello"),
+        "ConPTY returned only controlled fixture output: {output:?}"
+    );
     assert_eq!(child.wait(Duration::from_secs(3)).expect("child exit"), 0);
 
     fn find_node() -> PathBuf {

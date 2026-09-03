@@ -188,6 +188,13 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - `.github/workflows/windows-ci.yml` 提前落地真实 Windows 核心验证，后续分支推送将执行前端、格式、Clippy、完整 Rust、Credential Manager、进程树和 ConPTY 往返；
 - Task 6 的最终检查点仍等待 Windows CI 真实运行结果，当前不会提前标为完成。
 
+### 首次 Windows runner 反馈
+
+- Windows CI [33714907252](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33714907252) 已通过前端测试/构建、Rust 格式、零警告 Clippy、Windows 源码编译，以及 ConPTY 非法尺寸和创建/缩放两项真实运行测试；
+- 唯一失败为 ConPTY 固定输入往返：测试向控制台写入 `hello\r\n` 后等待 `received:hello`，3 秒内未收到目标响应；这证明失败边界在真实终端输入语义，而不是 ConPTY 创建、窗口尺寸或 Windows 编译；
+- 后续修正使用 Windows 控制台 Enter 的单 `CR` 序列，并临时允许捕获受控夹具的 `hello` 回显，以便下一轮 CI 明确区分“输入已到伪终端但未到 Node stdin”和“完整响应成功”；最终断言仍要求 `received:hello`，不会把回显误判为成功；
+- CI 同步升级到 `actions/setup-node@v6`，消除旧 Node 20 action runtime 的弃用告警。
+
 ## 安全与隐私
 
 - 当前新增合同和 fixture 不含真实身份、路径、API Key、OAuth Token、Cookie、手机号或原始 Provider 响应；
