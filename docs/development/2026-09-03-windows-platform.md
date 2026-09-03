@@ -286,8 +286,30 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 
 - DeepSeek 真机 Key 验收；
 - Claude Code/OpenAI Codex 真实 Windows CI 复验；
-- 系统托盘、贴边窗口、实际详情/Settings 窗口和真机交互；
+- Win32 桌面壳构建、左右贴边/DPI/全屏/拖动的 Windows 真机交互验收；
 - DeepSeek WebView2 30 日图表；
 - NSIS、Tauri Updater、Windows CI 和双平台 Preview Release。
 
 上述项目保持 `进行中`，不会因为 macOS 上的骨架编译通过而提前标记完成。
+
+## Phase 3：托盘与 Win32 窗口策略（实现完成，等待 runner/真机）
+
+### 测试先行与窗口几何
+
+- 纯策略测试覆盖左右工作区贴边、DPI 后物理尺寸、归一化垂直位置、详情向屏幕内展开并钳制、显示器断开后回退、同显示器全屏判定和详情 topmost 生命周期；
+- 浮动条轮廓用同一组 Bezier 采样点生成 Win32 `HRGN`；右侧与左侧互为严格镜像，CSS `clip-path` 同步使用相同 116×450 坐标，避免透明窗口点击区和视觉边界不一致；
+- 新增 Windows-only GDI 集成测试，要求左右轮廓都能创建有效区域，并验证 runner 存在非空显示器和工作区。macOS 只编译测试壳，不把零项执行冒充 Windows 结果。
+
+### 原生窗口行为
+
+- Tauri 应用拆分为 `meter`、`detail`、`settings` 三个最小权限窗口；capability 只授权这三个窗口及拖动，不引入 shell 插件或任意命令执行；
+- meter 使用无标题、透明、跳过任务栏、不可聚焦及 Win32 `WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE`，默认主屏右侧；非按钮区域可拖动，松手后选择最近边缘并保存显示器标识与归一化 Y；
+- Settings 可即时切换左右边缘；重新显示和重启均恢复持久化边缘、显示器与高度，显示器已断开时回退主屏；字体和详情自动隐藏秒数也从界面真实写入原子设置并通过事件同步所有窗口；
+- 同显示器存在全屏前台应用时每 500ms 隐藏 meter，离开全屏后恢复；用户在托盘主动隐藏时不会被监控线程误恢复；
+- detail 每次打开都定位在 meter 内侧、临时置顶并获得焦点；失去焦点、外部点击或自动隐藏后先清除 topmost 再隐藏；Settings 关闭只隐藏窗口，不退出托盘应用。
+
+### 系统托盘与验证边界
+
+- 托盘包含三个 Provider 脱敏摘要、Refresh、Settings、Show/Hide Meter、About 和 Quit；摘要按事件动态更新，DeepSeek 显示可用余额，Claude Code/OpenAI Codex 显示已用比例，不可用状态不会伪造 `0%`；
+- 本机 7 项窗口策略、1 项托盘摘要、6 项设置持久化、完整 65 项 Rust 回归、5 项前端、TypeScript/Vite 构建、格式和零警告 Clippy 已通过；128 份 Markdown、共享合同与公开安全门禁通过；
+- Windows CI 增加完整 `tauri build --debug --no-bundle`，下一轮将同时验证真实 Win32 条件编译、GDI 区域、显示器 API、多窗口 capability 与桌面壳构建；左右贴边、125%/200% DPI、全屏 Edge、普通窗口覆盖和真实指针拖动仍需 Windows 真机视觉验收，Task 9 步骤 5 因此保持未完成。

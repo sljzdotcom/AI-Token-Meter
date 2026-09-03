@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 
 const tabs = ["Appearance", "Monitoring", "Services", "About"] as const
@@ -16,10 +16,26 @@ const fonts = [
 type SettingsWindowProps = {
   displayFont: string
   onDisplayFontChange: (font: string) => void
+  edge?: "left" | "right"
+  onEdgeChange?: (edge: "left" | "right") => void
+  detailAutoHideSeconds?: number
+  onDetailAutoHideSecondsChange?: (seconds: number) => void
+  requestedTab?: (typeof tabs)[number]
 }
 
-export function SettingsWindow({ displayFont, onDisplayFontChange }: SettingsWindowProps) {
+export function SettingsWindow({
+  displayFont,
+  onDisplayFontChange,
+  edge = "right",
+  onEdgeChange = () => {},
+  detailAutoHideSeconds = 8,
+  onDetailAutoHideSecondsChange = () => {},
+  requestedTab,
+}: SettingsWindowProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Appearance")
+  useEffect(() => {
+    if (requestedTab) setActiveTab(requestedTab)
+  }, [requestedTab])
   return (
     <section aria-label="AI Token Meter Settings" className="settings-window settings-window--system-font" role="dialog">
       <header><div><strong>AI Token Meter</strong><small>Private AI usage, at a glance.</small></div></header>
@@ -44,13 +60,24 @@ export function SettingsWindow({ displayFont, onDisplayFontChange }: SettingsWin
               <button onClick={() => onDisplayFontChange("System Default")} type="button">Restore default font</button>
             </SettingRow>
             <SettingRow label="Screen edge" hint="The meter follows the selected display and stays outside the taskbar.">
-              <select aria-label="Screen edge" defaultValue="Right"><option>Right</option><option>Left</option></select>
+              <select
+                aria-label="Screen edge"
+                onChange={(event) => onEdgeChange(event.target.value as "left" | "right")}
+                value={edge}
+              ><option value="right">Right</option><option value="left">Left</option></select>
             </SettingRow>
           </>
         ) : null}
         {activeTab === "Monitoring" ? (
           <SettingRow label="Detail auto-hide" hint="Interaction pauses the countdown.">
-            <input aria-label="Detail auto-hide seconds" defaultValue="8" min="1" type="number" /> seconds
+            <input
+              aria-label="Detail auto-hide seconds"
+              max="300"
+              min="1"
+              onChange={(event) => onDetailAutoHideSecondsChange(Number(event.target.value))}
+              type="number"
+              value={detailAutoHideSeconds}
+            /> seconds
           </SettingRow>
         ) : null}
         {activeTab === "Services" ? (

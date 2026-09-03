@@ -522,19 +522,19 @@ git commit -m "feat: build Windows meter interface"
 - 创建：`windows/src-tauri/tests/window_integration_windows.rs`
 - 修改：`windows/src-tauri/src/lib.rs`
 
-- [ ] **步骤 1：写纯窗口策略失败测试**
+- [x] **步骤 1：写纯窗口策略失败测试**
 
 覆盖左右贴边、工作区、DPI、任务栏变化、显示器拔插、拖动归一化位置、前台全屏隐藏、桌面恢复、详情临时 topmost 和关闭后撤销 topmost。
 
-- [ ] **步骤 2：实现系统托盘**
+- [x] **步骤 2：实现系统托盘**
 
 菜单包括三项摘要、Refresh、Settings、Show/Hide Meter、About、Quit；浅/深/高对比资源均有单色可辨识轮廓。托盘生命周期独立于窗口，关闭 Settings 不退出应用。
 
-- [ ] **步骤 3：实现贴边浮动条**
+- [x] **步骤 3：实现贴边浮动条**
 
 Win32 窗口无标题、透明、无任务栏按钮、不抢焦点；默认主显示器右侧，可切左侧；不注册 AppBar。非 Logo 区域拖动并保存显示器/归一化 Y；屏幕变化后钳制回可见工作区。
 
-- [ ] **步骤 4：实现桌面可见性与详情置前**
+- [x] **步骤 4：实现桌面可见性与详情置前**
 
 检测当前显示器全屏前台窗口时隐藏；返回桌面恢复。点击 Logo 时详情获得焦点并短暂 topmost，关闭后立即撤销。若标准层级在 Windows 构建号上不稳定，使用“非桌面前台时隐藏”的安全回退，并记录真机证据。
 

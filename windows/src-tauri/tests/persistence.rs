@@ -13,6 +13,8 @@ fn settings_round_trip_atomically() {
     let path = directory.path().join("settings.json");
     let settings = AppSettings {
         edge: ai_token_meter_windows::persistence::MeterEdge::Left,
+        meter_vertical_per_mille: 375,
+        meter_monitor_id: Some("DISPLAY-2".to_owned()),
         refresh_interval_seconds: 420,
         detail_auto_hide_seconds: 12,
         display_font: "Antonio".to_owned(),
@@ -25,6 +27,26 @@ fn settings_round_trip_atomically() {
 
     assert_eq!(decoded, settings);
     assert!(!temporary_path(&path).exists());
+}
+
+#[test]
+fn settings_accept_only_supported_fonts_and_safe_auto_hide_intervals() {
+    let mut settings = AppSettings::default();
+
+    settings
+        .set_display_font("Fira Code")
+        .expect("supported font");
+    assert_eq!(settings.display_font, "Fira Code");
+    assert!(settings.set_display_font("url(evil)").is_err());
+    assert_eq!(settings.display_font, "Fira Code");
+
+    settings
+        .set_detail_auto_hide_seconds(30)
+        .expect("safe interval");
+    assert_eq!(settings.detail_auto_hide_seconds, 30);
+    assert!(settings.set_detail_auto_hide_seconds(0).is_err());
+    assert!(settings.set_detail_auto_hide_seconds(301).is_err());
+    assert_eq!(settings.detail_auto_hide_seconds, 30);
 }
 
 #[test]

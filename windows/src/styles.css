@@ -41,6 +41,53 @@ button {
   padding: 24px 0 24px 24px;
 }
 
+.meter-stage--strip-only {
+  display: block;
+  min-height: 450px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.meter-stage--strip-only .floating-strip {
+  border-radius: 0;
+  clip-path: path("M 116 0 C 116 0 0 10 0 58 L 0 392 C 0 440 116 450 116 450 Z");
+  height: 450px;
+  min-height: 450px;
+}
+
+.meter-stage--strip-only.meter-edge--left .floating-strip {
+  clip-path: path("M 0 0 C 0 0 116 10 116 58 L 116 392 C 116 440 0 450 0 450 Z");
+}
+
+.meter-stage--strip-only .floating-strip::before,
+.meter-stage--strip-only .floating-strip::after {
+  display: none;
+}
+
+.detail-surface {
+  align-items: stretch;
+  background: transparent;
+  display: flex;
+  font-family: var(--display-font);
+  height: 100vh;
+  justify-content: stretch;
+  width: 100vw;
+}
+
+.detail-surface .provider-detail {
+  border-radius: 28px;
+  height: 100%;
+  max-height: none;
+  width: 100%;
+}
+
+#root > .settings-window {
+  border-radius: 0;
+  height: 100vh;
+  max-width: none;
+  width: 100vw;
+}
+
 .floating-strip {
   align-items: center;
   background-color: #030813;

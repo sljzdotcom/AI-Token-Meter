@@ -17,7 +17,7 @@ jobs:
   core:
     name: Windows frontend and Rust runtime
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -51,3 +51,6 @@ jobs:
       - name: Test Windows runtime
         working-directory: windows/src-tauri
         run: cargo test --locked
+      - name: Compile Tauri desktop shell
+        working-directory: windows
+        run: npm run tauri build -- --debug --no-bundle

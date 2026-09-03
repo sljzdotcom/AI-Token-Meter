@@ -9,7 +9,15 @@ type FloatingStripProps = {
 
 export function FloatingStrip({ snapshots, activeProvider, onProviderActivate }: FloatingStripProps) {
   return (
-    <nav aria-label="AI usage providers" className="floating-strip">
+    <nav
+      aria-label="AI usage providers"
+      className="floating-strip"
+      onPointerDown={(event) => {
+        if (!(event.target as HTMLElement).closest("button")) {
+          window.dispatchEvent(new CustomEvent("meter-drag-requested"))
+        }
+      }}
+    >
       <div aria-hidden="true" className="floating-strip__drag-handle" />
       {snapshots.map((snapshot) => (
         <UsageRing
