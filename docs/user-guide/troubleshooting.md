@@ -98,7 +98,7 @@ Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
 - `0.1.2` 没有更新按钮；先从 GitHub Release 手动安装当前版本，之后版本才能应用内更新。
 - 安装阶段确保 App 位于当前用户可替换的位置，通常为 `/Applications/AI Token Meter.app`，并完全处理 macOS 显示的权限提示。
 - 如果 Sparkle 报告签名或归档验证失败，不要绕过。继续使用当前版本，并从项目官方 GitHub Release 重新下载或报告问题。
-- Windows 若提示 updater signature、target 或 manifest 无效，同样不要绕过；当前版本会保留不变。确认 `latest.json` 与 `.nsis.zip.sig` 来自同一个 GitHub Release，而不是只供 CI 调试的安装器。
+- Windows 若提示 updater signature、target 或 manifest 无效，同样不要绕过；当前版本会保留不变。确认 `latest.json`、NSIS `setup.exe` 与同名 `.exe.sig` 来自同一个 GitHub Release，而不是只供 CI 调试的安装器。
 - Windows SmartScreen 的“未知发布者”来自当前尚无 Authenticode 证书，并不代表 minisign 更新验证失败。只从官方 Release 下载并核对 `.sha256`；来源不符时取消安装。
 - 需要回退时，完全退出应用，从官方 Release 下载上一版本并手动替换。偏好和非敏感缓存通常保留；操作前仍建议备份 `Application Support/AI Meter`。
 

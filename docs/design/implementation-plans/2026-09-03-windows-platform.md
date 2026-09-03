@@ -635,7 +635,7 @@ git commit -m "feat: add Windows DeepSeek usage history"
 ```text
 AI-Token-Meter-X.Y.Z-windows-x64-setup.exe
 AI-Token-Meter-X.Y.Z-windows-x64-setup.exe.sha256
-AI-Token-Meter-X.Y.Z-windows-x64-setup.nsis.zip.sig
+AI-Token-Meter-X.Y.Z-windows-x64-setup.exe.sig
 ```
 
 首个 Preview 可无 Authenticode，但 README 和 Release Notes 必须明确 SmartScreen 提示；稳定版取得证书前不得声称“已签名发布者”。

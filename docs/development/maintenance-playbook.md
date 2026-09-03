@@ -93,7 +93,7 @@ Windows 完整验证在 Windows 11 x64 执行 `npm --prefix windows ci/test/run 
 - 确认许可证、远程、tag、Developer ID、公证、校验和与支持范围是真实存在的；
 - 没有证书时明确发布“无 Widget 主应用”，不要声称 Widget 可安装。
 - 更新发布必须使用 Keychain 中的 Sparkle EdDSA 私钥，经单一脚本生成 ZIP、SHA-256 和 appcast；不得手改 enclosure 签名或在生成 appcast 后重建 ZIP。
-- Windows 发布必须由 `release.yml` 使用 GitHub Actions Secret 中的 Tauri 私钥生成 `.nsis.zip.sig`；普通 CI NSIS 不能上传为 Release 更新资产。
+- Windows 发布必须由 `release.yml` 使用 GitHub Actions Secret 中的 Tauri 私钥生成 NSIS `setup.exe.sig`；普通 CI NSIS 不能上传为 Release 更新资产。
 - 同一版本必须在一个草稿 Release 中同时通过 macOS 和 Windows job 后公开；任一失败都保留草稿。
 - 发布后必须验证 raw appcast、Release 下载和匿名 SHA-256；更新失败或签名异常时保留当前 App，禁止指导用户绕过验证。
 

@@ -317,7 +317,7 @@ AI-Token-Meter-X.Y.Z-macOS-arm64.zip
 AI-Token-Meter-X.Y.Z-macOS-arm64.zip.sha256
 AI-Token-Meter-X.Y.Z-windows-x64-setup.exe
 AI-Token-Meter-X.Y.Z-windows-x64-setup.exe.sha256
-AI-Token-Meter-X.Y.Z-windows-x64-setup.nsis.zip.sig
+AI-Token-Meter-X.Y.Z-windows-x64-setup.exe.sig
 appcast.xml
 latest.json
 ```

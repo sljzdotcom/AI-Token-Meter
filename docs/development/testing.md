@@ -124,7 +124,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
 npm --prefix windows run tauri build
 ```
 
-真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture、GDI `HRGN`，并编译 Win32 物理显示器接口与拓扑监听、运行其纯策略测试，再验证更新状态与完整 NSIS 生成。CI runner 不冒充真实显示器拔插；CI 上传的 debug NSIS 只用于构建回验，正式 updater archive 必须由 Release workflow 注入 Tauri signing secret。
+真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture、GDI `HRGN`，并编译 Win32 物理显示器接口与拓扑监听、运行其纯策略测试，再验证更新状态与完整 NSIS 生成。CI runner 不冒充真实显示器拔插；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
 
 交互式 Windows 真机还必须手工覆盖：左右贴边、125%/200% DPI、多显示器拔插、全屏 Edge 隐藏/恢复、普通窗口上方详情、外部点击关闭、真实指针拖动、Native/WSL 账号显示、DeepSeek WebView2 登录与 30 日图表。CI runner 没有可替代这些视觉/账户证据的桌面会话。
 
@@ -163,7 +163,7 @@ SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
 scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
 ```
 
-脚本使用本机 Keychain 生成 macOS Sparkle 资产，创建草稿 Release，再触发 `.github/workflows/release.yml`。工作流重新验证 macOS ZIP/appcast，构建 Windows `.exe` 与 minisign `.nsis.zip`，生成 `latest.json`，只有两项 job 都通过才解除草稿。Windows 签名 Secret 未配置时必须失败并保留草稿。
+脚本使用本机 Keychain 生成 macOS Sparkle 资产，创建草稿 Release，再触发 `.github/workflows/release.yml`。工作流重新验证 macOS ZIP/appcast，构建 Windows NSIS `.exe` 与配套 minisign `.exe.sig`，生成指向该安装器的 `latest.json`，只有两项 job 都通过才解除草稿。Windows 签名 Secret 未配置时必须失败并保留草稿。
 
 ## 文档和差异检查
 

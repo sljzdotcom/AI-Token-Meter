@@ -105,7 +105,7 @@ if release_workflow_path.file?
   errors << "Tagged releases must run the synchronized version contract" unless release_workflow.include?("ruby scripts/check-cross-platform-contracts.rb .")
   errors << "Preview releases must use the isolated config and feed" unless release_workflow.include?("tauri.preview.release.conf.json") && release_workflow.include?("windows-preview-feed") && release_workflow.include?("latest-preview.json")
   errors << "Cross-platform release must keep GitHub assets in a draft until verification passes" unless release_workflow.include?('gh release edit "v${VERSION}" --draft=false')
-  errors << "Windows updater archive must be verified with the embedded Tauri public key" unless release_workflow.include?("--example verify_update_signature")
+  errors << "Windows updater asset must be verified with the embedded Tauri public key" unless release_workflow.include?("--example verify_update_signature")
   unless release_workflow.include?("group: cross-platform-release") && release_workflow.include?("Back up public update feeds before publication")
     errors << "Cross-platform publications must serialize and back up both public update feeds"
   end

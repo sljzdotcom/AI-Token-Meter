@@ -27,7 +27,7 @@ AI Token Meter 使用语义化版本思路：
 - [ ] `scripts/check-public-release.sh <release.zip>` 对当前内容、完整 Git 历史和分发包无未处理的高置信度秘密。
 - [ ] `scripts/verify-update-archive.sh appcast.xml <release.zip>` 核对 enclosure 并证明篡改副本会被拒绝。
 - [ ] Windows CI 在 `windows-latest` 通过 frontend、Rust、Credential Manager/ConPTY/Win32 集成测试并生成 current-user NSIS。
-- [ ] Windows Release job 生成唯一 `.nsis.zip` 与 `.sig`，错误/缺失 Tauri 签名 secret 会失败而不是生成未签名更新清单。
+- [ ] Windows Release job 生成唯一 NSIS `setup.exe` 与配套 `.exe.sig`，错误/缺失 Tauri 签名 secret 会失败而不是生成未签名更新清单。
 
 ### 文档
 
@@ -131,7 +131,7 @@ scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
 2. 确认生成过程没有修改源码或公开稳定 appcast，创建并推送同版本 tag；
 3. 创建包含 macOS 三项资产的 GitHub 草稿 Release；
 4. 以该 tag 触发 `release.yml`；
-5. macOS job 重新下载草稿资产、核对 SHA 与 Sparkle 签名事实；Windows job 重跑测试并生成 NSIS、`.nsis.zip`、`.sig` 和 SHA，并用应用内同一 Tauri 公钥实际验证 updater archive；
+5. macOS job 重新下载草稿资产、核对 SHA 与 Sparkle 签名事实；Windows job 重跑测试并生成 NSIS `setup.exe`、`.exe.sig` 和 SHA，并用应用内同一 Tauri 公钥实际验证安装器更新资产；
 6. publish job 生成只含 `windows-x86_64` 的 `latest.json`，校验并上传 Windows 资产，随后才把草稿改为公开；
 7. 稳定版在资产公开后才提交根 `appcast.xml`，随后稳定版与 Preview 都推进独立 `windows-preview-feed`；Preview Release Notes 会明确说明无 Authenticode 时的 SmartScreen `unknown publisher` 提示、SHA-256 人工核验与 minisign 更新边界。
 

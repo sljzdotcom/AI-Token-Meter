@@ -132,26 +132,14 @@ jobs:
       - name: Normalize and hash Windows assets
         shell: pwsh
         run: |
-          $source = "windows/src-tauri/target/release/bundle/nsis"
-          $stage = "windows-release"
-          New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          $installer = @(Get-ChildItem $source -Filter "*-setup.exe")
-          $updater = @(Get-ChildItem $source -Filter "*.nsis.zip")
-          $signature = @(Get-ChildItem $source -Filter "*.nsis.zip.sig")
-          if ($installer.Count -ne 1 -or $updater.Count -ne 1 -or $signature.Count -ne 1) {
-            throw "Expected one NSIS installer, updater archive, and updater signature"
-          }
-          $installerName = "AI-Token-Meter-${env:VERSION}-windows-x64-setup.exe"
-          $updaterName = "AI-Token-Meter-${env:VERSION}-windows-x64.nsis.zip"
-          Copy-Item $installer[0].FullName "$stage/$installerName"
-          Copy-Item $updater[0].FullName "$stage/$updaterName"
-          Copy-Item $signature[0].FullName "$stage/$updaterName.sig"
-          $hash = (Get-FileHash "$stage/$installerName" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $installerName" | Set-Content "$stage/$installerName.sha256" -Encoding ascii
+          node scripts/normalize-windows-release-assets.mjs `
+            "windows/src-tauri/target/release/bundle/nsis" `
+            "windows-release" `
+            "$env:VERSION"
       - name: Verify Windows updater signature with the embedded public key
         shell: pwsh
         run: |
-          $updater = "windows-release/AI-Token-Meter-${env:VERSION}-windows-x64.nsis.zip"
+          $updater = "windows-release/AI-Token-Meter-${env:VERSION}-windows-x64-setup.exe"
           cargo run --locked --manifest-path windows/src-tauri/Cargo.toml --example verify_update_signature -- `
             $updater `
             "$updater.sig" `
@@ -192,12 +180,10 @@ jobs:
             cp windows-build/* windows-release/
           elif [[ "$release_state" == "false" ]]; then
             installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
-            updater="AI-Token-Meter-${VERSION}-windows-x64.nsis.zip"
             gh release download "v$VERSION" --dir windows-release \
               --pattern "$installer" \
               --pattern "$installer.sha256" \
-              --pattern "$updater" \
-              --pattern "$updater.sig"
+              --pattern "$installer.sig"
           else
             echo "Unable to determine release visibility for v$VERSION" >&2
             exit 1
@@ -207,18 +193,17 @@ jobs:
         run: |
           set -euo pipefail
           installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
-          updater="AI-Token-Meter-${VERSION}-windows-x64.nsis.zip"
           cd windows-release
           sha256sum -c "$installer.sha256"
-          test -s "$updater"
-          test -s "$updater.sig"
-          signature="$(tr -d '\r\n' < "$updater.sig")"
+          test -s "$installer"
+          test -s "$installer.sig"
+          signature="$(tr -d '\r\n' < "$installer.sig")"
           jq -n \
             --arg version "$VERSION" \
             --arg notes "See the GitHub release notes for AI Token Meter $VERSION." \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg signature "$signature" \
-            --arg url "https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v${VERSION}/${updater}" \
+            --arg url "https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v${VERSION}/${installer}" \
             '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
             > latest.json
           jq -e --arg version "$VERSION" '.version == $version and (.platforms["windows-x86_64"].signature | length > 0)' latest.json >/dev/null
@@ -256,8 +241,7 @@ jobs:
           elif [[ "$release_state" == "false" ]]; then
             assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
             installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
-            updater="AI-Token-Meter-${VERSION}-windows-x64.nsis.zip"
-            for expected in "$installer" "$installer.sha256" "$updater" "$updater.sig" latest.json; do
+            for expected in "$installer" "$installer.sha256" "$installer.sig" latest.json; do
               grep -Fxq "$expected" <<<"$assets"
             done
           else

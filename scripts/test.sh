@@ -28,6 +28,7 @@ fi
 
 ruby "$PROJECT_DIR/scripts/check-cross-platform-contracts.rb" "$PROJECT_DIR"
 "/usr/bin/env" bash "$PROJECT_DIR/scripts/test-cross-platform-contracts.sh"
+"/usr/bin/env" bash "$PROJECT_DIR/scripts/test-normalize-windows-release-assets.sh"
 "/usr/bin/env" bash "$PROJECT_DIR/scripts/test-release-feed-utils.sh"
 "$PROJECT_DIR/scripts/check-docs.sh"
 "$PROJECT_DIR/scripts/check-public-release.sh"

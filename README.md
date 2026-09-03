@@ -220,7 +220,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 - Widget 只读取主应用写入 App Group 的脱敏展示快照，不联网、不运行 CLI、不读取 Keychain，也不能登录或兑换重置券。
 - 缓存、状态消息与通知会先经过敏感文本清理。
 - 更新 ZIP 由 Sparkle EdDSA 签名；生产私钥只保存在维护者的 macOS Keychain，不进入仓库、日志或 Release。应用只包含公开验证键，签名不匹配时保持现有版本不变。
-- Windows Updater 使用 Tauri minisign 公钥验证 `.nsis.zip`；GitHub Actions 私钥仅通过仓库 Secret 注入。当前无 Authenticode，SmartScreen 发布者身份提示与更新内容签名是两个不同边界。
+- Windows Updater 使用 Tauri minisign 公钥验证 NSIS `setup.exe` 及其 `.exe.sig`；GitHub Actions 私钥仅通过仓库 Secret 注入。当前无 Authenticode，SmartScreen 发布者身份提示与更新内容签名是两个不同边界。
 
 完整说明见 [隐私与安全](docs/security-and-privacy.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
