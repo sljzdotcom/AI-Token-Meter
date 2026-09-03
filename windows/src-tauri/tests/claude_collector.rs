@@ -1,8 +1,14 @@
 use std::path::Path;
 
 use ai_token_meter_windows::collectors::CollectionError;
+#[cfg(windows)]
+use ai_token_meter_windows::collectors::claude::collect_usage_from_candidate;
 use ai_token_meter_windows::collectors::claude::parse_usage_output;
 use ai_token_meter_windows::domain::{MetricKind, MetricUnit, ProviderId, UsageStatus};
+#[cfg(windows)]
+use ai_token_meter_windows::platform::windows::executable_locator::{
+    CandidateOrigin, ExecutableCandidate, RuntimeSource,
+};
 
 const FETCHED_AT: &str = "2026-09-03T00:00:00Z";
 
@@ -56,6 +62,30 @@ fn remaining_percentages_are_converted_to_used_percentages() {
     assert_eq!(snapshot.primary_metric.expect("metric").current, 80.0);
 }
 
+#[cfg(windows)]
+#[test]
+fn authenticates_and_collects_through_a_real_conpty_session() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("claude-cli-fixture.js")
+        .canonicalize()
+        .expect("Claude CLI fixture");
+    let candidate = ExecutableCandidate {
+        executable: fixture,
+        launcher: Some(find_node()),
+        source: RuntimeSource::NativeWindows,
+        origin: CandidateOrigin::Custom,
+    };
+    let directory = tempfile::tempdir().expect("workspace");
+
+    let snapshot = collect_usage_from_candidate(&candidate, directory.path(), FETCHED_AT)
+        .expect("real Claude ConPTY collection");
+
+    assert_eq!(snapshot.used_ratio.expect("used ratio").get(), 0.23);
+    assert_eq!(snapshot.secondary_metric.expect("weekly").current, 5.0);
+}
+
 fn fixture() -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -64,4 +94,14 @@ fn fixture() -> String {
         .join("fixtures")
         .join("claude-usage-windows.txt");
     std::fs::read_to_string(path).expect("Claude Windows fixture")
+}
+
+#[cfg(windows)]
+fn find_node() -> std::path::PathBuf {
+    std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
+        .map(|directory| directory.join("node.exe"))
+        .find_map(|path| path.canonicalize().ok().filter(|path| path.is_file()))
+        .expect("Node.js is required by the frontend toolchain")
 }

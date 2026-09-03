@@ -1,4 +1,5 @@
 pub mod claude;
+pub mod codex;
 pub mod codex_app_server;
 pub mod deepseek;
 
@@ -8,4 +9,6 @@ pub enum CollectionError {
     SetupRequired,
     InvalidResponse,
     UnrecognizedOutput,
+    TimedOut,
+    Transport,
 }

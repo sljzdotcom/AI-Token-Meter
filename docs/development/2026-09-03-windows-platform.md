@@ -227,6 +227,13 @@ Windows 首版包括系统托盘、左右贴边浮动条、Claude Code/OpenAI Co
 - Codex 解析器按请求 ID 选取响应并忽略未知通知；解析主/周额度、Unix 重置时间和仅 `available` 的 Full Reset Credit，时间统一输出 RFC 3339；
 - 6 项解析测试、格式与零警告 Clippy 通过。下一步接入真实 Claude ConPTY 会话、Codex app-server 进程及本机 30 日活动。
 
+### Provider 进程接入
+
+- Claude 采集先以受限非交互进程执行 `auth status`，再通过 120×40 ConPTY 启动固定的 `--ax-screen-reader --safe-mode`，只发送固定 `/usage`，并在解析前识别登录和工作区信任阻断；
+- Codex app-server 以显式 executable/argument 启动，完成 initialize、initialized、account/read 与 account/rateLimits/read；每个响应按单调 ID 匹配，未知通知被忽略，单行 1 MiB、100 行和逐请求超时构成硬边界；
+- app-server 子进程使用同一最小环境和 Windows Job Object，完成或失败都会终止进程树；跨平台 Node fixture 已完成真实 stdin/stdout 会话测试；
+- 当前 Claude Windows-only fixture 将在下一轮 runner 验证真实 ConPTY 端到端采集；macOS 交叉构建仍会因缺少 `llvm-rc` 停在 Tauri 资源阶段，此边界不冒充 Windows 结果。
+
 ## 尚未完成
 
 - DeepSeek 真机 Key 验收；

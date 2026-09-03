@@ -1,5 +1,11 @@
 use serde::Deserialize;
 use serde_json::Value;
+use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::thread;
+use std::time::{Duration, Instant};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
@@ -9,8 +15,129 @@ use crate::domain::{
 };
 
 use super::CollectionError;
+use crate::platform::windows::process::{
+    CommandInvocation, ProcessJob, configure_restricted_command,
+};
 
 const STALE_AFTER_SECONDS: u64 = 300;
+const MAX_JSON_LINE_BYTES: usize = 1_048_576;
+const MAX_RESPONSE_LINES: usize = 100;
+
+pub fn collect_rate_limits_from_invocation(
+    invocation: &CommandInvocation,
+    working_directory: Option<&Path>,
+    fetched_at: &str,
+    timeout: Duration,
+) -> Result<UsageSnapshot, CollectionError> {
+    let mut command = Command::new(&invocation.executable);
+    command
+        .args(&invocation.arguments)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    configure_restricted_command(&mut command, &invocation.executable);
+    if let Some(directory) = working_directory {
+        command.current_dir(directory);
+    }
+    let job = ProcessJob::create().map_err(|_| CollectionError::Transport)?;
+    let mut child = command.spawn().map_err(|_| CollectionError::Transport)?;
+    if job.assign(&child).is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(CollectionError::Transport);
+    }
+    let mut input = child.stdin.take().ok_or(CollectionError::Transport)?;
+    let output = child.stdout.take().ok_or(CollectionError::Transport)?;
+    let (sender, receiver) = mpsc::sync_channel(16);
+    thread::spawn(move || {
+        let mut reader = BufReader::new(output);
+        loop {
+            let mut line = Vec::new();
+            match reader.read_until(b'\n', &mut line) {
+                Ok(0) => break,
+                Ok(_) if line.len() <= MAX_JSON_LINE_BYTES => {
+                    if sender.send(Ok(line)).is_err() {
+                        return;
+                    }
+                }
+                Ok(_) | Err(_) => {
+                    let _ = sender.send(Err(()));
+                    return;
+                }
+            }
+        }
+    });
+
+    let result = (|| {
+        write_request(
+            &mut input,
+            serde_json::json!({
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "clientInfo": { "name": "ai-token-meter", "version": env!("CARGO_PKG_VERSION") },
+                    "capabilities": { "experimentalApi": true }
+                }
+            }),
+        )?;
+        let _ = receive_response(&receiver, 1, timeout)?;
+        write_request(&mut input, serde_json::json!({ "method": "initialized" }))?;
+        write_request(
+            &mut input,
+            serde_json::json!({ "id": 2, "method": "account/read", "params": { "refreshToken": false } }),
+        )?;
+        let account = receive_response(&receiver, 2, timeout)?;
+        parse_account_response(&account, 2)?;
+        write_request(
+            &mut input,
+            serde_json::json!({ "id": 3, "method": "account/rateLimits/read", "params": null }),
+        )?;
+        let limits = receive_response(&receiver, 3, timeout)?;
+        parse_rate_limits_response(&limits, 3, fetched_at)
+    })();
+
+    drop(input);
+    job.terminate_descendants();
+    let _ = child.kill();
+    let _ = child.wait();
+    result
+}
+
+fn write_request(input: &mut impl Write, value: Value) -> Result<(), CollectionError> {
+    serde_json::to_writer(&mut *input, &value).map_err(|_| CollectionError::Transport)?;
+    input
+        .write_all(b"\n")
+        .and_then(|_| input.flush())
+        .map_err(|_| CollectionError::Transport)
+}
+
+fn receive_response(
+    receiver: &Receiver<Result<Vec<u8>, ()>>,
+    expected_id: u64,
+    timeout: Duration,
+) -> Result<String, CollectionError> {
+    let deadline = Instant::now() + timeout;
+    for _ in 0..MAX_RESPONSE_LINES {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(CollectionError::TimedOut);
+        }
+        let bytes = match receiver.recv_timeout(remaining) {
+            Ok(Ok(bytes)) => bytes,
+            Ok(Err(())) | Err(RecvTimeoutError::Disconnected) => {
+                return Err(CollectionError::Transport);
+            }
+            Err(RecvTimeoutError::Timeout) => return Err(CollectionError::TimedOut),
+        };
+        let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
+            continue;
+        };
+        if value.get("id").and_then(Value::as_u64) == Some(expected_id) {
+            return String::from_utf8(bytes).map_err(|_| CollectionError::InvalidResponse);
+        }
+    }
+    Err(CollectionError::InvalidResponse)
+}
 
 pub fn parse_account_response(text: &str, expected_id: u64) -> Result<(), CollectionError> {
     let response = response_for_id(text, expected_id)?;

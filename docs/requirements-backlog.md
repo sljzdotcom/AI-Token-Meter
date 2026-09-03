@@ -215,3 +215,4 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第五次 Windows CI `33717040377` 已通过 ConPTY 完整输入输出、Credential Manager、Job Object 和其余 Windows 运行测试；唯一失败是同一临时目录的 8.3 短路径与 verbatim 长路径字符串不相等。测试已改为比较规范化后的目录身份，等待最终复验。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 最终 Windows CI `33717589098` 全绿，真实 runner 已验证 ConPTY 完整往返、Credential Manager、Job Object、受限进程和固定登录动作；Task 6 关闭，进入 Claude Code/OpenAI Codex 采集。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | Claude/Codex 跨平台解析 fixture 与 6 项失败先行测试完成：促销百分比、登录/信任提示、未知通知、额度窗口和 Reset Credit 均有明确口径，不再把解析失败显示为 0%。 |
+| 2026-09-03 | REQ-20260903-004 | 进行中 | Claude 固定 `/usage` ConPTY 采集与 Codex initialize/account/rateLimits JSON-RPC 会话已接入受限进程边界；Codex 跨平台进程测试通过，Claude Windows-only 端到端 fixture 等待 runner。 |

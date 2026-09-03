@@ -332,6 +332,23 @@ fn inherited_windows_environment() -> Vec<(OsString, OsString)> {
     }
 }
 
+pub(crate) fn configure_restricted_command(command: &mut Command, executable: &Path) {
+    command.env_clear();
+    for (key, value) in restricted_environment_for(executable) {
+        command.env(key, value);
+    }
+    #[cfg(windows)]
+    configure_windows_process(command);
+}
+
+pub(crate) fn restricted_environment_for(executable: &Path) -> Vec<(OsString, OsString)> {
+    let mut environment = inherited_windows_environment();
+    if let Some(parent) = executable.parent() {
+        environment.push((OsString::from("PATH"), parent.as_os_str().to_owned()));
+    }
+    environment
+}
+
 #[derive(Clone, Copy)]
 enum OutputStream {
     Stdout,
@@ -480,13 +497,13 @@ fn configure_windows_process(command: &mut Command) {
     command.creation_flags(CREATE_NO_WINDOW);
 }
 
-struct ProcessJob {
+pub(crate) struct ProcessJob {
     #[cfg(windows)]
     handle: windows_sys::Win32::Foundation::HANDLE,
 }
 
 impl ProcessJob {
-    fn create() -> Result<Self, ProcessRunError> {
+    pub(crate) fn create() -> Result<Self, ProcessRunError> {
         #[cfg(windows)]
         {
             use std::mem::{size_of, zeroed};
@@ -523,7 +540,7 @@ impl ProcessJob {
         }
     }
 
-    fn assign(&self, child: &std::process::Child) -> Result<(), ProcessRunError> {
+    pub(crate) fn assign(&self, child: &std::process::Child) -> Result<(), ProcessRunError> {
         #[cfg(windows)]
         {
             use std::os::windows::io::AsRawHandle;
@@ -541,7 +558,7 @@ impl ProcessJob {
         Ok(())
     }
 
-    fn terminate_descendants(&self) {
+    pub(crate) fn terminate_descendants(&self) {
         #[cfg(windows)]
         unsafe {
             windows_sys::Win32::System::JobObjects::TerminateJobObject(self.handle, 1);

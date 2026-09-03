@@ -1,13 +1,134 @@
 use regex::Regex;
+use std::path::Path;
+use std::time::Duration;
 
+use crate::accounts::cli_account::CliProvider;
 use crate::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot, UsageStatus,
 };
+use crate::platform::windows::conpty::{ConPty, ConPtyError, ConPtySize};
+use crate::platform::windows::executable_locator::ExecutableCandidate;
 use crate::platform::windows::process::normalize_output;
+use crate::platform::windows::process::{
+    BoundedProcessRunner, ProcessRequest, command_for_candidate, restricted_environment_for,
+};
 
 use super::CollectionError;
 
 const STALE_AFTER_SECONDS: u64 = 300;
+
+pub fn collect_usage_from_candidate(
+    candidate: &ExecutableCandidate,
+    working_directory: &Path,
+    fetched_at: &str,
+) -> Result<UsageSnapshot, CollectionError> {
+    verify_authentication(candidate, working_directory)?;
+    let command = command_for_candidate(
+        candidate,
+        CliProvider::Claude,
+        &["--ax-screen-reader", "--safe-mode"],
+    )
+    .map_err(|_| CollectionError::Transport)?;
+    let mut terminal = ConPty::open(ConPtySize {
+        columns: 120,
+        rows: 40,
+    })
+    .map_err(map_terminal_error)?;
+    let environment = restricted_environment_for(&command.executable);
+    let mut child = terminal
+        .spawn(&command, Some(working_directory), &environment)
+        .map_err(map_terminal_error)?;
+
+    let initial = terminal
+        .read_until(
+            &[
+                "Claude",
+                "Permission Required",
+                "Not logged in",
+                "Please log in",
+            ],
+            Duration::from_secs(8),
+            64 * 1024,
+        )
+        .map_err(map_terminal_error)?;
+    detect_blocking_prompt(&initial)?;
+    terminal
+        .send_fixed_input(b"/usage\r")
+        .map_err(map_terminal_error)?;
+    let first = terminal
+        .read_until(
+            &[
+                "Current week",
+                "All models",
+                "所有模型",
+                "Permission Required",
+                "Not logged in",
+            ],
+            Duration::from_secs(12),
+            64 * 1024,
+        )
+        .map_err(map_terminal_error)?;
+    let mut combined = initial;
+    combined.push_str(&first);
+    detect_blocking_prompt(&combined)?;
+    if let Ok(snapshot) = parse_usage_output(&combined, fetched_at)
+        && snapshot.secondary_metric.is_some()
+    {
+        return Ok(snapshot);
+    }
+    let tail = terminal
+        .read_until(
+            &["Resets", "重置", "Permission Required", "Not logged in"],
+            Duration::from_secs(8),
+            64 * 1024,
+        )
+        .map_err(map_terminal_error)?;
+    combined.push_str(&tail);
+    let parsed = parse_usage_output(&combined, fetched_at);
+    let _ = child.wait(Duration::from_millis(250));
+    parsed
+}
+
+fn verify_authentication(
+    candidate: &ExecutableCandidate,
+    working_directory: &Path,
+) -> Result<(), CollectionError> {
+    let invocation = command_for_candidate(candidate, CliProvider::Claude, &["auth", "status"])
+        .map_err(|_| CollectionError::Transport)?;
+    let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
+    request.working_directory = Some(working_directory.to_owned());
+    request.timeout = Duration::from_secs(5);
+    let output = BoundedProcessRunner
+        .run(request)
+        .map_err(|_| CollectionError::Transport)?;
+    detect_blocking_prompt(&format!("{}\n{}", output.stdout, output.stderr))?;
+    if output.exit_code != Some(0) {
+        return Err(CollectionError::Transport);
+    }
+    Ok(())
+}
+
+fn detect_blocking_prompt(output: &str) -> Result<(), CollectionError> {
+    let lowercase = output.to_lowercase();
+    if ["not logged in", "please log in", "login required"]
+        .iter()
+        .any(|marker| lowercase.contains(marker))
+        || output.contains("需要登录")
+    {
+        return Err(CollectionError::AuthenticationRequired);
+    }
+    if lowercase.contains("permission required: accessing workspace") {
+        return Err(CollectionError::SetupRequired);
+    }
+    Ok(())
+}
+
+fn map_terminal_error(error: ConPtyError) -> CollectionError {
+    match error {
+        ConPtyError::TimedOut => CollectionError::TimedOut,
+        _ => CollectionError::Transport,
+    }
+}
 
 pub fn parse_usage_output(
     raw_output: &str,
