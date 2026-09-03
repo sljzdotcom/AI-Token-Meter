@@ -61,7 +61,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；[最终 CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007)、公开重新下载、EdDSA、严格签名及隔离 `0.2.1 → 0.2.2` 原位升级与自动重启均通过。
-- Windows CI [33728660845](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33728660845) 已通过 11 项前端测试、完整 Rust 测试/严格 Clippy、Tauri 壳和 current-user NSIS 构建；下载回验 SHA-256 为 `80d38f505cea337a38a340cc8bdc7d96e058991454ed9244fe2479149ba5aef8`。它是 debug CI 证据，不是正式 Release。
+- 最终 Windows CI [33741425083](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33741425083) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 
 ## 明确未完成或受限
 
