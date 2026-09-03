@@ -43,6 +43,7 @@
 | REQ-20260903-006 | 发布文档缺陷 | Windows 实施计划将仓库目录作为公开发布脚本的位置参数传入，脚本会误把目录当成 Release ZIP 并报告归档不存在 | 中 | 已完成 | 2026-09-03 | 无 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、文档门禁回归测试 |
 | REQ-20260903-007 | 共享合同门禁缺陷 | Task 5 计划新增 Windows CLI 位置 fixture，但门禁把 `contracts/fixtures` 中全部 JSON 都当作四份用量快照，按计划新增必然失败 | 高 | 已完成 | 2026-09-03 | 无 | [辅助 CLI fixture](../contracts/fixtures/auxiliary/windows-cli-locations.json)、[Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md)、[Windows 开发日志](development/2026-09-03-windows-platform.md)、`d481a44`、合同门禁仍确认直接目录恰好 4 份用量快照 |
 | REQ-20260903-008 | macOS CI 稳定性 | 修复高并发 CI 中 DeepSeek 即时 Keychain/SecretStore 读取被低优先级任务饿死、错误等待满 2 秒并报告超时或钥匙串失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | [开发日志](development/2026-09-03-deepseek-secret-read-priority.md) · `eea044b` · `2c6a194` · [macOS main CI 33745691851](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691851) · [Windows main CI 33745691724](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691724) |
+| REQ-20260903-009 | 浮动条位置缺陷 | 修复浮动条重启或运行一段时间后丢失用户摆放位置、从左侧自行回到右侧或从主屏跳到副屏的问题；持久保存具体显示器、贴边侧和垂直位置，多屏变单屏时临时回到当前主屏 | 高 | 进行中 | 2026-09-03 | 用户选择方案 A；正式规格已完成并自检，下一步编写测试驱动实施计划 | [设计规格](design/specifications/2026-09-03-floating-strip-placement-persistence-design.md)；待补实施计划、测试、开发日志和 Git 证据 |
 
 ## 分类索引
 
@@ -112,6 +113,10 @@
 ### macOS CI 稳定性
 
 - `REQ-20260903-008`：避免 DeepSeek 凭据读取任务在并发 CI 中发生优先级反转并误报超时。
+
+### 浮动条位置
+
+- `REQ-20260903-009`：持久保存并稳定恢复浮动条的具体显示器、左右贴边和垂直位置；禁止主屏/副屏间自行漂移，多屏变单屏时临时回到当前主屏。
 
 ## 状态变更记录
 
@@ -254,3 +259,6 @@
 | 2026-09-03 | REQ-20260903-001 | 进行中 | 失败先行测试固定 fallback wait 必须使用用户级 QoS；提升专用队列后 PTY 12/12、父进程退出压力 20/20、完整 362+12 回归通过。等待新提交的 main CI。 |
 | 2026-09-03 | REQ-20260903-001 | 进行中 → 已完成 | 精确提交 `2c6a194` 的 macOS CI `33745691851` 全绿；同提交 Windows CI `33745691724` 也通过完整运行测试与 NSIS 构建，低 QoS 退出确认复发已关闭。 |
 | 2026-09-03 | REQ-20260903-008 | 进行中 → 已完成 | `eea044b` 已使 CI 中原失败的 DeepSeek 两条即时读取和全部 362 项主测试通过；合并 PTY 调度修复后的精确提交 `2c6a194` 再获 macOS 与 Windows 双平台 main CI 全绿。 |
+| 2026-09-03 | REQ-20260903-009 | 新建 → 进行中 | 用户反馈浮动条在左侧摆放后，会在重启或运行一段时间后自行回到右侧；先核对现有持久化字段、屏幕标识及所有自动重排入口，定位实际覆盖点。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 用户确认方案 A，并补充多显示器口径：主屏摆放不得自行跳到副屏；保存具体显示器位置；多屏变单屏时浮动条应回到当前主屏，同时不得用临时回退覆盖原位置。 |
+| 2026-09-03 | REQ-20260903-009 | 进行中 | 稳定显示器 UUID、旧配置迁移、目标屏优先、主屏无损回退、重连恢复和仅用户操作写入的正式规格已完成并通过占位符、矛盾、范围与模糊性自检。 |
