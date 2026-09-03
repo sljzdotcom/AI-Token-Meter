@@ -38,7 +38,7 @@
 | REQ-20260903-001 | 发布缺陷 | 修复 GitHub macOS runner 高负载下 PTY 父进程退出等待超时及并发输出尾部丢失，恢复公开发布 CI | 高 | 已完成 | 2026-09-03 | 无 | [开发记录](development/2026-09-03-ci-pty-exit-race.md) · `c11da0a` · [PR CI 33702291460](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702291460) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
 | REQ-20260903-002 | 更新交互缺陷 | 下载完成后的 Sparkle “Install and Relaunch”窗口被 Settings 遮挡，导致界面看似长期停在 Preparing；安装流程窗口应自动置前 | 高 | 已完成 | 2026-09-03 | 无 | [设计规格](design/specifications/2026-09-03-update-status-window-frontmost-design.md) · [实施计划](design/implementation-plans/2026-09-03-update-status-window-frontmost.md) · [真实升级终验](development/2026-09-03-update-status-window-frontmost.md) · `6057b3e` · [`v0.2.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) |
 | REQ-20260903-003 | 测试稳定性 | 修复 GitHub Actions 高负载下详情自动隐藏测试依赖固定 50ms 等待、偶发尚未收到异步超时回调而失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | `f14f14a` · [失败 CI 33700918921](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33700918921) · [PR CI 33701250078](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33701250078) · [main CI 33702415007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33702415007) |
-| REQ-20260903-004 | 跨平台 | 制作功能对等的 Windows 版本；此后产品功能、版本号、文档、测试和 GitHub Release 原则上保持 macOS 与 Windows 同步 | 高 | 待用户确认 | 2026-09-03 | 用户已选择方案 A；正式书面规格已完成并通过自检，等待最后一次规格复核后进入实施计划与开发 | [设计规格](design/specifications/2026-09-03-windows-platform-design.md) |
+| REQ-20260903-004 | 跨平台 | 制作功能对等的 Windows 版本；此后产品功能、版本号、文档、测试和 GitHub Release 原则上保持 macOS 与 Windows 同步 | 高 | 进行中 | 2026-09-03 | 用户已确认方案 A 和正式书面规格；正在编写可执行计划并进入 Windows Phase 1 测试驱动开发 | [设计规格](design/specifications/2026-09-03-windows-platform-design.md) |
 
 ## 分类索引
 
@@ -187,3 +187,4 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 用户确认首版采用推荐范围：Windows 11 x64、系统托盘、贴边浮动条、三服务、详情、Settings、自动更新和同版本 Release；Widget 暂不纳入。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 → 待用户确认 | 完成当前 SwiftUI/AppKit 架构审计与 Windows 技术验证；推荐保留 macOS 原生应用、在同仓库新增 Tauri 2 + Rust Windows 应用，并以共享合同和双平台发布门禁保持同步，等待一次重大架构确认。 |
 | 2026-09-03 | REQ-20260903-004 | 待用户确认 | 用户选择方案 A；已将代码边界、共享合同、原生/WSL Provider、Windows 窗口、凭据、更新、双平台 CI/Release、测试与停止条件写入正式规格并完成自检。 |
+| 2026-09-03 | REQ-20260903-004 | 待用户确认 → 进行中 | 用户确认正式书面规格；进入详细实施计划、测试驱动开发和分阶段 Git 检查点。 |
