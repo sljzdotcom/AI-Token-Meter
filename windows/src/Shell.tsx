@@ -149,7 +149,7 @@ function DetailSurface() {
 
 function SettingsSurface() {
   const settings = useRuntimeSettings()
-  const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.2.2" })
+  const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.3.0-preview.0" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
   const [serviceMessage, setServiceMessage] = useState<string | null>(null)
   const [wslDistributions, setWslDistributions] = useState<string[]>([])

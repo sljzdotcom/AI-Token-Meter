@@ -48,9 +48,11 @@
 | [v0.2.0 Release notes](releases/v0.2.0.md) | GitHub Release 使用的安装、变化、安全和首次升级说明 |
 | [v0.2.1 Release notes](releases/v0.2.1.md) | PTY 高负载稳定性修复、应用内升级和安全边界 |
 | [v0.2.2 Release notes](releases/v0.2.2.md) | Sparkle 安装窗口置前修复、升级路径和安全边界 |
+| [v0.3.0-preview.0 Release notes](releases/v0.3.0-preview.0.md) | 首个 macOS/Windows 同版本 Preview、下载、安全边界和已知限制 |
 | [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [浮动条位置稳定持久化](development/2026-09-03-floating-strip-placement-persistence.md) | 稳定物理显示器身份、多屏无损回退、重连恢复和跨平台实现证据 |
 | [DeepSeek 截止时间饥饿修复](development/2026-09-03-deepseek-timeout-starvation.md) | 阻塞 Keychain 读取、独立 GCD 单调时钟截止时间与 CI 回归证据 |
+| [v0.3.0-preview.0 双平台发布](development/2026-09-04-v0.3.0-preview.0-release.md) | 首个双平台 Preview 的版本、签名、资产、workflow 和发布后复验证据 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |

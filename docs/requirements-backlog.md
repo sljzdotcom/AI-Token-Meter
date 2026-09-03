@@ -45,6 +45,7 @@
 | REQ-20260903-008 | macOS CI 稳定性 | 修复高并发 CI 中 DeepSeek 即时 Keychain/SecretStore 读取被低优先级任务饿死、错误等待满 2 秒并报告超时或钥匙串失败的问题 | 高 | 已完成 | 2026-09-03 | 无 | [开发日志](development/2026-09-03-deepseek-secret-read-priority.md) · `eea044b` · `2c6a194` · [macOS main CI 33745691851](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691851) · [Windows main CI 33745691724](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33745691724) |
 | REQ-20260903-009 | 浮动条位置缺陷 | 修复浮动条重启或运行一段时间后丢失用户摆放位置、从左侧自行回到右侧或从主屏跳到副屏的问题；持久保存具体显示器、贴边侧和垂直位置，多屏变单屏时临时回到当前主屏 | 高 | 已完成 | 2026-09-03 | 无；真实物理拔插验收继续由 `REQ-20260901-004` 记录，不影响实现交付状态 | [设计规格](design/specifications/2026-09-03-floating-strip-placement-persistence-design.md) · [实施计划](design/implementation-plans/2026-09-03-floating-strip-placement-persistence.md) · [开发日志](development/2026-09-03-floating-strip-placement-persistence.md) · [PR #4](https://github.com/sljzdotcom/AI-Token-Meter/pull/4) · 合并 `c2d2e64` · [macOS main CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) · [Windows main CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) |
 | REQ-20260903-010 | macOS CI / DeepSeek 韧性 | 修复高并发下阻塞 Keychain 读取使超时任务被饿死、读取结束后错误进入 DeepSeek 网络请求并返回 `transportFailure` 的竞态 | 高 | 已完成 | 2026-09-03 | 无 | [开发日志](development/2026-09-03-deepseek-timeout-starvation.md) · `0ae1cbe` · [macOS PR CI 33766095915](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766095915) · [macOS main CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) |
+| REQ-20260903-011 | 发布交付 | 将已合入 `main` 的稳定显示器位置修复及当前跨平台功能打包为下一版可安装 Preview；macOS 与 Windows 使用同一版本和 GitHub Release，提供校验、更新清单及标准发布文档 | 高 | 进行中 | 2026-09-03 | 两个密码保护的 Windows 更新签名 Secret 已配置且本机临时材料已销毁；下一步提交版本并执行双平台发布门禁 | [发布流程](development/release-process.md)、[Release notes](releases/v0.3.0-preview.0.md)、[发布记录](development/2026-09-04-v0.3.0-preview.0-release.md) |
 
 ## 分类索引
 
@@ -100,6 +101,7 @@
 - `REQ-20260903-001`：消除 GitHub macOS runner 高负载下 PTY 退出与尾部读取竞态。
 - `REQ-20260903-002`：让 Sparkle 安装状态窗口从 Settings 启动时自动置前。
 - `REQ-20260903-003`：移除详情自动隐藏回归测试中的固定墙钟假设。
+- `REQ-20260903-011`：把稳定显示器位置与当前跨平台能力交付为 macOS/Windows 同版本 Preview Release。
 
 ### 跨平台
 
@@ -255,6 +257,9 @@
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 第三轮独立复审未发现 Critical/Important；macOS 360+11、Windows Rust 全套、前端 14 项/构建、严格 lint、发布事务、10 段 workflow Bash、128 份文档与公开安全门禁全部通过。准备提交并由 Windows runner 复验 Windows-only 编译、运行测试与 NSIS。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 提交 `96e6a92` 的最终 Windows CI `33741425083` 全绿，Windows-only 运行测试、Release Tauri/NSIS 和安装器上传通过；三轮独立复审无剩余 Critical/Important，进入文档证据提交与 `main` 合并。真实 Windows 11 交互、截图及签名 Preview 升级仍保持环境限制。 |
 | 2026-09-03 | REQ-20260903-004 | 进行中 | 精确合并头 `5288df1` 的 Windows CI `33742313609` 全绿，合并节点 `3920dae` 已把 Windows 平台并入 `main`。代码/审查/CI 阶段完成；需求继续保持进行中，下一阶段为交互式 Windows 11 真机视觉与功能验收、产品截图及签名 Preview 升级演练。 |
+| 2026-09-04 | REQ-20260903-011 | 进行中 | 同步 `0.3.0-preview.0`/build 7 的根、macOS、npm、Cargo 与 Tauri 元数据，补齐 Release notes、发布日志和下载说明；废弃无密码临时密钥，改为密码保护的 Tauri minisign keypair。私钥尚未外传，等待用户明确授权写入两个 GitHub Actions Secret。 |
+| 2026-09-04 | REQ-20260903-011 | 进行中 | 用户明确授权把本次密码保护的 Tauri Windows 更新签名私钥和密码写入 `sljzdotcom/AI-Token-Meter` 的 GitHub Actions Secrets；进入 Secret 配置、临时文件销毁和正式发布。 |
+| 2026-09-04 | REQ-20260903-011 | 进行中 | 两个 Actions Secret 名称已核对存在，内容未回读；本机临时 keypair、密码和生成日志已全部删除。开始提交 `0.3.0-preview.0` 发布候选。 |
 | 2026-09-03 | REQ-20260903-008 | 新建 → 进行中 | 文档证据提交触发的 macOS CI `33744143766` 中，两条普通即时 SecretStore 读取均在默认 2 秒边界超时；同一源码此前通过且失败集中在低优先级 detached 读取，进入失败先行复现与优先级反转修复。 |
 | 2026-09-03 | REQ-20260903-008 | 进行中 | 两条失败先行测试稳定记录读取优先级 `21 < 25`；两个读取器改用 `.userInitiated` 后，6 项聚焦行为和 362+11 项完整 macOS 回归通过，原有阻塞读取超时语义保持不变。等待提交后的双平台 main CI。 |
 | 2026-09-03 | REQ-20260903-001 | 已完成 → 进行中 | `eea044b` 的 macOS CI `33744944628` 中 DeepSeek 相关 362 项主测试全部通过，但独立 PTY 测试的 `A parent exit cannot leave the runner waiting on a descendant PTY` 在 2 秒边界再次超时；进入 fallback wait QoS 调度证据与修复。 |
@@ -274,3 +279,4 @@
 | 2026-09-03 | REQ-20260903-010 | 进行中 | 用独立 GCD 单调时钟队列替代协作式 `Task.sleep` 截止时间，并让 DeepSeek 用量采集与 Settings 凭据状态共用实现；两个 200 ms 阻塞读取均在约 20 ms 安全降级，386 项 macOS 测试及全部文档/公开安全门禁通过。 |
 | 2026-09-03 | REQ-20260903-009 | 进行中 → 已完成 | 三轮独立审查关闭全部 Critical/Important；PR #4 的 macOS `33766095915` 与 Windows `33766096437` 通过，合并提交 `c2d2e64` 的 main CI `33766955625`、`33766955622` 再次全绿。稳定物理屏身份、无损主屏回退与重连恢复已交付。 |
 | 2026-09-03 | REQ-20260903-010 | 进行中 → 已完成 | 提交 `0ae1cbe` 修复截止时间饥饿，`4f6c3af` 完成复审术语更正；阻塞回归、本机 386 项与 macOS PR/main CI 均通过，原失败未复现。 |
+| 2026-09-03 | REQ-20260903-011 | 新建 → 进行中 | 用户要求继续完成位置修复后的可安装交付；按既定跨平台规则选择首个 `0.3.0-preview.0`，要求 macOS/Windows 同版本、同 Release、各自签名更新清单和完整文档。 |

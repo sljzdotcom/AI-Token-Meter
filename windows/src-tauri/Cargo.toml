@@ -1,6 +1,6 @@
 [package]
 name = "ai-token-meter-windows"
-version = "0.2.2"
+version = "0.3.0-preview.0"
 description = "Windows client for AI Token Meter"
 authors = ["Miller"]
 edition = "2024"

@@ -4,12 +4,12 @@
 
 ## 当前版本边界
 
-- App Bundle 版本：`0.2.2`（build `6`）。
+- App Bundle 版本：`0.3.0-preview.0`（build `7`）；最新稳定版仍为 `0.2.2`（build `6`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 最新 Git tag：`v0.2.2`；发布提交、公开 CI 与 Release 资产证据见本页 `v0.2.2` 节、[应用内更新日志](2026-09-02-github-app-update.md)、[PTY 稳定性日志](2026-09-03-ci-pty-exit-race.md)和[窗口置前终验](2026-09-03-update-status-window-frontmost.md)。
+- 准备发布的最新 Git tag：`v0.3.0-preview.0`；稳定 tag 仍为 `v0.2.2`。Preview 的发布提交、公开 CI 与双平台资产证据见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
@@ -48,6 +48,7 @@
 | v0.2.1 PTY 稳定性补丁 | `d6cbe76`–`cc30859` | 串行化 PTY 分配、加固退出确认与尾部排空、隔离系统资源测试，并发布可由 0.2.0 发现的签名补丁 |
 | v0.2.2 更新窗口与 CI 稳定性补丁 | `4092d1f`–`c11da0a` | Settings 自动让位、Sparkle 安装窗口置前、事件驱动详情超时测试、无进程扇出的 PTY fixture、签名发布与真实公开升级终验 |
 | Windows 11 x64 Preview 开发 | `20b53bf`–`96e6a92` | 共享合同、Tauri/Rust/React、Native/WSL、三 Provider、ConPTY/Job Object、Win32 浮岛、WebView2 历史、Services、Updater、事务式双平台发布与 NSIS；最终 Windows CI `33741425083` 和三轮独立复审通过，真机与公开 Preview 仍待完成 |
+| v0.3.0-preview.0 双平台发布 | 待发布 | 同版本 macOS/Windows 资产、首次 Windows minisign 信任根、草稿门禁、公开 Release 与下载复验 |
 
 ## 2026-08-28
 

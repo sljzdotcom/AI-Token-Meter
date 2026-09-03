@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.0-preview.0 - 2026-09-04
+
 ### Added
 
 - 新增 Windows 11 x64 应用：Tauri 2 + Rust + React 界面、Win32 左右贴边浮动条、系统托盘、全屏应用隐藏、详情置前、设置页与三服务状态。
