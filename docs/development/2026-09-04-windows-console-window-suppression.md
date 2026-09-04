@@ -25,7 +25,9 @@
 - TDD 红灯：workflow `33830008532` 的 PE 门禁报告 `actual subsystem is 3`；其前置测试和 NSIS 构建全部通过。
 - 本机修复后：Rust 完整测试通过（含 Windows 平台策略和 DeepSeek 回环测试），`cargo fmt --check` 与 `cargo clippy --locked --all-targets -- -D warnings` 通过。
 - 修复绿灯：Windows workflow `33831023542` 的完整构建通过，PE 门禁报告 `Windows PE subsystem check passed (GUI = 2)`；macOS workflow `33831023523` 同时通过。
-- 正式发布 workflow 与公开资产复验将在 `0.3.0-preview.2` 发布后补入，不以未完成的发布冒充通过。
+- 合并前最终 Windows workflow `33832897726` 再次完成前端、Rust、NSIS 与实际 PE GUI subsystem 门禁；macOS workflow `33832897720` 通过。
+- 合并提交 `c3cba8949e9ed75a03e2cf14d509d49ecd78067c` 后创建同 SHA 标签 `v0.3.0-preview.2`。正式 [Release workflow `33833843964`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33833843964) 的 macOS 标签校验、Windows 签名构建、PE subsystem、Tauri minisign 与同步发布全部通过。
+- 公网重下复验：macOS ZIP SHA-256 `4cb90bf77a91792fe8c5ba8d88f36cdb8c9a9a5c0ce8acd7a6ad7d419ef7e435`；Windows NSIS SHA-256 `98944062fbf960af1fec18ca1e5b0aa249e907fb8fcf6fdb492e330963d8f3b1`。Sparkle 签名、Windows 内置公钥验签、Preview feed 一致性均通过，稳定 appcast 仍为 `0.2.2`。
 
 ## 安全、隐私与兼容边界
 
@@ -36,6 +38,8 @@
 - `f909c10`：设计规格与实现计划；
 - `5eb72ba`：只加入 PE 失败门禁，尚未修改生产入口；
 - `ac50e08`：在获得真实 subsystem `3` 红灯后加入最小 GUI subsystem 修复；
+- `766a9ce`：同步双平台 `0.3.0-preview.2`（build 9）与发布文档；
+- `c3cba89`：合并 PR #5，亦为公开 `v0.3.0-preview.2` 标签目标；
 - Pull Request：[#5](https://github.com/sljzdotcom/AI-Token-Meter/pull/5)。
 
 ## 已知限制与后续验收

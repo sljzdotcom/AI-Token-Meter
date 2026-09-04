@@ -2,7 +2,7 @@
 
 - **事实快照：** 2026-09-04
 - **产品：** AI Token Meter
-- **应用版本：** 发布候选 `0.3.0-preview.2`（build `9`）；当前已公开 Preview `0.3.0-preview.1`（build `8`）；最新稳定版 `0.2.2`（build `6`）
+- **应用版本：** 当前已公开双平台 Preview `0.3.0-preview.2`（build `9`）；最新稳定版 `0.2.2`（build `6`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
@@ -60,7 +60,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - macOS 完整自动化基线：**374 项测试、72 个测试组**，其中 12 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；当前已公开双平台 Preview 为 [v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1)。`v0.3.0-preview.2` 正在发布候选阶段，Windows 主程序的 PE subsystem 必须通过 GUI 产物门禁；正式发布与公网资产复验证据将在本次[修复日志](development/2026-09-04-windows-console-window-suppression.md)补录。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；当前已公开双平台 Preview 为 [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)。发布 workflow `33833843964` 已验证 Windows 主程序为 GUI subsystem、双平台产物与更新签名，公网重下后的 SHA-256 和 Preview feed 也已复核；详细证据见[修复日志](development/2026-09-04-windows-console-window-suppression.md)。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 

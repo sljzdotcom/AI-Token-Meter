@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 项目状态：下一个双平台发布候选为 `0.3.0-preview.2`（build `9`）；当前已公开 Preview 仍为 `0.3.0-preview.1`，最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
+> 项目状态：当前已公开双平台 Preview 为 `0.3.0-preview.2`（build `9`），最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 的自动化门禁已全部通过，但尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
 
 ## Screenshots
 
@@ -74,12 +74,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-发布候选标识：`Download v0.3.0-preview.2`。该版本尚未公开，因此此处暂不提供虚假下载链接；正式 Release 与公网资产复验完成后再替换下面的当前公开入口。
+**[Download v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)** from GitHub Releases：
 
-**[Download v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1)** from GitHub Releases：
-
-- macOS：下载 `AI-Token-Meter-0.3.0-preview.1-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.3.0-preview.1-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.3.0-preview.2-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.3.0-preview.2-windows-x64-setup.exe` 与同名 `.sha256`。
 
 预览版用于提前验证 Windows 与双平台同步发布。需要稳定版时仍可使用 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 的 macOS 包。Windows Preview 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -228,7 +226,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 下一个双平台发布候选：`0.3.0-preview.2`（build `9`）；当前已公开 Preview：`0.3.0-preview.1`（build `8`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
+- 当前已公开双平台 Preview：`0.3.0-preview.2`（build `9`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

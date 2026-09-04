@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-当前仍在维护的代码为主分支最新状态、公开稳定 Release `0.2.2`、已公开双平台 Preview `0.3.0-preview.1` 与待发布候选 `0.3.0-preview.2`。Preview 的真实 CI/真机状态按需求台账和 Release notes 如实管理。`CHANGELOG.md` 的 `Unreleased` 只记录已合入、尚未进入下一个公开版本的安全与功能改动。
+当前仍在维护的代码为主分支最新状态、公开稳定 Release `0.2.2` 与已公开双平台 Preview `0.3.0-preview.2`。Preview 的真实 CI/真机状态按需求台账和 Release notes 如实管理。`CHANGELOG.md` 的 `Unreleased` 只记录已合入、尚未进入下一个公开版本的安全与功能改动。
 
 由于项目尚未建立正式发行渠道和长期支持分支，旧提交不会单独获得安全补丁。发现问题后应先在主分支修复，再决定是否制作新版本。
 

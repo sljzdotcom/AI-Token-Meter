@@ -35,7 +35,7 @@
 ### 任务 3：完整回归与 Preview 发布
 
 - [x] 同步根、macOS、npm、Cargo、Tauri 版本到 `0.3.0-preview.2`（build 9），补 Changelog、Release notes 和开发日志。
-- [ ] 运行 Windows 前端/Rust/rustfmt/Clippy、macOS 完整测试、跨平台合同、文档、Release feed、资产和公开安全检查。
-- [ ] 推送 `main` 和 `v0.3.0-preview.2`，等待双平台 Release workflow 全绿。
-- [ ] 公开重下两平台资产，核对 Sparkle、Windows minisign、SHA-256、Preview feed 和稳定 appcast 隔离。
-- [ ] 在需求台账保留 Windows 真机启动验收为 `待用户确认`，不以 CI 代替真实窗口确认。
+- [x] 运行 Windows 前端/Rust/rustfmt/Clippy、macOS 完整测试、跨平台合同、文档、Release feed、资产和公开安全检查。
+- [x] 推送 `main` 和 `v0.3.0-preview.2`，双平台 Release workflow `33833843964` 全绿。
+- [x] 公开重下两平台资产，核对 Sparkle、Windows minisign、SHA-256、Preview feed 和稳定 appcast 隔离。
+- [x] 在需求台账保留 Windows 真机启动验收为 `待用户确认`，不以 CI 代替真实窗口确认。
