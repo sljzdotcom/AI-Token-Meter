@@ -40,6 +40,15 @@
 
 ## 发布验证
 
-本机发布候选已通过前端 15 项测试与 production build、Rust 130 项测试、rustfmt、严格 Clippy、macOS 386 项测试、139 份 Markdown 文档检查、4 份跨平台 fixture 合同、Release feed/Windows 资产归一化脚本和公开源码/历史秘密检查。完整 Rust 首轮还暴露一条仍锁定旧 `(width, 0)` 粗轮廓的遗留窗口策略测试；将其改为校验新 macOS 同源肩部坐标和严格镜像后，130 项全绿。GitHub Release workflow 仍必须在 Windows runner 重新编译 DWM 与鼠标 API、构建签名 NSIS，并与 macOS Sparkle 资产共同通过后才公开。
+本机发布候选通过前端 15 项测试与 production build、Rust 130 项测试、rustfmt、严格 Clippy、macOS 386 项测试、139 份 Markdown 文档检查、4 份跨平台 fixture 合同、Release feed/Windows 资产归一化脚本和公开源码/历史秘密检查。完整 Rust 首轮还暴露一条仍锁定旧 `(width, 0)` 粗轮廓的遗留窗口策略测试；将其改为校验新 macOS 同源肩部坐标和严格镜像后，130 项全绿。
+
+标签 `v0.3.0-preview.1` 指向发布候选提交 `9213fd6`。GitHub Actions [33826484923](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33826484923) 的 Windows 原生构建、macOS 标签源码核验和同步发布全部通过，公开 prerelease 已发布至 [GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1)。
+
+公开匿名重下后的校验结果：
+
+- macOS ZIP SHA-256：`89aec717f253875051f748b760191628d227bdf399c7602142fca89acf8d9ab9`；Sparkle 签名通过，篡改副本被拒绝；
+- Windows NSIS SHA-256：`1e44dda9315d48fe7fc62a31d510c0339e2d24ccd1824a97e8ae5bce09474cdd`；Tauri minisign 使用应用内置公钥验证通过；
+- `latest.json` 与固定入口 `latest-preview.json` 字节一致，SHA-256 为 `73c88307217d110fd9e8bda92064efa399cff50d4f4cef07dbeffc0e0de3803c`，版本和下载地址均指向本次 Windows 安装器；
+- 稳定 `appcast.xml` 仍指向 `0.2.2`，Preview 发布没有污染 macOS 稳定更新通道。
 
 发布后仍需用户在真实 Windows 11 检查 DPI、白边、左右肩部、拖动、多屏位置和 `preview.0 → preview.1` 原位升级。未取得这些证据前，需求只能标记为 `待用户确认`。

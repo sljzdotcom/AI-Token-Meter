@@ -60,7 +60,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - macOS 完整自动化基线：**374 项测试、72 个测试组**，其中 12 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；`v0.3.0-preview.0` 的首个双平台签名发布证据见[发布记录](development/2026-09-04-v0.3.0-preview.0-release.md)。当前双平台候选为 `v0.3.0-preview.1`，发布结果与公网资产复验记录见本次[修复日志](development/2026-09-04-windows-floating-strip-parity-fix.md)。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；最新双平台 Preview [v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) 已公开，发布 workflow `33826484923` 全绿，公开重下后的 Sparkle、Tauri minisign、SHA-256、Preview feed 与稳定通道隔离均通过。完整证据见本次[修复日志](development/2026-09-04-windows-floating-strip-parity-fix.md)。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 

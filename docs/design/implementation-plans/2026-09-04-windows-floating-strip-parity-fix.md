@@ -51,6 +51,6 @@
 - [x] 将所有平台版本同步到 `0.3.0-preview.1`，增加同版本 Release notes；运行版本合同测试确认 macOS/Windows 一致。
 - [x] 运行 `scripts/check-docs.sh`、公开安全/秘密检查、前端完整测试与构建、Rust 完整测试/rustfmt/Clippy、macOS 完整测试和跨平台合同。
 - [x] 对照规格逐项复核差异；只有验证证据完整后更新 backlog 状态和开发日志。
-- [ ] 提交发布候选，推送分支并等待 macOS/Windows CI；CI 失败则回到对应红绿循环。
-- [ ] CI 全绿后合并 `main`，创建并验证 `v0.3.0-preview.1` GitHub prerelease；重新下载并验证 macOS Sparkle 签名、Windows minisign、SHA-256 和 preview feed，稳定 appcast 必须保持稳定版。
-- [ ] Windows 真实视觉若尚未由用户复验，需求状态保持 `待用户确认`，不得用 CI/构建代替 DPI 和拖动验收。
+- [x] 提交发布候选 `9213fd6`，推送 `main` 和标签 `v0.3.0-preview.1`；GitHub Actions `33826484923` 的 Windows 原生构建、macOS 标签核验和同步发布全部通过。
+- [x] 公开 prerelease 后匿名重新下载；macOS Sparkle、Windows minisign、两平台 SHA-256 与 Preview feed 均通过，稳定 `appcast.xml` 保持 `0.2.2`。
+- [x] Windows 真实视觉尚未由用户复验，`REQ-20260904-004` 保持 `待用户确认`，未用 CI/构建代替 DPI 和拖动验收。
