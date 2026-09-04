@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前双平台预览版本为 `0.3.0-preview.2`、build `9`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到双方资产、清单、签名验证和 CI 一并完成。
+当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前已公开双平台 Preview 为 `0.3.0-preview.1`、build `8`，下一发布候选为 `0.3.0-preview.2`、build `9`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到双方资产、清单、签名验证和 CI 一并完成。
 
 ## 发布前检查清单
 

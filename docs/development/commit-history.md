@@ -4,12 +4,12 @@
 
 ## 当前版本边界
 
-- 最新公开 Preview：`0.3.0-preview.2`（build `9`）；最新稳定版仍为 `0.2.2`（build `6`）。
+- 最新公开 Preview：`0.3.0-preview.1`（build `8`）；下一个发布候选为 `0.3.0-preview.2`（build `9`）；最新稳定版仍为 `0.2.2`（build `6`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 最新已公开 Preview Git tag：`v0.3.0-preview.2`（标签提交将在发布完成后补录）；稳定 tag 仍为 `v0.2.2`。Preview 发布证据分别见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)、[浮动条修复日志](2026-09-04-windows-floating-strip-parity-fix.md)和[启动空白终端修复日志](2026-09-04-windows-console-window-suppression.md)。
+- 最新已公开 Preview Git tag：`v0.3.0-preview.1`（`9213fd6`）；`v0.3.0-preview.2` 尚处于发布候选阶段，稳定 tag 仍为 `v0.2.2`。Preview 发布证据分别见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)、[浮动条修复日志](2026-09-04-windows-floating-strip-parity-fix.md)和[启动空白终端修复日志](2026-09-04-windows-console-window-suppression.md)。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
