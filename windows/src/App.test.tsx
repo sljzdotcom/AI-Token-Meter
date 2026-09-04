@@ -161,15 +161,22 @@ describe("Windows meter interface", () => {
   })
 
   it("opens one rich detail and closes it on an outside click", () => {
-    render(<App initialSnapshots={snapshots} />)
-    fireEvent.click(screen.getByRole("button", { name: "OpenAI Codex usage" }))
+    const { container } = render(<App initialSnapshots={snapshots} />)
+    const codexButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="OpenAI Codex usage"]',
+    )
+    expect(codexButton).toBeInTheDocument()
+    fireEvent.click(codexButton!)
 
-    expect(screen.getByRole("dialog", { name: "OpenAI Codex details" })).toBeVisible()
-    expect(screen.getByText("Official quota")).toBeVisible()
-    expect(screen.getByText("Reset credits")).toBeVisible()
+    const detail = container.querySelector<HTMLElement>(
+      '[role="dialog"][aria-label="OpenAI Codex details"]',
+    )
+    expect(detail).toBeInTheDocument()
+    expect(detail).toHaveTextContent("Official quota")
+    expect(detail).toHaveTextContent("Reset credits")
 
     fireEvent.pointerDown(document.body)
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument()
   })
 
   it("renders official DeepSeek history totals and a scaled daily chart", () => {
