@@ -1,9 +1,42 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+const tauri = vi.hoisted(() => {
+  const listeners = new Map<string, Set<(event: { payload: unknown }) => void>>()
+  return {
+    invoke: vi.fn((_command: string) => Promise.resolve<unknown>(undefined)),
+    listeners,
+    listen: vi.fn((event: string, handler: (event: { payload: unknown }) => void) => {
+      const handlers = listeners.get(event) ?? new Set()
+      handlers.add(handler)
+      listeners.set(event, handlers)
+      return Promise.resolve(() => handlers.delete(handler))
+    }),
+  }
+})
+
+const detailSettings = {
+  displayFont: "Antonio",
+  edge: "right",
+  detailAutoHideSeconds: 8,
+  refreshIntervalSeconds: 300,
+  deepseekBalanceBaselineCents: 10_000,
+  notificationsEnabled: false,
+  launchAtLogin: false,
+  claudeCli: { mode: "auto", customPath: null, wslDistribution: null },
+  codexCli: { mode: "auto", customPath: null, wslDistribution: null },
+}
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: tauri.invoke }))
+vi.mock("@tauri-apps/api/event", () => ({ listen: tauri.listen }))
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ label: "detail", startDragging: () => Promise.resolve() }),
+}))
 
 import { App } from "./App"
 import { MeterClipPaths } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
+import { DetailSurface } from "./Shell"
 import { SettingsWindow } from "./settings/SettingsWindow"
 import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
 import type { UsageSnapshot } from "./state/usage"
@@ -46,6 +79,25 @@ const snapshots: UsageSnapshot[] = [
     ],
   },
 ]
+
+function emitTauriEvent(event: string, payload: unknown) {
+  tauri.listeners.get(event)?.forEach((handler) => handler({ payload }))
+}
+
+async function showDeepSeekDetail() {
+  render(<DetailSurface />)
+  await act(async () => {
+    await Promise.resolve()
+  })
+  act(() => emitTauriEvent("active-detail-changed", snapshots[2]))
+  return screen.getByRole("dialog", { name: "DeepSeek details" })
+}
+
+beforeEach(() => {
+  tauri.listeners.clear()
+  tauri.invoke.mockReset()
+  tauri.invoke.mockImplementation((command: string) => Promise.resolve(command === "app_settings" ? detailSettings : undefined))
+})
 
 describe("Windows meter interface", () => {
   it("provides the exact normalized macOS silhouette for both screen edges", () => {
@@ -117,6 +169,54 @@ describe("Windows meter interface", () => {
     fireEvent.click(screen.getByRole("button", { name: "DeepSeek usage" }))
     fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
     expect(sync).toHaveBeenCalledOnce()
+  })
+
+  it("shows opening immediately, disables repeat sync, and keeps the detail visible", async () => {
+    vi.useFakeTimers()
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Sync official history" })).toBeDisabled()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it("reports a rejected sync command as a recoverable error", async () => {
+    tauri.invoke.mockImplementation((command: string) => command === "open_deepseek_history"
+      ? Promise.reject(new Error("window unavailable"))
+      : Promise.resolve(command === "app_settings" ? detailSettings : undefined))
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    await screen.findByRole("alert")
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Official history sync could not be started. Try again.")
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled()
+  })
+
+  it.each(["completed", "cancelled"] as const)("resumes the auto-hide countdown after %s", async (terminalStatus) => {
+    vi.useFakeTimers()
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", "active"))
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+
+    act(() => emitTauriEvent("deepseek-history-status", terminalStatus))
+    act(() => vi.advanceTimersByTime(8_100))
+    expect(screen.queryByRole("dialog", { name: "DeepSeek details" })).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 
   it("auto-hides details and pauses the timer while the user interacts", () => {

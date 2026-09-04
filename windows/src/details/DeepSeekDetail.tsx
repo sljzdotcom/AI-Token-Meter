@@ -1,12 +1,34 @@
 import type { UsageSnapshot } from "../state/usage"
 
-export function DeepSeekHistory({ snapshot, onSync }: { snapshot: UsageSnapshot; onSync?: () => void }) {
+export type DeepSeekHistoryStatus = "idle" | "opening" | "active" | "completed" | "cancelled" | "failed"
+
+export function DeepSeekHistory({
+  snapshot,
+  onSync,
+  syncStatus = "idle",
+}: {
+  snapshot: UsageSnapshot
+  onSync?: () => void
+  syncStatus?: DeepSeekHistoryStatus
+}) {
   const history = snapshot.dailyHistory ?? []
   if (!history.length) {
+    const syncing = syncStatus === "opening" || syncStatus === "active"
+    const message = syncStatus === "opening"
+      ? "Opening official page…"
+      : syncStatus === "active"
+        ? "Sync in progress"
+        : syncStatus === "failed"
+          ? "Official history sync could not be started. Try again."
+          : "Usage history will appear here after official-page sync."
     return (
       <div className="history-placeholder">
-        <span>Usage history will appear here after official-page sync.</span>
-        {onSync ? <button onClick={onSync} type="button">Sync official history</button> : null}
+        <span role={syncStatus === "failed" ? "alert" : syncing ? "status" : undefined}>{message}</span>
+        {onSync ? (
+          <button disabled={syncing} onClick={onSync} type="button">
+            {syncStatus === "failed" ? "Try again" : "Sync official history"}
+          </button>
+        ) : null}
       </div>
     )
   }

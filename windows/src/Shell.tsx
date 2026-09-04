@@ -6,6 +6,7 @@ import type { CSSProperties } from "react"
 
 import { App } from "./App"
 import { FloatingStrip } from "./components/FloatingStrip"
+import { type DeepSeekHistoryStatus } from "./details/DeepSeekDetail"
 import { ProviderDetail } from "./details/ProviderDetail"
 import {
   SettingsWindow,
@@ -40,6 +41,10 @@ const defaultSettings: RuntimeSettings = {
   claudeCli: { mode: "auto", customPath: null, wslDistribution: null },
   codexCli: { mode: "auto", customPath: null, wslDistribution: null },
 }
+
+const deepseekHistoryStatuses = new Set<DeepSeekHistoryStatus>([
+  "idle", "opening", "active", "completed", "cancelled", "failed",
+])
 
 export function Shell() {
   const label = currentWindowLabel()
@@ -99,9 +104,10 @@ function MeterSurface() {
   )
 }
 
-function DetailSurface() {
+export function DetailSurface() {
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
   const [paused, setPaused] = useState(false)
+  const [deepseekHistoryStatus, setDeepseekHistoryStatus] = useState<DeepSeekHistoryStatus>("idle")
   const settings = useRuntimeSettings()
 
   useEffect(() => {
@@ -115,7 +121,10 @@ function DetailSurface() {
         setSnapshot((current) => current?.providerId === event.payload.providerId ? event.payload : current)
       }
     })
-    void Promise.all([active, refreshed]).then((unlisten) => {
+    const historyStatus = listen<unknown>("deepseek-history-status", (event) => {
+      if (!disposed && isDeepSeekHistoryStatus(event.payload)) setDeepseekHistoryStatus(event.payload)
+    })
+    void Promise.all([active, refreshed, historyStatus]).then((unlisten) => {
       if (disposed) unlisten.forEach((stop) => stop())
       else stops.push(...unlisten)
     }).catch(() => {})
@@ -126,13 +135,15 @@ function DetailSurface() {
   }, [])
 
   useEffect(() => {
-    if (!snapshot || paused) return
+    const syncingHistory = snapshot?.providerId === "deepseek"
+      && (deepseekHistoryStatus === "opening" || deepseekHistoryStatus === "active")
+    if (!snapshot || paused || syncingHistory) return
     const timeout = window.setTimeout(() => {
       setSnapshot(null)
       void invoke("close_provider_detail")
     }, settings.detailAutoHideSeconds * 1_000)
     return () => window.clearTimeout(timeout)
-  }, [paused, settings.detailAutoHideSeconds, snapshot])
+  }, [deepseekHistoryStatus, paused, settings.detailAutoHideSeconds, snapshot])
 
   if (!snapshot) return null
   return (
@@ -140,10 +151,14 @@ function DetailSurface() {
       <ProviderDetail
         onInteractionEnd={() => setPaused(false)}
         onInteractionStart={() => setPaused(true)}
-        onDeepSeekHistorySync={() => void invoke("open_deepseek_history")}
+        onDeepSeekHistorySync={() => {
+          setDeepseekHistoryStatus("opening")
+          void invoke("open_deepseek_history").catch(() => setDeepseekHistoryStatus("failed"))
+        }}
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}
         snapshot={snapshot}
+        deepseekHistoryStatus={deepseekHistoryStatus}
       />
     </main>
   )
@@ -340,4 +355,8 @@ function displayStyle(font: string) {
 
 function currentWindowLabel() {
   return "__TAURI_INTERNALS__" in window ? getCurrentWindow().label : "preview"
+}
+
+function isDeepSeekHistoryStatus(value: unknown): value is DeepSeekHistoryStatus {
+  return typeof value === "string" && deepseekHistoryStatuses.has(value as DeepSeekHistoryStatus)
 }
