@@ -173,8 +173,26 @@ test("cleans up a browser after its normal exit", async () => {
     spawnImpl: () => child,
     stopProcessTreeImpl: async () => { cleanupCount += 1 },
   })
+  child.exitCode = 0
   child.emit("exit", 0)
+  child.emit("close", 0)
 
   assert.equal(await pending, "")
   assert.equal(cleanupCount, 1)
+})
+
+test("waits for browser streams to close before returning dumped DOM", async () => {
+  const child = new FakeChild()
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    timeoutMs: 100,
+    spawnImpl: () => child,
+    stopProcessTreeImpl: async () => {},
+  })
+
+  child.exitCode = 0
+  child.emit("exit", 0)
+  child.stdout.emit("data", Buffer.from("<html>complete</html>"))
+  child.emit("close", 0)
+
+  assert.equal(await pending, "<html>complete</html>")
 })

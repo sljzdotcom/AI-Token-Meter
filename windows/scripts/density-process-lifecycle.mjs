@@ -83,7 +83,10 @@ export async function runBrowser(executable, url, {
       browser.stdout.on("data", (chunk) => { output += chunk })
       browser.stderr.on("data", (chunk) => { errors += chunk })
       browser.once("error", reject)
-      browser.once("exit", (code) => code === 0
+      // `exit` can precede the final stdout data on Windows. `close` is only
+      // emitted after the stdio streams have closed, so the dumped DOM is
+      // complete before it is parsed.
+      browser.once("close", (code) => code === 0
         ? resolveOutput(output)
         : reject(new Error(`Browser exited ${code}: ${errors}`)))
       timeout = setTimeout(() => reject(new Error(`Browser timed out after ${timeoutMs}ms`)), timeoutMs)
