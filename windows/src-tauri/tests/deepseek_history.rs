@@ -5,6 +5,10 @@ use ai_token_meter_windows::collectors::deepseek_history::{
 use ai_token_meter_windows::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot, UsageStatus,
 };
+use ai_token_meter_windows::platform::windows::deepseek_history_window::{
+    DeepSeekHistoryWindowAction, DeepSeekHistoryWindowEvent, DeepSeekHistoryWindowMachine,
+    DeepSeekHistoryWindowStatus,
+};
 use ai_token_meter_windows::platform::windows::deepseek_webview::{
     is_allowed_deepseek_navigation, isolated_profile_directory, parse_bridge_callback,
 };
@@ -13,6 +17,139 @@ use reqwest::Url;
 use time::macros::datetime;
 
 const NONCE: &str = "0123456789abcdef0123456789abcdef";
+
+#[test]
+fn initial_open_creates_one_hidden_window_and_repeated_open_focuses_it() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Idle);
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::OpenRequested),
+        vec![
+            DeepSeekHistoryWindowAction::CreateHidden,
+            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Opening),
+        ]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Opening);
+    assert!(machine.has_session());
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::OpenRequested),
+        vec![DeepSeekHistoryWindowAction::FocusExisting]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Opening);
+    assert!(machine.has_session());
+}
+
+#[test]
+fn finished_page_load_shows_and_focuses_the_window() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+    machine.transition(DeepSeekHistoryWindowEvent::OpenRequested);
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::PageLoadFinished),
+        vec![
+            DeepSeekHistoryWindowAction::ShowFocused,
+            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Active),
+        ]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Active);
+    assert!(machine.has_session());
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::OpenRequested),
+        vec![DeepSeekHistoryWindowAction::FocusExisting]
+    );
+}
+
+#[test]
+fn user_close_cancels_and_clears_the_session_before_restoring_detail() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+    machine.transition(DeepSeekHistoryWindowEvent::OpenRequested);
+    machine.transition(DeepSeekHistoryWindowEvent::PageLoadFinished);
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::WindowClosed),
+        vec![
+            DeepSeekHistoryWindowAction::RestoreDetail,
+            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Cancelled),
+        ]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Cancelled);
+    assert!(!machine.has_session());
+    assert!(
+        machine
+            .transition(DeepSeekHistoryWindowEvent::WindowClosed)
+            .is_empty()
+    );
+}
+
+#[test]
+fn load_failure_destroys_history_clears_session_and_restores_detail() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+    machine.transition(DeepSeekHistoryWindowEvent::OpenRequested);
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::Failed),
+        vec![
+            DeepSeekHistoryWindowAction::DestroyHistory,
+            DeepSeekHistoryWindowAction::RestoreDetail,
+            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Failed),
+        ]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Failed);
+    assert!(!machine.has_session());
+}
+
+#[test]
+fn stale_load_timeout_cannot_terminate_an_active_sync() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+    machine.transition(DeepSeekHistoryWindowEvent::OpenRequested);
+    machine.transition(DeepSeekHistoryWindowEvent::PageLoadFinished);
+
+    assert!(
+        machine
+            .transition(DeepSeekHistoryWindowEvent::LoadTimedOut)
+            .is_empty()
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Active);
+    assert!(machine.has_session());
+}
+
+#[test]
+fn opening_window_timeout_fails_and_recovers_the_sync() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+    machine.transition(DeepSeekHistoryWindowEvent::OpenRequested);
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::LoadTimedOut),
+        vec![
+            DeepSeekHistoryWindowAction::DestroyHistory,
+            DeepSeekHistoryWindowAction::RestoreDetail,
+            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Failed),
+        ]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Failed);
+    assert!(!machine.has_session());
+}
+
+#[test]
+fn completed_history_destroys_window_clears_session_and_restores_updated_detail() {
+    let mut machine = DeepSeekHistoryWindowMachine::default();
+    machine.transition(DeepSeekHistoryWindowEvent::OpenRequested);
+    machine.transition(DeepSeekHistoryWindowEvent::PageLoadFinished);
+
+    assert_eq!(
+        machine.transition(DeepSeekHistoryWindowEvent::Completed),
+        vec![
+            DeepSeekHistoryWindowAction::DestroyHistory,
+            DeepSeekHistoryWindowAction::RestoreDetail,
+            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Completed),
+        ]
+    );
+    assert_eq!(machine.status(), DeepSeekHistoryWindowStatus::Completed);
+    assert!(!machine.has_session());
+}
 
 #[test]
 fn opening_deepseek_detail_with_empty_history_does_not_start_official_history_sync() {
