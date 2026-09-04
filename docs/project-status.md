@@ -60,7 +60,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - macOS 完整自动化基线：**375 项主测试（71 个测试组）+ 12 项 PTY 系统资源测试（1 个测试组），总计 387 项/72 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
-- 当前 Windows 未发布分支的本机跨平台基线：24 项 Vitest、4 项密度进程生命周期和 141 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。macOS 主机缺少 Windows MSVC C SDK，不能替代 `windows-latest` 的 Windows-only/Tauri/NSIS 构建；
+- 当前 Windows 未发布分支的执行代理验证基线：37 项 Vitest、7 项密度进程生命周期和 160 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。最终定向复审仍发现 4 项 Important，故这些通过项不能作为合并或发布结论；macOS 主机缺少 Windows MSVC C SDK，不能替代 `windows-latest` 的 Windows-only/Tauri/NSIS 构建；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；当前已公开双平台 Preview 为 [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)。发布 workflow `33833843964` 已验证 Windows 主程序为 GUI subsystem、双平台产物与更新签名，公网重下后的 SHA-256 和 Preview feed 也已复核；详细证据见[修复日志](development/2026-09-04-windows-console-window-suppression.md)。
@@ -77,7 +77,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | M4 Max nvm Codex 真实界面复验 | 待用户确认 | 在 M4 Max 安装 0.1.2 或更高版本，重新打开后检查 OpenAI Codex 账户与详情 |
 | Developer ID 与 Apple 公证 | 当前限制 | 公开包使用 ad-hoc 签名；首次打开可能需要 Finder 右键“打开” |
 | Windows 11 真机视觉、DPI、全屏与拖动 | 受环境限制 | 在交互式 Windows 11 x64 用户会话安装 Preview 后逐项验收 |
-| Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 待用户确认 | 安装包含 `REQ-20260904-006` 的下一版 Preview，在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
+| Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 进行中 | 先关闭最终定向复审发现的 4 项 Important 并通过新的独立审查；之后才构建下一版 Preview，在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
 
