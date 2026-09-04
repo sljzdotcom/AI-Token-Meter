@@ -37,6 +37,7 @@
 | [Windows DeepSeek 历史与界面密度修复设计](design/specifications/2026-09-04-windows-deepseek-history-and-density-design.md) | 显式官网同步、可关闭窗口生命周期、Windows 紧凑字号与字体下拉框配色 |
 | [Windows DeepSeek 历史与界面密度修复计划](design/implementation-plans/2026-09-04-windows-deepseek-history-and-density.md) | Rust/React 状态、WebView2 生命周期、TDD、门禁与真机验收步骤 |
 | [Windows DeepSeek 最终质量门禁修复设计](design/specifications/2026-09-04-windows-deepseek-final-quality-gate-design.md) | 分片停滞时限、attempt/generation 所有权与清理失败恢复 |
+| [Windows DeepSeek 最终质量门禁修复计划](design/implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) | 三阶段 TDD、独立审查、全量门禁与 Windows runner 验证 |
 
 ## 开发与维护
 
