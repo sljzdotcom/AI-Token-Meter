@@ -15,24 +15,13 @@ export function DeepSeekHistory({
 }) {
   const history = snapshot.dailyHistory ?? []
   if (!history.length) {
-    const syncing = syncStatus === "opening" || syncStatus === "active"
-    const message = !statusPathAvailable
-      ? "Official history status is temporarily unavailable."
-      : syncStatus === "opening"
-      ? "Opening official page…"
-      : syncStatus === "active"
-        ? "Sync in progress"
-        : syncStatus === "failed"
-          ? "Official history sync could not be started. Try again."
-          : "Usage history will appear here after official-page sync."
     return (
       <div className="history-placeholder">
-        <span role={!statusPathAvailable || syncStatus === "failed" ? "alert" : syncing ? "status" : undefined}>{message}</span>
-        {onSync ? (
-          <button disabled={syncing || !statusPathAvailable} onClick={onSync} type="button">
-            {syncStatus === "failed" ? "Try again" : "Sync official history"}
-          </button>
-        ) : null}
+        <HistorySyncStatus
+          onSync={onSync}
+          statusPathAvailable={statusPathAvailable}
+          syncStatus={syncStatus}
+        />
       </div>
     )
   }
@@ -64,8 +53,54 @@ export function DeepSeekHistory({
       <small className="history-source">
         Official website · Updated {formatTime(snapshot.historyFetchedAt ?? snapshot.fetchedAt)}
       </small>
+      {shouldShowHistoryStatus(syncStatus, statusPathAvailable) ? (
+        <div className="history-sync-status">
+          <HistorySyncStatus
+            onSync={onSync}
+            statusPathAvailable={statusPathAvailable}
+            syncStatus={syncStatus}
+          />
+        </div>
+      ) : null}
     </div>
   )
+}
+
+function HistorySyncStatus({
+  onSync,
+  syncStatus,
+  statusPathAvailable,
+}: {
+  onSync?: () => void
+  syncStatus: DeepSeekHistoryStatus
+  statusPathAvailable: boolean
+}) {
+  const syncing = syncStatus === "opening" || syncStatus === "active"
+  const message = !statusPathAvailable
+    ? "Official history status is temporarily unavailable."
+    : syncStatus === "opening"
+      ? "Opening official page…"
+      : syncStatus === "active"
+        ? "Sync in progress"
+        : syncStatus === "failed"
+          ? "Official history sync could not be started. Try again."
+          : "Usage history will appear here after official-page sync."
+  return (
+    <>
+      <span role={!statusPathAvailable || syncStatus === "failed" ? "alert" : syncing ? "status" : undefined}>
+        {message}
+      </span>
+      {onSync ? (
+        <button disabled={syncing || !statusPathAvailable} onClick={onSync} type="button">
+          {syncStatus === "failed" ? "Try again" : "Sync official history"}
+        </button>
+      ) : null}
+    </>
+  )
+}
+
+function shouldShowHistoryStatus(status: DeepSeekHistoryStatus, statusPathAvailable: boolean) {
+  return !statusPathAvailable || status === "opening" || status === "active" || status === "failed"
 }
 
 function HistoryStat({ label, value }: { label: string; value: string }) {

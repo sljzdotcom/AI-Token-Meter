@@ -183,6 +183,18 @@ describe("Windows meter interface", () => {
     expect(screen.queryByText("Usage history will appear here after official-page sync.")).not.toBeInTheDocument()
   })
 
+  it("keeps existing history visible and exposes retry after a later sync fails", async () => {
+    await showDeepSeekDetail()
+
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 7, status: "opening" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 7, status: "failed" }))
+
+    expect(screen.getByRole("img", { name: "DeepSeek cost for the last 30 days" })).toBeVisible()
+    expect(screen.getByRole("alert")).toHaveTextContent("Official history sync could not be started. Try again.")
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(tauri.invoke).toHaveBeenCalledWith("open_deepseek_history")
+  })
+
   it("offers a working retry when DeepSeek history is unavailable", () => {
     const sync = vi.fn()
     const withoutHistory = snapshots.map((snapshot) => snapshot.providerId === "deepseek"

@@ -416,7 +416,8 @@ button {
   min-height: 112px;
 }
 
-.history-placeholder button {
+.history-placeholder button,
+.history-sync-status button {
   background: color-mix(in srgb, var(--detail-accent) 18%, #121a29);
   border: 1px solid color-mix(in srgb, var(--detail-accent) 50%, transparent);
   border-radius: 999px;
@@ -424,6 +425,23 @@ button {
   cursor: pointer;
   font: inherit;
   padding: 8px 14px;
+}
+
+.history-sync-status {
+  align-items: center;
+  background: rgb(19 27 41 / 76%);
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 12px;
+  color: #a8b2c3;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 9px 11px;
+}
+
+.history-sync-status button {
+  flex: 0 0 auto;
+  padding-block: 6px;
 }
 
 .deepseek-history {
