@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { App } from "./App"
+import { MeterClipPaths } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
 import { SettingsWindow } from "./settings/SettingsWindow"
 import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
@@ -47,6 +48,19 @@ const snapshots: UsageSnapshot[] = [
 ]
 
 describe("Windows meter interface", () => {
+  it("provides the exact normalized macOS silhouette for both screen edges", () => {
+    const { container } = render(<MeterClipPaths />)
+
+    expect(container.querySelector("#meter-clip-right path")).toHaveAttribute(
+      "d",
+      "M 1 0.0449438 C 0.9074074 0.0646067 0.8148148 0.0758427 0.6111111 0.0786517 C 0.2685185 0.0814607 0 0.1516854 0 0.247191 L 0 0.752809 C 0 0.8483146 0.2685185 0.9185393 0.6111111 0.9213483 C 0.8148148 0.9241573 0.9074074 0.9353933 1 0.9550562 Z",
+    )
+    expect(container.querySelector("#meter-clip-left path")).toHaveAttribute(
+      "d",
+      "M 0 0.0449438 C 0.0925926 0.0646067 0.1851852 0.0758427 0.3888889 0.0786517 C 0.7314815 0.0814607 1 0.1516854 1 0.247191 L 1 0.752809 C 1 0.8483146 0.7314815 0.9185393 0.3888889 0.9213483 C 0.1851852 0.9241573 0.0925926 0.9353933 0 0.9550562 Z",
+    )
+  })
+
   it("renders three equally-sized logo-only rings with distinct provider colors", () => {
     const { container } = render(<App initialSnapshots={snapshots} />)
 

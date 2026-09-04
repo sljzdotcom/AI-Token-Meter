@@ -52,7 +52,7 @@ button {
 
 .meter-stage--strip-only .floating-strip {
   border-radius: 0;
-  clip-path: polygon(100% 0, 75% 1%, 45% 4%, 18% 8%, 3% 12%, 0 15%, 0 85%, 3% 88%, 18% 92%, 45% 96%, 75% 99%, 100% 100%);
+  clip-path: url("#meter-clip-right");
   height: 100%;
   min-height: 0;
   padding: min(6.67vh, 14.66vw);
@@ -60,7 +60,7 @@ button {
 }
 
 .meter-stage--strip-only.meter-edge--left .floating-strip {
-  clip-path: polygon(0 0, 25% 1%, 55% 4%, 82% 8%, 97% 12%, 100% 15%, 100% 85%, 97% 88%, 82% 92%, 55% 96%, 25% 99%, 0 100%);
+  clip-path: url("#meter-clip-left");
 }
 
 .meter-stage--strip-only .usage-ring {
@@ -73,9 +73,11 @@ button {
   width: min(7.56vh, 29.31vw);
 }
 
-.meter-stage--strip-only .floating-strip::before,
-.meter-stage--strip-only .floating-strip::after {
-  display: none;
+.meter-clip-paths {
+  height: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 0;
 }
 
 .detail-surface {

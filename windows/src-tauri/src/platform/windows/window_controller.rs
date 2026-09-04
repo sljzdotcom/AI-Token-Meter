@@ -202,38 +202,41 @@ pub enum DetailCommand {
 
 pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> {
     let width = unsigned_to_i32(size.width);
-    let height = unsigned_to_i32(size.height);
-    let shoulder = (height.saturating_mul(13) / 100).clamp(36, 58);
+    let scale = |x: i32, y: i32| PhysicalPoint {
+        x: (f64::from(x) * f64::from(size.width) / 108.0).round() as i32,
+        y: (f64::from(y) * f64::from(size.height) / 356.0).round() as i32,
+    };
     let mut points = cubic_points(
-        PhysicalPoint { x: width, y: 0 },
-        PhysicalPoint { x: width, y: 0 },
-        PhysicalPoint { x: 0, y: 10 },
-        PhysicalPoint { x: 0, y: shoulder },
-        16,
+        scale(108, 16),
+        scale(98, 23),
+        scale(88, 27),
+        scale(66, 28),
+        64,
     );
-    points.push(PhysicalPoint {
-        x: 0,
-        y: height - shoulder,
-    });
+    points.extend(
+        cubic_points(scale(66, 28), scale(29, 29), scale(0, 54), scale(0, 88), 64)
+            .into_iter()
+            .skip(1),
+    );
+    points.push(scale(0, 268));
     points.extend(
         cubic_points(
-            PhysicalPoint {
-                x: 0,
-                y: height - shoulder,
-            },
-            PhysicalPoint {
-                x: 0,
-                y: height - 10,
-            },
-            PhysicalPoint {
-                x: width,
-                y: height,
-            },
-            PhysicalPoint {
-                x: width,
-                y: height,
-            },
-            16,
+            scale(0, 268),
+            scale(0, 302),
+            scale(29, 327),
+            scale(66, 328),
+            64,
+        )
+        .into_iter()
+        .skip(1),
+    );
+    points.extend(
+        cubic_points(
+            scale(66, 328),
+            scale(88, 329),
+            scale(98, 333),
+            scale(108, 340),
+            64,
         )
         .into_iter()
         .skip(1),
@@ -334,15 +337,16 @@ pub fn place_meter(
 
 #[cfg(windows)]
 fn apply_windows_meter_style(meter: &tauri::WebviewWindow, edge: Edge) -> tauri::Result<()> {
-    use windows_sys::Win32::Foundation::{POINT, RECT};
-    use windows_sys::Win32::Graphics::Gdi::{
-        CreatePolygonRgn, DeleteObject, SetWindowRgn, WINDING,
+    use std::ffi::c_void;
+    use std::mem::size_of;
+    use windows_sys::Win32::Graphics::Dwm::{
+        DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DwmSetWindowAttribute,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GetClientRect, GetWindowLongW, SetWindowLongW, WS_EX_NOACTIVATE,
-        WS_EX_TOOLWINDOW,
+        GWL_EXSTYLE, GetWindowLongW, SetWindowLongW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
     };
 
+    meter.set_shadow(false)?;
     let hwnd = meter.hwnd()?.0 as windows_sys::Win32::Foundation::HWND;
     let extended_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) };
     unsafe {
@@ -351,32 +355,15 @@ fn apply_windows_meter_style(meter: &tauri::WebviewWindow, edge: Edge) -> tauri:
             GWL_EXSTYLE,
             extended_style | WS_EX_TOOLWINDOW as i32 | WS_EX_NOACTIVATE as i32,
         );
+        let border_color = DWMWA_COLOR_NONE;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_BORDER_COLOR as u32,
+            (&border_color as *const u32).cast::<c_void>(),
+            size_of::<u32>() as u32,
+        );
     }
-    let mut client: RECT = unsafe { std::mem::zeroed() };
-    if unsafe { GetClientRect(hwnd, &mut client) } == 0 {
-        return Err(tauri::Error::InvalidWindowHandle);
-    }
-    let points = meter_shape_points(
-        PhysicalSize::new(
-            client.right.saturating_sub(client.left) as u32,
-            client.bottom.saturating_sub(client.top) as u32,
-        ),
-        edge,
-    )
-    .into_iter()
-    .map(|point| POINT {
-        x: point.x,
-        y: point.y,
-    })
-    .collect::<Vec<_>>();
-    let region = unsafe { CreatePolygonRgn(points.as_ptr(), points.len() as i32, WINDING) };
-    if region.is_null() {
-        return Err(tauri::Error::InvalidWindowHandle);
-    }
-    if unsafe { SetWindowRgn(hwnd, region, 1) } == 0 {
-        unsafe { DeleteObject(region) };
-        return Err(tauri::Error::InvalidWindowHandle);
-    }
+    let _ = edge;
     Ok(())
 }
 
@@ -667,4 +654,37 @@ fn desired_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSiz
     let desired: tauri::PhysicalSize<u32> =
         tauri::LogicalSize::new(116.0, 450.0).to_physical(meter.scale_factor()?);
     Ok(PhysicalSize::new(desired.width, desired.height))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Edge, PhysicalPoint, PhysicalSize, meter_shape_points};
+
+    #[test]
+    fn meter_shape_uses_the_approved_macos_bezier_landmarks() {
+        let points = meter_shape_points(PhysicalSize::new(108, 356), Edge::Right);
+
+        for landmark in [
+            PhysicalPoint { x: 108, y: 16 },
+            PhysicalPoint { x: 66, y: 28 },
+            PhysicalPoint { x: 0, y: 88 },
+            PhysicalPoint { x: 0, y: 268 },
+            PhysicalPoint { x: 66, y: 328 },
+            PhysicalPoint { x: 108, y: 340 },
+        ] {
+            assert!(points.contains(&landmark), "missing landmark {landmark:?}");
+        }
+    }
+
+    #[test]
+    fn left_meter_shape_is_an_exact_horizontal_mirror() {
+        let right = meter_shape_points(PhysicalSize::new(216, 712), Edge::Right);
+        let left = meter_shape_points(PhysicalSize::new(216, 712), Edge::Left);
+
+        assert_eq!(right.len(), left.len());
+        for (right, left) in right.iter().zip(left) {
+            assert_eq!(left.x, 216 - right.x);
+            assert_eq!(left.y, right.y);
+        }
+    }
 }
