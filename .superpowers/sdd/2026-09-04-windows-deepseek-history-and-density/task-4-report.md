@@ -69,3 +69,27 @@ Git 提交：`fix(windows): compact detail and Settings density (REQ-20260904-00
 已验证：`npm run test:density`（Chrome headless CSS 计算样式通过）、`npm test`（2 个测试文件、24 项通过）、`npm run build`（TypeScript 检查和 Vite production build 通过）。
 
 Git 提交：`test(windows): verify compact density in browser (REQ-20260904-006)`。
+
+## 审查修复第 2 轮：隔离、CI 与进程韧性
+
+### RED 与生产突变覆盖
+
+- 原浏览器 fixture 的根默认字体也是 Segoe UI，因此删除 `.settings-window--system-font` 后仍会错误地通过。fixture 现将 `#root` 显式设为 Antonio；meter 与 Provider detail 同时保留 Antonio 断言。
+- 临时将 Settings 系统字体 CSS selector 改为不存在的 class 后，Chrome headless 报 `Settings did not retain its system font`，证明专属覆盖规则被真正的计算样式门禁保护；恢复 selector 后同一命令转绿。
+- 断言由宽松的“包含 Segoe fallback”收紧为实际首选字体 `"Segoe UI Variable"`，避免 Antonio 的 fallback 栈造成假阳性。
+
+### CI 与脚本
+
+- `.github/workflows/windows-ci.yml` 和 Release 的 Windows job 均在 `npm test` 后运行 `npm run test:density`，使 PR 和发布构建都阻止 CSS 级联回归。
+- 浏览器探测按 `BROWSER_BIN`、`CHROME_BIN`、macOS Chrome/Edge、Windows Chrome/Edge 的 ProgramFiles、ProgramFiles(x86)、LOCALAPPDATA 和 Linux 常见路径依次检查；找不到时列出全部已检查路径。
+- Vite 改为 `--port 0` 并解析实际监听地址，消除探测端口释放后的竞争窗口；清理阶段等待 Vite 退出，Windows 使用 `taskkill /T /F` 终止子进程树，Unix 在超时后升级为 SIGKILL。
+
+### 验证
+
+- `npm run test:density`：Chrome headless 通过全部计算样式断言；Settings 字体突变时按预期失败，恢复后再次通过。
+- `npm test`：2 个测试文件、24 项通过。
+- `npm run build`：TypeScript 检查与 Vite production build 通过。
+- `ruby -e 'require "yaml"; ...' .github/workflows/windows-ci.yml .github/workflows/release.yml`：两份工作流 YAML 解析通过。
+- `ruby scripts/check-cross-platform-contracts.rb .`：4 份 fixture 合同检查通过。
+
+Git 提交：`test(windows): harden density browser gate (REQ-20260904-006)`。

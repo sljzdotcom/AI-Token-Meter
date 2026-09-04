@@ -23,8 +23,11 @@ const snapshot: UsageSnapshot = {
   staleAfterSeconds: 300,
 }
 
+const root = document.getElementById("root")!
+root.style.fontFamily = "Antonio, 'Segoe UI Variable', sans-serif"
+
 flushSync(() => {
-  createRoot(document.getElementById("root")!).render(
+  createRoot(root).render(
     <>
       <main className="meter-stage" style={displayStyle}>
         <FloatingStrip activeProvider={null} onProviderActivate={() => {}} snapshots={[snapshot]} />
