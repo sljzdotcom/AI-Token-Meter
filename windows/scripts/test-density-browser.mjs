@@ -16,6 +16,7 @@ const vite = startPreview()
 try {
   const baseUrl = await vite.ready
   await waitForPreview(baseUrl)
+  console.log(`Verifying browser density styles with ${browser.label}`)
   const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`)
   const report = densityReport(output)
   assertDensity(report)
@@ -96,7 +97,10 @@ async function stopVite(vite) {
 
 function densityReport(output) {
   const match = output.match(/<pre id="density-report"[^>]*>([^<]+)<\/pre>/)
-  if (!match) throw new Error("Browser did not publish a density report")
+  if (!match) {
+    const preview = output.replace(/\s+/g, " ").slice(0, 800)
+    throw new Error(`Browser did not publish a density report (output length ${output.length}; preview ${JSON.stringify(preview)})`)
+  }
   return JSON.parse(match[1])
 }
 

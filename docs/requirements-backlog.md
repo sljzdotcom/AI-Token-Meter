@@ -136,6 +136,7 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第五轮 Windows runner 已等待浏览器 stdout/stderr 关闭，但 `chrome.exe --dump-dom` 仍以成功状态返回且输出不含 `density-report`；进入浏览器独立 profile、实际 DOM 诊断与跨平台启动参数核对，当前不把密度门禁失败误判为产品代码失败。 |
 | 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第四轮 Windows runner 已通过随机端口解析并启动 headless 浏览器，但进程 `exit` 先于 stdout 管道关闭，脚本过早返回空/不完整 DOM。新增“exit 后仍有 stdout、close 后才完成”的回归，改用流关闭事件收齐输出。 |
 | 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第三轮 Windows runner 已能直接启动 Vite，但 Vite 的 Windows 彩色输出在 `Local`、URL 与端口之间插入 ANSI 控制码，原纯文本正则因而等待满 10 秒。将为 ANSI 装饰的真实输出增加解析回归，去除终端控制码后再识别随机端口。 |
 | 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第二轮 Windows runner 通过 43 项前端行为后，在 production 密度门禁复现 Node 24/Windows 不能直接 spawn `npm.cmd` 的 `EINVAL`；新增平台测试并改为用当前 Node 直接启动固定的 Vite CLI，避免 shell 和参数拼接，等待第三轮 runner。 |

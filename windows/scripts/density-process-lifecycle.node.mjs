@@ -196,3 +196,52 @@ test("waits for browser streams to close before returning dumped DOM", async () 
 
   assert.equal(await pending, "<html>complete</html>")
 })
+
+test("runs the browser with an isolated disposable profile", async () => {
+  const child = new FakeChild()
+  let invocation
+  const removedProfiles = []
+
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    timeoutMs: 100,
+    platform: "win32",
+    spawnImpl: (command, args, options) => {
+      invocation = { command, args, options }
+      return child
+    },
+    createBrowserProfile: () => "/fixture/isolated-profile",
+    removeBrowserProfile: (path) => { removedProfiles.push(path) },
+    stopProcessTreeImpl: async () => {},
+  })
+
+  child.exitCode = 0
+  child.emit("close", 0)
+  await pending
+
+  assert.equal(invocation.command, "browser")
+  assert.ok(invocation.args.includes("--user-data-dir=/fixture/isolated-profile"))
+  assert.ok(invocation.args.includes("--no-first-run"))
+  assert.ok(invocation.args.includes("--no-default-browser-check"))
+  assert.ok(invocation.args.includes("--disable-extensions"))
+  assert.deepEqual(removedProfiles, ["/fixture/isolated-profile"])
+})
+
+test("removes the disposable profile even when process-tree cleanup fails", async () => {
+  const child = new FakeChild()
+  const removedProfiles = []
+
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    timeoutMs: 100,
+    platform: "win32",
+    spawnImpl: () => child,
+    createBrowserProfile: () => "/fixture/isolated-profile",
+    removeBrowserProfile: (path) => { removedProfiles.push(path) },
+    stopProcessTreeImpl: async () => { throw new Error("cleanup failed") },
+  })
+
+  child.exitCode = 0
+  child.emit("close", 0)
+
+  await assert.rejects(pending, /cleanup failed/)
+  assert.deepEqual(removedProfiles, ["/fixture/isolated-profile"])
+})

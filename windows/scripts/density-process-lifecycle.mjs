@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { stripVTControlCharacters } from "node:util"
 
@@ -70,13 +72,33 @@ export async function runBrowser(executable, url, {
   platform = process.platform,
   spawnImpl = spawn,
   stopProcessTreeImpl = stopProcessTree,
+  createBrowserProfile = createTemporaryBrowserProfile,
+  removeBrowserProfile = removeTemporaryBrowserProfile,
 } = {}) {
-  const browser = spawnManagedProcess(executable, ["--headless=new", "--disable-gpu", "--dump-dom", "--virtual-time-budget=1000", url], {
-    stdio: ["ignore", "pipe", "pipe"],
-  }, { platform, spawnImpl })
+  // Windows Chrome can hand command-line requests to an already-running
+  // desktop instance and then exit successfully without writing --dump-dom.
+  // A disposable profile forces this verification process to own its browser.
+  const profileDirectory = platform === "win32" ? createBrowserProfile() : null
+  let browser
   let timeout
 
   try {
+    const profileArguments = profileDirectory ? [
+      "--disable-extensions",
+      "--no-first-run",
+      "--no-default-browser-check",
+      `--user-data-dir=${profileDirectory}`,
+    ] : []
+    browser = spawnManagedProcess(executable, [
+      "--headless=new",
+      "--disable-gpu",
+      ...profileArguments,
+      "--dump-dom",
+      "--virtual-time-budget=1000",
+      url,
+    ], {
+      stdio: ["ignore", "pipe", "pipe"],
+    }, { platform, spawnImpl })
     return await new Promise((resolveOutput, reject) => {
       let output = ""
       let errors = ""
@@ -93,8 +115,25 @@ export async function runBrowser(executable, url, {
     })
   } finally {
     clearTimeout(timeout)
-    await stopProcessTreeImpl(browser, { platform })
+    try {
+      if (browser) await stopProcessTreeImpl(browser, { platform })
+    } finally {
+      if (profileDirectory) removeBrowserProfile(profileDirectory)
+    }
   }
+}
+
+function createTemporaryBrowserProfile() {
+  return mkdtempSync(join(tmpdir(), "ai-token-meter-density-"))
+}
+
+function removeTemporaryBrowserProfile(profileDirectory) {
+  rmSync(profileDirectory, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 50,
+  })
 }
 
 function signalProcessGroup(pid, signal, killProcess) {
