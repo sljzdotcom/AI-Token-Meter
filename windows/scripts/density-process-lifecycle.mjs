@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { join } from "node:path"
 
 export function spawnManagedProcess(command, args, options, {
   platform = process.platform,
@@ -14,11 +15,13 @@ export function spawnManagedProcess(command, args, options, {
 
 export function spawnDensityPreview(windowsRoot, {
   platform = process.platform,
+  nodeExecutable = process.execPath,
   spawnImpl = spawn,
 } = {}) {
-  const npm = platform === "win32" ? "npm.cmd" : "npm"
-  return spawnManagedProcess(npm, [
-    "run", "preview:density", "--", "--host", "127.0.0.1", "--port", "0",
+  const viteEntry = join(windowsRoot, "node_modules", "vite", "bin", "vite.js")
+  return spawnManagedProcess(nodeExecutable, [
+    viteEntry, "preview", "--config", "vite.density.config.ts",
+    "--host", "127.0.0.1", "--port", "0",
   ], {
     cwd: windowsRoot,
     stdio: ["ignore", "pipe", "pipe"],

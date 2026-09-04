@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { EventEmitter } from "node:events"
+import { join } from "node:path"
 import test from "node:test"
 
 import {
@@ -52,11 +53,32 @@ test("starts the density server from the production preview command", () => {
   })
 
   assert.equal(result, child)
-  assert.equal(invocation.command, "npm")
+  assert.equal(invocation.command, process.execPath)
   assert.deepEqual(invocation.args, [
-    "run", "preview:density", "--", "--host", "127.0.0.1", "--port", "0",
+    join("/fixture/windows", "node_modules", "vite", "bin", "vite.js"),
+    "preview", "--config", "vite.density.config.ts", "--host", "127.0.0.1", "--port", "0",
   ])
   assert.equal(invocation.options.cwd, "/fixture/windows")
+})
+
+test("starts Windows preview through Node instead of an unspawnable cmd shim", () => {
+  const child = new FakeChild()
+  let invocation
+  const windowsRoot = join("fixture", "windows")
+  const nodeExecutable = join("fixture", "nodejs", "node.exe")
+
+  spawnDensityPreview(windowsRoot, {
+    platform: "win32",
+    nodeExecutable,
+    spawnImpl: (command, args, options) => {
+      invocation = { command, args, options }
+      return child
+    },
+  })
+
+  assert.equal(invocation.command, nodeExecutable)
+  assert.equal(invocation.args[0], join(windowsRoot, "node_modules", "vite", "bin", "vite.js"))
+  assert.equal(invocation.options.detached, false)
 })
 
 test("terminates a Unix process group with TERM then KILL when it will not exit", async () => {
