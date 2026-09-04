@@ -52,25 +52,23 @@ function styleFor<T extends Element>(selector: string): CSSStyleDeclaration {
   return getComputedStyle(element)
 }
 
-requestAnimationFrame(() => {
-  const report = {
-    meterFont: styleFor(".meter-stage").fontFamily,
-    detailFont: styleFor(".provider-detail").fontFamily,
-    detailBody: styleFor(".provider-detail").fontSize,
-    identityTitle: styleFor(".provider-detail__identity strong").fontSize,
-    headline: styleFor(".provider-detail__headline").fontSize,
-    sectionTitle: styleFor(".detail-section h2").fontSize,
-    cardNumber: styleFor(".metric-card strong").fontSize,
-    settingsFont: styleFor(".settings-window").fontFamily,
-    settingsBase: styleFor(".settings-window").fontSize,
-    settingsTitle: styleFor(".settings-window > header strong").fontSize,
-    controlFont: styleFor<HTMLSelectElement>("select[aria-label='Display font']").fontSize,
-    controlMinHeight: styleFor<HTMLSelectElement>("select[aria-label='Display font']").minHeight,
-    colorScheme: styleFor(".settings-window").colorScheme,
-    selectColor: styleFor<HTMLSelectElement>("select[aria-label='Display font']").color,
-    selectBackground: styleFor<HTMLSelectElement>("select[aria-label='Display font']").backgroundColor,
-    optionColor: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").color,
-    optionBackground: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").backgroundColor,
-  }
-  document.getElementById("density-report")!.textContent = JSON.stringify(report)
-})
+const report = {
+  meterFont: styleFor(".meter-stage").fontFamily,
+  detailFont: styleFor(".provider-detail").fontFamily,
+  detailBody: styleFor(".provider-detail").fontSize,
+  identityTitle: styleFor(".provider-detail__identity strong").fontSize,
+  headline: styleFor(".provider-detail__headline").fontSize,
+  sectionTitle: styleFor(".detail-section h2").fontSize,
+  cardNumber: styleFor(".metric-card strong").fontSize,
+  settingsFont: styleFor(".settings-window").fontFamily,
+  settingsBase: styleFor(".settings-window").fontSize,
+  settingsTitle: styleFor(".settings-window > header strong").fontSize,
+  controlFont: styleFor<HTMLSelectElement>("select[aria-label='Display font']").fontSize,
+  controlMinHeight: styleFor<HTMLSelectElement>("select[aria-label='Display font']").minHeight,
+  colorScheme: styleFor(".settings-window").colorScheme,
+  selectColor: styleFor<HTMLSelectElement>("select[aria-label='Display font']").color,
+  selectBackground: styleFor<HTMLSelectElement>("select[aria-label='Display font']").backgroundColor,
+  optionColor: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").color,
+  optionBackground: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").backgroundColor,
+}
+document.getElementById("density-report")!.textContent = JSON.stringify(report)
