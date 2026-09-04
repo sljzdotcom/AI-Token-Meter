@@ -262,7 +262,8 @@ export function DetailSurface() {
           deepseekHistoryCurrent.current = opening
           setDeepseekHistoryState(opening)
           const hasConfirmedLiveSession = () => deepseekHistoryGeneration.current != null
-            && deepseekHistoryCurrent.current.status === "active"
+            && (deepseekHistoryCurrent.current.status === "opening"
+              || deepseekHistoryCurrent.current.status === "active")
           const failUnlessLive = () => {
             if (deepseekHistoryAttempt.current !== attempt || hasConfirmedLiveSession()) return
             const failed: DeepSeekHistoryStatusSnapshot = { generation: null, status: "failed" }

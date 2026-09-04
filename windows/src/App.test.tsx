@@ -333,7 +333,10 @@ describe("Windows meter interface", () => {
     expect(screen.getByText("Opening official page…")).toBeVisible()
   })
 
-  it("preserves an event-confirmed active session when the command and recovery query fail", async () => {
+  it.each([
+    ["opening", "Opening official page…"],
+    ["active", "Sync in progress"],
+  ] as const)("preserves an event-confirmed %s session when the command and recovery query fail", async (status, message) => {
     vi.useFakeTimers()
     let rejectOpen: (error: Error) => void = () => {}
     let statusQueries = 0
@@ -355,14 +358,14 @@ describe("Windows meter interface", () => {
     act(() => emitTauriEvent("active-detail-changed", withoutHistory))
 
     fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
-    act(() => emitTauriEvent("deepseek-history-status", { generation: 12, status: "active" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 12, status }))
     await act(async () => {
       rejectOpen(new Error("open response lost"))
       await Promise.resolve()
       await Promise.resolve()
     })
 
-    expect(screen.getByText("Sync in progress")).toBeVisible()
+    expect(screen.getByText(message)).toBeVisible()
     act(() => vi.advanceTimersByTime(9_000))
     expect(dialog).toBeVisible()
     vi.useRealTimers()
@@ -455,42 +458,6 @@ describe("Windows meter interface", () => {
     })
 
     expect(screen.getByText("Opening official page…")).toBeVisible()
-  })
-
-  it("lets an authoritative retry rebind to the same still-active backend generation", async () => {
-    let rejectFirstOpen: (error: Error) => void = () => {}
-    let openAttempts = 0
-    let statusQueries = 0
-    tauri.invoke.mockImplementation((command: string) => {
-      if (command === "app_settings") return Promise.resolve(detailSettings)
-      if (command === "deepseek_history_status") {
-        statusQueries += 1
-        return statusQueries === 1
-          ? Promise.resolve({ generation: null, status: "idle" })
-          : Promise.reject(new Error("temporary query failure"))
-      }
-      if (command !== "open_deepseek_history") return Promise.resolve(undefined)
-      openAttempts += 1
-      return openAttempts === 1
-        ? new Promise((_, reject) => { rejectFirstOpen = reject })
-        : Promise.resolve({ generation: 1, status: "active" })
-    })
-    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
-    await showDeepSeekDetail()
-    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
-
-    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
-    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "opening" }))
-    await act(async () => {
-      rejectFirstOpen(new Error("lost open response"))
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-    expect(await screen.findByRole("alert")).toBeVisible()
-
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
-
-    expect(await screen.findByText("Sync in progress")).toBeVisible()
   })
 
   it("cleans up successfully registered detail listeners when another registration fails", async () => {
