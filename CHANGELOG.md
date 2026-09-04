@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+### Fixed
+
+- Windows 打开 DeepSeek 详情不再隐式创建空白官网窗口；只有用户点击 **Sync official history** 才启动独立官方会话，重复请求复用并聚焦现有窗口，关闭、加载超时、失败与成功都会清理会话并恢复详情。
+- Windows DeepSeek 详情新增 opening/active/failed 可见反馈、重试入口和同步期间自动隐藏暂停；迟到命令错误与旧窗口回调不能覆盖较新的同步会话。
+- Windows Provider 详情与 Settings 使用专属紧凑字号和间距；Display font 原生下拉明确为白底深色文字，Settings 继续使用系统字体。macOS 样式不变。
+
+### Security
+
+- Windows DeepSeek 官网 ready、分片、关闭和超时回调绑定短期 nonce 与会话代次，只接受精确官方 HTTPS origin；前端只接收六个固定脱敏状态词，网页正文、Cookie、Authorization、API Key 和个人账号信息不会进入事件或业务日志。
+
 ## 0.3.0-preview.2 - 2026-09-04
 
 ### Fixed

@@ -94,6 +94,8 @@ OpenAI Codex 详情把官方额度放在上方，下面单独标记 **Last 30 da
 
 DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 天图表数据。AI Token Meter 因此使用应用内隔离网页会话（macOS WebKit、Windows WebView2）打开官方用量页，并只处理官方来源的相关 JSON 数据。当前官网分别返回每日用量与每日费用；AI Token Meter 会等待两组数据到齐、按日期合并后才替换完整缓存，避免半份响应把现有图表清空。
 
+Windows 查看 DeepSeek 详情不会自动创建官网窗口。只有用户点击 **Sync official history** 才开始同步：opening/active 状态会暂停详情自动隐藏；已打开的官网窗口会被复用并聚焦；用户关闭、加载失败或 30 秒仍未就绪时会清理当前会话、恢复详情并允许重试；完整聚合成功后会关闭官网窗口并恢复更新后的原生图表。macOS 现有 WebKit 行为不因 Windows 专属修复而改变。
+
 标准化后保存的字段只有：
 
 - 日期；

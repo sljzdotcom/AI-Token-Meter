@@ -63,6 +63,7 @@
 | [v0.3.0-preview.0 双平台发布](development/2026-09-04-v0.3.0-preview.0-release.md) | 首个双平台 Preview 的版本、签名、资产、workflow 和发布后复验证据 |
 | [Windows 浮动条视觉与贴边修复](development/2026-09-04-windows-floating-strip-parity-fix.md) | 真机缺陷根因、红绿测试、实现边界与 `preview.1` 发布验证 |
 | [Windows 启动空白终端修复](development/2026-09-04-windows-console-window-suppression.md) | Windows Terminal 根因、PE subsystem 红绿门禁、最小入口修复与 `preview.2` 验收边界 |
+| [Windows DeepSeek 历史与界面密度修复](development/2026-09-04-windows-deepseek-history-and-density.md) | 显式官网同步、可关闭/可恢复窗口生命周期、紧凑字号、字体下拉配色与真机验收边界 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |

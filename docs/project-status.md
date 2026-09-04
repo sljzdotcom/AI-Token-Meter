@@ -9,7 +9,7 @@
 
 ## 一句话定位
 
-AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。稳定版目前仍为 macOS；`0.3.0-preview.2` 在保留 Windows 浮动条视觉修复的同时，消除程序启动时额外出现的 Windows Terminal，并保持 macOS 同版本发布。交互式 Windows DPI、启动窗口与升级终验仍需真机补齐。
+AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。稳定版目前仍为 macOS；当前公开 `0.3.0-preview.2` 已完成 Windows 启动 Terminal 真机闭环。未发布分支进一步把 DeepSeek 官网同步改为显式、可关闭和可恢复的托管窗口，并收紧 Windows 详情与 Settings 密度；真实登录、窗口聚焦和原生字体下拉仍需真机确认。
 
 ## 当前能力矩阵
 
@@ -36,6 +36,8 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 
 Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单栏入口；Win32 窗口默认右侧贴边，可切左侧并记忆显示器/纵向位置；同显示器全屏应用出现时隐藏；详情临时置前并按相同秒数或外部点击关闭。Windows Widget 暂不在 Preview 范围。
 
+未发布的 Windows DeepSeek 修复把“查看详情”和“同步官网历史”分离：点击圆环只显示详情，用户点击 **Sync official history** 后才创建唯一隐藏加载的官方 WebView2；ready 后显示聚焦，关闭/失败/超时恢复详情，完成后销毁官网窗口并展示聚合。opening/active 期间暂停详情自动隐藏。Windows Provider 详情与 Settings 使用专属紧凑密度，Settings 保持系统字体并为字体下拉固定可读浅色配色；macOS 源码和样式未改变。
+
 ## 数据与持久化
 
 | 数据 | 位置/所有者 | 是否敏感 |
@@ -58,6 +60,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - macOS 完整自动化基线：**374 项测试、72 个测试组**，其中 12 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
+- 当前 Windows 未发布分支的本机跨平台基线：24 项 Vitest、4 项密度进程生命周期和 141 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。macOS 主机缺少 Windows MSVC C SDK，不能替代 `windows-latest` 的 Windows-only/Tauri/NSIS 构建；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；当前已公开双平台 Preview 为 [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)。发布 workflow `33833843964` 已验证 Windows 主程序为 GUI subsystem、双平台产物与更新签名，公网重下后的 SHA-256 和 Preview feed 也已复核；详细证据见[修复日志](development/2026-09-04-windows-console-window-suppression.md)。
@@ -73,9 +76,9 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | 稳定签名下旧 DeepSeek Key 再录入 | 维护提示 | 有稳定签名发行包时重新保存一次可信 Key |
 | M4 Max nvm Codex 真实界面复验 | 待用户确认 | 在 M4 Max 安装 0.1.2 或更高版本，重新打开后检查 OpenAI Codex 账户与详情 |
 | Developer ID 与 Apple 公证 | 当前限制 | 公开包使用 ad-hoc 签名；首次打开可能需要 Finder 右键“打开” |
-| Windows 11 真机视觉、DPI、全屏、拖动与 DeepSeek 网页登录 | 受环境限制 | 在交互式 Windows 11 x64 用户会话安装 Preview 后逐项验收 |
+| Windows 11 真机视觉、DPI、全屏与拖动 | 受环境限制 | 在交互式 Windows 11 x64 用户会话安装 Preview 后逐项验收 |
+| Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 待用户确认 | 安装包含 `REQ-20260904-006` 的下一版 Preview，在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
-| Windows `preview.2` 启动无空白 Terminal | 待用户确认 | 在交互式 Windows 11 会话安装并启动，确认只出现浮动条和系统托盘 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
