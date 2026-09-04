@@ -78,10 +78,8 @@ pub struct RuntimeState {
     settings_path: Option<PathBuf>,
     pub(crate) meter_enabled: Arc<AtomicBool>,
     meter_drag: Arc<crate::platform::windows::meter_drag::MeterDragGate>,
-    deepseek_history_session:
-        Arc<Mutex<Option<crate::collectors::deepseek_history::DeepSeekHistoryAssembler>>>,
-    deepseek_history_window:
-        Arc<Mutex<crate::platform::windows::deepseek_history_window::DeepSeekHistoryWindowMachine>>,
+    deepseek_history:
+        Arc<Mutex<crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime>>,
     update_state: Arc<Mutex<crate::updater::UpdateState>>,
     #[cfg_attr(not(windows), allow(dead_code))]
     notification_levels: Mutex<HashMap<String, u8>>,
@@ -97,9 +95,8 @@ impl Default for RuntimeState {
             settings_path,
             meter_enabled: Arc::new(AtomicBool::new(true)),
             meter_drag: Arc::new(crate::platform::windows::meter_drag::MeterDragGate::default()),
-            deepseek_history_session: Arc::new(Mutex::new(None)),
-            deepseek_history_window: Arc::new(Mutex::new(
-                crate::platform::windows::deepseek_history_window::DeepSeekHistoryWindowMachine::default(),
+            deepseek_history: Arc::new(Mutex::new(
+                crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime::default(),
             )),
             update_state: Arc::new(Mutex::new(crate::updater::UpdateState::new(
                 SHARED_VERSION.trim(),
@@ -618,8 +615,7 @@ fn open_deepseek_history(
 ) -> Result<(), String> {
     crate::platform::windows::deepseek_webview::open_history_window(
         &app,
-        Arc::clone(&state.deepseek_history_session),
-        Arc::clone(&state.deepseek_history_window),
+        Arc::clone(&state.deepseek_history),
     )
 }
 
