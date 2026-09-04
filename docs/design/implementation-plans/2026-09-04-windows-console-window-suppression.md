@@ -23,11 +23,11 @@
 - [x] 创建 `scripts/check-windows-pe-subsystem.ps1`，校验 MZ、PE Signature、Optional Header 长度和 `Subsystem == 2`，错误中报告实际 subsystem。
 - [x] 在 Windows CI 的 Tauri build 后调用脚本，传入 `windows/src-tauri/target/debug/ai-token-meter-windows.exe`。
 - [x] 在 Release workflow 的 Tauri build 后调用脚本，传入 `windows/src-tauri/target/release/ai-token-meter-windows.exe`。
-- [ ] 只提交测试和 CI 门禁并推送修复分支，确认现有程序在 Windows runner 因 subsystem `3` 正确失败。
+- [x] 只提交测试和 CI 门禁并推送修复分支，确认现有程序在 Windows runner 因 subsystem `3` 正确失败（workflow `33830008532`）。
 
 ### 任务 2：在编译源头消除控制台窗口
 
-- [ ] 在 `windows/src-tauri/src/main.rs` 顶部增加仅 Windows 生效的 GUI subsystem 声明。
+- [x] 在 `windows/src-tauri/src/main.rs` 顶部增加仅 Windows 生效的 GUI subsystem 声明。
 - [ ] 运行格式、Rust/前端定向测试和构建；推送后确认同一 Windows PE 门禁变绿。
 - [ ] 确认窗口配置、Provider 子进程和 macOS 源码没有行为变化。
 - [ ] 提交修复检查点。
