@@ -113,6 +113,7 @@ fn stale_window_callbacks_cannot_change_a_reopened_generation() {
             DeepSeekHistoryWindowStatus::Cancelled
         ))]
     );
+    assert!(coordinator.reconcile_destroyed(first.generation));
     let second = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
     assert_ne!(second.generation, first.generation);
 
@@ -144,6 +145,7 @@ fn delayed_terminal_status_keeps_its_original_generation_after_reopen() {
         .expect("first close should claim cancellation");
     let execution = execute_window_actions(cancelled.actions(), &mut FakeWindowExecutor::default());
     let delayed = coordinator.finish_terminal(cancelled, &execution);
+    assert!(coordinator.reconcile_destroyed(first.generation));
     let second = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
 
     assert_eq!(
@@ -230,6 +232,8 @@ fn unready_official_page_times_out_and_recovers() {
         ))]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
+    assert_eq!(coordinator.cleanup_generation(), Some(open.generation));
+    assert!(coordinator.reconcile_destroyed(open.generation));
     assert!(!coordinator.has_session());
 }
 
@@ -284,6 +288,7 @@ fn stalled_fragment_transfer_claims_failed_and_allows_retry() {
     coordinator.finish_terminal(terminal, &execution);
 
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
+    assert!(coordinator.reconcile_destroyed(open.generation));
     let retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:05:21 UTC));
     assert_ne!(retry.generation, open.generation);
 }
@@ -325,6 +330,7 @@ fn completed_transfer_cannot_be_failed_by_its_old_timeout() {
     );
     let execution = execute_window_actions(terminal.actions(), &mut FakeWindowExecutor::default());
     coordinator.finish_terminal(terminal, &execution);
+    assert!(coordinator.reconcile_destroyed(open.generation));
     let retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:05:02 UTC));
     assert!(
         coordinator
@@ -440,6 +446,32 @@ fn destroy_failure_retains_cleanup_ownership_until_retry_reconciles_the_window()
 }
 
 #[test]
+fn successful_destroy_waits_for_registry_removal_before_allowing_retry() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+    let terminal = coordinator
+        .claim_failed(open.generation)
+        .expect("failure should reserve the terminal");
+    let execution = execute_window_actions(terminal.actions(), &mut FakeWindowExecutor::default());
+
+    coordinator.finish_terminal(terminal, &execution);
+
+    assert_eq!(coordinator.cleanup_generation(), Some(open.generation));
+    let blocked_retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
+    assert_eq!(blocked_retry.generation, open.generation);
+    assert!(blocked_retry.actions.is_empty());
+
+    assert!(coordinator.reconcile_destroyed(open.generation));
+    let retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:02 UTC));
+    assert_ne!(retry.generation, open.generation);
+    assert!(
+        retry
+            .actions
+            .contains(&DeepSeekHistoryWindowAction::CreateHidden)
+    );
+}
+
+#[test]
 fn destroyed_event_releases_only_matching_pending_cleanup() {
     let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
     let open = activate(&mut coordinator, NONCE);
@@ -458,6 +490,7 @@ fn destroyed_event_releases_only_matching_pending_cleanup() {
     let closed_execution =
         execute_window_actions(closed.actions(), &mut FakeWindowExecutor::default());
     other.finish_terminal(closed, &closed_execution);
+    assert!(other.reconcile_destroyed(first_other.generation));
     let other_generation = other
         .open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC))
         .generation;
@@ -512,6 +545,7 @@ fn stale_cleanup_completion_is_rejected_after_a_later_session_finishes() {
     let cancelled_execution =
         execute_window_actions(cancelled.actions(), &mut FakeWindowExecutor::default());
     coordinator.finish_terminal(cancelled, &cancelled_execution);
+    assert!(coordinator.reconcile_destroyed(second.generation));
 
     assert!(!coordinator.finish_cleanup_after_window_removed(first.generation));
     assert!(!coordinator.has_session());

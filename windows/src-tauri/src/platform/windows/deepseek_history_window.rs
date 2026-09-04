@@ -496,15 +496,12 @@ impl DeepSeekHistoryWindowCoordinator {
             DeepSeekHistoryWindowStatus::Failed
         };
         self.status = status;
-        let destroy_failed = execution
-            .failed_actions
-            .contains(&DeepSeekHistoryWindowAction::DestroyHistory);
-        if destroy_failed {
-            if let Some(session) = self.session.as_mut() {
-                session.cleanup_pending = true;
-            }
-        } else {
-            self.session = None;
+        // Tauri window teardown is asynchronous, whether destroy was requested
+        // here or a native close is already in progress. Keep this generation
+        // as cleanup owner until Destroyed or a registry check confirms that
+        // the fixed window label is gone.
+        if let Some(session) = self.session.as_mut() {
+            session.cleanup_pending = true;
         }
         vec![DeepSeekHistoryWindowAction::EmitStatus(status_snapshot(
             claim.generation,
