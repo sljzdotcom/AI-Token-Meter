@@ -49,6 +49,7 @@
 | REQ-20260904-001 | 发布门禁缺陷 | 修复跨平台合同检查器在 Windows runner 上把 Git 已跟踪为可执行的发布入口误判为不可执行，导致双平台 Preview 发布在代码测试通过后被阻断 | 高 | 已完成 | 2026-09-04 | 无 | [失败 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33813010911) · [Windows 复验](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33814393456) · `scripts/test-cross-platform-contracts.sh` |
 | REQ-20260904-002 | Windows 发布缺陷 | 修复 Tauri 已成功生成签名 NSIS 资产后，Release workflow 在资产标准化与哈希阶段无法识别实际输出而中止的问题 | 高 | 已完成 | 2026-09-04 | 无 | [失败 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33814393456) · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33816010376) · `704342e` · `scripts/test-normalize-windows-release-assets.sh` |
 | REQ-20260904-003 | macOS 更新通道 | 核对 M4 Max 手动检查更新时未发现 `0.3.0-preview.0` 的原因，并明确稳定版与预览版的安装入口 | 中 | 已完成 | 2026-09-04 | 无；当前 macOS 应用只读取稳定 `appcast.xml`，预览版需从 GitHub Release 手动安装，待未来明确提出后再设计可选 Preview 通道 | `SUFeedURL`、稳定 `appcast.xml`、[v0.3.0-preview.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.0) |
+| REQ-20260904-004 | Windows 浮动条缺陷 | 修复 Windows 真机浮动条外侧白框和上下白条、轮廓锯齿/凹凸、反向半圆缺失以及靠边位置不稳定；视觉应与已确认的 macOS 轮廓和背景连续性一致 | 高 | 进行中 | 2026-09-04 | 用户确认 Windows 采用与 macOS 相同轮廓并授权发布；进入失败先行测试、实现、Windows CI 和 `preview.1` 发布，macOS 代码保持不变但同步版本 | 用户 Windows 真机截图；待补设计规格、实施计划、测试、开发日志和 Git/CI/Release 证据 |
 
 ## 分类索引
 
@@ -292,3 +293,5 @@
 | 2026-09-03 | REQ-20260903-010 | 进行中 → 已完成 | 提交 `0ae1cbe` 修复截止时间饥饿，`4f6c3af` 完成复审术语更正；阻塞回归、本机 386 项与 macOS PR/main CI 均通过，原失败未复现。 |
 | 2026-09-03 | REQ-20260903-011 | 新建 → 进行中 | 用户要求继续完成位置修复后的可安装交付；按既定跨平台规则选择首个 `0.3.0-preview.0`，要求 macOS/Windows 同版本、同 Release、各自签名更新清单和完整文档。 |
 | 2026-09-04 | REQ-20260904-003 | 新建 → 已完成 | M4 Max 的 `SUFeedURL` 固定读取仓库根稳定 `appcast.xml`，该 feed 最新条目仍为 `0.2.2`；`0.3.0-preview.0` 是公开 prerelease，发布流程有意不改写稳定 feed，因此应用内检查不到属于预期的通道隔离，并非架构或签名故障。 |
+| 2026-09-04 | REQ-20260904-004 | 新建 → 进行中 | Windows `0.3.0-preview.0` 真机截图显示浮动条窗口透明区被白色背景暴露、上下出现白条，轮廓存在明显锯齿且缺少已确认的反向半圆；用户同时报告贴边行为不稳定。进入窗口透明合成、裁剪几何、DPI 与显示器定位链路的系统化调试。 |
+| 2026-09-04 | REQ-20260904-004 | 进行中 | 根因已收敛：Windows 无边框窗口默认阴影产生 1px 白色边框；CSS 粗粒度多边形与 Win32 整数 GDI Region 双重裁剪且几何不一致，导致白条、锯齿和肩部缺失；网页 `startDragging()` Promise 被误当成可靠拖动结束信号，且 750ms 显示器监控可在拖动期间重排窗口。用户确认采用方案 A——Windows 精确复用 macOS Bezier 轮廓，macOS 保持不变，并授权完成后发布。 |
