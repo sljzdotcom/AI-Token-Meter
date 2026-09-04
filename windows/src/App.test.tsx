@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const tauri = vi.hoisted(() => {
   const listeners = new Map<string, Set<(event: { payload: unknown }) => void>>()
@@ -116,6 +116,10 @@ beforeEach(() => {
     }
     return Promise.resolve(undefined)
   })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe("Windows meter interface", () => {
@@ -289,6 +293,122 @@ describe("Windows meter interface", () => {
 
     expect(screen.getByText("Sync in progress")).toBeVisible()
   })
+
+  it("does not let the initial status query overwrite a user-started attempt", async () => {
+    let resolveInitialStatus: (value: unknown) => void = () => {}
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return new Promise((resolve) => { resolveInitialStatus = resolve })
+      }
+      if (command === "open_deepseek_history") return new Promise(() => {})
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+    await waitFor(() => {
+      expect(tauri.invoke).toHaveBeenCalledWith("deepseek_history_status")
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    await act(async () => {
+      resolveInitialStatus({ generation: 99, status: "active" })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+  })
+
+  it("preserves an event-confirmed active session when the command and recovery query fail", async () => {
+    vi.useFakeTimers()
+    let rejectOpen: (error: Error) => void = () => {}
+    let statusQueries = 0
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        statusQueries += 1
+        return statusQueries === 1
+          ? Promise.resolve({ generation: null, status: "idle" })
+          : Promise.reject(new Error("query unavailable"))
+      }
+      if (command === "open_deepseek_history") {
+        return new Promise((_, reject) => { rejectOpen = reject })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 12, status: "active" }))
+    await act(async () => {
+      rejectOpen(new Error("open response lost"))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it("reports a recoverable failure when the open command returns no session generation", async () => {
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      if (command === "open_deepseek_history") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    await act(async () => { await Promise.resolve() })
+
+    expect(screen.getByRole("alert")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled()
+  })
+
+  it.each(["completed", "cancelled"] as const)(
+    "accepts a generation-bound %s status from command recovery",
+    async (terminalStatus) => {
+      let statusQueries = 0
+      tauri.invoke.mockImplementation((command: string) => {
+        if (command === "app_settings") return Promise.resolve(detailSettings)
+        if (command === "deepseek_history_status") {
+          statusQueries += 1
+          return Promise.resolve(statusQueries === 1
+            ? { generation: null, status: "idle" }
+            : { generation: 18, status: terminalStatus })
+        }
+        if (command === "open_deepseek_history") {
+          return Promise.reject(new Error("open response lost"))
+        }
+        return Promise.resolve(undefined)
+      })
+      const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+      await showDeepSeekDetail()
+      act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+      fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Sync official history" })).toBeEnabled()
+    },
+  )
 
   it("keeps the previous generation as a retry floor while the new open response is pending", async () => {
     let resolveRetry: (value: unknown) => void = () => {}

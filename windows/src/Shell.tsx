@@ -131,6 +131,8 @@ export function DetailSurface() {
     const current = deepseekHistoryGeneration.current
     const floor = deepseekHistoryGenerationFloor.current
     if (authoritative) {
+      if (current != null && value.generation == null) return false
+      if (current != null && value.generation != null && value.generation < current) return false
       if (current === value.generation
         && historyStatusRank(value.status) < historyStatusRank(deepseekHistoryCurrent.current.status)) {
         return true
@@ -183,18 +185,24 @@ export function DetailSurface() {
       }
       stops.push(stop)
       setDeepseekHistoryStatusPathAvailable(true)
+      const initialAttempt = deepseekHistoryAttempt.current
       void invoke<unknown>("deepseek_history_status").then((value) => {
-        if (!disposed && deepseekHistoryGeneration.current == null) {
+        if (!disposed
+          && deepseekHistoryAttempt.current === initialAttempt
+          && deepseekHistoryGeneration.current == null) {
           acceptDeepSeekHistoryStatus(value, true)
         }
       }).catch(() => {})
     }).catch(() => {
+      const initialAttempt = deepseekHistoryAttempt.current
       void invoke<unknown>("deepseek_history_status").then((value) => {
-        if (disposed || !isDeepSeekHistoryStatusSnapshot(value)) return
+        if (disposed
+          || deepseekHistoryAttempt.current !== initialAttempt
+          || !isDeepSeekHistoryStatusSnapshot(value)) return
         setDeepseekHistoryStatusPathAvailable(true)
         acceptDeepSeekHistoryStatus(value, true)
       }).catch(() => {
-        if (!disposed) {
+        if (!disposed && deepseekHistoryAttempt.current === initialAttempt) {
           setDeepseekHistoryStatusPathAvailable(false)
         }
       })
@@ -253,32 +261,33 @@ export function DetailSurface() {
           const opening: DeepSeekHistoryStatusSnapshot = { generation: null, status: "opening" }
           deepseekHistoryCurrent.current = opening
           setDeepseekHistoryState(opening)
+          const hasConfirmedLiveSession = () => deepseekHistoryGeneration.current != null
+            && deepseekHistoryCurrent.current.status === "active"
+          const failUnlessLive = () => {
+            if (deepseekHistoryAttempt.current !== attempt || hasConfirmedLiveSession()) return
+            const failed: DeepSeekHistoryStatusSnapshot = { generation: null, status: "failed" }
+            deepseekHistoryCurrent.current = failed
+            setDeepseekHistoryState(failed)
+          }
           void invoke<unknown>("open_deepseek_history").then((value) => {
             if (deepseekHistoryAttempt.current !== attempt) return
-            if (!acceptDeepSeekHistoryStatus(value, true)) {
-              const failed: DeepSeekHistoryStatusSnapshot = { generation: null, status: "failed" }
-              deepseekHistoryCurrent.current = failed
-              setDeepseekHistoryState(failed)
+            const accepted = acceptDeepSeekHistoryStatus(value, true)
+            if (!accepted
+              || !isDeepSeekHistoryStatusSnapshot(value)
+              || value.generation == null) {
+              failUnlessLive()
             }
           }).catch(() => {
             if (deepseekHistoryAttempt.current !== attempt) return
             void invoke<unknown>("deepseek_history_status").then((value) => {
               if (deepseekHistoryAttempt.current !== attempt) return
-              if (!isDeepSeekHistoryStatusSnapshot(value)
-                || value.generation == null
-                || (value.status !== "opening" && value.status !== "active")) {
-                const failed: DeepSeekHistoryStatusSnapshot = { generation: null, status: "failed" }
-                deepseekHistoryCurrent.current = failed
-                setDeepseekHistoryState(failed)
-                return
+              if (isDeepSeekHistoryStatusSnapshot(value)) {
+                const accepted = acceptDeepSeekHistoryStatus(value, true)
+                if (accepted && value.generation != null) return
               }
-              acceptDeepSeekHistoryStatus(value, true)
+              failUnlessLive()
             }).catch(() => {
-              if (deepseekHistoryAttempt.current === attempt) {
-                const failed: DeepSeekHistoryStatusSnapshot = { generation: null, status: "failed" }
-                deepseekHistoryCurrent.current = failed
-                setDeepseekHistoryState(failed)
-              }
+              failUnlessLive()
             })
           })
         }}
