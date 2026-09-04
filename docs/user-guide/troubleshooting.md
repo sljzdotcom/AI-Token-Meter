@@ -130,6 +130,8 @@ Windows 会在浮岛所在显示器出现全屏前台应用时主动隐藏，离
 
 Windows 浮岛若仍出现白色矩形外框、锯齿肩部或拖动后跳边，先在 Settings → About 确认版本至少为 `0.3.0-preview.1`；`preview.0` 使用旧的 GDI/多边形双重裁剪。升级后完全退出并重新启动，使新的窗口阴影、DWM 边框和拖动监视策略生效。若只在特定缩放比例复现，请同时记录 Windows 缩放比例和浮岛所在显示器，不要用截图裁掉问题边缘。
 
+若启动 Windows 版时浮动条正常出现，但系统同时打开标题为 “AI Token Meter” 的空白 Windows Terminal，请升级到 `0.3.0-preview.2` 或更新版本；`preview.1` 的主程序仍使用 Console subsystem。新版本会在发布流程中解析真实 PE Header 并拒绝任何 Console subsystem 构建。
+
 ### 详情一直不消失
 
 - 点击屏幕空白处；

@@ -129,6 +129,9 @@ jobs:
             "src-tauri/tauri.release.conf.json"
           }
           npm run tauri build -- --config $config
+      - name: Verify Windows GUI subsystem
+        shell: pwsh
+        run: scripts/check-windows-pe-subsystem.ps1 -Path "windows/src-tauri/target/release/ai-token-meter-windows.exe"
       - name: Normalize and hash Windows assets
         shell: pwsh
         run: |

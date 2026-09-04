@@ -8,7 +8,7 @@
 
 Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Settings 不重复提供尺寸或刷新频率选项。Widget 始终使用系统字体和深海背景，不继承浮动条的 Antonio/DIN 选择；主应用刷新或 DeepSeek 余额基准变化后会发布脱敏快照并请求系统更新时间线。
 
-Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。`0.3.0-preview.1` 起，Windows 浮岛使用与 macOS 相同的平滑 Bezier 轮廓，深海背景连续覆盖上下肩部；这不是可单独切换的外观选项。
+Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。`0.3.0-preview.1` 起，Windows 浮岛使用与 macOS 相同的平滑 Bezier 轮廓，深海背景连续覆盖上下肩部；`0.3.0-preview.2` 起，Windows 主程序使用 GUI subsystem，启动时不再额外打开终端窗口。这些都不是可单独切换的外观选项。
 
 ### Show floating meter
 

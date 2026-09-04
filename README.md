@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.3.0-preview.1](https://img.shields.io/badge/version-0.3.0--preview.1-f59e0b)
+![Version 0.3.0-preview.2](https://img.shields.io/badge/version-0.3.0--preview.2-f59e0b)
 ![Tests 386](https://img.shields.io/badge/tests-386%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 项目状态：当前双平台预览版为 `0.3.0-preview.1`（build `8`），在同一 GitHub Release 提供 macOS Apple Silicon ZIP 与 Windows 11 x64 NSIS；最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
+> 项目状态：下一个双平台发布候选为 `0.3.0-preview.2`（build `9`）；当前已公开 Preview 仍为 `0.3.0-preview.1`，最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
 
 ## Screenshots
 
@@ -73,6 +73,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - Windows Widget 不在首个 Preview 范围内。当前无 Authenticode 证书，Preview 安装器可能出现 SmartScreen 提示；只应从本项目 GitHub Release 下载并核对 SHA-256。
 
 ## 下载与安装
+
+发布候选标识：`Download v0.3.0-preview.2`。该版本尚未公开，因此此处暂不提供虚假下载链接；正式 Release 与公网资产复验完成后再替换下面的当前公开入口。
 
 **[Download v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1)** from GitHub Releases：
 
@@ -226,7 +228,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前双平台预览版本：`0.3.0-preview.1`（build `8`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
+- 下一个双平台发布候选：`0.3.0-preview.2`（build `9`）；当前已公开 Preview：`0.3.0-preview.1`（build `8`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

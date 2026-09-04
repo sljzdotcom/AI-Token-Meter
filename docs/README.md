@@ -32,6 +32,8 @@
 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md) | 共享合同、Tauri/Rust、Provider、窗口、Updater、NSIS、CI 与真机验收任务 |
 | [Windows 浮动条修复设计](design/specifications/2026-09-04-windows-floating-strip-parity-fix-design.md) | macOS 同源 Bezier、透明窗口边框、拖动释放与拓扑互斥 |
 | [Windows 浮动条修复计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) | 测试先行的视觉、原生拖动、文档与 Preview 发布步骤 |
+| [Windows 启动空白终端修复设计](design/specifications/2026-09-04-windows-console-window-suppression-design.md) | Windows GUI subsystem、真实 PE 产物门禁与跨平台边界 |
+| [Windows 启动空白终端修复计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) | TDD 红绿、版本同步、双平台发布与真机启动验收步骤 |
 
 ## 开发与维护
 
@@ -52,11 +54,13 @@
 | [v0.2.2 Release notes](releases/v0.2.2.md) | Sparkle 安装窗口置前修复、升级路径和安全边界 |
 | [v0.3.0-preview.0 Release notes](releases/v0.3.0-preview.0.md) | 首个 macOS/Windows 同版本 Preview、下载、安全边界和已知限制 |
 | [v0.3.0-preview.1 Release notes](releases/v0.3.0-preview.1.md) | Windows 浮动条轮廓、白边和贴边稳定性修复及真机复验项 |
+| [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
 | [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [浮动条位置稳定持久化](development/2026-09-03-floating-strip-placement-persistence.md) | 稳定物理显示器身份、多屏无损回退、重连恢复和跨平台实现证据 |
 | [DeepSeek 截止时间饥饿修复](development/2026-09-03-deepseek-timeout-starvation.md) | 阻塞 Keychain 读取、独立 GCD 单调时钟截止时间与 CI 回归证据 |
 | [v0.3.0-preview.0 双平台发布](development/2026-09-04-v0.3.0-preview.0-release.md) | 首个双平台 Preview 的版本、签名、资产、workflow 和发布后复验证据 |
 | [Windows 浮动条视觉与贴边修复](development/2026-09-04-windows-floating-strip-parity-fix.md) | 真机缺陷根因、红绿测试、实现边界与 `preview.1` 发布验证 |
+| [Windows 启动空白终端修复](development/2026-09-04-windows-console-window-suppression.md) | Windows Terminal 根因、PE subsystem 红绿门禁、最小入口修复与 `preview.2` 验收边界 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |

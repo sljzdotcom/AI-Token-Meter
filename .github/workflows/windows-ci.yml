@@ -54,6 +54,9 @@ jobs:
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug
+      - name: Verify Windows GUI subsystem
+        shell: pwsh
+        run: scripts/check-windows-pe-subsystem.ps1 -Path "windows/src-tauri/target/debug/ai-token-meter-windows.exe"
       - name: Upload Windows NSIS installer
         uses: actions/upload-artifact@v4
         with:
