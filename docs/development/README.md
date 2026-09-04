@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | [2026-09-04](2026-09-04-windows-deepseek-history-and-density.md) | Windows DeepSeek 显式官网同步、托管窗口生命周期、同步反馈和紧凑界面密度 | Windows 24 项前端、4 项浏览器生命周期、141 项 Rust 与本机门禁通过；真实 Windows 11 登录、关闭、聚焦和字体下拉待用户确认 |
 | [2026-09-04](2026-09-04-windows-console-window-suppression.md) | Windows 启动空白 Terminal 的 PE subsystem 根因、编译期修复与真实产物门禁 | subsystem `3 → 2` 红绿门禁、双平台 CI、`v0.3.0-preview.2` 公开发布、公网资产复验与 Windows 11 真机启动确认通过 |
-| [2026-09-04](2026-09-04-windows-floating-strip-parity-fix.md) | Windows 浮动条 macOS 同源轮廓、无白边合成与原生拖动释放 | 红绿测试与本机门禁完成；等待 Windows CI、双平台 `preview.1` 发布和真机 DPI/升级确认 |
+| [2026-09-04](2026-09-04-windows-floating-strip-parity-fix.md) | Windows 浮动条轮廓、白边和拖动稳定性修复及 `v0.3.0-preview.1` 发布 | 自动化、原生 Windows workflow、公开双平台资产与 Preview 更新通道通过；`preview.1` 已发布，真机 DPI/多屏/拖动及 `preview.0 → preview.1` 原位升级仍待用户确认 |
 | [2026-08-28 至 2026-08-30](2026-08-28-development-log.md) | 初始架构、三服务采集、菜单栏与悬浮条、详情自动隐藏、Claude 隔离工作区、用量准确性、Codex 重置额度、DeepSeek 30 天图表 | 100 个测试通过，真实 CLI 3/3，通过构建、签名和本机验收 |
 | [2026-08-31](2026-08-31-deepseek-focus.md) | DeepSeek 内嵌官网登录输入焦点修复 | 103 个测试、构建、签名、输入焦点与真实登录验收通过 |
 | [2026-08-31](2026-08-31-codex-deepseek-details.md) | Codex 额度优先详情与本机统计；DeepSeek 30 天自动同步兼容 | 110 个测试、Codex 真实集成、DeepSeek 官网聚合、release 构建和安装校验通过 |
@@ -42,13 +42,11 @@
 | [2026-09-03](2026-09-03-pty-allocation-race.md) | macOS 高并发 `openpty` 分配竞争修复 | 修复前 32 路回归可复现；修复后聚焦压力与 360 个完整测试通过 |
 | [2026-09-03](2026-09-03-ci-pty-exit-race.md) | GitHub runner 高负载下 PTY 退出回调、输出尾部与测试隔离修复 | 第二次复发已定位并关闭；20/20 压力、12 项 PTY 回归及双平台 main CI 通过 |
 | [2026-09-03](2026-09-03-update-status-window-frontmost.md) | Sparkle 安装状态窗口自动置前与 v0.2.2 公开升级终验 | 362 项回归、最终 CI 33702415007、公开资产/EdDSA/严格签名和隔离 0.2.1 → 0.2.2 原位升级与自动重启通过 |
-| [2026-09-03](2026-09-03-windows-platform.md) | Windows 11 x64 Tauri/Rust/React 版本与双平台同步发布 | 进行中；共享合同、三 Provider、Native/WSL、Win32 窗口、Services、DeepSeek WebView2、Updater、NSIS 与 Windows CI 已实现；交互式真机、签名升级演练和 Preview Release待完成 |
+| [2026-09-03](2026-09-03-windows-platform.md) | Windows 11 x64 Tauri/Rust/React 版本与双平台同步发布 | 核心平台能力已交付，`preview.0` / `preview.1` / `preview.2` 均已公开发布并通过发布 workflow；交互式 Windows 真机 DPI/多屏/拖动、签名升级演练及 `REQ-20260904-006` DeepSeek/字体下拉验收仍待完成 |
 | [2026-09-03](2026-09-03-deepseek-secret-read-priority.md) | 高并发 macOS CI 中 DeepSeek Keychain 读取的优先级反转修复 | 失败先行测试、374 项完整回归及双平台 main CI 通过 |
 | [2026-09-03](2026-09-03-floating-strip-placement-persistence.md) | 稳定保存浮动条的物理显示器、侧边和高度，多屏断开时无损回退主屏 | 三轮独立审查无剩余 Critical/Important；macOS/Windows PR 与精确合并头 CI 全绿，已合入 `main` |
 | [2026-09-03](2026-09-03-deepseek-timeout-starvation.md) | DeepSeek Keychain 阻塞读取不再饿死截止时间 | 失败重跑复现、独立单调时钟修复、386 项回归及 macOS PR/main CI 通过 |
 | [2026-09-04](2026-09-04-v0.3.0-preview.0-release.md) | 首个 macOS/Windows 同版本 Preview Release | 已完成；Actions Secret、双平台门禁、公开 prerelease、两平台签名与公网重下复验均有证据 |
-| [2026-09-04](2026-09-04-windows-floating-strip-parity-fix.md) | Windows 浮动条轮廓、白边和拖动稳定性修复及 `v0.3.0-preview.1` 发布 | 自动化、原生 Windows workflow、公开双平台资产和更新通道复验通过；Windows 真机视觉与交互待用户确认 |
-
 ## 新日志模板
 
 新增日志时使用 `YYYY-MM-DD-short-topic.md`，至少包含：

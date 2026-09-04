@@ -31,6 +31,36 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("docs/missing.md"))
     }
 
+    @Test("A development log can appear only once in its index")
+    func rejectsDuplicateDevelopmentLogIndexTarget() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let logName = "2026-09-04-example.md"
+        try "# Example log\n".write(
+            to: fixture.appendingPathComponent("docs/development/\(logName)"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        # Development log index
+
+        | Date | Entry |
+        | --- | --- |
+        | 2026-09-04 | [Example](\(logName)) |
+        | 2026-09-04 | [Duplicate](\(logName)) |
+        """.write(
+            to: fixture.appendingPathComponent("docs/development/README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status != 0)
+        #expect(result.output.contains("Duplicate development log index target"))
+        #expect(result.output.contains(logName))
+    }
+
     @Test("Third-party npm documentation is outside the project documentation boundary")
     func ignoresNodeModulesDocumentation() throws {
         let fixture = try makeFixture()
