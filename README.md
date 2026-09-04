@@ -9,7 +9,7 @@
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的贴边悬浮条中。副标题为 **Private AI usage monitor**。数据留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
+AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
