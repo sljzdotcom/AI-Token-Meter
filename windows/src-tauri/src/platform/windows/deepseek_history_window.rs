@@ -439,6 +439,20 @@ impl DeepSeekHistoryWindowCoordinator {
         self.reconcile_cleanup(generation)
     }
 
+    pub fn finish_cleanup_after_window_removed(
+        &mut self,
+        generation: DeepSeekHistoryGeneration,
+    ) -> bool {
+        let Some(session) = self.session.as_ref() else {
+            return true;
+        };
+        if session.generation != generation || !session.cleanup_pending {
+            return false;
+        }
+        self.session = None;
+        true
+    }
+
     fn claim_terminal(
         &mut self,
         generation: DeepSeekHistoryGeneration,

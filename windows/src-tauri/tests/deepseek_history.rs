@@ -13,7 +13,7 @@ use ai_token_meter_windows::platform::windows::deepseek_history_window::{
 };
 use ai_token_meter_windows::platform::windows::deepseek_webview::{
     DeepSeekBridgeCallback, is_allowed_deepseek_navigation, isolated_profile_directory,
-    parse_bridge_callback, parse_bridge_message,
+    parse_bridge_callback, parse_bridge_message, wait_for_residual_window_removal,
 };
 use ai_token_meter_windows::platform::windows::window_controller::DetailState;
 use ai_token_meter_windows::{ProviderDetailEffect, provider_detail_effects};
@@ -466,6 +466,99 @@ fn destroyed_event_releases_only_matching_pending_cleanup() {
     assert!(!coordinator.reconcile_destroyed(other_generation));
     assert!(coordinator.reconcile_destroyed(open.generation));
     assert!(!coordinator.has_session());
+}
+
+#[test]
+fn residual_cleanup_completion_is_idempotent_after_destroyed_event_wins() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+    let terminal = coordinator
+        .claim_failed(open.generation)
+        .expect("failure should reserve the terminal");
+    let execution = execute_window_actions(
+        terminal.actions(),
+        &mut FakeWindowExecutor::failing(DeepSeekHistoryWindowAction::DestroyHistory),
+    );
+    coordinator.finish_terminal(terminal, &execution);
+
+    assert!(coordinator.reconcile_destroyed(open.generation));
+    assert!(coordinator.finish_cleanup_after_window_removed(open.generation));
+    assert!(
+        coordinator
+            .open(NEXT_NONCE, datetime!(2026-09-04 10:00:03 UTC))
+            .actions
+            .contains(&DeepSeekHistoryWindowAction::CreateHidden)
+    );
+}
+
+#[tokio::test]
+async fn residual_window_wait_yields_until_async_destroy_removes_the_registration() {
+    let coordinator = std::cell::RefCell::new(DeepSeekHistoryWindowCoordinator::default());
+    let open = activate(&mut coordinator.borrow_mut(), NONCE);
+    let terminal = coordinator
+        .borrow_mut()
+        .claim_failed(open.generation)
+        .expect("failure should reserve the terminal");
+    let execution = execute_window_actions(
+        terminal.actions(),
+        &mut FakeWindowExecutor::failing(DeepSeekHistoryWindowAction::DestroyHistory),
+    );
+    coordinator
+        .borrow_mut()
+        .finish_terminal(terminal, &execution);
+    let observations = std::cell::Cell::new(0_usize);
+    let removed = wait_for_residual_window_removal(
+        || {
+            let observation = observations.get() + 1;
+            observations.set(observation);
+            if observation == 3 {
+                assert!(
+                    coordinator
+                        .borrow_mut()
+                        .reconcile_destroyed(open.generation)
+                );
+                return false;
+            }
+            true
+        },
+        || async {},
+        4,
+    )
+    .await;
+
+    assert!(removed);
+    assert_eq!(observations.get(), 3);
+    assert!(
+        coordinator
+            .borrow_mut()
+            .finish_cleanup_after_window_removed(open.generation)
+    );
+    let retry = coordinator
+        .borrow_mut()
+        .open(NEXT_NONCE, datetime!(2026-09-04 10:00:03 UTC));
+    assert_ne!(retry.generation, open.generation);
+    assert!(
+        retry
+            .actions
+            .contains(&DeepSeekHistoryWindowAction::CreateHidden)
+    );
+}
+
+#[tokio::test]
+async fn residual_window_wait_stops_at_its_bound() {
+    let waits = std::cell::Cell::new(0_usize);
+    let removed = wait_for_residual_window_removal(
+        || true,
+        || {
+            waits.set(waits.get() + 1);
+            async {}
+        },
+        3,
+    )
+    .await;
+
+    assert!(!removed);
+    assert_eq!(waits.get(), 2);
 }
 
 #[test]

@@ -642,7 +642,7 @@ fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_deepseek_history(
+async fn open_deepseek_history(
     app: tauri::AppHandle,
     state: State<'_, RuntimeState>,
 ) -> Result<crate::platform::windows::deepseek_history_window::DeepSeekHistoryStatusSnapshot, String>
@@ -651,6 +651,7 @@ fn open_deepseek_history(
         &app,
         Arc::clone(&state.deepseek_history),
     )
+    .await
 }
 
 #[tauri::command]

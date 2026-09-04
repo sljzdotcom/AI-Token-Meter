@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -31,6 +32,8 @@ const HISTORY_STATUS_EVENT: &str = "deepseek-history-status";
 const HISTORY_LOAD_TIMEOUT: Duration = Duration::from_secs(30);
 const HISTORY_TRANSFER_TIMEOUT: Duration = Duration::from_secs(20);
 const HISTORY_SESSION_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+const RESIDUAL_WINDOW_POLL_INTERVAL: Duration = Duration::from_millis(25);
+const RESIDUAL_WINDOW_MAX_OBSERVATIONS: usize = 81;
 const BRIDGE_SOURCE: &str = include_str!("../../../../src/deepseek-web/bridge.ts");
 
 pub(crate) type HistoryRuntime = Arc<Mutex<DeepSeekHistoryWindowRuntime>>;
@@ -166,11 +169,11 @@ fn required<'a>(
         .ok_or(DeepSeekHistoryError::InvalidPayload)
 }
 
-pub(crate) fn open_history_window(
+pub(crate) async fn open_history_window(
     app: &tauri::AppHandle,
     runtime: HistoryRuntime,
 ) -> Result<DeepSeekHistoryStatusSnapshot, String> {
-    reconcile_residual_window(app, &runtime)?;
+    reconcile_residual_window(app, &runtime).await?;
     let nonce = secure_nonce()?;
     let open = runtime
         .lock()
@@ -297,7 +300,7 @@ pub(crate) fn history_status(
         .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())
 }
 
-fn reconcile_residual_window(
+async fn reconcile_residual_window(
     app: &tauri::AppHandle,
     runtime: &HistoryRuntime,
 ) -> Result<(), String> {
@@ -313,19 +316,46 @@ fn reconcile_residual_window(
         window
             .destroy()
             .map_err(|_| "The previous DeepSeek history window could not be closed".to_owned())?;
-    }
-    if app.get_webview_window(HISTORY_WINDOW_LABEL).is_some() {
-        return Err("The previous DeepSeek history window is still closing".to_owned());
+        let removed = wait_for_residual_window_removal(
+            || app.get_webview_window(HISTORY_WINDOW_LABEL).is_some(),
+            || tokio::time::sleep(RESIDUAL_WINDOW_POLL_INTERVAL),
+            RESIDUAL_WINDOW_MAX_OBSERVATIONS,
+        )
+        .await;
+        if !removed {
+            return Err("The previous DeepSeek history window is still closing".to_owned());
+        }
     }
     let reconciled = runtime
         .lock()
         .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())?
         .coordinator
-        .reconcile_cleanup(generation);
+        .finish_cleanup_after_window_removed(generation);
     if !reconciled {
         return Err("DeepSeek history cleanup state changed unexpectedly".to_owned());
     }
     Ok(())
+}
+
+pub async fn wait_for_residual_window_removal<Exists, Wait, WaitFuture>(
+    mut window_exists: Exists,
+    mut wait: Wait,
+    maximum_observations: usize,
+) -> bool
+where
+    Exists: FnMut() -> bool,
+    Wait: FnMut() -> WaitFuture,
+    WaitFuture: Future<Output = ()>,
+{
+    for observation in 0..maximum_observations {
+        if !window_exists() {
+            return true;
+        }
+        if observation + 1 < maximum_observations {
+            wait().await;
+        }
+    }
+    false
 }
 
 fn handle_bridge_callback(
