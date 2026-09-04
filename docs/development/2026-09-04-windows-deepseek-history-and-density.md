@@ -133,3 +133,4 @@ PR #6 的 [Windows workflow 33878105470](https://github.com/sljzdotcom/AI-Token-
 - `e3dc723`–`1309d30`：修复 Windows runner 的前端性能、Vite 启动/ANSI、浏览器输出、profile 复用与后台帧调度差异；
 - PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；当前公开 Release 仍为不含本修复的 `0.3.0-preview.2`。
 - PR #6 已于 2026-09-04 合并为 `e62193c`；需求保持待用户确认，直到下一版 Preview 完成 Windows 11 真实登录、关闭、聚合和原生下拉验收。
+- 合并记录提交 `d520752` 的 [Windows main CI 33880527388](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527388) 与 [macOS main CI 33880527365](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527365) 均全绿；Windows 再次完成真实 Chrome、169 项原生测试、Release NSIS 和 PE GUI subsystem 验证。
