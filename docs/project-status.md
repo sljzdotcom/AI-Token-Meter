@@ -59,7 +59,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- macOS 完整自动化基线：**374 项主测试（71 个测试组）+ 12 项 PTY 系统资源测试（1 个测试组），总计 386 项/72 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
+- macOS 完整自动化基线：**375 项主测试（71 个测试组）+ 12 项 PTY 系统资源测试（1 个测试组），总计 387 项/72 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
 - 当前 Windows 未发布分支的本机跨平台基线：24 项 Vitest、4 项密度进程生命周期和 141 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。macOS 主机缺少 Windows MSVC C SDK，不能替代 `windows-latest` 的 Windows-only/Tauri/NSIS 构建；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；

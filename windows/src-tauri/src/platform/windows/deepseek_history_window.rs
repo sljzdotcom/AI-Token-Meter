@@ -1,10 +1,13 @@
 use serde::Serialize;
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 
 use crate::collectors::deepseek_history::{
     AcceptOutcome, DeepSeekHistory, DeepSeekHistoryAssembler, DeepSeekHistoryChunk,
     DeepSeekHistoryError,
 };
+use crate::platform::windows::window_controller::DetailOwnershipToken;
+
+const INTERACTIVE_SESSION_TIMEOUT: Duration = Duration::minutes(15);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -23,9 +26,16 @@ pub enum DeepSeekHistoryWindowAction {
     CreateHidden,
     ShowFocused,
     FocusExisting,
-    RestoreDetail,
+    RestoreDetail(DetailOwnershipToken),
     DestroyHistory,
-    EmitStatus(DeepSeekHistoryWindowStatus),
+    EmitStatus(DeepSeekHistoryStatusSnapshot),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeepSeekHistoryStatusSnapshot {
+    pub generation: Option<u64>,
+    pub status: DeepSeekHistoryWindowStatus,
 }
 
 pub trait DeepSeekHistoryWindowActionExecutor {
@@ -73,6 +83,7 @@ pub struct DeepSeekHistoryGeneration(u64);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeepSeekHistoryWindowOpen {
     pub generation: DeepSeekHistoryGeneration,
+    pub status: DeepSeekHistoryStatusSnapshot,
     pub actions: Vec<DeepSeekHistoryWindowAction>,
 }
 
@@ -105,7 +116,10 @@ struct DeepSeekHistorySession {
     generation: DeepSeekHistoryGeneration,
     nonce: String,
     assembler: DeepSeekHistoryAssembler,
+    opened_at: OffsetDateTime,
     phase: DeepSeekHistorySessionPhase,
+    detail_ownership: Option<DetailOwnershipToken>,
+    cleanup_pending: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -175,6 +189,13 @@ impl DeepSeekHistoryWindowCoordinator {
         self.status
     }
 
+    pub fn status_snapshot(&self) -> DeepSeekHistoryStatusSnapshot {
+        DeepSeekHistoryStatusSnapshot {
+            generation: (self.next_generation != 0).then_some(self.next_generation),
+            status: self.status,
+        }
+    }
+
     pub fn has_session(&self) -> bool {
         self.session.is_some()
     }
@@ -194,7 +215,12 @@ impl DeepSeekHistoryWindowCoordinator {
         if let Some(session) = &self.session {
             return DeepSeekHistoryWindowOpen {
                 generation: session.generation,
-                actions: vec![DeepSeekHistoryWindowAction::FocusExisting],
+                status: self.status_snapshot(),
+                actions: if session.phase == DeepSeekHistorySessionPhase::Active {
+                    vec![DeepSeekHistoryWindowAction::FocusExisting]
+                } else {
+                    Vec::new()
+                },
             };
         }
 
@@ -203,15 +229,20 @@ impl DeepSeekHistoryWindowCoordinator {
         self.session = Some(DeepSeekHistorySession {
             generation,
             nonce: nonce.to_owned(),
-            assembler: DeepSeekHistoryAssembler::new(nonce, now),
+            assembler: DeepSeekHistoryAssembler::new(nonce),
+            opened_at: now,
             phase: DeepSeekHistorySessionPhase::Opening,
+            detail_ownership: None,
+            cleanup_pending: false,
         });
         self.status = DeepSeekHistoryWindowStatus::Opening;
+        let status = self.status_snapshot();
         DeepSeekHistoryWindowOpen {
             generation,
+            status,
             actions: vec![
                 DeepSeekHistoryWindowAction::CreateHidden,
-                DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Opening),
+                DeepSeekHistoryWindowAction::EmitStatus(status),
             ],
         }
     }
@@ -242,6 +273,24 @@ impl DeepSeekHistoryWindowCoordinator {
         })
     }
 
+    pub fn attach_detail_ownership(
+        &mut self,
+        generation: DeepSeekHistoryGeneration,
+        ownership: DetailOwnershipToken,
+    ) -> bool {
+        let Some(session) = self.session.as_mut() else {
+            return false;
+        };
+        if session.generation != generation
+            || session.phase != DeepSeekHistorySessionPhase::Activating
+            || session.detail_ownership.is_some()
+        {
+            return false;
+        }
+        session.detail_ownership = Some(ownership);
+        true
+    }
+
     pub fn finish_ready(
         &mut self,
         claim: DeepSeekHistoryReadyClaim,
@@ -259,7 +308,10 @@ impl DeepSeekHistoryWindowCoordinator {
             session.phase = DeepSeekHistorySessionPhase::Active;
             self.status = DeepSeekHistoryWindowStatus::Active;
             DeepSeekHistoryReadyResolution::Activated(vec![
-                DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Active),
+                DeepSeekHistoryWindowAction::EmitStatus(status_snapshot(
+                    claim.generation,
+                    DeepSeekHistoryWindowStatus::Active,
+                )),
             ])
         } else {
             session.phase =
@@ -267,6 +319,7 @@ impl DeepSeekHistoryWindowCoordinator {
             DeepSeekHistoryReadyResolution::Recover(terminal_claim(
                 claim.generation,
                 DeepSeekHistoryTerminal::Failed,
+                session.detail_ownership,
             ))
         }
     }
@@ -292,7 +345,11 @@ impl DeepSeekHistoryWindowCoordinator {
                     DeepSeekHistorySessionPhase::Terminating(DeepSeekHistoryTerminal::Completed);
                 Ok(DeepSeekHistoryChunkOutcome::Complete {
                     history,
-                    terminal: terminal_claim(generation, DeepSeekHistoryTerminal::Completed),
+                    terminal: terminal_claim(
+                        generation,
+                        DeepSeekHistoryTerminal::Completed,
+                        session.detail_ownership,
+                    ),
                 })
             }
         }
@@ -303,6 +360,22 @@ impl DeepSeekHistoryWindowCoordinator {
         generation: DeepSeekHistoryGeneration,
     ) -> Option<DeepSeekHistoryTerminalClaim> {
         if !self.is_opening(generation) {
+            return None;
+        }
+        self.claim_terminal(generation, DeepSeekHistoryTerminal::Failed)
+    }
+
+    pub fn claim_session_timeout(
+        &mut self,
+        generation: DeepSeekHistoryGeneration,
+        now: OffsetDateTime,
+    ) -> Option<DeepSeekHistoryTerminalClaim> {
+        let session = self.session.as_ref()?;
+        if session.generation != generation
+            || matches!(session.phase, DeepSeekHistorySessionPhase::Terminating(_))
+            || now < session.opened_at
+            || now - session.opened_at < INTERACTIVE_SESSION_TIMEOUT
+        {
             return None;
         }
         self.claim_terminal(generation, DeepSeekHistoryTerminal::Failed)
@@ -322,6 +395,20 @@ impl DeepSeekHistoryWindowCoordinator {
         self.claim_terminal(generation, DeepSeekHistoryTerminal::Failed)
     }
 
+    pub fn cleanup_generation(&self) -> Option<DeepSeekHistoryGeneration> {
+        self.session
+            .as_ref()
+            .and_then(|session| session.cleanup_pending.then_some(session.generation))
+    }
+
+    pub fn reconcile_cleanup(&mut self, generation: DeepSeekHistoryGeneration) -> bool {
+        if self.cleanup_generation() != Some(generation) {
+            return false;
+        }
+        self.session = None;
+        true
+    }
+
     fn claim_terminal(
         &mut self,
         generation: DeepSeekHistoryGeneration,
@@ -334,7 +421,11 @@ impl DeepSeekHistoryWindowCoordinator {
             return None;
         }
         session.phase = DeepSeekHistorySessionPhase::Terminating(terminal);
-        Some(terminal_claim(generation, terminal))
+        Some(terminal_claim(
+            generation,
+            terminal,
+            session.detail_ownership,
+        ))
     }
 
     pub fn finish_terminal(
@@ -355,23 +446,46 @@ impl DeepSeekHistoryWindowCoordinator {
         } else {
             DeepSeekHistoryWindowStatus::Failed
         };
-        self.session = None;
         self.status = status;
-        vec![DeepSeekHistoryWindowAction::EmitStatus(status)]
+        let destroy_failed = execution
+            .failed_actions
+            .contains(&DeepSeekHistoryWindowAction::DestroyHistory);
+        if destroy_failed {
+            if let Some(session) = self.session.as_mut() {
+                session.cleanup_pending = true;
+            }
+        } else {
+            self.session = None;
+        }
+        vec![DeepSeekHistoryWindowAction::EmitStatus(status_snapshot(
+            claim.generation,
+            status,
+        ))]
+    }
+}
+
+fn status_snapshot(
+    generation: DeepSeekHistoryGeneration,
+    status: DeepSeekHistoryWindowStatus,
+) -> DeepSeekHistoryStatusSnapshot {
+    DeepSeekHistoryStatusSnapshot {
+        generation: Some(generation.0),
+        status,
     }
 }
 
 fn terminal_claim(
     generation: DeepSeekHistoryGeneration,
     terminal: DeepSeekHistoryTerminal,
+    detail_ownership: Option<DetailOwnershipToken>,
 ) -> DeepSeekHistoryTerminalClaim {
-    let actions = match terminal {
-        DeepSeekHistoryTerminal::Cancelled => vec![DeepSeekHistoryWindowAction::RestoreDetail],
-        DeepSeekHistoryTerminal::Completed | DeepSeekHistoryTerminal::Failed => vec![
-            DeepSeekHistoryWindowAction::DestroyHistory,
-            DeepSeekHistoryWindowAction::RestoreDetail,
-        ],
-    };
+    let mut actions = Vec::with_capacity(2);
+    if terminal != DeepSeekHistoryTerminal::Cancelled {
+        actions.push(DeepSeekHistoryWindowAction::DestroyHistory);
+    }
+    if let Some(ownership) = detail_ownership {
+        actions.push(DeepSeekHistoryWindowAction::RestoreDetail(ownership));
+    }
     DeepSeekHistoryTerminalClaim {
         generation,
         terminal,

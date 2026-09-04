@@ -2,7 +2,12 @@ import assert from "node:assert/strict"
 import { EventEmitter } from "node:events"
 import test from "node:test"
 
-import { runBrowser, spawnManagedProcess, stopProcessTree } from "./density-process-lifecycle.mjs"
+import {
+  runBrowser,
+  spawnDensityPreview,
+  spawnManagedProcess,
+  stopProcessTree,
+} from "./density-process-lifecycle.mjs"
 
 class FakeChild extends EventEmitter {
   constructor(pid = 4321) {
@@ -34,6 +39,26 @@ test("starts Unix commands in their own process group", () => {
   assert.equal(options.detached, true)
 })
 
+test("starts the density server from the production preview command", () => {
+  const child = new FakeChild()
+  let invocation
+
+  const result = spawnDensityPreview("/fixture/windows", {
+    platform: "darwin",
+    spawnImpl: (command, args, options) => {
+      invocation = { command, args, options }
+      return child
+    },
+  })
+
+  assert.equal(result, child)
+  assert.equal(invocation.command, "npm")
+  assert.deepEqual(invocation.args, [
+    "run", "preview:density", "--", "--host", "127.0.0.1", "--port", "0",
+  ])
+  assert.equal(invocation.options.cwd, "/fixture/windows")
+})
+
 test("terminates a Unix process group with TERM then KILL when it will not exit", async () => {
   const child = new FakeChild()
   const signals = []
@@ -43,11 +68,52 @@ test("terminates a Unix process group with TERM then KILL when it will not exit"
       platform: "darwin",
       killProcess: (pid, signal) => signals.push([pid, signal]),
       waitForExit: async () => false,
+      waitForGroupExit: async () => false,
     }),
     /did not exit after cleanup/,
   )
 
   assert.deepEqual(signals, [[-4321, "SIGTERM"], [-4321, "SIGKILL"]])
+})
+
+test("kills surviving Unix descendants even when the process-group leader exits", async () => {
+  const child = new FakeChild()
+  const signals = []
+
+  await stopProcessTree(child, {
+    platform: "darwin",
+    killProcess: (pid, signal) => {
+      signals.push([pid, signal])
+      if (signal === 0) return
+    },
+    waitForExit: async () => {
+      child.exitCode = 0
+      return true
+    },
+    waitForGroupExit: async () => signals.some(([, signal]) => signal === "SIGKILL"),
+  })
+
+  assert.deepEqual(signals, [
+    [-4321, "SIGTERM"],
+    [-4321, "SIGKILL"],
+  ])
+})
+
+test("allows Unix descendants the full TERM grace period before deciding to KILL", async () => {
+  const child = new FakeChild()
+  const signals = []
+
+  await stopProcessTree(child, {
+    platform: "darwin",
+    killProcess: (pid, signal) => { signals.push([pid, signal]) },
+    waitForExit: async () => {
+      child.exitCode = 0
+      return true
+    },
+    waitForGroupExit: async () => true,
+  })
+
+  assert.deepEqual(signals, [[-4321, "SIGTERM"]])
 })
 
 test("times out a stalled browser and always invokes process-tree cleanup", async () => {

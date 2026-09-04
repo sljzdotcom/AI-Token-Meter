@@ -1,3 +1,5 @@
+use crate::domain::ProviderId;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Edge {
     Left,
@@ -169,27 +171,129 @@ impl WindowPlacement {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DetailOwnershipToken {
+    provider: ProviderId,
+    revision: u64,
+}
+
+impl DetailOwnershipToken {
+    pub const fn provider(self) -> ProviderId {
+        self.provider
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum DetailPhase {
+    #[default]
+    Closed,
+    Visible(DetailOwnershipToken),
+    SuspendedByHistory(DetailOwnershipToken),
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DetailState {
-    visible: bool,
+    revision: u64,
+    phase: DetailPhase,
 }
 
 impl DetailState {
-    pub fn open(&mut self) -> DetailCommand {
-        self.visible = true;
-        DetailCommand::ShowFocusedTopmost
+    pub fn open(&mut self, provider: ProviderId) -> (DetailOwnershipToken, DetailCommand) {
+        self.revision = self.revision.wrapping_add(1).max(1);
+        let ownership = DetailOwnershipToken {
+            provider,
+            revision: self.revision,
+        };
+        self.phase = DetailPhase::Visible(ownership);
+        (ownership, DetailCommand::ShowFocusedTopmost)
+    }
+
+    pub fn open_with_rollback<E>(
+        &mut self,
+        provider: ProviderId,
+        apply: impl FnOnce() -> Result<(), E>,
+        rollback: impl FnOnce(),
+    ) -> Result<DetailOwnershipToken, E> {
+        let (ownership, _) = self.open(provider);
+        match apply() {
+            Ok(()) => Ok(ownership),
+            Err(error) => {
+                rollback();
+                self.invalidate();
+                Err(error)
+            }
+        }
     }
 
     pub fn close(&mut self) -> DetailCommand {
-        if !self.visible {
+        if self.phase == DetailPhase::Closed {
             return DetailCommand::Noop;
         }
-        self.visible = false;
+        self.invalidate();
         DetailCommand::HideAndClearTopmost
     }
 
     pub const fn is_visible(self) -> bool {
-        self.visible
+        matches!(self.phase, DetailPhase::Visible(_))
+    }
+
+    pub const fn current_provider(self) -> Option<ProviderId> {
+        match self.phase {
+            DetailPhase::Closed => None,
+            DetailPhase::Visible(ownership) | DetailPhase::SuspendedByHistory(ownership) => {
+                Some(ownership.provider)
+            }
+        }
+    }
+
+    pub fn suspend_for_history(&mut self, provider: ProviderId) -> Option<DetailOwnershipToken> {
+        let DetailPhase::Visible(ownership) = self.phase else {
+            return None;
+        };
+        if ownership.provider != provider {
+            return None;
+        }
+        self.phase = DetailPhase::SuspendedByHistory(ownership);
+        Some(ownership)
+    }
+
+    pub fn is_suspended_by(self, ownership: DetailOwnershipToken) -> bool {
+        matches!(self.phase, DetailPhase::SuspendedByHistory(current) if current == ownership)
+    }
+
+    pub fn focus_lost(&mut self) -> DetailCommand {
+        if matches!(self.phase, DetailPhase::Visible(_)) {
+            self.close()
+        } else {
+            DetailCommand::Noop
+        }
+    }
+
+    pub fn restore_if_owned<E>(
+        &mut self,
+        ownership: DetailOwnershipToken,
+        restore: impl FnOnce(ProviderId) -> Result<(), E>,
+        rollback: impl FnOnce(),
+    ) -> Result<bool, E> {
+        if !self.is_suspended_by(ownership) {
+            return Ok(false);
+        }
+        match restore(ownership.provider) {
+            Ok(()) => {
+                self.phase = DetailPhase::Visible(ownership);
+                Ok(true)
+            }
+            Err(error) => {
+                rollback();
+                self.invalidate();
+                Err(error)
+            }
+        }
+    }
+
+    fn invalidate(&mut self) {
+        self.revision = self.revision.wrapping_add(1).max(1);
+        self.phase = DetailPhase::Closed;
     }
 }
 

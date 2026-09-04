@@ -45,17 +45,17 @@ pub enum AcceptOutcome {
 
 pub struct DeepSeekHistoryAssembler {
     expected_nonce: String,
-    started_at: OffsetDateTime,
+    transfer_started_at: Option<OffsetDateTime>,
     expected_chunks: Option<u16>,
     chunks: BTreeMap<u16, String>,
     payload_bytes: usize,
 }
 
 impl DeepSeekHistoryAssembler {
-    pub fn new(expected_nonce: impl Into<String>, started_at: OffsetDateTime) -> Self {
+    pub fn new(expected_nonce: impl Into<String>) -> Self {
         Self {
             expected_nonce: expected_nonce.into(),
-            started_at,
+            transfer_started_at: None,
             expected_chunks: None,
             chunks: BTreeMap::new(),
             payload_bytes: 0,
@@ -67,9 +67,6 @@ impl DeepSeekHistoryAssembler {
         chunk: DeepSeekHistoryChunk,
         now: OffsetDateTime,
     ) -> Result<AcceptOutcome, DeepSeekHistoryError> {
-        if now < self.started_at || now - self.started_at > ASSEMBLY_TIMEOUT {
-            return Err(DeepSeekHistoryError::Expired);
-        }
         if chunk.nonce != self.expected_nonce {
             return Err(DeepSeekHistoryError::NonceMismatch);
         }
@@ -86,6 +83,10 @@ impl DeepSeekHistoryAssembler {
             .is_some_and(|expected| expected != chunk.total)
         {
             return Err(DeepSeekHistoryError::ChunkSequenceMismatch);
+        }
+        let transfer_started_at = *self.transfer_started_at.get_or_insert(now);
+        if now < transfer_started_at || now - transfer_started_at > ASSEMBLY_TIMEOUT {
+            return Err(DeepSeekHistoryError::Expired);
         }
         self.expected_chunks = Some(chunk.total);
 

@@ -12,6 +12,7 @@ type ProviderDetailProps = {
   onInteractionEnd: () => void
   onDeepSeekHistorySync?: () => void
   deepseekHistoryStatus?: DeepSeekHistoryStatus
+  deepseekHistoryStatusPathAvailable?: boolean
 }
 
 export function ProviderDetail({
@@ -22,6 +23,7 @@ export function ProviderDetail({
   onInteractionEnd,
   onDeepSeekHistorySync,
   deepseekHistoryStatus,
+  deepseekHistoryStatusPathAvailable,
 }: ProviderDetailProps) {
   const percent = snapshot.usedRatio == null ? null : Math.round(snapshot.usedRatio * 100)
   return (
@@ -83,7 +85,12 @@ export function ProviderDetail({
       {snapshot.providerId === "deepseek" ? (
         <section className="detail-section detail-section--history">
           <h2>Last 30 days · Official website</h2>
-          <DeepSeekHistory onSync={onDeepSeekHistorySync} snapshot={snapshot} syncStatus={deepseekHistoryStatus} />
+          <DeepSeekHistory
+            onSync={onDeepSeekHistorySync}
+            snapshot={snapshot}
+            statusPathAvailable={deepseekHistoryStatusPathAvailable}
+            syncStatus={deepseekHistoryStatus}
+          />
         </section>
       ) : null}
 

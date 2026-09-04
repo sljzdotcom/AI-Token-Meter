@@ -9,16 +9,17 @@ use tauri::{Emitter, Manager, WebviewUrl};
 use time::OffsetDateTime;
 
 use crate::RuntimeState;
-use crate::collectors::deepseek_history::{
-    DeepSeekHistoryChunk, DeepSeekHistoryError, apply_history,
-};
+use crate::collectors::deepseek_history::{DeepSeekHistoryChunk, DeepSeekHistoryError};
 use crate::domain::ProviderId;
 use crate::platform::windows::deepseek_history_window::{
     DeepSeekHistoryChunkOutcome, DeepSeekHistoryGeneration, DeepSeekHistoryReadyResolution,
-    DeepSeekHistoryTerminalClaim, DeepSeekHistoryWindowAction, DeepSeekHistoryWindowActionExecutor,
-    DeepSeekHistoryWindowCoordinator, DeepSeekHistoryWindowExecution, execute_window_actions,
+    DeepSeekHistoryStatusSnapshot, DeepSeekHistoryTerminalClaim, DeepSeekHistoryWindowAction,
+    DeepSeekHistoryWindowActionExecutor, DeepSeekHistoryWindowCoordinator,
+    DeepSeekHistoryWindowExecution, execute_window_actions,
 };
-use crate::platform::windows::window_controller::show_detail_window;
+use crate::platform::windows::window_controller::{
+    DetailOwnershipToken, hide_detail_window, show_detail_window,
+};
 
 const OFFICIAL_CONSOLE_HOST: &str = "platform.deepseek.com";
 const OFFICIAL_CONSOLE_ORIGIN: &str = "https://platform.deepseek.com";
@@ -28,14 +29,19 @@ const HISTORY_WINDOW_LABEL: &str = "deepseek-history";
 const HISTORY_URL: &str = "https://platform.deepseek.com/usage";
 const HISTORY_STATUS_EVENT: &str = "deepseek-history-status";
 const HISTORY_LOAD_TIMEOUT: Duration = Duration::from_secs(30);
+const HISTORY_SESSION_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const BRIDGE_SOURCE: &str = include_str!("../../../../src/deepseek-web/bridge.ts");
 
-type HistoryRuntime = Arc<Mutex<DeepSeekHistoryWindowRuntime>>;
+pub(crate) type HistoryRuntime = Arc<Mutex<DeepSeekHistoryWindowRuntime>>;
 
 #[derive(Default)]
 pub(crate) struct DeepSeekHistoryWindowRuntime {
     coordinator: DeepSeekHistoryWindowCoordinator,
-    timeout: Option<(
+    ready_timeout: Option<(
+        DeepSeekHistoryGeneration,
+        tauri::async_runtime::JoinHandle<()>,
+    )>,
+    session_timeout: Option<(
         DeepSeekHistoryGeneration,
         tauri::async_runtime::JoinHandle<()>,
     )>,
@@ -158,7 +164,8 @@ fn required<'a>(
 pub(crate) fn open_history_window(
     app: &tauri::AppHandle,
     runtime: HistoryRuntime,
-) -> Result<(), String> {
+) -> Result<DeepSeekHistoryStatusSnapshot, String> {
+    reconcile_residual_window(app, &runtime)?;
     let nonce = secure_nonce()?;
     let open = runtime
         .lock()
@@ -174,7 +181,7 @@ pub(crate) fn open_history_window(
         return Err("The DeepSeek history window could not be prepared".to_owned());
     }
     if !should_create {
-        return Ok(());
+        return Ok(open.status);
     }
 
     let local_app_data = std::env::var_os("LOCALAPPDATA")
@@ -263,7 +270,47 @@ pub(crate) fn open_history_window(
         }
     });
 
-    install_timeout(app, &runtime, generation);
+    install_timeouts(app, &runtime, generation);
+    Ok(open.status)
+}
+
+pub(crate) fn history_status(
+    runtime: &HistoryRuntime,
+) -> Result<DeepSeekHistoryStatusSnapshot, String> {
+    runtime
+        .lock()
+        .map(|runtime| runtime.coordinator.status_snapshot())
+        .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())
+}
+
+fn reconcile_residual_window(
+    app: &tauri::AppHandle,
+    runtime: &HistoryRuntime,
+) -> Result<(), String> {
+    let generation = runtime
+        .lock()
+        .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())?
+        .coordinator
+        .cleanup_generation();
+    let Some(generation) = generation else {
+        return Ok(());
+    };
+    if let Some(window) = app.get_webview_window(HISTORY_WINDOW_LABEL) {
+        window
+            .destroy()
+            .map_err(|_| "The previous DeepSeek history window could not be closed".to_owned())?;
+    }
+    if app.get_webview_window(HISTORY_WINDOW_LABEL).is_some() {
+        return Err("The previous DeepSeek history window is still closing".to_owned());
+    }
+    let reconciled = runtime
+        .lock()
+        .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())?
+        .coordinator
+        .reconcile_cleanup(generation);
+    if !reconciled {
+        return Err("DeepSeek history cleanup state changed unexpectedly".to_owned());
+    }
     Ok(())
 }
 
@@ -289,7 +336,7 @@ fn handle_bridge_callback(
                     DeepSeekHistoryChunkOutcome::Ignored | DeepSeekHistoryChunkOutcome::Waiting,
                 ) => {}
                 Some(DeepSeekHistoryChunkOutcome::Complete { history, terminal }) => {
-                    cancel_timeout(runtime, generation);
+                    cancel_timeouts(runtime, generation);
                     let applied = apply_completed_history(app, &history).is_ok();
                     finish_terminal(app, runtime, terminal, applied);
                 }
@@ -313,8 +360,12 @@ fn handle_ready(
     let Some(ready) = ready else {
         return;
     };
-    cancel_timeout(runtime, generation);
-    let execution = execute_actions(app, ready.actions());
+    cancel_ready_timeout(runtime, generation);
+    let suspension_failed = suspend_owned_detail(app, runtime, generation).is_err();
+    let mut execution = execute_actions(app, ready.actions());
+    if suspension_failed {
+        execution.record_operation_failure();
+    }
     let resolution = runtime
         .lock()
         .map(|mut runtime| runtime.coordinator.finish_ready(ready, &execution))
@@ -330,51 +381,111 @@ fn handle_ready(
     }
 }
 
-fn install_timeout(
+fn install_timeouts(
     app: &tauri::AppHandle,
     runtime: &HistoryRuntime,
     generation: DeepSeekHistoryGeneration,
 ) {
-    let app_for_timeout = app.clone();
-    let runtime_for_timeout = Arc::clone(runtime);
-    let handle = tauri::async_runtime::spawn(async move {
+    let app_for_ready_timeout = app.clone();
+    let runtime_for_ready_timeout = Arc::clone(runtime);
+    let ready_handle = tauri::async_runtime::spawn(async move {
         tokio::time::sleep(HISTORY_LOAD_TIMEOUT).await;
-        let terminal = runtime_for_timeout.lock().ok().and_then(|mut runtime| {
-            if runtime
-                .timeout
-                .as_ref()
-                .is_some_and(|(scheduled, _)| *scheduled == generation)
-            {
-                runtime.timeout = None;
-            }
-            runtime.coordinator.claim_timeout(generation)
-        });
+        let terminal = runtime_for_ready_timeout
+            .lock()
+            .ok()
+            .and_then(|mut runtime| {
+                if runtime
+                    .ready_timeout
+                    .as_ref()
+                    .is_some_and(|(scheduled, _)| *scheduled == generation)
+                {
+                    runtime.ready_timeout = None;
+                }
+                runtime.coordinator.claim_timeout(generation)
+            });
         if let Some(terminal) = terminal {
-            finish_terminal(&app_for_timeout, &runtime_for_timeout, terminal, true);
+            finish_terminal(
+                &app_for_ready_timeout,
+                &runtime_for_ready_timeout,
+                terminal,
+                true,
+            );
+        }
+    });
+    let app_for_session_timeout = app.clone();
+    let runtime_for_session_timeout = Arc::clone(runtime);
+    let session_handle = tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(HISTORY_SESSION_TIMEOUT).await;
+        let terminal = runtime_for_session_timeout
+            .lock()
+            .ok()
+            .and_then(|mut runtime| {
+                if runtime
+                    .session_timeout
+                    .as_ref()
+                    .is_some_and(|(scheduled, _)| *scheduled == generation)
+                {
+                    runtime.session_timeout = None;
+                }
+                runtime
+                    .coordinator
+                    .claim_session_timeout(generation, OffsetDateTime::now_utc())
+            });
+        if let Some(terminal) = terminal {
+            finish_terminal(
+                &app_for_session_timeout,
+                &runtime_for_session_timeout,
+                terminal,
+                true,
+            );
         }
     });
     let mut runtime_guard = match runtime.lock() {
         Ok(runtime) => runtime,
         Err(_) => {
-            handle.abort();
+            ready_handle.abort();
+            session_handle.abort();
             return;
         }
     };
     if runtime_guard.coordinator.is_opening(generation) {
-        runtime_guard.timeout = Some((generation, handle));
+        runtime_guard.ready_timeout = Some((generation, ready_handle));
     } else {
+        ready_handle.abort();
+    }
+    if runtime_guard.coordinator.current_generation() == Some(generation) {
+        runtime_guard.session_timeout = Some((generation, session_handle));
+    } else {
+        session_handle.abort();
+    }
+}
+
+fn cancel_ready_timeout(runtime: &HistoryRuntime, generation: DeepSeekHistoryGeneration) {
+    let handle = runtime.lock().ok().and_then(|mut runtime| {
+        if runtime
+            .ready_timeout
+            .as_ref()
+            .is_some_and(|(scheduled, _)| *scheduled == generation)
+        {
+            runtime.ready_timeout.take().map(|(_, handle)| handle)
+        } else {
+            None
+        }
+    });
+    if let Some(handle) = handle {
         handle.abort();
     }
 }
 
-fn cancel_timeout(runtime: &HistoryRuntime, generation: DeepSeekHistoryGeneration) {
+fn cancel_timeouts(runtime: &HistoryRuntime, generation: DeepSeekHistoryGeneration) {
+    cancel_ready_timeout(runtime, generation);
     let handle = runtime.lock().ok().and_then(|mut runtime| {
         if runtime
-            .timeout
+            .session_timeout
             .as_ref()
             .is_some_and(|(scheduled, _)| *scheduled == generation)
         {
-            runtime.timeout.take().map(|(_, handle)| handle)
+            runtime.session_timeout.take().map(|(_, handle)| handle)
         } else {
             None
         }
@@ -404,7 +515,7 @@ fn finish_terminal(
     terminal: DeepSeekHistoryTerminalClaim,
     operation_succeeded: bool,
 ) {
-    cancel_timeout(runtime, terminal.generation());
+    cancel_timeouts(runtime, terminal.generation());
     let mut execution = execute_actions(app, terminal.actions());
     if !operation_succeeded {
         execution.record_operation_failure();
@@ -421,12 +532,11 @@ fn apply_completed_history(
     history: &crate::collectors::deepseek_history::DeepSeekHistory,
 ) -> Result<(), String> {
     let state = app.state::<RuntimeState>();
-    let updated = apply_history(&state.usage.snapshot(ProviderId::DeepSeek), history)
-        .map_err(|_| "DeepSeek history could not be applied".to_owned())?;
-    state.usage.replace_external(updated.clone());
+    let updated = state
+        .usage
+        .merge_deepseek_history(&history.days, &history.fetched_at)
+        .map_err(|_| "DeepSeek history could not be persisted".to_owned())?;
     app.emit("snapshot-updated", &updated)
-        .map_err(|_| "DeepSeek history could not be published".to_owned())?;
-    app.emit("active-detail-changed", &updated)
         .map_err(|_| "DeepSeek history could not be published".to_owned())?;
     Ok(())
 }
@@ -443,7 +553,9 @@ impl DeepSeekHistoryWindowActionExecutor for TauriHistoryActionExecutor<'_> {
             DeepSeekHistoryWindowAction::CreateHidden => Ok(()),
             DeepSeekHistoryWindowAction::ShowFocused
             | DeepSeekHistoryWindowAction::FocusExisting => focus_history_window(self.app),
-            DeepSeekHistoryWindowAction::RestoreDetail => restore_detail_window(self.app),
+            DeepSeekHistoryWindowAction::RestoreDetail(ownership) => {
+                restore_detail_window(self.app, ownership)
+            }
             DeepSeekHistoryWindowAction::DestroyHistory => {
                 if let Some(window) = self.app.get_webview_window(HISTORY_WINDOW_LABEL) {
                     window
@@ -469,13 +581,6 @@ fn execute_actions(
 }
 
 fn focus_history_window(app: &tauri::AppHandle) -> Result<(), String> {
-    let detail = app
-        .get_webview_window("detail")
-        .ok_or_else(|| "The detail window is unavailable".to_owned())?;
-    detail
-        .set_always_on_top(false)
-        .and_then(|_| detail.hide())
-        .map_err(|_| "The detail window could not be suspended".to_owned())?;
     let history = app
         .get_webview_window(HISTORY_WINDOW_LABEL)
         .ok_or_else(|| "The DeepSeek history window is unavailable".to_owned())?;
@@ -485,14 +590,66 @@ fn focus_history_window(app: &tauri::AppHandle) -> Result<(), String> {
         .map_err(|_| "The DeepSeek history window could not be focused".to_owned())
 }
 
-fn restore_detail_window(app: &tauri::AppHandle) -> Result<(), String> {
+fn suspend_owned_detail(
+    app: &tauri::AppHandle,
+    runtime: &HistoryRuntime,
+    generation: DeepSeekHistoryGeneration,
+) -> Result<(), String> {
     let state = app.state::<RuntimeState>();
-    let snapshot = state.usage.snapshot(ProviderId::DeepSeek);
-    let (edge, _, _) = state.meter_position();
-    show_detail_window(app, edge)
-        .map_err(|_| "The detail window could not be restored".to_owned())?;
-    app.emit("active-detail-changed", &snapshot)
-        .map_err(|_| "The detail window could not be updated".to_owned())
+    let mut detail_state = state
+        .detail_state
+        .lock()
+        .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
+    let Some(ownership) = detail_state.suspend_for_history(ProviderId::DeepSeek) else {
+        return Ok(());
+    };
+    let attached = runtime
+        .lock()
+        .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())?
+        .coordinator
+        .attach_detail_ownership(generation, ownership);
+    if !attached {
+        let _ = detail_state.restore_if_owned(ownership, |_| Ok::<_, ()>(()), || {});
+        return Err("DeepSeek history detail ownership changed unexpectedly".to_owned());
+    }
+    let detail = app
+        .get_webview_window("detail")
+        .ok_or_else(|| "The detail window is unavailable".to_owned())?;
+    detail
+        .set_always_on_top(false)
+        .and_then(|_| detail.hide())
+        .map_err(|_| "The detail window could not be suspended".to_owned())
+}
+
+fn restore_detail_window(
+    app: &tauri::AppHandle,
+    ownership: DetailOwnershipToken,
+) -> Result<(), String> {
+    let state = app.state::<RuntimeState>();
+    let mut detail_state = state
+        .detail_state
+        .lock()
+        .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
+    detail_state
+        .restore_if_owned(
+            ownership,
+            |provider| {
+                let snapshot = state.usage.snapshot(provider);
+                let (edge, _, _) = state.meter_position();
+                show_detail_window(app, edge)
+                    .map_err(|_| "The detail window could not be restored".to_owned())?;
+                app.emit("active-detail-changed", &snapshot)
+                    .map_err(|_| "The detail window could not be updated".to_owned())
+            },
+            || {
+                // A late focus or event failure can occur after the native window
+                // became visible/topmost. Roll that partial effect back while the
+                // ownership lock is still held; DetailState simultaneously moves
+                // to a fresh Closed revision.
+                let _ = hide_detail_window(app);
+            },
+        )
+        .map(|_| ())
 }
 
 fn secure_nonce() -> Result<String, String> {
@@ -506,7 +663,7 @@ fn initialization_script(nonce: &str) -> String {
     format!(
         r#"
 const __aiMeterBridgeFactory = {BRIDGE_SOURCE};
-__aiMeterBridgeFactory("{nonce}", (payload) => {{
+const __aiMeterBridge = __aiMeterBridgeFactory("{nonce}", (payload) => {{
   const fragments = [];
   for (let offset = 0; offset < payload.length; offset += 12000) {{
     fragments.push(payload.slice(offset, offset + 12000));
@@ -534,11 +691,9 @@ const __aiMeterSignalReady = () => {{
   }});
   window.location.assign(`{CALLBACK_SCHEME}://{CALLBACK_HOST}?${{query}}`);
 }};
-if (document.readyState === "loading") {{
-  document.addEventListener("DOMContentLoaded", __aiMeterSignalReady, {{ once: true }});
-}} else {{
-  window.setTimeout(__aiMeterSignalReady, 0);
-}}
+__aiMeterBridge.waitUntilUsablePage(25000, 100).then((usable) => {{
+  if (usable) __aiMeterSignalReady();
+}});
 "#
     )
 }

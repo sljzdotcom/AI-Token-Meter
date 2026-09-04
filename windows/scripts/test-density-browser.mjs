@@ -2,15 +2,15 @@ import { existsSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { runBrowser, spawnManagedProcess, stopProcessTree } from "./density-process-lifecycle.mjs"
+import { runBrowser, spawnDensityPreview, stopProcessTree } from "./density-process-lifecycle.mjs"
 
 const windowsRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
 const browser = findBrowser()
-const vite = startVite()
+const vite = startPreview()
 
 try {
   const baseUrl = await vite.ready
-  await waitForVite(baseUrl)
+  await waitForPreview(baseUrl)
   const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`)
   const report = densityReport(output)
   assertDensity(report)
@@ -44,12 +44,8 @@ function findBrowser() {
   return { label: browser[0], path: browser[1] }
 }
 
-function startVite() {
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm"
-  const vite = spawnManagedProcess(npm, ["run", "dev", "--", "--host", "127.0.0.1", "--port", "0"], {
-    cwd: windowsRoot,
-    stdio: ["ignore", "pipe", "pipe"],
-  })
+function startPreview() {
+  const vite = spawnDensityPreview(windowsRoot)
   let output = ""
   const ready = new Promise((resolveUrl, reject) => {
     const timeout = setTimeout(() => reject(new Error(`Timed out starting Vite:\n${output}`)), 10_000)
@@ -75,18 +71,18 @@ function startVite() {
   return { process: vite, ready }
 }
 
-async function waitForVite(baseUrl) {
+async function waitForPreview(baseUrl) {
   const url = `${baseUrl}density-browser.html`
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
       const response = await fetch(url)
       if (response.ok) return
     } catch {
-      // The development server is still starting.
+      // The production preview server is still starting.
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 100))
   }
-  throw new Error("Timed out waiting for Vite")
+  throw new Error("Timed out waiting for the production preview")
 }
 
 async function stopVite(vite) {

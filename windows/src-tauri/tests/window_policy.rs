@@ -1,3 +1,7 @@
+use std::cell::Cell;
+use std::sync::{Arc, Mutex, mpsc};
+
+use ai_token_meter_windows::domain::ProviderId;
 use ai_token_meter_windows::platform::windows::desktop_visibility::{
     ForegroundWindow, should_hide_for_foreground,
 };
@@ -101,11 +105,188 @@ fn a_fullscreen_foreground_on_the_same_monitor_hides_the_meter() {
 #[test]
 fn detail_topmost_is_scoped_to_the_visible_session() {
     let mut state = DetailState::default();
-    assert_eq!(state.open(), DetailCommand::ShowFocusedTopmost);
+    let (_, command) = state.open(ProviderId::Claude);
+    assert_eq!(command, DetailCommand::ShowFocusedTopmost);
     assert!(state.is_visible());
     assert_eq!(state.close(), DetailCommand::HideAndClearTopmost);
     assert!(!state.is_visible());
     assert_eq!(state.close(), DetailCommand::Noop);
+}
+
+#[test]
+fn stale_history_restore_cannot_override_a_new_provider_or_revision() {
+    let mut state = DetailState::default();
+    state.open(ProviderId::DeepSeek);
+    let first = state
+        .suspend_for_history(ProviderId::DeepSeek)
+        .expect("visible DeepSeek detail can be suspended");
+
+    state.open(ProviderId::Claude);
+    assert!(
+        !state
+            .restore_if_owned(first, |_| Ok::<_, ()>(()), || {})
+            .unwrap()
+    );
+    assert_eq!(state.current_provider(), Some(ProviderId::Claude));
+
+    state.open(ProviderId::DeepSeek);
+    assert!(
+        !state
+            .restore_if_owned(first, |_| Ok::<_, ()>(()), || {})
+            .unwrap()
+    );
+    assert_eq!(state.current_provider(), Some(ProviderId::DeepSeek));
+}
+
+#[test]
+fn stale_history_restore_cannot_reopen_an_explicitly_closed_detail() {
+    let mut state = DetailState::default();
+    state.open(ProviderId::DeepSeek);
+    let first = state
+        .suspend_for_history(ProviderId::DeepSeek)
+        .expect("visible DeepSeek detail can be suspended");
+    assert_eq!(state.close(), DetailCommand::HideAndClearTopmost);
+
+    assert!(
+        !state
+            .restore_if_owned(first, |_| Ok::<_, ()>(()), || {})
+            .unwrap()
+    );
+    assert_eq!(state.current_provider(), None);
+}
+
+#[test]
+fn history_suspension_survives_the_internal_focus_loss() {
+    let mut state = DetailState::default();
+    state.open(ProviderId::DeepSeek);
+    let ownership = state
+        .suspend_for_history(ProviderId::DeepSeek)
+        .expect("visible DeepSeek detail can be suspended");
+
+    assert_eq!(state.focus_lost(), DetailCommand::Noop);
+    assert!(state.is_suspended_by(ownership));
+
+    assert!(
+        state
+            .restore_if_owned(ownership, |_| Ok::<_, ()>(()), || {})
+            .unwrap()
+    );
+    assert_eq!(state.current_provider(), Some(ProviderId::DeepSeek));
+}
+
+#[test]
+fn failed_history_restore_rolls_back_partial_window_effects_and_closes_ownership() {
+    let mut state = DetailState::default();
+    state.open(ProviderId::DeepSeek);
+    let ownership = state
+        .suspend_for_history(ProviderId::DeepSeek)
+        .expect("visible DeepSeek detail can be suspended");
+    let physically_visible = Cell::new(false);
+
+    let restored = state.restore_if_owned(
+        ownership,
+        |_| {
+            physically_visible.set(true);
+            Err::<(), _>("late publish failure")
+        },
+        || physically_visible.set(false),
+    );
+
+    assert_eq!(restored, Err("late publish failure"));
+    assert!(!physically_visible.get());
+    assert_eq!(state.current_provider(), None);
+    assert_eq!(state.focus_lost(), DetailCommand::Noop);
+    assert!(
+        !state
+            .restore_if_owned(ownership, |_| Ok::<_, ()>(()), || {})
+            .unwrap()
+    );
+}
+
+#[test]
+fn failed_provider_switch_rolls_back_partial_window_effects_and_closes_state() {
+    let mut state = DetailState::default();
+    state.open(ProviderId::Claude);
+    let physically_visible = Cell::new(true);
+
+    let opened = state.open_with_rollback(
+        ProviderId::Codex,
+        || {
+            physically_visible.set(true);
+            Err::<(), _>("focus failure")
+        },
+        || physically_visible.set(false),
+    );
+
+    assert_eq!(opened, Err("focus failure"));
+    assert!(!physically_visible.get());
+    assert_eq!(state.current_provider(), None);
+}
+
+#[test]
+fn normal_visible_detail_focus_loss_closes_the_owned_revision() {
+    let mut state = DetailState::default();
+    state.open(ProviderId::Codex);
+
+    assert_eq!(state.focus_lost(), DetailCommand::HideAndClearTopmost);
+    assert_eq!(state.current_provider(), None);
+}
+
+#[test]
+fn restore_side_effect_is_serialized_before_a_new_provider_selection() {
+    let state = Arc::new(Mutex::new(DetailState::default()));
+    let ownership = {
+        let mut state = state.lock().unwrap();
+        state.open(ProviderId::DeepSeek);
+        state
+            .suspend_for_history(ProviderId::DeepSeek)
+            .expect("visible DeepSeek detail can be suspended")
+    };
+    let order = Arc::new(Mutex::new(Vec::new()));
+    let (restore_checked_tx, restore_checked_rx) = mpsc::channel();
+    let (finish_restore_tx, finish_restore_rx) = mpsc::channel();
+
+    let restore_state = Arc::clone(&state);
+    let restore_order = Arc::clone(&order);
+    let restore = std::thread::spawn(move || {
+        let mut state = restore_state.lock().unwrap();
+        state
+            .restore_if_owned(
+                ownership,
+                |_| {
+                    restore_checked_tx.send(()).unwrap();
+                    finish_restore_rx.recv().unwrap();
+                    restore_order.lock().unwrap().push(ProviderId::DeepSeek);
+                    Ok::<_, ()>(())
+                },
+                || {},
+            )
+            .unwrap();
+    });
+    restore_checked_rx.recv().unwrap();
+
+    let select_state = Arc::clone(&state);
+    let select_order = Arc::clone(&order);
+    let (select_started_tx, select_started_rx) = mpsc::channel();
+    let select = std::thread::spawn(move || {
+        select_started_tx.send(()).unwrap();
+        let mut state = select_state.lock().unwrap();
+        state.open(ProviderId::Claude);
+        select_order.lock().unwrap().push(ProviderId::Claude);
+    });
+    select_started_rx.recv().unwrap();
+    finish_restore_tx.send(()).unwrap();
+    restore.join().unwrap();
+    select.join().unwrap();
+
+    assert_eq!(
+        *order.lock().unwrap(),
+        [ProviderId::DeepSeek, ProviderId::Claude]
+    );
+    assert_eq!(
+        state.lock().unwrap().current_provider(),
+        Some(ProviderId::Claude)
+    );
 }
 
 #[test]

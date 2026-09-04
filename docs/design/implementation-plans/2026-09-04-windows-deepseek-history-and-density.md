@@ -61,4 +61,19 @@
 - [x] 复查 Git diff、秘密扫描和发布资产范围；无证据时不得把真机登录同步标为已完成。
 - [x] 提交最终文档与验证检查点；需求进入 `待用户确认`，列出 Windows 11 真机验收步骤。
 
+### 整分支最终审查修复波
+
+- [x] 将 15 分钟交互登录会话与第一片有效分片开始的 20 秒传输期限分开，并以长登录、精确会话边界和停滞分片测试锁定。
+- [x] 在 `UsageRuntime` 中加入与余额刷新串行化的历史字段原子合并；耐久写失败不发布内存状态，DeepSeek 余额完成端无条件保留运行时最新历史。
+- [x] 把状态协议升级为 `{ generation, status }`，让打开命令返回快照并增加只读查询；前端拒绝旧代次、状态倒退和迟到命令结果。
+- [x] 增加状态监听握手与查询恢复；监听和查询都不可用时禁用同步，轮询可补偿后端状态事件发送失败。
+- [x] 将 ready 从 `DOMContentLoaded` 收紧为桥已安装且可观察到 credential/submit 登录结构，或精确官网 usage 成功信号与已渲染应用主界面；仅接口成功的空 SPA、Retry 错误面保持在有界失败路径，普通非阻断 alert 可共存。
+- [x] 销毁失败保留 cleanup ownership；重试先核对并清理固定标签的真实窗口，再创建新 generation。
+- [x] 为详情加入 provider/revision ownership token；select、close、重新打开与内部失焦交错均不能被旧同步错误恢复，show/emit 部分成功失败会回滚并归一 Closed，数据快照发布与详情恢复解耦。
+- [x] 重复 open 仅在 active 阶段聚焦；opening/activating 复用现有会话但继续隐藏，不能绕过可用性门槛。
+- [x] 重试保留 generation 下界以拦截命令返回前的旧 active/opening，同时允许 authoritative open/query 重绑后端仍存活的同代会话。
+- [x] Unix 清理让整个进程组享有 TERM 宽限期，父进程先退出但后代仍活时仅在期满后继续 KILL；Windows 继续使用 `taskkill /T /F`。
+- [x] 密度门禁改为先构建 production fixture，再由 Vite preview 浏览；不再把 dev server 证据称为 production。
+- [x] 重跑前端、production preview 密度、production build、Rust、rustfmt、严格 Clippy、文档与公开安全门禁；Windows-only MSVC/Tauri 仍只由 `windows-latest` 提供证据，需求保持 `待用户确认`。
+
 > 自动化计划步骤已完成；`REQ-20260904-006` 不等于产品验收完成。Windows 11 真实 DeepSeek 登录、标题栏关闭、重复同步复用聚焦、成功聚合恢复与 Display font 原生下拉弹层仍须按开发日志手工确认，需求保持 `待用户确认`。

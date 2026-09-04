@@ -6,14 +6,16 @@ use ai_token_meter_windows::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot, UsageStatus,
 };
 use ai_token_meter_windows::platform::windows::deepseek_history_window::{
-    DeepSeekHistoryChunkOutcome, DeepSeekHistoryReadyResolution, DeepSeekHistoryWindowAction,
-    DeepSeekHistoryWindowActionExecutor, DeepSeekHistoryWindowCoordinator,
-    DeepSeekHistoryWindowExecution, DeepSeekHistoryWindowStatus, execute_window_actions,
+    DeepSeekHistoryChunkOutcome, DeepSeekHistoryReadyResolution, DeepSeekHistoryStatusSnapshot,
+    DeepSeekHistoryWindowAction, DeepSeekHistoryWindowActionExecutor,
+    DeepSeekHistoryWindowCoordinator, DeepSeekHistoryWindowExecution, DeepSeekHistoryWindowStatus,
+    execute_window_actions,
 };
 use ai_token_meter_windows::platform::windows::deepseek_webview::{
     DeepSeekBridgeCallback, is_allowed_deepseek_navigation, isolated_profile_directory,
     parse_bridge_callback, parse_bridge_message,
 };
+use ai_token_meter_windows::platform::windows::window_controller::DetailState;
 use ai_token_meter_windows::{ProviderDetailEffect, provider_detail_effects};
 use reqwest::Url;
 use time::macros::datetime;
@@ -22,7 +24,7 @@ const NONCE: &str = "0123456789abcdef0123456789abcdef";
 const NEXT_NONCE: &str = "fedcba9876543210fedcba9876543210";
 
 #[test]
-fn initial_open_creates_one_hidden_window_and_repeated_open_focuses_it() {
+fn initial_open_creates_one_hidden_window_and_repeated_open_stays_hidden_until_ready() {
     let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
 
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Idle);
@@ -31,7 +33,10 @@ fn initial_open_creates_one_hidden_window_and_repeated_open_focuses_it() {
         initial.actions,
         [
             DeepSeekHistoryWindowAction::CreateHidden,
-            DeepSeekHistoryWindowAction::EmitStatus(DeepSeekHistoryWindowStatus::Opening),
+            DeepSeekHistoryWindowAction::EmitStatus(history_status(
+                1,
+                DeepSeekHistoryWindowStatus::Opening,
+            )),
         ]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Opening);
@@ -39,12 +44,24 @@ fn initial_open_creates_one_hidden_window_and_repeated_open_focuses_it() {
 
     let repeated = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
     assert_eq!(repeated.generation, initial.generation);
+    assert!(repeated.actions.is_empty());
+    assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Opening);
+    assert!(coordinator.has_session());
+}
+
+#[test]
+fn repeated_open_focuses_only_an_already_active_history_window() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let initial = activate(&mut coordinator, NONCE);
+
+    let repeated = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
+
+    assert_eq!(repeated.generation, initial.generation);
     assert_eq!(
         repeated.actions,
         [DeepSeekHistoryWindowAction::FocusExisting]
     );
-    assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Opening);
-    assert!(coordinator.has_session());
+    assert_eq!(repeated.status.status, DeepSeekHistoryWindowStatus::Active);
 }
 
 #[test]
@@ -72,9 +89,10 @@ fn page_load_completion_cannot_activate_without_a_nonce_bound_ready_message() {
     };
     assert_eq!(
         actions,
-        [DeepSeekHistoryWindowAction::EmitStatus(
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
             DeepSeekHistoryWindowStatus::Active
-        )]
+        ))]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Active);
 }
@@ -90,9 +108,10 @@ fn stale_window_callbacks_cannot_change_a_reopened_generation() {
     let execution = execute_window_actions(cancelled.actions(), &mut executor);
     assert_eq!(
         coordinator.finish_terminal(cancelled, &execution),
-        [DeepSeekHistoryWindowAction::EmitStatus(
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
             DeepSeekHistoryWindowStatus::Cancelled
-        )]
+        ))]
     );
     let second = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
     assert_ne!(second.generation, first.generation);
@@ -117,6 +136,78 @@ fn stale_window_callbacks_cannot_change_a_reopened_generation() {
 }
 
 #[test]
+fn delayed_terminal_status_keeps_its_original_generation_after_reopen() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let first = coordinator.open(NONCE, datetime!(2026-09-04 10:00 UTC));
+    let cancelled = coordinator
+        .claim_closed(first.generation)
+        .expect("first close should claim cancellation");
+    let execution = execute_window_actions(cancelled.actions(), &mut FakeWindowExecutor::default());
+    let delayed = coordinator.finish_terminal(cancelled, &execution);
+    let second = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC));
+
+    assert_eq!(
+        delayed,
+        [DeepSeekHistoryWindowAction::EmitStatus(
+            DeepSeekHistoryStatusSnapshot {
+                generation: Some(1),
+                status: DeepSeekHistoryWindowStatus::Cancelled,
+            }
+        )]
+    );
+    assert_eq!(
+        second.status,
+        DeepSeekHistoryStatusSnapshot {
+            generation: Some(2),
+            status: DeepSeekHistoryWindowStatus::Opening,
+        }
+    );
+}
+
+#[test]
+fn history_status_payload_serializes_only_generation_and_fixed_status() {
+    assert_eq!(
+        serde_json::to_value(history_status(7, DeepSeekHistoryWindowStatus::Active)).unwrap(),
+        serde_json::json!({ "generation": 7, "status": "active" }),
+    );
+}
+
+#[test]
+fn status_remains_queryable_when_status_event_delivery_fails() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = coordinator.open(NONCE, datetime!(2026-09-04 10:00 UTC));
+    let opening_event = DeepSeekHistoryWindowAction::EmitStatus(open.status);
+    let opening_execution = execute_window_actions(
+        &open.actions,
+        &mut FakeWindowExecutor::failing(opening_event),
+    );
+
+    assert!(!opening_execution.succeeded());
+    assert_eq!(
+        coordinator.status_snapshot(),
+        history_status(1, DeepSeekHistoryWindowStatus::Opening)
+    );
+
+    let failed = coordinator
+        .claim_failed(open.generation)
+        .expect("event failure reserves a failed terminal");
+    let terminal_execution =
+        execute_window_actions(failed.actions(), &mut FakeWindowExecutor::default());
+    let terminal_events = coordinator.finish_terminal(failed, &terminal_execution);
+    let failed_event = terminal_events[0];
+    let event_execution = execute_window_actions(
+        &terminal_events,
+        &mut FakeWindowExecutor::failing(failed_event),
+    );
+
+    assert!(!event_execution.succeeded());
+    assert_eq!(
+        coordinator.status_snapshot(),
+        history_status(1, DeepSeekHistoryWindowStatus::Failed)
+    );
+}
+
+#[test]
 fn unready_official_page_times_out_and_recovers() {
     let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
     let open = coordinator.open(NONCE, datetime!(2026-09-04 10:00 UTC));
@@ -127,21 +218,43 @@ fn unready_official_page_times_out_and_recovers() {
         .expect("an unready opening generation must time out");
     assert_eq!(
         timeout.actions(),
-        &[
-            DeepSeekHistoryWindowAction::DestroyHistory,
-            DeepSeekHistoryWindowAction::RestoreDetail,
-        ]
+        &[DeepSeekHistoryWindowAction::DestroyHistory]
     );
     let mut executor = FakeWindowExecutor::default();
     let execution = execute_window_actions(timeout.actions(), &mut executor);
     assert_eq!(
         coordinator.finish_terminal(timeout, &execution),
-        [DeepSeekHistoryWindowAction::EmitStatus(
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
             DeepSeekHistoryWindowStatus::Failed
-        )]
+        ))]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
     assert!(!coordinator.has_session());
+}
+
+#[test]
+fn interactive_login_session_has_a_separate_bounded_lifetime() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+
+    assert!(
+        coordinator
+            .claim_session_timeout(open.generation, datetime!(2026-09-04 10:10 UTC))
+            .is_none()
+    );
+    let timeout = coordinator
+        .claim_session_timeout(open.generation, datetime!(2026-09-04 10:15 UTC))
+        .expect("an interactive session must remain bounded independently of fragment transfer");
+    let mut executor = FakeWindowExecutor::default();
+    let execution = execute_window_actions(timeout.actions(), &mut executor);
+    assert_eq!(
+        coordinator.finish_terminal(timeout, &execution),
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
+            DeepSeekHistoryWindowStatus::Failed
+        ))]
+    );
 }
 
 #[test]
@@ -166,9 +279,10 @@ fn completed_payload_owns_the_terminal_before_timeout_or_close_can_win() {
     let execution = execute_window_actions(terminal.actions(), &mut executor);
     assert_eq!(
         coordinator.finish_terminal(terminal, &execution),
-        [DeepSeekHistoryWindowAction::EmitStatus(
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
             DeepSeekHistoryWindowStatus::Completed
-        )]
+        ))]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Completed);
 }
@@ -195,10 +309,7 @@ fn close_ownership_prevents_a_late_complete_from_producing_history() {
 
 #[test]
 fn destroy_or_restore_failure_never_claims_a_success_terminal() {
-    for failed_action in [
-        DeepSeekHistoryWindowAction::DestroyHistory,
-        DeepSeekHistoryWindowAction::RestoreDetail,
-    ] {
+    for failed_action_index in [0, 1] {
         let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
         let open = activate(&mut coordinator, NONCE);
         let DeepSeekHistoryChunkOutcome::Complete { terminal, .. } = coordinator
@@ -211,24 +322,44 @@ fn destroy_or_restore_failure_never_claims_a_success_terminal() {
         else {
             panic!("complete chunk should reserve the terminal");
         };
+        let failed_action = terminal.actions()[failed_action_index];
         let mut executor = FakeWindowExecutor::failing(failed_action);
         let execution = execute_window_actions(terminal.actions(), &mut executor);
-        assert_eq!(
-            executor.attempted,
-            [
-                DeepSeekHistoryWindowAction::DestroyHistory,
-                DeepSeekHistoryWindowAction::RestoreDetail,
-            ]
-        );
+        assert_eq!(executor.attempted, terminal.actions());
         assert_eq!(execution.failed_actions(), &[failed_action]);
         assert_eq!(
             coordinator.finish_terminal(terminal, &execution),
-            [DeepSeekHistoryWindowAction::EmitStatus(
+            [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+                1,
                 DeepSeekHistoryWindowStatus::Failed
-            )]
+            ))]
         );
         assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
     }
+}
+
+#[test]
+fn destroy_failure_retains_cleanup_ownership_until_retry_reconciles_the_window() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+    let terminal = coordinator
+        .claim_failed(open.generation)
+        .expect("failure should reserve the terminal");
+    let mut executor = FakeWindowExecutor::failing(DeepSeekHistoryWindowAction::DestroyHistory);
+    let execution = execute_window_actions(terminal.actions(), &mut executor);
+
+    coordinator.finish_terminal(terminal, &execution);
+
+    assert!(coordinator.has_session());
+    assert_eq!(coordinator.cleanup_generation(), Some(open.generation));
+    assert!(coordinator.reconcile_cleanup(open.generation));
+    let retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:02 UTC));
+    assert_ne!(retry.generation, open.generation);
+    assert!(
+        retry
+            .actions
+            .contains(&DeepSeekHistoryWindowAction::CreateHidden)
+    );
 }
 
 #[test]
@@ -252,9 +383,10 @@ fn apply_or_publish_failure_never_claims_completed() {
 
     assert_eq!(
         coordinator.finish_terminal(terminal, &execution),
-        [DeepSeekHistoryWindowAction::EmitStatus(
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
             DeepSeekHistoryWindowStatus::Failed
-        )]
+        ))]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
 }
@@ -276,9 +408,10 @@ fn focus_failure_recovers_without_ever_claiming_active() {
     let recovery = execute_window_actions(terminal.actions(), &mut recovery_executor);
     assert_eq!(
         coordinator.finish_terminal(terminal, &recovery),
-        [DeepSeekHistoryWindowAction::EmitStatus(
+        [DeepSeekHistoryWindowAction::EmitStatus(history_status(
+            1,
             DeepSeekHistoryWindowStatus::Failed
-        )]
+        ))]
     );
     assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
 }
@@ -317,6 +450,12 @@ fn activate(
 ) -> ai_token_meter_windows::platform::windows::deepseek_history_window::DeepSeekHistoryWindowOpen {
     let open = coordinator.open(nonce, datetime!(2026-09-04 10:00 UTC));
     let ready = coordinator.claim_ready(open.generation, nonce).unwrap();
+    let mut detail = DetailState::default();
+    detail.open(ProviderId::DeepSeek);
+    let ownership = detail
+        .suspend_for_history(ProviderId::DeepSeek)
+        .expect("fixture owns a visible DeepSeek detail");
+    assert!(coordinator.attach_detail_ownership(open.generation, ownership));
     let mut executor = FakeWindowExecutor::default();
     let execution = execute_window_actions(ready.actions(), &mut executor);
     assert!(matches!(
@@ -416,7 +555,7 @@ fn ready_callback_requires_the_nonce_and_exact_official_origin() {
 
 #[test]
 fn accepts_only_the_official_https_console_origin() {
-    let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
 
     let accepted = assembler.accept(
         chunk("https://platform.deepseek.com", 0, 1, valid_payload()),
@@ -430,7 +569,7 @@ fn accepts_only_the_official_https_console_origin() {
         "https://user@platform.deepseek.com",
         "https://api.deepseek.com",
     ] {
-        let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+        let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
         let error = assembler
             .accept(
                 chunk(origin, 0, 1, valid_payload()),
@@ -445,7 +584,7 @@ fn accepts_only_the_official_https_console_origin() {
 fn reassembles_out_of_order_chunks_and_merges_duplicate_days() {
     let payload = r#"{"schemaVersion":1,"days":[{"date":"2026-09-02","costCny":1.25,"requests":4,"tokens":1000},{"date":"2026-09-02","costCny":0.75,"requests":2,"tokens":500},{"date":"2026-08-01","costCny":99,"requests":99,"tokens":99},{"date":"2026-09-03","costCny":2.5,"requests":7,"tokens":2500}]}"#;
     let split = payload.len() / 2;
-    let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
 
     assert_eq!(
         assembler
@@ -488,11 +627,6 @@ fn rejects_expired_mismatched_oversized_and_secret_bearing_payloads() {
             DeepSeekHistoryError::NonceMismatch,
         ),
         (
-            chunk("https://platform.deepseek.com", 0, 1, valid_payload()),
-            datetime!(2026-09-03 12:00:21 UTC),
-            DeepSeekHistoryError::Expired,
-        ),
-        (
             chunk("https://platform.deepseek.com", 0, 65, "{}"),
             datetime!(2026-09-03 12:00:01 UTC),
             DeepSeekHistoryError::ChunkLimitExceeded,
@@ -510,11 +644,11 @@ fn rejects_expired_mismatched_oversized_and_secret_bearing_payloads() {
     ];
 
     for (chunk, now, expected) in cases {
-        let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+        let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
         assert_eq!(assembler.accept(chunk, now).unwrap_err(), expected);
     }
 
-    let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
     let huge = "x".repeat(16 * 1024 + 1);
     assert_eq!(
         assembler
@@ -528,9 +662,61 @@ fn rejects_expired_mismatched_oversized_and_secret_bearing_payloads() {
 }
 
 #[test]
+fn long_interactive_login_does_not_consume_the_fragment_transfer_deadline() {
+    let payload = valid_payload();
+    let split = payload.len() / 2;
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
+
+    assert_eq!(
+        assembler
+            .accept(
+                chunk("https://platform.deepseek.com", 0, 2, &payload[..split]),
+                datetime!(2026-09-03 12:05 UTC),
+            )
+            .unwrap(),
+        AcceptOutcome::Waiting
+    );
+    assert!(matches!(
+        assembler
+            .accept(
+                chunk("https://platform.deepseek.com", 1, 2, &payload[split..]),
+                datetime!(2026-09-03 12:05:01 UTC),
+            )
+            .unwrap(),
+        AcceptOutcome::Complete(_)
+    ));
+}
+
+#[test]
+fn fragment_transfer_expires_relative_to_the_first_valid_fragment() {
+    let payload = valid_payload();
+    let split = payload.len() / 2;
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
+
+    assert_eq!(
+        assembler
+            .accept(
+                chunk("https://platform.deepseek.com", 0, 2, &payload[..split]),
+                datetime!(2026-09-03 12:05 UTC),
+            )
+            .unwrap(),
+        AcceptOutcome::Waiting
+    );
+    assert_eq!(
+        assembler
+            .accept(
+                chunk("https://platform.deepseek.com", 1, 2, &payload[split..]),
+                datetime!(2026-09-03 12:05:21 UTC),
+            )
+            .unwrap_err(),
+        DeepSeekHistoryError::Expired
+    );
+}
+
+#[test]
 fn malformed_history_never_overwrites_the_balance_snapshot() {
     let balance = balance_snapshot();
-    let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
     let result = assembler.accept(
         chunk(
             "https://platform.deepseek.com",
@@ -548,7 +734,7 @@ fn malformed_history_never_overwrites_the_balance_snapshot() {
 #[test]
 fn applying_valid_history_changes_only_the_history_fields() {
     let original = balance_snapshot();
-    let mut assembler = DeepSeekHistoryAssembler::new(NONCE, datetime!(2026-09-03 12:00 UTC));
+    let mut assembler = DeepSeekHistoryAssembler::new(NONCE);
     let AcceptOutcome::Complete(history) = assembler
         .accept(
             chunk("https://platform.deepseek.com", 0, 1, valid_payload()),
@@ -583,6 +769,16 @@ fn chunk(origin: &str, sequence: u16, total: u16, payload: &str) -> DeepSeekHist
 
 fn valid_payload() -> &'static str {
     r#"{"schemaVersion":1,"days":[{"date":"2026-09-03","costCny":2.5,"requests":7,"tokens":2500}]}"#
+}
+
+fn history_status(
+    generation: u64,
+    status: DeepSeekHistoryWindowStatus,
+) -> DeepSeekHistoryStatusSnapshot {
+    DeepSeekHistoryStatusSnapshot {
+        generation: Some(generation),
+        status,
+    }
 }
 
 fn balance_snapshot() -> UsageSnapshot {

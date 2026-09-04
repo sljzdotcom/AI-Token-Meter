@@ -12,9 +12,9 @@ use crate::persistence::{
     AppSettings, AtomicJsonStore, MeterEdge, ProviderCliSettings, UsageRuntime,
 };
 use crate::platform::windows::window_controller::{
-    Edge, METER_WINDOW_LABEL, configure_initial_windows, current_monitor_identifier,
-    hide_detail_window, place_meter, show_detail_window, show_settings_window,
-    snap_meter_after_drag,
+    DetailCommand, DetailState, Edge, METER_WINDOW_LABEL, configure_initial_windows,
+    current_monitor_identifier, hide_detail_window, place_meter, show_detail_window,
+    show_settings_window, snap_meter_after_drag,
 };
 
 pub mod accounts;
@@ -80,6 +80,7 @@ pub struct RuntimeState {
     meter_drag: Arc<crate::platform::windows::meter_drag::MeterDragGate>,
     deepseek_history:
         Arc<Mutex<crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime>>,
+    pub(crate) detail_state: Mutex<DetailState>,
     update_state: Arc<Mutex<crate::updater::UpdateState>>,
     #[cfg_attr(not(windows), allow(dead_code))]
     notification_levels: Mutex<HashMap<String, u8>>,
@@ -98,6 +99,7 @@ impl Default for RuntimeState {
             deepseek_history: Arc::new(Mutex::new(
                 crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime::default(),
             )),
+            detail_state: Mutex::new(DetailState::default()),
             update_state: Arc::new(Mutex::new(crate::updater::UpdateState::new(
                 SHARED_VERSION.trim(),
             ))),
@@ -276,18 +278,28 @@ fn show_provider_detail(
         .lock()
         .map(|settings| edge_from_settings(settings.edge))
         .unwrap_or(Edge::Right);
-    for effect in effects {
-        match effect {
-            ProviderDetailEffect::ShowDetailWindow => {
-                show_detail_window(&app, edge)
-                    .map_err(|_| "The detail window could not be shown".to_owned())?;
+    let mut detail_state = state
+        .detail_state
+        .lock()
+        .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
+    detail_state.open_with_rollback(
+        provider_id,
+        || {
+            for effect in effects {
+                match effect {
+                    ProviderDetailEffect::ShowDetailWindow => show_detail_window(&app, edge)
+                        .map_err(|_| "The detail window could not be shown".to_owned())?,
+                    ProviderDetailEffect::EmitActiveDetail => app
+                        .emit("active-detail-changed", &snapshot)
+                        .map_err(|_| "The detail window could not be updated".to_owned())?,
+                }
             }
-            ProviderDetailEffect::EmitActiveDetail => {
-                app.emit("active-detail-changed", &snapshot)
-                    .map_err(|_| "The detail window could not be updated".to_owned())?;
-            }
-        }
-    }
+            Ok::<(), String>(())
+        },
+        || {
+            let _ = hide_detail_window(&app);
+        },
+    )?;
     Ok(snapshot)
 }
 
@@ -599,8 +611,29 @@ fn available_wsl_distributions() -> Vec<String> {
 }
 
 #[tauri::command]
-fn close_provider_detail(app: tauri::AppHandle) -> Result<(), String> {
+fn close_provider_detail(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    let mut detail_state = state
+        .detail_state
+        .lock()
+        .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
+    detail_state.close();
+    drop(detail_state);
     hide_detail_window(&app).map_err(|_| "The detail window could not be closed".to_owned())
+}
+
+fn handle_detail_focus_lost(app: &tauri::AppHandle) {
+    let state = app.state::<RuntimeState>();
+    let Ok(mut detail_state) = state.detail_state.lock() else {
+        return;
+    };
+    let should_hide = detail_state.focus_lost() == DetailCommand::HideAndClearTopmost;
+    drop(detail_state);
+    if should_hide {
+        let _ = hide_detail_window(app);
+    }
 }
 
 #[tauri::command]
@@ -612,11 +645,20 @@ fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
 fn open_deepseek_history(
     app: tauri::AppHandle,
     state: State<'_, RuntimeState>,
-) -> Result<(), String> {
+) -> Result<crate::platform::windows::deepseek_history_window::DeepSeekHistoryStatusSnapshot, String>
+{
     crate::platform::windows::deepseek_webview::open_history_window(
         &app,
         Arc::clone(&state.deepseek_history),
     )
+}
+
+#[tauri::command]
+fn deepseek_history_status(
+    state: State<'_, RuntimeState>,
+) -> Result<crate::platform::windows::deepseek_history_window::DeepSeekHistoryStatusSnapshot, String>
+{
+    crate::platform::windows::deepseek_webview::history_status(&state.deepseek_history)
 }
 
 #[tauri::command]
@@ -862,6 +904,7 @@ pub fn run() {
             set_provider_cli_settings,
             available_wsl_distributions,
             open_deepseek_history,
+            deepseek_history_status,
             update_state,
             check_for_updates,
             install_update,
@@ -913,7 +956,7 @@ pub fn run() {
                 let app_for_focus = app.handle().clone();
                 detail.on_window_event(move |event| {
                     if matches!(event, tauri::WindowEvent::Focused(false)) {
-                        let _ = hide_detail_window(&app_for_focus);
+                        handle_detail_focus_lost(&app_for_focus);
                     }
                 });
             }

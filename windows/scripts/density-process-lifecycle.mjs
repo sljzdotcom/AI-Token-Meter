@@ -12,11 +12,25 @@ export function spawnManagedProcess(command, args, options, {
   })
 }
 
+export function spawnDensityPreview(windowsRoot, {
+  platform = process.platform,
+  spawnImpl = spawn,
+} = {}) {
+  const npm = platform === "win32" ? "npm.cmd" : "npm"
+  return spawnManagedProcess(npm, [
+    "run", "preview:density", "--", "--host", "127.0.0.1", "--port", "0",
+  ], {
+    cwd: windowsRoot,
+    stdio: ["ignore", "pipe", "pipe"],
+  }, { platform, spawnImpl })
+}
+
 export async function stopProcessTree(child, {
   platform = process.platform,
   killProcess = process.kill,
   runProcess = runCommand,
   waitForExit: wait = waitForExit,
+  waitForGroupExit: waitGroup = waitForProcessGroupExit,
   timeoutMs = 3_000,
 } = {}) {
   if (!child.pid) return
@@ -32,9 +46,14 @@ export async function stopProcessTree(child, {
   }
 
   signalProcessGroup(child.pid, "SIGTERM", killProcess)
-  if (await wait(child, timeoutMs)) return
+  // The process-group leader may exit before descendants have finished their
+  // own TERM handlers. Give the entire group the grace period, rather than
+  // using the leader's exit as the signal to escalate immediately.
+  if (await waitGroup(child.pid, timeoutMs, { killProcess })) return
   signalProcessGroup(child.pid, "SIGKILL", killProcess)
-  if (!await wait(child, timeoutMs)) throw new Error("Process tree did not exit after cleanup")
+  if (!await waitGroup(child.pid, timeoutMs, { killProcess })) {
+    throw new Error("Process tree did not exit after cleanup")
+  }
 }
 
 export async function runBrowser(executable, url, {
@@ -72,6 +91,28 @@ function signalProcessGroup(pid, signal, killProcess) {
   } catch (error) {
     if (error?.code !== "ESRCH") throw error
   }
+}
+
+function isProcessGroupAlive(pid, killProcess) {
+  try {
+    killProcess(-pid, 0)
+    return true
+  } catch (error) {
+    if (error?.code === "ESRCH") return false
+    if (error?.code === "EPERM") return true
+    throw error
+  }
+}
+
+async function waitForProcessGroupExit(pid, timeoutMs, {
+  killProcess = process.kill,
+} = {}) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (!isProcessGroupAlive(pid, killProcess)) return true
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 25))
+  }
+  return !isProcessGroupAlive(pid, killProcess)
 }
 
 function hasExited(child) {

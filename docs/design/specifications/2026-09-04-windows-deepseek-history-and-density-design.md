@@ -40,22 +40,27 @@ Windows `0.3.0-preview.2` 真机已能启动并读取 DeepSeek 余额，但存�
 - 历史为空时显示一个主操作按钮。
 - 用户点击后按钮进入 `Opening official page…` 状态并禁用重复点击。
 - 后端创建唯一的隔离 WebView2 窗口，但初始 `visible(false)`，避免 SPA 尚未渲染时出现大片白色窗口。
-- 固定 DeepSeek 官网页面加载完成后，详情窗口取消临时置顶并隐藏，官网窗口显示、置前和聚焦，Windows 标准标题栏与关闭按钮必须完整可操作。
+- 固定 DeepSeek 官网页面安装采集桥且出现 credential/submit 登录结构，或精确官网 usage 成功信号与已渲染导航/可交互主界面同时存在后，详情窗口才取消临时置顶并隐藏，官网窗口显示、置前和聚焦；仅 `DOMContentLoaded`、仅接口成功的空 SPA 根节点或带 Retry 的错误主界面不能取消 30 秒就绪看门狗。普通非阻断 alert 不得把完整应用误判为失败。Windows 标准标题栏与关闭按钮必须完整可操作。
+- 可见登录会话最长 15 分钟；历史分片另有独立 20 秒传输期限，并从第一片通过 nonce、origin 与大小校验的分片开始计时，登录、短信、CAPTCHA 或同意步骤不消耗分片期限。
 
 ### 完成、取消与失败
 
-- 聚合桥接接收到完整、校验通过的 30 天数据后：更新缓存和详情快照，关闭官网窗口，恢复详情窗口并清除同步状态。
+- 聚合桥接接收到完整、校验通过的 30 天数据后：在 `UsageRuntime` 的刷新发布临界区只合并历史字段，耐久写成功后才更新内存；随后发布快照、关闭官网窗口，并仅在仍持有原 DeepSeek 详情 revision 时恢复详情。
 - 用户关闭官网窗口后：结束本次会话，恢复原 DeepSeek 详情并显示可再次同步的按钮。
 - 窗口构建、页面加载或导航失败后：销毁官网窗口，恢复详情并显示简短、可恢复的错误消息。
 - 前端命令失败不得静默吞掉；同一时间只允许一个官网窗口和一个组装会话。
-- 官网窗口已存在时再次请求同步，应直接显示并聚焦现有窗口，不销毁后重建。
+- 官网窗口 active 时再次请求同步，应直接聚焦现有窗口；opening/activating 阶段只能复用并保持隐藏，不得绕过 ready 门槛，也不销毁后重建。销毁失败则保留 cleanup ownership，下一次重试先与真实窗口注册表核对并完成清理，再创建新代次。
 
 ## 状态与事件
 
-- 前端维护 `idle | opening | active | failed` 四态，只负责按钮反馈与自动隐藏暂停。
-- 后端通过脱敏事件报告 `opening`、`active`、`completed`、`cancelled` 或 `failed`；事件不得包含 Cookie、API Key、网页响应正文或账户标识。
+- 后端状态快照固定为 `{ generation, status }`；`status` 只允许 `idle | opening | active | completed | cancelled | failed`，`generation` 为当前或最近会话代次。
+- `open_deepseek_history` 返回同一状态快照，`deepseek_history_status` 提供只读恢复查询。事件发送失败时真实状态仍先写入协调器，因此可由查询恢复。
+- 前端只有在事件监听成功，或监听失败后状态查询握手成功时，才允许开始同步；同步中定时查询补偿丢失的状态事件。
+- 新同步开始后只接受当前 generation；重试保留上一代下界来拒绝 open 返回前的排队旧事件，同一尝试的 authoritative open/query 仍可重绑后端复用的同代会话；同代次倒退状态不能覆盖新会话。
+- 事件与查询不得包含 Cookie、API Key、网页响应正文、路径或账户标识。
 - 官网窗口打开期间暂停详情自动隐藏；恢复详情后重新开始正常倒计时。
 - 窗口关闭事件必须清理组装会话，避免旧 nonce 或分片污染下一次同步。
+- 详情窗口所有权以 provider 与单调 revision 标记；同步期间用户选择 Claude/Codex、重新选择 DeepSeek 或明确关闭详情，都会使旧恢复 token 失效。
 
 ## Windows 视觉密度
 
@@ -75,7 +80,8 @@ Windows `0.3.0-preview.2` 真机已能启动并读取 DeepSeek 余额，但存�
 
 - Rust 策略测试覆盖：查看详情不触发自动同步；官网窗口状态的打开、激活、关闭、成功与失败转移；重复打开只聚焦现有窗口。
 - 前端测试覆盖：同步按钮状态、命令错误反馈、同步期间暂停自动隐藏、结束后恢复。
-- 浏览器行为测试覆盖：Windows 详情与 Settings 的紧凑字号变量；字体选择框和选项的深色文字/白色背景合同。
+- 浏览器行为测试覆盖：先构建独立 production fixture，再由 Vite preview/Chrome 或 Edge 核对 Windows 详情与 Settings 的紧凑字号变量，以及字体选择框和选项的深色文字/白色背景合同。
+- 交错测试覆盖：余额与历史双向发布顺序、旧 generation 事件、详情 select/close/restore、销毁失败重试，以及 Unix 父进程已退出但同组后代仍存活的清理路径。
 - 运行 Windows 前端、Rust、rustfmt、严格 Clippy、Tauri 构建，以及 macOS 和文档/公开安全门禁。
 - Windows 11 真机最终确认：点击 DeepSeek 不再弹窗；点击同步后官网窗口能加载、置前、关闭；成功后图表更新；三详情与 Settings 字号适中；字体下拉项始终可读。
 

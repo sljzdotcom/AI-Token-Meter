@@ -44,7 +44,7 @@ AI Token Meter 是本地状态查看器，不是账户代理。它遵循最小�
 - 单个被处理的响应受大小限制，防止无限负载进入应用；
 - 仅标准化保存日期、成本、请求数、Token 数和更新时间。
 
-Windows 对应实现使用独立 WebView2 用户数据目录，只允许 `https://platform.deepseek.com` 精确官方来源。官网窗口只由用户显式同步创建，先隐藏加载；ready、分片、关闭、销毁和 30 秒超时都绑定当前会话代次，旧回调不能改变重开的会话。网页桥使用短期随机 nonce、有界分片、总大小上限与严格 DTO；前端只接收六个固定状态词。API Key 名称、tracking ID、Cookie、Authorization、DOM 文本和个人账号信息不得进入 Rust/前端业务状态或日志。
+Windows 对应实现使用独立 WebView2 用户数据目录，只允许 `https://platform.deepseek.com` 精确官方来源。官网窗口只由用户显式同步创建，先隐藏加载；ready、分片、关闭、销毁、30 秒就绪看门狗和 15 分钟会话上限都绑定当前会话代次，旧回调不能改变重开的会话。网页桥使用短期随机 nonce、有界分片、从第一片有效 envelope 开始的 20 秒传输期限、总大小上限与严格 DTO；前端状态通道只接收 `{ generation, status }`，其中 status 为六个固定词。API Key 名称、tracking ID、Cookie、Authorization、DOM 文本和个人账号信息不得进入 Rust/前端业务状态或日志。
 
 App 内网页仍属于第三方官方站点，其隐私和账户安全受 DeepSeek 官方条款约束。共享设备上应使用独立的 macOS 用户账户，并在不再使用时退出登录或清理应用数据。
 

@@ -6,15 +6,19 @@ export function DeepSeekHistory({
   snapshot,
   onSync,
   syncStatus = "idle",
+  statusPathAvailable = true,
 }: {
   snapshot: UsageSnapshot
   onSync?: () => void
   syncStatus?: DeepSeekHistoryStatus
+  statusPathAvailable?: boolean
 }) {
   const history = snapshot.dailyHistory ?? []
   if (!history.length) {
     const syncing = syncStatus === "opening" || syncStatus === "active"
-    const message = syncStatus === "opening"
+    const message = !statusPathAvailable
+      ? "Official history status is temporarily unavailable."
+      : syncStatus === "opening"
       ? "Opening official page…"
       : syncStatus === "active"
         ? "Sync in progress"
@@ -23,9 +27,9 @@ export function DeepSeekHistory({
           : "Usage history will appear here after official-page sync."
     return (
       <div className="history-placeholder">
-        <span role={syncStatus === "failed" ? "alert" : syncing ? "status" : undefined}>{message}</span>
+        <span role={!statusPathAvailable || syncStatus === "failed" ? "alert" : syncing ? "status" : undefined}>{message}</span>
         {onSync ? (
-          <button disabled={syncing} onClick={onSync} type="button">
+          <button disabled={syncing || !statusPathAvailable} onClick={onSync} type="button">
             {syncStatus === "failed" ? "Try again" : "Sync official history"}
           </button>
         ) : null}
