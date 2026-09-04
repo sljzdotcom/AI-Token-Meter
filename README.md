@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.3.0-preview.1](https://img.shields.io/badge/version-0.3.0--preview.1-f59e0b)
+![Version 0.3.0-preview.2](https://img.shields.io/badge/version-0.3.0--preview.2-f59e0b)
 ![Tests 386](https://img.shields.io/badge/tests-386%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 项目状态：当前双平台预览版为 `0.3.0-preview.1`（build `8`），在同一 GitHub Release 提供 macOS Apple Silicon ZIP 与 Windows 11 x64 NSIS；最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
+> 项目状态：当前双平台预览版为 `0.3.0-preview.2`（build `9`），在同一 GitHub Release 提供 macOS Apple Silicon ZIP 与 Windows 11 x64 NSIS；最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
 
 ## Screenshots
 
@@ -74,10 +74,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-**[Download v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1)** from GitHub Releases：
+**[Download v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)** from GitHub Releases：
 
-- macOS：下载 `AI-Token-Meter-0.3.0-preview.1-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.3.0-preview.1-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.3.0-preview.2-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.3.0-preview.2-windows-x64-setup.exe` 与同名 `.sha256`。
 
 预览版用于提前验证 Windows 与双平台同步发布。需要稳定版时仍可使用 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 的 macOS 包。Windows Preview 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -226,7 +226,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前双平台预览版本：`0.3.0-preview.1`（build `8`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
+- 当前双平台预览版本：`0.3.0-preview.2`（build `9`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

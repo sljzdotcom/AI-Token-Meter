@@ -302,3 +302,4 @@
 | 2026-09-04 | REQ-20260904-005 | 进行中 | 重新识别截图后确认窗口是 Windows Terminal（标签栏含加号/下拉入口），不是 Edge/WebView。Release 入口 `windows/src-tauri/src/main.rs` 缺少 `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`，使生产可执行文件仍使用 console subsystem；根因与“主界面正常但同时出现空终端”完全一致。 |
 | 2026-09-04 | REQ-20260904-005 | 进行中 | 采用编译时 GUI subsystem 方案：Windows 所有构建不分配控制台，CI/Release 直接解析实际 `.exe` 的 PE Optional Header 并要求 subsystem `2`；拒绝启动后隐藏终端和无关的 WebView 调整。下一 Preview 同步为 `0.3.0-preview.2`，macOS 只同步版本。 |
 | 2026-09-04 | REQ-20260904-005 | 进行中 | TDD 红灯已由 Windows workflow `33830008532` 复现：前端测试、构建、Rust 格式、Clippy、运行时测试及 NSIS 构建全部通过，新增 PE 门禁读取真实 `ai-token-meter-windows.exe` 得到 subsystem `3` 并按预期失败。随后在 Windows 主入口加入 GUI subsystem 声明，等待同一门禁转绿。 |
+| 2026-09-04 | REQ-20260904-005 | 进行中 | 修复后 Windows workflow `33831023542` 全绿，真实 PE 门禁报告 subsystem `2`；macOS workflow `33831023523` 同时通过。进入同步 `0.3.0-preview.2`（build 9）版本、文档、完整门禁与公开双平台发布阶段；最终状态仍需 Windows 真机启动确认。 |

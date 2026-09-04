@@ -2,14 +2,14 @@
 
 - **事实快照：** 2026-09-04
 - **产品：** AI Token Meter
-- **应用版本：** `0.3.0-preview.1`（build `8`）；最新稳定版 `0.2.2`（build `6`）
+- **应用版本：** `0.3.0-preview.2`（build `9`）；最新稳定版 `0.2.2`（build `6`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
 ## 一句话定位
 
-AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。稳定版目前仍为 macOS；`0.3.0-preview.1` 修复 Windows 浮动条视觉与贴边拖动，并保持 macOS 同版本发布。交互式 Windows DPI 与升级终验仍需真机补齐。
+AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。稳定版目前仍为 macOS；`0.3.0-preview.2` 在保留 Windows 浮动条视觉修复的同时，消除程序启动时额外出现的 Windows Terminal，并保持 macOS 同版本发布。交互式 Windows DPI、启动窗口与升级终验仍需真机补齐。
 
 ## 当前能力矩阵
 
@@ -60,7 +60,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - macOS 完整自动化基线：**374 项测试、72 个测试组**，其中 12 项 PTY 系统资源测试由独立测试进程执行；另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；最新双平台 Preview [v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) 已公开，发布 workflow `33826484923` 全绿，公开重下后的 Sparkle、Tauri minisign、SHA-256、Preview feed 与稳定通道隔离均通过。完整证据见本次[修复日志](development/2026-09-04-windows-floating-strip-parity-fix.md)。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；最新双平台 Preview 为 `v0.3.0-preview.2`，Windows 主程序的 PE subsystem 必须通过 GUI 产物门禁。正式发布与公网资产复验证据见本次[修复日志](development/2026-09-04-windows-console-window-suppression.md)。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 
@@ -75,6 +75,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | Developer ID 与 Apple 公证 | 当前限制 | 公开包使用 ad-hoc 签名；首次打开可能需要 Finder 右键“打开” |
 | Windows 11 真机视觉、DPI、全屏、拖动与 DeepSeek 网页登录 | 受环境限制 | 在交互式 Windows 11 x64 用户会话安装 Preview 后逐项验收 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
+| Windows `preview.2` 启动无空白 Terminal | 待用户确认 | 在交互式 Windows 11 会话安装并启动，确认只出现浮动条和系统托盘 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。

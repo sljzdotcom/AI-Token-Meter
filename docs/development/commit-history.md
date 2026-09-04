@@ -4,12 +4,12 @@
 
 ## 当前版本边界
 
-- 最新公开 Preview：`0.3.0-preview.1`（build `8`）；最新稳定版仍为 `0.2.2`（build `6`）。
+- 最新公开 Preview：`0.3.0-preview.2`（build `9`）；最新稳定版仍为 `0.2.2`（build `6`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 最新已公开 Preview Git tag：`v0.3.0-preview.1`（`9213fd6`）；稳定 tag 仍为 `v0.2.2`。Preview 发布证据分别见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)和[本次修复日志](2026-09-04-windows-floating-strip-parity-fix.md)。
+- 最新已公开 Preview Git tag：`v0.3.0-preview.2`（标签提交将在发布完成后补录）；稳定 tag 仍为 `v0.2.2`。Preview 发布证据分别见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)、[浮动条修复日志](2026-09-04-windows-floating-strip-parity-fix.md)和[启动空白终端修复日志](2026-09-04-windows-console-window-suppression.md)。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
@@ -50,6 +50,7 @@
 | Windows 11 x64 Preview 开发 | `20b53bf`–`96e6a92` | 共享合同、Tauri/Rust/React、Native/WSL、三 Provider、ConPTY/Job Object、Win32 浮岛、WebView2 历史、Services、Updater、事务式双平台发布与 NSIS；最终 Windows CI `33741425083` 和三轮独立复审通过，真机与公开 Preview 仍待完成 |
 | v0.3.0-preview.0 双平台发布 | `ba4c24e`、`e02fd4a`、`704342e` | 同版本 macOS/Windows 资产、首次 Windows minisign 信任根、两项 Windows 发布门禁修复、公开 Release 与公网重下复验 |
 | v0.3.0-preview.1 Windows 浮动条修复 | `b9743c0`、`2614186`、`e78ad48`、`9213fd6` | macOS 同源 SVG/Bezier 轮廓、关闭 Windows 白色外框、原生鼠标释放吸附与拓扑竞态保护；workflow `33826484923` 全绿并完成公开资产复验 |
+| v0.3.0-preview.2 Windows 启动终端修复 | `f909c10`、`5eb72ba`、`ac50e08` | 真实 PE Header 红绿门禁、Windows GUI subsystem 编译期修复；正式发布提交与公网复验将在 Release 完成后补录 |
 
 ## 2026-08-28
 
@@ -400,6 +401,14 @@
 | `2614186` | fix | 以 macOS 同源 SVG Bezier 替换双重粗裁剪，关闭 Windows 无边框阴影和 DWM 外框 |
 | `e78ad48` | fix | 原生跟踪鼠标释放并只执行一次吸附保存；拖动期间显示器拓扑恢复让路 |
 | `9213fd6` | release | 同步 macOS/Windows `0.3.0-preview.1`（build 8）并作为 `v0.3.0-preview.1` 标签目标；发布 workflow `33826484923` 全绿，公开双平台资产复验通过 |
+
+### v0.3.0-preview.2 Windows 启动空白终端修复
+
+| 提交 | 类型 | 变更 |
+| --- | --- | --- |
+| `f909c10` | docs | 固化 Windows 启动空白 Terminal 的 GUI subsystem 设计、真实 PE 产物门禁和分阶段发布计划 |
+| `5eb72ba` | test | 只增加 PE subsystem 检查和双 workflow 门禁；Windows workflow `33830008532` 从旧产物读取到 subsystem `3` 并按预期失败 |
+| `ac50e08` | fix | 在 Windows 主入口声明 GUI subsystem；Windows workflow `33831023542` 读取到 subsystem `2` 并全绿，macOS workflow `33831023523` 同时通过 |
 
 ## 维护方式
 

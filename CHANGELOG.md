@@ -4,6 +4,17 @@
 
 ## Unreleased
 
+## 0.3.0-preview.2 - 2026-09-04
+
+### Fixed
+
+- Windows 主程序改为 GUI subsystem，启动时不再额外分配标题为 “AI Token Meter” 的空白 Windows Terminal。
+- Windows CI 与正式发布流程新增真实 PE Header 门禁，要求主 `.exe` 的 subsystem 为 `2`，防止控制台窗口在后续构建中复发。
+
+### Changed
+
+- macOS 与 Windows 同步提升到 `0.3.0-preview.2`（build `9`）；macOS 浮动条、窗口行为与 Provider 数据链路不变。
+
 ## 0.3.0-preview.1 - 2026-09-04
 
 ### Fixed

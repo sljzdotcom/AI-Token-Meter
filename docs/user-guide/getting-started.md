@@ -2,7 +2,7 @@
 
 ## 1. 准备环境
 
-AI Token Meter 稳定版支持 Apple Silicon Mac 与 macOS 14 或更新版本；`0.3.0-preview.1` 同时提供 macOS Apple Silicon 与 Windows 11 x64 预览资产。从源码构建的共同依赖是 Git，平台依赖分别为：
+AI Token Meter 稳定版支持 Apple Silicon Mac 与 macOS 14 或更新版本；`0.3.0-preview.2` 同时提供 macOS Apple Silicon 与 Windows 11 x64 预览资产。从源码构建的共同依赖是 Git，平台依赖分别为：
 
 - Xcode Command Line Tools；
 - Swift 6 工具链；
@@ -17,7 +17,7 @@ Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView
 
 ## 2. 下载公开版本
 
-稳定使用可从 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 下载 `AI-Token-Meter-0.2.2-macOS-arm64.zip`；测试双平台 Preview 可从 [v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) 下载对应 macOS ZIP 和同名 `.sha256`。在下载目录验证：
+稳定使用可从 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 下载 `AI-Token-Meter-0.2.2-macOS-arm64.zip`；测试双平台 Preview 可从 [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) 下载对应 macOS ZIP 和同名 `.sha256`。在下载目录验证：
 
 ```bash
 shasum -a 256 -c AI-Token-Meter-0.2.2-macOS-arm64.zip.sha256
@@ -27,7 +27,7 @@ shasum -a 256 -c AI-Token-Meter-0.2.2-macOS-arm64.zip.sha256
 
 `0.1.2` 不含更新器，因此要手动安装一次当前版本。安装 `0.2.0` 或更新版本后，后续稳定版本可在 Settings → About 手动检查和安装。
 
-从 [v0.3.0-preview.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) 下载 `AI-Token-Meter-0.3.0-preview.1-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。Preview 安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
+从 [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) 下载 `AI-Token-Meter-0.3.0-preview.2-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。Preview 安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
 
 ## 3. 从源码构建
 
