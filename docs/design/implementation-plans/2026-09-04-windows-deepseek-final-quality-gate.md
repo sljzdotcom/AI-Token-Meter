@@ -163,6 +163,6 @@ fn stalled_fragment_transfer_claims_failed_and_allows_retry() {
 
 提交信息：`docs: record final DeepSeek repair evidence (REQ-20260904-006)`。
 
-- [ ] **步骤 7：按分支收尾流程处理集成**
+- [x] **步骤 7：按分支收尾流程处理集成**
 
 在合并前重新运行完整测试并确认基础分支为 `main`。根据用户既有“修复完成后并入 main”授权，验证全绿且无 Critical/Important 后本地合并；合并结果再次运行必要门禁，再推送并由 Windows main CI 复核。若任何条件不成立，保留分支并准确记录阻塞。

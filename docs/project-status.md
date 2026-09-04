@@ -36,7 +36,7 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 
 Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单栏入口；Win32 窗口默认右侧贴边，可切左侧并记忆显示器/纵向位置；同显示器全屏应用出现时隐藏；详情临时置前并按相同秒数或外部点击关闭。Windows Widget 暂不在 Preview 范围。
 
-PR #6 中尚未发布的 Windows DeepSeek 修复把“查看详情”和“同步官网历史”分离：点击圆环只显示详情，用户点击 **Sync official history** 后才创建唯一隐藏加载的官方 WebView2；ready 后显示聚焦，关闭/失败/超时恢复详情，完成后销毁官网窗口并展示聚合。opening/active 期间暂停详情自动隐藏。Windows Provider 详情与 Settings 使用专属紧凑密度，Settings 保持系统字体并为字体下拉固定可读浅色配色；macOS 源码和样式未改变。
+已并入 `main`、尚未发布的 Windows DeepSeek 修复把“查看详情”和“同步官网历史”分离：点击圆环只显示详情，用户点击 **Sync official history** 后才创建唯一隐藏加载的官方 WebView2；ready 后显示聚焦，关闭/失败/超时恢复详情，完成后销毁官网窗口并展示聚合。opening/active 期间暂停详情自动隐藏。Windows Provider 详情与 Settings 使用专属紧凑密度，Settings 保持系统字体并为字体下拉固定可读浅色配色；macOS 源码和样式未改变。
 
 ## 数据与持久化
 
@@ -60,7 +60,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - macOS 完整自动化基线：**375 项主测试（71 个测试组）+ 12 项 PTY 系统资源测试（1 个测试组），总计 387 项/72 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
-- 当前 Windows 未发布分支验证基线：43 项 Vitest、12 项密度进程生命周期和 169 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。最终独立复审无 Critical/Important；PR #6 的 [Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 已进一步通过 Windows-only 编译、原生测试、Release Tauri/NSIS 与 PE GUI subsystem，[macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 同时全绿；
+- 当前 `main` 的 Windows DeepSeek 修复验证基线：43 项 Vitest、12 项密度进程生命周期和 169 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。最终独立复审无 Critical/Important；PR #6 的 [Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 已进一步通过 Windows-only 编译、原生测试、Release Tauri/NSIS 与 PE GUI subsystem，[macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 同时全绿，合并提交为 `e62193c`；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。稳定版 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 提供 Apple Silicon ZIP 和 SHA-256；当前已公开双平台 Preview 为 [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)。发布 workflow `33833843964` 已验证 Windows 主程序为 GUI subsystem、双平台产物与更新签名，公网重下后的 SHA-256 和 Preview feed 也已复核；详细证据见[修复日志](development/2026-09-04-windows-console-window-suppression.md)。

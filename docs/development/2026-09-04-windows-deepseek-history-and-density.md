@@ -4,7 +4,7 @@
 
 **日期：** 2026-09-04
 
-**状态：** 自动化与独立复审已完成；PR #6 双平台 CI 全绿，等待并入 `main` 后制作下一版 Preview 并进行 Windows 11 真机确认
+**状态：** 已并入 `main`；自动化与独立复审完成，等待下一版 Preview 的 Windows 11 真机确认
 
 ## 背景与范围
 
@@ -132,3 +132,4 @@ PR #6 的 [Windows workflow 33878105470](https://github.com/sljzdotcom/AI-Token-
 - `fd90008`–`5612923`：关闭四项 Important，并完成无 Critical/Important 的最终独立复审；
 - `e3dc723`–`1309d30`：修复 Windows runner 的前端性能、Vite 启动/ANSI、浏览器输出、profile 复用与后台帧调度差异；
 - PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；当前公开 Release 仍为不含本修复的 `0.3.0-preview.2`。
+- PR #6 已于 2026-09-04 合并为 `e62193c`；需求保持待用户确认，直到下一版 Preview 完成 Windows 11 真实登录、关闭、聚合和原生下拉验收。
