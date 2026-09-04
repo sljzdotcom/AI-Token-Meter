@@ -20,9 +20,9 @@
 
 ### 任务 1：建立实际 PE 失败门禁
 
-- [ ] 创建 `scripts/check-windows-pe-subsystem.ps1`，校验 MZ、PE Signature、Optional Header 长度和 `Subsystem == 2`，错误中报告实际 subsystem。
-- [ ] 在 Windows CI 的 Tauri build 后调用脚本，传入 `windows/src-tauri/target/debug/ai-token-meter-windows.exe`。
-- [ ] 在 Release workflow 的 Tauri build 后调用脚本，传入 `windows/src-tauri/target/release/ai-token-meter-windows.exe`。
+- [x] 创建 `scripts/check-windows-pe-subsystem.ps1`，校验 MZ、PE Signature、Optional Header 长度和 `Subsystem == 2`，错误中报告实际 subsystem。
+- [x] 在 Windows CI 的 Tauri build 后调用脚本，传入 `windows/src-tauri/target/debug/ai-token-meter-windows.exe`。
+- [x] 在 Release workflow 的 Tauri build 后调用脚本，传入 `windows/src-tauri/target/release/ai-token-meter-windows.exe`。
 - [ ] 只提交测试和 CI 门禁并推送修复分支，确认现有程序在 Windows runner 因 subsystem `3` 正确失败。
 
 ### 任务 2：在编译源头消除控制台窗口
