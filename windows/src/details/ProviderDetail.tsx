@@ -27,7 +27,7 @@ export function ProviderDetail({
   return (
     <section
       aria-label={`${snapshot.displayName} details`}
-      className={`provider-detail provider-detail--${snapshot.providerId}`}
+      className={`provider-detail provider-detail--compact-density provider-detail--${snapshot.providerId}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) onInteractionEnd()
       }}

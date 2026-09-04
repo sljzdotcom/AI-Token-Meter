@@ -36,6 +36,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 import { App } from "./App"
 import { MeterClipPaths } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
+import { ProviderDetail } from "./details/ProviderDetail"
 import { DetailSurface } from "./Shell"
 import { SettingsWindow } from "./settings/SettingsWindow"
 import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
@@ -306,6 +307,42 @@ describe("Windows meter interface", () => {
     expect(screen.getByRole("tab", { name: "Monitoring" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "Services" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "About" })).toBeVisible()
+  })
+
+  it("renders Provider details at the compact Windows density", () => {
+    const { container } = render(
+      <ProviderDetail
+        onInteractionEnd={() => {}}
+        onInteractionStart={() => {}}
+        onPointerEnter={() => {}}
+        onPointerLeave={() => {}}
+        snapshot={snapshots[0]}
+      />,
+    )
+
+    const detail = screen.getByRole("dialog", { name: "Claude Code details" })
+    const identityTitle = container.querySelector(".provider-detail__identity strong")
+    const headline = container.querySelector(".provider-detail__headline")
+    const sectionTitle = container.querySelector(".detail-section h2")
+    const cardValue = container.querySelector(".metric-card strong")
+
+    expect(detail).toHaveClass("provider-detail--compact-density")
+    expect(identityTitle).toBeInTheDocument()
+    expect(headline).toBeInTheDocument()
+    expect(sectionTitle).toBeInTheDocument()
+    expect(cardValue).toBeInTheDocument()
+  })
+
+  it("renders Settings with compact system typography and readable display-font controls", () => {
+    render(<SettingsWindow displayFont="Antonio" onDisplayFontChange={() => {}} />)
+
+    const settings = screen.getByRole("dialog", { name: "AI Token Meter Settings" })
+    const title = settings.querySelector("header strong")
+    const displayFont = screen.getByLabelText("Display font")
+
+    expect(settings).toHaveClass("settings-window--compact-density", "settings-window--system-font")
+    expect(title).toBeInTheDocument()
+    expect(displayFont).toBeVisible()
   })
 
   it("edits refresh cadence and DeepSeek balance baseline in Monitoring", () => {
