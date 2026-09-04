@@ -8,10 +8,24 @@ use ai_token_meter_windows::domain::{
 use ai_token_meter_windows::platform::windows::deepseek_webview::{
     is_allowed_deepseek_navigation, isolated_profile_directory, parse_bridge_callback,
 };
+use ai_token_meter_windows::{ProviderDetailEffect, provider_detail_effects};
 use reqwest::Url;
 use time::macros::datetime;
 
 const NONCE: &str = "0123456789abcdef0123456789abcdef";
+
+#[test]
+fn opening_deepseek_detail_with_empty_history_does_not_start_official_history_sync() {
+    let effects = provider_detail_effects(&balance_snapshot());
+
+    assert_eq!(
+        effects,
+        [
+            ProviderDetailEffect::ShowDetailWindow,
+            ProviderDetailEffect::EmitActiveDetail,
+        ]
+    );
+}
 
 #[test]
 fn webview_policy_uses_an_isolated_profile_and_exact_navigation_allowlist() {

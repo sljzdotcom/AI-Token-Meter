@@ -248,6 +248,19 @@ fn usage_snapshots(state: State<'_, RuntimeState>) -> Vec<UsageSnapshot> {
     state.usage.snapshots()
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProviderDetailEffect {
+    ShowDetailWindow,
+    EmitActiveDetail,
+}
+
+pub fn provider_detail_effects(_: &UsageSnapshot) -> [ProviderDetailEffect; 2] {
+    [
+        ProviderDetailEffect::ShowDetailWindow,
+        ProviderDetailEffect::EmitActiveDetail,
+    ]
+}
+
 #[tauri::command]
 fn show_provider_detail(
     app: tauri::AppHandle,
@@ -255,18 +268,23 @@ fn show_provider_detail(
     provider_id: ProviderId,
 ) -> Result<UsageSnapshot, String> {
     let snapshot = state.usage.snapshot(provider_id);
+    let effects = provider_detail_effects(&snapshot);
     let edge = state
         .settings
         .lock()
         .map(|settings| edge_from_settings(settings.edge))
         .unwrap_or(Edge::Right);
-    show_detail_window(&app, edge)
-        .map_err(|_| "The detail window could not be shown".to_owned())?;
-    app.emit("active-detail-changed", &snapshot)
-        .map_err(|_| "The detail window could not be updated".to_owned())?;
-    if snapshot.provider_id == ProviderId::DeepSeek && snapshot.daily_history.is_empty() {
-        let session = Arc::clone(&state.deepseek_history_session);
-        let _ = crate::platform::windows::deepseek_webview::open_history_window(&app, session);
+    for effect in effects {
+        match effect {
+            ProviderDetailEffect::ShowDetailWindow => {
+                show_detail_window(&app, edge)
+                    .map_err(|_| "The detail window could not be shown".to_owned())?;
+            }
+            ProviderDetailEffect::EmitActiveDetail => {
+                app.emit("active-detail-changed", &snapshot)
+                    .map_err(|_| "The detail window could not be updated".to_owned())?;
+            }
+        }
     }
     Ok(snapshot)
 }
