@@ -10,7 +10,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-04](2026-09-04-windows-deepseek-history-and-density.md) | Windows DeepSeek 显式官网同步、托管窗口生命周期、同步反馈和紧凑界面密度 | Windows 37 项前端、7 项浏览器生命周期、160 项 Rust、production preview 密度与本机门禁通过；真实 Windows 11 登录、关闭、聚焦和字体下拉待用户确认 |
+| [2026-09-04](2026-09-04-windows-deepseek-history-and-density.md) | Windows DeepSeek 显式官网同步、托管窗口生命周期、同步反馈和紧凑界面密度 | 独立复审无 Critical/Important；Windows 43 项前端、12 项浏览器生命周期、169 项 Rust、production Chrome 密度、双平台 PR CI 与 NSIS 通过；真实 Windows 11 登录、关闭、聚焦和字体下拉待用户确认 |
 | [2026-09-04](2026-09-04-windows-console-window-suppression.md) | Windows 启动空白 Terminal 的 PE subsystem 根因、编译期修复与真实产物门禁 | subsystem `3 → 2` 红绿门禁、双平台 CI、`v0.3.0-preview.2` 公开发布、公网资产复验与 Windows 11 真机启动确认通过 |
 | [2026-09-04](2026-09-04-windows-floating-strip-parity-fix.md) | Windows 浮动条轮廓、白边和拖动稳定性修复及 `v0.3.0-preview.1` 发布 | 自动化、原生 Windows workflow、公开双平台资产与 Preview 更新通道通过；`preview.1` 已发布，真机 DPI/多屏/拖动及 `preview.0 → preview.1` 原位升级仍待用户确认 |
 | [2026-08-28 至 2026-08-30](2026-08-28-development-log.md) | 初始架构、三服务采集、菜单栏与悬浮条、详情自动隐藏、Claude 隔离工作区、用量准确性、Codex 重置额度、DeepSeek 30 天图表 | 100 个测试通过，真实 CLI 3/3，通过构建、签名和本机验收 |

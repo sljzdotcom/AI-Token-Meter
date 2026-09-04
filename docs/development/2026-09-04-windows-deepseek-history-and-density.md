@@ -4,13 +4,13 @@
 
 **日期：** 2026-09-04
 
-**状态：** 进行中；最终定向复审仍有 4 项 Important，当前分支禁止合并或发布
+**状态：** 自动化与独立复审已完成；PR #6 双平台 CI 全绿，等待并入 `main` 后制作下一版 Preview 并进行 Windows 11 真机确认
 
 ## 背景与范围
 
 Windows 真机同时暴露了四类问题：点击 DeepSeek 详情会隐式创建空白官网窗口，该窗口无法可靠关闭；详情内的 **Sync official history** 没有可见反馈；三个 Provider 详情与 Settings 字号偏大；Display font 原生下拉列表出现白底白字。确认采用方案 A：查看详情只打开原生详情，只有用户显式点击同步才创建托管官网窗口；Windows 使用独立紧凑密度和可读的浅色原生控件，macOS 源码与视觉保持不变。
 
-本阶段没有改版本号、推送分支、创建 tag 或发布 Release。发布版本与正式资产只在 Windows runner 和真机验收完成后另行决定。
+本阶段没有改版本号、创建 tag 或发布 Release。修复分支已推送到 PR #6；当前公开的 `0.3.0-preview.2` 仍不包含本修复，只有后续 Release Notes 明确列出 `REQ-20260904-006` 的 Preview 才可用于真机验收。
 
 ## 根因
 
@@ -29,6 +29,8 @@ Windows 真机同时暴露了四类问题：点击 DeepSeek 详情会隐式创�
 | 前端同步反馈 | 新用例因缺少 opening/active/failed、禁用按钮和倒计时暂停而失败；迟到 reject 与监听清理再分别复现竞态 | 前端由 19/19 增至 22/22 | `7e06b04`、`a03e9ce` |
 | 紧凑密度 | 组件缺少紧凑语义类；将详情正文从 14px 突变到 15px 时真实浏览器门禁失败；移除 Settings 系统字体规则同样失败 | 前端 24/24；Chrome 计算样式固定为详情 14/20/24/13/18px、Settings 14/20/13/32px，select/option 深字白底 | `e3d699c`、`7eec606` |
 | 浏览器门禁韧性 | 原脚本可能遗留 Vite 子进程且浏览器无硬超时；Node 用例先因受管生命周期模块不存在失败 | 初版 4/4 进程生命周期测试；Unix 进程组 TERM→KILL、浏览器 15 秒超时与 finally 清理 | `16b0f5e`、`fc0f80d` |
+| 最终四项 Important | 有效首片后无独立停滞期限；旧初始查询/命令拒绝可覆盖活跃会话；已有图表时清理失败无恢复入口 | generation 绑定 20 秒停滞期限、统一 attempt 接收边界、活跃会话保留、图表与失败重试共存；DeepSeek Rust 34 项和前端 43 项覆盖 | `fd90008`–`5612923` |
+| Windows 浏览器 runner | Windows jsdom 可见性树超时；Node 不能直接 spawn `npm.cmd`；Vite ANSI 输出、stdout 关闭时序、Chrome profile 复用和后台 `requestAnimationFrame` 依次使门禁失败 | 测试去除无关样式遍历；Node 直启 Vite；ANSI 解析、`close` 收流、Windows 独立临时 profile 与同步计算样式采样；Node 生命周期 12/12，Windows Chrome production 密度门禁通过 | `e3dc723`–`1309d30` |
 
 RED 均来自缺失或错误的生产行为，不使用沙箱端口限制作为失败先行证据。任务 1–4 的完整命令、突变与输出保存在同一计划的执行报告中。
 
@@ -85,28 +87,28 @@ RED 均来自缺失或错误的生产行为，不使用沙箱端口限制作为�
 
 最终验证以本日志同提交前的新鲜输出为准：
 
-- `npm --prefix windows test`：2 个文件，37/37；
-- `npm --prefix windows run test:density`：先构建 production fixture，Node 生命周期 7/7，Vite preview + Chrome 计算样式通过；首次沙箱运行仅因禁止绑定 `127.0.0.1` 失败，获准使用回环后同命令通过；
+- `npm --prefix windows test`：2 个文件，43/43；
+- `npm --prefix windows run test:density`：先构建 production fixture，Node 生命周期 12/12，Vite preview + Chrome 计算样式通过；首次沙箱运行仅因禁止绑定 `127.0.0.1` 失败，获准使用回环后同命令通过；
 - `npm --prefix windows run build`：TypeScript 与 Vite production build 通过；
-- `cargo test --all-targets --all-features --manifest-path windows/src-tauri/Cargo.toml`：160/160；既有 HTTP fixture 使用获准回环；
+- `cargo test --locked --all-targets --all-features --manifest-path windows/src-tauri/Cargo.toml`：169/169；既有 HTTP fixture 使用获准回环；
 - `cargo fmt --check --manifest-path windows/src-tauri/Cargo.toml`：通过；
 - `cargo clippy --locked --all-targets --manifest-path windows/src-tauri/Cargo.toml -- -D warnings`：通过、零警告；
-- `bash scripts/test.sh`：macOS 主测试 375/375（71 组）与独立 PTY 12/12（1 组）；随后跨平台合同 4 份 fixture、合同可移植性、Windows 发布资产标准化、release feed 回归、146 份 Markdown 和公开安全扫描全部通过；
+- `bash scripts/test.sh`：macOS 主测试 375/375（71 组）与独立 PTY 12/12（1 组）；随后跨平台合同 4 份 fixture、合同可移植性、Windows 发布资产标准化、release feed 回归、148 份 Markdown 和公开安全扫描全部通过；
 - `AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh`：生成并验证无 Widget、ad-hoc 签名的 Apple Silicon App；资源与 Sparkle bundle 检查通过；
 - `plutil`、`verify-app-resources.sh`、严格 `codesign`、`verify-update-bundle.sh`、Mach-O 与 AppIcon 检查全部通过，主程序为 arm64。
 
-显式 `x86_64-pc-windows-msvc` Tauri Preview 构建已在 macOS 主机尝试。前端构建通过，随后 `ring` 原生依赖因主机没有 Windows MSVC C SDK/Header，在 `assert.h` 缺失处停止；这不是可在 macOS 上声明通过的 Windows 壳/NSIS 证据。Windows-only 编译、运行测试、PE GUI subsystem 与 NSIS 必须由后续 `windows-latest` workflow 完成。
+PR #6 的 [Windows workflow 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 已在 `windows-latest` 通过 43 项前端、12 项密度生命周期、真实 Chrome 计算样式、严格 Rust 格式/Clippy、169 项原生测试、Release Tauri/NSIS、PE GUI subsystem 和安装器上传；[macOS workflow 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 同时全绿。它们是源码与构建门禁，不替代交互式 Windows 11 真机登录、窗口焦点和原生下拉弹层证据。
 
 ## Windows 11 真机验收（待用户确认）
 
-真机验收尚未开放。进入本节前必须先在新的修复周期关闭下列最终定向复审问题，并重新通过独立代码审查和全量门禁：
+真机验收的代码门禁已经开放。最终定向复审的四项 Important 已关闭：
 
 1. 从第一片有效分片开始建立 generation 绑定的 20 秒传输停滞计时器；停滞自动失败并允许重试。
 2. 为前端初始状态查询建立 attempt/epoch 所有权，旧查询不得覆盖用户随后启动的新会话。
 3. 命令返回失败且后续查询失败时，保留同一次尝试中已由事件确认的活跃会话；查询得到的所有合法终态继续走 generation 感知的统一接收路径。
 4. 即使已有历史图表，官网窗口销毁失败也必须提供可达的清理/重试动作，或由窗口销毁事件自动核销逻辑所有权。
 
-以下步骤只在上述四项关闭后执行：
+独立复审在 `5612923` 未发现剩余 Critical/Important；其后改动只加固 CI 测试基础设施。PR #6 双平台 CI 和本机完整门禁均已通过。并入 `main` 后，以下步骤仍需安装包含本修复的下一版 Preview，在交互式 Windows 11 中执行：
 
 1. 安装包含本修复的下一版 Preview，完全退出旧进程后重新启动；确认现有 DeepSeek Key 遮罩与余额仍可用，不在报告中提交 Key 或账号截图。
 2. 依次打开 Claude Code、OpenAI Codex、DeepSeek 详情，确认标题、主数字、卡片和区块标题明显更紧凑且没有截断；同时确认 macOS 外观没有变化。
@@ -126,4 +128,7 @@ RED 均来自缺失或错误的生产行为，不使用沙箱端口限制作为�
 - `7e06b04`、`a03e9ce`：前端同步反馈与竞态加固；
 - `e3d699c`、`7eec606`、`16b0f5e`、`fc0f80d`：紧凑密度、真实浏览器门禁与进程回收；
 - 任务 5 文档与本机验证检查点：`5f7a141`；
-- `4953206`、`5982d5c`：整分支最终审查修复与证据记录；随后定向复审重新打开 4 项 Important，因此当前仍未达到合并/发布门槛。
+- `4953206`、`5982d5c`：第一轮整分支审查修复与证据记录；随后定向复审重新打开 4 项 Important，形成下一轮失败先行基线；
+- `fd90008`–`5612923`：关闭四项 Important，并完成无 Critical/Important 的最终独立复审；
+- `e3dc723`–`1309d30`：修复 Windows runner 的前端性能、Vite 启动/ANSI、浏览器输出、profile 复用与后台帧调度差异；
+- PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；当前公开 Release 仍为不含本修复的 `0.3.0-preview.2`。
