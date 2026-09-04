@@ -43,3 +43,29 @@
 已验证：`npm test`（2 个测试文件、24 项通过）、`npm run build`（TypeScript 检查和 Vite production build 通过）。
 
 Git 提交：`fix(windows): compact detail and Settings density (REQ-20260904-006)`。
+
+## 审查修复第 1 轮：浏览器级 CSS 门禁
+
+### 根因与 RED
+
+- 原有 Vitest 只验证组件的紧凑密度 class、节点和可访问名称；其 JSDOM 入口不加载 production `styles.css`，因此错误字号、错误控件高度、浅色 scheme 或 select/option 配色仍会通过。
+- 增加 `density-browser.html`、`src/test/density-browser-entry.tsx` 和 `scripts/test-density-browser.mjs` 后，门禁通过 Vite 提供实际前端模块、Chrome headless 的 `getComputedStyle()` 计算样式和 DOM 报告验证可见结果，不读取 CSS 源文本或 grep。
+- 突变证明：临时把 `--provider-detail-body-size` 从 `14px` 改为 `15px`，`npm run test:density` 按预期以 `detailBody: expected 14px, received 15px` 失败；恢复 `14px` 后同一命令转绿。
+
+### 覆盖
+
+- Provider：正文、身份标题、主数值、区块标题、卡片关键数字分别为 14/20/24/13/18px；详情展示字体仍为 Antonio。
+- Settings：基准、主标题、控件字号/最小高度分别为 14/20/13/32px；字体仍为 Segoe UI，未泄漏到 meter 或 Provider detail。
+- 原生控件：Settings `color-scheme` 为 `light`，Display font `select` 和首个 `option` 的前景/背景均为 `rgb(21, 24, 33)` / `rgb(255, 255, 255)`。
+
+### 文件与验证
+
+- `windows/density-browser.html`
+- `windows/src/test/density-browser-entry.tsx`
+- `windows/scripts/test-density-browser.mjs`
+- `windows/package.json`
+- `docs/requirements-backlog.md`
+
+已验证：`npm run test:density`（Chrome headless CSS 计算样式通过）、`npm test`（2 个测试文件、24 项通过）、`npm run build`（TypeScript 检查和 Vite production build 通过）。
+
+Git 提交：`test(windows): verify compact density in browser (REQ-20260904-006)`。
