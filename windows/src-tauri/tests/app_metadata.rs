@@ -5,7 +5,7 @@ fn product_metadata_matches_the_shared_contract() {
     let metadata = app_metadata().expect("shared metadata should decode");
 
     assert_eq!(metadata.product_name, "AI Token Meter");
-    assert_eq!(metadata.version, "0.3.0-preview.0");
+    assert_eq!(metadata.version, "0.3.0-preview.1");
     assert_eq!(
         metadata.providers,
         [

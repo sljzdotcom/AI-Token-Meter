@@ -4,12 +4,12 @@
 
 ## 当前版本边界
 
-- App Bundle 版本：`0.3.0-preview.0`（build `7`）；最新稳定版仍为 `0.2.2`（build `6`）。
+- App Bundle 发布候选版本：`0.3.0-preview.1`（build `8`）；最新稳定版仍为 `0.2.2`（build `6`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 最新 Preview Git tag：`v0.3.0-preview.0`（`704342e`）；稳定 tag 仍为 `v0.2.2`。Preview 的公开 CI、双平台资产、签名与校验证据见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)。
+- 最新已公开 Preview Git tag：`v0.3.0-preview.0`（`704342e`）；`v0.3.0-preview.1` 候选完成 Windows 浮动条修复后才可打 tag。稳定 tag 仍为 `v0.2.2`。Preview 发布证据分别见 [v0.3.0-preview.0 发布记录](2026-09-04-v0.3.0-preview.0-release.md)和[本次修复日志](2026-09-04-windows-floating-strip-parity-fix.md)。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
@@ -49,6 +49,7 @@
 | v0.2.2 更新窗口与 CI 稳定性补丁 | `4092d1f`–`c11da0a` | Settings 自动让位、Sparkle 安装窗口置前、事件驱动详情超时测试、无进程扇出的 PTY fixture、签名发布与真实公开升级终验 |
 | Windows 11 x64 Preview 开发 | `20b53bf`–`96e6a92` | 共享合同、Tauri/Rust/React、Native/WSL、三 Provider、ConPTY/Job Object、Win32 浮岛、WebView2 历史、Services、Updater、事务式双平台发布与 NSIS；最终 Windows CI `33741425083` 和三轮独立复审通过，真机与公开 Preview 仍待完成 |
 | v0.3.0-preview.0 双平台发布 | `ba4c24e`、`e02fd4a`、`704342e` | 同版本 macOS/Windows 资产、首次 Windows minisign 信任根、两项 Windows 发布门禁修复、公开 Release 与公网重下复验 |
+| v0.3.0-preview.1 Windows 浮动条修复 | `b9743c0`、`2614186`、`e78ad48` | macOS 同源 SVG/Bezier 轮廓、关闭 Windows 白色外框、原生鼠标释放吸附与拓扑竞态保护；发布证据待 workflow 后补 |
 
 ## 2026-08-28
 

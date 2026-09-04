@@ -10,6 +10,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-04](2026-09-04-windows-floating-strip-parity-fix.md) | Windows 浮动条 macOS 同源轮廓、无白边合成与原生拖动释放 | 红绿测试与本机门禁完成；等待 Windows CI、双平台 `preview.1` 发布和真机 DPI/升级确认 |
 | [2026-08-28 至 2026-08-30](2026-08-28-development-log.md) | 初始架构、三服务采集、菜单栏与悬浮条、详情自动隐藏、Claude 隔离工作区、用量准确性、Codex 重置额度、DeepSeek 30 天图表 | 100 个测试通过，真实 CLI 3/3，通过构建、签名和本机验收 |
 | [2026-08-31](2026-08-31-deepseek-focus.md) | DeepSeek 内嵌官网登录输入焦点修复 | 103 个测试、构建、签名、输入焦点与真实登录验收通过 |
 | [2026-08-31](2026-08-31-codex-deepseek-details.md) | Codex 额度优先详情与本机统计；DeepSeek 30 天自动同步兼容 | 110 个测试、Codex 真实集成、DeepSeek 官网聚合、release 构建和安装校验通过 |

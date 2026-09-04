@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+## 0.3.0-preview.1 - 2026-09-04
+
+### Fixed
+
+- Windows 浮动条精确复用 macOS 的四段 Bezier 轮廓，并由 WebView2 单一抗锯齿裁剪；消除 CSS 粗多边形与 Win32 GDI Region 双重裁剪造成的凹凸、锯齿和反向肩部缺失。
+- Windows meter 明确关闭系统阴影和 DWM 边框色，避免透明无边框窗口出现 1px 白框及上下白条；深海背景覆盖完整上下肩部。
+- Windows 拖动改为原生鼠标释放后只吸附一次；拖动期间显示器拓扑恢复暂停，首次拓扑轮询只建立基线，避免提前吸附、位置跳动和重启后漂移。
+
+### Changed
+
+- macOS 与 Windows 同步提升到 `0.3.0-preview.1`（build `8`）；macOS 浮动条视觉与窗口行为不变。
+
 ## 0.3.0-preview.0 - 2026-09-04
 
 ### Added
