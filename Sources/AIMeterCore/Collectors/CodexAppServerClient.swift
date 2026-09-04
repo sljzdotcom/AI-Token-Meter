@@ -115,7 +115,7 @@ struct CodexAppServerClient: Sendable {
             "id": 1,
             "method": "initialize",
             "params": [
-                "clientInfo": ["name": "ai-token-meter", "version": "0.3.0-preview.2"],
+                "clientInfo": ["name": "ai-token-meter", "version": "0.3.0-preview.3"],
                 "capabilities": ["experimentalApi": true],
             ],
         ], to: input.fileHandleForWriting)

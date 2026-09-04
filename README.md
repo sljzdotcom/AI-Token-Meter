@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.3.0-preview.2](https://img.shields.io/badge/version-0.3.0--preview.2-f59e0b)
+![Version 0.3.0-preview.3](https://img.shields.io/badge/version-0.3.0--preview.3-f59e0b)
 ![Tests 387](https://img.shields.io/badge/tests-387%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 项目状态：当前已公开双平台 Preview 为 `0.3.0-preview.2`（build `9`），最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 的自动化门禁已全部通过，但尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
+> 项目状态：当前双平台 Preview 为 `0.3.0-preview.3`（build `10`），最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 的自动化门禁已全部通过，但尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
 
 ## Screenshots
 
@@ -38,7 +38,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - Claude Code：读取当前会话与周额度，并在专用详情页补充本机最近 30 天的会话、活跃日、Token 总量和每日趋势；两种数据口径明确分区。
 - OpenAI Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
-- DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。当前未发布源码（待进入下一版 Preview）中，Windows 查看详情不会自动打开网页，用户显式点击同步后才启动支持关闭、复用聚焦、失败恢复与可见进度的官网窗口；macOS 现有行为不变。
+- DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。Windows 从 `0.3.0-preview.3` 起，查看详情不会自动打开网页，用户显式点击同步后才启动支持关闭、复用聚焦、失败恢复与可见进度的官网窗口；macOS 现有行为不变。
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
 - 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
 - DeepSeek API Key 存入 macOS Keychain；替换时先经官方余额接口验证，失败会保留旧 Key，设置页只显示最后四位遮罩。
@@ -74,12 +74,12 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-**[Download v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2)** from GitHub Releases：
+**[Download v0.3.0-preview.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.3)** from GitHub Releases：
 
-- macOS：下载 `AI-Token-Meter-0.3.0-preview.2-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.3.0-preview.2-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.3.0-preview.3-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.3.0-preview.3-windows-x64-setup.exe` 与同名 `.sha256`。
 
-当前公开的 `0.3.0-preview.2` **不包含** `REQ-20260904-006` 的 Windows DeepSeek 显式同步、窗口生命周期与紧凑密度修复。这些行为目前只存在于未发布源码，将在 Release Notes 明确列出 `REQ-20260904-006` 的下一版 Preview 中交付；版本号尚未确定。
+`0.3.0-preview.3` 明确包含 `REQ-20260904-006` 的 Windows DeepSeek 显式同步、窗口生命周期、紧凑字号与字体下拉可读性修复。
 
 预览版用于提前验证 Windows 与双平台同步发布。需要稳定版时仍可使用 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 的 macOS 包。Windows Preview 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -228,7 +228,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前已公开双平台 Preview：`0.3.0-preview.2`（build `9`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
+- 当前双平台 Preview：`0.3.0-preview.3`（build `10`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

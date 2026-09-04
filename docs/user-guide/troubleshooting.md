@@ -74,7 +74,7 @@ Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
 
 ### 30 天图表要求登录或没有更新
 
-1. Windows 先在 Settings → About 核对已安装版本的 Release Notes；只有其明确列出 `REQ-20260904-006` 时，下述显式同步、关闭恢复与复用聚焦才是可验收行为。当前公开的 `0.3.0-preview.2` 不包含该修复，不应用它验收未发布源码的行为。
+1. Windows 先在 Settings → About 核对已安装版本；下述显式同步、关闭恢复与复用聚焦从明确列出 `REQ-20260904-006` 的 `0.3.0-preview.3` 起可用。
 2. 点击 DeepSeek 圆环打开详情。
 3. Windows 点击 **Sync official history**；查看详情本身不会再自动创建官网窗口。按钮应先显示 Opening；官方页在 30 秒内呈现可用登录/应用界面后才显示窗口并进入同步，期间暂停详情自动隐藏。可见登录会话最长 15 分钟；登录、短信、CAPTCHA 或同意步骤不消耗随后从第一片有效数据开始的 20 秒分片传输期限。macOS 按当前版本的 WebKit 入口操作。
 4. 在独立官方窗口完成登录，保持窗口开启直至用量与费用两组数据到齐；完成后 Windows 会关闭官网窗口、恢复详情并显示原生图表。
@@ -85,7 +85,7 @@ Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
 
 ### 官方登录页能够显示，但输入框不能输入
 
-- Windows 先安装 Release Notes 明确列出 `REQ-20260904-006` 的版本，再完全退出并重新打开 AI Token Meter；当前公开的 `0.3.0-preview.2` 不包含这项未发布修复，旧进程也不会自动获得新的窗口焦点能力；
+- Windows 先安装 `0.3.0-preview.3` 或更新版本，再完全退出并重新打开 AI Token Meter；旧进程不会自动获得新的窗口焦点能力；
 - Windows 在 DeepSeek 详情中点击 **Sync official history**，等待官方窗口通过可用性检查后出现并获得前台焦点，再点击手机号或验证码输入框；active 期间的重复请求只应聚焦现有窗口，opening 期间仍应保持隐藏，任何阶段都不应出现第二个窗口；
 - Claude Code、OpenAI Codex 详情按设计不会激活 AI Token Meter，它们是只读面板；
 - 如果出现 CAPTCHA、法律协议或额外安全确认，请在官方页面手动处理；
@@ -93,7 +93,7 @@ Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
 
 ### Windows Display font 下拉框文字不可见
 
-- 完全退出并安装 Release Notes 明确列出 `REQ-20260904-006` 的 Preview；当前公开的 `0.3.0-preview.2` 不包含紧凑密度与原生控件配色修复，旧进程也不会载入新配色；
+- 完全退出并安装 `0.3.0-preview.3` 或更新版本；旧进程不会载入新的紧凑密度与原生控件配色；
 - 打开 Settings → Appearance，展开 **Display font**。选项应在未悬停时就是白底深色文字，鼠标悬停和键盘焦点也保持可辨识；
 - 如果仍是白底白字，记录 Windows 版本、系统浅色/深色模式和缩放比例，但不要附带 Services 账号区域；
 - 浏览器计算样式门禁不能替代 Windows 原生弹出列表。该项在需求台账中保持待用户确认，直到交互式 Windows 11 真机通过。

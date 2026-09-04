@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前已公开双平台 Preview 为 `0.3.0-preview.2`、build `9`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。Windows DeepSeek 窗口与密度修复目前只记录在 `CHANGELOG.md` 的 `Unreleased`，下一版本尚未选定；必须等待 Windows runner 和真机验收，不能沿用已公开的 `preview.2` 资产冒充修复版本。
+当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前双平台 Preview 为 `0.3.0-preview.3`、build `10`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。`0.3.0-preview.3` 明确交付 `REQ-20260904-006` 的 Windows DeepSeek 窗口生命周期和紧凑密度修复；真机验收状态继续独立记录，不因发布而自动变为完成。
 
 ## 发布前检查清单
 

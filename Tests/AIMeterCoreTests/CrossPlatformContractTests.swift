@@ -19,7 +19,7 @@ struct CrossPlatformContractTests {
                 as? [String: Any]
         )
 
-        #expect(sharedVersion == "0.3.0-preview.2")
+        #expect(sharedVersion == "0.3.0-preview.3")
         #expect(sharedVersion == plist["CFBundleShortVersionString"] as? String)
 
         let packageData = try Data(

@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-token-meter-windows"
-version = "0.3.0-preview.2"
+version = "0.3.0-preview.3"
 dependencies = [
  "async-trait",
  "base64 0.22.1",

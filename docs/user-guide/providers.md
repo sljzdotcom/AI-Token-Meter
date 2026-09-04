@@ -94,7 +94,7 @@ OpenAI Codex 详情把官方额度放在上方，下面单独标记 **Last 30 da
 
 DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 天图表数据。AI Token Meter 因此使用应用内隔离网页会话（macOS WebKit、Windows WebView2）打开官方用量页，并只处理官方来源的相关 JSON 数据。当前官网分别返回每日用量与每日费用；AI Token Meter 会等待两组数据到齐、按日期合并后才替换完整缓存，避免半份响应把现有图表清空。
 
-以下 Windows 行为只适用于当前未发布源码，待进入 Release Notes 明确列出 `REQ-20260904-006` 的下一版 Preview 后才可从安装包使用；已公开的 `0.3.0-preview.2` 不包含这项修复。查看 DeepSeek 详情不会自动创建官网窗口。只有用户点击 **Sync official history** 才开始同步：opening/active 状态会暂停详情自动隐藏；官网页须在 30 秒内呈现可用登录/应用界面才会显示，active 窗口可被复用聚焦，尚未 ready 的 opening 窗口保持隐藏；可见登录会话最多 15 分钟，20 秒分片期限只从第一片通过 envelope 校验的数据开始计算。用户关闭、加载失败或期限届满时会清理当前会话、恢复详情并允许重试；完整聚合成功后会关闭官网窗口并恢复更新后的原生图表。macOS 现有 WebKit 行为不因 Windows 专属修复而改变。
+以下 Windows 行为从 `0.3.0-preview.3` 起可用，Release Notes 明确列出 `REQ-20260904-006`。查看 DeepSeek 详情不会自动创建官网窗口。只有用户点击 **Sync official history** 才开始同步：opening/active 状态会暂停详情自动隐藏；官网页须在 30 秒内呈现可用登录/应用界面才会显示，active 窗口可被复用聚焦，尚未 ready 的 opening 窗口保持隐藏；可见登录会话最多 15 分钟，20 秒分片期限只从第一片通过 envelope 校验的数据开始计算。用户关闭、加载失败或期限届满时会清理当前会话、恢复详情并允许重试；完整聚合成功后会关闭官网窗口并恢复更新后的原生图表。macOS 现有 WebKit 行为不因 Windows 专属修复而改变。
 
 标准化后保存的字段只有：
 

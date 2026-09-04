@@ -75,7 +75,7 @@ export type UpdateState = {
 
 const defaultUpdateState: UpdateState = {
   phase: "idle",
-  currentVersion: "0.3.0-preview.2",
+  currentVersion: "0.3.0-preview.3",
 }
 
 export function SettingsWindow({

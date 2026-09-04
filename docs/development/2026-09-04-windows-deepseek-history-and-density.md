@@ -4,13 +4,13 @@
 
 **日期：** 2026-09-04
 
-**状态：** 已并入 `main`；自动化与独立复审完成，等待下一版 Preview 的 Windows 11 真机确认
+**状态：** 已并入 `main`；自动化与独立复审完成，`0.3.0-preview.3` 发布后等待 Windows 11 真机确认
 
 ## 背景与范围
 
 Windows 真机同时暴露了四类问题：点击 DeepSeek 详情会隐式创建空白官网窗口，该窗口无法可靠关闭；详情内的 **Sync official history** 没有可见反馈；三个 Provider 详情与 Settings 字号偏大；Display font 原生下拉列表出现白底白字。确认采用方案 A：查看详情只打开原生详情，只有用户显式点击同步才创建托管官网窗口；Windows 使用独立紧凑密度和可读的浅色原生控件，macOS 源码与视觉保持不变。
 
-本阶段没有改版本号、创建 tag 或发布 Release。修复分支已推送到 PR #6；当前公开的 `0.3.0-preview.2` 仍不包含本修复，只有后续 Release Notes 明确列出 `REQ-20260904-006` 的 Preview 才可用于真机验收。
+本修复阶段本身没有改版本号、创建 tag 或发布 Release；修复分支随后通过 PR #6 合入 `main`。已公开的 `0.3.0-preview.2` 不包含本修复，`0.3.0-preview.3` Release Notes 明确列出 `REQ-20260904-006`，发布完成后可用于真机验收。
 
 ## 根因
 
@@ -108,9 +108,9 @@ PR #6 的 [Windows workflow 33878105470](https://github.com/sljzdotcom/AI-Token-
 3. 命令返回失败且后续查询失败时，保留同一次尝试中已由事件确认的活跃会话；查询得到的所有合法终态继续走 generation 感知的统一接收路径。
 4. 即使已有历史图表，官网窗口销毁失败也必须提供可达的清理/重试动作，或由窗口销毁事件自动核销逻辑所有权。
 
-独立复审在 `5612923` 未发现剩余 Critical/Important；其后改动只加固 CI 测试基础设施。PR #6 双平台 CI 和本机完整门禁均已通过。并入 `main` 后，以下步骤仍需安装包含本修复的下一版 Preview，在交互式 Windows 11 中执行：
+独立复审在 `5612923` 未发现剩余 Critical/Important；其后改动只加固 CI 测试基础设施。PR #6 双平台 CI 和本机完整门禁均已通过。并入 `main` 后，以下步骤仍需安装 `0.3.0-preview.3`，在交互式 Windows 11 中执行：
 
-1. 安装包含本修复的下一版 Preview，完全退出旧进程后重新启动；确认现有 DeepSeek Key 遮罩与余额仍可用，不在报告中提交 Key 或账号截图。
+1. 安装 `0.3.0-preview.3`，完全退出旧进程后重新启动；确认现有 DeepSeek Key 遮罩与余额仍可用，不在报告中提交 Key 或账号截图。
 2. 依次打开 Claude Code、OpenAI Codex、DeepSeek 详情，确认标题、主数字、卡片和区块标题明显更紧凑且没有截断；同时确认 macOS 外观没有变化。
 3. 在 DeepSeek 没有新历史时点击圆环：只应出现原生详情，不得自动创建官网窗口。
 4. 点击 **Sync official history**：详情立即显示 Opening 且按钮禁用；官网窗口只在官方页 ready 后出现并获得前台焦点，不应出现第二个空白窗口。
@@ -131,6 +131,6 @@ PR #6 的 [Windows workflow 33878105470](https://github.com/sljzdotcom/AI-Token-
 - `4953206`、`5982d5c`：第一轮整分支审查修复与证据记录；随后定向复审重新打开 4 项 Important，形成下一轮失败先行基线；
 - `fd90008`–`5612923`：关闭四项 Important，并完成无 Critical/Important 的最终独立复审；
 - `e3dc723`–`1309d30`：修复 Windows runner 的前端性能、Vite 启动/ANSI、浏览器输出、profile 复用与后台帧调度差异；
-- PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；当前公开 Release 仍为不含本修复的 `0.3.0-preview.2`。
-- PR #6 已于 2026-09-04 合并为 `e62193c`；需求保持待用户确认，直到下一版 Preview 完成 Windows 11 真实登录、关闭、聚合和原生下拉验收。
+- PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；`0.3.0-preview.2` 不含本修复，`0.3.0-preview.3` 为首次交付版本。
+- PR #6 已于 2026-09-04 合并为 `e62193c`；需求保持待用户确认，直到 `0.3.0-preview.3` 完成 Windows 11 真实登录、关闭、聚合和原生下拉验收。
 - 合并记录提交 `d520752` 的 [Windows main CI 33880527388](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527388) 与 [macOS main CI 33880527365](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527365) 均全绿；Windows 再次完成真实 Chrome、169 项原生测试、Release NSIS 和 PE GUI subsystem 验证。

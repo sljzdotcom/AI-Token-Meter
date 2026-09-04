@@ -59,6 +59,7 @@
 | [v0.3.0-preview.0 Release notes](releases/v0.3.0-preview.0.md) | 首个 macOS/Windows 同版本 Preview、下载、安全边界和已知限制 |
 | [v0.3.0-preview.1 Release notes](releases/v0.3.0-preview.1.md) | Windows 浮动条轮廓、白边和贴边稳定性修复及真机复验项 |
 | [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
+| [v0.3.0-preview.3 Release notes](releases/v0.3.0-preview.3.md) | Windows DeepSeek 显式同步、可恢复窗口生命周期、紧凑界面与字体下拉可读性修复 |
 | [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [浮动条位置稳定持久化](development/2026-09-03-floating-strip-placement-persistence.md) | 稳定物理显示器身份、多屏无损回退、重连恢复和跨平台实现证据 |
 | [DeepSeek 截止时间饥饿修复](development/2026-09-03-deepseek-timeout-starvation.md) | 阻塞 Keychain 读取、独立 GCD 单调时钟截止时间与 CI 回归证据 |
@@ -66,6 +67,7 @@
 | [Windows 浮动条视觉与贴边修复](development/2026-09-04-windows-floating-strip-parity-fix.md) | 真机缺陷根因、红绿测试、实现边界与 `preview.1` 发布验证 |
 | [Windows 启动空白终端修复](development/2026-09-04-windows-console-window-suppression.md) | Windows Terminal 根因、PE subsystem 红绿门禁、最小入口修复与 `preview.2` 验收边界 |
 | [Windows DeepSeek 历史与界面密度修复](development/2026-09-04-windows-deepseek-history-and-density.md) | 显式官网同步、可关闭/可恢复窗口生命周期、紧凑字号、字体下拉配色与真机验收边界 |
+| [v0.3.0-preview.3 双平台发布](development/2026-09-04-v0.3.0-preview.3-release.md) | 版本同步、双平台签名资产、固定 Windows Preview feed、公网复验与真机边界 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |
