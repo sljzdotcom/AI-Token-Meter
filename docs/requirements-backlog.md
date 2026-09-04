@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-03
+**最后更新：** 2026-09-04
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -48,6 +48,7 @@
 | REQ-20260903-011 | 发布交付 | 将已合入 `main` 的稳定显示器位置修复及当前跨平台功能打包为下一版可安装 Preview；macOS 与 Windows 使用同一版本和 GitHub Release，提供校验、更新清单及标准发布文档 | 高 | 已完成 | 2026-09-03 | 无；Windows 真机交互与 `preview.0 → preview.1` 升级闭环继续由 `REQ-20260903-004` 管理 | [Release v0.3.0-preview.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.0) · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33816010376) · [发布记录](development/2026-09-04-v0.3.0-preview.0-release.md) |
 | REQ-20260904-001 | 发布门禁缺陷 | 修复跨平台合同检查器在 Windows runner 上把 Git 已跟踪为可执行的发布入口误判为不可执行，导致双平台 Preview 发布在代码测试通过后被阻断 | 高 | 已完成 | 2026-09-04 | 无 | [失败 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33813010911) · [Windows 复验](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33814393456) · `scripts/test-cross-platform-contracts.sh` |
 | REQ-20260904-002 | Windows 发布缺陷 | 修复 Tauri 已成功生成签名 NSIS 资产后，Release workflow 在资产标准化与哈希阶段无法识别实际输出而中止的问题 | 高 | 已完成 | 2026-09-04 | 无 | [失败 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33814393456) · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33816010376) · `704342e` · `scripts/test-normalize-windows-release-assets.sh` |
+| REQ-20260904-003 | macOS 更新通道 | 核对 M4 Max 手动检查更新时未发现 `0.3.0-preview.0` 的原因，并明确稳定版与预览版的安装入口 | 中 | 已完成 | 2026-09-04 | 无；当前 macOS 应用只读取稳定 `appcast.xml`，预览版需从 GitHub Release 手动安装，待未来明确提出后再设计可选 Preview 通道 | `SUFeedURL`、稳定 `appcast.xml`、[v0.3.0-preview.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.0) |
 
 ## 分类索引
 
@@ -290,3 +291,4 @@
 | 2026-09-03 | REQ-20260903-009 | 进行中 → 已完成 | 三轮独立审查关闭全部 Critical/Important；PR #4 的 macOS `33766095915` 与 Windows `33766096437` 通过，合并提交 `c2d2e64` 的 main CI `33766955625`、`33766955622` 再次全绿。稳定物理屏身份、无损主屏回退与重连恢复已交付。 |
 | 2026-09-03 | REQ-20260903-010 | 进行中 → 已完成 | 提交 `0ae1cbe` 修复截止时间饥饿，`4f6c3af` 完成复审术语更正；阻塞回归、本机 386 项与 macOS PR/main CI 均通过，原失败未复现。 |
 | 2026-09-03 | REQ-20260903-011 | 新建 → 进行中 | 用户要求继续完成位置修复后的可安装交付；按既定跨平台规则选择首个 `0.3.0-preview.0`，要求 macOS/Windows 同版本、同 Release、各自签名更新清单和完整文档。 |
+| 2026-09-04 | REQ-20260904-003 | 新建 → 已完成 | M4 Max 的 `SUFeedURL` 固定读取仓库根稳定 `appcast.xml`，该 feed 最新条目仍为 `0.2.2`；`0.3.0-preview.0` 是公开 prerelease，发布流程有意不改写稳定 feed，因此应用内检查不到属于预期的通道隔离，并非架构或签名故障。 |
