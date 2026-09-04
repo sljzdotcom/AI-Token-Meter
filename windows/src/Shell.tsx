@@ -56,7 +56,9 @@ function MeterSurface() {
   const settings = useRuntimeSettings()
   useEffect(() => {
     const startDrag = () => {
-      void getCurrentWindow().startDragging().then(() => invoke("meter_drag_ended"))
+      void invoke("begin_meter_drag")
+        .then(() => getCurrentWindow().startDragging())
+        .catch(() => {})
     }
     window.addEventListener("meter-drag-requested", startDrag)
     return () => window.removeEventListener("meter-drag-requested", startDrag)

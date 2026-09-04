@@ -1,3 +1,11 @@
+pub const fn should_restore_topology(
+    has_baseline: bool,
+    topology_changed: bool,
+    drag_active: bool,
+) -> bool {
+    has_baseline && topology_changed && !drag_active
+}
+
 #[cfg(windows)]
 pub fn start_monitoring(app: tauri::AppHandle) {
     use std::time::Duration;
@@ -15,13 +23,18 @@ pub fn start_monitoring(app: tauri::AppHandle) {
             let Ok(current) = super::window_controller::monitor_topology(&meter) else {
                 continue;
             };
-            if tracker
-                .as_ref()
-                .is_some_and(|tracker| !tracker.has_changed(&current))
-            {
+            let Some(existing) = tracker.as_mut() else {
+                tracker = Some(super::monitor::MonitorTopologyTracker::new(current));
+                continue;
+            };
+            let topology_changed = existing.has_changed(&current);
+            let state = app.state::<crate::RuntimeState>();
+            if !should_restore_topology(true, topology_changed, state.meter_drag_is_active()) {
+                if topology_changed && state.meter_drag_is_active() {
+                    existing.commit(current);
+                }
                 continue;
             }
-            let state = app.state::<crate::RuntimeState>();
             let (edge, normalized_y, preferred_monitor_id) = state.meter_position();
             if let Ok(migrated_identifier) = super::window_controller::restore_meter_position(
                 &meter,
@@ -31,12 +44,27 @@ pub fn start_monitoring(app: tauri::AppHandle) {
             ) {
                 state
                     .migrate_meter_monitor_id(preferred_monitor_id.as_deref(), migrated_identifier);
-                if let Some(tracker) = tracker.as_mut() {
-                    tracker.commit(current);
-                } else {
-                    tracker = Some(super::monitor::MonitorTopologyTracker::new(current));
-                }
+                existing.commit(current);
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_first_observation_only_establishes_a_baseline() {
+        assert!(!super::should_restore_topology(false, true, false));
+    }
+
+    #[test]
+    fn active_dragging_blocks_topology_repositioning() {
+        assert!(!super::should_restore_topology(true, true, true));
+    }
+
+    #[test]
+    fn a_real_change_after_the_baseline_is_restored() {
+        assert!(super::should_restore_topology(true, true, false));
+        assert!(!super::should_restore_topology(true, false, false));
+    }
 }

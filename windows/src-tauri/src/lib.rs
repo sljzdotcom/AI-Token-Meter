@@ -77,6 +77,7 @@ pub struct RuntimeState {
     settings: Mutex<AppSettings>,
     settings_path: Option<PathBuf>,
     pub(crate) meter_enabled: Arc<AtomicBool>,
+    meter_drag: Arc<crate::platform::windows::meter_drag::MeterDragGate>,
     deepseek_history_session:
         Arc<Mutex<Option<crate::collectors::deepseek_history::DeepSeekHistoryAssembler>>>,
     update_state: Arc<Mutex<crate::updater::UpdateState>>,
@@ -93,6 +94,7 @@ impl Default for RuntimeState {
             settings: Mutex::new(settings),
             settings_path,
             meter_enabled: Arc::new(AtomicBool::new(true)),
+            meter_drag: Arc::new(crate::platform::windows::meter_drag::MeterDragGate::default()),
             deepseek_history_session: Arc::new(Mutex::new(None)),
             update_state: Arc::new(Mutex::new(crate::updater::UpdateState::new(
                 SHARED_VERSION.trim(),
@@ -122,6 +124,11 @@ impl RuntimeState {
                 )
             })
             .unwrap_or((Edge::Right, 0.5, None))
+    }
+
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub(crate) fn meter_drag_is_active(&self) -> bool {
+        self.meter_drag.is_active()
     }
 
     pub(crate) fn migrate_meter_monitor_id(
@@ -264,13 +271,14 @@ fn show_provider_detail(
     Ok(snapshot)
 }
 
-#[tauri::command]
-fn meter_drag_ended(app: tauri::AppHandle, state: State<'_, RuntimeState>) -> Result<(), String> {
+#[cfg_attr(not(windows), allow(dead_code))]
+fn finish_meter_drag(app: &tauri::AppHandle) -> Result<(), String> {
     let meter = app
         .get_webview_window(METER_WINDOW_LABEL)
         .ok_or_else(|| "The meter window is unavailable".to_owned())?;
     let (edge, normalized_y) = snap_meter_after_drag(&meter)
         .map_err(|_| "The meter could not be snapped to the screen edge".to_owned())?;
+    let state = app.state::<RuntimeState>();
     if let Ok(mut settings) = state.settings.lock() {
         settings.edge = edge_to_settings(edge);
         settings.meter_vertical_per_mille =
@@ -280,6 +288,30 @@ fn meter_drag_ended(app: tauri::AppHandle, state: State<'_, RuntimeState>) -> Re
     }
     app.emit("meter-edge-changed", edge_to_settings(edge))
         .map_err(|_| "The meter display could not be updated".to_owned())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn begin_meter_drag(app: tauri::AppHandle, state: State<'_, RuntimeState>) -> Result<(), String> {
+    let Some(session) = state.meter_drag.try_begin() else {
+        return Ok(());
+    };
+    let gate = Arc::clone(&state.meter_drag);
+
+    #[cfg(windows)]
+    std::thread::spawn(move || {
+        let released = crate::platform::windows::meter_drag::wait_for_primary_button_release();
+        if released && gate.owns(session) {
+            let _ = finish_meter_drag(&app);
+        }
+        let _ = gate.finish(session);
+    });
+
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        let _ = gate.finish(session);
+    }
     Ok(())
 }
 
@@ -743,6 +775,7 @@ fn edge_from_settings(edge: MeterEdge) -> Edge {
     }
 }
 
+#[cfg_attr(not(windows), allow(dead_code))]
 fn edge_to_settings(edge: Edge) -> MeterEdge {
     match edge {
         Edge::Left => MeterEdge::Left,
@@ -797,7 +830,7 @@ pub fn run() {
             show_provider_detail,
             close_provider_detail,
             open_settings,
-            meter_drag_ended,
+            begin_meter_drag,
             set_meter_edge,
             app_settings,
             set_display_font,
