@@ -175,6 +175,7 @@ pub struct DeepSeekHistoryWindowCoordinator {
     status: DeepSeekHistoryWindowStatus,
     next_generation: u64,
     session: Option<DeepSeekHistorySession>,
+    last_reconciled_cleanup: Option<DeepSeekHistoryGeneration>,
 }
 
 impl Default for DeepSeekHistoryWindowCoordinator {
@@ -183,6 +184,7 @@ impl Default for DeepSeekHistoryWindowCoordinator {
             status: DeepSeekHistoryWindowStatus::Idle,
             next_generation: 0,
             session: None,
+            last_reconciled_cleanup: None,
         }
     }
 }
@@ -229,6 +231,7 @@ impl DeepSeekHistoryWindowCoordinator {
 
         self.next_generation = self.next_generation.wrapping_add(1).max(1);
         let generation = DeepSeekHistoryGeneration(self.next_generation);
+        self.last_reconciled_cleanup = None;
         self.session = Some(DeepSeekHistorySession {
             generation,
             nonce: nonce.to_owned(),
@@ -432,6 +435,7 @@ impl DeepSeekHistoryWindowCoordinator {
             return false;
         }
         self.session = None;
+        self.last_reconciled_cleanup = Some(generation);
         true
     }
 
@@ -444,12 +448,13 @@ impl DeepSeekHistoryWindowCoordinator {
         generation: DeepSeekHistoryGeneration,
     ) -> bool {
         let Some(session) = self.session.as_ref() else {
-            return true;
+            return self.last_reconciled_cleanup == Some(generation);
         };
         if session.generation != generation || !session.cleanup_pending {
             return false;
         }
         self.session = None;
+        self.last_reconciled_cleanup = Some(generation);
         true
     }
 

@@ -8,6 +8,7 @@ use reqwest::Url;
 use tauri::webview::{PageLoadEvent, WebviewWindowBuilder};
 use tauri::{Emitter, Manager, WebviewUrl};
 use time::OffsetDateTime;
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::RuntimeState;
 use crate::collectors::deepseek_history::{DeepSeekHistoryChunk, DeepSeekHistoryError};
@@ -40,6 +41,7 @@ pub(crate) type HistoryRuntime = Arc<Mutex<DeepSeekHistoryWindowRuntime>>;
 
 #[derive(Default)]
 pub(crate) struct DeepSeekHistoryWindowRuntime {
+    open_gate: Arc<AsyncMutex<()>>,
     coordinator: DeepSeekHistoryWindowCoordinator,
     ready_timeout: Option<(
         DeepSeekHistoryGeneration,
@@ -173,6 +175,12 @@ pub(crate) async fn open_history_window(
     app: &tauri::AppHandle,
     runtime: HistoryRuntime,
 ) -> Result<DeepSeekHistoryStatusSnapshot, String> {
+    let open_gate = runtime
+        .lock()
+        .map_err(|_| "DeepSeek history state is temporarily unavailable".to_owned())?
+        .open_gate
+        .clone();
+    let _open_guard = open_gate.lock().await;
     reconcile_residual_window(app, &runtime).await?;
     let nonce = secure_nonce()?;
     let open = runtime
@@ -811,4 +819,34 @@ __aiMeterBridge.waitUntilUsablePage(25000, 100).then((usable) => {{
 }});
 "#
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{DeepSeekHistoryWindowRuntime, HistoryRuntime};
+
+    #[tokio::test]
+    async fn open_gate_serializes_history_window_lifecycle_attempts() {
+        let runtime: HistoryRuntime = Arc::new(std::sync::Mutex::new(
+            DeepSeekHistoryWindowRuntime::default(),
+        ));
+        let gate = runtime.lock().unwrap().open_gate.clone();
+        let first = gate.lock().await;
+        let contender_gate = gate.clone();
+        let (entered_tx, mut entered_rx) = tokio::sync::oneshot::channel();
+        let contender = tokio::spawn(async move {
+            let _guard = contender_gate.lock().await;
+            let _ = entered_tx.send(());
+        });
+
+        assert!(matches!(
+            entered_rx.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+        ));
+        drop(first);
+        entered_rx.await.unwrap();
+        contender.await.unwrap();
+    }
 }

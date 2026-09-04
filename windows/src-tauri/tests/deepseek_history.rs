@@ -491,6 +491,32 @@ fn residual_cleanup_completion_is_idempotent_after_destroyed_event_wins() {
     );
 }
 
+#[test]
+fn stale_cleanup_completion_is_rejected_after_a_later_session_finishes() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let first = activate(&mut coordinator, NONCE);
+    let failed = coordinator
+        .claim_failed(first.generation)
+        .expect("failure should reserve the first terminal");
+    let failed_execution = execute_window_actions(
+        failed.actions(),
+        &mut FakeWindowExecutor::failing(DeepSeekHistoryWindowAction::DestroyHistory),
+    );
+    coordinator.finish_terminal(failed, &failed_execution);
+    assert!(coordinator.reconcile_destroyed(first.generation));
+
+    let second = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:00:03 UTC));
+    let cancelled = coordinator
+        .claim_closed(second.generation)
+        .expect("the later session should close normally");
+    let cancelled_execution =
+        execute_window_actions(cancelled.actions(), &mut FakeWindowExecutor::default());
+    coordinator.finish_terminal(cancelled, &cancelled_execution);
+
+    assert!(!coordinator.finish_cleanup_after_window_removed(first.generation));
+    assert!(!coordinator.has_session());
+}
+
 #[tokio::test]
 async fn residual_window_wait_yields_until_async_destroy_removes_the_registration() {
     let coordinator = std::cell::RefCell::new(DeepSeekHistoryWindowCoordinator::default());
