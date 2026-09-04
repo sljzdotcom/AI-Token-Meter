@@ -52,6 +52,7 @@
 | REQ-20260904-004 | Windows 浮动条缺陷 | 修复 Windows 真机浮动条外侧白框和上下白条、轮廓锯齿/凹凸、反向半圆缺失以及靠边位置不稳定；视觉应与已确认的 macOS 轮廓和背景连续性一致 | 高 | 待用户确认 | 2026-09-04 | 用户安装 `0.3.0-preview.1` 后，在 Windows 11 真机确认 100%/125%/150%/200% DPI 边缘、左右肩部、拖动、多屏位置和 `preview.0 → preview.1` 原位升级 | [设计规格](design/specifications/2026-09-04-windows-floating-strip-parity-fix-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) · [开发日志](development/2026-09-04-windows-floating-strip-parity-fix.md) · `b9743c0` · `2614186` · `e78ad48` · `9213fd6` · [成功 workflow 33826484923](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33826484923) · [公开 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) |
 | REQ-20260904-005 | Windows 启动窗口缺陷 | Windows 真机启动 AI Token Meter 时自动出现标题为 “AI Token Meter” 的巨大空白 Windows Terminal 窗口；该窗口并非点击 Provider 详情产生，启动后只应显示桌面浮动条和系统托盘 | 高 | 已完成 | 2026-09-04 | 无 | [设计规格](design/specifications/2026-09-04-windows-console-window-suppression-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) · [开发与发布记录](development/2026-09-04-windows-console-window-suppression.md) · [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) · [workflow 33833843964](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33833843964) · 合并/Tag `c3cba89` · Windows 11 真机安装启动确认 |
 | REQ-20260904-006 | Windows DeepSeek 与界面缺陷 | Windows 点击 DeepSeek 后除详情页外还出现无法关闭的空白独立窗口；“Sync official history”无响应；Windows 三个 Provider 详情页和 Settings 整体字号明显过大，尤其详情标题；Settings 字体选择下拉框白底白字、只有悬停选项才可辨识。应在不改变 macOS 样式的前提下恢复可关闭、可同步、紧凑且清晰的 Windows 体验 | 高 | 待用户确认 | 2026-09-04 | 代码、独立复审、双平台 CI 与 `main` 合并已完成；发布 Release Notes 明确列出本需求的下一版 Preview，再在 Windows 11 真机确认登录、同步、关闭、复用聚焦、30 日聚合、紧凑字号与原生字体下拉 | [原设计规格](design/specifications/2026-09-04-windows-deepseek-history-and-density-design.md) · [最终门禁修复规格](design/specifications/2026-09-04-windows-deepseek-final-quality-gate-design.md) · [最终门禁修复计划](design/implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) · [开发记录](development/2026-09-04-windows-deepseek-history-and-density.md) · [PR #6](https://github.com/sljzdotcom/AI-Token-Meter/pull/6) · 合并 `e62193c` · [Windows main CI 33880527388](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527388) · [macOS main CI 33880527365](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527365) |
+| REQ-20260904-007 | 更新交付确认 | 核对其他机器能否通过应用内更新直接取得刚合入 `main` 的 Windows DeepSeek、窗口生命周期和紧凑界面修复，并明确稳定版与 Preview 的实际可更新边界 | 中 | 已完成 | 2026-09-04 | 无；若要让其他机器取得本次修复，需另行发布包含 `REQ-20260904-006` 的下一版双平台 Preview | 稳定 `appcast.xml` 当前为 `0.2.2` · 最新公开 Preview/Tag 为 [`0.3.0-preview.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) · 修复合并 `e62193c` 晚于该 Release |
 
 ## 分类索引
 
@@ -132,10 +133,15 @@
 
 - `REQ-20260904-006`：修复 DeepSeek 官方历史空白且无法关闭、同步无响应，统一缩小 Windows 详情与 Settings 字号，并恢复字体下拉框的可读配色。
 
+### 更新与发布状态
+
+- `REQ-20260904-007`：区分源码已合并、公开 Release 已发布和应用内更新源已更新，避免其他机器误以为能立即取得尚未发布的修复。
+
 ## 状态变更记录
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-04 | REQ-20260904-007 | 新建 → 已完成 | 已核对稳定 `appcast.xml`、公开 Preview/Tag 和 README 发布声明：稳定更新源仍为 `0.2.2`，最新公开 Preview 仍为 `0.3.0-preview.2`，而 `REQ-20260904-006` 修复是在其后才合入 `main`，所以其他机器目前不能通过应用内更新取得本次修复。 |
 | 2026-09-04 | REQ-20260904-006 | 待用户确认 | 合并记录提交 `d520752` 的 Windows main CI `33880527388` 与 macOS main CI `33880527365` 均全绿；Windows 在 `main` 再次通过真实 Chrome 密度、严格 Rust、169 项原生测试、Release Tauri/NSIS、PE GUI subsystem 与安装器上传。 |
 | 2026-09-04 | REQ-20260904-006 | 待用户确认 | PR #6 已以合并提交 `e62193c` 并入 `main`；代码、文档、审查与 CI 阶段收口。当前公开 `0.3.0-preview.2` 不含本修复，下一步是制作明确列出本需求的双平台 Preview，并在 Windows 11 完成真实交互确认。 |
 | 2026-09-04 | REQ-20260904-006 | 进行中 → 待用户确认 | 四项 Important 已以失败先行测试关闭，独立复审无 Critical/Important；本机 Windows 43 项前端、12 项密度生命周期、169 项 Rust、macOS 375+12、production build、Release App、148 份文档与公开安全门禁通过。PR #6 的 Windows CI `33878105470` 进一步完成真实 Chrome、Windows-only/Tauri/NSIS/PE 验证，macOS CI `33878105480` 同时全绿；自动化阶段完成，保留下一版 Preview 的 Windows 11 真实交互确认。 |
