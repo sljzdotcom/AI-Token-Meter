@@ -35,3 +35,26 @@
 已验证：`npm --prefix windows test`（2 个测试文件、19 项通过）、`npm --prefix windows run build`、`scripts/check-docs.sh`（145 份 Markdown）。
 
 Git 提交：`fix(windows): surface DeepSeek history sync status (REQ-20260904-006)`。
+
+## 审查修复第 1 轮
+
+### RED
+
+- `windows/src/App.test.tsx` 新增“第一轮迟到 reject 不覆盖第二轮 active”用例：旧实现把迟到 reject 无条件写成 `failed`，同步进度消失且自动隐藏重新开始，按预期失败。
+- 同文件新增“一个监听注册失败后仍清理其余监听”用例：旧 `Promise.all(...).catch(...)` 丢弃已成功的 unlisten，卸载后两项成功监听均未被取消，按预期失败。
+- 终态表扩展为 `completed`、`cancelled`、`failed`；`failed` 用例在旧实现已通过，记录为缺失回归保护而非新的生产缺陷。
+
+### GREEN
+
+- `DetailSurface` 为每次同步点击递增 `useRef` 尝试号；只有当前尝试的命令 reject 能将状态切为 `failed`，第一轮迟到 reject 不会覆盖第二轮的 `opening` 或 `active`。
+- 三个详情监听独立注册；每个成功获得的 unlisten 都会在组件已卸载时即时调用，或在正常卸载时统一调用，任一兄弟监听失败不影响清理。
+- 后端 `failed` 保持终态语义：不再暂停自动隐藏，8 秒后关闭详情。
+
+### 覆盖与验证
+
+- 覆盖测试文件：`windows/src/App.test.tsx`。
+- 生产状态/计时器：迟到 reject 后断言仍显示 `Sync in progress` 并在假时钟推进 9 秒后详情仍可见；`failed` 和其余终态均断言恢复 8 秒关闭。
+- 生命周期：部分注册失败测试在卸载后断言两个已成功注册的监听均被取消；Tauri 边界是唯一替身，详情与状态机仍使用真实 React 组件。
+- 运行 `npm --prefix windows test`：2 个测试文件、22 项通过；运行 `npm --prefix windows run build`：TypeScript 检查和 Vite 生产构建通过；运行 `scripts/check-docs.sh`：145 份 Markdown 通过。
+
+Git 提交：`fix(windows): harden DeepSeek history sync state (REQ-20260904-006)`。

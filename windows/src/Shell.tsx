@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { getCurrentWindow } from "@tauri-apps/api/window"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 
 import { App } from "./App"
@@ -108,26 +108,29 @@ export function DetailSurface() {
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
   const [paused, setPaused] = useState(false)
   const [deepseekHistoryStatus, setDeepseekHistoryStatus] = useState<DeepSeekHistoryStatus>("idle")
+  const deepseekHistoryAttempt = useRef(0)
   const settings = useRuntimeSettings()
 
   useEffect(() => {
     let disposed = false
     const stops: Array<() => void> = []
-    const active = listen<UsageSnapshot>("active-detail-changed", (event) => {
+    const subscribe = <T,>(event: string, handler: (event: { payload: T }) => void) => {
+      void listen<T>(event, handler).then((stop) => {
+        if (disposed) stop()
+        else stops.push(stop)
+      }).catch(() => {})
+    }
+    subscribe<UsageSnapshot>("active-detail-changed", (event) => {
       if (!disposed) setSnapshot(event.payload)
     })
-    const refreshed = listen<UsageSnapshot>("snapshot-updated", (event) => {
+    subscribe<UsageSnapshot>("snapshot-updated", (event) => {
       if (!disposed) {
         setSnapshot((current) => current?.providerId === event.payload.providerId ? event.payload : current)
       }
     })
-    const historyStatus = listen<unknown>("deepseek-history-status", (event) => {
+    subscribe<unknown>("deepseek-history-status", (event) => {
       if (!disposed && isDeepSeekHistoryStatus(event.payload)) setDeepseekHistoryStatus(event.payload)
     })
-    void Promise.all([active, refreshed, historyStatus]).then((unlisten) => {
-      if (disposed) unlisten.forEach((stop) => stop())
-      else stops.push(...unlisten)
-    }).catch(() => {})
     return () => {
       disposed = true
       stops.forEach((stop) => stop())
@@ -152,8 +155,11 @@ export function DetailSurface() {
         onInteractionEnd={() => setPaused(false)}
         onInteractionStart={() => setPaused(true)}
         onDeepSeekHistorySync={() => {
+          const attempt = ++deepseekHistoryAttempt.current
           setDeepseekHistoryStatus("opening")
-          void invoke("open_deepseek_history").catch(() => setDeepseekHistoryStatus("failed"))
+          void invoke("open_deepseek_history").catch(() => {
+            if (deepseekHistoryAttempt.current === attempt) setDeepseekHistoryStatus("failed")
+          })
         }}
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}

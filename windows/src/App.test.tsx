@@ -84,6 +84,13 @@ function emitTauriEvent(event: string, payload: unknown) {
   tauri.listeners.get(event)?.forEach((handler) => handler({ payload }))
 }
 
+function registerTauriListener(event: string, handler: (event: { payload: unknown }) => void) {
+  const handlers = tauri.listeners.get(event) ?? new Set()
+  handlers.add(handler)
+  tauri.listeners.set(event, handlers)
+  return Promise.resolve(() => handlers.delete(handler))
+}
+
 async function showDeepSeekDetail() {
   render(<DetailSurface />)
   await act(async () => {
@@ -95,6 +102,8 @@ async function showDeepSeekDetail() {
 
 beforeEach(() => {
   tauri.listeners.clear()
+  tauri.listen.mockReset()
+  tauri.listen.mockImplementation(registerTauriListener)
   tauri.invoke.mockReset()
   tauri.invoke.mockImplementation((command: string) => Promise.resolve(command === "app_settings" ? detailSettings : undefined))
 })
@@ -201,7 +210,59 @@ describe("Windows meter interface", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled()
   })
 
-  it.each(["completed", "cancelled"] as const)("resumes the auto-hide countdown after %s", async (terminalStatus) => {
+  it("ignores a stale sync rejection after a later attempt becomes active", async () => {
+    vi.useFakeTimers()
+    let rejectFirstAttempt: (error: Error) => void = () => {}
+    let attempts = 0
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command !== "open_deepseek_history") return Promise.resolve(undefined)
+      attempts += 1
+      return attempts === 1
+        ? new Promise((_, reject) => { rejectFirstAttempt = reject })
+        : Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", "failed"))
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    act(() => emitTauriEvent("deepseek-history-status", "active"))
+    await act(async () => {
+      rejectFirstAttempt(new Error("late first attempt"))
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it("cleans up successfully registered detail listeners when another registration fails", async () => {
+    const activeStop = vi.fn()
+    const historyStop = vi.fn()
+    tauri.listen.mockImplementation((event: string, _handler: (event: { payload: unknown }) => void) => {
+      if (event === "snapshot-updated") return Promise.reject(new Error("subscription unavailable"))
+      if (event === "active-detail-changed") return Promise.resolve(activeStop)
+      if (event === "deepseek-history-status") return Promise.resolve(historyStop)
+      return Promise.resolve(vi.fn())
+    })
+
+    const { unmount } = render(<DetailSurface />)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    unmount()
+
+    expect(activeStop).toHaveBeenCalledOnce()
+    expect(historyStop).toHaveBeenCalledOnce()
+  })
+
+  it.each(["completed", "cancelled", "failed"] as const)("resumes the auto-hide countdown after %s", async (terminalStatus) => {
     vi.useFakeTimers()
     const withoutHistory = { ...snapshots[2], dailyHistory: [] }
     const dialog = await showDeepSeekDetail()
