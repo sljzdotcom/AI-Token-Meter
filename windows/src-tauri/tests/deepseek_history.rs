@@ -258,6 +258,83 @@ fn interactive_login_session_has_a_separate_bounded_lifetime() {
 }
 
 #[test]
+fn stalled_fragment_transfer_claims_failed_and_allows_retry() {
+    let payload = valid_payload();
+    let split = payload.len() / 2;
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+
+    assert_eq!(
+        coordinator
+            .accept_chunk(
+                open.generation,
+                chunk("https://platform.deepseek.com", 0, 2, &payload[..split],),
+                datetime!(2026-09-04 10:05 UTC),
+            )
+            .unwrap(),
+        DeepSeekHistoryChunkOutcome::Waiting {
+            transfer_started: true,
+        }
+    );
+
+    let terminal = coordinator
+        .claim_transfer_timeout(open.generation)
+        .expect("a stalled fragment transfer must reserve a failed terminal");
+    let execution = execute_window_actions(terminal.actions(), &mut FakeWindowExecutor::default());
+    coordinator.finish_terminal(terminal, &execution);
+
+    assert_eq!(coordinator.status(), DeepSeekHistoryWindowStatus::Failed);
+    let retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:05:21 UTC));
+    assert_ne!(retry.generation, open.generation);
+}
+
+#[test]
+fn completed_transfer_cannot_be_failed_by_its_old_timeout() {
+    let payload = valid_payload();
+    let split = payload.len() / 2;
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+
+    assert_eq!(
+        coordinator
+            .accept_chunk(
+                open.generation,
+                chunk("https://platform.deepseek.com", 0, 2, &payload[..split],),
+                datetime!(2026-09-04 10:05 UTC),
+            )
+            .unwrap(),
+        DeepSeekHistoryChunkOutcome::Waiting {
+            transfer_started: true,
+        }
+    );
+    let DeepSeekHistoryChunkOutcome::Complete { terminal, .. } = coordinator
+        .accept_chunk(
+            open.generation,
+            chunk("https://platform.deepseek.com", 1, 2, &payload[split..]),
+            datetime!(2026-09-04 10:05:01 UTC),
+        )
+        .unwrap()
+    else {
+        panic!("the final fragment must reserve completed");
+    };
+
+    assert!(
+        coordinator
+            .claim_transfer_timeout(open.generation)
+            .is_none()
+    );
+    let execution = execute_window_actions(terminal.actions(), &mut FakeWindowExecutor::default());
+    coordinator.finish_terminal(terminal, &execution);
+    let retry = coordinator.open(NEXT_NONCE, datetime!(2026-09-04 10:05:02 UTC));
+    assert!(
+        coordinator
+            .claim_transfer_timeout(open.generation)
+            .is_none()
+    );
+    assert_eq!(coordinator.current_generation(), Some(retry.generation));
+}
+
+#[test]
 fn completed_payload_owns_the_terminal_before_timeout_or_close_can_win() {
     let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
     let open = activate(&mut coordinator, NONCE);
@@ -360,6 +437,35 @@ fn destroy_failure_retains_cleanup_ownership_until_retry_reconciles_the_window()
             .actions
             .contains(&DeepSeekHistoryWindowAction::CreateHidden)
     );
+}
+
+#[test]
+fn destroyed_event_releases_only_matching_pending_cleanup() {
+    let mut coordinator = DeepSeekHistoryWindowCoordinator::default();
+    let open = activate(&mut coordinator, NONCE);
+    let terminal = coordinator
+        .claim_failed(open.generation)
+        .expect("failure should reserve the terminal");
+    let execution = execute_window_actions(
+        terminal.actions(),
+        &mut FakeWindowExecutor::failing(DeepSeekHistoryWindowAction::DestroyHistory),
+    );
+    coordinator.finish_terminal(terminal, &execution);
+
+    let mut other = DeepSeekHistoryWindowCoordinator::default();
+    let first_other = other.open(NONCE, datetime!(2026-09-04 10:00 UTC));
+    let closed = other.claim_closed(first_other.generation).unwrap();
+    let closed_execution =
+        execute_window_actions(closed.actions(), &mut FakeWindowExecutor::default());
+    other.finish_terminal(closed, &closed_execution);
+    let other_generation = other
+        .open(NEXT_NONCE, datetime!(2026-09-04 10:00:01 UTC))
+        .generation;
+
+    assert_ne!(other_generation, open.generation);
+    assert!(!coordinator.reconcile_destroyed(other_generation));
+    assert!(coordinator.reconcile_destroyed(open.generation));
+    assert!(!coordinator.has_session());
 }
 
 #[test]

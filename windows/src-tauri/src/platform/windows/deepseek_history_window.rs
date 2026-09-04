@@ -119,6 +119,7 @@ struct DeepSeekHistorySession {
     opened_at: OffsetDateTime,
     phase: DeepSeekHistorySessionPhase,
     detail_ownership: Option<DetailOwnershipToken>,
+    transfer_started: bool,
     cleanup_pending: bool,
 }
 
@@ -161,7 +162,9 @@ pub enum DeepSeekHistoryReadyResolution {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DeepSeekHistoryChunkOutcome {
     Ignored,
-    Waiting,
+    Waiting {
+        transfer_started: bool,
+    },
     Complete {
         history: DeepSeekHistory,
         terminal: DeepSeekHistoryTerminalClaim,
@@ -233,6 +236,7 @@ impl DeepSeekHistoryWindowCoordinator {
             opened_at: now,
             phase: DeepSeekHistorySessionPhase::Opening,
             detail_ownership: None,
+            transfer_started: false,
             cleanup_pending: false,
         });
         self.status = DeepSeekHistoryWindowStatus::Opening;
@@ -339,7 +343,11 @@ impl DeepSeekHistoryWindowCoordinator {
             return Ok(DeepSeekHistoryChunkOutcome::Ignored);
         }
         match session.assembler.accept(chunk, now)? {
-            AcceptOutcome::Waiting => Ok(DeepSeekHistoryChunkOutcome::Waiting),
+            AcceptOutcome::Waiting => {
+                let transfer_started = !session.transfer_started;
+                session.transfer_started = true;
+                Ok(DeepSeekHistoryChunkOutcome::Waiting { transfer_started })
+            }
             AcceptOutcome::Complete(history) => {
                 session.phase =
                     DeepSeekHistorySessionPhase::Terminating(DeepSeekHistoryTerminal::Completed);
@@ -381,6 +389,24 @@ impl DeepSeekHistoryWindowCoordinator {
         self.claim_terminal(generation, DeepSeekHistoryTerminal::Failed)
     }
 
+    pub fn is_transfer_in_progress(&self, generation: DeepSeekHistoryGeneration) -> bool {
+        self.session.as_ref().is_some_and(|session| {
+            session.generation == generation
+                && session.transfer_started
+                && !matches!(session.phase, DeepSeekHistorySessionPhase::Terminating(_))
+        })
+    }
+
+    pub fn claim_transfer_timeout(
+        &mut self,
+        generation: DeepSeekHistoryGeneration,
+    ) -> Option<DeepSeekHistoryTerminalClaim> {
+        if !self.is_transfer_in_progress(generation) {
+            return None;
+        }
+        self.claim_terminal(generation, DeepSeekHistoryTerminal::Failed)
+    }
+
     pub fn claim_closed(
         &mut self,
         generation: DeepSeekHistoryGeneration,
@@ -407,6 +433,10 @@ impl DeepSeekHistoryWindowCoordinator {
         }
         self.session = None;
         true
+    }
+
+    pub fn reconcile_destroyed(&mut self, generation: DeepSeekHistoryGeneration) -> bool {
+        self.reconcile_cleanup(generation)
     }
 
     fn claim_terminal(
