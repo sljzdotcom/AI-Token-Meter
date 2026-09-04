@@ -50,7 +50,8 @@
 | REQ-20260904-002 | Windows 发布缺陷 | 修复 Tauri 已成功生成签名 NSIS 资产后，Release workflow 在资产标准化与哈希阶段无法识别实际输出而中止的问题 | 高 | 已完成 | 2026-09-04 | 无 | [失败 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33814393456) · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33816010376) · `704342e` · `scripts/test-normalize-windows-release-assets.sh` |
 | REQ-20260904-003 | macOS 更新通道 | 核对 M4 Max 手动检查更新时未发现 `0.3.0-preview.0` 的原因，并明确稳定版与预览版的安装入口 | 中 | 已完成 | 2026-09-04 | 无；当前 macOS 应用只读取稳定 `appcast.xml`，预览版需从 GitHub Release 手动安装，待未来明确提出后再设计可选 Preview 通道 | `SUFeedURL`、稳定 `appcast.xml`、[v0.3.0-preview.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.0) |
 | REQ-20260904-004 | Windows 浮动条缺陷 | 修复 Windows 真机浮动条外侧白框和上下白条、轮廓锯齿/凹凸、反向半圆缺失以及靠边位置不稳定；视觉应与已确认的 macOS 轮廓和背景连续性一致 | 高 | 待用户确认 | 2026-09-04 | 用户安装 `0.3.0-preview.1` 后，在 Windows 11 真机确认 100%/125%/150%/200% DPI 边缘、左右肩部、拖动、多屏位置和 `preview.0 → preview.1` 原位升级 | [设计规格](design/specifications/2026-09-04-windows-floating-strip-parity-fix-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) · [开发日志](development/2026-09-04-windows-floating-strip-parity-fix.md) · `b9743c0` · `2614186` · `e78ad48` · `9213fd6` · [成功 workflow 33826484923](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33826484923) · [公开 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) |
-| REQ-20260904-005 | Windows 启动窗口缺陷 | Windows 真机启动 AI Token Meter 时自动出现标题为 “AI Token Meter” 的巨大空白 Windows Terminal 窗口；该窗口并非点击 Provider 详情产生，启动后只应显示桌面浮动条和系统托盘 | 高 | 待用户确认 | 2026-09-04 | 安装 `0.3.0-preview.2` 后在 Windows 11 真机完全退出旧版并重新启动，确认只出现浮动条和托盘、不再出现 Windows Terminal | [设计规格](design/specifications/2026-09-04-windows-console-window-suppression-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) · [开发与发布记录](development/2026-09-04-windows-console-window-suppression.md) · [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) · [workflow 33833843964](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33833843964) · 合并/Tag `c3cba89` |
+| REQ-20260904-005 | Windows 启动窗口缺陷 | Windows 真机启动 AI Token Meter 时自动出现标题为 “AI Token Meter” 的巨大空白 Windows Terminal 窗口；该窗口并非点击 Provider 详情产生，启动后只应显示桌面浮动条和系统托盘 | 高 | 已完成 | 2026-09-04 | 无 | [设计规格](design/specifications/2026-09-04-windows-console-window-suppression-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) · [开发与发布记录](development/2026-09-04-windows-console-window-suppression.md) · [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) · [workflow 33833843964](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33833843964) · 合并/Tag `c3cba89` · Windows 11 真机安装启动确认 |
+| REQ-20260904-006 | Windows DeepSeek 与界面缺陷 | Windows 点击 DeepSeek 后除详情页外还出现无法关闭的空白独立窗口；“Sync official history”无响应；Windows 三个 Provider 详情页和 Settings 整体字号明显过大，尤其详情标题；Settings 字体选择下拉框白底白字、只有悬停选项才可辨识。应在不改变 macOS 样式的前提下恢复可关闭、可同步、紧凑且清晰的 Windows 体验 | 高 | 进行中 | 2026-09-04 | 方案 A 已确认；按实施计划完成测试先行修复、完整门禁和下一 Preview，随后由 Windows 11 真机确认 | [设计规格](design/specifications/2026-09-04-windows-deepseek-history-and-density-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-deepseek-history-and-density.md) · 待补开发日志、测试与 Release 证据 |
 
 ## 分类索引
 
@@ -127,10 +128,18 @@
 
 - `REQ-20260903-009`：持久保存并稳定恢复浮动条的具体显示器、左右贴边和垂直位置；禁止主屏/副屏间自行漂移，多屏变单屏时临时回到当前主屏。
 
+### Windows 详情与官方历史
+
+- `REQ-20260904-006`：修复 DeepSeek 官方历史空白且无法关闭、同步无响应，统一缩小 Windows 详情与 Settings 字号，并恢复字体下拉框的可读配色。
+
 ## 状态变更记录
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-04 | REQ-20260904-005 | 待用户确认 → 已完成 | 用户已在 Windows 11 成功安装并启动 `0.3.0-preview.2`，未再报告启动时弹出 Windows Terminal；启动级控制台窗口缺陷完成真机闭环。 |
+| 2026-09-04 | REQ-20260904-006 | 新建 → 进行中 | Windows 真机确认 DeepSeek Key 与余额可用，但点击 DeepSeek 后同时出现空白独立窗口，“Sync official history”无响应；三项 Provider 详情页字号相较 macOS 过大，进入官方历史 WebView/桥接和 Windows 独立字体尺度的系统化调试。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 用户补充：空白 DeepSeek 官方历史窗口弹出后无法关闭；Settings 自身字号同样过大，字体选择的原生下拉列表出现白底白字、仅鼠标悬停时可辨识。修复范围扩展到该窗口完整生命周期与 Windows Settings/select 专属样式。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 用户选择方案 A：查看详情不再自动建窗；显式同步使用隐藏加载、置前、可关闭、成功/失败恢复的托管官网窗口；Windows 详情与 Settings 使用紧凑字号，字体下拉框明确深色文字和白色背景，macOS 不变。规格与测试驱动计划已建立。 |
 | 2026-09-01 | REQ-20260901-001 | 新建 → 进行中 | 设计规格已确认，用户授权计划完成后直接开发。 |
 | 2026-09-01 | REQ-20260901-001 | 进行中 → 已完成 | 267 项测试、Release 签名/安装哈希和真实 Settings 验收完成；临时签名导致的旧 Keychain 项访问限制已如实记录，未修改旧 Key。 |
 | 2026-09-01 | REQ-20260901-002 | 新建 → 进行中 | 用户要求所有未来需求都先进入统一列表。 |

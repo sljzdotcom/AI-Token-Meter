@@ -34,6 +34,8 @@
 | [Windows 浮动条修复计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) | 测试先行的视觉、原生拖动、文档与 Preview 发布步骤 |
 | [Windows 启动空白终端修复设计](design/specifications/2026-09-04-windows-console-window-suppression-design.md) | Windows GUI subsystem、真实 PE 产物门禁与跨平台边界 |
 | [Windows 启动空白终端修复计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) | TDD 红绿、版本同步、双平台发布与真机启动验收步骤 |
+| [Windows DeepSeek 历史与界面密度修复设计](design/specifications/2026-09-04-windows-deepseek-history-and-density-design.md) | 显式官网同步、可关闭窗口生命周期、Windows 紧凑字号与字体下拉框配色 |
+| [Windows DeepSeek 历史与界面密度修复计划](design/implementation-plans/2026-09-04-windows-deepseek-history-and-density.md) | Rust/React 状态、WebView2 生命周期、TDD、门禁与真机验收步骤 |
 
 ## 开发与维护
 
