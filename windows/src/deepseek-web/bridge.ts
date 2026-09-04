@@ -4,6 +4,7 @@
   const amountByRange = new Map()
   const costByRange = new Map()
   const emittedRanges = new Set()
+  let observedOfficialUsageResponse = false
   const officialOrigin = "https://platform.deepseek.com"
   const amountPath = "/api/v0/usage/by_api_key/amount"
   const costPath = "/api/v0/usage/by_api_key/cost"
@@ -75,6 +76,51 @@
     emit(JSON.stringify({ schemaVersion: 1, days }))
   }
 
+  const isUsablePage = () => {
+    if (!document.body) return false
+    const applicationRoot = document.querySelector("#root, #app, [data-v-app]")
+    if (!applicationRoot) return false
+    const loginForm = applicationRoot.querySelector("form")
+    const credentialField = loginForm?.querySelector([
+      "input[type='email']",
+      "input[type='tel']",
+      "input[type='password']",
+      "input[autocomplete='username']",
+      "input[autocomplete='email']",
+      "input[autocomplete='current-password']",
+      "input[autocomplete='one-time-code']",
+    ].join(", "))
+    const submitControl = loginForm?.querySelector("button[type='submit'], input[type='submit']")
+    if (credentialField && submitControl) return true
+    const main = applicationRoot.querySelector("main, [role='main']")
+    const navigation = applicationRoot.querySelector("nav, [role='navigation']")
+    return Boolean(observedOfficialUsageResponse
+      && main
+      && navigation
+      && !main.matches("[role='alert']")
+      && main.querySelector("button, a[href], input")
+      && navigation.querySelector("a[href], button"))
+  }
+
+  const waitUntilUsablePage = (timeoutMs, pollIntervalMs) => new Promise((resolve) => {
+    const timeout = Math.max(0, Number(timeoutMs) || 0)
+    const interval = Math.max(1, Number(pollIntervalMs) || 1)
+    const startedAt = Date.now()
+    const inspect = () => {
+      if (isUsablePage()) {
+        resolve(true)
+        return
+      }
+      const elapsed = Date.now() - startedAt
+      if (elapsed >= timeout) {
+        resolve(false)
+        return
+      }
+      window.setTimeout(inspect, Math.min(interval, timeout - elapsed))
+    }
+    inspect()
+  })
+
   const capture = (value, payload) => {
     let url
     try {
@@ -84,6 +130,10 @@
     }
     if (url.origin !== officialOrigin || ![amountPath, costPath].includes(url.pathname)) return
     if (payload?.code !== 0 || payload?.data?.biz_code !== 0 || !payload?.data?.biz_data) return
+    // A structurally valid response from one of the exact official usage
+    // endpoints is stronger evidence of an initialized account page than
+    // generic SPA landmarks, which error routes can also render.
+    observedOfficialUsageResponse = true
     const key = rangeKey(url)
     const timezoneSeconds = safeInteger(Math.abs(Number(url.searchParams.get("tz"))))
       * (Number(url.searchParams.get("tz")) < 0 ? -1 : 1)
@@ -123,5 +173,5 @@
     }
   }
 
-  return { capture }
+  return { capture, waitUntilUsablePage }
 })

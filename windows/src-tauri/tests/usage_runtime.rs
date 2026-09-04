@@ -1,7 +1,13 @@
+use std::sync::{Arc, Barrier};
+use std::thread;
+
 use tempfile::tempdir;
 
 use ai_token_meter_windows::collectors::CollectionError;
-use ai_token_meter_windows::domain::{LocalActivity, ProviderId, UsageSnapshot, UsageStatus};
+use ai_token_meter_windows::collectors::deepseek_history::DeepSeekHistory;
+use ai_token_meter_windows::domain::{
+    DailyHistoryEntry, LocalActivity, ProviderId, UsageSnapshot, UsageStatus,
+};
 use ai_token_meter_windows::persistence::{SnapshotCache, UsageRuntime};
 
 const NOW: &str = "2026-09-03T12:00:00Z";
@@ -134,6 +140,140 @@ fn balance_refresh_preserves_separately_collected_deepseek_history() {
 }
 
 #[test]
+fn concurrent_history_merge_and_balance_publication_preserve_both_results() {
+    for _ in 0..32 {
+        let directory = tempdir().expect("temporary directory");
+        let runtime = Arc::new(UsageRuntime::load(
+            SnapshotCache::new(directory.path()),
+            NOW,
+        ));
+        let generation = runtime.begin_refresh(ProviderId::DeepSeek);
+        let start = Arc::new(Barrier::new(3));
+
+        let refresh_runtime = Arc::clone(&runtime);
+        let refresh_start = Arc::clone(&start);
+        let refresh = thread::spawn(move || {
+            let mut newest_balance = fixture(ProviderId::DeepSeek);
+            newest_balance.fetched_at = "2026-09-03T12:05:00Z".to_owned();
+            newest_balance.status = UsageStatus::Fresh;
+            refresh_start.wait();
+            assert!(refresh_runtime.complete_success(
+                ProviderId::DeepSeek,
+                generation,
+                newest_balance,
+            ));
+        });
+
+        let history_runtime = Arc::clone(&runtime);
+        let history_start = Arc::clone(&start);
+        let history = thread::spawn(move || {
+            history_start.wait();
+            history_runtime
+                .merge_deepseek_history(&history_fixture().days, &history_fixture().fetched_at)
+                .expect("history merge persists");
+        });
+
+        start.wait();
+        refresh.join().expect("refresh thread");
+        history.join().expect("history thread");
+
+        let combined = runtime.snapshot(ProviderId::DeepSeek);
+        assert_eq!(combined.fetched_at, "2026-09-03T12:05:00Z");
+        assert_eq!(combined.status, UsageStatus::Fresh);
+        assert_eq!(combined.daily_history, history_fixture().days);
+        assert_eq!(
+            combined.history_fetched_at.as_deref(),
+            Some("2026-09-03T12:04:00Z")
+        );
+    }
+}
+
+#[test]
+fn history_merge_after_balance_publication_changes_only_history_in_memory_and_cache() {
+    let directory = tempdir().expect("temporary directory");
+    let runtime = UsageRuntime::load(SnapshotCache::new(directory.path()), NOW);
+    let generation = runtime.begin_refresh(ProviderId::DeepSeek);
+    let mut newest_balance = fixture(ProviderId::DeepSeek);
+    newest_balance.fetched_at = "2026-09-03T12:05:00Z".to_owned();
+    newest_balance.status = UsageStatus::Fresh;
+    assert!(runtime.complete_success(ProviderId::DeepSeek, generation, newest_balance.clone(),));
+
+    let history = history_fixture();
+    let merged = runtime
+        .merge_deepseek_history(&history.days, &history.fetched_at)
+        .expect("history merge persists");
+    let mut expected = newest_balance;
+    expected.daily_history = history.days;
+    expected.history_fetched_at = Some(history.fetched_at);
+
+    assert_eq!(merged, expected);
+    assert_eq!(runtime.snapshot(ProviderId::DeepSeek), expected);
+    assert_eq!(
+        SnapshotCache::new(directory.path())
+            .load(ProviderId::DeepSeek)
+            .expect("cache readable"),
+        Some(expected),
+    );
+}
+
+#[test]
+fn balance_completion_cannot_restore_a_stale_nonempty_history_snapshot() {
+    let directory = tempdir().expect("temporary directory");
+    let runtime = UsageRuntime::load(SnapshotCache::new(directory.path()), NOW);
+    let generation = runtime.begin_refresh(ProviderId::DeepSeek);
+
+    let mut stale_balance_result = fixture(ProviderId::DeepSeek);
+    stale_balance_result.daily_history = vec![DailyHistoryEntry {
+        date: "2026-09-02".to_owned(),
+        cost_cny: 0.25,
+        requests: 1,
+        tokens: 100,
+    }];
+    stale_balance_result.history_fetched_at = Some("2026-09-03T11:00:00Z".to_owned());
+    stale_balance_result.fetched_at = "2026-09-03T12:05:00Z".to_owned();
+
+    let newest_history = history_fixture();
+    runtime
+        .merge_deepseek_history(&newest_history.days, &newest_history.fetched_at)
+        .expect("new history persists first");
+    assert!(runtime.complete_success(ProviderId::DeepSeek, generation, stale_balance_result,));
+
+    let combined = runtime.snapshot(ProviderId::DeepSeek);
+    assert_eq!(combined.fetched_at, "2026-09-03T12:05:00Z");
+    assert_eq!(combined.daily_history, history_fixture().days);
+    assert_eq!(
+        combined.history_fetched_at.as_deref(),
+        Some("2026-09-03T12:04:00Z")
+    );
+    let cached = SnapshotCache::new(directory.path())
+        .load(ProviderId::DeepSeek)
+        .expect("cache readable")
+        .expect("cache populated");
+    assert_eq!(cached, combined);
+}
+
+#[test]
+fn history_persistence_failure_is_reported_without_publishing_in_memory() {
+    let directory = tempdir().expect("temporary directory");
+    let blocked_cache_path = directory.path().join("not-a-directory");
+    std::fs::write(&blocked_cache_path, b"fixture").expect("blocking file");
+    let runtime = UsageRuntime::load(SnapshotCache::new(&blocked_cache_path), NOW);
+
+    let history = history_fixture();
+    let error = runtime
+        .merge_deepseek_history(&history.days, &history.fetched_at)
+        .expect_err("cache failure must reach the terminal owner");
+
+    assert_eq!(error.category(), "io");
+    assert!(
+        runtime
+            .snapshot(ProviderId::DeepSeek)
+            .daily_history
+            .is_empty()
+    );
+}
+
+#[test]
 fn successful_refresh_does_not_reuse_local_activity_omitted_by_current_runtime_source() {
     let directory = tempdir().expect("temporary directory");
     let cache = SnapshotCache::new(directory.path());
@@ -171,4 +311,19 @@ fn fixture(provider: ProviderId) -> UsageSnapshot {
     };
     UsageSnapshot::decode_compatible(&serde_json::from_str(value).expect("fixture JSON"))
         .expect("usage fixture")
+}
+
+fn history_fixture() -> DeepSeekHistory {
+    DeepSeekHistory {
+        days: vec![DailyHistoryEntry {
+            date: "2026-09-03".to_owned(),
+            cost_cny: 1.25,
+            requests: 4,
+            tokens: 800,
+        }],
+        total_cost_cny: 1.25,
+        total_requests: 4,
+        total_tokens: 800,
+        fetched_at: "2026-09-03T12:04:00Z".to_owned(),
+    }
 }

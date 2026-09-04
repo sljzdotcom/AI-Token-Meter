@@ -2,7 +2,7 @@ import type { PointerEventHandler } from "react"
 
 import type { UsageMetric, UsageSnapshot } from "../state/usage"
 import { ProviderLogo } from "../components/ProviderLogo"
-import { DeepSeekHistory } from "./DeepSeekDetail"
+import { DeepSeekHistory, type DeepSeekHistoryStatus } from "./DeepSeekDetail"
 
 type ProviderDetailProps = {
   snapshot: UsageSnapshot
@@ -11,6 +11,8 @@ type ProviderDetailProps = {
   onInteractionStart: () => void
   onInteractionEnd: () => void
   onDeepSeekHistorySync?: () => void
+  deepseekHistoryStatus?: DeepSeekHistoryStatus
+  deepseekHistoryStatusPathAvailable?: boolean
 }
 
 export function ProviderDetail({
@@ -20,12 +22,14 @@ export function ProviderDetail({
   onInteractionStart,
   onInteractionEnd,
   onDeepSeekHistorySync,
+  deepseekHistoryStatus,
+  deepseekHistoryStatusPathAvailable,
 }: ProviderDetailProps) {
   const percent = snapshot.usedRatio == null ? null : Math.round(snapshot.usedRatio * 100)
   return (
     <section
       aria-label={`${snapshot.displayName} details`}
-      className={`provider-detail provider-detail--${snapshot.providerId}`}
+      className={`provider-detail provider-detail--compact-density provider-detail--${snapshot.providerId}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) onInteractionEnd()
       }}
@@ -81,7 +85,12 @@ export function ProviderDetail({
       {snapshot.providerId === "deepseek" ? (
         <section className="detail-section detail-section--history">
           <h2>Last 30 days · Official website</h2>
-          <DeepSeekHistory onSync={onDeepSeekHistorySync} snapshot={snapshot} />
+          <DeepSeekHistory
+            onSync={onDeepSeekHistorySync}
+            snapshot={snapshot}
+            statusPathAvailable={deepseekHistoryStatusPathAvailable}
+            syncStatus={deepseekHistoryStatus}
+          />
         </section>
       ) : null}
 

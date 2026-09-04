@@ -10,6 +10,8 @@ Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Setti
 
 Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。`0.3.0-preview.1` 起，Windows 浮岛使用与 macOS 相同的平滑 Bezier 轮廓，深海背景连续覆盖上下肩部；`0.3.0-preview.2` 起，Windows 主程序使用 GUI subsystem，启动时不再额外打开终端窗口。这些都不是可单独切换的外观选项。
 
+当前未发布的 Windows 修复分支把 Provider 详情和 Settings 调整为独立紧凑密度：Settings 继续使用 Segoe UI 系统字体，Display font 的原生下拉明确采用白底深色文字。该变化不修改 macOS 的字号、间距或控件配色；正式可安装版本仍以 Release Notes 为准。
+
 ### Show floating meter
 
 - 默认：开启。
@@ -40,7 +42,7 @@ macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 
 - **Leigo**：使用 Ricardo Medina 的 Leigo Regular，兼容 `Leigo` 与 `Leigo Regular` 家族名。
 - **Menlo**：使用本机提供的 Menlo 等宽字体；Windows 未安装时按缺失字体处理。
 - **Alimama DaoLiTi**：使用本机已安装的阿里妈妈刀隶体。
-- Settings 始终使用平台系统字体和原有字号：切换显示字体或内容字号不会改变 Settings、八个选项名称、说明或按钮的字形和大小。
+- Settings 始终使用平台系统字体：切换显示字体不会改变 Settings、八个选项名称、说明或按钮的字形。Windows 使用专属紧凑字号，并让原生字体下拉在未悬停、悬停与键盘焦点状态都保持白底深色可读；macOS 尺度不变。
 - 切换会立即应用到菜单点击面板、浮动条及 Provider 详情，不需要退出或重新打开窗口；三个选项只显示名称，不提供对应字体的字形预览。
 - `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
 - 任意自定义字体未安装时，对应选项会显示 `Not installed` 且不能选择。已保存的字体临时不可用时，AI Token Meter 会安全回退到系统字体，但保留偏好；重新安装后可自动恢复。
@@ -55,7 +57,7 @@ Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时�
 - 可选：3、5、8、15、30 秒。
 - 默认：8 秒。
 - 作用：点击某个圆环后，详情面板在无交互时自动收起。
-- 例外：鼠标悬停、详情内键盘焦点、VoiceOver 运行和 DeepSeek 登录交互期间暂停倒计时；点击悬浮条和详情以外的区域会立即关闭。
+- 例外：鼠标悬停、详情内键盘焦点、VoiceOver 运行，以及 Windows DeepSeek 官网同步处于 opening/active 时暂停倒计时；点击悬浮条和详情以外的区域会立即关闭。官网同步完成、取消或失败后恢复正常倒计时。
 
 ## Monitoring
 

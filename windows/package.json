@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:density": "vite build --config vite.density.config.ts",
+    "preview:density": "vite preview --config vite.density.config.ts",
     "test": "vitest run",
+    "test:density": "npm run build:density && node --test scripts/density-process-lifecycle.node.mjs && node scripts/test-density-browser.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

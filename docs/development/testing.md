@@ -6,9 +6,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **386 个测试、72 个测试组全部通过**。默认完整验证会先运行 374 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **387 个测试、72 个测试组全部通过**。默认完整验证会先运行 375 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。当前 Windows 基线为 15 项前端测试与 130 项 Rust 测试，严格 Clippy 和 production 前端构建通过；Windows-only 分支、Tauri 壳与 NSIS 继续由 GitHub `windows-latest` 复验。
+以上数字是当前 macOS 基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。当前 Windows 跨平台基线为 43 项前端测试、12 项密度进程生命周期测试和 169 项 Rust 测试，严格 Clippy、production 前端构建及 production preview Chrome 计算样式门禁通过；PR #6 的 [Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 已复验 Windows-only 分支、Tauri 壳、PE GUI subsystem 与 NSIS，[macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 同时通过。
 
 普通测试覆盖：
 
@@ -117,6 +117,7 @@ test -s "dist/AI Token Meter.app/Contents/Resources/AppIcon.icns"
 ```powershell
 npm --prefix windows ci
 npm --prefix windows test
+npm --prefix windows run test:density
 npm --prefix windows run build
 cargo fmt --check --manifest-path windows/src-tauri/Cargo.toml
 cargo clippy --locked --all-targets --manifest-path windows/src-tauri/Cargo.toml -- -D warnings
@@ -124,7 +125,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
 npm --prefix windows run tauri build
 ```
 
-真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture，并编译 DWM 无边框合成、鼠标释放监视、Win32 物理显示器接口与拓扑监听，运行其纯策略测试，再验证更新状态与完整 NSIS 生成。可见轮廓由 WebView2 SVG 抗锯齿路径负责，不再使用 GDI `HRGN`。CI runner 不冒充真实显示器拔插；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
+`test:density` 先用独立配置构建 production fixture，再运行 12 项跨平台进程回收测试，最后由 Vite preview 与 Chrome/Edge headless 加载构建产物并核对详情、Settings、系统字体隔离和原生 select/option 的计算样式。Unix/macOS 先让整个进程组享有 TERM 宽限，再探测全组；leader 已退出但后代仍在时，只有宽限期结束后才 KILL。Windows 保留 `taskkill /T /F`，并使用一次性独立 Chrome profile，防止已有浏览器进程接管 `--dump-dom`；fixture 在 React 同步提交后立即读取计算样式，不依赖后台 `requestAnimationFrame`。门禁需要本机回环端口和可用浏览器。真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture，并编译 DWM 无边框合成、鼠标释放监视、Win32 物理显示器接口、拓扑监听与 WebView2 托管历史窗口，运行其纯策略测试，再验证更新状态与完整 NSIS 生成。可见轮廓由 WebView2 SVG 抗锯齿路径负责，不再使用 GDI `HRGN`。CI runner 不冒充真实显示器拔插、官网真实登录、窗口前台焦点或原生下拉弹层；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
 
 交互式 Windows 真机还必须手工覆盖：左右贴边、125%/200% DPI、多显示器拔插、全屏 Edge 隐藏/恢复、普通窗口上方详情、外部点击关闭、真实指针拖动、Native/WSL 账号显示、DeepSeek WebView2 登录与 30 日图表。CI runner 没有可替代这些视觉/账户证据的桌面会话。
 

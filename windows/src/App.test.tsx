@@ -1,9 +1,43 @@
-import { act, fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+const tauri = vi.hoisted(() => {
+  const listeners = new Map<string, Set<(event: { payload: unknown }) => void>>()
+  return {
+    invoke: vi.fn((_command: string) => Promise.resolve<unknown>(undefined)),
+    listeners,
+    listen: vi.fn((event: string, handler: (event: { payload: unknown }) => void) => {
+      const handlers = listeners.get(event) ?? new Set()
+      handlers.add(handler)
+      listeners.set(event, handlers)
+      return Promise.resolve(() => handlers.delete(handler))
+    }),
+  }
+})
+
+const detailSettings = {
+  displayFont: "Antonio",
+  edge: "right",
+  detailAutoHideSeconds: 8,
+  refreshIntervalSeconds: 300,
+  deepseekBalanceBaselineCents: 10_000,
+  notificationsEnabled: false,
+  launchAtLogin: false,
+  claudeCli: { mode: "auto", customPath: null, wslDistribution: null },
+  codexCli: { mode: "auto", customPath: null, wslDistribution: null },
+}
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: tauri.invoke }))
+vi.mock("@tauri-apps/api/event", () => ({ listen: tauri.listen }))
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ label: "detail", startDragging: () => Promise.resolve() }),
+}))
 
 import { App } from "./App"
 import { MeterClipPaths } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
+import { ProviderDetail } from "./details/ProviderDetail"
+import { DetailSurface } from "./Shell"
 import { SettingsWindow } from "./settings/SettingsWindow"
 import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
 import type { UsageSnapshot } from "./state/usage"
@@ -47,6 +81,47 @@ const snapshots: UsageSnapshot[] = [
   },
 ]
 
+function emitTauriEvent(event: string, payload: unknown) {
+  tauri.listeners.get(event)?.forEach((handler) => handler({ payload }))
+}
+
+function registerTauriListener(event: string, handler: (event: { payload: unknown }) => void) {
+  const handlers = tauri.listeners.get(event) ?? new Set()
+  handlers.add(handler)
+  tauri.listeners.set(event, handlers)
+  return Promise.resolve(() => handlers.delete(handler))
+}
+
+async function showDeepSeekDetail() {
+  render(<DetailSurface />)
+  await act(async () => {
+    await Promise.resolve()
+  })
+  act(() => emitTauriEvent("active-detail-changed", snapshots[2]))
+  return screen.getByRole("dialog", { name: "DeepSeek details" })
+}
+
+beforeEach(() => {
+  tauri.listeners.clear()
+  tauri.listen.mockReset()
+  tauri.listen.mockImplementation(registerTauriListener)
+  tauri.invoke.mockReset()
+  tauri.invoke.mockImplementation((command: string) => {
+    if (command === "app_settings") return Promise.resolve(detailSettings)
+    if (command === "deepseek_history_status") {
+      return Promise.resolve({ generation: null, status: "idle" })
+    }
+    if (command === "open_deepseek_history") {
+      return Promise.resolve({ generation: 1, status: "opening" })
+    }
+    return Promise.resolve(undefined)
+  })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("Windows meter interface", () => {
   it("provides the exact normalized macOS silhouette for both screen edges", () => {
     const { container } = render(<MeterClipPaths />)
@@ -86,15 +161,22 @@ describe("Windows meter interface", () => {
   })
 
   it("opens one rich detail and closes it on an outside click", () => {
-    render(<App initialSnapshots={snapshots} />)
-    fireEvent.click(screen.getByRole("button", { name: "OpenAI Codex usage" }))
+    const { container } = render(<App initialSnapshots={snapshots} />)
+    const codexButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="OpenAI Codex usage"]',
+    )
+    expect(codexButton).toBeInTheDocument()
+    fireEvent.click(codexButton!)
 
-    expect(screen.getByRole("dialog", { name: "OpenAI Codex details" })).toBeVisible()
-    expect(screen.getByText("Official quota")).toBeVisible()
-    expect(screen.getByText("Reset credits")).toBeVisible()
+    const detail = container.querySelector<HTMLElement>(
+      '[role="dialog"][aria-label="OpenAI Codex details"]',
+    )
+    expect(detail).toBeInTheDocument()
+    expect(detail).toHaveTextContent("Official quota")
+    expect(detail).toHaveTextContent("Reset credits")
 
     fireEvent.pointerDown(document.body)
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument()
   })
 
   it("renders official DeepSeek history totals and a scaled daily chart", () => {
@@ -108,6 +190,18 @@ describe("Windows meter interface", () => {
     expect(screen.queryByText("Usage history will appear here after official-page sync.")).not.toBeInTheDocument()
   })
 
+  it("keeps existing history visible and exposes retry after a later sync fails", async () => {
+    await showDeepSeekDetail()
+
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 7, status: "opening" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 7, status: "failed" }))
+
+    expect(screen.getByRole("img", { name: "DeepSeek cost for the last 30 days" })).toBeVisible()
+    expect(screen.getByRole("alert")).toHaveTextContent("Official history sync could not be started. Try again.")
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(tauri.invoke).toHaveBeenCalledWith("open_deepseek_history")
+  })
+
   it("offers a working retry when DeepSeek history is unavailable", () => {
     const sync = vi.fn()
     const withoutHistory = snapshots.map((snapshot) => snapshot.providerId === "deepseek"
@@ -117,6 +211,370 @@ describe("Windows meter interface", () => {
     fireEvent.click(screen.getByRole("button", { name: "DeepSeek usage" }))
     fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
     expect(sync).toHaveBeenCalledOnce()
+  })
+
+  it("shows opening immediately, disables repeat sync, and keeps the detail visible", async () => {
+    vi.useFakeTimers()
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Sync official history" })).toBeDisabled()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it("reports a rejected sync command as a recoverable error", async () => {
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      return command === "open_deepseek_history"
+        ? Promise.reject(new Error("window unavailable"))
+        : Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    await screen.findByRole("alert")
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Official history sync could not be started. Try again.")
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled()
+  })
+
+  it("accepts status only for the active generation and ignores a delayed older terminal", async () => {
+    vi.useFakeTimers()
+    let rejectFirstAttempt: (error: Error) => void = () => {}
+    let attempts = 0
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      if (command !== "open_deepseek_history") return Promise.resolve(undefined)
+      attempts += 1
+      return attempts === 1
+        ? new Promise((_, reject) => { rejectFirstAttempt = reject })
+        : Promise.resolve({ generation: 2, status: "opening" })
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "opening" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "failed" }))
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    await act(async () => { await Promise.resolve() })
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 2, status: "active" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "failed" }))
+    await act(async () => {
+      rejectFirstAttempt(new Error("late first attempt"))
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it("does not let a late open response regress an already-active generation", async () => {
+    let resolveOpen: (value: unknown) => void = () => {}
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      if (command === "open_deepseek_history") {
+        return new Promise((resolve) => { resolveOpen = resolve })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 5, status: "opening" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 5, status: "active" }))
+    await act(async () => {
+      resolveOpen({ generation: 5, status: "opening" })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+  })
+
+  it("does not let the initial status query overwrite a user-started attempt", async () => {
+    let resolveInitialStatus: (value: unknown) => void = () => {}
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return new Promise((resolve) => { resolveInitialStatus = resolve })
+      }
+      if (command === "open_deepseek_history") return new Promise(() => {})
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+    await waitFor(() => {
+      expect(tauri.invoke).toHaveBeenCalledWith("deepseek_history_status")
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    await act(async () => {
+      resolveInitialStatus({ generation: 99, status: "active" })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+  })
+
+  it.each([
+    ["opening", "Opening official page…"],
+    ["active", "Sync in progress"],
+  ] as const)("preserves an event-confirmed %s session when the command and recovery query fail", async (status, message) => {
+    vi.useFakeTimers()
+    let rejectOpen: (error: Error) => void = () => {}
+    let statusQueries = 0
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        statusQueries += 1
+        return statusQueries === 1
+          ? Promise.resolve({ generation: null, status: "idle" })
+          : Promise.reject(new Error("query unavailable"))
+      }
+      if (command === "open_deepseek_history") {
+        return new Promise((_, reject) => { rejectOpen = reject })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 12, status }))
+    await act(async () => {
+      rejectOpen(new Error("open response lost"))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText(message)).toBeVisible()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it("reports a recoverable failure when the open command returns no session generation", async () => {
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      if (command === "open_deepseek_history") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    await act(async () => { await Promise.resolve() })
+
+    expect(screen.getByRole("alert")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled()
+  })
+
+  it.each(["completed", "cancelled"] as const)(
+    "accepts a generation-bound %s status from command recovery",
+    async (terminalStatus) => {
+      let statusQueries = 0
+      tauri.invoke.mockImplementation((command: string) => {
+        if (command === "app_settings") return Promise.resolve(detailSettings)
+        if (command === "deepseek_history_status") {
+          statusQueries += 1
+          return Promise.resolve(statusQueries === 1
+            ? { generation: null, status: "idle" }
+            : { generation: 18, status: terminalStatus })
+        }
+        if (command === "open_deepseek_history") {
+          return Promise.reject(new Error("open response lost"))
+        }
+        return Promise.resolve(undefined)
+      })
+      const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+      await showDeepSeekDetail()
+      act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+      fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Sync official history" })).toBeEnabled()
+    },
+  )
+
+  it("keeps the previous generation as a retry floor while the new open response is pending", async () => {
+    let resolveRetry: (value: unknown) => void = () => {}
+    let attempts = 0
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      if (command !== "open_deepseek_history") return Promise.resolve(undefined)
+      attempts += 1
+      return attempts === 1
+        ? Promise.resolve({ generation: 1, status: "opening" })
+        : new Promise((resolve) => { resolveRetry = resolve })
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    await act(async () => { await Promise.resolve() })
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "failed" }))
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "active" }))
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 2, status: "opening" }))
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    await act(async () => {
+      resolveRetry({ generation: 2, status: "opening" })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+  })
+
+  it("cleans up successfully registered detail listeners when another registration fails", async () => {
+    const activeStop = vi.fn()
+    const historyStop = vi.fn()
+    tauri.listen.mockImplementation((event: string, _handler: (event: { payload: unknown }) => void) => {
+      if (event === "snapshot-updated") return Promise.reject(new Error("subscription unavailable"))
+      if (event === "active-detail-changed") return Promise.resolve(activeStop)
+      if (event === "deepseek-history-status") return Promise.resolve(historyStop)
+      return Promise.resolve(vi.fn())
+    })
+
+    const { unmount } = render(<DetailSurface />)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    unmount()
+
+    expect(activeStop).toHaveBeenCalledOnce()
+    expect(historyStop).toHaveBeenCalledOnce()
+  })
+
+  it("does not start history sync when neither events nor the status query are available", async () => {
+    tauri.listen.mockImplementation((event: string, handler: (event: { payload: unknown }) => void) => {
+      if (event === "deepseek-history-status") return Promise.reject(new Error("listener unavailable"))
+      return registerTauriListener(event, handler)
+    })
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") return Promise.reject(new Error("query unavailable"))
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    expect(screen.getByRole("button", { name: "Sync official history" })).toBeDisabled()
+    expect(tauri.invoke).not.toHaveBeenCalledWith("open_deepseek_history")
+  })
+
+  it("uses the status query as a recovery path when event registration fails", async () => {
+    tauri.listen.mockImplementation((event: string, handler: (event: { payload: unknown }) => void) => {
+      if (event === "deepseek-history-status") return Promise.reject(new Error("listener unavailable"))
+      return registerTauriListener(event, handler)
+    })
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        return Promise.resolve({ generation: null, status: "idle" })
+      }
+      if (command === "open_deepseek_history") {
+        return Promise.resolve({ generation: 7, status: "active" })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    expect(await screen.findByText("Sync in progress")).toBeVisible()
+    expect(tauri.invoke).toHaveBeenCalledWith("open_deepseek_history")
+  })
+
+  it("queries while syncing so a backend event-send failure cannot leave opening stuck", async () => {
+    vi.useFakeTimers()
+    let statusQueries = 0
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === "app_settings") return Promise.resolve(detailSettings)
+      if (command === "deepseek_history_status") {
+        statusQueries += 1
+        return Promise.resolve(statusQueries === 1
+          ? { generation: null, status: "idle" }
+          : { generation: 9, status: "active" })
+      }
+      if (command === "open_deepseek_history") {
+        return Promise.resolve({ generation: 9, status: "opening" })
+      }
+      return Promise.resolve(undefined)
+    })
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByText("Opening official page…")).toBeVisible()
+    await act(async () => { await vi.advanceTimersByTimeAsync(501) })
+
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+    vi.useRealTimers()
+  })
+
+  it.each(["completed", "cancelled", "failed"] as const)("resumes the auto-hide countdown after %s", async (terminalStatus) => {
+    vi.useFakeTimers()
+    const withoutHistory = { ...snapshots[2], dailyHistory: [] }
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("active-detail-changed", withoutHistory))
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync official history" }))
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: "active" }))
+    expect(screen.getByText("Sync in progress")).toBeVisible()
+    act(() => vi.advanceTimersByTime(9_000))
+    expect(dialog).toBeVisible()
+
+    act(() => emitTauriEvent("deepseek-history-status", { generation: 1, status: terminalStatus }))
+    act(() => vi.advanceTimersByTime(8_100))
+    expect(screen.queryByRole("dialog", { name: "DeepSeek details" })).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 
   it("auto-hides details and pauses the timer while the user interacts", () => {
@@ -145,6 +603,42 @@ describe("Windows meter interface", () => {
     expect(screen.getByRole("tab", { name: "Monitoring" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "Services" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "About" })).toBeVisible()
+  })
+
+  it("renders Provider details at the compact Windows density", () => {
+    const { container } = render(
+      <ProviderDetail
+        onInteractionEnd={() => {}}
+        onInteractionStart={() => {}}
+        onPointerEnter={() => {}}
+        onPointerLeave={() => {}}
+        snapshot={snapshots[0]}
+      />,
+    )
+
+    const detail = screen.getByRole("dialog", { name: "Claude Code details" })
+    const identityTitle = container.querySelector(".provider-detail__identity strong")
+    const headline = container.querySelector(".provider-detail__headline")
+    const sectionTitle = container.querySelector(".detail-section h2")
+    const cardValue = container.querySelector(".metric-card strong")
+
+    expect(detail).toHaveClass("provider-detail--compact-density")
+    expect(identityTitle).toBeInTheDocument()
+    expect(headline).toBeInTheDocument()
+    expect(sectionTitle).toBeInTheDocument()
+    expect(cardValue).toBeInTheDocument()
+  })
+
+  it("renders Settings with compact system typography and readable display-font controls", () => {
+    render(<SettingsWindow displayFont="Antonio" onDisplayFontChange={() => {}} />)
+
+    const settings = screen.getByRole("dialog", { name: "AI Token Meter Settings" })
+    const title = settings.querySelector("header strong")
+    const displayFont = screen.getByLabelText("Display font")
+
+    expect(settings).toHaveClass("settings-window--compact-density", "settings-window--system-font")
+    expect(title).toBeInTheDocument()
+    expect(displayFont).toBeVisible()
   })
 
   it("edits refresh cadence and DeepSeek balance baseline in Monitoring", () => {

@@ -34,6 +34,10 @@
 | [Windows 浮动条修复计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) | 测试先行的视觉、原生拖动、文档与 Preview 发布步骤 |
 | [Windows 启动空白终端修复设计](design/specifications/2026-09-04-windows-console-window-suppression-design.md) | Windows GUI subsystem、真实 PE 产物门禁与跨平台边界 |
 | [Windows 启动空白终端修复计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) | TDD 红绿、版本同步、双平台发布与真机启动验收步骤 |
+| [Windows DeepSeek 历史与界面密度修复设计](design/specifications/2026-09-04-windows-deepseek-history-and-density-design.md) | 显式官网同步、可关闭窗口生命周期、Windows 紧凑字号与字体下拉框配色 |
+| [Windows DeepSeek 历史与界面密度修复计划](design/implementation-plans/2026-09-04-windows-deepseek-history-and-density.md) | Rust/React 状态、WebView2 生命周期、TDD、门禁与真机验收步骤 |
+| [Windows DeepSeek 最终质量门禁修复设计](design/specifications/2026-09-04-windows-deepseek-final-quality-gate-design.md) | 分片停滞时限、attempt/generation 所有权与清理失败恢复 |
+| [Windows DeepSeek 最终质量门禁修复计划](design/implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) | 三阶段 TDD、独立审查、全量门禁与 Windows runner 验证 |
 
 ## 开发与维护
 
@@ -61,6 +65,7 @@
 | [v0.3.0-preview.0 双平台发布](development/2026-09-04-v0.3.0-preview.0-release.md) | 首个双平台 Preview 的版本、签名、资产、workflow 和发布后复验证据 |
 | [Windows 浮动条视觉与贴边修复](development/2026-09-04-windows-floating-strip-parity-fix.md) | 真机缺陷根因、红绿测试、实现边界与 `preview.1` 发布验证 |
 | [Windows 启动空白终端修复](development/2026-09-04-windows-console-window-suppression.md) | Windows Terminal 根因、PE subsystem 红绿门禁、最小入口修复与 `preview.2` 验收边界 |
+| [Windows DeepSeek 历史与界面密度修复](development/2026-09-04-windows-deepseek-history-and-density.md) | 显式官网同步、可关闭/可恢复窗口生命周期、紧凑字号、字体下拉配色与真机验收边界 |
 | [WidgetKit 开发日志](development/2026-09-01-widgetkit-extension.md) | 三尺寸 Widget、共享快照、签名保护与当前实机验收边界 |
 | [Claude 详情与本机活动](development/2026-09-01-claude-detail-local-activity.md) | 官方额度、本机 30 天活动、隐私边界和真实数据验收 |
 | [Claude 详情卡片精简](development/2026-09-02-claude-detail-card-removal.md) | 移除 Token composition 与 Top models、兼容边界、测试和安装验收 |

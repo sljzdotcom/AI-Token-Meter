@@ -39,6 +39,9 @@ jobs:
       - name: Test frontend
         working-directory: windows
         run: npm test
+      - name: Verify browser density styles
+        working-directory: windows
+        run: npm run test:density
       - name: Build frontend
         working-directory: windows
         run: npm run build

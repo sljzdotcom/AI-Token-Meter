@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前已公开双平台 Preview 为 `0.3.0-preview.1`、build `8`，下一发布候选为 `0.3.0-preview.2`、build `9`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。后续改动保留在 `CHANGELOG.md` 的 `Unreleased`，直到双方资产、清单、签名验证和 CI 一并完成。
+当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前已公开双平台 Preview 为 `0.3.0-preview.2`、build `9`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。Windows DeepSeek 窗口与密度修复目前只记录在 `CHANGELOG.md` 的 `Unreleased`，下一版本尚未选定；必须等待 Windows runner 和真机验收，不能沿用已公开的 `preview.2` 资产冒充修复版本。
 
 ## 发布前检查清单
 
@@ -16,6 +16,7 @@ AI Token Meter 使用语义化版本思路：
 
 - [ ] 工作区只有本次发布所需改动；
 - [ ] `bash scripts/test.sh` 全部通过；
+- [ ] `npm --prefix windows test`、`npm --prefix windows run test:density`、`npm --prefix windows run build` 全部通过；
 - [ ] 环境允许时，真实 CLI 冒烟测试 3/3 通过；
 - [ ] `bash scripts/build-app.sh` 完成 release 构建；
 - [ ] `scripts/verify-app-resources.sh "dist/AI Token Meter.app"` 确认主应用资源可由迁移后的 App Bundle 直接解析；

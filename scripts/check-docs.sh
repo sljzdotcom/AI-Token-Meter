@@ -91,6 +91,37 @@ markdown_files.each do |source|
   end
 end
 
+development_index = root + "docs/development/README.md"
+if development_index.file?
+  indexed_logs = development_index.read.scan(/\[[^\]]*\]\(([^)]+)\)/).flatten.each_with_object([]) do |raw_target, logs|
+    target = raw_target.strip
+    target = target[1...target.index(">")].to_s if target.start_with?("<") && target.include?(">")
+    target = target.split(/\s+["']/, 2).first.to_s
+    next if target.empty? || target.start_with?("#") || target.match?(/\A(?:https?|mailto|tel|data):/i)
+
+    path_part = target.split("#", 2).first.to_s.split("?", 2).first.to_s
+    begin
+      decoded = URI.decode_www_form_component(path_part)
+    rescue ArgumentError
+      decoded = path_part
+    end
+    destination = Pathname.new(decoded)
+    destination = development_index.dirname + destination unless destination.absolute?
+    destination = destination.cleanpath
+    next unless destination.dirname == development_index.dirname
+    next unless destination.basename.to_s.match?(/\A\d{4}-\d{2}-\d{2}.*\.md\z/)
+
+    logs << destination
+  end
+  indexed_log_counts = Hash.new(0)
+  indexed_logs.each { |destination| indexed_log_counts[destination] += 1 }
+  indexed_log_counts.each do |destination, count|
+    next unless count > 1
+
+    errors << "Duplicate development log index target in docs/development/README.md: #{destination.basename} (#{count} entries)"
+  end
+end
+
 readme_path = root + "README.md"
 plist_path = root + "Sources/AIMeterApp/Resources/Info.plist"
 testing_path = root + "docs/development/testing.md"

@@ -3,6 +3,7 @@ pub mod conpty;
 pub mod credential_manager;
 #[cfg(windows)]
 pub mod credential_prompt;
+pub mod deepseek_history_window;
 pub mod deepseek_webview;
 pub mod desktop_visibility;
 pub mod display_topology;

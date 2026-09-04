@@ -16,6 +16,7 @@ pub enum PersistenceError {
     Io(std::io::Error),
     InvalidPath,
     MissingEnvironment(&'static str),
+    CacheUnavailable,
 }
 
 impl PersistenceError {
@@ -26,6 +27,7 @@ impl PersistenceError {
             Self::Io(_) => "io",
             Self::InvalidPath => "invalidPath",
             Self::MissingEnvironment(_) => "missingEnvironment",
+            Self::CacheUnavailable => "cacheUnavailable",
         }
     }
 }
@@ -45,6 +47,7 @@ impl Display for PersistenceError {
                     "required Windows environment variable {name} is unavailable"
                 )
             }
+            Self::CacheUnavailable => formatter.write_str("snapshot cache is unavailable"),
         }
     }
 }
@@ -56,6 +59,7 @@ impl Error for PersistenceError {
             Self::Io(error) => Some(error),
             Self::InvalidPath => None,
             Self::MissingEnvironment(_) => None,
+            Self::CacheUnavailable => None,
         }
     }
 }

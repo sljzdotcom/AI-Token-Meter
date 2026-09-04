@@ -111,7 +111,7 @@ export function SettingsWindow({
     if (requestedTab) setActiveTab(requestedTab)
   }, [requestedTab])
   return (
-    <section aria-label="AI Token Meter Settings" className="settings-window settings-window--system-font" role="dialog">
+    <section aria-label="AI Token Meter Settings" className="settings-window settings-window--compact-density settings-window--system-font" role="dialog">
       <header><div><strong>AI Token Meter</strong><small>Private AI usage, at a glance.</small></div></header>
       <nav aria-label="Settings categories" role="tablist">
         {tabs.map((tab) => (

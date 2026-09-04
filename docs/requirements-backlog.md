@@ -50,7 +50,8 @@
 | REQ-20260904-002 | Windows 发布缺陷 | 修复 Tauri 已成功生成签名 NSIS 资产后，Release workflow 在资产标准化与哈希阶段无法识别实际输出而中止的问题 | 高 | 已完成 | 2026-09-04 | 无 | [失败 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33814393456) · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33816010376) · `704342e` · `scripts/test-normalize-windows-release-assets.sh` |
 | REQ-20260904-003 | macOS 更新通道 | 核对 M4 Max 手动检查更新时未发现 `0.3.0-preview.0` 的原因，并明确稳定版与预览版的安装入口 | 中 | 已完成 | 2026-09-04 | 无；当前 macOS 应用只读取稳定 `appcast.xml`，预览版需从 GitHub Release 手动安装，待未来明确提出后再设计可选 Preview 通道 | `SUFeedURL`、稳定 `appcast.xml`、[v0.3.0-preview.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.0) |
 | REQ-20260904-004 | Windows 浮动条缺陷 | 修复 Windows 真机浮动条外侧白框和上下白条、轮廓锯齿/凹凸、反向半圆缺失以及靠边位置不稳定；视觉应与已确认的 macOS 轮廓和背景连续性一致 | 高 | 待用户确认 | 2026-09-04 | 用户安装 `0.3.0-preview.1` 后，在 Windows 11 真机确认 100%/125%/150%/200% DPI 边缘、左右肩部、拖动、多屏位置和 `preview.0 → preview.1` 原位升级 | [设计规格](design/specifications/2026-09-04-windows-floating-strip-parity-fix-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) · [开发日志](development/2026-09-04-windows-floating-strip-parity-fix.md) · `b9743c0` · `2614186` · `e78ad48` · `9213fd6` · [成功 workflow 33826484923](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33826484923) · [公开 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.1) |
-| REQ-20260904-005 | Windows 启动窗口缺陷 | Windows 真机启动 AI Token Meter 时自动出现标题为 “AI Token Meter” 的巨大空白 Windows Terminal 窗口；该窗口并非点击 Provider 详情产生，启动后只应显示桌面浮动条和系统托盘 | 高 | 待用户确认 | 2026-09-04 | 安装 `0.3.0-preview.2` 后在 Windows 11 真机完全退出旧版并重新启动，确认只出现浮动条和托盘、不再出现 Windows Terminal | [设计规格](design/specifications/2026-09-04-windows-console-window-suppression-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) · [开发与发布记录](development/2026-09-04-windows-console-window-suppression.md) · [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) · [workflow 33833843964](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33833843964) · 合并/Tag `c3cba89` |
+| REQ-20260904-005 | Windows 启动窗口缺陷 | Windows 真机启动 AI Token Meter 时自动出现标题为 “AI Token Meter” 的巨大空白 Windows Terminal 窗口；该窗口并非点击 Provider 详情产生，启动后只应显示桌面浮动条和系统托盘 | 高 | 已完成 | 2026-09-04 | 无 | [设计规格](design/specifications/2026-09-04-windows-console-window-suppression-design.md) · [实施计划](design/implementation-plans/2026-09-04-windows-console-window-suppression.md) · [开发与发布记录](development/2026-09-04-windows-console-window-suppression.md) · [v0.3.0-preview.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.2) · [workflow 33833843964](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33833843964) · 合并/Tag `c3cba89` · Windows 11 真机安装启动确认 |
+| REQ-20260904-006 | Windows DeepSeek 与界面缺陷 | Windows 点击 DeepSeek 后除详情页外还出现无法关闭的空白独立窗口；“Sync official history”无响应；Windows 三个 Provider 详情页和 Settings 整体字号明显过大，尤其详情标题；Settings 字体选择下拉框白底白字、只有悬停选项才可辨识。应在不改变 macOS 样式的前提下恢复可关闭、可同步、紧凑且清晰的 Windows 体验 | 高 | 待用户确认 | 2026-09-04 | 代码、独立复审与 PR #6 双平台 CI 已通过；并入 `main` 后发布 Release Notes 明确列出本需求的下一版 Preview，再在 Windows 11 真机确认登录、同步、关闭、复用聚焦、30 日聚合、紧凑字号与原生字体下拉 | [原设计规格](design/specifications/2026-09-04-windows-deepseek-history-and-density-design.md) · [最终门禁修复规格](design/specifications/2026-09-04-windows-deepseek-final-quality-gate-design.md) · [最终门禁修复计划](design/implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) · [开发记录](development/2026-09-04-windows-deepseek-history-and-density.md) · [PR #6](https://github.com/sljzdotcom/AI-Token-Meter/pull/6) · [Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) · [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) · `fd90008`–`1309d30` |
 
 ## 分类索引
 
@@ -127,10 +128,48 @@
 
 - `REQ-20260903-009`：持久保存并稳定恢复浮动条的具体显示器、左右贴边和垂直位置；禁止主屏/副屏间自行漂移，多屏变单屏时临时回到当前主屏。
 
+### Windows 详情与官方历史
+
+- `REQ-20260904-006`：修复 DeepSeek 官方历史空白且无法关闭、同步无响应，统一缩小 Windows 详情与 Settings 字号，并恢复字体下拉框的可读配色。
+
 ## 状态变更记录
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-04 | REQ-20260904-006 | 进行中 → 待用户确认 | 四项 Important 已以失败先行测试关闭，独立复审无 Critical/Important；本机 Windows 43 项前端、12 项密度生命周期、169 项 Rust、macOS 375+12、production build、Release App、148 份文档与公开安全门禁通过。PR #6 的 Windows CI `33878105470` 进一步完成真实 Chrome、Windows-only/Tauri/NSIS/PE 验证，macOS CI `33878105480` 同时全绿；自动化阶段完成，保留下一版 Preview 的 Windows 11 真实交互确认。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第六轮 Windows runner 通过独立 profile 返回 4996 字符完整已渲染 DOM，证明浏览器复用已排除；报告节点仍为空，根因收敛为 Windows headless 在 `--dump-dom` 前未调度 `requestAnimationFrame`。密度 fixture 将改为 React 同步提交后立即读取计算样式，不再依赖后台绘制帧。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第五轮 Windows runner 已等待浏览器 stdout/stderr 关闭，但 `chrome.exe --dump-dom` 仍以成功状态返回且输出不含 `density-report`；进入浏览器独立 profile、实际 DOM 诊断与跨平台启动参数核对，当前不把密度门禁失败误判为产品代码失败。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第四轮 Windows runner 已通过随机端口解析并启动 headless 浏览器，但进程 `exit` 先于 stdout 管道关闭，脚本过早返回空/不完整 DOM。新增“exit 后仍有 stdout、close 后才完成”的回归，改用流关闭事件收齐输出。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第三轮 Windows runner 已能直接启动 Vite，但 Vite 的 Windows 彩色输出在 `Local`、URL 与端口之间插入 ANSI 控制码，原纯文本正则因而等待满 10 秒。将为 ANSI 装饰的真实输出增加解析回归，去除终端控制码后再识别随机端口。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 第二轮 Windows runner 通过 43 项前端行为后，在 production 密度门禁复现 Node 24/Windows 不能直接 spawn `npm.cmd` 的 `EINVAL`；新增平台测试并改为用当前 Node 直接启动固定的 Vite CLI，避免 shell 和参数拼接，等待第三轮 runner。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | PR #6 的首轮 Windows runner 在前端测试阶段暴露跨平台性能波动：`opens one rich detail and closes it on an outside click` 使用多次可见性/可访问性全树计算，在 Windows jsdom 上超过 5 秒；生产行为未失败。按同一质量门禁移除该用例不必要的样式计算并重跑 runner。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 用户明确要求继续修复直到完成；开启新的质量修复周期，按推荐技术方案依次关闭分片停滞计时、前端 attempt/generation 所有权、活跃会话保留和已有历史时的清理恢复入口，并重新执行独立审查、全量门禁和 Windows runner 验证。 |
+| 2026-09-04 | REQ-20260904-006 | 待用户确认 → 进行中 | 最终定向复审重新打开 4 项 Important：分片传输缺少独立 20 秒停滞计时器；初始状态查询缺少 attempt/epoch 所有权；命令拒绝后的失败查询可能覆盖已确认 active 会话；历史已存在时销毁失败没有可达的恢复入口。当前分支保留至 `5982d5c`，禁止合并或发布，须开启新的修复周期并重新完成审查与全量门禁。 |
+| 2026-09-04 | REQ-20260904-006 | 待用户确认 | 整分支最终审查的九项修复及独立复审补强已提交为 `4953206`；执行代理报告前端 37/37、密度生命周期 7/7、Rust 160/160、macOS 375+12/387 项（72 组）、production build、rustfmt、严格 Clippy、146 份 Markdown 与公开安全门禁通过。该阶段“无 Critical/Important 遗留”的判断已被随后定向复审推翻，以上仅保留为历史记录。 |
+| 2026-09-04 | REQ-20260904-006 | 待用户确认 | 整分支最终审查修复波开始：集中处理登录与分片期限分离、原子历史合并、带 generation 的可恢复状态通道、官网可用性握手、销毁失败重试、详情所有权、进程组回收及密度门禁证据表述；仍不改变 Windows 11 真机待验收状态。 |
+| 2026-09-04 | REQ-20260904-006 | 待用户确认 | 任务 5 审查修复第 1 轮完成：README、Provider 指南与排障文档已明确 `0.3.0-preview.2` 不含本次修复，验收前必须安装 Release Notes 列出本需求的下一版 Preview；开发索引去重并纠正发布事实，macOS 基线纠正为 386 项/72 组，重复日志目标回归门禁、文档门禁、公开安全检查和 diff 检查均通过。 |
+| 2026-09-04 | REQ-20260904-006 | 待用户确认 | 任务 5 审查修复第 1 轮开始：严格区分已发布的 `0.3.0-preview.2` 与尚未发布的 Windows DeepSeek/紧凑密度修复，纠正开发日志重复索引与自动化测试计数，并增加开发日志重复目标门禁；真实 Windows 验收状态不变。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 → 待用户确认 | 方案 A 的代码、竞态加固、24 项前端、4 项密度生命周期、141 项 Rust、production build、rustfmt/严格 Clippy 及本机双平台文档/安全门禁完成，文档检查点为 `5f7a141`；macOS 样式未改。Windows MSVC/Tauri 壳需 runner 构建，真实 DeepSeek 登录、关闭、复用聚焦、完成恢复与原生字体下拉仍待 Windows 11 用户验收，未标已完成。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 5 开始：补齐根因、验证、安全边界和 Windows 11 真机验收文档，运行仓库既有双平台本机门禁并准备最终文档提交；无 Windows 真机证据的登录、关闭、聚焦与字体下拉验收继续保留为待确认。 |
+| 2026-09-04 | REQ-20260904-005 | 待用户确认 → 已完成 | 用户已在 Windows 11 成功安装并启动 `0.3.0-preview.2`，未再报告启动时弹出 Windows Terminal；启动级控制台窗口缺陷完成真机闭环。 |
+| 2026-09-04 | REQ-20260904-006 | 新建 → 进行中 | Windows 真机确认 DeepSeek Key 与余额可用，但点击 DeepSeek 后同时出现空白独立窗口，“Sync official history”无响应；三项 Provider 详情页字号相较 macOS 过大，进入官方历史 WebView/桥接和 Windows 独立字体尺度的系统化调试。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 用户补充：空白 DeepSeek 官方历史窗口弹出后无法关闭；Settings 自身字号同样过大，字体选择的原生下拉列表出现白底白字、仅鼠标悬停时可辨识。修复范围扩展到该窗口完整生命周期与 Windows Settings/select 专属样式。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 用户选择方案 A：查看详情不再自动建窗；显式同步使用隐藏加载、置前、可关闭、成功/失败恢复的托管官网窗口；Windows 详情与 Settings 使用紧凑字号，字体下拉框明确深色文字和白色背景，macOS 不变。规格与测试驱动计划已建立。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 2 开始：以纯 Rust 失败先行测试锁定 DeepSeek 官网窗口的隐藏加载、复用聚焦、关闭/失败恢复和成功销毁状态机，再接入 WebView2 生命周期。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 2 完成：官网 WebView2 现由六态状态机托管，隐藏加载后显示聚焦，重复请求复用窗口，关闭/30 秒加载超时/失败/成功均清理会话并恢复详情；15 项定向与 138 项完整 Rust 测试、rustfmt、严格 Clippy 通过，等待后续前端状态反馈任务。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 2 审查修复第 1 轮开始：补齐会话代次隔离、nonce 绑定官网 ready 握手、completion 终止权和可注入窗口动作失败边界，防止旧回调/计时器污染重开会话或在关键窗口动作失败时误报成功。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 2 审查修复第 1 轮完成：生命周期、分片组装器、会话代次与可取消 30 秒计时器已统一托管；仅 nonce 绑定官网 ready 握手可激活窗口；completion 先取得唯一终止权；窗口动作与数据发布失败统一降级为 failed。18 项定向与 141 项完整 Rust 测试、rustfmt、严格 Clippy 和文档门禁通过，等待 Windows 真机整体验收。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 3 开始：Windows 详情页将订阅脱敏的 `deepseek-history-status` 状态，并将同步触发、失败反馈与自动隐藏暂停纳入前端失败先行测试；macOS 保持不变。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 3 完成：Windows 详情页已消费固定同步状态、命令拒绝会显示可重试错误且同步中暂停自动隐藏；19 项前端测试、生产构建和文档门禁通过。整体需求仍等待后续任务与 Windows 真机验收。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 3 审查修复第 1 轮开始：处理延迟命令 reject 覆盖新同步状态、部分事件监听注册失败后遗留订阅，以及后端 `failed` 终态恢复详情倒计时三项前端竞态边界。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 3 审查修复第 1 轮完成：同步尝试代次隔离、独立监听清理和 `failed` 终态倒计时回归均已补齐；22 项前端测试、生产构建和文档门禁通过。整体需求仍等待后续任务与 Windows 真机验收。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 完成：Windows Provider 详情和 Settings 以明确紧凑密度语义收紧字号/间距；Settings 继续锁定 Segoe UI，原生下拉框使用白底深色文字并声明浅色配色。24 项前端测试、生产构建和浏览器详情视觉检查通过；整体需求仍等待后续任务与 Windows 真机验收。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 审查修复第 1 轮开始：现有组件测试只验证密度类和节点，未加载 production CSS，无法阻止字号、控件尺寸或 select 可读配色回归；增加最小 Vite/Chromium 计算样式门禁。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 审查修复第 1 轮完成：新增可重复的 Vite/Chrome headless 计算样式门禁，覆盖详情 14/20/24/13/18px、Settings 14/20/13/32px、系统字体隔离、浅色 scheme 与 select/option 深字白底；临时将详情正文变为 15px 时门禁按预期失败，恢复后通过。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 审查修复第 2 轮开始：字体隔离 fixture 以默认 Segoe 根字体掩盖 Settings 专属规则缺失，浏览器门禁也未进入 Windows PR/Release；同时修复浏览器探测和 Vite 子进程的并发/清理风险。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 审查修复第 2 轮完成：浏览器 fixture 现在显式继承 Antonio，Settings 仅可由系统字体规则覆盖；移除规则时门禁按预期失败。门禁已接入 Windows CI/Release，优先支持 BROWSER_BIN/CHROME_BIN、Chrome 和 Edge，并用 Vite `--port 0`、退出等待及 Windows `taskkill /T` 消除端口/子进程风险。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 审查修复第 3 轮开始：Unix/macOS 的 Vite 清理仅终止 npm 父 PID，且浏览器无外部超时；将以独立进程组、有限 TERM/KILL 与可测试的浏览器超时回收修复泄漏风险。 |
+| 2026-09-04 | REQ-20260904-006 | 进行中 | 任务 4 审查修复第 3 轮完成：Vite 与 headless 浏览器在 Unix/macOS 均作为独立进程组启动，清理对整个组执行 TERM 后有限等待再 KILL；Windows 保留 `taskkill /T /F`。浏览器增加 15 秒硬超时并无论超时、失败或正常退出都在 finally 回收进程树；4 项 Node 生命周期测试及完整前端/构建/文档门禁通过。 |
 | 2026-09-01 | REQ-20260901-001 | 新建 → 进行中 | 设计规格已确认，用户授权计划完成后直接开发。 |
 | 2026-09-01 | REQ-20260901-001 | 进行中 → 已完成 | 267 项测试、Release 签名/安装哈希和真实 Settings 验收完成；临时签名导致的旧 Keychain 项访问限制已如实记录，未修改旧 Key。 |
 | 2026-09-01 | REQ-20260901-002 | 新建 → 进行中 | 用户要求所有未来需求都先进入统一列表。 |

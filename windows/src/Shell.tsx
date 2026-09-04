@@ -1,11 +1,12 @@
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { getCurrentWindow } from "@tauri-apps/api/window"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 
 import { App } from "./App"
 import { FloatingStrip } from "./components/FloatingStrip"
+import { type DeepSeekHistoryStatus } from "./details/DeepSeekDetail"
 import { ProviderDetail } from "./details/ProviderDetail"
 import {
   SettingsWindow,
@@ -39,6 +40,15 @@ const defaultSettings: RuntimeSettings = {
   launchAtLogin: false,
   claudeCli: { mode: "auto", customPath: null, wslDistribution: null },
   codexCli: { mode: "auto", customPath: null, wslDistribution: null },
+}
+
+const deepseekHistoryStatuses = new Set<DeepSeekHistoryStatus>([
+  "idle", "opening", "active", "completed", "cancelled", "failed",
+])
+
+type DeepSeekHistoryStatusSnapshot = {
+  generation: number | null
+  status: DeepSeekHistoryStatus
 }
 
 export function Shell() {
@@ -99,40 +109,137 @@ function MeterSurface() {
   )
 }
 
-function DetailSurface() {
+export function DetailSurface() {
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
   const [paused, setPaused] = useState(false)
+  const [deepseekHistoryState, setDeepseekHistoryState] = useState<DeepSeekHistoryStatusSnapshot>({
+    generation: null,
+    status: "idle",
+  })
+  const [deepseekHistoryStatusPathAvailable, setDeepseekHistoryStatusPathAvailable] = useState(false)
+  const deepseekHistoryGeneration = useRef<number | null>(null)
+  const deepseekHistoryGenerationFloor = useRef<number | null>(null)
+  const deepseekHistoryCurrent = useRef<DeepSeekHistoryStatusSnapshot>({
+    generation: null,
+    status: "idle",
+  })
+  const deepseekHistoryAttempt = useRef(0)
   const settings = useRuntimeSettings()
+
+  const acceptDeepSeekHistoryStatus = useCallback((value: unknown, authoritative = false) => {
+    if (!isDeepSeekHistoryStatusSnapshot(value)) return false
+    const current = deepseekHistoryGeneration.current
+    const floor = deepseekHistoryGenerationFloor.current
+    if (authoritative) {
+      if (current != null && value.generation == null) return false
+      if (current != null && value.generation != null && value.generation < current) return false
+      if (current === value.generation
+        && historyStatusRank(value.status) < historyStatusRank(deepseekHistoryCurrent.current.status)) {
+        return true
+      }
+      deepseekHistoryGeneration.current = value.generation
+      deepseekHistoryCurrent.current = value
+      setDeepseekHistoryState(value)
+      return true
+    }
+    if (value.generation == null) return false
+    if (current == null && floor != null && value.generation <= floor) return false
+    if (current == null) {
+      if (value.status !== "opening" && value.status !== "active") return false
+      deepseekHistoryGeneration.current = value.generation
+    } else if (value.generation !== current) {
+      return false
+    }
+    if (current === value.generation
+      && historyStatusRank(value.status) < historyStatusRank(deepseekHistoryCurrent.current.status)) {
+      return true
+    }
+    deepseekHistoryCurrent.current = value
+    setDeepseekHistoryState(value)
+    return true
+  }, [])
 
   useEffect(() => {
     let disposed = false
     const stops: Array<() => void> = []
-    const active = listen<UsageSnapshot>("active-detail-changed", (event) => {
+    const subscribe = <T,>(event: string, handler: (event: { payload: T }) => void) => {
+      void listen<T>(event, handler).then((stop) => {
+        if (disposed) stop()
+        else stops.push(stop)
+      }).catch(() => {})
+    }
+    subscribe<UsageSnapshot>("active-detail-changed", (event) => {
       if (!disposed) setSnapshot(event.payload)
     })
-    const refreshed = listen<UsageSnapshot>("snapshot-updated", (event) => {
+    subscribe<UsageSnapshot>("snapshot-updated", (event) => {
       if (!disposed) {
         setSnapshot((current) => current?.providerId === event.payload.providerId ? event.payload : current)
       }
     })
-    void Promise.all([active, refreshed]).then((unlisten) => {
-      if (disposed) unlisten.forEach((stop) => stop())
-      else stops.push(...unlisten)
-    }).catch(() => {})
+    void listen<unknown>("deepseek-history-status", (event) => {
+      if (!disposed) acceptDeepSeekHistoryStatus(event.payload)
+    }).then((stop) => {
+      if (disposed) {
+        stop()
+        return
+      }
+      stops.push(stop)
+      setDeepseekHistoryStatusPathAvailable(true)
+      const initialAttempt = deepseekHistoryAttempt.current
+      void invoke<unknown>("deepseek_history_status").then((value) => {
+        if (!disposed
+          && deepseekHistoryAttempt.current === initialAttempt
+          && deepseekHistoryGeneration.current == null) {
+          acceptDeepSeekHistoryStatus(value, true)
+        }
+      }).catch(() => {})
+    }).catch(() => {
+      const initialAttempt = deepseekHistoryAttempt.current
+      void invoke<unknown>("deepseek_history_status").then((value) => {
+        if (disposed
+          || deepseekHistoryAttempt.current !== initialAttempt
+          || !isDeepSeekHistoryStatusSnapshot(value)) return
+        setDeepseekHistoryStatusPathAvailable(true)
+        acceptDeepSeekHistoryStatus(value, true)
+      }).catch(() => {
+        if (!disposed && deepseekHistoryAttempt.current === initialAttempt) {
+          setDeepseekHistoryStatusPathAvailable(false)
+        }
+      })
+    })
     return () => {
       disposed = true
       stops.forEach((stop) => stop())
     }
-  }, [])
+  }, [acceptDeepSeekHistoryStatus])
 
   useEffect(() => {
-    if (!snapshot || paused) return
+    if (deepseekHistoryState.status !== "opening" && deepseekHistoryState.status !== "active") {
+      return
+    }
+    let disposed = false
+    const poll = () => {
+      void invoke<unknown>("deepseek_history_status").then((value) => {
+        if (!disposed) acceptDeepSeekHistoryStatus(value)
+      }).catch(() => {})
+    }
+    const interval = window.setInterval(poll, 500)
+    return () => {
+      disposed = true
+      window.clearInterval(interval)
+    }
+  }, [acceptDeepSeekHistoryStatus, deepseekHistoryState.status])
+
+  useEffect(() => {
+    const syncingHistory = snapshot?.providerId === "deepseek"
+      && (deepseekHistoryState.status === "opening" || deepseekHistoryState.status === "active")
+    if (!snapshot || paused || syncingHistory) return
     const timeout = window.setTimeout(() => {
       setSnapshot(null)
       void invoke("close_provider_detail")
     }, settings.detailAutoHideSeconds * 1_000)
     return () => window.clearTimeout(timeout)
-  }, [paused, settings.detailAutoHideSeconds, snapshot])
+  }, [deepseekHistoryState.status, paused, settings.detailAutoHideSeconds, snapshot])
 
   if (!snapshot) return null
   return (
@@ -140,10 +247,56 @@ function DetailSurface() {
       <ProviderDetail
         onInteractionEnd={() => setPaused(false)}
         onInteractionStart={() => setPaused(true)}
-        onDeepSeekHistorySync={() => void invoke("open_deepseek_history")}
+        onDeepSeekHistorySync={() => {
+          if (!deepseekHistoryStatusPathAvailable) return
+          const attempt = ++deepseekHistoryAttempt.current
+          const previousGeneration = deepseekHistoryGeneration.current
+          if (previousGeneration != null) {
+            deepseekHistoryGenerationFloor.current = Math.max(
+              deepseekHistoryGenerationFloor.current ?? 0,
+              previousGeneration,
+            )
+          }
+          deepseekHistoryGeneration.current = null
+          const opening: DeepSeekHistoryStatusSnapshot = { generation: null, status: "opening" }
+          deepseekHistoryCurrent.current = opening
+          setDeepseekHistoryState(opening)
+          const hasConfirmedLiveSession = () => deepseekHistoryGeneration.current != null
+            && (deepseekHistoryCurrent.current.status === "opening"
+              || deepseekHistoryCurrent.current.status === "active")
+          const failUnlessLive = () => {
+            if (deepseekHistoryAttempt.current !== attempt || hasConfirmedLiveSession()) return
+            const failed: DeepSeekHistoryStatusSnapshot = { generation: null, status: "failed" }
+            deepseekHistoryCurrent.current = failed
+            setDeepseekHistoryState(failed)
+          }
+          void invoke<unknown>("open_deepseek_history").then((value) => {
+            if (deepseekHistoryAttempt.current !== attempt) return
+            const accepted = acceptDeepSeekHistoryStatus(value, true)
+            if (!accepted
+              || !isDeepSeekHistoryStatusSnapshot(value)
+              || value.generation == null) {
+              failUnlessLive()
+            }
+          }).catch(() => {
+            if (deepseekHistoryAttempt.current !== attempt) return
+            void invoke<unknown>("deepseek_history_status").then((value) => {
+              if (deepseekHistoryAttempt.current !== attempt) return
+              if (isDeepSeekHistoryStatusSnapshot(value)) {
+                const accepted = acceptDeepSeekHistoryStatus(value, true)
+                if (accepted && value.generation != null) return
+              }
+              failUnlessLive()
+            }).catch(() => {
+              failUnlessLive()
+            })
+          })
+        }}
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}
         snapshot={snapshot}
+        deepseekHistoryStatus={deepseekHistoryState.status}
+        deepseekHistoryStatusPathAvailable={deepseekHistoryStatusPathAvailable}
       />
     </main>
   )
@@ -340,4 +493,22 @@ function displayStyle(font: string) {
 
 function currentWindowLabel() {
   return "__TAURI_INTERNALS__" in window ? getCurrentWindow().label : "preview"
+}
+
+function isDeepSeekHistoryStatusSnapshot(value: unknown): value is DeepSeekHistoryStatusSnapshot {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Partial<DeepSeekHistoryStatusSnapshot>
+  return (candidate.generation === null
+      || (typeof candidate.generation === "number"
+        && Number.isSafeInteger(candidate.generation)
+        && candidate.generation > 0))
+    && typeof candidate.status === "string"
+    && deepseekHistoryStatuses.has(candidate.status as DeepSeekHistoryStatus)
+}
+
+function historyStatusRank(status: DeepSeekHistoryStatus) {
+  if (status === "idle") return 0
+  if (status === "opening") return 1
+  if (status === "active") return 2
+  return 3
 }

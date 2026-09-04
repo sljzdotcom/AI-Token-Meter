@@ -2,12 +2,13 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::collectors::CollectionError;
-use crate::domain::{ProviderId, UsageSnapshot, UsageStatus};
+use crate::domain::{DailyHistoryEntry, ProviderId, UsageSnapshot, UsageStatus};
 
-use super::SnapshotCache;
+use super::{PersistenceError, SnapshotCache};
 
 pub struct UsageRuntime {
     cache: Option<SnapshotCache>,
+    publication: Mutex<()>,
     snapshots: Mutex<Vec<UsageSnapshot>>,
     generations: Mutex<HashMap<ProviderId, u64>>,
 }
@@ -34,6 +35,7 @@ impl UsageRuntime {
             .collect();
         Self {
             cache: Some(cache),
+            publication: Mutex::new(()),
             snapshots: Mutex::new(snapshots),
             generations: Mutex::new(HashMap::new()),
         }
@@ -42,6 +44,7 @@ impl UsageRuntime {
     pub fn unavailable(now: &str) -> Self {
         Self {
             cache: None,
+            publication: Mutex::new(()),
             snapshots: Mutex::new(
                 providers()
                     .into_iter()
@@ -74,6 +77,10 @@ impl UsageRuntime {
     }
 
     pub fn begin_refresh(&self, provider: ProviderId) -> u64 {
+        let _publication = self
+            .publication
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
         let generation = {
             let mut generations = self
                 .generations
@@ -100,11 +107,18 @@ impl UsageRuntime {
         generation: u64,
         mut snapshot: UsageSnapshot,
     ) -> bool {
+        let _publication = self
+            .publication
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
         if snapshot.provider_id != provider || !self.is_current(provider, generation) {
             return false;
         }
         let previous = self.snapshot(provider);
-        if snapshot.daily_history.is_empty() {
+        // Balance refreshes never own DeepSeek history. A request can carry an
+        // old, non-empty cache snapshot, so the current runtime history is the
+        // authoritative value regardless of what the response contains.
+        if provider == ProviderId::DeepSeek || snapshot.daily_history.is_empty() {
             snapshot.daily_history = previous.daily_history;
             snapshot.history_fetched_at = previous.history_fetched_at;
         }
@@ -117,12 +131,32 @@ impl UsageRuntime {
         true
     }
 
-    pub fn replace_external(&self, snapshot: UsageSnapshot) {
-        let provider = snapshot.provider_id;
-        self.replace(provider, snapshot.clone());
-        if let Some(cache) = &self.cache {
-            let _ = cache.save(&snapshot);
-        }
+    pub fn merge_deepseek_history(
+        &self,
+        days: &[DailyHistoryEntry],
+        fetched_at: &str,
+    ) -> Result<UsageSnapshot, PersistenceError> {
+        let _publication = self
+            .publication
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
+        let mut snapshots = self
+            .snapshots
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
+        let current = snapshots
+            .iter_mut()
+            .find(|snapshot| snapshot.provider_id == ProviderId::DeepSeek)
+            .ok_or(PersistenceError::CacheUnavailable)?;
+        let mut updated = current.clone();
+        updated.daily_history = days.to_vec();
+        updated.history_fetched_at = Some(fetched_at.to_owned());
+        self.cache
+            .as_ref()
+            .ok_or(PersistenceError::CacheUnavailable)?
+            .save(&updated)?;
+        current.clone_from(&updated);
+        Ok(updated)
     }
 
     pub fn complete_failure(
@@ -132,6 +166,10 @@ impl UsageRuntime {
         error: CollectionError,
         now: &str,
     ) -> bool {
+        let _publication = self
+            .publication
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
         if error == CollectionError::Cancelled || !self.is_current(provider, generation) {
             return false;
         }
