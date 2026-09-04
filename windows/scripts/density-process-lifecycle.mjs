@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { join } from "node:path"
+import { stripVTControlCharacters } from "node:util"
 
 export function spawnManagedProcess(command, args, options, {
   platform = process.platform,
@@ -26,6 +27,11 @@ export function spawnDensityPreview(windowsRoot, {
     cwd: windowsRoot,
     stdio: ["ignore", "pipe", "pipe"],
   }, { platform, spawnImpl })
+}
+
+export function extractPreviewUrl(output) {
+  const plainOutput = stripVTControlCharacters(output)
+  return plainOutput.match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+\/)/)?.[1] ?? null
 }
 
 export async function stopProcessTree(child, {

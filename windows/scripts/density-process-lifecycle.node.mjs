@@ -4,6 +4,7 @@ import { join } from "node:path"
 import test from "node:test"
 
 import {
+  extractPreviewUrl,
   runBrowser,
   spawnDensityPreview,
   spawnManagedProcess,
@@ -79,6 +80,12 @@ test("starts Windows preview through Node instead of an unspawnable cmd shim", (
   assert.equal(invocation.command, nodeExecutable)
   assert.equal(invocation.args[0], join(windowsRoot, "node_modules", "vite", "bin", "vite.js"))
   assert.equal(invocation.options.detached, false)
+})
+
+test("extracts a random preview port from ANSI-decorated Windows output", () => {
+  const output = "  \u001b[32m➜\u001b[39m  \u001b[1mLocal\u001b[22m:   \u001b[36mhttp://127.0.0.1:\u001b[1m62072\u001b[22m/\u001b[39m"
+
+  assert.equal(extractPreviewUrl(output), "http://127.0.0.1:62072/")
 })
 
 test("terminates a Unix process group with TERM then KILL when it will not exit", async () => {

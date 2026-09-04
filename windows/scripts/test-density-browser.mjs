@@ -2,7 +2,12 @@ import { existsSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { runBrowser, spawnDensityPreview, stopProcessTree } from "./density-process-lifecycle.mjs"
+import {
+  extractPreviewUrl,
+  runBrowser,
+  spawnDensityPreview,
+  stopProcessTree,
+} from "./density-process-lifecycle.mjs"
 
 const windowsRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
 const browser = findBrowser()
@@ -51,10 +56,10 @@ function startPreview() {
     const timeout = setTimeout(() => reject(new Error(`Timed out starting Vite:\n${output}`)), 10_000)
     const findUrl = (chunk) => {
       output += chunk.toString()
-      const match = output.match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+\/)/)
-      if (match) {
+      const url = extractPreviewUrl(output)
+      if (url) {
         clearTimeout(timeout)
-        resolveUrl(match[1])
+        resolveUrl(url)
       }
     }
     vite.stdout.on("data", findUrl)
