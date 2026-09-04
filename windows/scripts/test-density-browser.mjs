@@ -1,7 +1,8 @@
-import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+
+import { runBrowser, spawnManagedProcess, stopProcessTree } from "./density-process-lifecycle.mjs"
 
 const windowsRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
 const browser = findBrowser()
@@ -45,7 +46,7 @@ function findBrowser() {
 
 function startVite() {
   const npm = process.platform === "win32" ? "npm.cmd" : "npm"
-  const vite = spawn(npm, ["run", "dev", "--", "--host", "127.0.0.1", "--port", "0"], {
+  const vite = spawnManagedProcess(npm, ["run", "dev", "--", "--host", "127.0.0.1", "--port", "0"], {
     cwd: windowsRoot,
     stdio: ["ignore", "pipe", "pipe"],
   })
@@ -88,49 +89,8 @@ async function waitForVite(baseUrl) {
   throw new Error("Timed out waiting for Vite")
 }
 
-function runBrowser(executable, url) {
-  return new Promise((resolveOutput, reject) => {
-    const chrome = spawn(executable, ["--headless=new", "--disable-gpu", "--dump-dom", "--virtual-time-budget=1000", url], {
-      stdio: ["ignore", "pipe", "pipe"],
-    })
-    let output = ""
-    let errors = ""
-    chrome.stdout.on("data", (chunk) => { output += chunk })
-    chrome.stderr.on("data", (chunk) => { errors += chunk })
-    chrome.once("error", reject)
-    chrome.once("exit", (code) => code === 0 ? resolveOutput(output) : reject(new Error(`Chrome exited ${code}: ${errors}`)))
-  })
-}
-
 async function stopVite(vite) {
-  if (vite.exitCode !== null || vite.signalCode !== null) return
-  if (process.platform === "win32") {
-    await runProcess("taskkill", ["/pid", String(vite.pid), "/T", "/F"])
-  } else {
-    vite.kill("SIGTERM")
-  }
-  if (await exited(vite, 3_000)) return
-  if (process.platform !== "win32") vite.kill("SIGKILL")
-  if (!await exited(vite, 3_000)) throw new Error("Vite did not exit after cleanup")
-}
-
-function runProcess(command, args) {
-  return new Promise((resolveProcess, reject) => {
-    const child = spawn(command, args, { stdio: "ignore" })
-    child.once("error", reject)
-    child.once("exit", (code) => code === 0 || code === 128 ? resolveProcess() : reject(new Error(`${command} exited ${code}`)))
-  })
-}
-
-function exited(vite, timeoutMs) {
-  if (vite.exitCode !== null || vite.signalCode !== null) return Promise.resolve(true)
-  return new Promise((resolveExit) => {
-    const timeout = setTimeout(() => resolveExit(false), timeoutMs)
-    vite.once("exit", () => {
-      clearTimeout(timeout)
-      resolveExit(true)
-    })
-  })
+  await stopProcessTree(vite)
 }
 
 function densityReport(output) {

@@ -93,3 +93,28 @@ Git 提交：`test(windows): verify compact density in browser (REQ-20260904-006
 - `ruby scripts/check-cross-platform-contracts.rb .`：4 份 fixture 合同检查通过。
 
 Git 提交：`test(windows): harden density browser gate (REQ-20260904-006)`。
+
+## 审查修复第 3 轮：进程树与浏览器超时
+
+### 根因与 RED
+
+- Unix/macOS 的 Vite 通过 `npm run dev` 启动，原清理仅向 npm 父 PID 发 `SIGTERM`；Vite 子进程可能继续监听。浏览器执行也没有外部硬超时，卡住时无法抵达主脚本的 `finally`。
+- 新增 Node 原生生命周期测试，首次运行因受管生命周期模块尚不存在而以 `ERR_MODULE_NOT_FOUND` 失败，随后用实现转绿。测试不会启动长时间挂起的真实浏览器：以受控子进程替身验证 Unix 独立进程组、TERM 后 KILL 的升级路径、超时必经回收，以及正常退出同样进入回收。
+
+### GREEN 与覆盖
+
+- `spawnManagedProcess()` 在 Unix/macOS 使用 `detached: true` 创建独立进程组；Vite 和浏览器均通过它启动。`stopProcessTree()` 先对负 PID 的整个组发送 `SIGTERM`，有限等待后发送 `SIGKILL`；Windows 继续使用 `taskkill /T /F`。
+- `runBrowser()` 增加 15 秒硬超时，且在 `finally` 内等待跨平台进程树回收。因此成功、非零退出、启动错误和超时都不会跳过清理。
+- `density-process-lifecycle.node.mjs` 的四项 Node 测试锁定：Unix 启动选项、TERM→KILL、超时回收、正常退出回收。该文件刻意不采用 Vitest 匹配名，避免被前端 Vitest 误收集；`npm run test:density` 先运行该 Node suite，再运行真实 Vite/Chrome 计算样式门禁。
+
+### 文件与验证
+
+- `windows/scripts/density-process-lifecycle.mjs`
+- `windows/scripts/density-process-lifecycle.node.mjs`
+- `windows/scripts/test-density-browser.mjs`
+- `windows/package.json`
+- `docs/requirements-backlog.md`
+
+已验证：`npm run test:density`（4 项生命周期测试及真实 Chrome headless 密度计算样式通过）、`npm test`（2 个测试文件、24 项通过）、`npm run build`、`ruby scripts/check-cross-platform-contracts.rb .`（4 份 fixture）和 `scripts/check-docs.sh`（145 份 Markdown）通过。
+
+自审：仅修改 Windows 测试/辅助脚本与需求记录；没有修改 macOS 产品样式或行为。浏览器发现仍优先允许 CI 以 `BROWSER_BIN` 或 `CHROME_BIN` 指定可执行文件。

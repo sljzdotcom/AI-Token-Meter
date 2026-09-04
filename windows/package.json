@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "test:density": "node scripts/test-density-browser.mjs",
+    "test:density": "node --test scripts/density-process-lifecycle.node.mjs && node scripts/test-density-browser.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
