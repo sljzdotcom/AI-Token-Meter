@@ -4,12 +4,12 @@
 
 ## 当前版本边界
 
-- 当前准备发布的 Preview：`0.3.0-preview.3`（build `10`）；最新稳定版仍为 `0.2.2`（build `6`）。
+- 当前已公开 Preview：`0.3.0-preview.3`（build `10`）；最新稳定版仍为 `0.2.2`（build `6`）。
 - 初始发布提交：`a27b7b0`。
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 最新已公开 Preview Git tag 在本次发布前为 `v0.3.0-preview.2`（`c3cba89`）；`v0.3.0-preview.3` 的最终 Tag 和 workflow 将在发布完成后补录，稳定 tag 仍为 `v0.2.2`。Preview 发布证据见各版本 Release 记录和 [`preview.3` 发布日志](2026-09-04-v0.3.0-preview.3-release.md)。
+- 最新已公开 Preview Git tag 为 `v0.3.0-preview.3`（`dac10b9`），发布 workflow 为 `33887131319`；稳定 tag 仍为 `v0.2.2`。Preview 发布证据见各版本 Release 记录和 [`preview.3` 发布日志](2026-09-04-v0.3.0-preview.3-release.md)。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
@@ -51,7 +51,7 @@
 | v0.3.0-preview.0 双平台发布 | `ba4c24e`、`e02fd4a`、`704342e` | 同版本 macOS/Windows 资产、首次 Windows minisign 信任根、两项 Windows 发布门禁修复、公开 Release 与公网重下复验 |
 | v0.3.0-preview.1 Windows 浮动条修复 | `b9743c0`、`2614186`、`e78ad48`、`9213fd6` | macOS 同源 SVG/Bezier 轮廓、关闭 Windows 白色外框、原生鼠标释放吸附与拓扑竞态保护；workflow `33826484923` 全绿并完成公开资产复验 |
 | v0.3.0-preview.2 Windows 启动终端修复 | `f909c10`、`5eb72ba`、`ac50e08`、`766a9ce`、`c3cba89` | 真实 PE Header 红绿门禁、Windows GUI subsystem 编译期修复、双平台 `v0.3.0-preview.2` 发布与公网资产复验 |
-| v0.3.0-preview.3 Windows DeepSeek 与界面修复 | `e62193c`、发布提交待补 | 显式官网同步、可恢复窗口生命周期、Windows 紧凑密度与字体下拉可读性；发布 workflow 和公网复验待补 |
+| v0.3.0-preview.3 Windows DeepSeek 与界面修复 | `e62193c`、`dac10b9` | 显式官网同步、可恢复窗口生命周期、Windows 紧凑密度与字体下拉可读性；workflow `33887131319` 全绿，公开双平台资产、签名、固定 Preview feed 与公网重下复验完成 |
 
 ## 2026-08-28
 
@@ -418,7 +418,7 @@
 | 提交 | 类型 | 变更 |
 | --- | --- | --- |
 | `e62193c` | merge | 合并 PR #6：Windows DeepSeek 显式同步、托管窗口生命周期、紧凑详情/Settings 和可读字体下拉；随后 main 双平台 CI 全绿 |
-| 待补 | release | 同步 `0.3.0-preview.3`（build 10）、Tag、双平台 Release、固定 Preview feed 与公网资产复验 |
+| `dac10b9` | release | 同步 `0.3.0-preview.3`（build 10）并作为同名 Tag 目标；workflow `33887131319` 最终全绿，公开双平台 Release、固定 Windows Preview feed、SHA-256、Sparkle/Tauri 签名与公网重下复验通过 |
 
 ## 维护方式
 

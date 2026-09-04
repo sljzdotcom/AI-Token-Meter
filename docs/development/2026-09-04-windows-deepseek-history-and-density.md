@@ -4,13 +4,13 @@
 
 **日期：** 2026-09-04
 
-**状态：** 已并入 `main`；自动化与独立复审完成，`0.3.0-preview.3` 发布后等待 Windows 11 真机确认
+**状态：** 已并入 `main` 并由公开 `0.3.0-preview.3` 交付；自动化、独立复审和发布门禁完成，等待 Windows 11 真机确认
 
 ## 背景与范围
 
 Windows 真机同时暴露了四类问题：点击 DeepSeek 详情会隐式创建空白官网窗口，该窗口无法可靠关闭；详情内的 **Sync official history** 没有可见反馈；三个 Provider 详情与 Settings 字号偏大；Display font 原生下拉列表出现白底白字。确认采用方案 A：查看详情只打开原生详情，只有用户显式点击同步才创建托管官网窗口；Windows 使用独立紧凑密度和可读的浅色原生控件，macOS 源码与视觉保持不变。
 
-本修复阶段本身没有改版本号、创建 tag 或发布 Release；修复分支随后通过 PR #6 合入 `main`。已公开的 `0.3.0-preview.2` 不包含本修复，`0.3.0-preview.3` Release Notes 明确列出 `REQ-20260904-006`，发布完成后可用于真机验收。
+本修复阶段本身没有改版本号、创建 tag 或发布 Release；修复分支随后通过 PR #6 合入 `main`。已公开的 `0.3.0-preview.2` 不包含本修复；[公开 `0.3.0-preview.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.3) Release Notes 明确列出 `REQ-20260904-006`，现可用于真机验收。
 
 ## 根因
 
@@ -131,6 +131,6 @@ PR #6 的 [Windows workflow 33878105470](https://github.com/sljzdotcom/AI-Token-
 - `4953206`、`5982d5c`：第一轮整分支审查修复与证据记录；随后定向复审重新打开 4 项 Important，形成下一轮失败先行基线；
 - `fd90008`–`5612923`：关闭四项 Important，并完成无 Critical/Important 的最终独立复审；
 - `e3dc723`–`1309d30`：修复 Windows runner 的前端性能、Vite 启动/ANSI、浏览器输出、profile 复用与后台帧调度差异；
-- PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；`0.3.0-preview.2` 不含本修复，`0.3.0-preview.3` 为首次交付版本。
+- PR #6：[Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 与 [macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 全绿；`0.3.0-preview.2` 不含本修复，`0.3.0-preview.3` 为首次交付版本，其 [Release workflow 33887131319](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33887131319) 最终全绿。
 - PR #6 已于 2026-09-04 合并为 `e62193c`；需求保持待用户确认，直到 `0.3.0-preview.3` 完成 Windows 11 真实登录、关闭、聚合和原生下拉验收。
 - 合并记录提交 `d520752` 的 [Windows main CI 33880527388](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527388) 与 [macOS main CI 33880527365](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33880527365) 均全绿；Windows 再次完成真实 Chrome、169 项原生测试、Release NSIS 和 PE GUI subsystem 验证。
