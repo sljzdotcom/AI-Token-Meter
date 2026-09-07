@@ -10,9 +10,9 @@
 
 ## 当前阶段
 
-需求登记提交 `96a0bc4`；规格和计划 `95a4d3c`。CLI 引导、图标及最终审查修复已完成，最终定向复审无阻断；[PR #10](https://github.com/sljzdotcom/AI-Token-Meter/pull/10) 正在原生 CI 验证。0.4.0 公开安装包没有这些新功能。
+2026-09-07 完成并合入 main。需求登记提交 `96a0bc4`；规格和计划 `95a4d3c`。CLI 引导、图标及最终审查修复已完成，最终定向复审无阻断；[PR #10](https://github.com/sljzdotcom/AI-Token-Meter/pull/10) 经双平台 CI 通过后合并为 `266b1f3`。合并树与验证头 `84d1955` 没有内容差异。**未发布新版本：0.4.0 公开安装包没有这些新功能。**
 
-### 独立审查与复验
+### 独立审查与复验过程（历史阶段记录）
 
 控制者在 `7fd6d45` 独立运行带屏幕测试的完整门禁：415 项主测试/80 组 + 13 项 PTY/1 组通过；便携 Release 构建、资源与 Sparkle 嵌套签名验证通过，没有安装或启动新 App。
 
@@ -27,6 +27,17 @@
 最终整分支审查发现 macOS 不可执行文件/失效链接仍被误当缺失，以及 Windows Auto 的坏 Native 会提前阻断健康 WSL。检查点 `f6c4493` 修复：macOS 用 lstat 区分存在/缺失并继续搜索健康候选，两账户读取器及安装器统一消费；Windows 记住 Native 不确定状态但仍尝试 WSL，健康 Ubuntu 来源胜出。先实际复现 macOS 14 项问题和 Windows 回退失败，再验证通过；最终定向复审已关闭两项 Important，无新阻断。页签焦点/左键环绕的额外断言仍为非阻断测试增强建议。
 
 最终实现者全套 macOS 416+13、Rust 206 及严格检查通过。原生 Windows CI 必须验证新增 PowerShell、真实 cmd 失败/超时 fixture、Tauri 和 NSIS；不将本机测试冒充 Windows 原生验收。
+
+## 最终验收与集成
+
+- 控制者在最终实现上重新运行 `AI_METER_SCREEN_TESTS=1 bash scripts/test.sh`：416 项主测试/80 组与 13 项 PTY/1 组通过，共 429 项/81 组；文档、公开安全、合同、更新源与便携发布 fixture 全部通过。
+- `AI_METER_INCLUDE_WIDGET=0 bash scripts/build-app.sh` 成功，便携资源包和 Sparkle 嵌套签名检查通过；没有替换或启动已安装 App。
+- 前端独立复验 75 项、production build、21 项密度生命周期及 632 项实际浏览器计算样式通过；宿主 Rust 最终 206 项及格式/零警告 Clippy 通过。
+- 最终头 `84d1955` 的 [macOS CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34085411473) 和 [Windows CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34085411479) 全部成功。Windows 原生 Rust 合计 **216 项**，包括 Windows 专用安装器环境、PowerShell 与真实 cmd/超时 fixture；NSIS debug 安装包构建、GUI 子系统检查和 CI artifact 上传通过。这是测试产物，不是公开 Release。
+- 浏览器确定性设置页实测：四个中文页签 clientWidth/scrollWidth 均为 68px；英文分别约 116/103/92/76px，均无文字溢出，SVG 都为 16px。Appearance 上按左键，焦点及选中项循环到 About；右键返回 Appearance。自动化覆盖名称/图标和键盘切换，额外左键/焦点循环由本次浏览器手工操作补验。
+- PR #10 于 2026-09-07 合并，Git `266b1f3`；需求 006/007、计划、索引、Settings 指南、README、CHANGELOG、安全边界与测试基线已同步。源码分支及本地任务证据保留，未改变 release tag、签名资产或更新源。
+
+**仍需真实环境验收的边界：** 未执行真实上游安装器、用户登录/重新登录；没有更改真实凭据。Windows 物理显示器的字体/DPI、终端可见性及用户账户端到端操作不以 CI 替代；它们不是已完成的实机验收。既有偶发时序问题也未因本轮绿色测试被关闭。
 
 ## 验证边界
 

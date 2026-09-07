@@ -11,7 +11,7 @@
 
 ## 一句话定位
 
-**下一版源码：** CLI 安装/登录引导和 Windows Settings 页签图标已实现并通过任务审查及本机测试，正在最终审查/原生 CI，暂未发布；见[需求与进度](development/2026-09-07-cli-onboarding.md)。
+**下一版源码：** CLI 安装/登录引导和 Windows Settings 页签图标已通过最终复审、双平台 CI 和构建验证，PR #10 已合入 main（`266b1f3`），暂未发布；见[需求与验证](development/2026-09-07-cli-onboarding.md)。
 
 **0.4.0 已发布：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。公开更新已为 0.4.0；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 

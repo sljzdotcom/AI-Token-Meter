@@ -12,7 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-07](2026-09-07-cli-onboarding.md) | CLI 安装/账户状态引导与 Windows Settings 页签图标 | 开发中；用户显式安装、官方固定来源、自动发现和安全状态转换 |
+| [2026-09-07](2026-09-07-cli-onboarding.md) | CLI 安装/账户状态引导与 Windows Settings 页签图标 | 已合并、未发布；macOS 429、Windows 原生 Rust 216、前端 75，双平台 CI/构建通过 |
 | [2026-09-07](2026-09-07-v0.4.0-release.md) | 0.4.0 双平台稳定更新发布 | 已完成；Tag `15d80e2`、workflow `34076547278`、appcast `2d2254f`，公网双平台资产、签名及三个更新源一致 |
 | [2026-09-07](2026-09-07-multidisplay-and-windows-localization.md) | 多显示器、跨屏拖动与 Windows 本地化 | 已实现并合并 PR #9；双平台 CI 通过，物理多屏/DPI 验收独立追踪 |
 | [2026-09-06](2026-09-06-v0.3.0-release.md) | `0.3.0` 双平台正式更新通道发布 | 已完成；Tag `bb215c3`、workflow `34035797098`、公开资产/两端签名/三个更新源一致；旧 macOS Preview 实际检查发现新版 |

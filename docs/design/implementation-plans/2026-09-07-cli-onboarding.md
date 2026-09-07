@@ -35,10 +35,10 @@
   ```
   若现有结构不是 tab role，遵循正确语义而非更改角色来迎合断言。
 - [x] 最小实现 16px currentColor 线性调色板/活动/连接/信息 SVG，保留文字和系统字体，不增加外部依赖或网络请求。
-- [ ] 运行 npm test、test:density、build，检查两种语言不会因图标撑开/截断页签；记录证据并提交。勿覆盖 Task 1 设置改动。
+- [x] 运行 npm test、test:density、build，检查两种语言不会因图标撑开/截断页签；记录证据并提交。勿覆盖 Task 1 设置改动。
 
 ### Task 3: 集成验证与记录
 
 - [x] 独立任务审查和整分支审查；修复重要发现（`f6c4493` 定向复审通过）。
-- [ ] 更新 docs/user-guide/settings.md、README 未发布说明、CHANGELOG、docs/development/2026-09-07-cli-onboarding.md、docs/requirements-backlog.md 和索引；记录测试与提交证据。
-- [ ] scripts/check-docs.sh、scripts/test.sh、Windows 完整门禁与公开安全扫描；PR 原生 CI 后合并 main。本轮不自动发布，旧 0.4.0 安装包保持不变。
+- [x] 更新 docs/user-guide/settings.md、README 未发布说明、CHANGELOG、docs/development/2026-09-07-cli-onboarding.md、docs/requirements-backlog.md 和索引；记录测试与提交证据。
+- [x] scripts/check-docs.sh、scripts/test.sh、Windows 完整门禁与公开安全扫描；PR 原生 CI 后合并 main。本轮不自动发布，旧 0.4.0 安装包保持不变。PR #10 / `266b1f3`；完整证据见开发日志。
