@@ -1,6 +1,6 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-06
+- **事实快照：** 2026-09-07
 - **产品：** AI Token Meter
 - **应用版本：** 双平台稳定通道 `0.3.0`（macOS build `11`）
 - **维护分支：** `main`
@@ -10,6 +10,8 @@
 **0.3.0 功能：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台 CI 并合入 main（`c67112e`）。真实 Windows 桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)和[发布记录](development/2026-09-06-v0.3.0-release.md)。
 
 ## 一句话定位
+
+**下一版进展（未发布）：** 多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px 已进入 [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9)。macOS 本地 405+12 项及 Release 构建通过；Windows 本地 56 项前端、190 项 Rust、12 项密度生命周期及 632 项计算样式通过，正在修正独立复审发现的并发边界并等待实际 Windows runner。公开更新仍为 0.3.0，不把开发分支等同于可更新发行版。详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 
 AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
 

@@ -65,10 +65,10 @@ macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 
 - Settings 始终使用平台系统字体，选项只显示名称，不做字体预览；Windows 下拉保持白底深字，macOS 尺度不变。
 - 切换立即应用到浮动条及详情，无需重启；原生菜单字体由系统控制。
 - `Restore Default Font` 在 macOS 恢复 System Default，下一版 Windows 恢复微软雅黑。
-- 任意自定义字体未安装时，对应选项会显示 `Not installed` 且不能选择。已保存的字体临时不可用时，AI Token Meter 会安全回退到系统字体，但保留偏好；重新安装后可自动恢复。
-- AI Token Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。
+- 自定义字体未安装时显示 `Not installed`：macOS 禁用该选项；下一版 Windows 允许保留或选择该偏好，但实际内容安全回退微软雅黑/系统 sans-serif，不把回退误报为字体已安装。已保存字体临时不可用时不丢失偏好。
+- AI Token Meter 不下载、安装或分发字体文件。请使用系统字体管理安装对应字体，再重新打开 Settings 或重启应用。
 
-Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时由 macOS 字体级联补齐中文字形。Widget、Settings、系统菜单和通知始终使用系统字体。
+Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排由平台字体回退补齐中文字形。Widget、Settings、系统菜单和通知始终使用系统字体。
 
 字体选择只影响 AI Token Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
 

@@ -15,9 +15,9 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260907-003 | Windows 详情字号 | Windows 三个产品的所有详情页文字在当前字号基础上统一再减少 1 号；macOS 不变 | 中 | 进行中 | 2026-09-07 | 字号浏览器回归已观察预期失败，和 Windows 字体阶段一起实施；覆盖标题、数值、正文、按钮、图表标签、辅助说明与空/错误状态，统一减 1 CSS px；Settings、托盘菜单和浮动条不变 | [规格](design/specifications/2026-09-07-windows-localization-design.md)；验收：三个详情页在英文/中文及不同字体下均缩小且不裁切，macOS 字号无变化 |
-| REQ-20260907-001 | 多显示器与拖动 | M4 Max 接入主副两屏后浮动条启动在副屏且无法拖到主屏；修复跨屏拖动，提供明确显示器选择，并设计仅一屏/所有屏显示选择与断屏回退、位置记忆 | 高 | 进行中 | 2026-09-07 | 用户确认推荐方案：本轮包括所有显示器模式；编写正式规格、计划，测试驱动完成独立多屏展示与唯一采集/详情所有权 | [调查与推荐](development/2026-09-07-multidisplay-and-windows-localization.md)；关联 REQ-20260903-009，不能用此前单屏更新成功替代本项验收 |
-| REQ-20260907-002 | Windows 本地化与字体 | Windows 增加简体中文/English语言选择（默认英文）；字体增加微软雅黑、黑体、楷体，默认微软雅黑；macOS 不增加语言选择 | 中 | 进行中 | 2026-09-07 | 基线前端通过，新增偏好/本地化测试先失败，正在接线前端、托盘、原生提示与字体缺失回退，保持 Settings 系统字体 | [规格](design/specifications/2026-09-07-windows-localization-design.md) · [计划](design/implementation-plans/2026-09-07-windows-localization.md)；安装成功不等于全部 Windows 专项验收通过 |
+| REQ-20260907-003 | Windows 详情字号 | Windows 三个产品的所有详情页文字在当前字号基础上统一再减少 1 号；macOS 不变 | 中 | 进行中 | 2026-09-07 | `3312537` 实现全角色减 1 CSS px，632 项浏览器计算样式通过；Settings、托盘菜单和浮动条不变。等待本轮整体复审/原生 CI 集成 | [规格](design/specifications/2026-09-07-windows-localization-design.md)；英文/中文及四种字体覆盖；不冒充 Windows 原生字体/DPI 验收 |
+| REQ-20260907-001 | 多显示器与拖动 | M4 Max 接入主副两屏后浮动条启动在副屏且无法拖到主屏；修复跨屏拖动，提供明确显示器选择，并设计仅一屏/所有屏显示选择与断屏回退、位置记忆 | 高 | 进行中 | 2026-09-07 | macOS `255e8b3` 复审关闭，405+12 项及 Release 构建通过；Windows `3312537` 已实现，正在修正协调持锁、取消拖动保存竞态，PR #9 跑原生 CI | [调查与开发日志](development/2026-09-07-multidisplay-and-windows-localization.md)；关联 REQ-20260903-009，物理多屏验收仍独立追踪 |
+| REQ-20260907-002 | Windows 本地化与字体 | Windows 增加简体中文/English语言选择（默认英文）；字体增加微软雅黑、黑体、楷体，默认微软雅黑；macOS 不增加语言选择 | 中 | 进行中 | 2026-09-07 | 前端/原生文本、字体默认与迁移已实现，本地 56 项前端/190 项 Rust 通过；正在关闭迟到设置事件及少数生成标签翻译遗漏，Settings 保持系统字体 | [规格](design/specifications/2026-09-07-windows-localization-design.md) · [计划](design/implementation-plans/2026-09-07-windows-localization.md)；安装成功不等于全部 Windows 专项验收通过 |
 | REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 已完成 | 2026-09-06 | 2026-09-06 完成；稳定 macOS、Windows stable 与旧 Preview 更新源均指向 0.3.0；旧 Mac Preview 实际检查发现新版。Windows 真机原位升级仍按既有验收项追踪 | [发布记录](development/2026-09-06-v0.3.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0) · Tag `bb215c3` · appcast `f9a1f83` · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34035797098) |
 | REQ-20260901-001 | 服务认证 | Settings 始终显示 Claude、Codex 当前账户和登录按钮；支持官方 CLI 重新登录；DeepSeek 显示遮罩 Key，并安全替换 API Key | 高 | 已完成 | 2026-09-01 | 稳定签名发布后重录一次旧 DeepSeek Key，可解除 ad-hoc CDHash 变化造成的钥匙串访问限制 | [设计规格](design/specifications/2026-09-01-service-account-relogin-design.md)、[实施计划](design/implementation-plans/2026-09-01-service-account-relogin.md)、[开发与验收记录](development/2026-09-01-service-account-relogin.md)、`f95c6cf`–`bfc7412`、合并 `cd77e25` |
 | REQ-20260901-002 | 项目治理 | 建立项目级“待完成需求”列表；以后每条新需求先登记，可分类、标记完成/待确认，并在当前任务结束后继续读取处理 | 高 | 已完成 | 2026-09-01 | 后续所有新需求继续遵循本机制 | 本文件、`AGENTS.md`、`641f74c` |
@@ -154,6 +154,7 @@
 
 - `REQ-20260907-001`：修复 Mac 跨屏拖动，设计明确屏幕选择及可选所有显示器模式。
 - `REQ-20260907-002`：Windows 英文/简体中文、微软雅黑/黑体/楷体；macOS 不增加语言选择。
+- `REQ-20260907-003`：Windows 三服务详情全角色字号统一减少 1 CSS px，Settings、浮动条和 macOS 不变。
 - `REQ-20260904-007`：区分源码已合并、公开 Release 已发布和应用内更新源已更新，避免其他机器误以为能立即取得尚未发布的修复。
 - `REQ-20260904-008`：把 `main` 中尚未交付的修复制作为下一版双平台 Preview，并验证公开下载和应用内更新链路。
 
@@ -161,6 +162,8 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-07 | REQ-20260907-001 / 002 / 003 | 进行中 | 用户要求继续执行；macOS 实现与定向复审关闭、405+12 项及 Release 构建通过；Windows `3312537` 本地 56/190/12/632 项门禁通过，PR #9 原生 CI 进行中。独立复审发现协调锁、拖动提交和迟到设置事件竞态，合并前补测试修正。 |
+| 2026-09-07 | REQ-20260907-003 | 进行中 | 登记“Windows 详情全部再减少一号”；采用全角色减 1 CSS px，字号测试先失败后通过，代码 `3312537`；不影响 Settings、浮动条、macOS，不以宿主浏览器测试冒充 Windows 字体实机验收。 |
 | 2026-09-07 | REQ-20260907-001 | 待用户确认 → 进行中 | 用户“按照你的推荐执行”，确认自由跨屏、系统主屏/指定屏/所有屏、默认单屏、每屏位置及共享采集方案；Windows 本地化和字体按同批已确认范围执行，无需再作常规确认。 |
 | 2026-09-07 | REQ-20260907-001 | 新建 → 进行中 → 待用户确认 | 用户报告 M4 Max 双屏启动在副屏且跨屏拖动失败；读取控制器、屏幕解析、位置存储及旧规格后定位两处实现限制。提出单屏修复/选择与可选多屏实例的架构分歧，等待是否本轮加入所有显示器模式，未实现或发布修复。 |
 | 2026-09-07 | REQ-20260907-002 | 新建 → 待处理 | 登记 Windows 中英文切换与三款中文字体；用户另确认 Windows 安装成功，仅记录安装，不关闭 DPI、官网同步等未明确确认的专项验收。 |

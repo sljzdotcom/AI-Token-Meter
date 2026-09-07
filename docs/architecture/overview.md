@@ -57,7 +57,9 @@ Settings About ─> Tauri Updater ─> GitHub latest.json ─> minisign-verified
 
 Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发刷新三项 Provider，并以 generation 防止已取消旧请求回写。Native 与 WSL 候选都经过固定发现、健康检查和参数边界；CLI 账号状态、实际用量与登录动作共享所选候选，避免跨环境串号。
 
-三个 Tauri 窗口分别为 `meter`、`detail`、`settings`。前端只订阅固定脱敏 DTO 和事件；Win32 层负责无任务栏窗口、Bezier `HRGN`、DPI/显示器定位、全屏隐藏、详情临时置前和托盘生命周期。DeepSeek 历史使用独立 WebView2 数据目录、官方 HTTPS allowlist、短期 nonce 和有界分片，远程页面不能调用通用文件或 Shell 能力。
+Tauri 的常驻窗口角色为浮动条、唯一 `detail` 与 `settings`。Unreleased 的 `display_coordinator` 根据显示模式维护 `meter` / `meter-*` 实例；增加的 WebView 只订阅同一 RuntimeState，不增加 Provider 采集。前端只订阅固定脱敏 DTO 和事件；Win32 层负责无任务栏窗口、透明背景、DPI/显示器定位、全屏隐藏、详情临时置前和托盘生命周期。浮动条 Bezier 由 WebView 单一抗锯齿裁剪，原生层不重复粗粒度裁剪。DeepSeek 历史使用独立 WebView2 数据目录、官方 HTTPS allowlist、短期 nonce 和有界分片，远程页面不能调用通用文件或 Shell 能力。
+
+Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字典和日期/数字格式化，原生托盘、凭据提示及通知使用 Rust 本地化映射。协议状态、Provider ID 与第三方内容不改写为翻译文本；显示字体和界面语言相互独立，Settings 保持系统字体。
 
 ## AIMeterCore
 

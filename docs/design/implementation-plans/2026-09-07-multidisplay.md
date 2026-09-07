@@ -12,7 +12,7 @@
 
 文件：新增 Sources/AIMeterCore/Preferences/FloatingStripDisplays.swift、Tests/AIMeterCoreTests/FloatingStripDisplaysTests.swift；新增 Sources/AIMeterApp/System/FloatingStripDragPolicy.swift、Tests/AIMeterAppTests/FloatingStripDragPolicyTests.swift。
 
-- [ ] 先写迁移/持久化和坐标测试；分别运行 scripts/test.sh --filter FloatingStripDisplaysTests 与 --filter FloatingStripDragPolicyTests 确认缺失行为导致失败。
+- [x] 先写迁移/持久化和坐标测试；分别运行 scripts/test.sh --filter FloatingStripDisplaysTests 与 --filter FloatingStripDragPolicyTests 确认缺失行为导致失败。
 
 ~~~swift
 let preferences = FloatingStripDisplays(mode: .selected, selectedIdentifier: "external")
@@ -21,16 +21,16 @@ let preferences = FloatingStripDisplays(mode: .selected, selectedIdentifier: "ex
 #expect(preferences.targetIdentifiers(online: ["primary", "external"], primary: "primary") == ["external"])
 ~~~
 
-- [ ] 实现 Codable 模式 primary/selected/all、每屏 placement，使用独立 UserDefaults Data 键；未知数据从旧位置迁移，不修改账户设置。
-- [ ] 实现不受 edge preference 限制的 translation；全屏矩形指针命中优先，间隙选最近屏；All 模式返回原屏。
-- [ ] 运行定向测试转绿并提交 feat: persist multi-display placement。
+- [x] 实现 Codable 模式 primary/selected/all、每屏 placement，使用独立 UserDefaults Data 键；未知数据从旧位置迁移，不修改账户设置。
+- [x] 实现不受 edge preference 限制的 translation；全屏矩形指针命中优先，间隙选最近屏；All 模式返回原屏。
+- [x] 运行定向测试转绿并提交，检查点 3b6dcee。
 
 ## 任务 2：macOS 实例协调及设置接线
 
 文件：新增 Sources/AIMeterApp/System/FloatingStripCoordinator.swift、FloatingStripWindowRegistry.swift、Views/FloatingStripDisplaySettings.swift；修改同目标 System/FloatingPanelController.swift、AppModel.swift、AppDelegate.swift、Views/AppearanceSettingsView.swift；新增 Tests/AIMeterAppTests/FloatingStripCoordinatorTests.swift。
 
-- [ ] 写唯一详情所有权/拓扑增删测试：呈现 B 前关闭 A、断开 B 后无悬挂详情；真实协调策略而非源码字符串检查。运行定向测试确认失败。
-- [ ] 控制器接受固定屏标识及 present 回调，移除覆盖 model 全局 handler 的行为；协调器统一广播外观、显示与拓扑变化。
+- [x] 写唯一详情所有权/拓扑增删测试：呈现 B 前关闭 A、断开 B 后无悬挂详情；真实协调策略而非源码字符串检查。运行定向测试确认失败。
+- [x] 控制器接受固定屏标识及 present 回调，移除覆盖 model 全局 handler 的行为；协调器统一广播外观、显示与拓扑变化。
 
 ~~~swift
 // 所有实例共用同一个 model；呈现新详情前释放旧详情宿主。
@@ -38,9 +38,9 @@ for controller in controllers.values { controller.dismissDetail() }
 controllers[target]?.showDetail(for: provider)
 ~~~
 
-- [ ] model 增加显示模式、在线屏列表和持久化方法；Settings 加模式/目标选择与 Move to primary。离线目标仍显示说明；用户拖动更新 selected，自动重排不保存。
-- [ ] controller 按指针目标处理拖动，拖动时不自动重排；所有屏模式限制目标；释放详情 contentView，清理被移除实例资源。
-- [ ] 定向测试、完整 bash scripts/test.sh、Release 编译通过后提交 fix: coordinate screen-owned floating strips。
+- [x] model 增加显示模式、在线屏列表和持久化方法；Settings 加模式/目标选择与 Move to primary。离线目标仍显示说明；用户拖动更新 selected，自动重排不保存。
+- [x] controller 按指针目标处理拖动，拖动时不自动重排；所有屏模式限制目标；释放详情 contentView，清理被移除实例资源。
+- [x] 定向测试、完整 bash scripts/test.sh、Release 编译通过，复审修复检查点 d4bd42d、255e8b3。
 
 ## 任务 3：Windows 对等显示控制
 
