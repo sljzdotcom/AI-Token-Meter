@@ -46,12 +46,12 @@ controllers[target]?.showDetail(for: provider)
 
 文件：windows/src-tauri/src/platform/windows/monitor.rs、lib.rs、persistence/settings.rs；windows/src/settings/SettingsWindow.tsx、Shell.tsx 及对应测试。
 
-- [ ] 先测试 legacy→selected、primary/all 解析、断屏回退与重连恢复，每屏位置无串写；运行 cargo test 见红灯。
-- [ ] 增加实例管理、窗口标签到稳定屏 ID 映射和唯一详情归属；单屏拖动换目标，all 模式每屏独立。保持一个采集 runtime。
-- [ ] 用 Rust 与前端行为测试验证设置保存、事件同步、显示列表更新；运行 npm test、npm run build、cargo test 与 cargo clippy --all-targets -- -D warnings。
-- [ ] 提交 Windows 检查点，报告 Windows-only 编译/真机边界。
+- [x] 先测试 legacy→selected、primary/all 解析、断屏回退与重连恢复，每屏位置无串写；运行 cargo test 见红灯。
+- [x] 增加实例管理、窗口标签到稳定屏 ID 映射和唯一详情归属；单屏拖动换目标，all 模式每屏独立。保持一个采集 runtime。
+- [x] 用 Rust 与前端行为测试验证设置保存、事件同步、显示列表更新；运行 npm test、npm run build、cargo test 与 cargo clippy --all-targets -- -D warnings。
+- [x] 提交 Windows 检查点 3312537、a8d7a0f，报告 Windows-only 编译/真机边界。
 
 ## 任务 4：集成与证据
 
-- [ ] 更新用户指南、架构说明、开发日志、CHANGELOG 和需求状态；运行 bash scripts/check-docs.sh。
+- [x] 更新用户指南、架构说明、开发日志、CHANGELOG 和需求状态；运行 bash scripts/check-docs.sh。
 - [ ] 独立代码审查，处理全部阻断；完整双平台测试及 Windows CI 编译验证后再集成。未取得真机双屏证据不得写成真机验收通过。

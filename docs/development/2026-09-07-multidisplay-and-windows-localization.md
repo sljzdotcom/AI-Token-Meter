@@ -94,3 +94,11 @@ macOS 定向复审已确认原三项及两项跟进问题全部关闭；最新�
 - 修复后本地 197 项 Rust、57 项前端、12 项生命周期、632 项计算样式及构建/严格 lint 全部通过。
 - 父任务重新运行完整 macOS：405 项主测试/78 组 + 12 项 PTY/1 组通过，包含显式开启的单屏 AppKit 回归；共享合同、165 份文档和公开安全检查通过。
 - 首轮 `3312537` 的 [macOS CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34072699492) 与 [Windows CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34072699520) 均成功，后者生成 NSIS 并验证 GUI subsystem=2。此证据不能替代 `a8d7a0f` 的最终原生复验与独立复审。
+
+独立跟进复审已批准 `a8d7a0f` 代码级集成：五项问题全部关闭，无剩余 Critical/Important；额外核对了后台队列合并、取消/拒绝拖动、设置事件顺序、异步销毁后使用新窗口标签和瞬时失败重试。
+
+### 最终 CI 浏览器超时
+
+`ba39b7f` 的 [Windows CI 34073429483](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073429483) 在 Chrome `--dump-dom` 15 秒边界超时；57 项前端、production fixture 和 12 项进程生命周期通过，尚未返回样式断言。登记 `REQ-20260907-004`，不将此误报为字号断言失败，也不把首次成功或简单复跑等同于超时根因修复。进行一次不改源码的受控复验，同时检查启动/输出/清理的有界诊断与预算。
+
+第二次原样运行通过浏览器门禁，证实其间歇性，但不足以确定是冷启动、渲染还是退出等待。加固提交 `d303c11` 增加阶段诊断、有限 stdout/stderr 片段、保留原始错误、有界 readiness/taskkill 与清理；Windows 新 profile 浏览器阶段预算为 45 秒，而非整条命令的总预算。不重试或跳过任何字号断言。21 项生命周期、57 项前端、632 项计算样式、production build 和文档通过，独立复审无 Critical/Important；最终 Windows runner 验证继续作为合并门禁。无法从旧失败日志还原的确切阶段保留为未知，不声称已证明冷启动是根因。
