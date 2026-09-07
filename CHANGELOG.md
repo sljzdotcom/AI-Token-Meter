@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-暂无未发布改动。
+开发中：双平台 CLI 缺失时的一键官方安装引导、登录状态强调和 Windows Settings 页签图标。尚未包含在 0.4.0 安装包；验证和完成状态见[开发记录](docs/development/2026-09-07-cli-onboarding.md)。
 
 ## 0.4.0 - 2026-09-07
 
