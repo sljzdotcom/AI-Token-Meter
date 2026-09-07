@@ -29,17 +29,14 @@ final class BrandLinksModel: ObservableObject {
 }
 
 struct BrandLinksView: View {
-    let action: BrandLinkOpenAction
-    @ObservedObject private var model: BrandLinksModel
+    @StateObject private var model: BrandLinksModel
 
     init(action: BrandLinkOpenAction = BrandLinkOpenAction()) {
-        self.action = action
-        self.model = BrandLinksModel(action: action)
+        self._model = StateObject(wrappedValue: BrandLinksModel(action: action))
     }
 
     init(model: BrandLinksModel) {
-        self.action = model.action
-        self.model = model
+        self._model = StateObject(wrappedValue: model)
     }
 
     var body: some View {
@@ -50,7 +47,7 @@ struct BrandLinksView: View {
             }
             if model.openingFailed {
                 BrandLinkFailureLabel()
-                    .fixedSize()
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -69,6 +66,8 @@ private struct BrandLinkFailureLabel: NSViewRepresentable {
         let label = NSTextField(labelWithString: "The author link could not be opened.")
         label.font = .preferredFont(forTextStyle: .caption1)
         label.textColor = .secondaryLabelColor
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
         label.setAccessibilityLabel("The author link could not be opened.")
         return label
     }

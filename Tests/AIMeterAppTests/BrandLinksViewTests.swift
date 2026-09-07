@@ -31,7 +31,11 @@ struct BrandLinksViewTests {
     @MainActor
     @Test("A rejected click renders recoverable failure feedback")
     func rejectedClickRendersFeedback() throws {
-        let model = BrandLinksModel(action: BrandLinkOpenAction { _ in false })
+        var opened: URL?
+        let model = BrandLinksModel(action: BrandLinkOpenAction {
+            opened = $0
+            return false
+        })
         let host = NSHostingView(rootView: BrandLinksView(model: model))
         let window = hostInWindow(host, height: 100)
         #expect(window.contentView === host)
@@ -42,6 +46,7 @@ struct BrandLinksViewTests {
         github.performClick(nil)
         host.layoutSubtreeIfNeeded()
 
+        #expect(opened?.absoluteString == "https://github.com/sljzdotcom/AI-Token-Meter")
         #expect(model.openingFailed)
         #expect(viewDescendants(of: host).contains {
             ($0 as? NSTextField)?.stringValue == "The author link could not be opened."
