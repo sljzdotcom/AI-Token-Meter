@@ -23,6 +23,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
+> 开发分支正在补充多显示器选择/全屏幕展示及 Windows 中英文、中文字体与更小详情字号；尚未包含在公开 0.3.0 更新中。范围和进度见[本轮开发记录](docs/development/2026-09-07-multidisplay-and-windows-localization.md)。
+
 `0.3.0` 新增：默认 Compact 紧凑浮动条、可选闲置折叠、服务显示/排序、右键快捷菜单和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)。
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。

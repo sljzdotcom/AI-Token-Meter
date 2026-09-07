@@ -41,6 +41,16 @@ bash scripts/test.sh
 - Sparkle 版本/校验和锁定、Info.plist 手动检查策略、framework/helper 嵌入、`@rpath`、嵌套签名与发布脚本安全合同；
 - appcast enclosure 的版本、build、长度与 EdDSA 签名验证，以及篡改归档必须被拒绝。
 
+## 多显示器回归（Unreleased）
+
+普通测试覆盖模式解析、断开回退、重连、迁移、每屏位置、指针选屏和详情所有权。额外 AppKit 回退/固定边缘恢复测试需要 WindowServer 会话：
+
+```bash
+AI_METER_SCREEN_TESTS=1 bash scripts/test.sh --filter AppModelDisplaySettingsTests
+```
+
+测试使用独立 UserDefaults suite，不操作真实账户；未设置环境变量时不创建真实面板。单屏控制器测试不替代真实双屏拖动、拔插、主屏切换、睡眠/唤醒或 Windows 多 DPI 验收。
+
 ## Keychain 集成测试
 
 Keychain 测试会触及当前 macOS 用户的 Keychain，必须显式开启：

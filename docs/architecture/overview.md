@@ -132,6 +132,10 @@ Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发
 
 ### FloatingPanelController
 
+Unreleased 多屏层由 `FloatingStripCoordinator` 枚举系统主屏及稳定屏幕 ID，维护 `FloatingStripWindowRegistry`。只增加展示控制器，不创建第二份 AppModel 或采集器。新详情出现前关闭其他详情并释放 contentView；删除实例会关闭窗口、计时器、观察者及鼠标监控。
+
+`FloatingStripDisplaysStore` 在 UserDefaults 的 `floatingStrip.displays.v1` 保存模式、指定目标和每屏位置。只有实际匹配才迁移旧数字编号，不因仅剩一屏而猜测身份。macOS 主屏取 NSScreen.screens 首项，不是焦点屏 NSScreen.main。`FloatingStripDragPolicy` 处理完整屏幕命中和错位屏间隙，拖动期间暂停自动定位。
+
 负责无标题桌面层浮窗、左右贴边定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude Code、OpenAI Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
 
 ### DeepSeekWebSession

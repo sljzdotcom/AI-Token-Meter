@@ -343,10 +343,11 @@ final class AppModel {
     }
 
     func migrateFloatingStripScreenIdentifier(from oldIdentifier: String, to newIdentifier: String) {
-        guard floatingStripPosition.screenIdentifier == oldIdentifier,
-              oldIdentifier != newIdentifier else { return }
-        floatingStripPosition.screenIdentifier = newIdentifier
-        floatingStripPositionStore.save(floatingStripPosition)
+        guard oldIdentifier != newIdentifier else { return }
+        if floatingStripPosition.screenIdentifier == oldIdentifier {
+            floatingStripPosition.screenIdentifier = newIdentifier
+            floatingStripPositionStore.save(floatingStripPosition)
+        }
         floatingStripDisplays.migrate(from: oldIdentifier, to: newIdentifier)
         persistStripDisplays()
     }

@@ -79,8 +79,8 @@ final class FloatingStripCoordinator {
             FloatingPanelController(model: model, screenIdentifier: identifier,
                                     onProviderRequest: { [weak self] provider in
                 self?.registry.present(provider, on: identifier)
-            }, onPlacementSaved: { [weak self] identifier in
-                guard let self, model.floatingStripDisplays.mode != .all else { return }
+            }, onPlacementSaved: { [weak self] identifier, intent in
+                guard let self, model.floatingStripDisplays.shouldSelectTarget(after: intent, actualIdentifier: identifier) else { return }
                 model.selectFloatingStripDisplay(identifier)
             })
         }

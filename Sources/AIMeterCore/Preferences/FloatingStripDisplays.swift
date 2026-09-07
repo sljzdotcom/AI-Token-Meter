@@ -4,6 +4,10 @@ public enum FloatingStripDisplayMode: String, Codable, CaseIterable, Sendable {
     case primary, selected, all
 }
 
+public enum FloatingStripPlacementIntent: Sendable {
+    case drag, edit
+}
+
 public struct FloatingStripScreenPlacement: Codable, Equatable, Sendable {
     public var edge: FloatingStripEdge
     public private(set) var normalizedCenterY: Double
@@ -38,6 +42,11 @@ public struct FloatingStripDisplays: Codable, Equatable, Sendable {
             return [selectedIdentifier]
         }
         return [primary.flatMap { unique.contains($0) ? $0 : nil } ?? first]
+    }
+
+    public func shouldSelectTarget(after intent: FloatingStripPlacementIntent, actualIdentifier: String) -> Bool {
+        guard mode != .all else { return false }
+        return intent == .drag || (mode == .selected && selectedIdentifier != actualIdentifier)
     }
 
     public func placement(for identifier: String, preference: FloatingStripEdgePreference = .automatic) -> FloatingStripScreenPlacement {

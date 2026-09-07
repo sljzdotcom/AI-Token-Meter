@@ -30,9 +30,18 @@ Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续�
 
 ### Screen edge
 
+下一版（Unreleased）的多显示器设置位于 Appearance：
+
+- **Show on → Primary display**：跟随系统主屏，新安装默认；仅修改边缘不改变此模式。
+- **Selected display**：指定屏幕，断开时临时回主屏，重连恢复；升级保留旧目标。
+- **All displays**：每个在线屏一个浮动条，各自记住位置，采集不重复。只会同时打开一个详情；点击另一屏会转移详情。
+- **Move to primary display**：切回跟随主屏，无需清除配置或重装。
+- 单屏模式从玻璃空白处跨屏拖动，松手后选择该屏；所有屏模式每个实例留在所属屏。
+
 - **Automatic（默认）**：可从三个 Logo 以外的任意玻璃空白处上下移动，也可横向拖到另一侧；松手后吸附最近边缘。
-- **Left**：固定在屏幕左侧，仍可上下拖动。
-- **Right**：固定在屏幕右侧，仍可上下拖动。
+- **Left**：松手后固定在目标屏左侧，不再阻止单屏模式跨屏拖动。
+- **Right**：松手后固定在目标屏右侧，不再阻止单屏模式跨屏拖动。
+- macOS 的 Left/Right 是共享约束，不擦除记住的边缘，切回 Automatic 可恢复；Windows 的 Left/Right 是摆放选择，拖动仍沿用最近边缘吸附。
 - 设置变更立即生效，不需要重启应用。
 - AI Token Meter 会保存具体物理显示器、最后侧边和相对垂直位置；重启、休眠或主副屏角色变化不会改变目标屏。已保存显示器断开时，浮岛仅临时回到当前主屏并保留原侧边和相对高度，不会用回退位置覆盖配置；原显示器重新接入后自动恢复。此时如果用户主动拖动浮岛，或在 Settings 改变 Left/Right，当前显示器会成为新的保存目标。可见区域改变时只在当前屏幕内安全夹紧。
 
@@ -44,7 +53,7 @@ macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 
 
 ### Display font
 
-- **System Default（默认）**：使用当前平台系统 UI 字体；macOS 为 San Francisco。
+- **System Default**：使用当前平台系统 UI 字体；macOS 默认使用 San Francisco。
 - **Antonio**：使用本机已经安装的 Antonio 字体家族。
 - **DIN Condensed**：使用本机已经安装的 DIN Condensed 字体家族。
 - **Alimama FangYuanTi VF**：使用本机已安装的阿里妈妈方圆体可变字体。
@@ -52,15 +61,22 @@ macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 
 - **Leigo**：使用 Ricardo Medina 的 Leigo Regular，兼容 `Leigo` 与 `Leigo Regular` 家族名。
 - **Menlo**：使用本机提供的 Menlo 等宽字体；Windows 未安装时按缺失字体处理。
 - **Alimama DaoLiTi**：使用本机已安装的阿里妈妈刀隶体。
-- Settings 始终使用平台系统字体：切换显示字体不会改变 Settings、八个选项名称、说明或按钮的字形。Windows 使用专属紧凑字号，并让原生字体下拉在未悬停、悬停与键盘焦点状态都保持白底深色可读；macOS 尺度不变。
-- 切换会立即应用到菜单点击面板、浮动条及 Provider 详情，不需要退出或重新打开窗口；三个选项只显示名称，不提供对应字体的字形预览。
-- `Restore Default Font` 会把选择写回 System Default；已经处于默认字体时按钮禁用。
+- 下一版 Windows 增加 **Microsoft YaHei（微软雅黑）**、**SimHei（黑体）**、**KaiTi（楷体）**；新安装默认微软雅黑，升级保留旧选择。
+- Settings 始终使用平台系统字体，选项只显示名称，不做字体预览；Windows 下拉保持白底深字，macOS 尺度不变。
+- 切换立即应用到浮动条及详情，无需重启；原生菜单字体由系统控制。
+- `Restore Default Font` 在 macOS 恢复 System Default，下一版 Windows 恢复微软雅黑。
 - 任意自定义字体未安装时，对应选项会显示 `Not installed` 且不能选择。已保存的字体临时不可用时，AI Token Meter 会安全回退到系统字体，但保留偏好；重新安装后可自动恢复。
 - AI Token Meter 不下载、安装或分发字体文件。请先通过 macOS 安装并注册相应字体，再重新打开 Settings 或重启应用。
 
 Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排时由 macOS 字体级联补齐中文字形。Widget、Settings、系统菜单和通知始终使用系统字体。
 
 字体选择只影响 AI Token Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
+
+### Windows Language（下一版）
+
+Appearance → Language 可选 English（默认）或简体中文，保存后立即同步窗口及原生菜单。翻译本应用的设置、详情、状态、通知与无障碍标签，服务品牌名不变；官方 CLI、DeepSeek 网页和第三方系统界面不由本应用翻译。macOS 不增加此选项。
+
+Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留自适应滚动；Settings、浮动条和 macOS 字号不变。缺失字体标记不可用，内容回退微软雅黑/系统字体，不下载或打包字体文件。
 
 ### Detail auto-hide
 

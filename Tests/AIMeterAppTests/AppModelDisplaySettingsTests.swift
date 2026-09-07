@@ -7,6 +7,40 @@ import AIMeterCore
 @Suite("Display settings integration")
 @MainActor
 struct AppModelDisplaySettingsTests {
+    @Test func migratingSelectedIdentityDoesNotDependOnLastEditedDisplay() throws {
+        let suite = "IndependentMigration-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        FloatingStripPositionStore(defaults: defaults).save(
+            .init(lastResolvedEdge: .left, normalizedCenterY: 0.3, screenIdentifier: "77"))
+        let model = AppModel(defaults: defaults, secretStore: DisplaySettingsSecretStore(), widgetSnapshotPublisher: nil, isDemoMode: true)
+        model.saveFloatingStripPlacement(edge: .right, normalizedCenterY: 0.6, screenIdentifier: "other")
+        model.migrateFloatingStripScreenIdentifier(from: "77", to: "uuid:external")
+        #expect(model.floatingStripDisplays.selectedIdentifier == "uuid:external")
+        #expect(model.floatingStripDisplays.placements["77"] == nil)
+        #expect(model.floatingStripDisplays.placement(for: "uuid:external").normalizedCenterY == 0.3)
+        #expect(model.floatingStripDisplays.placement(for: "other").normalizedCenterY == 0.6)
+        #expect(model.floatingStripPosition.screenIdentifier == "other")
+    }
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
+    func fixedEdgeSettingsDoNotEraseAutomaticPosition() throws {
+        let suite = "FixedEdge-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let screen = try #require(NSScreen.screens.first)
+        let id = try #require(FloatingStripScreenIdentifier.identity(for: screen, mainScreen: screen)).stableIdentifier
+        let model = AppModel(defaults: defaults, secretStore: DisplaySettingsSecretStore(), widgetSnapshotPublisher: nil, isDemoMode: true)
+        model.saveFloatingStripPlacement(edge: .right, normalizedCenterY: 0.4, screenIdentifier: id)
+        let controller = FloatingPanelController(model: model, screenIdentifier: id)
+        defer { controller.close() }
+        model.setFloatingStripEdgePreference(.left)
+        controller.applyUserPositionPreference()
+        model.setFloatingStripEdgePreference(.automatic)
+        controller.applyUserPositionPreference()
+        #expect(model.floatingStripDisplays.placement(for: id).edge == .right)
+        #expect(model.floatingStripDisplays.mode == .primary)
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
     func changingEdgeOnFallbackDisplayMakesItTheExplicitTarget() throws {
         let suite = "FallbackEdge-\(UUID())"
@@ -18,12 +52,16 @@ struct AppModelDisplaySettingsTests {
         model.saveFloatingStripPlacement(edge: .right, normalizedCenterY: 0.7, screenIdentifier: "offline")
         model.selectFloatingStripDisplay("offline")
         let controller = FloatingPanelController(model: model, screenIdentifier: identity.stableIdentifier,
-            onPlacementSaved: { model.selectFloatingStripDisplay($0) })
+            onPlacementSaved: { identifier, intent in
+                if model.floatingStripDisplays.shouldSelectTarget(after: intent, actualIdentifier: identifier) {
+                    model.selectFloatingStripDisplay(identifier)
+                }
+            })
         defer { controller.close() }
         model.setFloatingStripEdgePreference(.left)
         controller.applyUserPositionPreference()
         #expect(model.floatingStripDisplays.selectedIdentifier == identity.stableIdentifier)
-        #expect(model.floatingStripDisplays.placement(for: identity.stableIdentifier).edge == .left)
+        #expect(model.floatingStripDisplays.placement(for: identity.stableIdentifier, preference: .left).edge == .left)
         #expect(model.floatingStripDisplays.placement(for: "offline").edge == .right)
     }
 

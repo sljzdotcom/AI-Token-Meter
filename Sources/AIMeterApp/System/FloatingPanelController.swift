@@ -60,7 +60,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     private let model: AppModel
     private let screenIdentifier: String?
     private let onProviderRequest: ((UsageProvider) -> Void)?
-    private let onPlacementSaved: ((String) -> Void)?
+    private let onPlacementSaved: ((String, FloatingStripPlacementIntent) -> Void)?
     private let session = FloatingDetailSession()
     private let displayState: FloatingStripDisplayState
     private let stripPanel: NSPanel
@@ -79,7 +79,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
 
     init(model: AppModel, screenIdentifier: String? = nil,
          onProviderRequest: ((UsageProvider) -> Void)? = nil,
-         onPlacementSaved: ((String) -> Void)? = nil) {
+         onPlacementSaved: ((String, FloatingStripPlacementIntent) -> Void)? = nil) {
         self.model = model
         self.screenIdentifier = screenIdentifier
         self.onProviderRequest = onProviderRequest
@@ -229,14 +229,13 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     func applyUserPositionPreference() {
         guard let screen = preferredScreenForDragging(),
               let identifier = Self.identity(for: screen)?.stableIdentifier else { return }
-        let edge: FloatingStripEdge = switch model.floatingStripPosition.preference {
-        case .left: .left
-        case .right: .right
-        case .automatic: displayState.resolvedEdge
+        let preferences = model.floatingStripDisplays
+        if preferences.shouldSelectTarget(after: .edit, actualIdentifier: identifier) {
+            let previous = preferences.placement(for: preferences.selectedIdentifier ?? identifier)
+            model.saveFloatingStripPlacement(edge: previous.edge, normalizedCenterY: previous.normalizedCenterY,
+                                             screenIdentifier: identifier)
+            onPlacementSaved?(identifier, .edit)
         }
-        model.saveFloatingStripPlacement(edge: edge, normalizedCenterY: displayState.normalizedCenterY,
-                                         screenIdentifier: identifier)
-        onPlacementSaved?(identifier)
         positionPanels()
     }
 
@@ -455,7 +454,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             screenIdentifier: Self.identity(for: screen)?.stableIdentifier
         )
         positionDetail(relativeTo: finalFrame, edge: placement.edge, on: screen, animate: true)
-        if let identifier = Self.identity(for: screen)?.stableIdentifier { onPlacementSaved?(identifier) }
+        if let identifier = Self.identity(for: screen)?.stableIdentifier { onPlacementSaved?(identifier, .drag) }
     }
 
     private func positionDetail(
@@ -591,7 +590,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                 .stableIdentifier
         )
         if let identifier = preferredScreenForDragging().flatMap(Self.identity(for:))?.stableIdentifier {
-            onPlacementSaved?(identifier)
+            onPlacementSaved?(identifier, .edit)
         }
         positionPanels()
     }

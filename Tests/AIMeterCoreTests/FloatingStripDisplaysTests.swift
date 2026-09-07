@@ -4,6 +4,16 @@ import Testing
 
 @Suite("Floating strip display preferences")
 struct FloatingStripDisplaysTests {
+    @Test func onlyDraggingOrEditingOfflineFallbackChangesTargetMode() {
+        let primary = FloatingStripDisplays()
+        #expect(!primary.shouldSelectTarget(after: .edit, actualIdentifier: "main"))
+        #expect(primary.shouldSelectTarget(after: .drag, actualIdentifier: "external"))
+        let all = FloatingStripDisplays(mode: .all)
+        #expect(!all.shouldSelectTarget(after: .drag, actualIdentifier: "external"))
+        let selected = FloatingStripDisplays(mode: .selected, selectedIdentifier: "external")
+        #expect(!selected.shouldSelectTarget(after: .edit, actualIdentifier: "external"))
+        #expect(selected.shouldSelectTarget(after: .edit, actualIdentifier: "main"))
+    }
     @Test func fixedEdgeAppliesOnNewAndRestoredDisplaysWithoutChangingSavedEdges() {
         var value = FloatingStripDisplays(mode: .all)
         value.record(identifier: "a", edge: .right, normalizedCenterY: 0.2)

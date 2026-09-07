@@ -67,3 +67,10 @@ Apple 一手依据：[NSScreen.main](https://developer.apple.com/documentation/A
 3. 旧 resolver 对不匹配数字 ID 的单屏迁移推测会覆盖离线目标：原测试修改为无损回退断言并先失败，再移除推测分支，只允许实际匹配迁移。
 
 47 项定向回归及合同/文档/安全门禁通过，其中真实 AppKit 回退测试需 AI_METER_SCREEN_TESTS=1 与 WindowServer 权限；无屏 CI 默认跳过该 GUI 测试，其他纯策略测试照常运行。此测试只有一个真实当前屏，不代表双屏物理拔插验收。
+
+### 后续复审修正
+
+- 实际控制器回归先复现 Left → Automatic 会擦除记住的边缘；改为 Settings 仅改变固定约束，不写入每屏记忆。
+- 区分拖动与编辑意图：正常 Primary 模式改边/无障碍操作保持 Primary；跨屏拖动选择目标；Selected 离线回退时主动编辑才重新绑定当前屏；All 永不因操作切为单屏。
+- 新测试先复现旧兼容位置的“最后编辑屏”与新每屏记录不同会阻止身份迁移；现独立迁移每屏表，不覆盖其他屏记录或较新的旧兼容位置。
+- 最新 macOS 完整验证为 405 项主测试 + 12 项 PTY，通过；本轮启用了两项真实单屏 AppKit 测试。Release 重新构建、便携资源及 Sparkle 签名门禁通过。仍不声称真实双屏或 Windows 现场验收完成。
