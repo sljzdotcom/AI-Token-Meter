@@ -12,7 +12,8 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-07](2026-09-07-multidisplay-and-windows-localization.md) | Mac 跨屏拖动调查、屏幕选择/多屏实例建议与 Windows 本地化登记 | 已定位固定边缘限制横拖及焦点屏/系统主屏混淆；多屏架构范围待确认，尚未实现；Windows 语言与字体已排队 |
+| [2026-09-07](2026-09-07-v0.4.0-release.md) | 0.4.0 双平台稳定更新发布 | 准备中；多显示器、Windows 语言/字体和更小详情字号，同版本签名资产及三个更新源验证 |
+| [2026-09-07](2026-09-07-multidisplay-and-windows-localization.md) | 多显示器、跨屏拖动与 Windows 本地化 | 已实现并合并 PR #9；双平台 CI 通过，物理多屏/DPI 验收独立追踪 |
 | [2026-09-06](2026-09-06-v0.3.0-release.md) | `0.3.0` 双平台正式更新通道发布 | 已完成；Tag `bb215c3`、workflow `34035797098`、公开资产/两端签名/三个更新源一致；旧 macOS Preview 实际检查发现新版 |
 | [2026-09-06](2026-09-06-codenotch-competitive-review.md) | CodeNotch 竞品研究：紧凑视觉、渐进式展开、运行状态、数据可信度与快捷交互 | 已完成；对照公开 README、设计规格、关键源码和本项目现有尺寸，形成 P0/P1/P2 建议；未直接修改产品界面 |
 | [2026-09-04](2026-09-04-v0.3.0-preview.3-release.md) | `0.3.0-preview.3` 双平台发布与 Windows Preview 更新源推进 | 已完成；Tag `dac10b9`、workflow `33887131319`、公开双平台资产、两套更新签名、公网重下与固定 Windows Preview feed 全部通过 |
