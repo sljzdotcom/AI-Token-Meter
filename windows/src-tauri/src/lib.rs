@@ -963,6 +963,55 @@ fn begin_service_sign_in(
 }
 
 #[tauri::command]
+fn open_service_installation_guide(provider_id: ProviderId) -> Result<(), String> {
+    let provider = match provider_id {
+        ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
+        ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
+        ProviderId::DeepSeek => return Err("This service does not use a CLI".to_owned()),
+    };
+    #[cfg(windows)]
+    {
+        crate::accounts::windows_service::open_installation_guide(provider).map_err(str::to_owned)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = provider;
+        Err("Available in the Windows app".to_owned())
+    }
+}
+
+#[tauri::command]
+async fn begin_service_installation(
+    provider_id: ProviderId,
+    state: State<'_, RuntimeState>,
+) -> Result<crate::accounts::installation::InstallationDecision, String> {
+    let provider = match provider_id {
+        ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
+        ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
+        ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
+    };
+    let configuration = state
+        .app_settings_snapshot()
+        .cli_settings(provider_id)
+        .cloned()
+        .ok_or("This service does not use a CLI")?;
+    #[cfg(windows)]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::accounts::windows_service::launch_installation(provider, &configuration)
+        })
+        .await
+        .map_err(|_| "The installation could not be started".to_owned())?
+        .map_err(str::to_owned)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (provider, configuration);
+        Err("CLI installation is available in the Windows app".to_owned())
+    }
+}
+
+#[tauri::command]
 async fn replace_deepseek_api_key(
     app: tauri::AppHandle,
     state: State<'_, RuntimeState>,
@@ -1252,6 +1301,8 @@ pub fn run() {
             service_account_statuses,
             service_account_status,
             begin_service_sign_in,
+            begin_service_installation,
+            open_service_installation_guide,
             replace_deepseek_api_key
         ])
         .plugin(tauri_plugin_updater::Builder::new().build())

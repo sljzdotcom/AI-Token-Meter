@@ -20,6 +20,7 @@ import { TauriUsageBridge } from "./state/usageBridge"
 import { useUsageSnapshots } from "./state/useUsageSnapshots"
 import { defaultStripPreferences, type StripPreferences } from "./state/stripPreferences"
 import { setLocale, type Locale } from "./localization"
+import { CLIOnboarding } from "./settings/cliOnboarding"
 import { displayFontStack } from "./displayFonts"
 
 type RuntimeSettings = {
@@ -356,6 +357,13 @@ function SettingsSurface() {
   const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.4.0" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
   const [serviceMessage, setServiceMessage] = useState<string | null>(null)
+  const [, updateOperations] = useState(0)
+  const [onboarding] = useState(() => new CLIOnboarding(
+    (command, args) => invoke(command, args),
+    status => setServiceStatuses(current => [...current.filter(item => item.providerId !== status.providerId), status]),
+    setServiceMessage,
+    () => updateOperations(value => value + 1),
+  ))
   const [wslDistributions, setWslDistributions] = useState<string[]>([])
   const [availableDisplays, setAvailableDisplays] = useState<DisplayInfo[]>([])
   useEffect(() => {
@@ -390,13 +398,11 @@ function SettingsSurface() {
   }, [])
   useEffect(() => {
     let disposed = false
-    invoke<ServiceAccountStatus[]>("service_account_statuses").then((statuses) => {
-      if (!disposed) setServiceStatuses(statuses)
-    }).catch(() => {
-      if (!disposed) setServiceMessage("Account status is temporarily unavailable.")
-    })
-    return () => { disposed = true }
-  }, [])
+    const refresh = () => { if (!disposed) for (const provider of ["claude", "codex", "deepseek"] as const) void onboarding.check(provider) }
+    refresh()
+    window.addEventListener("focus", refresh)
+    return () => { disposed = true; window.removeEventListener("focus", refresh); onboarding.dispose() }
+  }, [onboarding])
   const applyServiceStatus = (status: ServiceAccountStatus) => {
     setServiceStatuses((current) => [
       ...current.filter((item) => item.providerId !== status.providerId),
@@ -404,14 +410,7 @@ function SettingsSurface() {
     ])
   }
   const checkServiceStatus = (providerId: ProviderId) => {
-    applyServiceStatus({ providerId, connectionState: "checking" })
-    setServiceMessage(null)
-    void invoke<ServiceAccountStatus>("service_account_status", { providerId })
-      .then(applyServiceStatus)
-      .catch(() => {
-        applyServiceStatus({ providerId, connectionState: "unavailable" })
-        setServiceMessage("The account status check did not complete.")
-      })
+    void onboarding.check(providerId)
   }
   useEffect(() => {
     let disposed = false
@@ -490,14 +489,10 @@ function SettingsSurface() {
           .catch(() => setServiceMessage("The CLI runtime setting could not be saved."))
       }}
       onCheckServiceStatus={checkServiceStatus}
-      onBeginServiceSignIn={(providerId) => {
-        setServiceMessage(null)
-        void invoke("begin_service_sign_in", { providerId }).then(() => {
-          setServiceMessage("Complete sign-in in the new terminal window, then choose Check Status.")
-        }).catch(() => {
-          setServiceMessage("The sign-in window could not be opened.")
-        })
-      }}
+      busyServices={(["claude", "codex", "deepseek"] as const).filter(provider => onboarding.isBusy(provider))}
+      onBeginServiceSignIn={provider => { void onboarding.begin(provider, "login") }}
+      onBeginServiceInstallation={provider => { void onboarding.begin(provider, "install") }}
+      onOpenInstallationGuide={providerId => { void invoke("open_service_installation_guide", {providerId}).catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onReplaceDeepSeekKey={async () => {
         setServiceMessage("Open the protected Windows prompt to replace the API Key.")
         try {

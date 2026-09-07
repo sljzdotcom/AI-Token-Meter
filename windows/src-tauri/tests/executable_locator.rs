@@ -12,6 +12,41 @@ use ai_token_meter_windows::platform::windows::wsl::{
 use tempfile::tempdir;
 
 #[test]
+fn official_standalone_locations_are_rediscovered_without_a_new_process_path() {
+    use ai_token_meter_windows::platform::windows::environment::official_installation_paths;
+    let root = tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let local = root.path().join("local");
+    let paths = official_installation_paths(Some(&profile), Some(&local));
+    for (provider, path) in [
+        (
+            CliProvider::Claude,
+            profile.join(".local").join("bin").join("claude.exe"),
+        ),
+        (
+            CliProvider::Codex,
+            local
+                .join("Programs")
+                .join("OpenAI")
+                .join("Codex")
+                .join("bin")
+                .join("codex.exe"),
+        ),
+    ] {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"MZfixture").unwrap();
+        let found = ExecutableLocator::new(DiscoveryInputs {
+            conventional_paths: paths.clone(),
+            ..Default::default()
+        })
+        .locate(provider, |_| true)
+        .unwrap();
+        assert_eq!(found.executable, path.canonicalize().unwrap());
+        assert_eq!(found.source, RuntimeSource::NativeWindows);
+    }
+}
+
+#[test]
 fn custom_path_wins_over_every_automatic_location() {
     let fixture = LocatorFixture::new();
     let custom = fixture.executable("custom", "codex.exe");

@@ -13,14 +13,12 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
-                    Button(model.signInButtonTitle(for: .claude)) {
-                        model.beginSignIn(.claude)
-                    }
-                    .disabled(status(for: .claude).connectionState == .notInstalled)
+                    serviceActionButton(.claude)
 
                     Button("Check Status") {
                         Task { await model.checkServiceAccount(.claude) }
                     }
+                    .disabled(!model.serviceAction(for: .claude).isEnabled)
 
                     Spacer()
 
@@ -29,6 +27,7 @@ struct ServicesSettingsView: View {
                     }
                     .help("Only needed when Claude Code asks for workspace approval before /usage can run.")
                 }
+                installationNotice(.claude)
             }
 
             Section(UsageProvider.codex.displayName) {
@@ -37,20 +36,14 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
-                    if model.shouldOfferCodexInstallGuide {
-                        Button("Open Install Guide") {
-                            model.openCodexInstallGuide()
-                        }
-                    } else {
-                        Button(model.signInButtonTitle(for: .codex)) {
-                            model.beginSignIn(.codex)
-                        }
-                    }
+                    serviceActionButton(.codex)
 
                     Button("Check Status") {
                         Task { await model.checkServiceAccount(.codex) }
                     }
+                    .disabled(!model.serviceAction(for: .codex).isEnabled)
                 }
+                installationNotice(.codex)
             }
 
             Section("DeepSeek") {
@@ -131,5 +124,22 @@ struct ServicesSettingsView: View {
     private func status(for provider: UsageProvider) -> ServiceAccountStatus {
         model.serviceAccounts[provider]
             ?? ServiceAccountStatus(provider: provider, connectionState: .checking, checkedAt: nil)
+    }
+
+    private func serviceActionButton(_ provider: UsageProvider) -> some View {
+        let action = model.serviceAction(for: provider)
+        return Button(action.title) { model.performServiceAction(provider) }
+            .tint(action.needsAttention ? .orange : .accentColor)
+            .buttonStyle(.bordered)
+            .disabled(!action.isEnabled)
+    }
+
+    @ViewBuilder
+    private func installationNotice(_ provider: UsageProvider) -> some View {
+        if status(for: provider).connectionState == .notInstalled {
+            Text("Downloads and runs the official installer in Terminal.")
+                .font(.caption).foregroundStyle(.secondary)
+            Link("Official installation instructions", destination: URL(string: provider == .claude ? "https://code.claude.com/docs/en/setup" : "https://learn.chatgpt.com/docs/codex/cli")!)
+        }
     }
 }

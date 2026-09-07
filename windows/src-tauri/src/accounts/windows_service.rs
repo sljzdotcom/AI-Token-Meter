@@ -97,6 +97,64 @@ pub fn launch_login(
         .map_err(|_| "The sign-in window could not be opened")
 }
 
+pub fn launch_installation(
+    provider: CliProvider,
+    configuration: &ProviderCliSettings,
+) -> Result<super::installation::InstallationDecision, &'static str> {
+    use super::installation::{InstallationDecision, installation_decision, powershell_script};
+    use base64::Engine;
+    use std::os::windows::process::CommandExt;
+    let candidate = locate(provider, configuration);
+    let decision = installation_decision(configuration, candidate.as_ref());
+    if decision != InstallationDecision::Launch {
+        return Ok(decision);
+    }
+    let script = powershell_script(provider);
+    let encoded = base64::engine::general_purpose::STANDARD.encode(
+        script
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>(),
+    );
+    let system_root = std::env::var_os("SystemRoot").ok_or("Windows PowerShell is unavailable")?;
+    let executable = std::path::PathBuf::from(system_root)
+        .join("System32")
+        .join("WindowsPowerShell")
+        .join("v1.0")
+        .join("powershell.exe");
+    let mut command = Command::new(&executable);
+    configure_restricted_command(&mut command, &executable);
+    command
+        .args(["-NoProfile", "-EncodedCommand", &encoded])
+        .creation_flags(CREATE_NEW_CONSOLE);
+    if let Some(profile) = std::env::var_os("USERPROFILE") {
+        command.current_dir(profile);
+    }
+    command
+        .spawn()
+        .map_err(|_| "The installation window could not be opened")?;
+    Ok(InstallationDecision::Launch)
+}
+
+pub fn open_installation_guide(provider: CliProvider) -> Result<(), &'static str> {
+    let url = match provider {
+        CliProvider::Claude => "https://code.claude.com/docs/en/setup",
+        CliProvider::Codex => "https://learn.chatgpt.com/docs/codex/cli",
+    };
+    let root =
+        std::env::var_os("SystemRoot").ok_or("The installation guide could not be opened")?;
+    let executable = std::path::PathBuf::from(root)
+        .join("System32")
+        .join("rundll32.exe");
+    let mut command = Command::new(&executable);
+    configure_restricted_command(&mut command, &executable);
+    command
+        .args(["url.dll,FileProtocolHandler", url])
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| "The installation guide could not be opened")
+}
+
 fn read_cli_status(
     provider: CliProvider,
     configuration: &ProviderCliSettings,
