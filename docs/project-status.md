@@ -11,7 +11,7 @@
 
 ## 一句话定位
 
-**下一版开发中：** CLI 安装/登录引导和 Windows Settings 页签图标在独立分支实现，暂未发布；见[需求与进度](development/2026-09-07-cli-onboarding.md)。
+**下一版源码：** CLI 安装/登录引导和 Windows Settings 页签图标已实现并通过任务审查及本机测试，正在最终审查/原生 CI，暂未发布；见[需求与进度](development/2026-09-07-cli-onboarding.md)。
 
 **0.4.0 已发布：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。公开更新已为 0.4.0；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 
@@ -66,7 +66,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - 当前源码 macOS 完整自动化基线：**415 项主测试 + 13 项 PTY 系统资源测试，总计 428 项/81 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 验收；CLI 引导属于未发布源码，0.4.0 的历史基线保留在发布日志；
-- 当前源码 Windows 本地验证基线：57 项 Vitest、21 项密度进程生命周期和 197 项 Rust；production 前端、632 项 Chrome 计算样式、rustfmt 与零警告 Clippy 通过。Windows-only 原生测试与安装器证据见[本轮日志](development/2026-09-07-multidisplay-and-windows-localization.md)，公开 0.3.0 的历史基线继续保留在[发布记录](development/2026-09-06-v0.3.0-release.md)；
+- 当前源码 Windows 本地验证基线：75 项 Vitest、21 项密度进程生命周期和 205 项 Rust；production 前端、632 项 Chrome 计算样式、rustfmt 与零警告 Clippy 通过。安装引导 Windows-only 原生测试与安装器证据见[本轮日志](development/2026-09-07-cli-onboarding.md)，0.4.0 的历史基线保留在[发布记录](development/2026-09-07-v0.4.0-release.md)；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。双平台 [v0.4.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.4.0) 提供 Apple Silicon ZIP、Windows x64 NSIS、SHA-256 和签名更新清单；校验证据见[发布记录](development/2026-09-07-v0.4.0-release.md)。
