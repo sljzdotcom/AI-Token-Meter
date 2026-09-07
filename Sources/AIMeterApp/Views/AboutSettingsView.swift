@@ -28,6 +28,7 @@ struct AboutSettingsView: View {
                         Text(AppBrand.authorLine)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        BrandLinksView()
                     }
                 }
                 .padding(.vertical, 8)

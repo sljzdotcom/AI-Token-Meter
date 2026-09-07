@@ -574,10 +574,18 @@ button {
 }
 
 .settings-window > header {
+  align-items: center;
   background: #fff;
   border-bottom: 1px solid #e1e4e9;
   padding: var(--settings-header-top-padding, 24px) var(--settings-header-horizontal-padding, 26px) var(--settings-header-bottom-padding, 18px);
   flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+}
+
+.settings-window > header img {
+  height: 40px;
+  width: 40px;
 }
 
 .settings-window > header div,
@@ -754,6 +762,40 @@ button {
 
 .about-card p {
   margin: 0;
+}
+
+.author-links,
+.author-links > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.author-links > small {
+  flex-basis: 100%;
+}
+
+.author-links a {
+  align-items: center;
+  border: 1px solid #d8dce5;
+  border-radius: 8px;
+  color: #5144c7;
+  display: inline-flex;
+  gap: 5px;
+  padding: 5px 8px;
+  text-decoration: none;
+}
+
+.author-links a:focus-visible {
+  outline: 3px solid #64a8ff;
+  outline-offset: 3px;
+}
+
+.author-link-icon {
+  fill: currentColor;
+  height: 15px;
+  width: 15px;
 }
 
 .update-status {

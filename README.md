@@ -5,7 +5,7 @@
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-3b82f6)
-![Tests 429](https://img.shields.io/badge/tests-429%20passed-2ea44f)
+![Tests 432](https://img.shields.io/badge/tests-432%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -24,6 +24,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 ## 主要功能
 
 > 下一版源码改进：Settings 的 CLI 安装/登录状态引导，以及 Windows 页签图标；**当前 0.4.0 安装包尚未包含**。集成状态和测试证据见[开发记录](docs/development/2026-09-07-cli-onboarding.md)。
+
+> 下一版品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与进度](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
 > 0.4.0 新增：多显示器选择/所有屏幕展示及 Windows 中英文、中文字体与更小详情字号。双平台签名资产与公开更新源已验证；见[发布进度](docs/development/2026-09-07-v0.4.0-release.md)。
 

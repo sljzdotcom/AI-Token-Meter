@@ -6,6 +6,8 @@ import type { ProviderId } from "../state/usage"
 import { defaultStripPreferences, type StripPreferences } from "../state/stripPreferences"
 import { serviceAction } from "./cliOnboarding"
 import { SettingsTabIcon } from "./SettingsTabIcon"
+import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
+import appLogo from "../../src-tauri/icons/128x128.png"
 
 const tabs = ["Appearance", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
@@ -48,6 +50,7 @@ type SettingsWindowProps = {
   onNotificationsEnabledChange?: (enabled: boolean) => void
   launchAtLogin?: boolean
   onLaunchAtLoginChange?: (enabled: boolean) => void
+  onOpenAuthorLink?: (target: BrandLinkTarget) => Promise<void> | void
 }
 
 export type ProviderCliSettings = {
@@ -121,6 +124,7 @@ export function SettingsWindow({
   onNotificationsEnabledChange = () => {},
   launchAtLogin = false,
   onLaunchAtLoginChange = () => {},
+  onOpenAuthorLink = () => {},
 }: SettingsWindowProps) {
   const locale = useLocale()
   const primaryDisplay = availableDisplays.find(display => display.isPrimary) ?? availableDisplays[0]
@@ -135,7 +139,7 @@ export function SettingsWindow({
   }, [requestedTab])
   return (
     <section aria-label={t("AI Token Meter Settings")} className="settings-window settings-window--compact-density settings-window--system-font" role="dialog">
-      <header><div><strong>{t("AI Token Meter")}</strong><small>{t("Private AI usage, at a glance.")}</small></div></header>
+      <header><img alt="" aria-hidden="true" src={appLogo} /><div><strong>{t("AI Token Meter")}</strong><small>{t("Private AI usage, at a glance.")}</small></div></header>
       <nav aria-label={t("Settings categories")} role="tablist">
         {tabs.map((tab) => (
           <button
@@ -344,6 +348,7 @@ export function SettingsWindow({
             <strong>{t("AI Token Meter")}</strong>
             <p>{t("Version")} {updateState.currentVersion}</p>
             <p>{t("Author · Miller")}</p>
+            <AuthorLinks onOpen={onOpenAuthorLink} />
             <p aria-live="polite" className="update-status">{t(updateMessage(updateState))}</p>
             <div className="update-actions">
               <button

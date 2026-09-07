@@ -124,6 +124,8 @@ Settings → Services 将按检测结果显示主操作，颜色只是提醒，�
 
 安装完成后自动重新查找 CLI，再检查账户；打开终端本身不代表安装成功。未在规定时间内完成时可重新检查状态；不需要为了恢复按钮而重启应用。已有可用 CLI 不会因点击安装而被重装或升级。
 
+**安装包体积：** 本应用不内嵌 Claude Code/Codex 本体或完整官方安装器。点击后才在线下载官方安装脚本并获取 CLI，需要网络；安装后的 CLI 单独占用磁盘，不会增加本应用分发包中的大型依赖。
+
 Windows 明确选择 WSL 或自定义 CLI 路径时，如果目标不可用，将提供安装说明及路径调整提示，不会悄悄换成 Native Windows。macOS 自动发现现有 nvm/桌面内置 CLI；Windows 也覆盖官方独立安装器的目录。整个安装流程以当前用户运行，不要求管理员身份，不修改全局安全策略。
 
 同轮 Windows 页签增加调色板、活动、连接、信息四个线性图标，保留中英文名称及系统字体；macOS 页签不变。完成与发布状态见[开发记录](../development/2026-09-07-cli-onboarding.md)。
@@ -190,8 +192,14 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 ## About
 
+### 下一版：作者社交链接与软件标识（0.4.0 尚不包含）
+
+Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 **GitHub** 链接，分别进入 [Twitter](https://twitter.com/MillerPanYue) 和 [项目仓库](https://github.com/sljzdotcom/AI-Token-Meter)。点击时才打开系统默认浏览器，不在应用中加载社交页面；若无法打开会给出提示，可重试。Windows 设置顶部显示本地软件 Logo，保留平台系统字体。实施与验证见[开发日志](../development/2026-09-07-about-branding.md)。
+
+### 现有设置行为
+
 - 显示 App Icon、**AI Token Meter**、副标题 **Private AI usage monitor**、版本号和 build 号。
-- 显示简短隐私说明；不包含外部账户入口、账户操作或诊断数据上传。
+- 显示简短隐私说明；不包含服务账户操作或诊断数据上传。
 - **Check for Updates**：只有点击时才读取项目的 GitHub 更新清单；macOS 使用 appcast，Windows 使用 `latest.json`。应用启动、定时刷新和后台驻留都不会检查更新。
 - 检查结果会显示正在检查、已是最新版、发现版本、离线或安全失败；`Last checked` 只记录本次用户操作的时间。
 - **Update Now**：仅在本轮已发现更高版本时启用。macOS 使用 Sparkle EdDSA，Windows 使用 Tauri minisign + NSIS；验证通过后才替换并重新启动，应用不会静默安装。

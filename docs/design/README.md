@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-07 | 关于社交链接与 Windows 品牌头部 | [规格](specifications/2026-09-07-about-branding-design.md) | [计划](implementation-plans/2026-09-07-about-branding.md) |
 | 2026-09-07 | CLI 安装/账户引导与 Windows 页签图标 | [规格](specifications/2026-09-07-cli-onboarding-design.md) | [计划](implementation-plans/2026-09-07-cli-onboarding.md) |
 | 2026-09-07 | 0.4.0 双平台稳定发布 | 沿用既有发布流程 | [计划](implementation-plans/2026-09-07-v0.4.0-release.md) |
 | 2026-09-07 | 多显示器展示与拖动 | [规格](specifications/2026-09-07-multidisplay-design.md) | [计划](implementation-plans/2026-09-07-multidisplay.md) |

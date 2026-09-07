@@ -15,6 +15,15 @@ struct AppBrandTests {
         #expect(AppBrand.authorLine == "Author: Miller")
     }
 
+    @Test("Provides the two approved browser destinations for About")
+    func authorLinks() {
+        #expect(AppBrand.authorLinks.map(\.label) == ["@MillerPanYue", "GitHub"])
+        #expect(AppBrand.authorLinks.map(\.url.absoluteString) == [
+            "https://twitter.com/MillerPanYue",
+            "https://github.com/sljzdotcom/AI-Token-Meter",
+        ])
+    }
+
     @Test("Formats a complete bundle version")
     func completeVersion() {
         #expect(
