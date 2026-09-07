@@ -7,6 +7,58 @@ use ai_token_meter_windows::persistence::{CliRuntimeMode, ProviderCliSettings};
 use ai_token_meter_windows::platform::windows::environment::DiscoveryInputs;
 
 #[test]
+fn automatic_discovery_keeps_healthy_wsl_fallback_after_bad_native_candidate() {
+    use ai_token_meter_windows::platform::windows::executable_locator::{
+        ExecutableLocator, RuntimeSource,
+    };
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(root.path().join("System32")).unwrap();
+    std::fs::write(root.path().join("System32/wsl.exe"), "fixture").unwrap();
+    std::fs::write(root.path().join("codex.exe"), "unhealthy").unwrap();
+    let inputs = DiscoveryInputs {
+        system_root: Some(root.path().to_owned()),
+        conventional_paths: vec![root.path().to_owned()],
+        ..Default::default()
+    };
+    let expected = ExecutableLocator::new(inputs.clone())
+        .locate_with_wsl_output(CliProvider::Codex, Some(b"Ubuntu\n"), |candidate| {
+            matches!(candidate.source, RuntimeSource::Wsl { .. })
+        })
+        .unwrap();
+    let result = discover_cli(
+        CliProvider::Codex,
+        &Default::default(),
+        inputs.clone(),
+        |candidate| {
+            if matches!(candidate.source, RuntimeSource::Wsl { .. }) {
+                CliProbe::Healthy
+            } else {
+                CliProbe::Unavailable
+            }
+        },
+        || Ok(Some(b"Ubuntu\n".to_vec())),
+    );
+    let CliDiscovery::Found(found) = result else {
+        panic!("Healthy WSL must remain discoverable")
+    };
+    assert_eq!(found, expected);
+    assert_eq!(
+        found.source,
+        RuntimeSource::Wsl {
+            distribution: "Ubuntu".to_owned()
+        }
+    );
+    let uncertain = discover_cli(
+        CliProvider::Codex,
+        &Default::default(),
+        inputs,
+        |_| CliProbe::Missing,
+        || Ok(None),
+    );
+    assert!(matches!(uncertain, CliDiscovery::Unavailable));
+}
+
+#[test]
 fn unhealthy_existing_file_never_becomes_install_permission() {
     for delay in [
         std::time::Duration::ZERO,

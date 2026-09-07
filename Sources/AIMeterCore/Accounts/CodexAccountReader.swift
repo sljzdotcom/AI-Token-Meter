@@ -17,8 +17,11 @@ public struct CodexAccountReader: ServiceAccountReading {
     }
 
     public func read() async -> ServiceAccountStatus {
-        guard let executableURL = locator.locate(named: "codex") else {
-            return ServiceAccountStatus(provider: provider, connectionState: .notInstalled)
+        let executableURL: URL
+        switch locator.discover(named: "codex") {
+        case .found(let url): executableURL = url
+        case .missing: return ServiceAccountStatus(provider: provider, connectionState: .notInstalled)
+        case .unavailable: return ServiceAccountStatus(provider: provider, connectionState: .unavailable)
         }
 
         do {

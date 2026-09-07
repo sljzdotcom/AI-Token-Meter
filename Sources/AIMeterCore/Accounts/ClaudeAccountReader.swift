@@ -96,8 +96,11 @@ public struct ClaudeAccountReader: ServiceAccountReading {
     }
 
     public func read() async -> ServiceAccountStatus {
-        guard let executableURL = locator.locate(named: "claude") else {
-            return ServiceAccountStatus(provider: provider, connectionState: .notInstalled)
+        let executableURL: URL
+        switch locator.discover(named: "claude") {
+        case .found(let url): executableURL = url
+        case .missing: return ServiceAccountStatus(provider: provider, connectionState: .notInstalled)
+        case .unavailable: return ServiceAccountStatus(provider: provider, connectionState: .unavailable)
         }
 
         do {

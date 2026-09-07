@@ -1,7 +1,21 @@
 import Foundation
+import Darwin
+
+public enum ExecutableDiscovery: Equatable, Sendable {
+    case found(URL)
+    case missing
+    case unavailable
+}
 
 public protocol ExecutableLocating: Sendable {
     func locate(named name: String) -> URL?
+    func discover(named name: String) -> ExecutableDiscovery
+}
+
+public extension ExecutableLocating {
+    func discover(named name: String) -> ExecutableDiscovery {
+        locate(named: name).map(ExecutableDiscovery.found) ?? .missing
+    }
 }
 
 public struct ExecutableLocator: ExecutableLocating {
@@ -41,18 +55,29 @@ public struct ExecutableLocator: ExecutableLocating {
     }
 
     public func locate(named name: String) -> URL? {
-        for path in searchPaths {
-            let candidate = URL(fileURLWithPath: path).appendingPathComponent(name)
-            if FileManager.default.isExecutableFile(atPath: candidate.path) {
-                return candidate
-            }
-        }
-        for path in bundledExecutablePaths[name] ?? [] {
-            if FileManager.default.isExecutableFile(atPath: path) {
-                return URL(fileURLWithPath: path)
-            }
-        }
+        if case .found(let url) = discover(named: name) { return url }
         return nil
+    }
+
+    public func discover(named name: String) -> ExecutableDiscovery {
+        let paths = searchPaths.map { URL(fileURLWithPath: $0).appendingPathComponent(name).path }
+            + (bundledExecutablePaths[name] ?? [])
+        var unavailable = false
+        for path in paths {
+            var metadata = stat()
+            if lstat(path, &metadata) == 0 {
+                var isDirectory: ObjCBool = false
+                if FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+                   !isDirectory.boolValue,
+                   FileManager.default.isExecutableFile(atPath: path) {
+                    return .found(URL(fileURLWithPath: path))
+                }
+                unavailable = true
+            } else if errno != ENOENT && errno != ENOTDIR {
+                unavailable = true
+            }
+        }
+        return unavailable ? .unavailable : .missing
     }
 
     private static func defaultBundledExecutablePaths() -> [String: [String]] {

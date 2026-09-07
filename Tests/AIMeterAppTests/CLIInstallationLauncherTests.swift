@@ -1,11 +1,36 @@
 import Foundation
 import Testing
-import AIMeterCore
+@testable import AIMeterCore
 @testable import AIMeterApp
 
 @Suite("CLI installation launcher", .serialized)
 @MainActor
 struct CLIInstallationLauncherTests {
+    @Test("Nonexecutable and broken-link CLI candidates cannot authorize installation", arguments: [false, true])
+    func invalidExistingCLI(brokenLink: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for name in ["claude", "codex"] {
+            let url = root.appendingPathComponent(name)
+            if brokenLink { try FileManager.default.createSymbolicLink(at: url, withDestinationURL: root.appendingPathComponent("missing-target")) }
+            else {
+                try Data("#!/bin/sh\n".utf8).write(to: url)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            }
+        }
+        let locator = ExecutableLocator(searchPaths: [root.path], bundledExecutablePaths: [:])
+        let output = root.appendingPathComponent("installer")
+        let launcher = CLIInstallationLauncher(directory: output, locator: locator, openURL: { _ in Issue.record("Must not open installer over invalid CLI"); return true })
+        for provider in [UsageProvider.claude, .codex] {
+            var blocked = false
+            do { _ = try launcher.open(provider: provider) } catch { blocked = true }
+            #expect(blocked)
+        }
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+        #expect(await ClaudeAccountReader(locator: locator).read().connectionState == .unavailable)
+        #expect(await CodexAccountReader(locator: locator).read().connectionState == .unavailable)
+    }
     @Test("Discovery protects an existing CLI without creating or opening installer files")
     func existingCLI() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

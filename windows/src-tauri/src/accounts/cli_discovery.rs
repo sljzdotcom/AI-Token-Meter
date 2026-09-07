@@ -26,6 +26,7 @@ pub fn discover_cli(
     mut wsl_list: impl FnMut() -> Result<Option<Vec<u8>>, ()>,
 ) -> CliDiscovery {
     let locator = ExecutableLocator::new(inputs);
+    let mut native_unavailable = false;
     if settings.mode != CliRuntimeMode::Wsl {
         if let Some(path) = settings
             .custom_path
@@ -43,19 +44,27 @@ pub fn discover_cli(
         if let Some(candidate) = locator.locate(provider, |c| probe(c) == CliProbe::Healthy) {
             return CliDiscovery::Found(candidate);
         }
-        if locator.has_native_candidates_or_incomplete_search(provider) {
-            return CliDiscovery::Unavailable;
-        }
+        native_unavailable = locator.has_native_candidates_or_incomplete_search(provider);
         if settings.mode == CliRuntimeMode::NativeWindows {
-            return CliDiscovery::Missing;
+            return if native_unavailable {
+                CliDiscovery::Unavailable
+            } else {
+                CliDiscovery::Missing
+            };
         }
     }
     let output = match wsl_list() {
         Ok(Some(output)) => output,
-        Ok(None) if settings.mode == CliRuntimeMode::Auto => return CliDiscovery::Missing,
+        Ok(None) if settings.mode == CliRuntimeMode::Auto => {
+            return if native_unavailable {
+                CliDiscovery::Unavailable
+            } else {
+                CliDiscovery::Missing
+            };
+        }
         _ => return CliDiscovery::Unavailable,
     };
-    let mut unavailable = false;
+    let mut unavailable = native_unavailable;
     let mut probed = false;
     let candidate = locator.locate_wsl_with_output(
         provider,

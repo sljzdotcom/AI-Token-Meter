@@ -2,6 +2,8 @@ import AIMeterCore
 import AppKit
 import Foundation
 
+enum CLIInstallationLaunchError: Error { case unavailable }
+
 @MainActor
 final class CLIInstallationLauncher {
     private let directory: URL
@@ -18,7 +20,11 @@ final class CLIInstallationLauncher {
     func open(provider: UsageProvider) throws -> Bool {
         let script = try CLIInstallationScriptBuilder().build(provider: provider)
         let name = provider == .claude ? "claude" : "codex"
-        guard locator.locate(named: name) == nil else { return false }
+        switch locator.discover(named: name) {
+        case .found: return false
+        case .unavailable: throw CLIInstallationLaunchError.unavailable
+        case .missing: break
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let url = directory.appendingPathComponent("Install \(name).command")
         try Data(script.utf8).write(to: url, options: .atomic)
