@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-07](2026-09-07-about-branding.md) | 在线安装包边界核对、关于页社交链接与 Windows 软件图标 | 安装器已是在线下载；品牌展示实施中 |
 | [2026-09-07](2026-09-07-cli-onboarding.md) | CLI 安装/账户状态引导与 Windows Settings 页签图标 | 已合并、未发布；macOS 429、Windows 原生 Rust 216、前端 75，双平台 CI/构建通过 |
 | [2026-09-07](2026-09-07-v0.4.0-release.md) | 0.4.0 双平台稳定更新发布 | 已完成；Tag `15d80e2`、workflow `34076547278`、appcast `2d2254f`，公网双平台资产、签名及三个更新源一致 |
 | [2026-09-07](2026-09-07-multidisplay-and-windows-localization.md) | 多显示器、跨屏拖动与 Windows 本地化 | 已实现并合并 PR #9；双平台 CI 通过，物理多屏/DPI 验收独立追踪 |
