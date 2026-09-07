@@ -25,3 +25,5 @@ macOS CLIInstallationScriptBuilder 生成 curl HTTPS 下载脚本，Windows inst
 `580b674` 改为本地 15px 图形并加入真实 NSHostingView/NSButton 点击与提示断言；定向复审进一步指出视图自有模型应使用 StateObject，GitHub 点击还需要精确 URL 断言。`5e5e0e4` 完成模型生命周期、目标断言和失败文案换行修正。
 
 最终本地基线：Swift 419+13=432 项（82 组），React 80 项，Rust 208 项，密度生命周期 21 项和浏览器文本角色 632 项通过；格式、严格 Clippy、production 前端、174 份文档、合同、发布 fixture 和公开安全检查通过。GitHub 原生 CI 和整分支审查通过后方可集成；当前公开版本仍为 0.4.0，无更新源改动。
+
+整分支审查对 `fb0cf55` 无 Critical/Important/Minor；最终 Release 资源与签名验证通过。但原生 macOS CI `34088536876` 在 BrandLinksViewTests 的失败提示视图断言失败，主测试 419 项中仅该项失败。本机正常，CI 日志未报告点击目标或 openingFailed 状态错误，差异集中在 SwiftUI 更新后的视图树读取。登记 REQ-20260907-010，继续定位有界等待主线程视图提交；保留原断言，不以复跑绿色替代修正证据。
