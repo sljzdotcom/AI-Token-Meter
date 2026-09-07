@@ -16,6 +16,7 @@
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
+| 多屏复审与 CI 诊断收尾 | `a8d7a0f`、`d303c11`、`83c54c6` | 关闭 Windows 并发/标签问题，补有界浏览器诊断和测试专用 PTY 时序，418 项 macOS 与 Windows 原生 CI/NSIS 验证；历史间歇性 PTY 根因仍独立追踪 |
 | 下一版多显示器与 Windows 本地化 | `60b4d6e`、`3b6dcee`、`d4bd42d`、`255e8b3`、`3312537` | 需求、规格和测试驱动实现；macOS 两轮位置/迁移复审修正，Windows 显示协调、语言/字体及详情密度；[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 继续原生 CI 与并发复审，不是发布标签 |
 | v0.3.0 紧凑浮动条与双平台稳定更新 | `c67112e`、`2fad103`–`bb215c3` | PR #7 的密度、折叠、Provider 管理、状态与退避功能；版本/build 统一、403 项 macOS 回归及双平台签名发布；兼容旧 Preview 更新源 |
 | 设计与工程准备 | `eae791e`–`29c84bf` | 确定原生 SwiftUI、统一领域模型、隔离开发工作区和实施计划 |

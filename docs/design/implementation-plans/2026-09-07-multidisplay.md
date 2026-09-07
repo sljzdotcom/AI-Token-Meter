@@ -54,4 +54,4 @@ controllers[target]?.showDetail(for: provider)
 ## 任务 4：集成与证据
 
 - [x] 更新用户指南、架构说明、开发日志、CHANGELOG 和需求状态；运行 bash scripts/check-docs.sh。
-- [ ] 独立代码审查，处理全部阻断；完整双平台测试及 Windows CI 编译验证后再集成。未取得真机双屏证据不得写成真机验收通过。
+- [x] 独立代码审查关闭全部阻断；完整本地测试及 Windows CI 34073917953 原生验证通过。代码验收完成，集成结果以 PR #9 为准；真实双屏证据保持单独追踪，未冒充真机验收。

@@ -102,3 +102,11 @@ macOS 定向复审已确认原三项及两项跟进问题全部关闭；最新�
 `ba39b7f` 的 [Windows CI 34073429483](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073429483) 在 Chrome `--dump-dom` 15 秒边界超时；57 项前端、production fixture 和 12 项进程生命周期通过，尚未返回样式断言。登记 `REQ-20260907-004`，不将此误报为字号断言失败，也不把首次成功或简单复跑等同于超时根因修复。进行一次不改源码的受控复验，同时检查启动/输出/清理的有界诊断与预算。
 
 第二次原样运行通过浏览器门禁，证实其间歇性，但不足以确定是冷启动、渲染还是退出等待。加固提交 `d303c11` 增加阶段诊断、有限 stdout/stderr 片段、保留原始错误、有界 readiness/taskkill 与清理；Windows 新 profile 浏览器阶段预算为 45 秒，而非整条命令的总预算。不重试或跳过任何字号断言。21 项生命周期、57 项前端、632 项计算样式、production build 和文档通过，独立复审无 Critical/Important；最终 Windows runner 验证继续作为合并门禁。无法从旧失败日志还原的确切阶段保留为未知，不声称已证明冷启动是根因。
+
+### 最终验证与交付边界
+
+- `d4c9ca1` 的 [Windows CI 34073917953](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) 全绿：包含上述真实浏览器检查、Windows-only 编译/严格 lint、运行时测试、NSIS 生成与 GUI subsystem=2。此前原样复验在通过浏览器后被新提交自动取消，不把它计为完整通过。
+- 同提交的 [macOS CI 34073917970](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917970) 通过 405 项主测试，但历史 PTY 父进程退出测试再次超时；归入原 REQ-20260906-003，不归咎于多屏代码。测试诊断提交 `83c54c6` 仅修改夹具与测试，保留两秒截止、进程拓扑、后代寿命和所有原断言；失败时只输出白名单阶段、时间和夹具 PID，不输出环境、原始命令或账户。
+- 诊断有过滤回归，PTY 13/13 通过；父任务完整 405+13 项通过，单屏 AppKit 回归显式启用。独立复审批准此测试补充；本机未复现原超时，不能声称历史根因关闭。
+- 产品代码、文档和测试检查点均在 [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9)，最终合并/CI 状态以该请求为准。本轮没有改版本号、签名密钥、正式更新源或用户已安装 App。
+- REQ-20260907-001/002/003 完成实现与代码验收；物理 M4 Max 双屏拖动/拔插/睡眠及 Windows 原生字形/DPI 仍归现场验收。REQ-20260907-004 完成有界诊断和测试门禁加固，但旧日志不能还原的超时阶段仍明确未知。Widget 证书继续延期。

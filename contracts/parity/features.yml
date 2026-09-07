@@ -7,7 +7,7 @@ features:
       status: complete
       evidence: Tests/AIMeterCoreTests/FloatingStripDisplaysTests.swift
     windows:
-      status: in-progress
+      status: complete
       evidence: windows/src-tauri/tests/multidisplay.rs
   - id: windows-language-and-chinese-fonts
     requirement: REQ-20260907-002
@@ -16,7 +16,7 @@ features:
       status: not-applicable
       evidence: docs/design/specifications/2026-09-07-windows-localization-design.md
     windows:
-      status: in-progress
+      status: complete
       evidence: windows/src/localization.test.tsx
   - id: windows-detail-minus-one
     requirement: REQ-20260907-003

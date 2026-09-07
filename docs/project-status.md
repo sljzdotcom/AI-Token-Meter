@@ -11,7 +11,7 @@
 
 ## 一句话定位
 
-**下一版进展（未发布）：** 多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px 已进入 [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9)。macOS 本地 405+12 项及 Release 构建通过；Windows 本地 56 项前端、190 项 Rust、12 项密度生命周期及 632 项计算样式通过，正在修正独立复审发现的并发边界并等待实际 Windows runner。公开更新仍为 0.3.0，不把开发分支等同于可更新发行版。详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
+**下一版（未发布）：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。公开更新仍为 0.3.0；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 
 AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
 
@@ -63,7 +63,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 当前源码 macOS 完整自动化基线：**405 项主测试 + 12 项 PTY 系统资源测试，总计 417 项/79 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 验收；
+- 当前源码 macOS 完整自动化基线：**405 项主测试 + 13 项 PTY 系统资源测试，总计 418 项/79 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 验收；
 - 当前源码 Windows 本地验证基线：57 项 Vitest、21 项密度进程生命周期和 197 项 Rust；production 前端、632 项 Chrome 计算样式、rustfmt 与零警告 Clippy 通过。Windows-only 原生测试与安装器证据见[本轮日志](development/2026-09-07-multidisplay-and-windows-localization.md)，公开 0.3.0 的历史基线继续保留在[发布记录](development/2026-09-06-v0.3.0-release.md)；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；

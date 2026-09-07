@@ -5,7 +5,7 @@
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-3b82f6)
-![Tests 417](https://img.shields.io/badge/tests-417%20passed-2ea44f)
+![Tests 418](https://img.shields.io/badge/tests-418%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> 开发分支正在补充多显示器选择/全屏幕展示及 Windows 中英文、中文字体与更小详情字号；尚未包含在公开 0.3.0 更新中。范围和进度见[本轮开发记录](docs/development/2026-09-07-multidisplay-and-windows-localization.md)。
+> 下一版已实现多显示器选择/全屏幕展示及 Windows 中英文、中文字体与更小详情字号；尚未包含在公开 0.3.0 更新中。范围和进度见[本轮开发记录](docs/development/2026-09-07-multidisplay-and-windows-localization.md)。
 
 `0.3.0` 新增：默认 Compact 紧凑浮动条、可选闲置折叠、服务显示/排序、右键快捷菜单和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)。
 
