@@ -27,6 +27,10 @@ pub struct ProviderCliSettings {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    #[serde(default, deserialize_with = "deserialize_locale")]
+    pub locale: Locale,
+    #[serde(default, deserialize_with = "deserialize_displays")]
+    pub displays: Option<crate::platform::windows::monitor::DisplayPreferences>,
     #[serde(default, deserialize_with = "deserialize_strip_preferences")]
     pub strip_preferences: crate::platform::windows::strip_preferences::StripPreferences,
     pub edge: MeterEdge,
@@ -42,6 +46,7 @@ pub struct AppSettings {
     #[serde(default)]
     pub launch_at_login: bool,
     pub detail_auto_hide_seconds: u64,
+    #[serde(default = "default_display_font")]
     pub display_font: String,
     #[serde(default)]
     pub claude_cli: ProviderCliSettings,
@@ -62,6 +67,8 @@ fn deserialize_strip_preferences<'de, D: serde::Deserializer<'de>>(
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            locale: Locale::default(),
+            displays: Some(Default::default()),
             strip_preferences: Default::default(),
             edge: MeterEdge::Right,
             meter_vertical_per_mille: default_meter_vertical_per_mille(),
@@ -71,7 +78,7 @@ impl Default for AppSettings {
             notifications_enabled: false,
             launch_at_login: false,
             detail_auto_hide_seconds: 8,
-            display_font: "Antonio".to_owned(),
+            display_font: default_display_font(),
             claude_cli: ProviderCliSettings::default(),
             codex_cli: ProviderCliSettings::default(),
         }
@@ -79,6 +86,27 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    pub fn normalize_display_preferences(&mut self) {
+        use crate::platform::windows::monitor::{
+            DisplayMode, DisplayPlacement, DisplayPreferences,
+        };
+        if self.displays.as_ref().is_some_and(|d| d.version == 1) {
+            return;
+        }
+        let mut displays = DisplayPreferences::default();
+        if let Some(id) = &self.meter_monitor_id {
+            displays.mode = DisplayMode::Selected;
+            displays.selected_id = Some(id.clone());
+            displays.placements.insert(
+                id.clone(),
+                DisplayPlacement {
+                    edge: self.edge,
+                    vertical_per_mille: self.meter_vertical_per_mille.min(1000),
+                },
+            );
+        }
+        self.displays = Some(displays);
+    }
     pub fn set_display_font(&mut self, font: &str) -> Result<(), &'static str> {
         if !SUPPORTED_DISPLAY_FONTS.contains(&font) {
             return Err("unsupported display font");
@@ -153,7 +181,10 @@ fn validate_cli_settings(value: &ProviderCliSettings) -> Result<(), &'static str
     Ok(())
 }
 
-pub const SUPPORTED_DISPLAY_FONTS: [&str; 8] = [
+pub const SUPPORTED_DISPLAY_FONTS: [&str; 11] = [
+    "Microsoft YaHei",
+    "SimHei",
+    "KaiTi",
     "System Default",
     "Antonio",
     "DIN Condensed",
@@ -166,4 +197,31 @@ pub const SUPPORTED_DISPLAY_FONTS: [&str; 8] = [
 
 const fn default_meter_vertical_per_mille() -> u16 {
     500
+}
+
+fn default_display_font() -> String {
+    "Microsoft YaHei".to_owned()
+}
+
+fn deserialize_locale<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Locale, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
+fn deserialize_displays<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<crate::platform::windows::monitor::DisplayPreferences>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).ok())
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+pub enum Locale {
+    #[serde(rename = "zh-CN")]
+    SimplifiedChinese,
+    #[default]
+    #[serde(rename = "en", other)]
+    English,
 }

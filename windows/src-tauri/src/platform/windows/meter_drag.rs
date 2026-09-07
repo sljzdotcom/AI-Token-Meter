@@ -1,8 +1,11 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 
 #[derive(Debug, Default)]
 pub struct MeterDragGate {
-    active_session: AtomicU64,
+    active_session: Mutex<u64>,
     next_session: AtomicU64,
 }
 
@@ -13,28 +16,43 @@ impl MeterDragGate {
             .fetch_add(1, Ordering::Relaxed)
             .wrapping_add(1)
             .max(1);
-        self.active_session
-            .compare_exchange(0, session, Ordering::AcqRel, Ordering::Acquire)
-            .ok()
-            .map(|_| session)
+        let mut active = self.active_session.lock().unwrap();
+        if *active != 0 {
+            return None;
+        }
+        *active = session;
+        Some(session)
     }
 
     pub fn is_active(&self) -> bool {
-        self.active_session.load(Ordering::Acquire) != 0
+        *self.active_session.lock().unwrap() != 0
     }
 
     pub fn owns(&self, session: u64) -> bool {
-        session != 0 && self.active_session.load(Ordering::Acquire) == session
+        session != 0 && *self.active_session.lock().unwrap() == session
     }
 
     pub fn finish(&self, session: u64) -> bool {
-        self.active_session
-            .compare_exchange(session, 0, Ordering::AcqRel, Ordering::Acquire)
-            .is_ok()
+        let mut active = self.active_session.lock().unwrap();
+        if *active != session {
+            return false;
+        }
+        *active = 0;
+        true
     }
 
     pub fn cancel(&self) {
-        self.active_session.store(0, Ordering::Release);
+        *self.active_session.lock().unwrap() = 0;
+    }
+
+    /// The callback may persist settings, but must never dispatch native UI work.
+    /// Cancellation and final placement persistence have one atomic boundary.
+    pub fn commit_if_owned<T>(&self, session: u64, commit: impl FnOnce() -> T) -> Option<T> {
+        let active = self.active_session.lock().unwrap();
+        if session == 0 || *active != session {
+            return None;
+        }
+        Some(commit())
     }
 }
 
@@ -100,5 +118,26 @@ mod tests {
 
         assert!(!gate.is_active());
         assert!(gate.try_begin().is_some());
+    }
+
+    #[test]
+    fn cancellation_after_native_target_calculation_rejects_placement_commit() {
+        let gate = MeterDragGate::default();
+        let session = gate.try_begin().unwrap();
+        assert!(gate.owns(session));
+        let calculated_target = "old-target";
+        gate.cancel();
+        let mut saved_target = "new-mode-target";
+        assert_eq!(
+            gate.commit_if_owned(session, || saved_target = calculated_target),
+            None
+        );
+        assert_eq!(saved_target, "new-mode-target");
+        let current = gate.try_begin().unwrap();
+        assert_eq!(
+            gate.commit_if_owned(current, || saved_target = "current-target"),
+            Some(())
+        );
+        assert_eq!(saved_target, "current-target");
     }
 }

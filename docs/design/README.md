@@ -13,6 +13,8 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-07 | 多显示器展示与拖动 | [规格](specifications/2026-09-07-multidisplay-design.md) | [计划](implementation-plans/2026-09-07-multidisplay.md) |
+| 2026-09-07 | Windows 语言、字体与详情密度 | [规格](specifications/2026-09-07-windows-localization-design.md) | [计划](implementation-plans/2026-09-07-windows-localization.md) |
 | 2026-08-28 | 首版应用 | [规格](specifications/2026-08-28-ai-meter-design.md) | [计划](implementation-plans/2026-08-28-ai-meter-implementation.md) |
 | 2026-08-29/30 | 详情自动关闭 | [规格](specifications/2026-08-29-detail-panel-dismissal-design.md) | [计划](implementation-plans/2026-08-30-detail-panel-dismissal.md) |
 | 2026-08-30 | Claude Code 隔离用量工作区 | [规格](specifications/2026-08-30-claude-usage-workspace-design.md) | [计划](implementation-plans/2026-08-30-claude-usage-workspace.md) |

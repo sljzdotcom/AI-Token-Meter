@@ -1,9 +1,9 @@
 pub const fn should_restore_topology(
     has_baseline: bool,
     topology_changed: bool,
-    drag_active: bool,
+    _drag_active: bool,
 ) -> bool {
-    has_baseline && topology_changed && !drag_active
+    has_baseline && topology_changed
 }
 
 #[cfg(windows)]
@@ -30,20 +30,23 @@ pub fn start_monitoring(app: tauri::AppHandle) {
             let topology_changed = existing.has_changed(&current);
             let state = app.state::<crate::RuntimeState>();
             if !should_restore_topology(true, topology_changed, state.meter_drag_is_active()) {
-                if topology_changed && state.meter_drag_is_active() {
-                    existing.commit(current);
-                }
                 continue;
             }
-            let (edge, normalized_y, preferred_monitor_id) = state.meter_position();
-            if let Ok(migrated_identifier) = super::window_controller::restore_meter_position(
-                &meter,
-                edge,
-                normalized_y,
-                preferred_monitor_id.as_deref(),
-            ) {
-                state
-                    .migrate_meter_monitor_id(preferred_monitor_id.as_deref(), migrated_identifier);
+            state.meter_drag.cancel();
+            for meter in super::display_coordinator::meter_windows(&app) {
+                if let Ok(hwnd) = meter.hwnd() {
+                    // Stop the system move loop as well as invalidating the persistence session.
+                    unsafe {
+                        windows_sys::Win32::UI::WindowsAndMessaging::PostMessageW(
+                            hwnd.0 as _,
+                            windows_sys::Win32::UI::WindowsAndMessaging::WM_CANCELMODE,
+                            0,
+                            0,
+                        );
+                    }
+                }
+            }
+            if super::display_coordinator::reconcile(&app).is_ok() {
                 existing.commit(current);
             }
         }
@@ -58,8 +61,8 @@ mod tests {
     }
 
     #[test]
-    fn active_dragging_blocks_topology_repositioning() {
-        assert!(!super::should_restore_topology(true, true, true));
+    fn topology_change_cancels_drag_and_repositions_without_losing_the_change() {
+        assert!(super::should_restore_topology(true, true, true));
     }
 
     #[test]

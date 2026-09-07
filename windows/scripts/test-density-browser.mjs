@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url"
 import {
   extractPreviewUrl,
   runBrowser,
+  runWithCleanup,
+  waitForHttpReady,
   spawnDensityPreview,
   stopProcessTree,
 } from "./density-process-lifecycle.mjs"
@@ -13,17 +15,21 @@ const windowsRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
 const browser = findBrowser()
 const vite = startPreview()
 
-try {
+const started = Date.now()
+await runWithCleanup(async () => {
   const baseUrl = await vite.ready
-  await waitForPreview(baseUrl)
-  console.log(`Verifying browser density styles with ${browser.label}`)
-  const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`)
+  await waitForHttpReady(`${baseUrl}density-browser.html`)
+  console.log(`Preview ready after ${Date.now() - started}ms; verifying browser density styles with ${browser.label}`)
+  const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`, {
+    onDiagnostic: message => console.log(`[density] ${message}`),
+  })
   const report = densityReport(output)
   assertDensity(report)
-  console.log(`Browser density styles verified with ${browser.label}:`, JSON.stringify(report))
-} finally {
+  console.log(`Browser density styles verified with ${browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
+}, async () => {
   await stopVite(vite.process)
-}
+  console.log(`[density] preview cleanup complete; total ${Date.now() - started}ms`)
+})
 
 function findBrowser() {
   const programFiles = process.env.ProgramFiles ?? "C:\\Program Files"
@@ -77,20 +83,6 @@ function startPreview() {
   return { process: vite, ready }
 }
 
-async function waitForPreview(baseUrl) {
-  const url = `${baseUrl}density-browser.html`
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try {
-      const response = await fetch(url)
-      if (response.ok) return
-    } catch {
-      // The production preview server is still starting.
-    }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100))
-  }
-  throw new Error("Timed out waiting for the production preview")
-}
-
 async function stopVite(vite) {
   await stopProcessTree(vite)
 }
@@ -105,12 +97,16 @@ function densityReport(output) {
 }
 
 function assertDensity(report) {
+  if (report.detailSamples.length < 300) throw new Error("Missing full detail typography samples")
+  for (const sample of report.detailSamples) {
+    if (Math.abs(sample.size - (sample.baseline - 1)) > .001) throw new Error(`${sample.scenario} ${sample.text}: expected ${sample.baseline - 1}px, received ${sample.size}px`)
+  }
   const expected = {
-    detailBody: "14px",
-    identityTitle: "20px",
-    headline: "24px",
-    sectionTitle: "13px",
-    cardNumber: "18px",
+    detailBody: "13px",
+    identityTitle: "19px",
+    headline: "23px",
+    sectionTitle: "12px",
+    cardNumber: "17px",
     settingsBase: "14px",
     settingsTitle: "20px",
     controlFont: "13px",

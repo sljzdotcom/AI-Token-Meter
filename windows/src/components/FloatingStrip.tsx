@@ -3,6 +3,7 @@ import { UsageRing } from "./UsageRing"
 import { defaultStripPreferences, type StripPreferences } from "../state/stripPreferences"
 import type { CSSProperties } from "react"
 import { useId } from "react"
+import { t, useLocale } from "../localization"
 
 type FloatingStripProps = {
   snapshots: UsageSnapshot[]
@@ -17,6 +18,7 @@ type FloatingStripProps = {
 
 export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, preferences = defaultStripPreferences,
   folded = false, historyNeedsAction = false, onInteraction, onContextMenu }: FloatingStripProps) {
+  useLocale()
   const clipId = `strip-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
   const visible = preferences.orderedProviders.filter(id => !preferences.hiddenProviders.includes(id))
     .map(id => snapshots.find(s => s.providerId === id)).filter(s => s != null)
@@ -26,7 +28,7 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
   const style = { clipPath: `url("#${clipId}-right")`, "--strip-width": `${width}px`, "--strip-height": `${height}px`,
     "--strip-ring": compact ? "48px" : "60px", "--strip-gap": compact ? "10px" : "12px",
     "--strip-logo": compact ? "21px" : "26.4px", "--strip-line": compact ? "3.5px" : "5px" } as CSSProperties
-  if (folded) return <button aria-label="Expand floating meter" className="meter-folded"
+  if (folded) return <button aria-label={t("Expand floating meter")} className="meter-folded"
     onPointerEnter={() => onInteraction?.("pointer", true)}
     onPointerLeave={() => onInteraction?.("pointer", false)}
     onFocus={() => onInteraction?.("focus", true)} onBlur={() => onInteraction?.("focus", false)}
@@ -36,7 +38,7 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
     <>
       <MeterClipPaths density={preferences.density} count={visible.length} idPrefix={clipId} />
       <nav
-        aria-label="AI usage providers"
+        aria-label={t("AI usage providers")}
         className="floating-strip"
         data-density={preferences.density}
         style={style}

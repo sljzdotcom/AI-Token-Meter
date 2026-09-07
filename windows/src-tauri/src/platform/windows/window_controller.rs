@@ -470,16 +470,16 @@ pub fn place_meter(
         return Ok(());
     };
     let work = from_tauri_rect(monitor.work_area());
-    let meter_size = fitted_meter_size(work, desired_meter_size(meter)?);
+    let meter_size = fitted_meter_size(work, desired_meter_size(meter, monitor.scale_factor()));
     meter.set_size(tauri::PhysicalSize::new(
         meter_size.width,
         meter_size.height,
     ))?;
-    let expanded_size = fitted_meter_size(work, expanded_meter_size(meter)?);
+    let expanded_size = fitted_meter_size(work, expanded_meter_size(meter, monitor.scale_factor()));
     let expanded = WindowPlacement::anchored_meter(
         work,
         expanded_size,
-        reference_meter_height(meter)?,
+        reference_meter_height(monitor.scale_factor()),
         edge,
         normalized_y,
     );
@@ -531,8 +531,14 @@ fn apply_windows_meter_style(_meter: &tauri::WebviewWindow, _edge: Edge) -> taur
 pub fn show_detail_window(app: &tauri::AppHandle, edge: Edge) -> tauri::Result<()> {
     use tauri::Manager;
 
+    let label = app
+        .state::<crate::RuntimeState>()
+        .detail_meter
+        .lock()
+        .map(|label| label.clone())
+        .unwrap_or_else(|_| METER_WINDOW_LABEL.to_owned());
     let meter = app
-        .get_webview_window(METER_WINDOW_LABEL)
+        .get_webview_window(&label)
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
     let detail = app
         .get_webview_window(DETAIL_WINDOW_LABEL)
@@ -545,7 +551,33 @@ pub fn show_detail_window(app: &tauri::AppHandle, edge: Edge) -> tauri::Result<(
 }
 
 pub fn snap_meter_after_drag(meter: &tauri::WebviewWindow) -> tauri::Result<(Edge, f64)> {
-    let Some(monitor) = meter.current_monitor()? else {
+    use tauri::Manager;
+    let owner = super::display_coordinator::drag_owner(meter.app_handle(), meter.label());
+    let screens = meter.available_monitors()?;
+    let topology: Vec<_> = screens
+        .iter()
+        .map(|m| {
+            super::monitor::MonitorTopology::new(
+                monitor_identity(m, false).stable_id,
+                false,
+                m.position().x,
+                m.position().y,
+                m.size().width,
+                m.size().height,
+            )
+        })
+        .collect();
+    let pointer = meter.cursor_position()?;
+    let target = super::monitor::drag_target(
+        &topology,
+        pointer.x.round() as i32,
+        pointer.y.round() as i32,
+        owner.as_deref(),
+    );
+    let Some(monitor) = screens
+        .iter()
+        .find(|m| Some(monitor_identity(m, false).stable_id.as_str()) == target)
+    else {
         return Ok((Edge::Right, 0.5));
     };
     let work = from_tauri_rect(monitor.work_area());
@@ -562,7 +594,7 @@ pub fn snap_meter_after_drag(meter: &tauri::WebviewWindow) -> tauri::Result<(Edg
     } else {
         Edge::Right
     };
-    let reference_height = reference_meter_height(meter)?.min(work.size.height);
+    let reference_height = reference_meter_height(monitor.scale_factor()).min(work.size.height);
     let reference_y =
         origin.y + unsigned_to_i32(meter_size.height) / 2 - unsigned_to_i32(reference_height) / 2;
     let normalized_y = WindowPlacement::normalized_y(
@@ -604,9 +636,9 @@ pub fn show_settings_window(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 pub fn toggle_meter_window(
     app: &tauri::AppHandle,
-    edge: Edge,
-    normalized_y: f64,
-    preferred_monitor_id: Option<&str>,
+    _edge: Edge,
+    _normalized_y: f64,
+    _preferred_monitor_id: Option<&str>,
 ) -> tauri::Result<bool> {
     use tauri::Manager;
 
@@ -614,11 +646,14 @@ pub fn toggle_meter_window(
         .get_webview_window(METER_WINDOW_LABEL)
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
     if meter.is_visible()? {
-        meter.hide()?;
+        for window in super::display_coordinator::meter_windows(app) {
+            window.hide()?;
+        }
         Ok(false)
     } else {
-        position_meter_on_preferred(&meter, edge, normalized_y, preferred_monitor_id)?;
-        meter.show()?;
+        for window in super::display_coordinator::meter_windows(app) {
+            window.show()?;
+        }
         Ok(true)
     }
 }
@@ -663,16 +698,16 @@ fn position_meter_on_preferred(
         return Ok(None);
     };
     let work = from_tauri_rect(monitor.work_area());
-    let meter_size = fitted_meter_size(work, desired_meter_size(meter)?);
+    let meter_size = fitted_meter_size(work, desired_meter_size(meter, monitor.scale_factor()));
     meter.set_size(tauri::PhysicalSize::new(
         meter_size.width,
         meter_size.height,
     ))?;
-    let expanded_size = fitted_meter_size(work, expanded_meter_size(meter)?);
+    let expanded_size = fitted_meter_size(work, expanded_meter_size(meter, monitor.scale_factor()));
     let placement = WindowPlacement::anchored_meter(
         work,
         expanded_size,
-        reference_meter_height(meter)?,
+        reference_meter_height(monitor.scale_factor()),
         edge,
         normalized_y,
     )
@@ -707,21 +742,26 @@ pub fn monitor_topology(
             let identity =
                 monitor_identity(monitor, primary_id.as_deref() == Some(legacy_id.as_str()));
             let work = monitor.work_area();
-            super::monitor::MonitorTopology::new(
+            let mut topology = super::monitor::MonitorTopology::new(
                 identity.stable_id,
                 identity.is_primary,
                 work.position.x,
                 work.position.y,
                 work.size.width,
                 work.size.height,
-            )
+            );
+            topology.scale_per_mille = (monitor.scale_factor() * 1000.0).round() as u32;
+            topology
         })
         .collect::<Vec<_>>();
     topology.sort();
     Ok(topology)
 }
 
-fn monitor_identity(monitor: &tauri::Monitor, is_primary: bool) -> super::monitor::MonitorIdentity {
+pub(crate) fn monitor_identity(
+    monitor: &tauri::Monitor,
+    is_primary: bool,
+) -> super::monitor::MonitorIdentity {
     let legacy_id = legacy_monitor_identifier(monitor);
     let stable_id = display_device_interface_name(&legacy_id)
         .as_deref()
@@ -791,7 +831,7 @@ fn position_detail_next_to_meter(
     let meter_origin = meter.outer_position()?;
     let meter_size = meter.inner_size()?;
     let desired: tauri::PhysicalSize<u32> =
-        tauri::LogicalSize::new(440.0, 760.0).to_physical(detail.scale_factor()?);
+        tauri::LogicalSize::new(440.0, 760.0).to_physical(monitor.scale_factor());
     let detail_size = fitted_detail_size(work, PhysicalSize::new(desired.width, desired.height));
     detail.set_size(tauri::PhysicalSize::new(
         detail_size.width,
@@ -822,7 +862,7 @@ fn from_tauri_rect(rect: &tauri::PhysicalRect<i32, u32>) -> PhysicalRect {
     )
 }
 
-fn desired_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSize> {
+fn desired_meter_size(meter: &tauri::WebviewWindow, scale_factor: f64) -> PhysicalSize {
     use tauri::Manager;
     let state = meter.state::<crate::RuntimeState>();
     let prefs = state.app_settings_snapshot().strip_preferences;
@@ -832,11 +872,11 @@ fn desired_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSiz
             .load(std::sync::atomic::Ordering::Acquire),
     );
     let desired: tauri::PhysicalSize<u32> =
-        tauri::LogicalSize::new(width, height).to_physical(meter.scale_factor()?);
-    Ok(PhysicalSize::new(desired.width, desired.height))
+        tauri::LogicalSize::new(width, height).to_physical(scale_factor);
+    PhysicalSize::new(desired.width, desired.height)
 }
 
-fn expanded_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSize> {
+fn expanded_meter_size(meter: &tauri::WebviewWindow, scale_factor: f64) -> PhysicalSize {
     use tauri::Manager;
     let state = meter.state::<crate::RuntimeState>();
     let (width, height) = state
@@ -844,12 +884,12 @@ fn expanded_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSi
         .strip_preferences
         .logical_size(false);
     let size: tauri::PhysicalSize<u32> =
-        tauri::LogicalSize::new(width, height).to_physical(meter.scale_factor()?);
-    Ok(PhysicalSize::new(size.width, size.height))
+        tauri::LogicalSize::new(width, height).to_physical(scale_factor);
+    PhysicalSize::new(size.width, size.height)
 }
 
-fn reference_meter_height(meter: &tauri::WebviewWindow) -> tauri::Result<u32> {
-    Ok((POSITION_REFERENCE_HEIGHT * meter.scale_factor()?).round() as u32)
+fn reference_meter_height(scale_factor: f64) -> u32 {
+    (POSITION_REFERENCE_HEIGHT * scale_factor).round() as u32
 }
 
 #[cfg(test)]

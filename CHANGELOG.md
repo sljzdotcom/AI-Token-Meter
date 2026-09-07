@@ -4,7 +4,17 @@
 
 ## Unreleased
 
-暂无。
+### Added
+
+- macOS 与 Windows 增加系统主屏、指定显示器、所有显示器三种展示模式；每屏独立记住边缘和高度，共用采集与唯一详情/官网登录流程。
+- Windows 增加 English / 简体中文即时切换，以及 Microsoft YaHei（新安装和恢复默认）、SimHei、KaiTi 字体；保留旧字体偏好，Settings 始终使用系统字体。不分发字体文件。
+
+### Fixed
+
+- macOS 固定左/右贴边不再锁住横向拖动；以系统主屏而非焦点窗口所在屏做回退。指定屏断开时不覆盖原目标，重连恢复。
+- Windows 三个 Provider 详情所有文字在 0.3.0 基础上减小 1 CSS px；不改变浮动条、Settings 或 macOS 字号。
+
+本节为下一版改动，尚未发布到更新通道；实现、复审和现场验收边界见[开发日志](docs/development/2026-09-07-multidisplay-and-windows-localization.md)。
 
 ## 0.3.0 - 2026-09-06
 

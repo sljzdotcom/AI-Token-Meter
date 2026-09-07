@@ -1,4 +1,5 @@
 import type { UsageSnapshot } from "../state/usage"
+import { t, useLocale, getLocale } from "../localization"
 
 export type DeepSeekHistoryStatus = "idle" | "opening" | "active" | "completed" | "cancelled" | "failed"
 
@@ -13,6 +14,7 @@ export function DeepSeekHistory({
   syncStatus?: DeepSeekHistoryStatus
   statusPathAvailable?: boolean
 }) {
+  useLocale()
   const history = snapshot.dailyHistory ?? []
   if (!history.length) {
     return (
@@ -34,11 +36,11 @@ export function DeepSeekHistory({
   return (
     <div className="deepseek-history">
       <div className="history-summary">
-        <HistoryStat label="Cost" value={`¥${totalCost.toFixed(2)}`} />
-        <HistoryStat label="Requests" value={new Intl.NumberFormat("en").format(totalRequests)} />
-        <HistoryStat label="Tokens" value={compact(totalTokens)} />
+        <HistoryStat label={t("Cost")} value={`¥${totalCost.toFixed(2)}`} />
+        <HistoryStat label={t("Requests")} value={new Intl.NumberFormat(getLocale()).format(totalRequests)} />
+        <HistoryStat label={t("Tokens")} value={compact(totalTokens)} />
       </div>
-      <div aria-label="DeepSeek cost for the last 30 days" className="history-chart" role="img">
+      <div aria-label={t("DeepSeek cost for the last 30 days")} className="history-chart" role="img">
         {history.map((day) => (
           <span
             aria-label={`${day.date}: ¥${day.costCny.toFixed(2)}`}
@@ -51,7 +53,7 @@ export function DeepSeekHistory({
         ))}
       </div>
       <small className="history-source">
-        Official website · Updated {formatTime(snapshot.historyFetchedAt ?? snapshot.fetchedAt)}
+        {t("Official website · Updated")} {formatTime(snapshot.historyFetchedAt ?? snapshot.fetchedAt)}
       </small>
       {shouldShowHistoryStatus(syncStatus, statusPathAvailable) ? (
         <div className="history-sync-status">
@@ -88,11 +90,11 @@ function HistorySyncStatus({
   return (
     <>
       <span role={!statusPathAvailable || syncStatus === "failed" ? "alert" : syncing ? "status" : undefined}>
-        {message}
+        {t(message)}
       </span>
       {onSync ? (
         <button disabled={syncing || !statusPathAvailable} onClick={onSync} type="button">
-          {syncStatus === "failed" ? "Try again" : "Sync official history"}
+          {t(syncStatus === "failed" ? "Try again" : "Sync official history")}
         </button>
       ) : null}
     </>
@@ -108,12 +110,12 @@ function HistoryStat({ label, value }: { label: string; value: string }) {
 }
 
 function compact(value: number) {
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+  return new Intl.NumberFormat(getLocale(), { notation: "compact", maximumFractionDigits: 1 }).format(value)
 }
 
 function formatTime(value: string) {
   const date = new Date(value)
   return Number.isNaN(date.valueOf())
-    ? "recently"
-    : new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(date)
+    ? t("recently")
+    : new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium", timeStyle: "short" }).format(date)
 }

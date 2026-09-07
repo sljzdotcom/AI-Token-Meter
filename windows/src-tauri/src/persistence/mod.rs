@@ -7,5 +7,5 @@ mod usage_runtime;
 pub use atomic_json::{AtomicJsonStore, PersistenceError};
 pub use cache::SnapshotCache;
 pub use paths::AppStoragePaths;
-pub use settings::{AppSettings, CliRuntimeMode, MeterEdge, ProviderCliSettings};
+pub use settings::{AppSettings, CliRuntimeMode, Locale, MeterEdge, ProviderCliSettings};
 pub use usage_runtime::UsageRuntime;

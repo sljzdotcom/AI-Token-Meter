@@ -6,9 +6,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **403 个测试、75 个测试组全部通过**。默认完整验证会先运行 391 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **418 个测试、79 个测试组全部通过**。默认完整验证会先运行 405 项普通测试，再从独立测试进程运行 13 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前macOS基线，不与Windows相加计算通过率。紧凑浮动条合并基线：Windows前端51项、密度进程生命周期12项、宿主Rust179项；[Windows CI 34033447184](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34033447184)还覆盖Windows-only、ConPTY、Tauri、NSIS和GUI subsystem。[macOS CI 34033447189](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34033447189)全绿。间歇性终端测试失败保留在REQ-20260906-003，不能把通过复跑写成根因已修复。
+以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。Unreleased Windows 本地为前端 57 项、密度进程生命周期 21 项、宿主 Rust 197 项、计算样式 632 项；[本轮日志](2026-09-07-multidisplay-and-windows-localization.md)记录精确提交和 Windows-only、ConPTY、Tauri、NSIS 门禁。0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
 
 普通测试覆盖：
 
@@ -40,6 +40,26 @@ bash scripts/test.sh
 - Sparkle 更新交互前只隐藏 Settings、保留普通窗口并激活应用的窗口置前策略；
 - Sparkle 版本/校验和锁定、Info.plist 手动检查策略、framework/helper 嵌入、`@rpath`、嵌套签名与发布脚本安全合同；
 - appcast enclosure 的版本、build、长度与 EdDSA 签名验证，以及篡改归档必须被拒绝。
+
+## 多显示器回归（Unreleased）
+
+普通测试覆盖模式解析、断开回退、重连、迁移、每屏位置、指针选屏和详情所有权。额外 AppKit 回退/固定边缘恢复测试需要 WindowServer 会话：
+
+```bash
+AI_METER_SCREEN_TESTS=1 bash scripts/test.sh --filter AppModelDisplaySettingsTests
+```
+
+测试使用独立 UserDefaults suite，不操作真实账户；未设置环境变量时不创建真实面板。单屏控制器测试不替代真实双屏拖动、拔插、主屏切换、睡眠/唤醒或 Windows 多 DPI 验收。
+
+本轮现场验收按以下顺序记录，不要求再次提供账户密钥：
+
+1. 两屏左右、上下或错位排列：单屏模式从空白处拖到另一屏；macOS 分别验证 Automatic、Left、Right，松手后目标正确并能在重启后恢复。
+2. Settings 切 Primary、Selected、All；All 每屏只有一个浮动条，不增加刷新请求，点击另一屏只保留一个详情。
+3. 给各屏设置不同边缘和高度；拔掉指定屏后主屏临时接管，重连恢复原记录。回退时用户主动改边或拖动才改目标；仅切固定边缘再回 Automatic 不擦除记忆。
+4. 拖动中断屏/切模式、连续快速切模式和语言：无卡死、无旧拖动迟到覆盖、语言不跳回；全屏隐藏按所属显示器生效。
+5. Windows 在 100%/125%/200% DPI 下切 English/简体中文及已安装的微软雅黑/黑体/楷体/Antonio；详情标题、正文、按钮、图表和错误态不截字，Settings 和浮动条尺寸不变。未安装字体明确标注并安全回退。
+
+原生 CI 的安装器是未签名更新的 debug 验证资产，不进入正式更新源；物理操作结果另写本轮开发日志，不能用纯策略或浏览器测试代填。
 
 ## Keychain 集成测试
 
@@ -125,7 +145,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
 npm --prefix windows run tauri build
 ```
 
-`test:density` 先用独立配置构建 production fixture，再运行 12 项跨平台进程回收测试，最后由 Vite preview 与 Chrome/Edge headless 加载构建产物并核对详情、Settings、系统字体隔离和原生 select/option 的计算样式。Unix/macOS 先让整个进程组享有 TERM 宽限，再探测全组；leader 已退出但后代仍在时，只有宽限期结束后才 KILL。Windows 保留 `taskkill /T /F`，并使用一次性独立 Chrome profile，防止已有浏览器进程接管 `--dump-dom`；fixture 在 React 同步提交后立即读取计算样式，不依赖后台 `requestAnimationFrame`。门禁需要本机回环端口和可用浏览器。真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture，并编译 DWM 无边框合成、鼠标释放监视、Win32 物理显示器接口、拓扑监听与 WebView2 托管历史窗口，运行其纯策略测试，再验证更新状态与完整 NSIS 生成。可见轮廓由 WebView2 SVG 抗锯齿路径负责，不再使用 GDI `HRGN`。CI runner 不冒充真实显示器拔插、官网真实登录、窗口前台焦点或原生下拉弹层；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
+`test:density` 先用独立配置构建 production fixture，再运行 21 项跨平台进程回收测试，最后由 Vite preview 与 Chrome/Edge headless 加载构建产物并核对详情、Settings、系统字体隔离和原生 select/option 的计算样式。Unix/macOS 先让整个进程组享有 TERM 宽限，再探测全组；leader 已退出但后代仍在时，只有宽限期结束后才 KILL。Windows 保留 `taskkill /T /F`，并使用一次性独立 Chrome profile，防止已有浏览器进程接管 `--dump-dom`；fixture 在 React 同步提交后立即读取计算样式，不依赖后台 `requestAnimationFrame`。门禁需要本机回环端口和可用浏览器。真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture，并编译 DWM 无边框合成、鼠标释放监视、Win32 物理显示器接口、拓扑监听与 WebView2 托管历史窗口，运行其纯策略测试，再验证更新状态与完整 NSIS 生成。可见轮廓由 WebView2 SVG 抗锯齿路径负责，不再使用 GDI `HRGN`。CI runner 不冒充真实显示器拔插、官网真实登录、窗口前台焦点或原生下拉弹层；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
 
 交互式 Windows 真机还必须手工覆盖：左右贴边、125%/200% DPI、多显示器拔插、全屏 Edge 隐藏/恢复、普通窗口上方详情、外部点击关闭、真实指针拖动、Native/WSL 账号显示、DeepSeek WebView2 登录与 30 日图表。CI runner 没有可替代这些视觉/账户证据的桌面会话。
 
@@ -190,7 +210,7 @@ git diff --check
 - DeepSeek 登录交互暂停自动隐藏；
 - OpenAI Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；
 - 隐藏/恢复悬浮条与多显示器重定位正常；目标屏在线时不因主屏角色或枚举顺序跳屏；
-- Automatic 可拖到左右任一侧，Left/Right 只允许垂直移动，重启后恢复目标物理屏、侧边和相对高度；
+- Automatic 可拖到左右任一侧；下一版 macOS Left/Right 允许跨屏拖动但松手后固定相应侧，Windows 拖动沿用最近边缘；重启后恢复目标物理屏、侧边和相对高度；
 - 目标屏断开时临时回到当前主屏且配置不变；目标屏重新接入后自动恢复；
 - 左右轮廓、阴影、拖动提示和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
 - 三个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；

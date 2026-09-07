@@ -57,7 +57,9 @@ Settings About ─> Tauri Updater ─> GitHub latest.json ─> minisign-verified
 
 Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发刷新三项 Provider，并以 generation 防止已取消旧请求回写。Native 与 WSL 候选都经过固定发现、健康检查和参数边界；CLI 账号状态、实际用量与登录动作共享所选候选，避免跨环境串号。
 
-三个 Tauri 窗口分别为 `meter`、`detail`、`settings`。前端只订阅固定脱敏 DTO 和事件；Win32 层负责无任务栏窗口、Bezier `HRGN`、DPI/显示器定位、全屏隐藏、详情临时置前和托盘生命周期。DeepSeek 历史使用独立 WebView2 数据目录、官方 HTTPS allowlist、短期 nonce 和有界分片，远程页面不能调用通用文件或 Shell 能力。
+Tauri 的常驻窗口角色为浮动条、唯一 `detail` 与 `settings`。Unreleased 的 `display_coordinator` 根据显示模式维护 `meter` / `meter-*` 实例；增加的 WebView 只订阅同一 RuntimeState，不增加 Provider 采集。前端只订阅固定脱敏 DTO 和事件；Win32 层负责无任务栏窗口、透明背景、DPI/显示器定位、全屏隐藏、详情临时置前和托盘生命周期。浮动条 Bezier 由 WebView 单一抗锯齿裁剪，原生层不重复粗粒度裁剪。DeepSeek 历史使用独立 WebView2 数据目录、官方 HTTPS allowlist、短期 nonce 和有界分片，远程页面不能调用通用文件或 Shell 能力。
+
+Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字典和日期/数字格式化，原生托盘、凭据提示及通知使用 Rust 本地化映射。协议状态、Provider ID 与第三方内容不改写为翻译文本；显示字体和界面语言相互独立，Settings 保持系统字体。
 
 ## AIMeterCore
 
@@ -131,6 +133,10 @@ Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发
 视图主题层由 `ProviderAccentPalette` 集中映射 Claude Code、OpenAI Codex 和 DeepSeek 的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
 
 ### FloatingPanelController
+
+Unreleased 多屏层由 `FloatingStripCoordinator` 枚举系统主屏及稳定屏幕 ID，维护 `FloatingStripWindowRegistry`。只增加展示控制器，不创建第二份 AppModel 或采集器。新详情出现前关闭其他详情并释放 contentView；删除实例会关闭窗口、计时器、观察者及鼠标监控。
+
+`FloatingStripDisplaysStore` 在 UserDefaults 的 `floatingStrip.displays.v1` 保存模式、指定目标和每屏位置。只有实际匹配才迁移旧数字编号，不因仅剩一屏而猜测身份。macOS 主屏取 NSScreen.screens 首项，不是焦点屏 NSScreen.main。`FloatingStripDragPolicy` 处理完整屏幕命中和错位屏间隙，拖动期间暂停自动定位。
 
 负责无标题桌面层浮窗、左右贴边定位、详情窗口、外部点击监听、自动隐藏任务和关闭时清理。悬浮条使用不激活 App 的 `NSPanel`；详情使用可成为 Key Window、但不会成为 Main Window 的专用 `InteractivePanel`。`FloatingDetailInteractionPolicy` 规定只有 DeepSeek 需要激活 App 并把 First Responder 交给网页，Claude Code、OpenAI Codex 继续被动显示。切换或关闭详情会先清理 First Responder，SwiftUI View 不直接管理全局事件监听。
 

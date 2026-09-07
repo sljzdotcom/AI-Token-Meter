@@ -85,6 +85,17 @@ function emitTauriEvent(event: string, payload: unknown) {
   tauri.listeners.get(event)?.forEach((handler) => handler({ payload }))
 }
 
+it("keeps a placement event while the initial full settings response supplies language and font", async () => {
+  let resolveSettings!: (value: unknown) => void
+  tauri.invoke.mockImplementation(command => command === "app_settings" ? new Promise(resolve => {resolveSettings = resolve}) : Promise.resolve(undefined))
+  render(<DetailSurface />)
+  await act(async () => { await Promise.resolve() })
+  act(() => { emitTauriEvent("meter-edge-changed", "left"); emitTauriEvent("active-detail-changed", snapshots[0]) })
+  await act(async () => { resolveSettings({...detailSettings, displayFont:"Menlo", locale:"zh-CN"}); await Promise.resolve() })
+  expect(screen.getByText("官方额度")).toBeInTheDocument()
+  expect(screen.getByRole("main").style.getPropertyValue("--display-font")).toContain("Menlo")
+})
+
 function registerTauriListener(event: string, handler: (event: { payload: unknown }) => void) {
   const handlers = tauri.listeners.get(event) ?? new Set()
   handlers.add(handler)

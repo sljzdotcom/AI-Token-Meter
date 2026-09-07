@@ -269,13 +269,13 @@ button {
 }
 
 .provider-detail--compact-density {
-  --provider-detail-body-size: 14px;
+  --provider-detail-body-size: 13px;
   --provider-detail-gap: 16px;
   --provider-detail-padding: 22px;
-  --provider-identity-title-size: 20px;
-  --provider-headline-size: 24px;
-  --provider-section-title-size: 13px;
-  --provider-card-number-size: 18px;
+  --provider-identity-title-size: 19px;
+  --provider-headline-size: 23px;
+  --provider-section-title-size: 12px;
+  --provider-card-number-size: 17px;
   --provider-card-padding: 12px;
   --provider-card-min-height: 94px;
   --provider-section-gap: 9px;
@@ -283,6 +283,7 @@ button {
 }
 
 .provider-detail--claude { --detail-accent: #d9a45b; }
+.provider-detail--compact-density small { font-size: calc(14px * 5 / 6 - 1px); }
 .provider-detail--codex { --detail-accent: #b26bea; }
 .provider-detail--deepseek { --detail-accent: #7386ff; }
 
@@ -529,7 +530,7 @@ button {
 
 .provider-detail footer {
   border-top: 1px solid rgb(255 255 255 / 10%);
-  font-size: 13px;
+  font-size: 12px;
   padding-top: var(--provider-section-gap, 15px);
 }
 

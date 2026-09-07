@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-06
+**最后更新：** 2026-09-07
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,6 +15,10 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260907-004 | Windows CI 稳定性 | 最终 Windows CI 的真实浏览器字号门禁在 15 秒后超时，需定位冷启动/执行/收尾边界，保留有界失败与进程清理，不以跳过门禁代替验证 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成门禁加固：有界阶段诊断、45 秒 Windows 浏览器预算、readiness/taskkill 清理时限和原错误保留；21 项回归及 Windows 原生 CI 全绿，无断言跳过/自动重试。旧超时确切阶段仍未知，不宣称已证实冷启动根因 | [失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073429483)；验收：真实 Windows 门禁完整通过，卡死仍有界失败并清理进程 · `d303c11` · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
+| REQ-20260907-003 | Windows 详情字号 | Windows 三个产品的所有详情页文字在当前字号基础上统一再减少 1 号；macOS 不变 | 中 | 已完成 | 2026-09-07 | 2026-09-07 完成：全角色减 1 CSS px，真实 Windows 浏览器 632 项计算样式通过；Settings、托盘菜单、浮动条及 macOS 不变。未发布到更新通道 | [规格](design/specifications/2026-09-07-windows-localization-design.md)；英文/中文及四种字体覆盖；不冒充 Windows 原生字体/DPI 验收 · `3312537` · [CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
+| REQ-20260907-001 | 多显示器与拖动 | M4 Max 接入主副两屏后浮动条启动在副屏且无法拖到主屏；修复跨屏拖动，提供明确显示器选择，并设计仅一屏/所有屏显示选择与断屏回退、位置记忆 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成代码验收：主屏/指定/所有屏、跨屏拖动和逐屏记忆，复审全部关闭；macOS 405+13、本机 Windows 57/197 及原生 CI/NSIS 通过。未发布；物理多屏补验归 REQ-20260901-004 | [调查与开发日志](development/2026-09-07-multidisplay-and-windows-localization.md)；关联 REQ-20260903-009，物理多屏验收仍独立追踪 · `255e8b3`、`a8d7a0f` · [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) |
+| REQ-20260907-002 | Windows 本地化与字体 | Windows 增加简体中文/English语言选择（默认英文）；字体增加微软雅黑、黑体、楷体，默认微软雅黑；macOS 不增加语言选择 | 中 | 已完成 | 2026-09-07 | 2026-09-07 完成代码验收：English/简体中文即时同步，微软雅黑默认及黑体/楷体，旧偏好保留、缺失回退；Settings 系统字体和 macOS 不变。真实 Windows CI 通过；实际字形/DPI 仍需现场验收 | [规格](design/specifications/2026-09-07-windows-localization-design.md) · [计划](design/implementation-plans/2026-09-07-windows-localization.md)；安装成功不等于全部 Windows 专项验收通过 · `3312537`、`a8d7a0f` · [原生 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
 | REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 已完成 | 2026-09-06 | 2026-09-06 完成；稳定 macOS、Windows stable 与旧 Preview 更新源均指向 0.3.0；旧 Mac Preview 实际检查发现新版。Windows 真机原位升级仍按既有验收项追踪 | [发布记录](development/2026-09-06-v0.3.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0) · Tag `bb215c3` · appcast `f9a1f83` · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34035797098) |
 | REQ-20260901-001 | 服务认证 | Settings 始终显示 Claude、Codex 当前账户和登录按钮；支持官方 CLI 重新登录；DeepSeek 显示遮罩 Key，并安全替换 API Key | 高 | 已完成 | 2026-09-01 | 稳定签名发布后重录一次旧 DeepSeek Key，可解除 ad-hoc CDHash 变化造成的钥匙串访问限制 | [设计规格](design/specifications/2026-09-01-service-account-relogin-design.md)、[实施计划](design/implementation-plans/2026-09-01-service-account-relogin.md)、[开发与验收记录](development/2026-09-01-service-account-relogin.md)、`f95c6cf`–`bfc7412`、合并 `cd77e25` |
 | REQ-20260901-002 | 项目治理 | 建立项目级“待完成需求”列表；以后每条新需求先登记，可分类、标记完成/待确认，并在当前任务结束后继续读取处理 | 高 | 已完成 | 2026-09-01 | 后续所有新需求继续遵循本机制 | 本文件、`AGENTS.md`、`641f74c` |
@@ -57,7 +61,7 @@
 | REQ-20260904-008 | 双平台 Preview 发布 | 将当前 `main` 中已完成的 Windows DeepSeek、窗口生命周期与紧凑界面修复发布为新的 macOS/Windows 同版本 Preview；提供可下载 Release、SHA-256、签名更新清单，并验证其他机器可发现新版 | 高 | 已完成 | 2026-09-04 | 无；Windows 11 的真实交互验收继续保留在 `REQ-20260904-006`，macOS Preview 按既定边界手动安装 | [Release notes](releases/v0.3.0-preview.3.md) · [发布记录](development/2026-09-04-v0.3.0-preview.3-release.md) · 发布/Tag `dac10b9` · [Release workflow 33887131319](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33887131319) · [公开 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.3) · [固定 Windows Preview feed](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/windows-preview-feed) |
 | REQ-20260906-001 | 竞品研究与视觉方向 | 调研 CodeNotch 可供 AI Token Meter 借鉴的视觉密度、信息层级、交互和功能，重点解释其“更瘦但仍清晰”的原因，并提出适合本项目的优先级建议 | 中 | 已完成 | 2026-09-06 | 无；本轮仅完成研究与建议，不代表紧凑模式、闲置折叠或新功能已经开发 | [CodeNotch](https://github.com/vinzdg/codenotch) · [竞品研究](development/2026-09-06-codenotch-competitive-review.md) · Git `ef84950` |
 | REQ-20260906-002 | 紧凑浮动条与渐进式交互 | 按 CodeNotch 研究中的推荐方向改进 AI Token Meter：双平台增加 Compact/Comfortable 密度并默认使用 Compact、保留深海背景和 Logo-only；增加可选闲置折叠、可验证的 Refreshing/Waiting/Idle 双轨状态、Provider 显示与排序、统一数据可信度/新鲜度、持久化刷新退避和浮动条右键快捷菜单 | 高 | 受环境限制 | 2026-09-06 | 代码、双平台CI、构建与文档已完成，PR #7 已合入main，已随 0.3.0 发布。剩余Windows11多DPI/读屏/指针/多屏真实交互需对应设备验收 | [竞品研究](development/2026-09-06-codenotch-competitive-review.md) · [Compact/折叠规格](design/specifications/2026-09-06-compact-floating-strip-and-idle-fold-design.md) · [Provider/菜单规格](design/specifications/2026-09-06-floating-strip-provider-controls-design.md) · [状态/退避规格](design/specifications/2026-09-06-provider-state-and-refresh-resilience-design.md) · 规格 Git `7c85d5e` · macOS检查点 `9c30b45` · 合并 `c67112e` · [开发记录](development/2026-09-06-compact-progressive-strip.md) |
-| REQ-20260906-003 | CI可靠性 | 追踪偶发的macOS PTY父进程退出超时/并发输出缺失、CLI超时测试PID读取失败及Windows ConPTY采集超时；不删除断言或跳过测试 | 低 | 受环境限制 | 2026-09-06 | 最终双平台CI全绿；合并后首轮复测出现CLI时序失败，原样完整复跑403项通过，尚无法稳定复现；保留原失败日志，后续同类失败先增加脱敏进程时序诊断再定位，不能宣称根因已修复 | [开发记录](development/2026-09-06-compact-progressive-strip.md) · 失败CI `34033000263`、`34033000265` |
+| REQ-20260906-003 | CI可靠性 | 追踪偶发的macOS PTY父进程退出超时/并发输出缺失、CLI超时测试PID读取失败及Windows ConPTY采集超时；不删除断言或跳过测试 | 低 | 受环境限制 | 2026-09-06 | 2026-09-07 同类父进程退出超时再次出现，已在 83c54c6 补白名单测试时序诊断，保留原两秒截止与全部断言；本机 PTY 13/13、全量 405+13 通过。尚未稳定复现确切原因，后续以新诊断定位，不能标为根因已修复 | [开发记录](development/2026-09-06-compact-progressive-strip.md) · 原失败CI `34033000263`、`34033000265` · [本次](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917970) · [本轮诊断记录](development/2026-09-07-multidisplay-and-windows-localization.md) |
 
 ## 分类索引
 
@@ -146,6 +150,13 @@
 ### 更新与发布状态
 
 - `REQ-20260906-004`：0.3.0 双平台公开资产与稳定/旧 Preview 更新源同步，旧版可在应用内发现新版。
+
+### 多显示器与 Windows 本地化
+
+- `REQ-20260907-001`：修复 Mac 跨屏拖动，设计明确屏幕选择及可选所有显示器模式。
+- `REQ-20260907-002`：Windows 英文/简体中文、微软雅黑/黑体/楷体；macOS 不增加语言选择。
+- `REQ-20260907-003`：Windows 三服务详情全角色字号统一减少 1 CSS px，Settings、浮动条和 macOS 不变。
+- `REQ-20260907-004`：真实浏览器门禁的阶段诊断与有界超时/清理加固，不跳过字号断言。
 - `REQ-20260904-007`：区分源码已合并、公开 Release 已发布和应用内更新源已更新，避免其他机器误以为能立即取得尚未发布的修复。
 - `REQ-20260904-008`：把 `main` 中尚未交付的修复制作为下一版双平台 Preview，并验证公开下载和应用内更新链路。
 
@@ -153,6 +164,14 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-07 | REQ-20260907-001 / 002 / 003 / 004 | 已完成 | 完成实现、独立复审及代码级验收；macOS 完整 405+13 项，Windows 57/197/21/632 项及原生 CI 34073917953、NSIS 全绿。Git 检查点 255e8b3、a8d7a0f、d303c11、83c54c6；PR #9 保留集成证据。未发布，物理双屏/DPI 与 Widget 证书不冒充完成。 |
+| 2026-09-07 | REQ-20260906-003 | 受环境限制 | 复发后已补测试专用白名单阶段/耗时/PID 诊断，保留原断言和超时，PTY 13/13 及完整回归通过；历史间歇性根因仍缺少可复现证据，继续追踪，不关闭。 |
+| 2026-09-07 | REQ-20260907-004 | 进行中 | 最终 Windows CI 的浏览器字号门禁 15 秒超时，没有样式断言结果。先登记、保存原始失败证据，进行一次原样复验并检查有界超时和诊断；不能跳过字号门禁。 |
+| 2026-09-07 | REQ-20260907-001 / 002 / 003 | 进行中 | 用户要求继续执行；macOS 实现与定向复审关闭、405+12 项及 Release 构建通过；Windows `3312537` 本地 56/190/12/632 项门禁通过，PR #9 原生 CI 进行中。独立复审发现协调锁、拖动提交和迟到设置事件竞态，合并前补测试修正。 |
+| 2026-09-07 | REQ-20260907-003 | 进行中 | 登记“Windows 详情全部再减少一号”；采用全角色减 1 CSS px，字号测试先失败后通过，代码 `3312537`；不影响 Settings、浮动条、macOS，不以宿主浏览器测试冒充 Windows 字体实机验收。 |
+| 2026-09-07 | REQ-20260907-001 | 待用户确认 → 进行中 | 用户“按照你的推荐执行”，确认自由跨屏、系统主屏/指定屏/所有屏、默认单屏、每屏位置及共享采集方案；Windows 本地化和字体按同批已确认范围执行，无需再作常规确认。 |
+| 2026-09-07 | REQ-20260907-001 | 新建 → 进行中 → 待用户确认 | 用户报告 M4 Max 双屏启动在副屏且跨屏拖动失败；读取控制器、屏幕解析、位置存储及旧规格后定位两处实现限制。提出单屏修复/选择与可选多屏实例的架构分歧，等待是否本轮加入所有显示器模式，未实现或发布修复。 |
+| 2026-09-07 | REQ-20260907-002 | 新建 → 待处理 | 登记 Windows 中英文切换与三款中文字体；用户另确认 Windows 安装成功，仅记录安装，不关闭 DPI、官网同步等未明确确认的专项验收。 |
 | 2026-09-06 | REQ-20260906-004 | 已完成 | 用户反馈“macos 已测试成功，另外一台机器也更新成功”，补充 0.3.0 发布后的实际更新成功证据；未提供另一台机器的具体系统与型号，不据此关闭 Windows 或其他专项验收项。详见本版发布记录。 |
 | 2026-09-06 | REQ-20260906-004 | 进行中 → 已完成 | `v0.3.0` / build 11 公开，tag `bb215c3`、workflow `34035797098` 全绿；公网重下两包 SHA-256 与签名通过，稳定 appcast 提交 `f9a1f83`，两 Windows feed 内容一致。旧 Mac Preview 实际检查显示 0.3.0 可用；未代用户安装。 |
 | 2026-09-06 | REQ-20260906-004 | 新建 → 进行中 | 用户要求发布，便于其他机器直接更新；选择双平台稳定 0.3.0/build 11，沿用已有签名公钥，兼容旧 Windows Preview 通道。 |

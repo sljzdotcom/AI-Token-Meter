@@ -20,11 +20,15 @@ pub enum CredentialPromptError {
     Platform(u32),
 }
 
-pub fn prompt_deepseek_api_key(parent: HWND) -> Result<SecretString, CredentialPromptError> {
+pub fn prompt_deepseek_api_key(
+    parent: HWND,
+    locale: crate::persistence::Locale,
+) -> Result<SecretString, CredentialPromptError> {
     let caption = wide("AI Token Meter · DeepSeek");
-    let message = wide(
+    let message = wide(crate::localization::text(
+        locale,
         "Paste the DeepSeek API Key into the Password field. It stays inside this protected Windows dialog.",
-    );
+    ));
     let target = wide("AI Token Meter/DeepSeek API Key");
     let mut username = Zeroizing::new(vec![0_u16; USERNAME_CAPACITY]);
     let default_username = wide("DeepSeek API Key");

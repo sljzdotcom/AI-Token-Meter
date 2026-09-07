@@ -6,6 +6,9 @@ import test from "node:test"
 import {
   extractPreviewUrl,
   runBrowser,
+  runBoundedCommand,
+  runWithCleanup,
+  waitForHttpReady,
   spawnDensityPreview,
   spawnManagedProcess,
   stopProcessTree,
@@ -39,6 +42,147 @@ test("starts Unix commands in their own process group", () => {
 
   assert.equal(result, child)
   assert.equal(options.detached, true)
+})
+
+test("timeout diagnostics distinguish browser exit from open streams and retain bounded stderr", async () => {
+  const child = new FakeChild()
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    timeoutMs: 1,
+    spawnImpl: () => child,
+    stopProcessTreeImpl: async () => {},
+  })
+  child.stderr.emit("data", "x".repeat(9000) + "browser diagnostic tail")
+  child.stdout.emit("data", "partial DOM")
+  child.exitCode = 0
+  child.emit("exit", 0)
+  await assert.rejects(pending, error => {
+    assert.match(error.message, /pid=4321/)
+    assert.match(error.message, /stdoutBytes=11/)
+    assert.match(error.message, /exit=0/)
+    assert.match(error.message, /close=not observed/)
+    assert.match(error.message, /browser diagnostic tail/)
+    assert.ok(error.message.length < 5000)
+    return true
+  })
+})
+
+test("browser timeout remains visible if process cleanup also fails", async () => {
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    timeoutMs: 1,
+    spawnImpl: () => new FakeChild(),
+    stopProcessTreeImpl: async () => { throw new Error("cleanup fixture failure") },
+  })
+  await assert.rejects(pending, error => {
+    assert.match(error.message, /Browser timed out/)
+    assert.match(error.message, /cleanup fixture failure/)
+    return true
+  })
+})
+
+test("Windows cleanup command is bounded and terminates a stuck taskkill helper", async () => {
+  const child = new FakeChild()
+  const signals = []
+  child.kill = signal => { signals.push(signal); return true }
+  // End the fixture even with the old unbounded implementation, so red is finite.
+  const fallback = setTimeout(() => child.emit("exit", 0), 50)
+  try {
+    await assert.rejects(runBoundedCommand("taskkill", ["/pid", "123", "/T", "/F"], {
+      timeoutMs: 1,
+      spawnImpl: () => child,
+    }), /taskkill timed out after 1ms/)
+  } finally { clearTimeout(fallback) }
+  assert.deepEqual(signals, ["SIGKILL"])
+})
+
+test("a fresh Windows profile can finish after 15 seconds but still has a finite deadline", async () => {
+  const child = new FakeChild()
+  let timer
+  let now = 0
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    platform: "win32",
+    now: () => now,
+    setTimer: (callback, delay) => { timer = {callback, delay}; return 1 },
+    clearTimer: () => {},
+    spawnImpl: () => child,
+    createBrowserProfile: () => "/fixture/profile",
+    removeBrowserProfile: () => {},
+    stopProcessTreeImpl: async () => {},
+  })
+  now = 30_000
+  if (now >= timer.delay) timer.callback()
+  child.stdout.emit("data", "<html>density report</html>")
+  child.exitCode = 0
+  child.emit("close", 0)
+  assert.equal(await pending, "<html>density report</html>")
+  assert.ok(timer.delay <= 45_000)
+})
+
+test("a preview HTTP request that never responds is aborted within its startup budget", async () => {
+  let aborted = false
+  // Keep the event loop live while AbortSignal's unref'ed deadline runs.
+  const keepAlive = setTimeout(() => {}, 100)
+  try {
+    await assert.rejects(waitForHttpReady("http://127.0.0.1:4173", {
+      timeoutMs: 1,
+      fetchImpl: (_url, { signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => { aborted = true; reject(signal.reason) })
+      }),
+    }), /preview HTTP readiness timed out/)
+    assert.equal(aborted, true)
+  } finally { clearTimeout(keepAlive) }
+})
+
+test("a failed typography assertion cannot be masked by preview cleanup failure", async () => {
+  await assert.rejects(runWithCleanup(
+    async () => { throw new Error("detailBody expected 13px, received 14px") },
+    async () => { throw new Error("preview cleanup failed") },
+  ), error => {
+    assert.match(error.message, /detailBody expected 13px, received 14px/)
+    assert.match(error.message, /preview cleanup failed/)
+    return true
+  })
+})
+
+test("a taskkill timeout is not mistaken for success when the parent browser already exited", async () => {
+  const child = new FakeChild()
+  child.exitCode = 0
+  await assert.rejects(stopProcessTree(child, {
+    platform: "win32",
+    runProcess: async () => { const error = new Error("taskkill timed out"); error.code = "PROCESS_TIMEOUT"; throw error },
+    waitForExit: async () => true,
+  }), /taskkill timed out/)
+})
+
+test("an oversized DOM fails instead of growing the browser output buffer without limit", async () => {
+  const child = new FakeChild()
+  let cleaned = false
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    spawnImpl: () => child,
+    stopProcessTreeImpl: async () => { cleaned = true },
+  })
+  child.stdout.emit("data", Buffer.alloc(2 * 1024 * 1024 + 1, "x"))
+  child.exitCode = 0
+  child.emit("close", 0)
+  await assert.rejects(pending, /stdout exceeded 2 MiB/)
+  assert.equal(cleaned, true)
+})
+
+test("the default Windows deadline still fails a stalled browser and removes its isolated profile", async () => {
+  const child = new FakeChild()
+  let deadline
+  const cleanup = []
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    platform: "win32",
+    setTimer: callback => { deadline = callback; return 1 },
+    clearTimer: () => {},
+    spawnImpl: () => child,
+    createBrowserProfile: () => "/fixture/profile",
+    removeBrowserProfile: () => { cleanup.push("profile") },
+    stopProcessTreeImpl: async () => { cleanup.push("process tree") },
+  })
+  deadline()
+  await assert.rejects(pending, /Browser timed out after 45000ms/)
+  assert.deepEqual(cleanup, ["process tree", "profile"])
 })
 
 test("starts the density server from the production preview command", () => {

@@ -56,8 +56,11 @@ enum FloatingStripPositionPersistencePolicy {
 }
 
 @MainActor
-final class FloatingPanelController: NSObject, NSMenuDelegate {
+final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWindow {
     private let model: AppModel
+    private let screenIdentifier: String?
+    private let onProviderRequest: ((UsageProvider) -> Void)?
+    private let onPlacementSaved: ((String, FloatingStripPlacementIntent) -> Void)?
     private let session = FloatingDetailSession()
     private let displayState: FloatingStripDisplayState
     private let stripPanel: NSPanel
@@ -66,7 +69,6 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
     private var pointerDragState = FloatingStripPointerDragState()
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
-    private var screenObserver: NSObjectProtocol?
     private var activeSpaceObserver: ActiveSpaceChangeObserver?
     private var voiceOverObservation: NSKeyValueObservation?
     private var detailInteraction = FloatingDetailInteractionState()
@@ -75,8 +77,13 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
     private var menuIsOpen = false
     private var temporarilyHidden = false
 
-    init(model: AppModel) {
+    init(model: AppModel, screenIdentifier: String? = nil,
+         onProviderRequest: ((UsageProvider) -> Void)? = nil,
+         onPlacementSaved: ((String, FloatingStripPlacementIntent) -> Void)? = nil) {
         self.model = model
+        self.screenIdentifier = screenIdentifier
+        self.onProviderRequest = onProviderRequest
+        self.onPlacementSaved = onPlacementSaved
         displayState = FloatingStripDisplayState(
             resolvedEdge: model.floatingStripPosition.lastResolvedEdge,
             normalizedCenterY: model.floatingStripPosition.normalizedCenterY
@@ -84,15 +91,6 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         stripPanel = Self.makePanel(nonactivating: true, role: .strip)
         detailPanel = Self.makePanel(nonactivating: false, role: .detail)
         super.init()
-        model.floatingAppearanceHandler = { [weak self] in
-            guard let self else { return }
-            if let selected = session.selectedProvider,
-               !model.stripPreferences.visibleProviders.contains(selected) { session.dismiss() }
-            foldState.update(now: ProcessInfo.processInfo.systemUptime, delay: 0, locked: true)
-            displayState.isFolded = false
-            positionPanels()
-            tickFold()
-        }
         foldTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tickFold() }
         }
@@ -103,10 +101,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             displayState: displayState,
             onProviderTap: { [weak self] provider in
                 guard let self else { return }
-                session.toggle(
-                    provider,
-                    autoHideAfter: .seconds(model.detailAutoHideSeconds)
-                )
+                if session.selectedProvider == provider { dismissDetail() }
+                else if let onProviderRequest { onProviderRequest(provider) }
+                else { showDetail(for: provider) }
             },
             onAccessibilityMove: { [weak self] command in
                 self?.moveStripForAccessibility(command)
@@ -134,14 +131,6 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         positionPanels()
         activeSpaceObserver = ActiveSpaceChangeObserver { [weak self] in
             self?.handleActiveSpaceChange()
-        }
-
-        screenObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.positionPanels() }
         }
 
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(
@@ -173,9 +162,46 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         if let globalMouseMonitor {
             NSEvent.removeMonitor(globalMouseMonitor)
         }
-        if let screenObserver {
-            NotificationCenter.default.removeObserver(screenObserver)
-        }
+    }
+
+    func dismissDetail() {
+        session.dismiss()
+        detailPanel.makeFirstResponder(nil)
+        detailPanel.orderOut(nil)
+        detailPanel.contentView = nil
+    }
+
+    func close() {
+        hide()
+        foldTimer?.invalidate()
+        foldTimer = nil
+        activeSpaceObserver?.invalidate()
+        activeSpaceObserver = nil
+        voiceOverObservation?.invalidate()
+        voiceOverObservation = nil
+        if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor); self.localMouseMonitor = nil }
+        if let globalMouseMonitor { NSEvent.removeMonitor(globalMouseMonitor); self.globalMouseMonitor = nil }
+        stripPanel.contentView = nil
+        detailPanel.contentView = nil
+        stripPanel.close()
+        detailPanel.close()
+    }
+
+    func topologyDidChange() {
+        pointerDragState = FloatingStripPointerDragState()
+        dragStartFrame = nil
+        displayState.isDragging = false
+        positionPanels()
+    }
+
+    func applyAppearance() {
+        if let selected = session.selectedProvider,
+           !model.stripPreferences.visibleProviders.contains(selected) { dismissDetail() }
+        guard !displayState.isDragging else { return }
+        foldState.update(now: ProcessInfo.processInfo.systemUptime, delay: 0, locked: true)
+        displayState.isFolded = false
+        positionPanels()
+        tickFold()
     }
 
     func show() {
@@ -188,7 +214,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
     }
 
     func hide() {
-        session.dismiss()
+        dismissDetail()
         stripPanel.orderOut(nil)
         detailPanel.orderOut(nil)
     }
@@ -201,7 +227,16 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
     }
 
     func applyUserPositionPreference() {
-        positionPanels(userInitiated: true)
+        guard let screen = preferredScreenForDragging(),
+              let identifier = Self.identity(for: screen)?.stableIdentifier else { return }
+        let preferences = model.floatingStripDisplays
+        if preferences.shouldSelectTarget(after: .edit, actualIdentifier: identifier) {
+            let previous = preferences.placement(for: preferences.selectedIdentifier ?? identifier)
+            model.saveFloatingStripPlacement(edge: previous.edge, normalizedCenterY: previous.normalizedCenterY,
+                                             screenIdentifier: identifier)
+            onPlacementSaved?(identifier, .edit)
+        }
+        positionPanels()
     }
 
     private func renderSelection(_ provider: UsageProvider?) {
@@ -210,6 +245,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         detailPanel.makeFirstResponder(nil)
         guard let provider else {
             detailPanel.orderOut(nil)
+            detailPanel.contentView = nil
             return
         }
         let renderedSelectionID = session.selectionID
@@ -276,6 +312,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
                 density: model.stripPreferences.density,
                 providerCount: model.stripPreferences.visibleProviders.count
             ) else { return event }
+            dragStartFrame = stripPanel.frame
             displayState.isDragging = true
             NSCursor.closedHand.set()
             return nil
@@ -283,14 +320,14 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             guard let translation = pointerDragState.translation(
                 to: Self.screenPoint(for: event)
             ) else { return event }
-            updateStripDrag(translation: translation)
+            updateStripDrag(translation: translation, pointer: Self.screenPoint(for: event))
             return nil
         case .leftMouseUp:
             guard let translation = pointerDragState.end(
                 at: Self.screenPoint(for: event)
             ) else { return event }
-            endStripDrag(translation: translation)
             displayState.isDragging = false
+            endStripDrag(translation: translation, pointer: Self.screenPoint(for: event))
             NSCursor.openHand.set()
             return nil
         default:
@@ -323,6 +360,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
     }
 
     private func positionPanels(userInitiated: Bool = false, foldingAnimation: Bool = false) {
+        guard !displayState.isDragging else { return }
         guard let context = placementContext(userInitiated: userInitiated) else { return }
         let screen = context.screen
         let edge = context.edge
@@ -359,20 +397,22 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         }
     }
 
-    private func updateStripDrag(translation: CGSize) {
+    private func updateStripDrag(translation: CGSize, pointer: CGPoint) {
         if dragStartFrame == nil {
             dragStartFrame = stripPanel.frame
         }
         guard let dragStartFrame else { return }
 
-        var proposedFrame = dragStartFrame
-        if model.floatingStripPosition.preference == .automatic {
-            proposedFrame.origin.x += translation.width
+        var proposedFrame = FloatingStripDragPolicy.translated(dragStartFrame, by: translation)
+        if model.floatingStripDisplays.mode == .all, let screen = preferredScreenForDragging() {
+            proposedFrame.origin.x = min(max(proposedFrame.minX, screen.visibleFrame.minX),
+                                         screen.visibleFrame.maxX - proposedFrame.width)
+            proposedFrame.origin.y = min(max(proposedFrame.minY, screen.visibleFrame.minY),
+                                         max(screen.visibleFrame.minY, screen.visibleFrame.maxY - proposedFrame.height))
         }
-        proposedFrame.origin.y -= translation.height
         stripPanel.setFrame(proposedFrame, display: true, animate: false)
 
-        let screen = screen(containing: CGPoint(x: proposedFrame.midX, y: proposedFrame.midY))
+        let screen = dragTarget(at: pointer)
             ?? preferredScreenForDragging()
         guard let screen else { return }
         let edge = FloatingStripLayout.resolvedEdge(
@@ -385,12 +425,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         positionDetail(relativeTo: proposedFrame, edge: edge, on: screen, animate: false)
     }
 
-    private func endStripDrag(translation: CGSize) {
-        updateStripDrag(translation: translation)
+    private func endStripDrag(translation: CGSize, pointer: CGPoint) {
+        updateStripDrag(translation: translation, pointer: pointer)
         defer { dragStartFrame = nil }
 
         let proposedFrame = stripPanel.frame
-        guard let screen = screen(containing: CGPoint(x: proposedFrame.midX, y: proposedFrame.midY))
+        guard let screen = dragTarget(at: pointer)
                 ?? preferredScreenForDragging() else { return }
         let placement = FloatingStripLayout.resolvedPlacement(
             preference: model.floatingStripPosition.preference,
@@ -414,6 +454,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             screenIdentifier: Self.identity(for: screen)?.stableIdentifier
         )
         positionDetail(relativeTo: finalFrame, edge: placement.edge, on: screen, animate: true)
+        if let identifier = Self.identity(for: screen)?.stableIdentifier { onPlacementSaved?(identifier, .drag) }
     }
 
     private func positionDetail(
@@ -460,6 +501,14 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         persistenceAction: FloatingStripPositionPersistenceAction
     )? {
         let pairs = screenIdentityPairs()
+        if let screenIdentifier {
+            guard let screen = pairs.first(where: { $0.identity.stableIdentifier == screenIdentifier })?.screen else { return nil }
+            let preferences = model.floatingStripDisplays
+            // A disconnected selected display borrows the primary screen, not its saved position.
+            let positionID = preferences.mode == .selected ? preferences.selectedIdentifier ?? screenIdentifier : screenIdentifier
+            let placement = preferences.placement(for: positionID, preference: model.floatingStripPosition.preference)
+            return (screen, placement.edge, placement.normalizedCenterY, .preserve)
+        }
         let savedIdentifier = model.floatingStripPosition.screenIdentifier
         guard let resolution = FloatingStripScreenResolver.resolve(
             savedIdentifier: savedIdentifier,
@@ -484,6 +533,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
 
     private func preferredScreenForDragging() -> NSScreen? {
         let pairs = screenIdentityPairs()
+        if let screenIdentifier {
+            return pairs.first(where: { $0.identity.stableIdentifier == screenIdentifier })?.screen
+        }
         if let savedIdentifier = model.floatingStripPosition.screenIdentifier,
            let savedPair = pairs.first(where: {
                $0.identity.stableIdentifier == savedIdentifier
@@ -491,11 +543,16 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
            }) {
             return savedPair.screen
         }
-        return stripPanel.screen ?? NSScreen.main ?? NSScreen.screens.first
+        return stripPanel.screen ?? NSScreen.screens.first
     }
 
-    private func screen(containing point: CGPoint) -> NSScreen? {
-        NSScreen.screens.first(where: { $0.visibleFrame.contains(point) })
+    private func dragTarget(at point: CGPoint) -> NSScreen? {
+        let pairs = screenIdentityPairs()
+        let frames = Dictionary(pairs.map { ($0.identity.stableIdentifier, $0.screen.frame) },
+                                uniquingKeysWith: { first, _ in first })
+        let target = FloatingStripDragPolicy.target(at: point, screens: frames,
+                    pinned: model.floatingStripDisplays.mode == .all ? screenIdentifier : nil)
+        return pairs.first(where: { $0.identity.stableIdentifier == target })?.screen
     }
 
     private func screenIdentityPairs() -> [(screen: NSScreen, identity: FloatingStripScreenIdentity)] {
@@ -505,7 +562,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
     }
 
     private static func identity(for screen: NSScreen) -> FloatingStripScreenIdentity? {
-        FloatingStripScreenIdentifier.identity(for: screen, mainScreen: NSScreen.main)
+        FloatingStripScreenIdentifier.identity(for: screen, mainScreen: NSScreen.screens.first)
     }
 
     private func applyDetailInteractionState() {
@@ -522,12 +579,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             normalizedCenterY: displayState.normalizedCenterY
         )
         switch command {
-        case .moveToLeftEdge:
-            model.setFloatingStripEdgePreference(.left)
-        case .moveToRightEdge:
-            model.setFloatingStripEdgePreference(.right)
-        case .moveUp, .moveDown:
-            break
+        case .moveToLeftEdge: model.setFloatingStripEdgePreference(.left)
+        case .moveToRightEdge: model.setFloatingStripEdgePreference(.right)
+        case .moveUp, .moveDown: break
         }
         model.saveFloatingStripPlacement(
             edge: placement.edge,
@@ -535,6 +589,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             screenIdentifier: preferredScreenForDragging().flatMap(Self.identity(for:))?
                 .stableIdentifier
         )
+        if let identifier = preferredScreenForDragging().flatMap(Self.identity(for:))?.stableIdentifier {
+            onPlacementSaved?(identifier, .edit)
+        }
         positionPanels()
     }
 
@@ -619,6 +676,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             )
         }
         panel.isOpaque = false
+        panel.isReleasedWhenClosed = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false

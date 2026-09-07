@@ -51,22 +51,20 @@ pub fn start_monitoring(
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(Duration::from_millis(500));
-            let Some(meter) = app.get_webview_window(super::window_controller::METER_WINDOW_LABEL)
-            else {
-                return;
-            };
             let prefs = app
                 .state::<crate::RuntimeState>()
                 .app_settings_snapshot()
                 .strip_preferences;
             let enabled = meter_enabled.load(Ordering::Acquire)
                 && !prefs.hidden(time::OffsetDateTime::now_utc().unix_timestamp());
-            let hide_for_fullscreen =
-                enabled && foreground_covers_meter_monitor(&meter).unwrap_or(false);
-            if !enabled || hide_for_fullscreen {
-                let _ = meter.hide();
-            } else {
-                let _ = meter.show();
+            for meter in super::display_coordinator::meter_windows(&app) {
+                let hide_for_fullscreen =
+                    enabled && foreground_covers_meter_monitor(&meter).unwrap_or(false);
+                if !enabled || hide_for_fullscreen {
+                    let _ = meter.hide();
+                } else {
+                    let _ = meter.show();
+                }
             }
         }
     });

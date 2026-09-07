@@ -39,7 +39,7 @@ export function extractPreviewUrl(output) {
 export async function stopProcessTree(child, {
   platform = process.platform,
   killProcess = process.kill,
-  runProcess = runCommand,
+  runProcess = runBoundedCommand,
   waitForExit: wait = waitForExit,
   waitForGroupExit: waitGroup = waitForProcessGroupExit,
   timeoutMs = 3_000,
@@ -48,9 +48,9 @@ export async function stopProcessTree(child, {
 
   if (platform === "win32") {
     try {
-      await runProcess("taskkill", ["/pid", String(child.pid), "/T", "/F"])
+      await runProcess("taskkill", ["/pid", String(child.pid), "/T", "/F"], { timeoutMs })
     } catch (error) {
-      if (!hasExited(child)) throw error
+      if (!hasExited(child) || error.code === "PROCESS_TIMEOUT") throw error
     }
     if (!await wait(child, timeoutMs)) throw new Error("Process tree did not exit after cleanup")
     return
@@ -68,8 +68,14 @@ export async function stopProcessTree(child, {
 }
 
 export async function runBrowser(executable, url, {
-  timeoutMs = 15_000,
   platform = process.platform,
+  // Fresh Windows profiles include cold browser startup in this wall-clock cap.
+  // This is a bounded allowance, not a retry or proof of a specific CI root cause.
+  timeoutMs = platform === "win32" ? 45_000 : 15_000,
+  setTimer = setTimeout,
+  clearTimer = clearTimeout,
+  now = Date.now,
+  onDiagnostic = () => {},
   spawnImpl = spawn,
   stopProcessTreeImpl = stopProcessTree,
   createBrowserProfile = createTemporaryBrowserProfile,
@@ -81,6 +87,19 @@ export async function runBrowser(executable, url, {
   const profileDirectory = platform === "win32" ? createBrowserProfile() : null
   let browser
   let timeout
+  let result
+  let failure
+  let output = ""
+  let errors = ""
+  let stdoutBytes = 0
+  let stderrBytes = 0
+  let firstStdout = null
+  let firstStderr = null
+  let exit = "not observed"
+  let close = "not observed"
+  const started = now()
+  const diagnostic = (includeErrors = true) => `elapsedMs=${now() - started}; pid=${browser?.pid ?? "not spawned"}; stdoutBytes=${stdoutBytes}; stderrBytes=${stderrBytes}; firstStdoutMs=${firstStdout ?? "not observed"}; firstStderrMs=${firstStderr ?? "not observed"}; exit=${exit}; close=${close}${includeErrors ? `; stderrTail=${JSON.stringify(errors)}` : ""}`
+  const report = phase => onDiagnostic(`${phase}: ${diagnostic(false)}`)
 
   try {
     const profileArguments = profileDirectory ? [
@@ -99,28 +118,84 @@ export async function runBrowser(executable, url, {
     ], {
       stdio: ["ignore", "pipe", "pipe"],
     }, { platform, spawnImpl })
-    return await new Promise((resolveOutput, reject) => {
-      let output = ""
-      let errors = ""
-      browser.stdout.on("data", (chunk) => { output += chunk })
-      browser.stderr.on("data", (chunk) => { errors += chunk })
-      browser.once("error", reject)
+    report(`browser started (wall-clock budget ${timeoutMs}ms)`)
+    result = await new Promise((resolveOutput, reject) => {
+      browser.stdout.on("data", (chunk) => {
+        stdoutBytes += Buffer.byteLength(chunk)
+        firstStdout ??= now() - started
+        if (stdoutBytes > 2 * 1024 * 1024) {
+          reject(new Error(`Browser stdout exceeded 2 MiB: ${diagnostic()}`))
+          return
+        }
+        output += chunk
+      })
+      browser.stderr.on("data", (chunk) => {
+        stderrBytes += Buffer.byteLength(chunk)
+        firstStderr ??= now() - started
+        errors = (errors + chunk).slice(-4096)
+      })
+      browser.once("error", error => reject(new Error(`Browser process error: ${error.message}; ${diagnostic()}`, { cause: error })))
+      browser.once("exit", (code, signal) => { exit = `${code ?? signal} at ${now() - started}ms` })
       // `exit` can precede the final stdout data on Windows. `close` is only
       // emitted after the stdio streams have closed, so the dumped DOM is
       // complete before it is parsed.
-      browser.once("close", (code) => code === 0
-        ? resolveOutput(output)
-        : reject(new Error(`Browser exited ${code}: ${errors}`)))
-      timeout = setTimeout(() => reject(new Error(`Browser timed out after ${timeoutMs}ms`)), timeoutMs)
+      browser.once("close", (code) => {
+        close = `${code} at ${now() - started}ms`
+        report("browser streams closed")
+        if (code === 0) resolveOutput(output)
+        else reject(new Error(`Browser exited ${code}: ${diagnostic()}`))
+      })
+      timeout = setTimer(() => reject(new Error(`Browser timed out after ${timeoutMs}ms: ${diagnostic()}`)), timeoutMs)
     })
+  } catch (error) {
+    failure = error
   } finally {
-    clearTimeout(timeout)
+    clearTimer(timeout)
+    const cleanupErrors = []
     try {
       if (browser) await stopProcessTreeImpl(browser, { platform })
-    } finally {
+      report("browser process-tree cleanup complete")
+    } catch (error) { cleanupErrors.push(error) }
+    try {
       if (profileDirectory) removeBrowserProfile(profileDirectory)
+    } catch (error) { cleanupErrors.push(error) }
+    if (cleanupErrors.length) {
+      const all = [...(failure ? [failure] : []), ...cleanupErrors]
+      failure = new AggregateError(all, all.map(error => error.message).join("; "))
     }
   }
+  if (failure) throw failure
+  return result
+}
+
+export async function runWithCleanup(action, cleanup) {
+  let value
+  let failure
+  try { value = await action() } catch (error) { failure = error }
+  try { await cleanup() } catch (error) {
+    failure = failure
+      ? new AggregateError([failure, error], `${failure.message}; ${error.message}`)
+      : error
+  }
+  if (failure) throw failure
+  return value
+}
+
+export async function waitForHttpReady(url, { timeoutMs = 5_000, fetchImpl = fetch } = {}) {
+  const deadline = Date.now() + timeoutMs
+  let lastError = "no response"
+  while (Date.now() < deadline) {
+    const remaining = Math.max(1, deadline - Date.now())
+    try {
+      const response = await fetchImpl(url, { signal: AbortSignal.timeout(remaining) })
+      if (response.ok) return
+      lastError = `HTTP ${response.status}`
+      await response.body?.cancel()
+    } catch (error) { lastError = error.message }
+    const wait = Math.min(100, deadline - Date.now())
+    if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
+  }
+  throw new Error(`Production preview HTTP readiness timed out after ${timeoutMs}ms: ${lastError}`)
 }
 
 function createTemporaryBrowserProfile() {
@@ -181,12 +256,20 @@ export function waitForExit(child, timeoutMs) {
   })
 }
 
-function runCommand(command, args) {
+export function runBoundedCommand(command, args, {timeoutMs = 3_000, spawnImpl = spawn} = {}) {
   return new Promise((resolveProcess, reject) => {
-    const child = spawn(command, args, { stdio: "ignore" })
-    child.once("error", reject)
-    child.once("exit", (code) => code === 0 || code === 128
-      ? resolveProcess()
-      : reject(new Error(`${command} exited ${code}`)))
+    const child = spawnImpl(command, args, { stdio: "ignore" })
+    const timeout = setTimeout(() => {
+      try { child.kill("SIGKILL") } catch { /* Still report the bounded helper failure. */ }
+      const error = new Error(`${command} timed out after ${timeoutMs}ms; helper termination requested`)
+      error.code = "PROCESS_TIMEOUT"
+      reject(error)
+    }, timeoutMs)
+    child.once("error", error => { clearTimeout(timeout); reject(error) })
+    child.once("exit", (code) => {
+      clearTimeout(timeout)
+      if (code === 0 || code === 128) resolveProcess()
+      else reject(new Error(`${command} exited ${code}`))
+    })
   })
 }

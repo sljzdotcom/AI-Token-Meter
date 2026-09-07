@@ -1,4 +1,144 @@
+use crate::persistence::MeterEdge;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DisplayMode {
+    #[default]
+    Primary,
+    Selected,
+    All,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayPlacement {
+    pub edge: MeterEdge,
+    pub vertical_per_mille: u16,
+}
+
+impl Default for DisplayPlacement {
+    fn default() -> Self {
+        Self {
+            edge: MeterEdge::Right,
+            vertical_per_mille: 500,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DisplayPreferences {
+    pub version: u8,
+    pub mode: DisplayMode,
+    pub selected_id: Option<String>,
+    pub placements: BTreeMap<String, DisplayPlacement>,
+}
+
+impl Default for DisplayPreferences {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            mode: DisplayMode::Primary,
+            selected_id: None,
+            placements: BTreeMap::new(),
+        }
+    }
+}
+
+impl DisplayPreferences {
+    pub fn select_mode(
+        &mut self,
+        mode: DisplayMode,
+        selected_id: Option<String>,
+    ) -> Result<(), &'static str> {
+        if selected_id
+            .as_ref()
+            .is_some_and(|id| id.len() > 512 || id.trim().is_empty())
+        {
+            return Err("Invalid display");
+        }
+        self.mode = mode;
+        self.selected_id = selected_id;
+        Ok(())
+    }
+
+    pub fn targets(&self, online: &[MonitorIdentity]) -> Vec<String> {
+        let primary = choose_monitor(online, None);
+        if self.mode == DisplayMode::All {
+            let mut ids: Vec<_> = primary
+                .into_iter()
+                .chain(online.iter())
+                .map(|m| m.stable_id.clone())
+                .collect();
+            let mut seen = std::collections::HashSet::new();
+            ids.retain(|id| seen.insert(id.clone()));
+            return ids;
+        }
+        choose_monitor(
+            online,
+            if self.mode == DisplayMode::Selected {
+                self.selected_id.as_deref()
+            } else {
+                None
+            },
+        )
+        .map(|m| vec![m.stable_id.clone()])
+        .unwrap_or_default()
+    }
+    pub fn placement(&self, id: &str) -> DisplayPlacement {
+        self.placements.get(id).copied().unwrap_or_default()
+    }
+    pub fn record_drag(&mut self, id: &str, mut placement: DisplayPlacement) {
+        placement.vertical_per_mille = placement.vertical_per_mille.min(1000);
+        self.placements.insert(id.to_owned(), placement);
+        if self.mode != DisplayMode::All {
+            self.mode = DisplayMode::Selected;
+            self.selected_id = Some(id.to_owned());
+        }
+    }
+
+    pub fn record_edge(&mut self, id: &str, edge: MeterEdge) {
+        let mut placement = self.placement(id);
+        placement.edge = edge;
+        self.placements.insert(id.to_owned(), placement);
+        if self.mode == DisplayMode::Selected {
+            self.selected_id = Some(id.to_owned());
+        }
+    }
+}
+
+pub fn drag_target<'a>(
+    screens: &'a [MonitorTopology],
+    x: i32,
+    y: i32,
+    owner: Option<&str>,
+) -> Option<&'a str> {
+    if let Some(owner) = owner {
+        return screens
+            .iter()
+            .find(|m| m.stable_id == owner)
+            .map(|m| m.stable_id.as_str());
+    }
+    screens
+        .iter()
+        .min_by_key(|screen| {
+            let px = i64::from(x);
+            let py = i64::from(y);
+            let left = i64::from(screen.x);
+            let top = i64::from(screen.y);
+            let dx = (left - px)
+                .max(0)
+                .max(px - (left + i64::from(screen.width) - 1));
+            let dy = (top - py)
+                .max(0)
+                .max(py - (top + i64::from(screen.height) - 1));
+            i128::from(dx).pow(2) + i128::from(dy).pow(2)
+        })
+        .map(|m| m.stable_id.as_str())
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MonitorIdentity {
@@ -98,6 +238,7 @@ pub fn stable_runtime_identifier(runtime_name: &str) -> Option<String> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MonitorTopology {
+    pub scale_per_mille: u32,
     pub stable_id: String,
     pub is_primary: bool,
     pub x: i32,
@@ -118,6 +259,7 @@ impl MonitorTopology {
         Self {
             stable_id: stable_id.into(),
             is_primary,
+            scale_per_mille: 1000,
             x,
             y,
             width,

@@ -1,16 +1,15 @@
 use super::strip_preferences::FoldState;
-use super::window_controller::{METER_WINDOW_LABEL, restore_meter_position};
+use super::window_controller::METER_WINDOW_LABEL;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
 
 pub fn restore(app: &tauri::AppHandle) -> tauri::Result<()> {
-    let state = app.state::<crate::RuntimeState>();
-    if let Some(meter) = app.get_webview_window(METER_WINDOW_LABEL) {
-        let (edge, y, monitor) = state.meter_position();
-        restore_meter_position(&meter, edge, y, monitor.as_deref())?;
-    }
-    Ok(())
+    super::display_coordinator::reconcile(app)
+}
+
+pub fn needs_restore(previous: bool, next: bool, retry_or_reset: bool) -> bool {
+    previous != next || retry_or_reset
 }
 
 pub fn start(app: tauri::AppHandle) {
@@ -24,8 +23,9 @@ pub fn start(app: tauri::AppHandle) {
             };
             let state = app.state::<crate::RuntimeState>();
             let prefs = state.app_settings_snapshot().strip_preferences;
+            let reset = state.strip_reset.swap(false, Ordering::AcqRel);
             let locked = state.strip_pointer.load(Ordering::Acquire)
-                || state.strip_reset.swap(false, Ordering::AcqRel)
+                || reset
                 || state.strip_focus.load(Ordering::Acquire)
                 || state.strip_menu.load(Ordering::Acquire)
                 || state.meter_drag_is_active()
@@ -46,7 +46,7 @@ pub fn start(app: tauri::AppHandle) {
                 || !meter.is_visible().unwrap_or(false);
             let next = fold.update(origin.elapsed().as_secs_f64(), prefs.fold_delay, locked);
             let previous = state.strip_folded.swap(next, Ordering::AcqRel);
-            if previous != next {
+            if needs_restore(previous, next, reset) {
                 if restore(&app).is_ok() {
                     let _ = app.emit("strip-folded", next);
                 } else {

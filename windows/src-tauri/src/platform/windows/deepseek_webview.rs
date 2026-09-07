@@ -230,7 +230,12 @@ pub(crate) async fn open_history_window(
 
     let build_result =
         WebviewWindowBuilder::new(app, HISTORY_WINDOW_LABEL, WebviewUrl::External(history_url))
-            .title("DeepSeek Usage · AI Token Meter")
+            .title(crate::localization::text(
+                app.state::<crate::RuntimeState>()
+                    .app_settings_snapshot()
+                    .locale,
+                "DeepSeek Usage · AI Token Meter",
+            ))
             .inner_size(1040.0, 760.0)
             .min_inner_size(760.0, 560.0)
             .center()
@@ -749,6 +754,14 @@ fn restore_detail_window(
     ownership: DetailOwnershipToken,
 ) -> Result<(), String> {
     let state = app.state::<RuntimeState>();
+    let owner = state
+        .detail_meter
+        .lock()
+        .map(|owner| owner.clone())
+        .unwrap_or_default();
+    let edge = crate::edge_from_settings(
+        super::display_coordinator::placement_for_window(app, &owner).edge,
+    );
     let mut detail_state = state
         .detail_state
         .lock()
@@ -758,7 +771,6 @@ fn restore_detail_window(
             ownership,
             |provider| {
                 let snapshot = state.usage.snapshot(provider);
-                let (edge, _, _) = state.meter_position();
                 show_detail_window(app, edge)
                     .map_err(|_| "The detail window could not be restored".to_owned())?;
                 app.emit("active-detail-changed", &snapshot)
