@@ -1,5 +1,32 @@
 schema_version: 1
 features:
+  - id: multi-display-placement
+    requirement: REQ-20260907-001
+    platform_scope: platform-equivalent
+    macos:
+      status: complete
+      evidence: Tests/AIMeterCoreTests/FloatingStripDisplaysTests.swift
+    windows:
+      status: in-progress
+      evidence: windows/src-tauri/tests/multidisplay.rs
+  - id: windows-language-and-chinese-fonts
+    requirement: REQ-20260907-002
+    platform_scope: windows-only
+    macos:
+      status: not-applicable
+      evidence: docs/design/specifications/2026-09-07-windows-localization-design.md
+    windows:
+      status: in-progress
+      evidence: windows/src/localization.test.tsx
+  - id: windows-detail-minus-one
+    requirement: REQ-20260907-003
+    platform_scope: windows-only
+    macos:
+      status: not-applicable
+      evidence: docs/design/specifications/2026-09-07-windows-localization-design.md
+    windows:
+      status: complete
+      evidence: windows/src/test/density-browser-entry.tsx
   - id: provider-usage-summary
     requirement: REQ-20260903-004
     platform_scope: cross-platform

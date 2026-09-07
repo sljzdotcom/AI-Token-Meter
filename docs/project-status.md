@@ -63,8 +63,8 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- macOS 完整自动化基线：**391 项主测试 + 12 项 PTY 系统资源测试，总计 403 项/75 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 更新验收；
-- Windows 验证基线：51 项 Vitest、12 项密度进程生命周期和本机可运行的 179 项 Rust；production 前端、Chrome 计算样式、rustfmt 与零警告 Clippy 通过。Windows-only 原生测试与安装器构建在[双平台发布 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34035797098)运行；历史阶段证据保留在对应日志；
+- 当前源码 macOS 完整自动化基线：**405 项主测试 + 12 项 PTY 系统资源测试，总计 417 项/79 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 验收；
+- 当前源码 Windows 本地验证基线：57 项 Vitest、12 项密度进程生命周期和 197 项 Rust；production 前端、632 项 Chrome 计算样式、rustfmt 与零警告 Clippy 通过。Windows-only 原生测试与安装器证据见[本轮日志](development/2026-09-07-multidisplay-and-windows-localization.md)，公开 0.3.0 的历史基线继续保留在[发布记录](development/2026-09-06-v0.3.0-release.md)；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。双平台 [v0.3.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0) 提供 Apple Silicon ZIP、Windows x64 NSIS、SHA-256 和签名更新清单；校验证据见[发布记录](development/2026-09-06-v0.3.0-release.md)。

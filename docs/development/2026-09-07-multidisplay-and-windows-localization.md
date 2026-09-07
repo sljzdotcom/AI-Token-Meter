@@ -86,3 +86,11 @@ macOS 定向复审已确认原三项及两项跟进问题全部关闭；最新�
 - [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 启动真正 Windows runner 编译和 NSIS 门禁；本机宿主 Rust 测试不替代 Windows-only 分支编译。
 - 独立复审要求暂缓合并：协调器持锁等待 UI 原生调用可能死锁；取消拖动与最后保存之间有竞态；异步显示模式操作可能发送旧的完整设置覆盖新语言。另有 Primary 下拉清空失效、采集器生成的少数量额标签未翻译。
 - 以上问题交回 Windows 实现范围补充确定性回归与修复，保持需求进行中；本轮未修改发布版本、更新源或实际账户凭据。
+
+### Windows 复审修复检查点
+
+`a8d7a0f` 改为单一可合并请求的后台协调队列，不持共享实例锁等待 UI；原生窗口创建仍在后台调用以遵守 Tauri 约束。拖动完成携带会话代次，在提交边界校验取消状态；模式保存/事件发布不再等待慢窗口操作，也不会迟发旧候选设置。Primary 下拉支持清除旧目标；前端及原生通知补齐 `5h limit`、任意分钟窗口与余额基准等应用生成标签的中文。
+
+- 修复后本地 197 项 Rust、57 项前端、12 项生命周期、632 项计算样式及构建/严格 lint 全部通过。
+- 父任务重新运行完整 macOS：405 项主测试/78 组 + 12 项 PTY/1 组通过，包含显式开启的单屏 AppKit 回归；共享合同、165 份文档和公开安全检查通过。
+- 首轮 `3312537` 的 [macOS CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34072699492) 与 [Windows CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34072699520) 均成功，后者生成 NSIS 并验证 GUI subsystem=2。此证据不能替代 `a8d7a0f` 的最终原生复验与独立复审。
