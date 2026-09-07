@@ -27,3 +27,16 @@ macOS CLIInstallationScriptBuilder 生成 curl HTTPS 下载脚本，Windows inst
 最终本地基线：Swift 419+13=432 项（82 组），React 80 项，Rust 208 项，密度生命周期 21 项和浏览器文本角色 632 项通过；格式、严格 Clippy、production 前端、174 份文档、合同、发布 fixture 和公开安全检查通过。GitHub 原生 CI 和整分支审查通过后方可集成；当前公开版本仍为 0.4.0，无更新源改动。
 
 整分支审查对 `fb0cf55` 无 Critical/Important/Minor；最终 Release 资源与签名验证通过。但原生 macOS CI `34088536876` 在 BrandLinksViewTests 的失败提示视图断言失败，主测试 419 项中仅该项失败。本机正常，CI 日志未报告点击目标或 openingFailed 状态错误，差异集中在 SwiftUI 更新后的视图树读取。登记 REQ-20260907-010，继续定位有界等待主线程视图提交；保留原断言，不以复跑绿色替代修正证据。
+
+`48cbd0f` 仅修正测试对异步渲染的等待：两秒 ContinuousClock 截止，10ms 异步挂起让主线程提交更新，实际视图条件满足即返回；不重试点击，不跳过断言，不改产品行为。本地完整 432 项再通过，定向最终复审无 Critical/Important/Minor，等待该精确提交的原生 CI。
+
+原生 CI `34088933770` 已通过两个 About 真实交互测试；此次仅既有 `CLICollectorTests.codexEarlyTimeoutIsReplayed` 的一秒耗时断言失败（1.006975s），timedOut/PID/进程退出断言没有报告错误，相关产品与测试文件本轮没有改动。归入既有 REQ-20260906-003 保留追踪；记录一次同提交完整门禁复验，不放宽原截止时间，也不宣称历史时序问题已修复。
+
+## 完成与集成
+
+- [macOS CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34088933770) 同提交第二次完整门禁通过；上文保留初次失败，不把偶发时序问题改成已修复。
+- [Windows CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34088933785) 通过：80 项前端、21 项生命周期/632 个样式角色、218 项原生 Rust、严格 Clippy、NSIS 安装器、PE GUI 子系统与上传。
+- macOS 最终 Release App 资源、嵌套签名与 Sparkle 验证通过；构建用于验收，未安装、启动或发布。
+- [PR #11](https://github.com/sljzdotcom/AI-Token-Meter/pull/11) 合并为 `12ad5e2`；已核对合并树与验证头 `48cbd0f` 无差异。
+- REQ-20260907-008/009/010 完成，需求、指南、CHANGELOG、测试基线及索引同步。公开版本仍为 0.4.0/build12，本轮没有发布 Release 或修改更新源。
+- 已关闭本轮预览服务/临时浏览器页，移除工作树临时依赖符号链接；误启动预览产生的 .vite 缓存移到临时目录保留，可恢复，源代码和实际 node_modules 未删除。
