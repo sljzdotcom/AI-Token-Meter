@@ -110,7 +110,7 @@ Services 集中放置外部服务的当前账户、重新登录、配置与一�
 
 ### Claude Code 与 OpenAI Codex 账户
 
-#### 下一版：安装与登录引导（0.4.0 尚不包含）
+#### 安装与登录引导（0.5.0 起；发布状态见文末）
 
 Settings → Services 将按检测结果显示主操作，颜色只是提醒，同时保留明确文字：
 
@@ -192,9 +192,11 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 ## About
 
-### 下一版：作者社交链接与软件标识（0.4.0 尚不包含）
+### 作者社交链接与软件标识（0.5.0 起）
 
 Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 **GitHub** 链接，分别进入 [Twitter](https://twitter.com/MillerPanYue) 和 [项目仓库](https://github.com/sljzdotcom/AI-Token-Meter)。点击时才打开系统默认浏览器，不在应用中加载社交页面；若无法打开会给出提示，可重试。Windows 设置顶部显示本地软件 Logo，保留平台系统字体。实施与验证见[开发日志](../development/2026-09-07-about-branding.md)。
+
+0.5.0 的公开更新状态见[发布记录](../development/2026-09-07-v0.5.0-release.md)；发布准备阶段不要把源码功能当作旧安装包已经具备。
 
 ### 现有设置行为
 

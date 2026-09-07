@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+暂无未发布变更。
+
+## 0.5.0 - 2026-09-07
+
+发布准备中；公开资产与更新源验证完成前仍使用 0.4.0。见[发布记录](docs/development/2026-09-07-v0.5.0-release.md)。
+
 ### Added
 
 - 双平台 About 在作者 Miller 后增加 Twitter/X 与项目 GitHub 图标链接；Windows Settings 顶部复用本地软件 Logo，外部链接仅在点击时打开默认浏览器。
@@ -15,7 +21,7 @@
 - Windows 覆盖官方独立安装目录；区分 CLI 确认缺失与检测失败，避免已有 CLI 暂时不可用时误重装。显式 WSL/自定义路径不被静默改成 Native。
 - 安装/登录轮询有界、可恢复，检查迟到与重复点击不会覆盖当前操作；macOS 检测暂时不可用不再误判重新登录成功。
 
-尚未包含在 0.4.0 安装包；验证和集成状态见[开发记录](docs/development/2026-09-07-cli-onboarding.md)。
+CLI 按需在线获取；更新签名、公钥、配置与凭据兼容身份均保持不变。验证和集成状态见[CLI 开发记录](docs/development/2026-09-07-cli-onboarding.md)与[About 开发记录](docs/development/2026-09-07-about-branding.md)。
 
 ## 0.4.0 - 2026-09-07
 
