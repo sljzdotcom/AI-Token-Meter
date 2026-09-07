@@ -131,12 +131,13 @@ fn show_threshold_notification(app: &AppHandle, snapshot: &UsageSnapshot) {
     let Some((level, metric)) = state.threshold_notice(snapshot) else {
         return;
     };
-    let _ = app
-        .notification()
-        .builder()
-        .title(format!("{} usage reached {level}%", snapshot.display_name))
-        .body(format!("{metric} is now at or above {level}%."))
-        .show();
+    let (title, body) = crate::localization::threshold_notice(
+        state.app_settings_snapshot().locale,
+        &snapshot.display_name,
+        &metric,
+        level,
+    );
+    let _ = app.notification().builder().title(title).body(body).show();
 }
 
 fn build_requests(

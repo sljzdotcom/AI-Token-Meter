@@ -3,6 +3,7 @@ import type { CSSProperties } from "react"
 
 import type { UsageSnapshot } from "../state/usage"
 import { ProviderLogo } from "./ProviderLogo"
+import { t, useLocale } from "../localization"
 
 type UsageRingProps = {
   snapshot: UsageSnapshot
@@ -12,6 +13,7 @@ type UsageRingProps = {
 }
 
 export function UsageRing({ snapshot, selected = false, needsAction = false, onActivate }: UsageRingProps) {
+  useLocale()
   const contract = providerContract.providers.find((provider) => provider.id === snapshot.providerId)
   const hasProgress = snapshot.usedRatio != null && ["fresh", "cached", "refreshing"].includes(snapshot.status)
   const percent = hasProgress ? Math.min(Math.max(snapshot.usedRatio! * 100, 0), 100) : null
@@ -25,16 +27,16 @@ export function UsageRing({ snapshot, selected = false, needsAction = false, onA
 
   return (
     <button
-      aria-label={`${snapshot.displayName} usage`}
+      aria-label={t("{name} usage", {name: snapshot.displayName})}
       aria-pressed={selected}
-      aria-description={operation === "refreshing" ? "Refreshing" : operation === "waiting" ? "Action required" : undefined}
+      aria-description={operation === "refreshing" ? t("Refreshing") : operation === "waiting" ? t("Action required") : undefined}
       className={`usage-ring usage-ring--${snapshot.status}`}
       onClick={onActivate}
       style={style}
       type="button"
     >
       <span
-        aria-label={`${snapshot.displayName} usage`}
+        aria-label={t("{name} usage", {name: snapshot.displayName})}
         aria-valuemax={hasProgress ? 100 : undefined}
         aria-valuemin={hasProgress ? 0 : undefined}
         aria-valuenow={percent == null ? undefined : Number(percent.toFixed(2))}

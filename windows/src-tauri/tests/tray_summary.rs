@@ -17,6 +17,26 @@ fn tray_summary_uses_provider_semantics_without_inventing_usage() {
     assert_eq!(format_summary(&unavailable), "Claude Code · Unavailable");
 }
 
+#[test]
+fn chinese_native_summary_and_notifications_preserve_provider_names() {
+    use ai_token_meter_windows::persistence::Locale;
+    use ai_token_meter_windows::platform::windows::tray::format_summary_localized;
+    let claude = fixture("claude-fresh.json");
+    assert_eq!(
+        format_summary_localized(&claude, Locale::SimplifiedChinese),
+        "Claude Code · 已用 23%"
+    );
+    let (title, body) = ai_token_meter_windows::localization::threshold_notice(
+        Locale::SimplifiedChinese,
+        "Claude Code",
+        "Session",
+        70,
+    );
+    assert_eq!(title, "Claude Code 用量已达 70%");
+    assert!(body.contains("会话"));
+    assert!(body.contains("70%"));
+}
+
 fn fixture(name: &str) -> UsageSnapshot {
     let value = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

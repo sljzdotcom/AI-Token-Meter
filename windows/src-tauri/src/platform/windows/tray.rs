@@ -7,6 +7,10 @@ use crate::domain::{MetricKind, MetricUnit, ProviderId, UsageSnapshot, UsageStat
 use super::window_controller::{show_settings_window, toggle_meter_window};
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
+    let locale = app
+        .state::<crate::RuntimeState>()
+        .app_settings_snapshot()
+        .locale;
     let claude_summary = MenuItemBuilder::with_id("claude-summary", "Claude Code · Unavailable")
         .enabled(false)
         .build(app)?;
@@ -16,16 +20,32 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let deepseek_summary = MenuItemBuilder::with_id("deepseek-summary", "DeepSeek · Unavailable")
         .enabled(false)
         .build(app)?;
+    let labels = [
+        ("refresh", "Refresh"),
+        ("settings", "Settings"),
+        ("toggle-meter", "Show / Hide Meter"),
+        ("show-meter-now", "Show Floating Strip Now"),
+        ("about", "About AI Token Meter"),
+        ("quit", "Quit AI Token Meter"),
+    ];
+    let actions = labels
+        .iter()
+        .map(|(id, key)| {
+            MenuItemBuilder::with_id(*id, crate::localization::text(locale, key)).build(app)
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
     let menu = MenuBuilder::new(app)
         .items(&[&claude_summary, &codex_summary, &deepseek_summary])
         .separator()
-        .text("refresh", "Refresh")
-        .text("settings", "Settings")
-        .text("toggle-meter", "Show / Hide Meter")
-        .text("show-meter-now", "Show Floating Strip Now")
-        .text("about", "About AI Token Meter")
+        .items(&[
+            &actions[0],
+            &actions[1],
+            &actions[2],
+            &actions[3],
+            &actions[4],
+        ])
         .separator()
-        .text("quit", "Quit AI Token Meter")
+        .item(&actions[5])
         .build()?;
 
     let icon = app
@@ -74,11 +94,45 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
+    let summaries = [
+        claude_summary.clone(),
+        codex_summary.clone(),
+        deepseek_summary.clone(),
+    ];
+    let update_app = app.clone();
+    let update_summaries = move |locale| {
+        for snapshot in update_app.state::<crate::RuntimeState>().usage.snapshots() {
+            let index = match snapshot.provider_id {
+                ProviderId::Claude => 0,
+                ProviderId::Codex => 1,
+                ProviderId::DeepSeek => 2,
+            };
+            let _ = summaries[index].set_text(format_summary_localized(&snapshot, locale));
+        }
+    };
+    update_summaries(locale);
+    app.listen("app-settings-changed", move |event| {
+        let Ok(settings) = serde_json::from_str::<crate::persistence::AppSettings>(event.payload())
+        else {
+            return;
+        };
+        for (item, (_, key)) in actions.iter().zip(labels) {
+            let _ = item.set_text(crate::localization::text(settings.locale, key));
+        }
+        update_summaries(settings.locale);
+    });
+    let update_app = app.clone();
     app.listen("snapshot-updated", move |event| {
         let Ok(snapshot) = serde_json::from_str::<UsageSnapshot>(event.payload()) else {
             return;
         };
-        let text = format_summary(&snapshot);
+        let text = format_summary_localized(
+            &snapshot,
+            update_app
+                .state::<crate::RuntimeState>()
+                .app_settings_snapshot()
+                .locale,
+        );
         let _ = match snapshot.provider_id {
             ProviderId::Claude => claude_summary.set_text(text),
             ProviderId::Codex => codex_summary.set_text(text),
@@ -89,15 +143,32 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
 }
 
 pub fn format_summary(snapshot: &UsageSnapshot) -> String {
+    format_summary_localized(snapshot, crate::persistence::Locale::English)
+}
+
+pub fn format_summary_localized(
+    snapshot: &UsageSnapshot,
+    locale: crate::persistence::Locale,
+) -> String {
+    let chinese = locale == crate::persistence::Locale::SimplifiedChinese;
     let value = if snapshot.provider_id == ProviderId::DeepSeek {
         snapshot.primary_metric.as_ref().and_then(|metric| {
-            (metric.kind == MetricKind::Balance && metric.unit == MetricUnit::Cny)
-                .then(|| format!("¥{:.2} available", metric.current))
+            (metric.kind == MetricKind::Balance && metric.unit == MetricUnit::Cny).then(|| {
+                if chinese {
+                    format!("可用 ¥{:.2}", metric.current)
+                } else {
+                    format!("¥{:.2} available", metric.current)
+                }
+            })
         })
     } else {
-        snapshot
-            .used_ratio
-            .map(|ratio| format!("{:.0}% used", ratio.get() * 100.0))
+        snapshot.used_ratio.map(|ratio| {
+            if chinese {
+                format!("已用 {:.0}%", ratio.get() * 100.0)
+            } else {
+                format!("{:.0}% used", ratio.get() * 100.0)
+            }
+        })
     };
     let status = match snapshot.status {
         UsageStatus::NotInstalled => "Not installed",
@@ -109,9 +180,14 @@ pub fn format_summary(snapshot: &UsageSnapshot) -> String {
             return format!(
                 "{} · {}",
                 snapshot.display_name,
-                value.unwrap_or_else(|| "Unavailable".to_owned())
+                value
+                    .unwrap_or_else(|| crate::localization::text(locale, "Unavailable").to_owned())
             );
         }
     };
-    format!("{} · {status}", snapshot.display_name)
+    format!(
+        "{} · {}",
+        snapshot.display_name,
+        crate::localization::text(locale, status)
+    )
 }

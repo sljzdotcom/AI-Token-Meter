@@ -1,16 +1,11 @@
 use super::strip_preferences::FoldState;
-use super::window_controller::{METER_WINDOW_LABEL, restore_meter_position};
+use super::window_controller::METER_WINDOW_LABEL;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
 
 pub fn restore(app: &tauri::AppHandle) -> tauri::Result<()> {
-    let state = app.state::<crate::RuntimeState>();
-    if let Some(meter) = app.get_webview_window(METER_WINDOW_LABEL) {
-        let (edge, y, monitor) = state.meter_position();
-        restore_meter_position(&meter, edge, y, monitor.as_deref())?;
-    }
-    Ok(())
+    super::display_coordinator::reconcile(app)
 }
 
 pub fn start(app: tauri::AppHandle) {

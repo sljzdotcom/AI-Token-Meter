@@ -13,13 +13,14 @@ use crate::persistence::{
 };
 use crate::platform::windows::window_controller::{
     DetailCommand, DetailState, Edge, METER_WINDOW_LABEL, configure_initial_windows,
-    current_monitor_identifier, hide_detail_window, place_meter, show_detail_window,
-    show_settings_window, snap_meter_after_drag,
+    current_monitor_identifier, hide_detail_window, show_detail_window, show_settings_window,
+    snap_meter_after_drag,
 };
 
 pub mod accounts;
 pub mod collectors;
 pub mod domain;
+pub mod localization;
 pub mod persistence;
 pub mod platform;
 pub mod security;
@@ -71,6 +72,8 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
 }
 
 pub struct RuntimeState {
+    pub(crate) meter_instances: Mutex<std::collections::BTreeMap<String, String>>,
+    pub(crate) detail_meter: Mutex<String>,
     pub(crate) usage: Arc<UsageRuntime>,
     #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) refresh_coordinator: Arc<crate::collectors::refresh::RefreshCoordinator>,
@@ -95,6 +98,8 @@ impl Default for RuntimeState {
     fn default() -> Self {
         let (settings, settings_path) = load_settings();
         Self {
+            meter_instances: Mutex::new(Default::default()),
+            detail_meter: Mutex::new(METER_WINDOW_LABEL.to_owned()),
             usage: Arc::new(load_usage_runtime()),
             refresh_coordinator: Arc::new(
                 crate::collectors::refresh::RefreshCoordinator::with_backoff_path(
@@ -206,7 +211,18 @@ fn apply_meter_monitor_id_migration(
         return false;
     }
     let mut candidate = settings.clone();
-    candidate.meter_monitor_id = Some(migrated_identifier);
+    candidate.meter_monitor_id = Some(migrated_identifier.clone());
+    if let Some(displays) = candidate.displays.as_mut() {
+        if displays.selected_id.as_deref() == Some(previous_identifier) {
+            displays.selected_id = Some(migrated_identifier.clone());
+        }
+        if let Some(placement) = displays.placements.remove(previous_identifier) {
+            displays
+                .placements
+                .entry(migrated_identifier)
+                .or_insert(placement);
+        }
+    }
     if persist(&candidate).is_err() {
         return false;
     }
@@ -284,20 +300,34 @@ pub fn provider_detail_effects(_: &UsageSnapshot) -> [ProviderDetailEffect; 2] {
 #[tauri::command]
 fn show_provider_detail(
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     state: State<'_, RuntimeState>,
     provider_id: ProviderId,
 ) -> Result<UsageSnapshot, String> {
     let snapshot = state.usage.snapshot(provider_id);
     let effects = provider_detail_effects(&snapshot);
-    let edge = state
-        .settings
+    let instances = state
+        .meter_instances
         .lock()
-        .map(|settings| edge_from_settings(settings.edge))
-        .unwrap_or(Edge::Right);
+        .map_err(|_| "Meter unavailable")?;
+    let Some(monitor_id) = instances.get(window.label()) else {
+        return Err("Meter unavailable".into());
+    };
+    let edge = edge_from_settings(
+        state
+            .app_settings_snapshot()
+            .displays
+            .unwrap_or_default()
+            .placement(monitor_id)
+            .edge,
+    );
     let mut detail_state = state
         .detail_state
         .lock()
         .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
+    // Serialize owner assignment and presentation under the same detail revision lock.
+    hide_detail_window(&app).map_err(|_| "The detail window could not be closed")?;
+    *state.detail_meter.lock().map_err(|_| "Meter unavailable")? = window.label().to_owned();
     detail_state.open_with_rollback(
         provider_id,
         || {
@@ -320,44 +350,71 @@ fn show_provider_detail(
 }
 
 #[cfg_attr(not(windows), allow(dead_code))]
-fn finish_meter_drag(app: &tauri::AppHandle) -> Result<(), String> {
+fn finish_meter_drag(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
     let meter = app
-        .get_webview_window(METER_WINDOW_LABEL)
+        .get_webview_window(label)
         .ok_or_else(|| "The meter window is unavailable".to_owned())?;
     let (edge, normalized_y) = snap_meter_after_drag(&meter)
         .map_err(|_| "The meter could not be snapped to the screen edge".to_owned())?;
     let state = app.state::<RuntimeState>();
-    if let Ok(mut settings) = state.settings.lock() {
-        settings.edge = edge_to_settings(edge);
-        settings.meter_vertical_per_mille =
-            (normalized_y * 1000.0).round().clamp(0.0, 1000.0) as u16;
-        settings.meter_monitor_id = current_monitor_identifier(&meter).ok().flatten();
-        persist_settings(state.settings_path.as_deref(), &settings)?;
+    if let Ok(mut settings) = state.settings.lock()
+        && let Some(id) = current_monitor_identifier(&meter).ok().flatten()
+    {
+        let mut candidate = settings.clone();
+        candidate.normalize_display_preferences();
+        candidate.displays.as_mut().unwrap().record_drag(
+            &id,
+            crate::platform::windows::monitor::DisplayPlacement {
+                edge: edge_to_settings(edge),
+                vertical_per_mille: (normalized_y * 1000.0).round().clamp(0.0, 1000.0) as u16,
+            },
+        );
+        persist_settings(state.settings_path.as_deref(), &candidate)?;
+        *settings = candidate;
     }
-    app.emit("meter-edge-changed", edge_to_settings(edge))
+    meter
+        .emit("meter-edge-changed", edge_to_settings(edge))
         .map_err(|_| "The meter display could not be updated".to_owned())?;
     Ok(())
 }
 
 #[tauri::command]
-fn begin_meter_drag(app: tauri::AppHandle, state: State<'_, RuntimeState>) -> Result<(), String> {
+fn begin_meter_drag(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    state: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    let instances = state
+        .meter_instances
+        .lock()
+        .map_err(|_| "Meter unavailable")?;
+    if !instances.contains_key(window.label()) {
+        return Err("Meter unavailable".into());
+    }
     let Some(session) = state.meter_drag.try_begin() else {
         return Ok(());
     };
+    drop(instances);
     let gate = Arc::clone(&state.meter_drag);
 
     #[cfg(windows)]
     std::thread::spawn(move || {
         let released = crate::platform::windows::meter_drag::wait_for_primary_button_release();
         if released && gate.owns(session) {
-            let _ = finish_meter_drag(&app);
+            let _ = finish_meter_drag(&app, window.label());
         }
         let _ = gate.finish(session);
+        let _ = crate::platform::windows::display_coordinator::reconcile(&app);
+        let _ = app.emit(
+            "app-settings-changed",
+            app.state::<RuntimeState>().app_settings_snapshot(),
+        );
     });
 
     #[cfg(not(windows))]
     {
         let _ = app;
+        let _ = window;
         let _ = gate.finish(session);
     }
     Ok(())
@@ -369,34 +426,116 @@ fn set_meter_edge(
     state: State<'_, RuntimeState>,
     edge: MeterEdge,
 ) -> Result<(), String> {
-    let meter = app
-        .get_webview_window(METER_WINDOW_LABEL)
-        .ok_or_else(|| "The meter window is unavailable".to_owned())?;
-    let normalized_y = f64::from(
-        state
-            .app_settings_snapshot()
-            .meter_vertical_per_mille
-            .min(1000),
-    ) / 1000.0;
-    place_meter(&meter, edge_from_settings(edge), normalized_y)
-        .map_err(|_| "The meter could not be moved".to_owned())?;
+    let ids: Vec<_> = state
+        .meter_instances
+        .lock()
+        .map_err(|_| "Meter unavailable")?
+        .values()
+        .cloned()
+        .collect();
     let mut settings = state
         .settings
         .lock()
         .map_err(|_| "Settings are temporarily unavailable".to_owned())?;
-    settings.edge = edge;
-    settings.meter_monitor_id = current_monitor_identifier(&meter).ok().flatten();
-    persist_settings(state.settings_path.as_deref(), &settings)?;
-    app.emit("meter-edge-changed", edge)
+    let mut candidate = settings.clone();
+    candidate.normalize_display_preferences();
+    let displays = candidate.displays.as_mut().unwrap();
+    for id in ids {
+        displays.record_edge(&id, edge);
+    }
+    candidate.edge = edge;
+    persist_settings(state.settings_path.as_deref(), &candidate)?;
+    *settings = candidate.clone();
+    drop(settings);
+    crate::platform::windows::display_coordinator::reconcile(&app)
+        .map_err(|_| "The meter could not be moved")?;
+    app.emit("app-settings-changed", candidate)
         .map_err(|_| "The meter display could not be updated".to_owned())
 }
 
 #[tauri::command]
-fn app_settings(state: State<'_, RuntimeState>) -> AppSettings {
-    state
+fn available_displays(
+    app: tauri::AppHandle,
+) -> Result<Vec<crate::platform::windows::display_coordinator::DisplayInfo>, String> {
+    crate::platform::windows::display_coordinator::online(&app)
+        .map_err(|_| "Displays unavailable".into())
+}
+
+#[tauri::command]
+async fn set_display_mode(
+    app: tauri::AppHandle,
+    mode: crate::platform::windows::monitor::DisplayMode,
+    selected_id: Option<String>,
+) -> Result<(), String> {
+    let state = app.state::<RuntimeState>();
+    state.meter_drag.cancel();
+    let candidate = {
+        let mut settings = state.settings.lock().map_err(|_| "Settings unavailable")?;
+        let mut candidate = settings.clone();
+        candidate.normalize_display_preferences();
+        let displays = candidate.displays.as_mut().unwrap();
+        displays.mode = mode;
+        if let Some(id) = selected_id {
+            if id.len() > 512 || id.trim().is_empty() {
+                return Err("Invalid display".into());
+            }
+            displays.selected_id = Some(id);
+        }
+        persist_settings(state.settings_path.as_deref(), &candidate)?;
+        *settings = candidate.clone();
+        candidate
+    };
+    crate::platform::windows::display_coordinator::reconcile(&app)
+        .map_err(|_| "The meter could not be moved")?;
+    app.emit("app-settings-changed", candidate)
+        .map_err(|_| "Settings update failed".into())
+}
+
+#[tauri::command]
+fn app_settings(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    state: State<'_, RuntimeState>,
+) -> AppSettings {
+    let mut settings = state
         .settings
         .lock()
-        .map_or_else(|_| AppSettings::default(), |settings| settings.clone())
+        .map_or_else(|_| AppSettings::default(), |settings| settings.clone());
+    if window.label().starts_with("meter") {
+        settings.edge = crate::platform::windows::display_coordinator::placement_for_window(
+            &app,
+            window.label(),
+        )
+        .edge;
+    }
+    settings
+}
+
+#[tauri::command]
+fn set_locale(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+    locale: crate::persistence::Locale,
+) -> Result<(), String> {
+    let candidate = {
+        let mut settings = state.settings.lock().map_err(|_| "Settings unavailable")?;
+        let mut candidate = settings.clone();
+        candidate.locale = locale;
+        persist_settings(state.settings_path.as_deref(), &candidate)?;
+        *settings = candidate.clone();
+        candidate
+    };
+    for (label, title) in [
+        ("settings", "AI Token Meter Settings"),
+        ("detail", "AI Token Meter Details"),
+        ("deepseek-history", "DeepSeek Usage · AI Token Meter"),
+    ] {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.set_title(crate::localization::text(locale, title));
+        }
+    }
+    app.emit("app-settings-changed", candidate)
+        .map_err(|_| "Settings update failed".to_owned())
 }
 
 #[tauri::command]
@@ -815,6 +954,7 @@ async fn replace_deepseek_api_key(
             .map_or(std::ptr::null_mut(), |handle| handle.0 as _);
         let candidate = crate::platform::windows::credential_prompt::prompt_deepseek_api_key(
             parent,
+            state.app_settings_snapshot().locale,
         )
         .map_err(|error| match error {
             crate::platform::windows::credential_prompt::CredentialPromptError::Cancelled => {
@@ -898,6 +1038,7 @@ fn load_settings() -> (AppSettings, Option<PathBuf>) {
             .flatten()
             .unwrap_or_default();
         settings.strip_preferences.normalize();
+        settings.normalize_display_preferences();
         return (settings, Some(paths.settings_file));
     }
     (AppSettings::default(), None)
@@ -987,7 +1128,10 @@ fn strip_folded(state: State<'_, RuntimeState>) -> bool {
 }
 
 #[tauri::command]
-async fn strip_context_menu(app: tauri::AppHandle) -> Result<(), String> {
+async fn strip_context_menu(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<(), String> {
     use std::sync::atomic::Ordering;
     use tauri::menu::{ContextMenu, MenuBuilder, MenuItemBuilder};
     let state = app.state::<RuntimeState>();
@@ -996,21 +1140,31 @@ async fn strip_context_menu(app: tauri::AppHandle) -> Result<(), String> {
         .snapshots()
         .iter()
         .any(|s| s.status == crate::domain::UsageStatus::Refreshing);
-    let refresh = MenuItemBuilder::with_id("strip-refresh", "Refresh now")
-        .enabled(!refreshing)
-        .build(&app)
-        .map_err(|_| "Menu unavailable")?;
+    let locale = state.app_settings_snapshot().locale;
+    let refresh = MenuItemBuilder::with_id(
+        "strip-refresh",
+        crate::localization::text(locale, "Refresh now"),
+    )
+    .enabled(!refreshing)
+    .build(&app)
+    .map_err(|_| "Menu unavailable")?;
     let menu = MenuBuilder::new(&app)
         .item(&refresh)
-        .text("strip-hide", "Hide for 1 hour")
+        .text(
+            "strip-hide",
+            crate::localization::text(locale, "Hide for 1 hour"),
+        )
         .separator()
-        .text("strip-settings", "Settings…")
-        .text("strip-quit", "Quit AI Token Meter")
+        .text(
+            "strip-settings",
+            crate::localization::text(locale, "Settings…"),
+        )
+        .text(
+            "strip-quit",
+            crate::localization::text(locale, "Quit AI Token Meter"),
+        )
         .build()
         .map_err(|_| "Menu unavailable")?;
-    let window = app
-        .get_webview_window(METER_WINDOW_LABEL)
-        .ok_or("Meter unavailable")?;
     state.strip_menu.store(true, Ordering::Release);
     let _ = app.emit("strip-context-menu", true);
     let result = menu
@@ -1034,7 +1188,7 @@ pub fn run() {
                 value.hidden_until = Some(time::OffsetDateTime::now_utc().unix_timestamp() + 3600);
                 let _ = set_strip_preferences(app.clone(), state, value);
                 let _ = hide_detail_window(app);
-                if let Some(meter) = app.get_webview_window(METER_WINDOW_LABEL) {
+                for meter in crate::platform::windows::display_coordinator::meter_windows(app) {
                     let _ = meter.hide();
                 }
             }
@@ -1048,6 +1202,9 @@ pub fn run() {
         .manage(RuntimeState::default())
         .invoke_handler(tauri::generate_handler![
             set_strip_preferences,
+            available_displays,
+            set_display_mode,
+            set_locale,
             strip_interaction,
             strip_folded,
             strip_context_menu,
@@ -1095,6 +1252,16 @@ pub fn run() {
                 configure_initial_windows(app.handle(), edge, normalized_y, monitor_id.as_deref())?;
             app.state::<RuntimeState>()
                 .migrate_meter_monitor_id(monitor_id.as_deref(), migrated_monitor_id);
+            crate::platform::windows::display_coordinator::reconcile(app.handle())?;
+            let locale = app.state::<RuntimeState>().app_settings_snapshot().locale;
+            for (label, title) in [
+                ("settings", "AI Token Meter Settings"),
+                ("detail", "AI Token Meter Details"),
+            ] {
+                if let Some(window) = app.get_webview_window(label) {
+                    window.set_title(crate::localization::text(locale, title))?;
+                }
+            }
             crate::platform::windows::tray::install(app.handle())?;
             crate::platform::windows::strip_runtime::start(app.handle().clone());
             #[cfg(windows)]

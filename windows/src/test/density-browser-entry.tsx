@@ -8,6 +8,8 @@ import { SettingsWindow } from "../settings/SettingsWindow"
 import type { UsageSnapshot } from "../state/usage"
 import { defaultStripPreferences } from "../state/stripPreferences"
 import "../styles.css"
+import { setLocale } from "../localization"
+import { displayFontStack } from "../displayFonts"
 
 const displayStyle = {
   "--display-font": "Antonio, 'Segoe UI Variable', sans-serif",
@@ -86,4 +88,35 @@ const report = {
   optionColor: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").color,
   optionBackground: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").backgroundColor,
 }
-document.getElementById("density-report")!.textContent = JSON.stringify(report)
+const detailSamples: Array<{scenario: string; text: string; size: number; baseline: number}> = []
+for (const locale of ["en", "zh-CN"] as const) {
+  flushSync(() => setLocale(locale))
+  for (const font of ["Antonio", "Microsoft YaHei", "SimHei", "KaiTi"]) {
+    for (const providerId of ["claude", "codex", "deepseek"] as const) {
+      for (const status of ["fresh", "unavailable"] as const) {
+        const host = document.createElement("div")
+        host.style.cssText = "position:absolute;left:-10000px;width:440px;height:760px"
+        host.style.setProperty("--display-font", displayFontStack(font))
+        document.body.append(host)
+        const sampleRoot = createRoot(host)
+        const value: UsageSnapshot = {...snapshot, providerId, displayName: providerId, status,
+          usedRatio: status === "fresh" ? .23 : null, primaryMetric: status === "fresh" ? snapshot.primaryMetric : null,
+          localActivity: providerId === "claude" ? {periodDays:30,sessions:12,tokens:34567,activeDays:7} : null,
+          resetCredits: providerId === "codex" ? [{kind:"fullUsageReset",count:1,expiresAt:"2026-10-01T00:00:00Z"}] : [],
+          dailyHistory: providerId === "deepseek" && status === "fresh" ? [{date:"2026-09-01",costCny:1.25,tokens:3000,requests:7}] : []}
+        flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={() => {}} onPointerLeave={() => {}} onInteractionStart={() => {}} onInteractionEnd={() => {}} onDeepSeekHistorySync={() => {}} deepseekHistoryStatus="failed" />))
+        for (const node of host.querySelectorAll<HTMLElement>(".provider-detail, .provider-detail *")) {
+          const text = [...node.childNodes].filter(child => child.nodeType === Node.TEXT_NODE).map(child => child.textContent?.trim()).filter(Boolean).join(" ")
+          if (!text) continue
+          const baseline = node.matches(".provider-detail__headline") ? 24 : node.matches(".provider-detail__identity strong") ? 20
+            : node.matches(".metric-card strong, .reset-credit strong, .activity-grid strong, .history-summary strong") ? 18
+            : node.matches("h2, footer") ? 13 : node.matches("small") ? 14 * 5 / 6 : 14
+          detailSamples.push({scenario:`${locale}/${font}/${providerId}/${status}`, text, size:parseFloat(getComputedStyle(node).fontSize), baseline})
+        }
+        flushSync(() => sampleRoot.unmount())
+        host.remove()
+      }
+    }
+  }
+}
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples})

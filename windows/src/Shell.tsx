@@ -13,13 +13,18 @@ import {
   type ProviderCliSettings,
   type ServiceAccountStatus,
   type UpdateState,
+  type DisplayInfo, type DisplayPreferences,
 } from "./settings/SettingsWindow"
 import type { ProviderId, UsageSnapshot } from "./state/usage"
 import { TauriUsageBridge } from "./state/usageBridge"
 import { useUsageSnapshots } from "./state/useUsageSnapshots"
 import { defaultStripPreferences, type StripPreferences } from "./state/stripPreferences"
+import { setLocale, type Locale } from "./localization"
+import { displayFontStack } from "./displayFonts"
 
 type RuntimeSettings = {
+  locale: Locale
+  displays: DisplayPreferences
   stripPreferences: StripPreferences
   displayFont: string
   edge: "left" | "right"
@@ -33,8 +38,10 @@ type RuntimeSettings = {
 }
 
 const defaultSettings: RuntimeSettings = {
+  locale: "en",
+  displays: {version: 1, mode: "primary", selectedId: null, placements: {}},
   stripPreferences: defaultStripPreferences,
-  displayFont: "Antonio",
+  displayFont: "Microsoft YaHei",
   edge: "right",
   detailAutoHideSeconds: 8,
   refreshIntervalSeconds: 300,
@@ -56,7 +63,7 @@ type DeepSeekHistoryStatusSnapshot = {
 
 export function Shell() {
   const label = currentWindowLabel()
-  if (label === "meter") return <MeterSurface />
+  if (label === "meter" || label.startsWith("meter-")) return <MeterSurface />
   if (label === "detail") return <DetailSurface />
   if (label === "settings") return <SettingsSurface />
   return <App />
@@ -139,8 +146,7 @@ function MeterSurface() {
             void invoke("close_provider_detail")
             return
           }
-          setActiveProvider(providerId)
-          void invoke("show_provider_detail", { providerId }).catch(() => setActiveProvider(null))
+          void invoke("show_provider_detail", { providerId }).then(() => setActiveProvider(providerId)).catch(() => setActiveProvider(null))
         }}
         snapshots={snapshots}
       />
@@ -351,6 +357,15 @@ function SettingsSurface() {
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
   const [serviceMessage, setServiceMessage] = useState<string | null>(null)
   const [wslDistributions, setWslDistributions] = useState<string[]>([])
+  const [availableDisplays, setAvailableDisplays] = useState<DisplayInfo[]>([])
+  useEffect(() => {
+    let disposed = false
+    let changed = false
+    let stop: (() => void) | undefined
+    void listen<DisplayInfo[]>("displays-changed", event => { changed = true; if (!disposed) setAvailableDisplays(event.payload) }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(() => {})
+    void invoke<DisplayInfo[]>("available_displays").then(value => { if (!disposed && !changed) setAvailableDisplays(value ?? []) }).catch(() => {})
+    return () => { disposed = true; stop?.() }
+  }, [])
   const [requestedTab, setRequestedTab] = useState<"Appearance" | "Monitoring" | "Services" | "About">()
   useEffect(() => {
     let disposed = false
@@ -417,6 +432,10 @@ function SettingsSurface() {
   }, [])
   return (
     <SettingsWindow
+      displays={settings.displays}
+      availableDisplays={availableDisplays}
+      onDisplayModeChange={(mode, selectedId) => { void invoke("set_display_mode", {mode, selectedId}).catch(() => setServiceMessage("Floating strip settings could not be saved.")) }}
+      onLocaleChange={locale => { void invoke("set_locale", {locale}).catch(() => setServiceMessage("Floating strip settings could not be saved.")) }}
       stripPreferences={settings.stripPreferences}
       onStripPreferencesChange={value => { void invoke("set_strip_preferences", { value }).catch(() => setServiceMessage("Floating strip settings could not be saved.")) }}
       detailAutoHideSeconds={settings.detailAutoHideSeconds}
@@ -499,40 +518,42 @@ function useRuntimeSettings() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings)
   useEffect(() => {
     let disposed = false
+    let revision = 0
+    const observed: Partial<RuntimeSettings> = {}
     const stops: Array<() => void> = []
     invoke<RuntimeSettings>("app_settings").then((value) => {
-      if (!disposed) setSettings({ ...defaultSettings, ...value })
+      if (!disposed && revision === 0) setSettings({ ...defaultSettings, ...value, ...observed })
     }).catch(() => {})
     const subscriptions = [
       listen<"left" | "right">("meter-edge-changed", (event) => {
+        observed.edge = event.payload
         if (!disposed) setSettings((current) => ({ ...current, edge: event.payload }))
       }),
       listen<string>("display-font-changed", (event) => {
+        observed.displayFont = event.payload
         if (!disposed) setSettings((current) => ({ ...current, displayFont: event.payload }))
       }),
       listen<number>("detail-auto-hide-changed", (event) => {
+        observed.detailAutoHideSeconds = event.payload
         if (!disposed) setSettings((current) => ({ ...current, detailAutoHideSeconds: event.payload }))
       }),
       listen<RuntimeSettings>("app-settings-changed", (event) => {
-        if (!disposed) setSettings({ ...defaultSettings, ...event.payload })
+        revision++
+        if (!disposed) setSettings(current => ({ ...defaultSettings, ...event.payload, edge: currentWindowLabel().startsWith("meter") ? current.edge : event.payload.edge }))
       }),
     ]
-    void Promise.all(subscriptions).then((unlisten) => {
-      if (disposed) unlisten.forEach((stop) => stop())
-      else stops.push(...unlisten)
-    }).catch(() => {})
+    for (const subscription of subscriptions) void subscription.then(stop => { if (disposed) stop(); else stops.push(stop) }).catch(() => {})
     return () => {
       disposed = true
       stops.forEach((stop) => stop())
     }
   }, [])
+  useEffect(() => { setLocale(settings.locale) }, [settings.locale])
   return settings
 }
 
 function displayStyle(font: string) {
-  const stack = font === "System Default"
-    ? "'Segoe UI Variable', 'Segoe UI', sans-serif"
-    : `'${font.replaceAll("'", "")}', 'Segoe UI Variable', sans-serif`
+  const stack = displayFontStack(font)
   return { "--display-font": stack } as CSSProperties
 }
 

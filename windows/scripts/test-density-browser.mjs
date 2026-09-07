@@ -20,7 +20,7 @@ try {
   const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`)
   const report = densityReport(output)
   assertDensity(report)
-  console.log(`Browser density styles verified with ${browser.label}:`, JSON.stringify(report))
+  console.log(`Browser density styles verified with ${browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 } finally {
   await stopVite(vite.process)
 }
@@ -105,12 +105,16 @@ function densityReport(output) {
 }
 
 function assertDensity(report) {
+  if (report.detailSamples.length < 300) throw new Error("Missing full detail typography samples")
+  for (const sample of report.detailSamples) {
+    if (Math.abs(sample.size - (sample.baseline - 1)) > .001) throw new Error(`${sample.scenario} ${sample.text}: expected ${sample.baseline - 1}px, received ${sample.size}px`)
+  }
   const expected = {
-    detailBody: "14px",
-    identityTitle: "20px",
-    headline: "24px",
-    sectionTitle: "13px",
-    cardNumber: "18px",
+    detailBody: "13px",
+    identityTitle: "19px",
+    headline: "23px",
+    sectionTitle: "12px",
+    cardNumber: "17px",
     settingsBase: "14px",
     settingsTitle: "20px",
     controlFont: "13px",
