@@ -4,6 +4,21 @@ import Testing
 
 @Suite("PTY command runner", .serialized)
 struct PTYCommandRunnerTests {
+    @Test("Parent-exit diagnostics retain only recognized numeric fixture metadata")
+    func parentExitDiagnosticsSanitizeMetadata() {
+        let trace = """
+        python_started|100.25|123
+        parent_exit_requested|100.5|123
+        private-command-and-account-output|100.6|123
+        child_detached|nan|456
+        child_detached|100.7|not-a-pid
+        """
+        let phases = ParentExitDiagnostics.sanitizedPhases(trace, startedAt: 100)
+        #expect(phases == ["python_started at=0.250s pid=123", "parent_exit_requested at=0.500s pid=123"])
+        #expect(!phases.joined().contains("private-command-and-account-output"))
+        #expect(ParentExitDiagnostics.sanitizedPhases("", startedAt: 100).isEmpty)
+    }
+
     @Test("Fallback process waits use user initiated quality of service")
     func fallbackProcessWaitQoS() {
         #expect(ProcessTerminationWaiter.fallbackWaitQoSClass == .userInitiated)
@@ -131,18 +146,39 @@ struct PTYCommandRunnerTests {
 
     @Test("A parent exit cannot leave the runner waiting on a descendant PTY")
     func parentExitClosesReader() async throws {
-        let runner = PTYCommandRunner()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ai-meter-parent-exit-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
         let startedAt = Date()
+        let diagnostics = ParentExitDiagnostics(
+            traceURL: directory.appendingPathComponent("phases"), startedAt: startedAt)
+        let runner = PTYCommandRunner { diagnostics.recordRegistration() }
 
-        let result = try await runner.run(CommandRequest(
-            executableURL: parentExitExecutable,
-            inputLines: [],
-            timeout: 2
-        ))
+        do {
+            let result = try await runner.run(CommandRequest(
+                executableURL: parentExitExecutable,
+                arguments: [diagnostics.traceURL.path],
+                inputLines: [],
+                timeout: 2
+            ))
 
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("parent-exited"))
-        #expect(Date().timeIntervalSince(startedAt) < 3)
+            let elapsed = Date().timeIntervalSince(startedAt)
+            let phases = diagnostics.phases()
+            if result.exitCode != 0 || !result.output.contains("parent-exited") || elapsed >= 3 {
+                print(diagnostics.summary(outcome: "returned exit=\(result.exitCode) output_bytes=\(result.output.utf8.count)"))
+            }
+            #expect(result.exitCode == 0)
+            #expect(result.output.contains("parent-exited"))
+            #expect(elapsed < 3)
+            // Verify the diagnostic path runs, without making child scheduling a new deadline.
+            #expect(phases.contains { $0.hasPrefix("python_started ") })
+            #expect(phases.contains { $0.hasPrefix("parent_exit_requested ") })
+        } catch {
+            let outcome = error as? UsageCollectionError == .timedOut ? "timedOut" : "other_error"
+            print(diagnostics.summary(outcome: outcome))
+            throw error
+        }
     }
 
     @Test("Captures terminal output that arrives shortly after the parent exits")
@@ -201,5 +237,52 @@ struct PTYCommandRunnerTests {
 
     private var delayedTailExecutable: URL {
         Bundle.module.url(forResource: "fake-delayed-tail", withExtension: "sh")!
+    }
+}
+
+/// Test-only metadata: no command text, environment, paths, or captured CLI output.
+private final class ParentExitDiagnostics: @unchecked Sendable {
+    let traceURL: URL
+    private let startedAt: Date
+    private let monotonicStart = ProcessInfo.processInfo.systemUptime
+    private let lock = NSLock()
+    private var registrationElapsed: TimeInterval?
+
+    init(traceURL: URL, startedAt: Date) {
+        self.traceURL = traceURL
+        self.startedAt = startedAt
+    }
+
+    func recordRegistration() {
+        lock.withLock { registrationElapsed = ProcessInfo.processInfo.systemUptime - monotonicStart }
+    }
+
+    func phases() -> [String] {
+        let trace = (try? String(contentsOf: traceURL, encoding: .utf8)) ?? ""
+        return Self.sanitizedPhases(trace, startedAt: startedAt.timeIntervalSince1970)
+    }
+
+    func summary(outcome: String) -> String {
+        let registration = lock.withLock { registrationElapsed.map { String(format: "%.3fs", $0) } ?? "not_observed" }
+        let elapsed = String(format: "%.3fs", ProcessInfo.processInfo.systemUptime - monotonicStart)
+        // Fixture phase offsets use wall time for cross-process comparison; the runner
+        // duration and registration offset use a monotonic clock to expose clock jumps.
+        return "PTY parent-exit diagnostics: deadline=2.000s outcome=\(outcome) "
+            + "runner_elapsed=\(elapsed) before_registration=\(registration) "
+            + "fixture_wall_phases=[\(phases().joined(separator: "; "))]"
+    }
+
+    static func sanitizedPhases(_ trace: String, startedAt: TimeInterval) -> [String] {
+        let allowed = Set(["python_started", "parent_output_flushed", "parent_exit_requested",
+                           "child_started", "child_detached"])
+        return trace.split(separator: "\n").prefix(32).compactMap { line in
+            let fields = line.split(separator: "|", omittingEmptySubsequences: false)
+            guard fields.count == 3, allowed.contains(String(fields[0])),
+                  let timestamp = Double(fields[1]), timestamp.isFinite,
+                  let pid = Int32(fields[2]), pid > 0 else { return nil }
+            let elapsed = timestamp - startedAt
+            guard elapsed.isFinite else { return nil }
+            return "\(fields[0]) at=\(String(format: "%.3f", elapsed))s pid=\(pid)"
+        }
     }
 }
