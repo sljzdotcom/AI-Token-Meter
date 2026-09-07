@@ -2,6 +2,18 @@ import { useSyncExternalStore } from "react"
 
 export type Locale = "en" | "zh-CN"
 const zh = {
+  "The CLI could not be checked. Choose Check Status or review the installation instructions.": "无法检查 CLI。请检查状态或查看安装说明。",
+  "Install CLI": "安装 CLI", "Waiting for Terminal…": "等待终端…",
+  "Downloads and runs the official installer in Terminal.": "将在终端下载并运行官方安装器。",
+  "Official installation instructions": "官方安装说明",
+  "The installation guide could not be opened.": "无法打开安装说明。",
+  "Use the official instructions for WSL or correct the custom CLI path, then choose Check Status.": "请按官方说明在 WSL 中安装，或修正自定义 CLI 路径，然后检查状态。",
+  "Complete the official installation in Terminal. Status will update automatically.": "请在终端完成官方安装，状态将自动更新。",
+  "Complete sign-in in Terminal. Status will update automatically.": "请在终端完成登录，状态将自动更新。",
+  "CLI detected. You can now check the account or sign in.": "已检测到 CLI，可以检查账户或登录。",
+  "Account connected.": "账户已连接。",
+  "The operation is not confirmed. Finish in Terminal, then choose Check Status or retry.": "尚未确认操作完成。请在终端完成后检查状态或重试。",
+  "The terminal could not be opened. Choose Check Status or retry.": "无法打开终端。请检查状态或重试。",
   "5h limit": "5 小时额度", "Usage limit": "用量额度", "Balance baseline": "余额基准", "{minutes}m limit": "{minutes} 分钟额度",
   "Windows Credential Manager": "Windows 凭据管理器", "Connected account": "已连接账户", "Configured provider": "已配置服务", "ChatGPT account": "ChatGPT 账户", "API Key account": "API 密钥账户", "OAuth account": "OAuth 账户", "Claude Code account": "Claude Code 账户",
   "Microsoft YaHei": "微软雅黑", "SimHei": "黑体", "KaiTi": "楷体",

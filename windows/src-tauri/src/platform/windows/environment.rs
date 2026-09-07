@@ -1,5 +1,25 @@
 use std::path::PathBuf;
 
+pub fn official_installation_paths(
+    profile: Option<&std::path::Path>,
+    local_app_data: Option<&std::path::Path>,
+) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(profile) = profile {
+        paths.push(profile.join(".local").join("bin"));
+    }
+    if let Some(local) = local_app_data {
+        paths.push(
+            local
+                .join("Programs")
+                .join("OpenAI")
+                .join("Codex")
+                .join("bin"),
+        );
+    }
+    paths
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DiscoveryInputs {
     pub custom_path: Option<PathBuf>,
@@ -27,7 +47,8 @@ impl DiscoveryInputs {
         let app_data = std::env::var_os("APPDATA").map(PathBuf::from);
         let local_app_data = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
 
-        let mut conventional_paths = Vec::new();
+        let mut conventional_paths =
+            official_installation_paths(user_profile.as_deref(), local_app_data.as_deref());
         if let Some(path) = app_data.as_ref() {
             conventional_paths.push(path.join("npm"));
         }

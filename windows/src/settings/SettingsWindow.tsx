@@ -4,6 +4,8 @@ import { t, useLocale, setLocale, type Locale } from "../localization"
 import { displayFonts, fontAvailable } from "../displayFonts"
 import type { ProviderId } from "../state/usage"
 import { defaultStripPreferences, type StripPreferences } from "../state/stripPreferences"
+import { serviceAction } from "./cliOnboarding"
+import { SettingsTabIcon } from "./SettingsTabIcon"
 
 const tabs = ["Appearance", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
@@ -30,6 +32,9 @@ type SettingsWindowProps = {
   serviceStatuses?: ServiceAccountStatus[]
   onCheckServiceStatus?: (providerId: ProviderId) => void
   onBeginServiceSignIn?: (providerId: "claude" | "codex") => void
+  onBeginServiceInstallation?: (providerId: "claude" | "codex") => void
+  onOpenInstallationGuide?: (providerId: "claude" | "codex") => void
+  busyServices?: ProviderId[]
   onReplaceDeepSeekKey?: () => Promise<boolean> | boolean | void
   serviceMessage?: string | null
   cliSettings?: Record<"claude" | "codex", ProviderCliSettings>
@@ -100,6 +105,9 @@ export function SettingsWindow({
   serviceStatuses = [],
   onCheckServiceStatus = () => {},
   onBeginServiceSignIn = () => {},
+  onBeginServiceInstallation = () => {},
+  onOpenInstallationGuide = () => {},
+  busyServices = [],
   onReplaceDeepSeekKey = () => {},
   serviceMessage,
   cliSettings = { claude: defaultCliSettings, codex: defaultCliSettings },
@@ -134,9 +142,19 @@ export function SettingsWindow({
             aria-selected={activeTab === tab}
             key={tab}
             onClick={() => setActiveTab(tab)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+              event.preventDefault()
+              const offset = event.key === "ArrowRight" ? 1 : -1
+              const nextTab = tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length]
+              setActiveTab(nextTab)
+              event.currentTarget.parentElement
+                ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[tabs.indexOf(nextTab)]
+                ?.focus()
+            }}
             role="tab"
             type="button"
-          >{t(tab)}</button>
+          ><SettingsTabIcon tab={tab} /><span>{t(tab)}</span></button>
         ))}
       </nav>
       <div className="settings-content">
@@ -274,26 +292,32 @@ export function SettingsWindow({
             {(["claude", "codex"] as const).map((providerId) => {
               const name = providerId === "claude" ? "Claude Code" : "OpenAI Codex"
               const status = statusFor(serviceStatuses, providerId)
+              const action = serviceAction(status.connectionState, busyServices.includes(providerId))
               return (
                 <Service key={providerId} name={name} status={status}>
-                  <CliRuntimeControls
+                  <fieldset disabled={action.disabled} style={{border: 0, margin: 0, padding: 0}}><CliRuntimeControls
                     name={name}
                     onChange={(value) => onCliSettingsChange(providerId, value)}
                     value={cliSettings[providerId]}
                     wslDistributions={wslDistributions}
-                  />
+                  /></fieldset>
                   <button
-                    aria-label={`${t(status.connectionState === "connected" ? "Sign in again to" : "Sign in to")} ${name}`}
-                    disabled={status.connectionState === "notInstalled" || status.connectionState === "checking"}
-                    onClick={() => onBeginServiceSignIn(providerId)}
+                    aria-label={status.connectionState === "connected" ? `${t("Sign in again to")} ${name}` : `${t(action.title)} ${name}`}
+                    style={action.attention ? { background: "#c45c09", color: "white", borderColor: "#c45c09" } : undefined}
+                    disabled={action.disabled}
+                    onClick={() => status.connectionState === "notInstalled" ? onBeginServiceInstallation(providerId) : status.connectionState === "unavailable" ? onCheckServiceStatus(providerId) : onBeginServiceSignIn(providerId)}
                     type="button"
-                  >{t(status.connectionState === "connected" ? "Sign in again" : "Sign in")}</button>
+                  >{t(action.title)}</button>
                   <button
                     aria-label={t("Check {name} status", {name})}
-                    disabled={status.connectionState === "checking"}
+                    disabled={action.disabled}
                     onClick={() => onCheckServiceStatus(providerId)}
                     type="button"
                   >{t("Check Status")}</button>
+                  {status.connectionState === "notInstalled" || status.connectionState === "unavailable" ? <>
+                    <small>{t(cliSettings[providerId].mode === "wsl" || cliSettings[providerId].customPath ? "Use the official instructions for WSL or correct the custom CLI path, then choose Check Status." : status.connectionState === "unavailable" ? "The CLI could not be checked. Choose Check Status or review the installation instructions." : "Downloads and runs the official installer in Terminal.")}</small>
+                    <button type="button" onClick={() => onOpenInstallationGuide(providerId)}>{t("Official installation instructions")}</button>
+                  </> : null}
                 </Service>
               )
             })}

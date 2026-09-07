@@ -79,6 +79,27 @@ impl ExecutableLocator {
         Self { inputs }
     }
 
+    pub fn has_native_candidates_or_incomplete_search(&self, provider: CliProvider) -> bool {
+        if [
+            &self.inputs.process_paths,
+            &self.inputs.user_registry_paths,
+            &self.inputs.system_registry_paths,
+            &self.inputs.conventional_paths,
+            &self.inputs.desktop_application_paths,
+        ]
+        .iter()
+        .any(|paths| paths.len() > MAX_DIRECTORIES_PER_SOURCE)
+        {
+            return true;
+        }
+        self.paths_in_priority_order(provider)
+            .into_iter()
+            .any(|(path, _)| match fs::symlink_metadata(path) {
+                Ok(_) => true,
+                Err(error) => error.kind() != std::io::ErrorKind::NotFound,
+            })
+    }
+
     pub fn locate<F>(
         &self,
         provider: CliProvider,

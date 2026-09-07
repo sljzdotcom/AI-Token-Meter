@@ -629,6 +629,17 @@ button {
   padding: var(--settings-content-padding, 24px);
 }
 
+.settings-window [role="tab"] {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.settings-window [role="tab"] svg {
+  flex: 0 0 16px;
+}
+
 .setting-row,
 .service-list article,
 .about-card {

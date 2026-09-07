@@ -6,9 +6,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **418 个测试、79 个测试组全部通过**。默认完整验证会先运行 405 项普通测试，再从独立测试进程运行 13 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **429 个测试、81 个测试组全部通过**。默认完整验证会先运行 416 项普通测试，再从独立测试进程运行 13 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。Unreleased Windows 本地为前端 57 项、密度进程生命周期 21 项、宿主 Rust 197 项、计算样式 632 项；[本轮日志](2026-09-07-multidisplay-and-windows-localization.md)记录精确提交和 Windows-only、ConPTY、Tauri、NSIS 门禁。0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
+以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。Unreleased Windows 本地为前端 75 项、密度进程生命周期 21 项、宿主 Rust 206 项、计算样式 632 项；[本轮日志](2026-09-07-cli-onboarding.md)记录精确提交和 Windows-only、ConPTY、Tauri、NSIS 门禁。0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
 
 普通测试覆盖：
 
@@ -41,7 +41,19 @@ bash scripts/test.sh
 - Sparkle 版本/校验和锁定、Info.plist 手动检查策略、framework/helper 嵌入、`@rpath`、嵌套签名与发布脚本安全合同；
 - appcast enclosure 的版本、build、长度与 EdDSA 签名验证，以及篡改归档必须被拒绝。
 
-## 多显示器回归（Unreleased）
+## CLI 安装与登录引导回归（下一版）
+
+关联 [CLI 引导规格](../design/specifications/2026-09-07-cli-onboarding-design.md)。测试只使用注入的账户状态、临时 fixture 目录和本地假下载器；不得实际安装、重装 CLI，或调用真实登录/退出流程。
+
+- 状态：未安装→安装中→重新发现→待登录→已连接；无法检查保持未知，不显示成未安装；账号仍可见。
+- 操作：同一服务重复点击、迟到的检查结果、超时后重试、打开终端失败，均不留下永久禁用或重复终端；安装发现已有 CLI 后不重装。
+- 脚本：下载失败不能执行残缺文件；成功执行使用匹配的解释器；失败退出可见、临时文件清理、特殊字符路径安全；前端不能提供任意安装 URL 或命令。
+- Windows：官方独立安装目录发现；显式 WSL/自定义路径缺失不会改装 Native；PowerShell 实际 fixture 执行由 Windows 原生 CI 覆盖，不用 macOS 字符串断言冒充。
+- Windows 页签：英/中四项均图标+名称，装饰图标不重复朗读，点击与键盘入口保留；16px currentColor 和系统字体不改变原密度。
+
+真实安装流程只在独立测试设备、用户明确选择后人工验收，确认终端可见、可取消、可重查且完成后更新账号卡。自动化 fixture/CI 不等于真实网络安装或浏览器 MFA 全流程已验收。当前结果和版本状态见[开发记录](2026-09-07-cli-onboarding.md)。
+
+## 多显示器回归（0.4.0 起）
 
 普通测试覆盖模式解析、断开回退、重连、迁移、每屏位置、指针选屏和详情所有权。额外 AppKit 回退/固定边缘恢复测试需要 WindowServer 会话：
 

@@ -6,6 +6,82 @@ import Testing
 @Suite("Service accounts in Settings", .serialized)
 @MainActor
 struct ServiceAccountSettingsTests {
+    @Test("Missing CLI invites installation, unavailable invites status check and connected stays neutral")
+    func actionStates() async {
+        for state in [ServiceAccountConnectionState.notInstalled, .signInRequired, .connected, .unavailable] {
+            let model = makeModel(accountRefresh: { _ in [.init(provider: .claude, connectionState: state)] })
+            await model.refreshServiceAccounts()
+            let action = model.serviceAction(for: .claude)
+            #expect(action.needsAttention == [.notInstalled, .signInRequired].contains(state))
+            #expect(action.title == (state == .notInstalled ? "Install CLI" : state == .connected ? "Sign in again" : state == .unavailable ? "Check Status" : "Sign in"))
+        }
+        #expect(!CLIServiceAction(state: .checking, busy: false).isEnabled)
+        #expect(!CLIServiceAction(state: .notInstalled, busy: true).isEnabled)
+    }
+
+    @Test("Installation rechecks first, polls to discovery and never logs in automatically")
+    func installAndDiscover() async {
+        let statuses = ServiceAccountStatusSequence([
+            .init(provider: .claude, connectionState: .notInstalled),
+            .init(provider: .claude, connectionState: .notInstalled),
+            .init(provider: .claude, connectionState: .signInRequired),
+        ])
+        let installs = ServiceAccountLoginRecorder()
+        let model = makeModel(accountRefresh: { _ in [await statuses.next()] }, authenticationOpen: { _ in Issue.record("Installation must not sign in") }, installationOpen: { installs.record($0); return true })
+        await model.refreshServiceAccounts()
+        let task = model.beginCLIInstallation(.claude)
+        #expect(model.beginCLIInstallation(.claude) == nil)
+        #expect(model.beginSignIn(.claude) == nil)
+        await task?.value
+        #expect(installs.providers == [.claude])
+        #expect(model.serviceAccounts[.claude]?.connectionState == .signInRequired)
+        #expect(!model.isAuthenticating)
+    }
+
+    @Test("A newly discovered CLI is preserved without launching an installer")
+    func preserveExistingInstall() async {
+        let model = makeModel(accountRefresh: { _ in [.init(provider: .codex, connectionState: .connected, accountLabel: "kept")] }, installationOpen: { _ in Issue.record("Existing install must be preserved"); return true })
+        await model.beginCLIInstallation(.codex)?.value
+        #expect(model.serviceAccounts[.codex]?.accountLabel == "kept")
+        #expect(!model.isAuthenticating)
+    }
+
+    @Test("Installation launch failure and timeout permit retry without exposing raw errors")
+    func installRecovery() async {
+        var launches = 0
+        let model = makeModel(accountRefresh: { _ in [.init(provider: .claude, connectionState: .notInstalled)] }, installationOpen: { _ in
+            launches += 1
+            if launches == 1 { throw NSError(domain: "secret fixture", code: 1) }
+            return true
+        })
+        await model.beginCLIInstallation(.claude)?.value
+        #expect(!model.isAuthenticating)
+        #expect(model.settingsMessage?.contains("secret fixture") == false)
+        await model.beginCLIInstallation(.claude)?.value
+        #expect(launches == 2)
+        #expect(model.serviceAction(for: .claude).isEnabled)
+        #expect(model.settingsMessage?.contains("not confirmed") == true)
+    }
+
+    @Test("An unavailable recheck must never start installation")
+    func unavailableIsNotMissing() async {
+        let model = makeModel(accountRefresh: { _ in [.init(provider: .claude, connectionState: .unavailable)] }, installationOpen: { _ in Issue.record("Unavailable is not missing"); return true })
+        await model.beginCLIInstallation(.claude)?.value
+        #expect(model.serviceAction(for: .claude).title == "Check Status")
+    }
+
+    @Test("Settings refresh does not replace an in-flight installation with older account status")
+    func refreshDuringInstallation() async {
+        let model = makeModel(accountRefresh: { provider in
+            if provider == nil { Issue.record("A busy service must not be read by a competing full refresh") }
+            return [.init(provider: .claude, connectionState: .notInstalled)]
+        }, pollSleep: { _ in try await Task.sleep(for: .seconds(60)) })
+        let installation = model.beginCLIInstallation(.claude)
+        await model.refreshServiceAccounts()
+        installation?.cancel()
+        await installation?.value
+        #expect(!model.isAuthenticating)
+    }
     @Test("Connected CLI accounts keep Sign in again available")
     func connectedAccountCanRelogin() async {
         let model = makeModel(
@@ -181,7 +257,17 @@ struct ServiceAccountSettingsTests {
         #expect(usageRefreshes.value == 0)
     }
 
-    @Test("Starting a second login check cancels the prior provider task")
+    @Test("Unavailable polling does not imply logout or confirm an unchanged account")
+    func unavailableDuringRelogin() async {
+        let account = ServiceAccountStatus(provider: .claude, connectionState: .connected, accountLabel: "same@example.com")
+        let sequence = ServiceAccountStatusSequence([account, .init(provider: .claude, connectionState: .unavailable), account])
+        let model = makeModel(accountRefresh: { _ in [await sequence.next()] })
+        await model.refreshServiceAccounts()
+        await model.beginSignIn(.claude)?.value
+        #expect(model.settingsMessage == "Sign-in is still pending. Finish in Terminal, then choose Check Status.")
+    }
+
+    @Test("Repeated login cannot launch another terminal and cancellation clears busy state")
     func cancelsPriorPolling() async {
         let model = makeModel(
             accountRefresh: { provider in [
@@ -195,10 +281,13 @@ struct ServiceAccountSettingsTests {
         let first = model.beginSignIn(.claude)
         await Task.yield()
         let second = model.beginSignIn(.claude)
-        #expect(first?.isCancelled == true)
+        #expect(second == nil)
+        #expect(first?.isCancelled == false)
+        first?.cancel()
         second?.cancel()
         await first?.value
         await second?.value
+        #expect(!model.isAuthenticating)
     }
 
     @Test("A cancelled login check cannot overwrite the newer provider result")
@@ -216,10 +305,11 @@ struct ServiceAccountSettingsTests {
             await Task.yield()
         }
 
-        let second = model.beginSignIn(.claude)
-        await second?.value
+        first?.cancel()
         await reads.releaseFirstRead()
         await first?.value
+        let second = model.beginSignIn(.claude)
+        await second?.value
 
         #expect(first?.isCancelled == true)
         #expect(model.serviceAccounts[.claude]?.accountLabel == "new@example.com")
@@ -245,6 +335,7 @@ struct ServiceAccountSettingsTests {
         refreshOperation: @escaping @Sendable () async -> [UsageSnapshot] = { [] },
         accountRefresh: @escaping @Sendable (UsageProvider?) async -> [ServiceAccountStatus] = { _ in [] },
         authenticationOpen: @escaping (UsageProvider) throws -> Void = { _ in },
+        installationOpen: @escaping (UsageProvider) throws -> Bool = { _ in true },
         codexInstallGuideOpen: @escaping () -> Bool = { true },
         deepSeekReplace: @escaping @Sendable (String) async throws -> ServiceAccountStatus = { _ in
             ServiceAccountStatus(provider: .deepSeek, connectionState: .signInRequired)
@@ -263,6 +354,7 @@ struct ServiceAccountSettingsTests {
             refreshOperation: refreshOperation,
             serviceAccountRefreshOperation: accountRefresh,
             authenticationOpenOperation: authenticationOpen,
+            installationOpenOperation: installationOpen,
             codexInstallGuideOpenOperation: codexInstallGuideOpen,
             deepSeekReplaceOperation: deepSeekReplace,
             signInPollAttempts: pollAttempts,

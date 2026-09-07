@@ -25,6 +25,7 @@ final class AppModel {
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
+    private let installationOpenOperation: (UsageProvider) throws -> Bool
     private let codexInstallGuideOpenOperation: () -> Bool
     private let deepSeekReplaceOperation: @Sendable (String) async throws -> ServiceAccountStatus
     private let signInPollAttempts: Int
@@ -83,6 +84,7 @@ final class AppModel {
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
+        installationOpenOperation: ((UsageProvider) throws -> Bool)? = nil,
         codexInstallGuideOpenOperation: (() -> Bool)? = nil,
         deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
         signInPollAttempts: Int = 40,
@@ -114,6 +116,8 @@ final class AppModel {
             return await accountCoordinator.readAll()
         }
         let authenticationLauncher = CLIAuthenticationLauncher()
+        let installationLauncher = CLIInstallationLauncher()
+        self.installationOpenOperation = installationOpenOperation ?? { try installationLauncher.open(provider: $0) }
         self.authenticationOpenOperation = authenticationOpenOperation ?? { provider in
             try authenticationLauncher.open(provider: provider)
         }
@@ -411,7 +415,7 @@ final class AppModel {
             setDemoServiceAccounts()
             return
         }
-        guard !isRefreshingServiceAccounts else { return }
+        guard !isRefreshingServiceAccounts, !isAuthenticating else { return }
         isRefreshingServiceAccounts = true
         defer { isRefreshingServiceAccounts = false }
 
@@ -433,6 +437,9 @@ final class AppModel {
 
     @discardableResult
     func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
+        guard signInTokens[provider] == nil, !isRefreshingServiceAccounts else {
+            return serviceAccounts[provider] ?? .checking(provider: provider)
+        }
         serviceAccounts[provider] = .checking(provider: provider)
         let status = await readServiceAccount(provider)
         serviceAccounts[provider] = status
@@ -446,6 +453,60 @@ final class AppModel {
         serviceAccounts[provider]?.connectionState == .connected
             ? "Sign in again"
             : "Sign in"
+    }
+
+    func serviceAction(for provider: UsageProvider) -> CLIServiceAction {
+        CLIServiceAction(state: serviceAccounts[provider]?.connectionState ?? .checking, busy: signInTokens[provider] != nil)
+    }
+
+    func performServiceAction(_ provider: UsageProvider) {
+        guard serviceAction(for: provider).isEnabled else { return }
+        switch serviceAccounts[provider]?.connectionState {
+        case .notInstalled: beginCLIInstallation(provider)
+        case .unavailable: Task { await checkServiceAccount(provider) }
+        default: beginSignIn(provider)
+        }
+    }
+
+    @discardableResult
+    func beginCLIInstallation(_ provider: UsageProvider) -> Task<Void, Never>? {
+        guard provider != .deepSeek, signInTokens[provider] == nil else { return nil }
+        let token = UUID()
+        signInTokens[provider] = token
+        settingsMessageKind = authenticationMessageKind(for: provider)
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if signInTokens[provider] == token {
+                    signInTasks[provider] = nil
+                    signInTokens[provider] = nil
+                }
+            }
+            let current = await readServiceAccount(provider)
+            guard !Task.isCancelled else { return }
+            serviceAccounts[provider] = current
+            guard current.connectionState == .notInstalled else { return }
+            do {
+                let launched = try installationOpenOperation(provider)
+                settingsMessage = launched ? "Complete the official installation in Terminal. Status will update automatically." : "An existing CLI was found. Checking its account…"
+                for _ in 0..<signInPollAttempts {
+                    try await signInSleep(signInPollInterval)
+                    guard !Task.isCancelled else { return }
+                    let status = await readServiceAccount(provider)
+                    guard !Task.isCancelled else { return }
+                    serviceAccounts[provider] = status
+                    if [.connected, .signInRequired].contains(status.connectionState) {
+                        settingsMessage = "CLI detected. You can now check the account or sign in."
+                        return
+                    }
+                }
+                settingsMessage = "Installation is not confirmed. Finish in Terminal, then choose Check Status or retry."
+            } catch {
+                if !Task.isCancelled { settingsMessage = "The installation could not be opened or checked. Choose Check Status or retry." }
+            }
+        }
+        signInTasks[provider] = task
+        return task
     }
 
     var shouldOfferCodexInstallGuide: Bool {
@@ -464,6 +525,7 @@ final class AppModel {
     @discardableResult
     func beginSignIn(_ provider: UsageProvider) -> Task<Void, Never>? {
         guard provider == .claude || provider == .codex else { return nil }
+        guard signInTokens[provider] == nil else { return nil }
         let originalStatus = serviceAccounts[provider]
         do {
             try authenticationOpenOperation(provider)
@@ -480,6 +542,12 @@ final class AppModel {
         settingsMessageKind = authenticationMessageKind(for: provider)
         let task = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if signInTokens[provider] == signInToken {
+                    signInTasks[provider] = nil
+                    signInTokens[provider] = nil
+                }
+            }
             var sawNonConnectedStatus = originalStatus?.connectionState != .connected
             for _ in 0..<signInPollAttempts {
                 do {
@@ -507,7 +575,7 @@ final class AppModel {
                     signInTokens[provider] = nil
                     return
                 }
-                if status.connectionState != .connected {
+                if status.connectionState == .signInRequired {
                     sawNonConnectedStatus = true
                 }
             }
