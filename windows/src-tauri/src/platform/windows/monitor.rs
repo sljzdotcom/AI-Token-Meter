@@ -49,6 +49,22 @@ impl Default for DisplayPreferences {
 }
 
 impl DisplayPreferences {
+    pub fn select_mode(
+        &mut self,
+        mode: DisplayMode,
+        selected_id: Option<String>,
+    ) -> Result<(), &'static str> {
+        if selected_id
+            .as_ref()
+            .is_some_and(|id| id.len() > 512 || id.trim().is_empty())
+        {
+            return Err("Invalid display");
+        }
+        self.mode = mode;
+        self.selected_id = selected_id;
+        Ok(())
+    }
+
     pub fn targets(&self, online: &[MonitorIdentity]) -> Vec<String> {
         let primary = choose_monitor(online, None);
         if self.mode == DisplayMode::All {

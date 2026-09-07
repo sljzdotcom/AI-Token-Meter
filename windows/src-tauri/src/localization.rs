@@ -26,6 +26,9 @@ pub fn text(locale: Locale, key: &str) -> &str {
             "请将 DeepSeek API 密钥粘贴到密码字段中。密钥仅保存在此受保护的 Windows 对话框内。"
         }
         "Session" => "当前会话",
+        "5h limit" => "5 小时额度",
+        "Usage limit" => "用量额度",
+        "Balance baseline" => "余额基准",
         "Session limit" => "会话额度",
         "Weekly limit" => "每周额度",
         "Available balance" => "可用余额",
@@ -40,9 +43,14 @@ pub fn threshold_notice(
     level: u8,
 ) -> (String, String) {
     if locale == Locale::SimplifiedChinese {
+        let metric = metric
+            .strip_suffix("m limit")
+            .filter(|minutes| !minutes.is_empty() && minutes.bytes().all(|c| c.is_ascii_digit()))
+            .map(|minutes| format!("{minutes} 分钟额度"))
+            .unwrap_or_else(|| text(locale, metric).to_owned());
         (
             format!("{provider} 用量已达 {level}%"),
-            format!("{}现已达到或超过 {level}%。", text(locale, metric)),
+            format!("{metric}现已达到或超过 {level}%。"),
         )
     } else {
         (

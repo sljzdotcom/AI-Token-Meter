@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react"
 
 export type Locale = "en" | "zh-CN"
 const zh = {
+  "5h limit": "5 小时额度", "Usage limit": "用量额度", "Balance baseline": "余额基准", "{minutes}m limit": "{minutes} 分钟额度",
   "Windows Credential Manager": "Windows 凭据管理器", "Connected account": "已连接账户", "Configured provider": "已配置服务", "ChatGPT account": "ChatGPT 账户", "API Key account": "API 密钥账户", "OAuth account": "OAuth 账户", "Claude Code account": "Claude Code 账户",
   "Microsoft YaHei": "微软雅黑", "SimHei": "黑体", "KaiTi": "楷体",
   "Update service is temporarily unavailable": "更新服务暂不可用", "Update status is temporarily unavailable": "更新状态暂不可用",
@@ -74,6 +75,8 @@ export function setLocale(value: unknown) {
 export function getLocale() { return currentLocale }
 export function useLocale() { return useSyncExternalStore(callback => { listeners.add(callback); return () => listeners.delete(callback) }, getLocale, () => "en" as Locale) }
 export function t(key: string, values: Record<string, string | number> = {}) {
+  const duration = key.match(/^(\d+)m limit$/)
+  if (currentLocale === "zh-CN" && duration) return t("{minutes}m limit", {minutes: duration[1]})
   const text = dictionaries[currentLocale][key] ?? key
   return text.replace(/\{(\w+)\}/g, (placeholder, name: string) => String(values[name] ?? placeholder))
 }

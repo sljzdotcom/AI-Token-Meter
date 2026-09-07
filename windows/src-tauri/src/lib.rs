@@ -73,6 +73,8 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
 
 pub struct RuntimeState {
     pub(crate) meter_instances: Mutex<std::collections::BTreeMap<String, String>>,
+    pub(crate) display_reconcile: crate::platform::windows::display_coordinator::ReconcileQueue,
+    pub(crate) pending_meter_drag: Mutex<Option<(String, u64)>>,
     pub(crate) detail_meter: Mutex<String>,
     pub(crate) usage: Arc<UsageRuntime>,
     #[cfg_attr(not(windows), allow(dead_code))]
@@ -99,6 +101,8 @@ impl Default for RuntimeState {
         let (settings, settings_path) = load_settings();
         Self {
             meter_instances: Mutex::new(Default::default()),
+            display_reconcile: Default::default(),
+            pending_meter_drag: Mutex::new(None),
             detail_meter: Mutex::new(METER_WINDOW_LABEL.to_owned()),
             usage: Arc::new(load_usage_runtime()),
             refresh_coordinator: Arc::new(
@@ -304,27 +308,30 @@ fn show_provider_detail(
     state: State<'_, RuntimeState>,
     provider_id: ProviderId,
 ) -> Result<UsageSnapshot, String> {
+    let mut detail_state = state
+        .detail_state
+        .lock()
+        .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
+    if state.display_reconcile.is_active() {
+        return Err("Displays are changing; try again".into());
+    }
     let snapshot = state.usage.snapshot(provider_id);
     let effects = provider_detail_effects(&snapshot);
-    let instances = state
+    let monitor_id = state
         .meter_instances
         .lock()
-        .map_err(|_| "Meter unavailable")?;
-    let Some(monitor_id) = instances.get(window.label()) else {
-        return Err("Meter unavailable".into());
-    };
+        .map_err(|_| "Meter unavailable")?
+        .get(window.label())
+        .cloned()
+        .ok_or("Meter unavailable")?;
     let edge = edge_from_settings(
         state
             .app_settings_snapshot()
             .displays
             .unwrap_or_default()
-            .placement(monitor_id)
+            .placement(&monitor_id)
             .edge,
     );
-    let mut detail_state = state
-        .detail_state
-        .lock()
-        .map_err(|_| "The detail window state is temporarily unavailable".to_owned())?;
     // Serialize owner assignment and presentation under the same detail revision lock.
     hide_detail_window(&app).map_err(|_| "The detail window could not be closed")?;
     *state.detail_meter.lock().map_err(|_| "Meter unavailable")? = window.label().to_owned();
@@ -350,16 +357,18 @@ fn show_provider_detail(
 }
 
 #[cfg_attr(not(windows), allow(dead_code))]
-fn finish_meter_drag(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+fn finish_meter_drag(app: &tauri::AppHandle, label: &str, session: u64) -> Result<(), String> {
     let meter = app
         .get_webview_window(label)
         .ok_or_else(|| "The meter window is unavailable".to_owned())?;
     let (edge, normalized_y) = snap_meter_after_drag(&meter)
         .map_err(|_| "The meter could not be snapped to the screen edge".to_owned())?;
     let state = app.state::<RuntimeState>();
-    if let Ok(mut settings) = state.settings.lock()
-        && let Some(id) = current_monitor_identifier(&meter).ok().flatten()
-    {
+    let Some(id) = current_monitor_identifier(&meter).ok().flatten() else {
+        return Ok(());
+    };
+    let committed = state.meter_drag.commit_if_owned(session, || {
+        let mut settings = state.settings.lock().map_err(|_| "Settings unavailable")?;
         let mut candidate = settings.clone();
         candidate.normalize_display_preferences();
         candidate.displays.as_mut().unwrap().record_drag(
@@ -371,7 +380,12 @@ fn finish_meter_drag(app: &tauri::AppHandle, label: &str) -> Result<(), String> 
         );
         persist_settings(state.settings_path.as_deref(), &candidate)?;
         *settings = candidate;
-    }
+        Ok::<(), String>(())
+    });
+    let Some(committed) = committed else {
+        return Ok(());
+    };
+    committed?;
     meter
         .emit("meter-edge-changed", edge_to_settings(edge))
         .map_err(|_| "The meter display could not be updated".to_owned())?;
@@ -384,31 +398,31 @@ fn begin_meter_drag(
     window: tauri::WebviewWindow,
     state: State<'_, RuntimeState>,
 ) -> Result<(), String> {
-    let instances = state
+    let session = state.display_reconcile.reserve_drag(&state.meter_drag)?;
+    if !state
         .meter_instances
         .lock()
-        .map_err(|_| "Meter unavailable")?;
-    if !instances.contains_key(window.label()) {
+        .is_ok_and(|instances| instances.contains_key(window.label()))
+    {
+        state.meter_drag.finish(session);
         return Err("Meter unavailable".into());
     }
-    let Some(session) = state.meter_drag.try_begin() else {
-        return Ok(());
-    };
-    drop(instances);
     let gate = Arc::clone(&state.meter_drag);
 
     #[cfg(windows)]
     std::thread::spawn(move || {
         let released = crate::platform::windows::meter_drag::wait_for_primary_button_release();
-        if released && gate.owns(session) {
-            let _ = finish_meter_drag(&app, window.label());
+        if released {
+            gate.commit_if_owned(session, || {
+                *app.state::<RuntimeState>()
+                    .pending_meter_drag
+                    .lock()
+                    .unwrap() = Some((window.label().to_owned(), session));
+            });
+        } else {
+            let _ = gate.finish(session);
         }
-        let _ = gate.finish(session);
         let _ = crate::platform::windows::display_coordinator::reconcile(&app);
-        let _ = app.emit(
-            "app-settings-changed",
-            app.state::<RuntimeState>().app_settings_snapshot(),
-        );
     });
 
     #[cfg(not(windows))]
@@ -462,7 +476,7 @@ fn available_displays(
 }
 
 #[tauri::command]
-async fn set_display_mode(
+fn set_display_mode(
     app: tauri::AppHandle,
     mode: crate::platform::windows::monitor::DisplayMode,
     selected_id: Option<String>,
@@ -474,13 +488,9 @@ async fn set_display_mode(
         let mut candidate = settings.clone();
         candidate.normalize_display_preferences();
         let displays = candidate.displays.as_mut().unwrap();
-        displays.mode = mode;
-        if let Some(id) = selected_id {
-            if id.len() > 512 || id.trim().is_empty() {
-                return Err("Invalid display".into());
-            }
-            displays.selected_id = Some(id);
-        }
+        displays
+            .select_mode(mode, selected_id)
+            .map_err(str::to_owned)?;
         persist_settings(state.settings_path.as_deref(), &candidate)?;
         *settings = candidate.clone();
         candidate
@@ -489,6 +499,17 @@ async fn set_display_mode(
         .map_err(|_| "The meter could not be moved")?;
     app.emit("app-settings-changed", candidate)
         .map_err(|_| "Settings update failed".into())
+}
+
+// Background drag completion publishes on the same UI queue as synchronous
+// settings commands, taking its snapshot at delivery rather than before native work.
+pub(crate) fn publish_settings(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let app = app.clone();
+    let handle = app.clone();
+    handle.run_on_main_thread(move || {
+        let current = app.state::<RuntimeState>().app_settings_snapshot();
+        let _ = app.emit("app-settings-changed", current);
+    })
 }
 
 #[tauri::command]

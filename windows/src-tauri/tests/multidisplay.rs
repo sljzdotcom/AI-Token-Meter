@@ -122,3 +122,110 @@ fn dpi_change_requires_reconciliation_even_if_physical_bounds_are_unchanged() {
     changed.scale_per_mille = 1500;
     assert!(tracker.has_changed(&[changed]));
 }
+
+#[test]
+fn choosing_primary_in_selected_dropdown_clears_old_target_without_erasing_placement() {
+    use ai_token_meter_windows::platform::windows::monitor::{DisplayMode, DisplayPreferences};
+    let mut prefs = DisplayPreferences::default();
+    prefs.record_drag("secondary", Default::default());
+    prefs.select_mode(DisplayMode::Selected, None).unwrap();
+    assert_eq!(prefs.selected_id, None);
+    assert_eq!(
+        prefs.targets(&[
+            MonitorIdentity::new("primary", true),
+            MonitorIdentity::new("secondary", false)
+        ]),
+        vec!["primary"]
+    );
+    assert!(prefs.placements.contains_key("secondary"));
+    let before = prefs.clone();
+    assert!(
+        prefs
+            .select_mode(DisplayMode::All, Some(" ".into()))
+            .is_err()
+    );
+    assert_eq!(prefs, before);
+}
+
+#[test]
+fn reconcile_requests_during_native_work_are_nonblocking_and_coalesce_to_latest_state() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::ReconcileQueue;
+    use std::sync::{Arc, Mutex};
+    let queue = Arc::new(ReconcileQueue::default());
+    let settings = Arc::new(Mutex::new("old"));
+    let (started, wait_started) = std::sync::mpsc::channel();
+    let (resume, wait_resume) = std::sync::mpsc::channel();
+    assert!(queue.request());
+    assert_eq!(queue.run_if_idle(|| "must not start drag"), None);
+    let worker_queue = queue.clone();
+    let worker_settings = settings.clone();
+    let worker = std::thread::spawn(move || {
+        let mut effects = Vec::new();
+        worker_queue.run(|| {
+            let snapshot = *worker_settings.lock().unwrap();
+            if effects.is_empty() {
+                started.send(()).unwrap();
+                wait_resume.recv().unwrap(); // native API waits for UI
+            }
+            effects.push(snapshot);
+        });
+        effects
+    });
+    wait_started.recv().unwrap();
+    // A UI callback can read/edit state and enqueue without waiting for the worker.
+    let ui_queue = queue.clone();
+    let (responded, response) = std::sync::mpsc::channel();
+    let ui = std::thread::spawn(move || {
+        *settings.try_lock().unwrap() = "new";
+        responded
+            .send((ui_queue.request(), ui_queue.request()))
+            .unwrap();
+    });
+    let responsive = response.recv_timeout(std::time::Duration::from_secs(1));
+    resume.send(()).unwrap();
+    let effects = worker.join().unwrap();
+    ui.join().unwrap();
+    assert_eq!(responsive.unwrap(), (false, false));
+    assert_eq!(effects, vec!["old", "new"]);
+    assert!(!queue.is_active());
+    assert_eq!(queue.run_if_idle(|| "drag started"), Some("drag started"));
+    assert!(queue.request());
+    queue.run(|| {});
+}
+
+#[test]
+fn recreated_secondary_never_reuses_a_pending_destroy_window_label() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::WindowPlan;
+    let empty = std::collections::BTreeMap::new();
+    let targets = ["primary".into(), "secondary".into()];
+    let first = WindowPlan::new(&empty, &targets, "meter");
+    let removed = WindowPlan::new(&first.assignments, &["primary".into()], "meter");
+    let recreated = WindowPlan::new(&removed.assignments, &targets, "meter");
+    assert!(!recreated.assignments.contains_key(&removed.remove[0]));
+    let stable = WindowPlan::new(&recreated.assignments, &targets, "meter");
+    assert_eq!(stable.assignments, recreated.assignments);
+}
+
+#[test]
+fn rejected_drag_reservation_is_an_error_so_frontend_does_not_start_native_drag() {
+    use ai_token_meter_windows::platform::windows::{
+        display_coordinator::ReconcileQueue, meter_drag::MeterDragGate,
+    };
+    let queue = ReconcileQueue::default();
+    let drag = MeterDragGate::default();
+    queue.request();
+    assert!(queue.reserve_drag(&drag).is_err());
+    assert!(!drag.is_active());
+    queue.run(|| {});
+    let session = queue.reserve_drag(&drag).unwrap();
+    assert!(drag.owns(session));
+    assert!(queue.reserve_drag(&drag).is_err());
+}
+
+#[test]
+fn failed_background_restore_retries_even_when_fold_state_did_not_change() {
+    use ai_token_meter_windows::platform::windows::strip_runtime::needs_restore;
+    assert!(needs_restore(false, false, true));
+    assert!(needs_restore(true, false, false));
+    assert!(!needs_restore(false, false, false));
+}

@@ -1,7 +1,64 @@
 use super::monitor::{DisplayMode, DisplayPlacement, MonitorIdentity};
 use super::window_controller::{self, METER_WINDOW_LABEL};
 use std::collections::BTreeMap;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 use tauri::{Emitter, Manager};
+
+#[derive(Default)]
+pub struct ReconcileQueue(Mutex<(bool, bool)>);
+
+impl ReconcileQueue {
+    // Only the first requester starts a worker. Requests during native calls never
+    // wait for that worker: they ask it to read current state in another pass.
+    pub fn request(&self) -> bool {
+        let mut state = self.0.lock().unwrap();
+        if state.0 {
+            state.1 = true;
+            false
+        } else {
+            state.0 = true;
+            true
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.0.lock().unwrap().0
+    }
+
+    /// Reserve interaction against a new reconciliation request. The callback
+    /// only touches in-memory state and must not perform native UI operations.
+    pub fn run_if_idle<T>(&self, action: impl FnOnce() -> T) -> Option<T> {
+        let state = self.0.lock().unwrap();
+        if state.0 { None } else { Some(action()) }
+    }
+
+    pub fn reserve_drag(
+        &self,
+        drag: &super::meter_drag::MeterDragGate,
+    ) -> Result<u64, &'static str> {
+        self.run_if_idle(|| drag.try_begin())
+            .flatten()
+            .ok_or("Displays are changing or a drag is already active")
+    }
+
+    pub fn run(&self, mut pass: impl FnMut()) {
+        loop {
+            pass(); // no queue or instance lock across native/main-thread calls
+            let mut state = self.0.lock().unwrap();
+            if state.1 {
+                state.1 = false;
+            } else {
+                state.0 = false;
+                return;
+            }
+        }
+    }
+}
+
+static NEXT_METER_LABEL: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,7 +88,15 @@ impl WindowPlan {
                 let label = if index == 0 {
                     METER_WINDOW_LABEL.to_owned()
                 } else {
-                    format!("meter-{}", id.replace(':', "-"))
+                    previous
+                        .iter()
+                        .find(|(label, assigned)| {
+                            label.as_str() != METER_WINDOW_LABEL && *assigned == id
+                        })
+                        .map(|(label, _)| label.clone())
+                        .unwrap_or_else(|| {
+                            format!("meter-{}", NEXT_METER_LABEL.fetch_add(1, Ordering::Relaxed))
+                        })
                 };
                 (label, id.clone())
             })
@@ -96,15 +161,39 @@ pub fn meter_windows(app: &tauri::AppHandle) -> Vec<tauri::WebviewWindow> {
 
 pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
     let state = app.state::<crate::RuntimeState>();
+    if state.display_reconcile.request() {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            let state = app.state::<crate::RuntimeState>();
+            state.display_reconcile.run(|| {
+                let pending = state.pending_meter_drag.lock().unwrap().take();
+                if let Some((label, session)) = pending {
+                    if state.meter_drag.owns(session) {
+                        let _ = crate::finish_meter_drag(&app, &label, session);
+                    }
+                    state.meter_drag.finish(session);
+                    let _ = crate::publish_settings(&app);
+                }
+                if let Err(error) = reconcile_once(&app) {
+                    eprintln!("Meter reconciliation failed: {error}");
+                    state.strip_reset.store(true, Ordering::Release);
+                }
+            });
+        });
+    }
+    Ok(())
+}
+
+fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let state = app.state::<crate::RuntimeState>();
     if state.meter_drag_is_active() {
         return Ok(());
     }
-    // Serialize topology/settings reconciliation before reading settings, so a queued
-    // old topology pass cannot overwrite a newer mode selection.
-    let mut instances = state
+    let instances = state
         .meter_instances
         .lock()
-        .map_err(|_| tauri::Error::WindowNotFound)?;
+        .map_err(|_| tauri::Error::WindowNotFound)?
+        .clone();
     if state.meter_drag_is_active() {
         return Ok(());
     }
@@ -119,22 +208,30 @@ pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
     if targets.is_empty() {
         return Ok(());
     }
-    let owner = state
-        .detail_meter
-        .lock()
-        .map(|o| o.clone())
-        .unwrap_or_default();
-    let plan = WindowPlan::new(&instances, &targets, &owner);
-    if plan.close_detail {
-        if let Ok(mut detail) = state.detail_state.lock() {
+    let plan = {
+        let mut detail = state
+            .detail_state
+            .lock()
+            .map_err(|_| tauri::Error::WindowNotFound)?;
+        let owner = state
+            .detail_meter
+            .lock()
+            .map(|o| o.clone())
+            .unwrap_or_default();
+        let plan = WindowPlan::new(&instances, &targets, &owner);
+        if plan.close_detail {
             detail.close();
         }
+        plan
+    };
+    if plan.close_detail {
         let _ = window_controller::hide_detail_window(app);
     }
     for label in &plan.remove {
         if let Some(window) = app.get_webview_window(label) {
             window.destroy()?;
         }
+        state.meter_instances.lock().unwrap().remove(label);
     }
     for (label, id) in &plan.assignments {
         let window = match app.get_webview_window(label) {
@@ -158,6 +255,11 @@ pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
                 builder.build()?
             }
         };
+        state
+            .meter_instances
+            .lock()
+            .unwrap()
+            .insert(label.clone(), id.clone());
         window.set_focusable(false)?;
         window.set_always_on_top(false)?;
         let placement = prefs.placement(id);
@@ -180,8 +282,6 @@ pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
             window.hide()?;
         }
     }
-    *instances = plan.assignments;
-    drop(instances);
     app.emit("displays-changed", displays)?;
     Ok(())
 }
