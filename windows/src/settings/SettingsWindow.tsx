@@ -5,6 +5,7 @@ import { displayFonts, fontAvailable } from "../displayFonts"
 import type { ProviderId } from "../state/usage"
 import { defaultStripPreferences, type StripPreferences } from "../state/stripPreferences"
 import { serviceAction } from "./cliOnboarding"
+import { SettingsTabIcon } from "./SettingsTabIcon"
 
 const tabs = ["Appearance", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
@@ -141,9 +142,19 @@ export function SettingsWindow({
             aria-selected={activeTab === tab}
             key={tab}
             onClick={() => setActiveTab(tab)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+              event.preventDefault()
+              const offset = event.key === "ArrowRight" ? 1 : -1
+              const nextTab = tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length]
+              setActiveTab(nextTab)
+              event.currentTarget.parentElement
+                ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[tabs.indexOf(nextTab)]
+                ?.focus()
+            }}
             role="tab"
             type="button"
-          >{t(tab)}</button>
+          ><SettingsTabIcon tab={tab} /><span>{t(tab)}</span></button>
         ))}
       </nav>
       <div className="settings-content">
