@@ -40,9 +40,14 @@ public struct FloatingStripDisplays: Codable, Equatable, Sendable {
         return [primary.flatMap { unique.contains($0) ? $0 : nil } ?? first]
     }
 
-    public func placement(for identifier: String) -> FloatingStripScreenPlacement {
+    public func placement(for identifier: String, preference: FloatingStripEdgePreference = .automatic) -> FloatingStripScreenPlacement {
         let value = placements[identifier] ?? fallbackPlacement
-        return .init(edge: value.edge, normalizedCenterY: value.normalizedCenterY)
+        let edge: FloatingStripEdge = switch preference {
+        case .automatic: value.edge
+        case .left: .left
+        case .right: .right
+        }
+        return .init(edge: edge, normalizedCenterY: value.normalizedCenterY)
     }
 
     public mutating func record(identifier: String, edge: FloatingStripEdge, normalizedCenterY: Double) {

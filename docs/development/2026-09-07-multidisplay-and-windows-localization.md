@@ -57,3 +57,13 @@ Apple 一手依据：[NSScreen.main](https://developer.apple.com/documentation/A
 - 首轮完整 macOS 为 400 项主测试 + 12 项 PTY，通过；Release 构建与资源/Sparkle/签名门禁通过。独立代码复审进行中，不能据此声明 M4 Max 双屏已经验收。
 - Windows 实现由单独文件范围并行处理，基线前端 51 项通过；新增偏好/语言与详情字号回归已观察到预期失败，正在接入运行时与 UI。真 Windows API 编译和多 DPI 验收仍需相应环境。
 - 新增 REQ-20260907-003：所有 Windows 详情文本在现有基础上减 1 CSS px，不影响 Settings、浮动条或 macOS。
+
+### macOS 首轮复审
+
+实现检查点：3b6dcee。独立复审发现并验证三项：
+
+1. 断屏回退后主动改边/无障碍移动的读写目标不一致：实际 AppKit 回归在独立偏好中复现 selectedIdentifier 仍为离线屏；修复为主动操作选择当前借用屏并保留离线记录。
+2. 新建/重连屏幕直接用保存边缘而忽略固定 Left/Right：统一位置解析应用固定约束；Automatic 才恢复各屏原边缘，不改写它们。
+3. 旧 resolver 对不匹配数字 ID 的单屏迁移推测会覆盖离线目标：原测试修改为无损回退断言并先失败，再移除推测分支，只允许实际匹配迁移。
+
+47 项定向回归及合同/文档/安全门禁通过，其中真实 AppKit 回退测试需 AI_METER_SCREEN_TESTS=1 与 WindowServer 权限；无屏 CI 默认跳过该 GUI 测试，其他纯策略测试照常运行。此测试只有一个真实当前屏，不代表双屏物理拔插验收。

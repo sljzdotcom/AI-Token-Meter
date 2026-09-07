@@ -242,8 +242,8 @@ struct FloatingStripLayoutTests {
         #expect(result?.migratedIdentifier == "uuid:target")
     }
 
-    @Test("A stale legacy number safely binds to the only current screen")
-    func staleLegacyIdentifierMigratesOnSingleScreen() {
+    @Test("An unmatched legacy number only borrows the remaining screen")
+    func staleLegacyIdentifierDoesNotMigrateOnSingleScreen() {
         let result = FloatingStripScreenResolver.resolve(
             savedIdentifier: "3",
             screens: [
@@ -256,8 +256,8 @@ struct FloatingStripLayoutTests {
         )
 
         #expect(result?.selectedIdentifier == "uuid:only")
-        #expect(result?.usesFallbackScreen == false)
-        #expect(result?.migratedIdentifier == "uuid:only")
+        #expect(result?.usesFallbackScreen == true)
+        #expect(result?.migratedIdentifier == nil)
     }
 
     @Test("A missing stable target stays recoverable even when only one screen remains")

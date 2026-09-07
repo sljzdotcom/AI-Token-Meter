@@ -236,6 +236,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         }
         model.saveFloatingStripPlacement(edge: edge, normalizedCenterY: displayState.normalizedCenterY,
                                          screenIdentifier: identifier)
+        onPlacementSaved?(identifier)
         positionPanels()
     }
 
@@ -506,7 +507,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             let preferences = model.floatingStripDisplays
             // A disconnected selected display borrows the primary screen, not its saved position.
             let positionID = preferences.mode == .selected ? preferences.selectedIdentifier ?? screenIdentifier : screenIdentifier
-            let placement = preferences.placement(for: positionID)
+            let placement = preferences.placement(for: positionID, preference: model.floatingStripPosition.preference)
             return (screen, placement.edge, placement.normalizedCenterY, .preserve)
         }
         let savedIdentifier = model.floatingStripPosition.screenIdentifier
@@ -578,12 +579,20 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             currentEdge: displayState.resolvedEdge,
             normalizedCenterY: displayState.normalizedCenterY
         )
+        switch command {
+        case .moveToLeftEdge: model.setFloatingStripEdgePreference(.left)
+        case .moveToRightEdge: model.setFloatingStripEdgePreference(.right)
+        case .moveUp, .moveDown: break
+        }
         model.saveFloatingStripPlacement(
             edge: placement.edge,
             normalizedCenterY: placement.normalizedCenterY,
             screenIdentifier: preferredScreenForDragging().flatMap(Self.identity(for:))?
                 .stableIdentifier
         )
+        if let identifier = preferredScreenForDragging().flatMap(Self.identity(for:))?.stableIdentifier {
+            onPlacementSaved?(identifier)
+        }
         positionPanels()
     }
 
@@ -668,6 +677,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             )
         }
         panel.isOpaque = false
+        panel.isReleasedWhenClosed = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false

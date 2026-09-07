@@ -32,16 +32,6 @@ enum FloatingStripScreenResolver {
             )
         }
 
-        if savedLegacyIdentifier != nil,
-           screens.count == 1,
-           let onlyScreen = screens.first {
-            return FloatingStripScreenResolution(
-                selectedIdentifier: onlyScreen.stableIdentifier,
-                usesFallbackScreen: false,
-                migratedIdentifier: onlyScreen.stableIdentifier
-            )
-        }
-
         let fallback = screens.first(where: \.isMain) ?? screens[0]
         return FloatingStripScreenResolution(
             selectedIdentifier: fallback.stableIdentifier,

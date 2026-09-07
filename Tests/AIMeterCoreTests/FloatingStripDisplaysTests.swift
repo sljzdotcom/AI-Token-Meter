@@ -4,6 +4,14 @@ import Testing
 
 @Suite("Floating strip display preferences")
 struct FloatingStripDisplaysTests {
+    @Test func fixedEdgeAppliesOnNewAndRestoredDisplaysWithoutChangingSavedEdges() {
+        var value = FloatingStripDisplays(mode: .all)
+        value.record(identifier: "a", edge: .right, normalizedCenterY: 0.2)
+        #expect(value.placement(for: "a", preference: .left).edge == .left)
+        #expect(value.placement(for: "new", preference: .left).edge == .left)
+        #expect(value.placement(for: "a", preference: .automatic).edge == .right)
+        #expect(value.placement(for: "a", preference: .left).normalizedCenterY == 0.2)
+    }
     @Test func fallbackDoesNotOverwriteSelection() {
         let value = FloatingStripDisplays(mode: .selected, selectedIdentifier: "external")
         #expect(value.targetIdentifiers(online: ["primary"], primary: "primary") == ["primary"])
