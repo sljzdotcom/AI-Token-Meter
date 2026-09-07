@@ -8,7 +8,7 @@
 
 ## 0.5.0 - 2026-09-07
 
-发布准备中；公开资产与更新源验证完成前仍使用 0.4.0。见[发布记录](docs/development/2026-09-07-v0.5.0-release.md)。
+已公开发布；macOS build13、Windows x64 签名安装包及三个更新入口均已验证。见[发布记录](docs/development/2026-09-07-v0.5.0-release.md)。
 
 ### Added
 

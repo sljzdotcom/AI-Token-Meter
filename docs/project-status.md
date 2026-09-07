@@ -2,7 +2,7 @@
 
 - **事实快照：** 2026-09-07
 - **产品：** AI Token Meter
-- **应用版本：** 双平台稳定通道 `0.4.0`（macOS build `12`）
+- **应用版本：** 双平台稳定通道 `0.5.0`（macOS build `13`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
@@ -11,11 +11,11 @@
 
 ## 一句话定位
 
-**下一版品牌改进：** 双平台 About 作者社交图标链接及 Windows 设置顶部 Logo 已合入 main（`12ad5e2`），双平台 CI/构建通过，尚未发布；[完成证据](development/2026-09-07-about-branding.md)。CLI 安装器按点击在线获取，CLI 本体不内嵌安装包。
+**0.5.0 品牌改进：** 双平台 About 作者社交图标链接及 Windows 设置顶部 Logo 已合入 main（`12ad5e2`）并公开发布；[完成证据](development/2026-09-07-about-branding.md)。CLI 安装器按点击在线获取，CLI 本体不内嵌安装包。
 
-**下一版源码：** CLI 安装/登录引导和 Windows Settings 页签图标已通过最终复审、双平台 CI 和构建验证，PR #10 已合入 main（`266b1f3`），暂未发布；见[需求与验证](development/2026-09-07-cli-onboarding.md)。
+**0.5.0 安装与账户引导：** CLI 安装/登录引导和 Windows Settings 页签图标已通过最终复审、双平台 CI 和构建验证，PR #10 已合入 main（`266b1f3`）并公开发布；见[需求与验证](development/2026-09-07-cli-onboarding.md)及[本版发布记录](development/2026-09-07-v0.5.0-release.md)。
 
-**0.4.0 已发布：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。公开更新已为 0.4.0；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
+**0.4.0 历史功能：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。这些功能继续包含在 0.5.0；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 
 AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
 
@@ -67,12 +67,12 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 当前源码 macOS 完整自动化基线：**419 项主测试 + 13 项 PTY 系统资源测试，总计 432 项/82 个测试组**；PTY 测试由独立测试进程执行，另有环境门控的 Keychain、真实 CLI 和真实 GUI 验收；CLI 引导属于未发布源码，0.4.0 的历史基线保留在发布日志；
+- 当前源码 macOS 完整自动化基线：**419 项主测试 + 13 项 PTY 系统资源测试，总计 432 项/82 个测试组**；PTY 测试由独立测试进程执行，0.5.0 本机与标签 CI 均通过；另有环境门控的 Keychain、真实 CLI 和真实 GUI 验收，0.4.0 的历史基线保留在发布日志；
 - 当前源码 Windows 本地验证基线：80 项 Vitest、21 项密度进程生命周期和 208 项 Rust；production 前端、632 项 Chrome 计算样式、rustfmt 与零警告 Clippy 通过。About 品牌改进的原生 CI 与构建证据见[本轮日志](development/2026-09-07-about-branding.md)，0.4.0 的历史基线保留在[发布记录](development/2026-09-07-v0.4.0-release.md)；
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。双平台 [v0.4.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.4.0) 提供 Apple Silicon ZIP、Windows x64 NSIS、SHA-256 和签名更新清单；校验证据见[发布记录](development/2026-09-07-v0.4.0-release.md)。
-- `v0.4.0` 标签目标为 `15d80e2`；稳定 `appcast.xml` 首项为 `0.4.0` / build `12`，Windows stable 与固定 Preview feed 均指向 `0.4.0`；发布 workflow `34076547278` 全部通过。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。双平台 [v0.5.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.0) 提供 Apple Silicon ZIP、Windows x64 NSIS、SHA-256 和签名更新清单；校验证据见[发布记录](development/2026-09-07-v0.5.0-release.md)。
+- `v0.5.0` 标签目标为 `de117b0`；稳定 `appcast.xml` 首项为 `0.5.0` / build `13`（提交 `f76ea0f`），Windows stable 与固定 Preview feed 均指向 `0.5.0`；发布 workflow `34093997980` 全部通过，包括 218 项原生 Windows Rust 测试与签名 NSIS。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 

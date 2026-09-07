@@ -8,7 +8,7 @@ bash scripts/test.sh
 
 当前基线为 **432 个测试、82 个测试组全部通过**。默认完整验证会先运行 419 项普通测试，再从独立测试进程运行 13 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。Unreleased Windows 本地为前端 80 项、密度进程生命周期 21 项、宿主 Rust 208 项、计算样式 632 项；原生 Windows CI 与 About 图标/真实按钮回归见[本轮日志](2026-09-07-about-branding.md)，历史 CLI 引导的原生 216 项基线见[CLI 记录](2026-09-07-cli-onboarding.md)。0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
+以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.5.0 Windows 本地为前端 80 项、密度进程生命周期 21 项、宿主 Rust 208 项、计算样式 632 项；0.5.0 标签发布 CI 另通过 218 项原生 Windows Rust（见[发布记录](2026-09-07-v0.5.0-release.md)）；About 图标/真实按钮回归见[本轮日志](2026-09-07-about-branding.md)，历史 CLI 引导的原生 216 项基线见[CLI 记录](2026-09-07-cli-onboarding.md)。0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
 
 普通测试覆盖：
 
@@ -41,7 +41,7 @@ bash scripts/test.sh
 - Sparkle 版本/校验和锁定、Info.plist 手动检查策略、framework/helper 嵌入、`@rpath`、嵌套签名与发布脚本安全合同；
 - appcast enclosure 的版本、build、长度与 EdDSA 签名验证，以及篡改归档必须被拒绝。
 
-## CLI 安装与登录引导回归（下一版）
+## CLI 安装与登录引导回归（0.5.0 起）
 
 关联 [CLI 引导规格](../design/specifications/2026-09-07-cli-onboarding-design.md)。测试只使用注入的账户状态、临时 fixture 目录和本地假下载器；不得实际安装、重装 CLI，或调用真实登录/退出流程。
 
@@ -222,7 +222,7 @@ git diff --check
 - DeepSeek 登录交互暂停自动隐藏；
 - OpenAI Codex 重置券数量、完整日期、剩余天数无截断，多张券时面板高度受屏幕范围约束；
 - 隐藏/恢复悬浮条与多显示器重定位正常；目标屏在线时不因主屏角色或枚举顺序跳屏；
-- Automatic 可拖到左右任一侧；下一版 macOS Left/Right 允许跨屏拖动但松手后固定相应侧，Windows 拖动沿用最近边缘；重启后恢复目标物理屏、侧边和相对高度；
+- Automatic 可拖到左右任一侧；0.4.0 起 macOS Left/Right 允许跨屏拖动但松手后固定相应侧，Windows 拖动沿用最近边缘；重启后恢复目标物理屏、侧边和相对高度；
 - 目标屏断开时临时回到当前主屏且配置不变；目标屏重新接入后自动恢复；
 - 左右轮廓、阴影、拖动提示和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
 - 三个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；
