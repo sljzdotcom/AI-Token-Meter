@@ -18,6 +18,7 @@ use crate::platform::windows::window_controller::{
 };
 
 pub mod accounts;
+pub mod brand_links;
 pub mod collectors;
 pub mod domain;
 pub mod localization;
@@ -1303,7 +1304,8 @@ pub fn run() {
             begin_service_sign_in,
             begin_service_installation,
             open_service_installation_guide,
-            replace_deepseek_api_key
+            replace_deepseek_api_key,
+            brand_links::open_brand_link
         ])
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())

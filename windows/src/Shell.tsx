@@ -468,6 +468,7 @@ function SettingsSurface() {
           .catch(() => setServiceMessage("Launch at login could not be changed."))
       }}
       onDisplayFontChange={(font) => void invoke("set_display_font", { font })}
+      onOpenAuthorLink={(target) => invoke("open_brand_link", {target})}
       onEdgeChange={(nextEdge) => {
         void invoke("set_meter_edge", { edge: nextEdge })
       }}

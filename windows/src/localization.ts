@@ -50,6 +50,7 @@ const zh = {
   "Windows opens a protected credential prompt; the Key never enters this WebView.": "Windows 会打开受保护的凭据提示框；密钥不会进入此网页视图。",
   "Replace DeepSeek API Key": "替换 DeepSeek API 密钥", "Check DeepSeek status": "检查 DeepSeek 状态", "Replace API Key": "替换 API 密钥",
   "Version": "版本", "Author · Miller": "作者 · Miller", "Checking…": "正在检查…", "Check for Updates": "检查更新", "Installing…": "正在安装…", "Update Now": "立即更新",
+  "Author links": "作者链接", "The author link could not be opened.": "无法打开作者链接。",
   "Automatic": "自动", "Native Windows": "Windows 原生", "Choose distribution": "选择发行版", "Optional custom CLI path": "可选的自定义 CLI 路径",
   "{name} runtime": "{name} 运行环境", "{name} WSL distribution": "{name} WSL 发行版", "{name} custom CLI path": "{name} 自定义 CLI 路径",
   "You’re up to date.": "当前已是最新版本。", "Version {version} is available.": "有新版本 {version} 可用。", "Downloading signed update…": "正在下载签名更新…",
