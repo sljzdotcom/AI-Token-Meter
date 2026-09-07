@@ -6,6 +6,7 @@
 
 ### Added
 
+- 双平台 About 在作者 Miller 后增加 Twitter/X 与项目 GitHub 图标链接；Windows Settings 顶部复用本地软件 Logo，外部链接仅在点击时打开默认浏览器。
 - 双平台 Settings 根据 CLI 状态提供橙色安装/登录按钮；已连接显示账号与重新登录，检测中防重复操作。用户点击后才打开固定官方安装器，安装完成自动重新查找，不自动登录、升级已有 CLI 或清除凭据。
 - Windows Settings 四个页签增加 16px 线性图标，保留中英文名称与系统字体，并支持左右方向键切换。
 
