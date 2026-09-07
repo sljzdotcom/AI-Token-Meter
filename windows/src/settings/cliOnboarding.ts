@@ -46,6 +46,11 @@ export class CLIOnboarding {
       if (kind === "login" && !["connected", "signInRequired"].includes(original.connectionState)) return
       const result = await this.invoke(kind === "install" ? "begin_service_installation" : "begin_service_sign_in", { providerId })
       if (!current()) return
+      if (result === "unavailable") {
+        this.apply({providerId, connectionState: "unavailable"})
+        this.message("The CLI could not be checked. Choose Check Status or review the installation instructions.")
+        return
+      }
       if (result === "manualRequired") { this.message("Use the official instructions for WSL or correct the custom CLI path, then choose Check Status."); return }
       this.message(kind === "install" ? "Complete the official installation in Terminal. Status will update automatically." : "Complete sign-in in Terminal. Status will update automatically.")
       let disconnected = original.connectionState !== "connected"

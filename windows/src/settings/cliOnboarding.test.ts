@@ -70,4 +70,17 @@ describe("CLI onboarding", () => {
     await controller.begin("codex", "install")
     expect(commands).toEqual(["service_account_status"])
   })
+  it("backend discovery becoming unavailable stops installation polling and offers recovery", async () => {
+    const statuses: ServiceAccountStatus[] = []
+    let reads = 0
+    const controller = new CLIOnboarding(async command => {
+      if (command === "begin_service_installation") return "unavailable"
+      reads++
+      return {providerId: "codex", connectionState: "notInstalled"}
+    }, status => statuses.push(status), () => {}, () => {}, async () => {}, 2)
+    await controller.begin("codex", "install")
+    expect(statuses.at(-1)?.connectionState).toBe("unavailable")
+    expect(reads).toBe(1)
+    expect(controller.isBusy("codex")).toBe(false)
+  })
 })

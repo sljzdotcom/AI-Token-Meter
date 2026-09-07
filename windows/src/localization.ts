@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react"
 
 export type Locale = "en" | "zh-CN"
 const zh = {
+  "The CLI could not be checked. Choose Check Status or review the installation instructions.": "无法检查 CLI。请检查状态或查看安装说明。",
   "Install CLI": "安装 CLI", "Waiting for Terminal…": "等待终端…",
   "Downloads and runs the official installer in Terminal.": "将在终端下载并运行官方安装器。",
   "Official installation instructions": "官方安装说明",

@@ -303,8 +303,8 @@ export function SettingsWindow({
                     onClick={() => onCheckServiceStatus(providerId)}
                     type="button"
                   >{t("Check Status")}</button>
-                  {status.connectionState === "notInstalled" ? <>
-                    <small>{t(cliSettings[providerId].mode === "wsl" || cliSettings[providerId].customPath ? "Use the official instructions for WSL or correct the custom CLI path, then choose Check Status." : "Downloads and runs the official installer in Terminal.")}</small>
+                  {status.connectionState === "notInstalled" || status.connectionState === "unavailable" ? <>
+                    <small>{t(cliSettings[providerId].mode === "wsl" || cliSettings[providerId].customPath ? "Use the official instructions for WSL or correct the custom CLI path, then choose Check Status." : status.connectionState === "unavailable" ? "The CLI could not be checked. Choose Check Status or review the installation instructions." : "Downloads and runs the official installer in Terminal.")}</small>
                     <button type="button" onClick={() => onOpenInstallationGuide(providerId)}>{t("Official installation instructions")}</button>
                   </> : null}
                 </Service>
