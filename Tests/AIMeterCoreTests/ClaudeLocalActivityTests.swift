@@ -227,6 +227,58 @@ struct ClaudeLocalActivityTests {
         }
     }
 
+    @Test("Counts one turn per message.id when a message spans several records")
+    func countsOneTurnPerMessageID() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("project/dedup.jsonl")
+
+        // Claude Code writes one record per content block; every record of the
+        // same assistant message repeats the same message.id and usage.
+        func blockRecord(id: String, blockType: String) -> String {
+            """
+            {"timestamp":"2026-09-01T01:00:00.000Z","sessionId":"s-1","message":{"id":"\(id)","model":"claude-sonnet-4-6","content":[{"type":"\(blockType)","text":"x"}],"usage":{"input_tokens":100,"output_tokens":200,"cache_creation_input_tokens":300,"cache_read_input_tokens":400}}}
+            """
+        }
+        try write([
+            blockRecord(id: "msg_repro_1", blockType: "text"),
+            blockRecord(id: "msg_repro_1", blockType: "tool_use"),
+            blockRecord(id: "msg_repro_1", blockType: "tool_use"),
+            blockRecord(id: "msg_repro_1", blockType: "text"),
+            blockRecord(id: "msg_repro_2", blockType: "text"),
+        ], to: url)
+        let now = try #require(calendar.date(from: DateComponents(
+            year: 2026, month: 9, day: 1, hour: 12
+        )))
+
+        let summary = try await ClaudeLocalActivityReader(
+            projectsDirectoryURL: directory,
+            calendar: calendar
+        ).read(now: now)
+
+        // Two messages x (100 + 200 + 300 + 400) — not five records' worth.
+        #expect(summary.totalTokens == 2_000)
+        #expect(summary.models == [
+            ClaudeModelActivity(modelID: "claude-sonnet-4-6", tokenCount: 2_000),
+        ])
+    }
+
+    @Test("Growing snapshots retain final output, distinct requests and anonymous entries")
+    func reconcilesGrowingSnapshots() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("project/growing.jsonl")
+        func row(_ id: String, _ output: Int, _ request: String = "r1") -> String {
+            """
+            {"timestamp":"2026-09-01T01:00:00.000Z","sessionId":"s","requestId":"\(request)","message":{"id":"\(id)","model":"claude-sonnet-4-6","usage":{"input_tokens":10,"output_tokens":\(output)}}}
+            """
+        }
+        try write([row("a", 3), row("a", 2055), row("a", 3), row("a", 20, "r2"), row("", 20), row("", 20)], to: url)
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 1, hour: 12)))
+        let summary = try await ClaudeLocalActivityReader(projectsDirectoryURL: directory, calendar: calendar).read(now: now)
+        #expect(summary.totalTokens == 2155)
+    }
+
     private func temporaryDirectory() -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("AI-Meter-ClaudeActivity-\(UUID().uuidString)", isDirectory: true)

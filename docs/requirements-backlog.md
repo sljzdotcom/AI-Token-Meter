@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-06
+**最后更新：** 2026-09-07
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260907-001 | 计量修正 | PR #8 合并累计 usage 快照，保留增长输出及相同用量的不同请求 | 高 | 受环境限制 | 2026-09-07 | 实际 AIMeterCore 编译及合成反例运行通过；本机缺 Testing 模块，完整 swift test 待支持工具链复验 | PR #8 回归测试及修订提交 |
 | REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 已完成 | 2026-09-06 | 2026-09-06 完成；稳定 macOS、Windows stable 与旧 Preview 更新源均指向 0.3.0；旧 Mac Preview 实际检查发现新版。Windows 真机原位升级仍按既有验收项追踪 | [发布记录](development/2026-09-06-v0.3.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0) · Tag `bb215c3` · appcast `f9a1f83` · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34035797098) |
 | REQ-20260901-001 | 服务认证 | Settings 始终显示 Claude、Codex 当前账户和登录按钮；支持官方 CLI 重新登录；DeepSeek 显示遮罩 Key，并安全替换 API Key | 高 | 已完成 | 2026-09-01 | 稳定签名发布后重录一次旧 DeepSeek Key，可解除 ad-hoc CDHash 变化造成的钥匙串访问限制 | [设计规格](design/specifications/2026-09-01-service-account-relogin-design.md)、[实施计划](design/implementation-plans/2026-09-01-service-account-relogin.md)、[开发与验收记录](development/2026-09-01-service-account-relogin.md)、`f95c6cf`–`bfc7412`、合并 `cd77e25` |
 | REQ-20260901-002 | 项目治理 | 建立项目级“待完成需求”列表；以后每条新需求先登记，可分类、标记完成/待确认，并在当前任务结束后继续读取处理 | 高 | 已完成 | 2026-09-01 | 后续所有新需求继续遵循本机制 | 本文件、`AGENTS.md`、`641f74c` |
