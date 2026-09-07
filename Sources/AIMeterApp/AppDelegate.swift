@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let softwareUpdateCoordinator: SoftwareUpdateCoordinator
 
     private var notificationService: NotificationService?
-    private var floatingPanelController: FloatingPanelController?
+    private var floatingPanelController: FloatingStripCoordinator?
 
     override init() {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let panelController = FloatingPanelController(model: model)
+        let panelController = FloatingStripCoordinator(model: model)
         floatingPanelController = panelController
 
         model.floatingVisibilityHandler = { [weak panelController] isVisible in

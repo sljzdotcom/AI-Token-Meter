@@ -57,6 +57,8 @@ final class AppModel {
     private(set) var settingsMessageKind: SettingsMessageKind?
     private(set) var displayFontChoice: DisplayFontChoice
     private(set) var floatingStripPosition: FloatingStripPosition
+    private(set) var floatingStripDisplays: FloatingStripDisplays
+    private(set) var availableStripDisplays: [FloatingStripDisplayChoice] = []
     private(set) var stripPreferences: FloatingStripPreferences
 
     var showFloatingStrip: Bool
@@ -67,6 +69,7 @@ final class AppModel {
     var floatingVisibilityHandler: ((Bool) -> Void)?
     var floatingPositionHandler: (() -> Void)?
     var floatingAppearanceHandler: (() -> Void)?
+    var floatingDisplaysHandler: (() -> Void)?
     var notificationHandler: (([ThresholdEvent]) -> Void)?
     var notificationPermissionHandler: (() -> Void)?
 
@@ -97,6 +100,7 @@ final class AppModel {
         self.displayFontChoice = self.displayFontPreferenceStore.load()
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
+        self.floatingStripDisplays = FloatingStripDisplaysStore(defaults: defaults).load()
         self.stripPreferences = FloatingStripPreferencesStore(defaults: defaults).load()
         self.widgetSnapshotPublisher = widgetSnapshotPublisher
         let deepSeekCredentialManager = DeepSeekCredentialManager(secretStore: secretStore)
@@ -307,6 +311,35 @@ final class AppModel {
         floatingStripPosition.normalizedCenterY = normalizedCenterY
         floatingStripPosition.screenIdentifier = screenIdentifier
         floatingStripPositionStore.save(floatingStripPosition)
+        if let screenIdentifier {
+            floatingStripDisplays.record(identifier: screenIdentifier, edge: edge, normalizedCenterY: normalizedCenterY)
+            persistStripDisplays()
+        }
+    }
+
+    func setFloatingStripDisplayMode(_ mode: FloatingStripDisplayMode) {
+        floatingStripDisplays.mode = mode
+        if mode == .selected, floatingStripDisplays.selectedIdentifier == nil {
+            floatingStripDisplays.selectedIdentifier = availableStripDisplays.first(where: \.isPrimary)?.id
+                ?? availableStripDisplays.first?.id
+        }
+        persistStripDisplays()
+        floatingDisplaysHandler?()
+    }
+
+    func selectFloatingStripDisplay(_ identifier: String) {
+        floatingStripDisplays.mode = .selected
+        floatingStripDisplays.selectedIdentifier = identifier
+        persistStripDisplays()
+        floatingDisplaysHandler?()
+    }
+
+    func updateAvailableStripDisplays(_ choices: [FloatingStripDisplayChoice]) {
+        availableStripDisplays = choices
+    }
+
+    private func persistStripDisplays() {
+        FloatingStripDisplaysStore(defaults: defaults).save(floatingStripDisplays)
     }
 
     func migrateFloatingStripScreenIdentifier(from oldIdentifier: String, to newIdentifier: String) {
@@ -314,6 +347,8 @@ final class AppModel {
               oldIdentifier != newIdentifier else { return }
         floatingStripPosition.screenIdentifier = newIdentifier
         floatingStripPositionStore.save(floatingStripPosition)
+        floatingStripDisplays.migrate(from: oldIdentifier, to: newIdentifier)
+        persistStripDisplays()
     }
 
     func setNotificationsEnabled(_ isEnabled: Bool) {

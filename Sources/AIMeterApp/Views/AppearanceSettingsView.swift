@@ -38,9 +38,7 @@ struct AppearanceSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                Text("Automatic lets you drag the meter to either edge. Left and Right keep that edge fixed while still allowing vertical movement.")
-                    .aiMeterFont(.caption)
-                    .foregroundStyle(.secondary)
+                FloatingStripDisplaySettings(model: model)
                 Picker(
                     "Detail auto-hide",
                     selection: Binding(
