@@ -21,3 +21,7 @@ macOS CLIInstallationScriptBuilder 生成 curl HTTPS 下载脚本，Windows inst
 本地浏览器 About 的中文文案、两个语义链接和内联 SVG 已核对；Windows 头部图片实际尺寸 40×40，来源为既有本地资源。自动化浏览器不等于 Windows 真机视觉验收，本轮不改写既有真机限制。
 
 任务审查发现 macOS 首轮仍以 GH 文字代替图标，且仅测打开操作包装器，遗漏真实视图交互覆盖；两项均交回实现者修复，不把首轮绿色测试当成规格完整的证据。
+
+`580b674` 改为本地 15px 图形并加入真实 NSHostingView/NSButton 点击与提示断言；定向复审进一步指出视图自有模型应使用 StateObject，GitHub 点击还需要精确 URL 断言。`5e5e0e4` 完成模型生命周期、目标断言和失败文案换行修正。
+
+最终本地基线：Swift 419+13=432 项（82 组），React 80 项，Rust 208 项，密度生命周期 21 项和浏览器文本角色 632 项通过；格式、严格 Clippy、production 前端、174 份文档、合同、发布 fixture 和公开安全检查通过。GitHub 原生 CI 和整分支审查通过后方可集成；当前公开版本仍为 0.4.0，无更新源改动。
