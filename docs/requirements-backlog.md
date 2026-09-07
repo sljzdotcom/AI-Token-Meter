@@ -15,11 +15,11 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260907-005 | 双平台更新发布 | 用户要求直接发布当前多显示器、Windows 中英文/字体及详情字号改进，让现有 macOS 与 Windows 设备通过应用内更新获取新版 | 高 | 进行中 | 2026-09-07 | 按同版本稳定发布流程执行，检查双平台 CI、下载资产、签名与稳定/旧 Preview 更新源；物理多屏/DPI 验收继续独立追踪 | 验收：公开 Release 双平台资产完整且更新清单指向新版，签名与 SHA-256 校验通过，无个人密钥泄漏 |
+| REQ-20260907-005 | 双平台更新发布 | 用户要求直接发布当前多显示器、Windows 中英文/字体及详情字号改进，让现有 macOS 与 Windows 设备通过应用内更新获取新版 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成：0.4.0/build 12 公开且为 latest，双平台 CI/安装包、公网 SHA-256/两端签名及三个更新源全部验证通过；物理多屏/DPI 验收继续独立追踪 | [发布记录](development/2026-09-07-v0.4.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.4.0) · Tag `15d80e2` · appcast `2d2254f` · workflow `34076547278` |
 | REQ-20260907-004 | Windows CI 稳定性 | 最终 Windows CI 的真实浏览器字号门禁在 15 秒后超时，需定位冷启动/执行/收尾边界，保留有界失败与进程清理，不以跳过门禁代替验证 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成门禁加固：有界阶段诊断、45 秒 Windows 浏览器预算、readiness/taskkill 清理时限和原错误保留；21 项回归及 Windows 原生 CI 全绿，无断言跳过/自动重试。旧超时确切阶段仍未知，不宣称已证实冷启动根因 | [失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073429483)；验收：真实 Windows 门禁完整通过，卡死仍有界失败并清理进程 · `d303c11` · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
-| REQ-20260907-003 | Windows 详情字号 | Windows 三个产品的所有详情页文字在当前字号基础上统一再减少 1 号；macOS 不变 | 中 | 已完成 | 2026-09-07 | 2026-09-07 完成：全角色减 1 CSS px，真实 Windows 浏览器 632 项计算样式通过；Settings、托盘菜单、浮动条及 macOS 不变。未发布到更新通道 | [规格](design/specifications/2026-09-07-windows-localization-design.md)；英文/中文及四种字体覆盖；不冒充 Windows 原生字体/DPI 验收 · `3312537` · [CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
-| REQ-20260907-001 | 多显示器与拖动 | M4 Max 接入主副两屏后浮动条启动在副屏且无法拖到主屏；修复跨屏拖动，提供明确显示器选择，并设计仅一屏/所有屏显示选择与断屏回退、位置记忆 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成代码验收：主屏/指定/所有屏、跨屏拖动和逐屏记忆，复审全部关闭；macOS 405+13、本机 Windows 57/197 及原生 CI/NSIS 通过。未发布；物理多屏补验归 REQ-20260901-004 | [调查与开发日志](development/2026-09-07-multidisplay-and-windows-localization.md)；关联 REQ-20260903-009，物理多屏验收仍独立追踪 · `255e8b3`、`a8d7a0f` · [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) |
-| REQ-20260907-002 | Windows 本地化与字体 | Windows 增加简体中文/English语言选择（默认英文）；字体增加微软雅黑、黑体、楷体，默认微软雅黑；macOS 不增加语言选择 | 中 | 已完成 | 2026-09-07 | 2026-09-07 完成代码验收：English/简体中文即时同步，微软雅黑默认及黑体/楷体，旧偏好保留、缺失回退；Settings 系统字体和 macOS 不变。真实 Windows CI 通过；实际字形/DPI 仍需现场验收 | [规格](design/specifications/2026-09-07-windows-localization-design.md) · [计划](design/implementation-plans/2026-09-07-windows-localization.md)；安装成功不等于全部 Windows 专项验收通过 · `3312537`、`a8d7a0f` · [原生 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
+| REQ-20260907-003 | Windows 详情字号 | Windows 三个产品的所有详情页文字在当前字号基础上统一再减少 1 号；macOS 不变 | 中 | 已完成 | 2026-09-07 | 2026-09-07 完成：全角色减 1 CSS px，真实 Windows 浏览器 632 项计算样式通过；Settings、托盘菜单、浮动条及 macOS 不变。已随 0.4.0 发布到更新通道 | [规格](design/specifications/2026-09-07-windows-localization-design.md)；英文/中文及四种字体覆盖；不冒充 Windows 原生字体/DPI 验收 · `3312537` · [CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
+| REQ-20260907-001 | 多显示器与拖动 | M4 Max 接入主副两屏后浮动条启动在副屏且无法拖到主屏；修复跨屏拖动，提供明确显示器选择，并设计仅一屏/所有屏显示选择与断屏回退、位置记忆 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成代码验收：主屏/指定/所有屏、跨屏拖动和逐屏记忆，复审全部关闭；macOS 405+13、本机 Windows 57/197 及原生 CI/NSIS 通过。已随 0.4.0 发布；物理多屏补验归 REQ-20260901-004 | [调查与开发日志](development/2026-09-07-multidisplay-and-windows-localization.md)；关联 REQ-20260903-009，物理多屏验收仍独立追踪 · `255e8b3`、`a8d7a0f` · [PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) |
+| REQ-20260907-002 | Windows 本地化与字体 | Windows 增加简体中文/English语言选择（默认英文）；字体增加微软雅黑、黑体、楷体，默认微软雅黑；macOS 不增加语言选择 | 中 | 已完成 | 2026-09-07 | 2026-09-07 完成代码验收：English/简体中文即时同步，微软雅黑默认及黑体/楷体，旧偏好保留、缺失回退；Settings 系统字体和 macOS 不变。已随 0.4.0 发布；真实 Windows CI 通过；实际字形/DPI 仍需现场验收 | [规格](design/specifications/2026-09-07-windows-localization-design.md) · [计划](design/implementation-plans/2026-09-07-windows-localization.md)；安装成功不等于全部 Windows 专项验收通过 · `3312537`、`a8d7a0f` · [原生 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34073917953) |
 | REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 已完成 | 2026-09-06 | 2026-09-06 完成；稳定 macOS、Windows stable 与旧 Preview 更新源均指向 0.3.0；旧 Mac Preview 实际检查发现新版。Windows 真机原位升级仍按既有验收项追踪 | [发布记录](development/2026-09-06-v0.3.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0) · Tag `bb215c3` · appcast `f9a1f83` · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34035797098) |
 | REQ-20260901-001 | 服务认证 | Settings 始终显示 Claude、Codex 当前账户和登录按钮；支持官方 CLI 重新登录；DeepSeek 显示遮罩 Key，并安全替换 API Key | 高 | 已完成 | 2026-09-01 | 稳定签名发布后重录一次旧 DeepSeek Key，可解除 ad-hoc CDHash 变化造成的钥匙串访问限制 | [设计规格](design/specifications/2026-09-01-service-account-relogin-design.md)、[实施计划](design/implementation-plans/2026-09-01-service-account-relogin.md)、[开发与验收记录](development/2026-09-01-service-account-relogin.md)、`f95c6cf`–`bfc7412`、合并 `cd77e25` |
 | REQ-20260901-002 | 项目治理 | 建立项目级“待完成需求”列表；以后每条新需求先登记，可分类、标记完成/待确认，并在当前任务结束后继续读取处理 | 高 | 已完成 | 2026-09-01 | 后续所有新需求继续遵循本机制 | 本文件、`AGENTS.md`、`641f74c` |
@@ -114,6 +114,7 @@
 
 ### 发布交付
 
+- `REQ-20260907-005`：0.4.0 多显示器与 Windows 本地化双平台稳定更新交付。
 - `REQ-20260902-014`：生成供 MacBook Pro M4 Max 使用的 Apple Silicon Release 分发包。
 - `REQ-20260902-015`：修复跨 Mac 分发包的 SwiftPM 资源包启动崩溃并重新交付。
 - `REQ-20260902-017`：安全发布公开 GitHub 仓库、标准文档、截图与可下载 Release，并补充作者信息。
@@ -165,6 +166,7 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-07 | REQ-20260907-005 | 已完成 | 0.4.0/build 12 已公开，Tag `15d80e2`、workflow `34076547278`、appcast `2d2254f`；匿名重下七份资产、SHA-256、两端签名及三个更新源一致通过。阶段末重新核对当前队列，没有其他可在当前环境继续的进行中或待处理项；原物理验收/Widget/偶发时序事项保持原状态。 |
 | 2026-09-07 | REQ-20260907-001 / 002 / 003 / 004 | 已完成 | 完成实现、独立复审及代码级验收；macOS 完整 405+13 项，Windows 57/197/21/632 项及原生 CI 34073917953、NSIS 全绿。Git 检查点 255e8b3、a8d7a0f、d303c11、83c54c6；PR #9 保留集成证据。未发布，物理双屏/DPI 与 Widget 证书不冒充完成。 |
 | 2026-09-07 | REQ-20260906-003 | 受环境限制 | 复发后已补测试专用白名单阶段/耗时/PID 诊断，保留原断言和超时，PTY 13/13 及完整回归通过；历史间歇性根因仍缺少可复现证据，继续追踪，不关闭。 |
 | 2026-09-07 | REQ-20260907-004 | 进行中 | 最终 Windows CI 的浏览器字号门禁 15 秒超时，没有样式断言结果。先登记、保存原始失败证据，进行一次原样复验并检查有界超时和诊断；不能跳过字号门禁。 |

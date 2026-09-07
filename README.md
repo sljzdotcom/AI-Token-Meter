@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前双平台版本：`0.4.0`（macOS build `12`），正在准备稳定更新通道交付；旧 Windows Preview 更新源也支持升级到本版。[发布记录](docs/development/2026-09-07-v0.4.0-release.md)保留校验与交付证据。Windows 全部交互式真机验收和 Widget 证书仍单独追踪；Windows 安装器尚无 Authenticode 发布者签名。
+> 当前双平台版本：`0.4.0`（macOS build `12`），已通过稳定更新通道交付；旧 Windows Preview 更新源也支持升级到本版。[发布记录](docs/development/2026-09-07-v0.4.0-release.md)保留校验与交付证据。Windows 全部交互式真机验收和 Widget 证书仍单独追踪；Windows 安装器尚无 Authenticode 发布者签名。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> 0.4.0 正在准备发布：多显示器选择/所有屏幕展示及 Windows 中英文、中文字体与更小详情字号。公开更新源在双平台签名资产验证通过后推进；见[发布进度](docs/development/2026-09-07-v0.4.0-release.md)。
+> 0.4.0 新增：多显示器选择/所有屏幕展示及 Windows 中英文、中文字体与更小详情字号。双平台签名资产与公开更新源已验证；见[发布进度](docs/development/2026-09-07-v0.4.0-release.md)。
 
 `0.3.0` 新增：默认 Compact 紧凑浮动条、可选闲置折叠、服务显示/排序、右键快捷菜单和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)。
 

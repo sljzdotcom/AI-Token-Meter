@@ -30,7 +30,7 @@ Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续�
 
 ### Screen edge
 
-下一版（Unreleased）的多显示器设置位于 Appearance：
+0.4.0 的多显示器设置位于 Appearance：
 
 - **Show on → Primary display**：跟随系统主屏，新安装默认；仅修改边缘不改变此模式。
 - **Selected display**：指定屏幕，断开时临时回主屏，重连恢复；升级保留旧目标。
@@ -61,18 +61,18 @@ macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 
 - **Leigo**：使用 Ricardo Medina 的 Leigo Regular，兼容 `Leigo` 与 `Leigo Regular` 家族名。
 - **Menlo**：使用本机提供的 Menlo 等宽字体；Windows 未安装时按缺失字体处理。
 - **Alimama DaoLiTi**：使用本机已安装的阿里妈妈刀隶体。
-- 下一版 Windows 增加 **Microsoft YaHei（微软雅黑）**、**SimHei（黑体）**、**KaiTi（楷体）**；新安装默认微软雅黑，升级保留旧选择。
+- Windows 0.4.0 增加 **Microsoft YaHei（微软雅黑）**、**SimHei（黑体）**、**KaiTi（楷体）**；新安装默认微软雅黑，升级保留旧选择。
 - Settings 始终使用平台系统字体，选项只显示名称，不做字体预览；Windows 下拉保持白底深字，macOS 尺度不变。
 - 切换立即应用到浮动条及详情，无需重启；原生菜单字体由系统控制。
-- `Restore Default Font` 在 macOS 恢复 System Default，下一版 Windows 恢复微软雅黑。
-- 自定义字体未安装时显示 `Not installed`：macOS 禁用该选项；下一版 Windows 允许保留或选择该偏好，但实际内容安全回退微软雅黑/系统 sans-serif，不把回退误报为字体已安装。已保存字体临时不可用时不丢失偏好。
+- `Restore Default Font` 在 macOS 恢复 System Default，Windows 0.4.0 恢复微软雅黑。
+- 自定义字体未安装时显示 `Not installed`：macOS 禁用该选项；Windows 0.4.0 允许保留或选择该偏好，但实际内容安全回退微软雅黑/系统 sans-serif，不把回退误报为字体已安装。已保存字体临时不可用时不丢失偏好。
 - AI Token Meter 不下载、安装或分发字体文件。请使用系统字体管理安装对应字体，再重新打开 Settings 或重启应用。
 
 Fira Code、Leigo 和 Menlo 的中文覆盖可能不完整，中英文混排由平台字体回退补齐中文字形。Widget、Settings、系统菜单和通知始终使用系统字体。
 
 字体选择只影响 AI Token Meter 自己绘制的文字，不改变 Provider Logo、SF Symbols、圆环、品牌颜色、深海背景或 DeepSeek 官方网页内容。
 
-### Windows Language（下一版）
+### Windows Language（0.4.0 起）
 
 Appearance → Language 可选 English（默认）或简体中文，保存后立即同步窗口及原生菜单。翻译本应用的设置、详情、状态、通知与无障碍标签，服务品牌名不变；官方 CLI、DeepSeek 网页和第三方系统界面不由本应用翻译。macOS 不增加此选项。
 
