@@ -14,4 +14,10 @@
 
 ## 验证边界
 
+### 第一轮实现验证
+
+- Swift 重复登录点击先出现 3 项预期失败，再改为防重复后通过；安装脚本 fixture 覆盖两服务，失败下载不执行、退出码保留与临时文件清理。
+- 前端实现第一轮 63 项测试、production build、21 项密度进程生命周期与 632 项 Chrome 计算样式通过；不是最终提交的验收结论。
+- 全量 Swift 第一轮 414 项/80 组中，既有 `CLICollectorTests.codexTimeoutIsBounded()` 在第 226 行得到 `transportFailure`（约 1.916s）。该测试和 collector 无差异，单独 `CLICollectorTests` 15/15 通过，未改原断言或截止时间。并入既有 REQ-20260906-003 跟踪；本机完整原始输出位于 `/private/tmp/cli-swift-full.log`，临时日志不进入公开仓库。后续需记录整套复验，不能用隔离通过推断根因已消除。
+
 测试使用受控安装脚本 fixture，不在维护者机器上实际安装/重装 CLI 或更改真实账户。Windows 原生执行和字体/图标真实桌面外观必须区分本机测试、CI 与人工验收。
