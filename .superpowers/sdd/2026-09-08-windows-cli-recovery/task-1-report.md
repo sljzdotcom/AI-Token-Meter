@@ -69,3 +69,17 @@ Finished `dev` profile; 0 warnings
 - 未硬编码用户名或个人路径；测试路径全部位于临时目录。
 - 未扩大环境继承，未修改 `process.rs` 的环境白名单。
 - 未修改账户、采集、界面或 macOS 逻辑。
+
+## 首轮 Windows 原生 CI 跟进
+
+Windows CI `34183253409` 已证明 npm 入口真实执行成功：标记、`--version` 参数、退出状态以及其他 10 项 `process_runner` 用例均通过。唯一失败为同一 PATH 目录的 Windows 路径表示差异：
+
+```text
+left:  "\\\\?\\C:\\Users\\runneradmin\\...\\Program Files\\nodejs"
+right: "C:\\Users\\RUNNER~1\\...\\Program Files\\nodejs"
+test result: FAILED. 10 passed; 1 failed
+```
+
+根因是 `tempfile`/Windows 文件系统同时暴露规范长路径和等价 8.3 短路径，不是 PATH 扩大。回归现将子进程报告的整个 PATH 与预期 Node 目录分别规范化后做全等比较；如果 PATH 含有分隔符和多个目录，它不是可规范化的单一目录，断言仍会失败。
+
+本机 macOS 上 `cargo test --manifest-path windows/src-tauri/Cargo.toml --test process_runner` 修正后 9/9 通过；Windows-only 用例的修正后原生结果待下一轮 Windows CI，不在本地结论中冒充。

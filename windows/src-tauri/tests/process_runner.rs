@@ -254,7 +254,12 @@ fn separated_official_npm_entry_runs_with_node_only_path() {
     assert_eq!(invocation.executable, isolated_node.canonicalize().unwrap());
     assert_eq!(value["marker"], "npm-entry-ran");
     assert_eq!(value["args"], serde_json::json!(["--version"]));
-    assert_eq!(PathBuf::from(value["path"].as_str().unwrap()), node_root);
+    assert_eq!(
+        PathBuf::from(value["path"].as_str().unwrap())
+            .canonicalize()
+            .expect("canonical child PATH"),
+        node_root.canonicalize().expect("canonical Node directory")
+    );
 }
 
 #[cfg(windows)]
