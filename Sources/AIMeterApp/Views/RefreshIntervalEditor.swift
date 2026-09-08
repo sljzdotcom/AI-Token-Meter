@@ -43,6 +43,8 @@ final class RefreshIntervalEditorView: NSStackView {
         input.setAccessibilityHelp("30 to 86400 seconds. Press Return or Apply to save.")
         input.target = self
         input.action = #selector(submit)
+        // Losing focus keeps the draft; only Return or Apply commits it.
+        (input.cell as? NSTextFieldCell)?.sendsActionOnEndEditing = false
         input.widthAnchor.constraint(equalToConstant: 90).isActive = true
         let button = NSButton(title: "Apply", target: self, action: #selector(submit))
         button.bezelStyle = .rounded
