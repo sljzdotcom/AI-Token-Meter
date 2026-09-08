@@ -151,12 +151,16 @@ public struct PTYCommandRunner: CommandRunning {
                 stopDrainDeadline = Date().addingTimeInterval(0.75)
             }
             if geminiQuotaInteraction && !controller.stopRequested {
-                interaction.advance(raw: result, descriptor: descriptor)
+                interaction.advance(descriptor: descriptor)
                 if interaction.error != nil { processBox.stop() }
             }
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
+                if geminiQuotaInteraction {
+                    interaction.receive(Data(buffer.prefix(count)))
+                    if interaction.error != nil { processBox.stop() }
+                }
                 if !matchedStopPhrase, !stopPhrases.isEmpty {
                     let output = String(decoding: result, as: UTF8.self)
                     if stopPhrases.contains(where: output.contains) {
@@ -178,6 +182,7 @@ public struct PTYCommandRunner: CommandRunning {
                 break
             }
         }
+        if geminiQuotaInteraction { interaction.finish() }
         return PTYReadResult(data: interaction.captured.map { Data($0.utf8) } ?? result, error: interaction.error)
     }
 
@@ -342,38 +347,35 @@ private struct PTYReadResult {
 
 /// Lives on the single reader task, so input scheduling never blocks draining output.
 private struct GeminiPTYInteraction {
-    var error: UsageCollectionError?
+    private var terminal = GeminiTerminalObservation()
+    private var interactionError: UsageCollectionError?
+    var error: UsageCollectionError? { terminal.error ?? interactionError }
     var captured: String?
     private var sentModel = false
     private var closing = false
     private var pending: [(TimeInterval, UInt8)] = []
     private var previousScreen = ""
     private var unchangedSince: TimeInterval = 0
-    private var observedQuota: [String]?
 
-    mutating func advance(raw: Data, descriptor: Int32) {
+    mutating func receive(_ data: Data) { terminal.receive(data) }
+    mutating func finish() { terminal.finish() }
+
+    mutating func advance(descriptor: Int32) {
+        guard error == nil else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        guard raw.count < 2 * 1_024 * 1_024 else { error = .unrecognizedOutput; return }
-        var screen = GeminiTerminalScreen()
-        screen.feed(String(decoding: raw, as: UTF8.self))
-        let text = screen.text
+        let text = terminal.text
         if text != previousScreen { previousScreen = text; unchangedSince = now }
-        if let blocking = GeminiTerminalProtocol.blockingError(text) { error = blocking; pending = []; return }
+        if let blocking = GeminiTerminalProtocol.blockingError(text) { interactionError = blocking; pending = []; return }
         if !sentModel && GeminiTerminalProtocol.isReady(text) && now - unchangedSince >= 0.15 {
             schedule("/model\r", at: now); sentModel = true
-        }
-        if sentModel, let quota = try? GeminiUsageParser().parse(text), let metrics = quota.geminiQuotaMetrics {
-            let signature = metrics.map { "\($0.label)|\($0.current)|\($0.resetDescription ?? "")" }
-            if let previous = observedQuota, previous != signature { error = .unrecognizedOutput; return }
-            observedQuota = signature
         }
         if sentModel && !closing && pending.isEmpty && now - unchangedSince >= 0.3 && text.contains("Select Model") && text.contains("(Press Esc to close)") && text.contains("╯") {
             // Validate before closing; the collector receives this captured frame, not the exit screen.
             do { _ = try GeminiUsageParser().parse(text) }
             catch let failure as UsageCollectionError {
                 if case .geminiUnavailable = failure { /* close an empty quota dialog normally */ }
-                else { error = failure; return }
-            } catch { self.error = .unrecognizedOutput; return }
+                else { interactionError = failure; return }
+            } catch { interactionError = .unrecognizedOutput; return }
             captured = text; closing = true
             schedule("\u{1b}", at: now)
             schedule("/quit\r", at: now + 0.8)
@@ -381,7 +383,7 @@ private struct GeminiPTYInteraction {
         if let next = pending.first, next.0 <= now {
             var byte = next.1
             if Darwin.write(descriptor, &byte, 1) == 1 { pending.removeFirst() }
-            else if errno != EAGAIN && errno != EWOULDBLOCK { error = .transportFailure }
+            else if errno != EAGAIN && errno != EWOULDBLOCK { interactionError = .transportFailure }
         }
     }
     private mutating func schedule(_ text: String, at start: TimeInterval) {

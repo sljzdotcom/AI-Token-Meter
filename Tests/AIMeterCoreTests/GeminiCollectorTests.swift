@@ -78,6 +78,16 @@ struct GeminiCollectorTests {
         #expect(await runner.requests.isEmpty)
     }
 
+    @Test(arguments: [#"{"security":{"auth":[]}}"#, #"{"security":{"auth":{"selectedType":42}}}"#])
+    func malformedAuthenticationIsUnavailableInsteadOfSignInRequired(_ settings: String) async throws {
+        let context = try context(settings: settings); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingGeminiRunner(version: "0.58.0")
+        await #expect(throws: UsageCollectionError.geminiUnavailable("Gemini CLI settings are not supported")) {
+            try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect()
+        }
+        #expect(await runner.requests.isEmpty)
+    }
+
     private func context(settings: String = #"{"security":{"auth":{"selectedType":"oauth-personal"}}}"#, extraEnvironment: [String: String] = [:]) throws -> (root: URL, environment: GeminiCLIEnvironment) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("gemini-home-\(UUID())")
         try FileManager.default.createDirectory(at: root.appendingPathComponent(".gemini"), withIntermediateDirectories: true)

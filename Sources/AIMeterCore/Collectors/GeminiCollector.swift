@@ -79,8 +79,14 @@ public struct GeminiCLIEnvironment: Sendable {
             guard settings[key] is [String: Any] else { throw UsageCollectionError.geminiUnavailable("Gemini CLI settings are not supported") }
         }
         let security = settings["security"] as? [String: Any]
+        if let auth = security?["auth"], !(auth is [String: Any]) {
+            throw UsageCollectionError.geminiUnavailable("Gemini CLI settings are not supported")
+        }
         let auth = security?["auth"] as? [String: Any]
-        guard let mode = auth?["selectedType"] as? String else { throw UsageCollectionError.authenticationRequired }
+        guard let selectedType = auth?["selectedType"] else { throw UsageCollectionError.authenticationRequired }
+        guard let mode = selectedType as? String else {
+            throw UsageCollectionError.geminiUnavailable("Gemini CLI settings are not supported")
+        }
         guard mode == "oauth-personal" else { throw UsageCollectionError.geminiUnavailable("Gemini CLI authentication mode is not supported") }
         if !Self.disabledOrAbsent(auth?["useExternal"]) || !Self.disabledOrAbsent(security?["toolSandboxing"])
             || (auth?["enforcedType"] != nil && auth?["enforcedType"] as? String != "oauth-personal") {
