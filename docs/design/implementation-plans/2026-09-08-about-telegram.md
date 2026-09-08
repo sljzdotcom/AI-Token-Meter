@@ -14,7 +14,7 @@ Windows 中文/英文作者整行和可见作者链接标题删除，无障碍�
 
 **所有权：** Windows settings/AuthorLinks.tsx、SettingsWindow.tsx、styles.css、相关测试、src-tauri/src/brand_links.rs 与 tests/brand_links.rs，以及必要的浏览器测试；macOS AppBrand.swift、BrandLinksView.swift 及对应 Core/App 测试。控制者负责文档和唯一台账。
 
-- [ ] 先运行现有聚焦测试建立基线；补失败的真实渲染/路由测试，记录 RED。Windows 两种语言查询无作者文字与可见组标题、三链接 href、点击 target、无自动打开与错误恢复；macOS 实际三个 NSButton 点击目标和辅助功能，窄宽度渲染；Rust 将字符串 telegram 反序列化并验证固定目标，同时拒绝未知输入。
+- [x] 先运行现有聚焦测试建立基线；补失败的真实渲染/路由测试，记录 RED。Windows 两种语言查询无作者文字与可见组标题、三链接 href、点击 target、无自动打开与错误恢复；macOS 实际三个 NSButton 点击目标和辅助功能，窄宽度渲染；Rust 将字符串 telegram 反序列化并验证固定目标，同时拒绝未知输入。
   ```tsx
   expect(screen.getByRole("link", {name: /Telegram.*sljzdotcom/})).toHaveAttribute("href", "https://t.me/sljzdotcom")
   expect(screen.queryByText("作者链接")).not.toBeInTheDocument()
@@ -23,9 +23,9 @@ Windows 中文/英文作者整行和可见作者链接标题删除，无障碍�
   let target: BrandLink = serde_json::from_str(r#""telegram""#).unwrap();
   assert_eq!(target.url(), "https://t.me/sljzdotcom");
   ```
-- [ ] 最小实现：删除 Windows 作者 p 与组标题 small，保留 aria-label；新增 Telegram 数据项/装饰纸飞机 SVG；必要局部 CSS 保证不收缩图标、等高和换行。Rust 新增 Telegram 枚举值和固定 URL。macOS 新增 Link 数据项和纸飞机图标分支，复用已有按钮与 ViewThatFits。
-- [ ] 运行 GREEN 和全量前端/Rust/Swift 验证及构建；先 scripts/check-docs.sh。使用任务专属临时缓存/日志避免并发共享构建干扰。Windows production build、密度/更新样式回归和实际浏览器 Tab/Enter、双语言宽窄布局检查；不在测试中实际打开远程链接。
-- [ ] 自审，只提交自己负责的代码与测试；报告 RED/GREEN、命令/结果、边界、提交。交独立任务规格与质量审查。
+- [x] 最小实现：删除 Windows 作者 p 与组标题 small，保留 aria-label；新增 Telegram 数据项/装饰纸飞机 SVG；必要局部 CSS 保证不收缩图标、等高和换行。Rust 新增 Telegram 枚举值和固定 URL。macOS 新增 Link 数据项和纸飞机图标分支，复用已有按钮与 ViewThatFits。
+- [x] 运行 GREEN 和全量前端/Rust/Swift 验证及构建；先 scripts/check-docs.sh。使用任务专属临时缓存/日志避免并发共享构建干扰。Windows production build、密度/更新样式回归和实际浏览器 Tab/Enter、双语言宽窄布局检查；不在测试中实际打开远程链接。
+- [x] 自审，只提交自己负责的代码与测试；报告 RED/GREEN、命令/结果、边界、提交。交独立任务规格与质量审查。
 
 ## 控制者收尾
 

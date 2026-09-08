@@ -1,0 +1,29 @@
+# 关于页精简与 Telegram 链接
+
+关联需求：REQ-20260908-009。日期：2026-09-08。
+
+## 范围
+
+Windows 关于页移除中英文作者整行及可见社交标题，保留无障碍分组名称；两端新增 Telegram @sljzdotcom 纸飞机图标链接，固定目标 `https://t.me/sljzdotcom`。macOS 原作者行保留。复用现有固定链接打开机制，仅用户激活时打开默认浏览器。
+
+- [规格](../design/specifications/2026-09-08-about-telegram-design.md)
+- [实施计划](../design/implementation-plans/2026-09-08-about-telegram.md)
+
+## 检查点
+
+需求基线 `866ce41`，规格/计划 `a508658`；使用隔离分支 `codex/about-telegram`，由协调入口核验后整合。实现提交 `fc2f3f9`；浏览器回归 `e288f3f`、安全键盘测试入口 `e89fe6a`。
+
+## 验证与审查
+
+- 基线：Windows AuthorLinks 4 项、Rust 固定链接 2 项、Swift 品牌/原生视图 7 项通过。
+- RED：Windows 新增验收在缺少 Telegram/作者文字仍可见时产生 6 个预期失败；Swift 缺少第三链接/按钮产生 4 个行为失败；Rust 新枚举测试先因缺少 Telegram 变体不能编译。GREEN：Windows 聚焦 8 项、Rust 2 项、Swift 8 项通过。
+- macOS 180pt 实际 NSButton 布局测试发现原 ViewThatFits 未获得完整按钮宽度；补原生 fittingSize 和水平候选固有尺寸后，三按钮分行且位于可见边界内。原作者行不改。
+- 完整前端 92 项通过、TypeScript/Vite 生产构建通过；macOS 宿主 Rust 221 项全目标测试、格式检查和构建通过；Swift 全量 434 项/82 组与 Release 构建通过。Rust loopback 测试初次受沙盒监听限制，同命令获准后通过。
+- 浏览器门禁覆盖 21 项生命周期、632 个既有文字角色、14 个中英文更新状态（含深红粗体）、两语言 About 实际文字及 240/760px 社交区域。主审查发现新门禁行宽常量与样本不一致、整页文案样本未断言，已在 `23c7824` 补齐；新增断言先因缺字段失败，补采样通过，临时恢复作者行变异亦被拒绝，恢复后最终门禁通过。
+- 控制者通过实际浏览器 Tab/Enter 在两语言依次获得 `twitter`、`github`、`telegram` 目标，测试页保持 localhost；辅助功能分组保留，焦点边框可见。中文 360px、英文 440px 与常规宽度截图目视通过，三个链接等高且完整换行。
+- 独立任务审查：规格/质量通过，无 Critical/Important；Minor：macOS 图标类型仍依赖既有标签选择方式，未来本地化需同步维护。最终整分支审查在收尾时记录。
+- 文档检查 190 份通过；公开源码安全检查、差异空白检查通过。
+
+## 发布及验收边界
+
+暂不发布，不改版本、更新源、签名或 Release；REQ-007 的 Windows 深红粗体更新提示也继续暂不发布。公开版保持 0.5.1。Windows Settings 默认 760×560；极窄 360px 英文整页在聚焦 About 时可因既有页签过宽发生内部横向滚动，本次不扩大到无关页签布局修复，不能宣称该极窄整页通过。240px 局部社交区换行与默认整页分别验证。本机浏览器证据不能替代 Windows 11 WebView2/原生 DPI 现场验收；不操作真实社交账号，不发送消息、不加入频道。历史受限项继续保持原状态。
