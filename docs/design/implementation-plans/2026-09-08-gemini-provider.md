@@ -13,9 +13,9 @@
 
 **所有权：** `scripts/test-gemini-cli-capability.mjs`、`docs/development/2026-09-08-gemini-cli-capability.md`；临时上游源码与探测产物在`/private/tmp/req012-gemini-*`。不改产品代码或需求台账。
 
-- [ ] 固定官方稳定版v0.58.0，源码提交ac9431c9e2290d68af31a77614ff2fddb2391ca3，下载目录`/private/tmp/req012-gemini-source`。核对该源码而非滚动main。
-- [ ] 追踪`statsCommand.ts`、`modelCommand.ts`、实际StatsDisplay/ModelStatsDisplay与model对话框、nonInteractiveCliCommands/loader，明确空会话的最终可见字段和非交互参数含义。
-- [ ] 先建立能否决错误接入假设的隔离探测，禁止凭据读取和真实网络。运行原始内置命令/渲染代码时仅用测试适配器提供合成quota和账户，无真实HOME；若无法覆盖整个启动链，不把命令级验证宣称为端到端认证通过。
+- [x] 固定官方稳定版v0.58.0，源码提交ac9431c9e2290d68af31a77614ff2fddb2391ca3，下载目录`/private/tmp/req012-gemini-source`。核对该源码而非滚动main。
+- [x] 追踪`statsCommand.ts`、`modelCommand.ts`、实际StatsDisplay/ModelStatsDisplay与model对话框、nonInteractiveCliCommands/loader，明确空会话的最终可见字段和非交互参数含义。
+- [x] 先建立能否决错误接入假设的隔离探测，禁止凭据读取和真实网络。运行原始内置命令/渲染代码时仅用测试适配器提供合成quota和账户，无真实HOME；若无法覆盖整个启动链，不把命令级验证宣称为端到端认证通过。
 
 ```js
 // 探测必须涵盖这些性质；按上游真实接口接入夹具。
@@ -25,9 +25,9 @@ assert.equal(actualVisibleQuota, expectedVisibleQuota);
 // 错误假设（例如新会话model视图一定有额度）应被真实上游行为否决。
 ```
 
-- [ ] 记录可复现运行入口、上游固定SHA、原始输出、命令级/渲染级/启动链各自覆盖边界。对于headless未支持命令，证明是拒绝还是转模型，不能猜测。
-- [ ] 结论必须区分：已验证无模型调用并可见额度；命令内部刷新但不显示；来源存在而自动采集未证实。若不可行，立即回传根代理；不通过制造模型调用补齐、不直接调私有后端。
-- [ ] 用文档索引链接报告，运行文档检查；提交该任务，独立审查证据和结论。后续采集器仅依赖被验证的路径。
+- [x] 记录可复现运行入口、上游固定SHA、原始输出、命令级/渲染级/启动链各自覆盖边界。对于headless未支持命令，证明是拒绝还是转模型，不能猜测。
+- [x] 结论必须区分：已验证无模型调用并可见额度；命令内部刷新但不显示；来源存在而自动采集未证实。若不可行，立即回传根代理；不通过制造模型调用补齐、不直接调私有后端。
+- [x] 用文档索引链接报告，运行文档检查；提交该任务，独立审查证据和结论。后续采集器仅依赖被验证的路径。
 
 ## 共同接口与并行边界
 
@@ -77,3 +77,9 @@ expect(screen.getByLabelText('Move Gemini down')).toBeDisabled()
 - [ ] 更新详细协议/测试计划及开发日志后运行文档门禁，再运行相关平台完整测试、Release/前端构建和跨平台合同门禁；真实Windows/账号未执行部分独立记录。
 - [ ] 分支级独立审查、必要修复与定向复审；更新台账，安全整合主工作区的新需求，Git本地合并收尾。未发布、未推送。
 - [ ] 回传实现/验证/审查/合并/边界与后续所有者；只有Gemini功能完成才转入015。若额度受限，准确标记并等待重大范围决定，不擅自完成012或提前执行015。
+
+## 实施检查点记录
+
+2026-09-08：Task1已提交`8bf76ec`并通过独立审查（无阻断项）；Task2为`f3a3428`，Task3为`7b7ec5e`。Task2独立审查通过；Task3审查及集成回归修复仍在进行。前端105项/13文件与生产构建通过，文档199份通过。首轮宿主Rust在共享元数据仅允许三产品处失败；首轮Swift436项中的刷新协调器测试仍期望三个模拟采集器，出现两条断言失败。另发现共享snapshot schema名称漏加Gemini；均纳入012当前修复，不宣称完整回归通过。Task4a仍在验证真实CLI合成环境启动、退出、认证失败与用户扩展隔离，尚未接入产品采集器。
+
+修复后复验：`2124b78`关闭Windows元数据/schema两项P2，宿主Rust225项与严格Clippy通过；`8c632db`修复Swift四并发测试期望，436项主测试+13项PTY及全部仓库门禁通过，macOS Release编译通过。证据见[展示阶段开发日志](../../development/2026-09-08-gemini-presentation.md)。
