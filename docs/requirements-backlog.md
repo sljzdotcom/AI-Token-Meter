@@ -473,3 +473,4 @@
 | 2026-09-08 | REQ-20260908-021 | 进行中 | 2×修复后的完整本机门禁按458普通+3刷新调度+13 PTY runner+6 Gemini PTY分组共480项通过，随后6份跨平台合同、发布脚本、207份文档和公开安全检查全绿；等待独立复审与PR最终提交CI，仍不以单次本机成功关闭。 |
 | 2026-09-08 | REQ-20260906-003 | 进行中 | PR #13第五轮Windows CI 34232052626在08dc153上通过前端、真实浏览器、生产构建、格式、严格Clippy及Gemini前序Rust测试，但gemini_conpty_windows成功场景仍在第93行unwrap到TimedOut（8.88秒）；固定ESC[1;1R清理假设因此不足，且raw input断言尚未执行便已失败、临时目录随unwind删除。下一步先把有界转义输入/阶段证据加入失败消息，再由原生runner给出真实字节，不延长8/2秒期限。 |
 | 2026-09-08 | REQ-20260906-003 | 进行中 | Windows Gemini夹具新增started/ready-written/input-received/model-opened/model-closed/quit-received去重阶段历史；复审先发现单值文件会被后续input-received覆盖，现改为最多六项单调追加，额外输入不能抹掉已到达阶段。综合测试在结果断言前读取历史，并在失败消息中只显示总长度与最多128个合成输入字节。Node语法、cargo fmt、宿主严格Clippy与207份文档检查通过；生产代码、8/2秒期限、命令和结果断言未改，等待原生CI。 |
+| 2026-09-08 | REQ-20260908-016 | 进行中 | 用户再次明确授权：允许将本地提交推送到公开仓库github.com/sljzdotcom/AI-Token-Meter，在门禁全绿后合并PR #13、创建并发布v0.6.0标签、GitHub Release及应用内更新源，要求生成可供现有安装更新的新版本。该授权覆盖自动审批要求的具体目的地与发布动作。 |
