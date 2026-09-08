@@ -30,14 +30,16 @@ struct FloatingStripRenderingTests {
                     let name = "expanded-\(count)-\(density.rawValue)-\(edge == .left ? "left" : "right")"
                     try save(actual, name: name)
                     try save(surface, name: "\(name)-surface")
-                    #expect(actual.pixelsWide == Int(density.width))
-                    #expect(actual.pixelsHigh == Int(density.height(providerCount: count)))
+                    #expect(actual.pixelsWide == pixel(density.width))
+                    #expect(actual.pixelsHigh == pixel(density.height(providerCount: count)))
                     // Compare a clear top band, above all Provider buttons, with the real glass.
                     // A reintroduced horizontal decoration changes these pixels; logos cannot.
                     var changedPixels = 0
                     let top = density == .compact ? 32 : 40
-                    for y in top..<(top + 10) {
-                        for x in (Int(density.width / 2) - 12)..<(Int(density.width / 2) + 12) {
+                    let centerX = pixel(density.width / 2)
+                    let sampleHalfWidth = pixel(12)
+                    for y in pixel(Double(top))..<pixel(Double(top + 10)) {
+                        for x in (centerX - sampleHalfWidth)..<(centerX + sampleHalfWidth) {
                             let a = try #require(actual.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
                             let b = try #require(surface.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
                             if max(abs(a.redComponent - b.redComponent),
@@ -59,13 +61,13 @@ struct FloatingStripRenderingTests {
                     }, width: density.width, height: density.height(providerCount: count))
                     let rect = CGRect(x: 0, y: 0, width: density.width, height: density.height(providerCount: count))
                     let frames = FloatingStripContentLayout.providerFrames(in: rect, density: density, count: count)
-                    for frame in frames {
+                    for (provider, frame) in zip(UsageProvider.allCases.prefix(count), frames) {
                         #expect(rect.contains(frame))
                         // Bright inner-logo pixels must occupy the same coordinates on both edges.
                         var brightLogoPixels = 0
                         var mismatchedLogoPixels = 0
-                        for y in Int(frame.midY - 7)..<Int(frame.midY + 7) {
-                            for x in Int(frame.midX - 7)..<Int(frame.midX + 7) {
+                        for y in pixel(Double(frame.midY - 7))..<pixel(Double(frame.midY + 7)) {
+                            for x in pixel(Double(frame.midX - 7))..<pixel(Double(frame.midX + 7)) {
                                 let expected = try #require(reference.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
                                 if min(expected.redComponent, expected.greenComponent, expected.blueComponent) > 0.92 {
                                     brightLogoPixels += 1
@@ -74,7 +76,7 @@ struct FloatingStripRenderingTests {
                                 }
                             }
                         }
-                        #expect(brightLogoPixels > 5)
+                        #expect(brightLogoPixels > 5, "Reference logo did not render: \(name)-\(provider.rawValue)")
                         #expect(mismatchedLogoPixels == 0, "Logo orientation changed: \(name)")
                     }
                     let foldedState = FloatingStripDisplayState(resolvedEdge: edge)
@@ -104,12 +106,18 @@ struct FloatingStripRenderingTests {
         try await Task.sleep(for: .milliseconds(25))
         host.layoutSubtreeIfNeeded()
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil,
-            pixelsWide: Int(width), pixelsHigh: Int(height), bitsPerSample: 8,
+            pixelsWide: pixel(width), pixelsHigh: pixel(height), bitsPerSample: 8,
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         bitmap.size = NSSize(width: width, height: height)
         host.cacheDisplay(in: host.bounds, to: bitmap)
         return bitmap
+    }
+
+    private var renderScale: Double { 2 }
+
+    private func pixel(_ points: Double) -> Int {
+        Int(points * renderScale)
     }
 
     private func save(_ bitmap: NSBitmapImageRep, name: String) throws {
