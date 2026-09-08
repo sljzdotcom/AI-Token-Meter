@@ -15,7 +15,7 @@
 
 ## 一句话定位
 
-**本分支改动（待协调入口整合，暂不发布）：** 两端新增 Telegram 图标链接，Windows 关于页移除作者整行和可见社交标题；macOS 原作者行保留。[开发记录](development/2026-09-08-about-telegram.md)。
+**已合入本地 main（暂不发布）：** 两端新增 Telegram 图标链接，Windows 关于页移除作者整行和可见社交标题；macOS 原作者行保留。协调入口整合复测通过，[开发记录](development/2026-09-08-about-telegram.md)。
 
 **未发布改动：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。用户要求保留到后续版本一起发布；公开 0.5.1 和更新源未变。
 
