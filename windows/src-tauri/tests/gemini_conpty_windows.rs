@@ -13,6 +13,7 @@ use ai_token_meter_windows::{
     },
 };
 use std::{
+    fmt::Write as _,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -214,7 +215,11 @@ impl<T> RecordingTerminal<T> {
                 }
             })
             .collect::<Vec<_>>();
-        format!("output={}, reads={reads:?}", bounded_slice(output))
+        format!(
+            "output={}, output_hex={}, reads={reads:?}",
+            bounded_slice(output),
+            bounded_hex(output)
+        )
     }
 }
 
@@ -259,4 +264,16 @@ fn bounded_slice(bytes: &[u8]) -> String {
         &bytes[..head_length],
         &bytes[tail_start..]
     )
+}
+
+fn bounded_hex(bytes: &[u8]) -> String {
+    const LIMIT: usize = 16 * 1024;
+    if bytes.len() > LIMIT {
+        return format!("omitted(len={})", bytes.len());
+    }
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").unwrap();
+    }
+    encoded
 }
