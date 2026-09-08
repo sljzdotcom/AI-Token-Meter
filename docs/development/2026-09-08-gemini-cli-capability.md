@@ -247,3 +247,11 @@ node scripts/test-gemini-cli-startup.mjs version --sentinel-control
 ```
 
 采集器应使用完整最新屏幕中的 `Model usage` 区块；不得从累积 ANSI 文本重复读取旧帧，也不能把启动 footer 的 43% 聚合显示当作某个模型档位。403 场景保留 `Select Model` 对话框但整个 `Model usage` 标题与行消失。
+
+### 持久依赖锁与系统路径定点
+
+Task4a 独立审查通过，无 P1/P2；唯一 Minor 为依赖锁持久化，已将两次实际运行的 package.json/package-lock.json 原样保存在 [专用 fixture 与 npm ci 指引](../../scripts/fixtures/gemini-cli-probe/README.md)。锁文件只含公开 npm 元信息，SHA-256 与上述运行记录一致；复现不再依赖临时目录留存或重新解析 semver。
+
+以下为固定 v0.58.0 源码定点核对，不读取真实本机系统配置：`packages/cli/src/config/settings.ts:104` 中 macOS 默认系统文件是 `/Library/Application Support/GeminiCli/settings.json`，Windows 为 `C:\ProgramData\gemini-cli\settings.json`，Linux 为 `/etc/gemini-cli/settings.json`，非空 `GEMINI_CLI_SYSTEM_SETTINGS_PATH` 优先。`:117` 中 defaults 文件由非空 `GEMINI_CLI_SYSTEM_DEFAULTS_PATH` 指定，否则为最终系统 settings 同目录下的 `system-defaults.json`；custom settings 路径会同时改变默认 defaults 目录。
+
+`packages/core/src/code_assist/oauth2.ts:112` 的加密开关精确比较环境变量 `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE === 'true'`；这是 env，不是 JSON settings 字段。常量定义见 `packages/core/src/mcp/token-storage/index.ts:13`。`oauth2.ts:697` 加密分支调用 OAuthCredentialStorage.loadCredentials，后者使用 HybridTokenStorage/KeychainTokenStorage；未开启时才读取官方 plain OAuth 缓存路径，此外仍可能读取 `GOOGLE_APPLICATION_CREDENTIALS`。本测试环境移除了这些注入变量；没有验证或迁移真实加密账户。
