@@ -80,12 +80,24 @@ fn run(
         if phase == 3 {
             return quota.unwrap_or(Err(CollectionError::QuotaUnavailable));
         }
-        let bytes = terminal.read()?;
-        if raw.len() + bytes.len() > 512 * 1024 {
-            return Err(CollectionError::UnrecognizedOutput);
+        let mut has_output = false;
+        loop {
+            if cancellation.is_cancelled() {
+                return Err(CollectionError::Cancelled);
+            }
+            if Instant::now() >= deadline {
+                return Err(CollectionError::TimedOut);
+            }
+            let bytes = terminal.read()?;
+            if bytes.is_empty() {
+                break;
+            }
+            if raw.len() + bytes.len() > 512 * 1024 {
+                return Err(CollectionError::UnrecognizedOutput);
+            }
+            raw.extend(bytes);
+            has_output = true;
         }
-        let has_output = !bytes.is_empty();
-        raw.extend(bytes);
         let text = match std::str::from_utf8(raw) {
             Ok(s) => s,
             Err(error) if error.error_len().is_none() => {

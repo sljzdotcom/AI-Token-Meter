@@ -133,9 +133,49 @@ fn authentication_prompt_erased_by_ech_is_still_rejected() {
     assert!(terminal.stopped);
 }
 
+#[test]
+fn queued_authentication_prompt_is_rejected_before_any_model_input() {
+    let mut output = VecDeque::from([READY.to_vec()]);
+    output.extend((0..7).map(|_| b"\x1b[0m".to_vec()));
+    output.push_back(b"\x1b[2J\x1b[HEnter the authorization code:".to_vec());
+    let mut terminal = ScriptedTerminal {
+        output,
+        input: vec![],
+        stopped: false,
+    };
+    let result = collect_session(
+        &mut terminal,
+        "2026-09-08T09:00:00Z",
+        &CancellationToken::new(),
+        SessionTiming {
+            deadline: Duration::from_millis(500),
+            stable: Duration::ZERO,
+            key_delay: Duration::ZERO,
+            poll: Duration::ZERO,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(CollectionError::AuthenticationRequired)
+    ));
+    assert!(
+        terminal.input.is_empty(),
+        "all currently available output must be observed before typing"
+    );
+    assert!(terminal.stopped);
+}
+
 fn frame(pro: u8) -> Vec<u8> {
     format!("\x1b[2J\x1b[HSelect Model\r\nModel usage\r\nPro ━━━ {pro}%\r\nFlash ━━━ 60%\r\n(Press Esc to close)\r\n╰────╯\r\n").into_bytes()
 }
+
+fn enqueue_separate_read_bursts(output: &mut VecDeque<Vec<u8>>, bytes: &[u8], chunk_size: usize) {
+    for chunk in bytes.chunks(chunk_size) {
+        output.push_back(chunk.to_vec());
+        output.push_back(Vec::new());
+    }
+}
+
 struct ConflictingTerminal {
     inner: ScriptedTerminal,
     chunk_size: usize,
@@ -153,9 +193,7 @@ impl GeminiTerminal for ConflictingTerminal {
             if !self.conflict_on_exit {
                 frames.extend(frame(30));
             }
-            self.inner
-                .output
-                .extend(frames.chunks(self.chunk_size).map(<[u8]>::to_vec));
+            enqueue_separate_read_bursts(&mut self.inner.output, &frames, self.chunk_size);
         }
         Ok(())
     }
@@ -272,9 +310,7 @@ impl GeminiTerminal for ChunkedValidTerminal {
         self.inner.send(bytes)?;
         if self.inner.input == b"/model\r" {
             self.inner.output.clear();
-            self.inner
-                .output
-                .extend(self.model.chunks(self.chunk_size).map(<[u8]>::to_vec));
+            enqueue_separate_read_bursts(&mut self.inner.output, &self.model, self.chunk_size);
         }
         Ok(())
     }
