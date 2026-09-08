@@ -6,6 +6,7 @@ use ai_token_meter_windows::domain::{MetricKind, MetricUnit};
 const OPEN: &str =
     include_str!("../../../contracts/gemini-cli/0.58.0/authenticated-model-open.ansi.txt");
 const READY: &str = include_str!("../../../contracts/gemini-cli/0.58.0/ready.ansi.txt");
+const CONPTY_MODEL_OPEN_HEX: &str = include_str!("fixtures/gemini-conpty-model-open.hex.txt");
 const DATE: &str = "2026-09-08T09:00:00Z";
 
 #[test]
@@ -26,6 +27,44 @@ fn real_terminal_redraws_yield_visible_used_tiers_not_footer() {
         metric.reset_description.as_deref(),
         Some("Resets: 5:47 PM (1h)")
     );
+}
+
+#[test]
+fn erase_character_clears_cells_without_moving_the_cursor() {
+    let raw = concat!(
+        "Select Model\r\n",
+        "Model usage\r\n",
+        "XXXX▬ 60%\r\x1b[4XPro\r\n",
+        "(Press Esc to close)\r\n",
+        "╰──╯\r\n"
+    );
+    let snapshot = parse_terminal_quota(raw, DATE).unwrap();
+    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
+    assert_eq!(snapshot.primary_metric.unwrap().label, "Pro");
+
+    for erase in ["\x1b[X", "\x1b[0X"] {
+        let raw = format!(
+            "Select Model\r\nModel usage\r\nXPro ▬ 60%\r{erase}\r\n(Press Esc to close)\r\n╰──╯\r\n"
+        );
+        assert_eq!(
+            parse_terminal_quota(&raw, DATE)
+                .unwrap()
+                .used_ratio
+                .unwrap()
+                .get(),
+            0.6
+        );
+    }
+}
+
+#[test]
+fn native_conpty_transcoded_model_frame_remains_parseable() {
+    let bytes = decode_hex(CONPTY_MODEL_OPEN_HEX);
+    let raw = String::from_utf8(bytes).unwrap();
+    assert_eq!(terminal_state(&raw), Ok(TerminalState::Model));
+    let snapshot = parse_terminal_quota(&raw, DATE).unwrap();
+    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
+    assert_eq!(snapshot.gemini_quota_metrics.len(), 2);
 }
 
 #[test]
@@ -134,4 +173,21 @@ fn real_model_frame_derives_the_shared_fresh_contract_and_bad_tiers_fail_decode(
     let mut invalid = value;
     invalid["geminiQuotaMetrics"][0]["current"] = serde_json::json!(110);
     assert!(UsageSnapshot::decode_compatible(&invalid).is_err());
+}
+
+fn decode_hex(value: &str) -> Vec<u8> {
+    let bytes = value.trim().as_bytes();
+    assert_eq!(bytes.len() % 2, 0);
+    bytes
+        .chunks(2)
+        .map(|pair| (hex_digit(pair[0]) << 4) | hex_digit(pair[1]))
+        .collect()
+}
+
+fn hex_digit(value: u8) -> u8 {
+    match value {
+        b'0'..=b'9' => value - b'0',
+        b'a'..=b'f' => value - b'a' + 10,
+        _ => panic!("invalid hexadecimal fixture"),
+    }
 }

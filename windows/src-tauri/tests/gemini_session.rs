@@ -113,6 +113,29 @@ fn authentication_unknown_ui_timeout_and_cancellation_stop_without_model_input()
     assert!(terminal.input.is_empty());
 }
 
+#[test]
+fn authentication_prompt_erased_by_ech_is_still_rejected() {
+    let mut terminal = ScriptedTerminal {
+        output: VecDeque::from([
+            b"Enter the authorization code:\r\x1b[29X> Type your message or @path/to/file".to_vec(),
+        ]),
+        input: vec![],
+        stopped: false,
+    };
+    let result = collect_session(
+        &mut terminal,
+        "2026-09-08T09:00:00Z",
+        &CancellationToken::new(),
+        timing(),
+    );
+    assert!(matches!(
+        result,
+        Err(CollectionError::AuthenticationRequired)
+    ));
+    assert!(terminal.input.is_empty());
+    assert!(terminal.stopped);
+}
+
 fn frame(pro: u8) -> Vec<u8> {
     format!("\x1b[2J\x1b[HSelect Model\r\nModel usage\r\nPro ━━━ {pro}%\r\nFlash ━━━ 60%\r\n(Press Esc to close)\r\n╰────╯\r\n").into_bytes()
 }

@@ -46,7 +46,7 @@ pub fn observe_frames(
                     if op == 'J' {
                         observe(&render(&rows), false)?;
                     }
-                    if op == 'K' {
+                    if matches!(op, 'K' | 'X') {
                         observe(&render_line(&rows, row), false)?;
                     }
                     match op {
@@ -95,6 +95,13 @@ pub fn observe_frames(
                                     }
                                     2 => line.clear(),
                                     _ => return Err(CollectionError::UnrecognizedOutput),
+                                }
+                            }
+                        }
+                        'X' => {
+                            if let Some(line) = rows.get_mut(row) {
+                                for cell in line.iter_mut().skip(column).take(n) {
+                                    *cell = ' ';
                                 }
                             }
                         }
