@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-08](2026-09-08-gemini-cli-capability.md) | Gemini CLI 官方额度命令与渲染隔离探测 | /model 组件级可见额度；headless stats 会触发模型边界，自动采集启动链待验证 |
 | [2026-09-08](2026-09-08-remove-strip-drag-hint.md) | 两端展开态顶部横线移除 | 保留背景拖动、Provider点击和折叠态竖线；暂不发布 |
 | [2026-09-08](2026-09-08-macos-refresh-interval.md) | macOS 五分钟用量刷新间隔不可修改 | 补原生编辑、保存及重排计时；暂不发布 |
 | [2026-09-08](2026-09-08-about-telegram.md) | 关于页精简与 Telegram 链接 | Windows 删除可见作者文字，两端增加固定 Telegram 入口；暂不发布 |
