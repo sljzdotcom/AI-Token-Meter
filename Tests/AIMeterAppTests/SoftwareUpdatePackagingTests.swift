@@ -107,19 +107,43 @@ struct SoftwareUpdatePackagingTests {
         #expect(source.contains("CFBundleVersion"))
     }
 
-    @Test("Stable appcast advertises the signed 0.2.2 release")
+    @Test("Stable appcast advertises internally consistent signed releases")
     func stableAppcastContract() throws {
-        let source = try String(
-            contentsOf: Self.projectRoot.appending(path: "appcast.xml"),
-            encoding: .utf8
-        )
+        let data = try Data(contentsOf: Self.projectRoot.appending(path: "appcast.xml"))
 
-        #expect(source.contains("<sparkle:version>6</sparkle:version>"))
-        #expect(source.contains("<sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>"))
-        #expect(source.contains("sparkle:edSignature="))
-        #expect(source.contains("length="))
-        #expect(source.contains("releases/download/v0.2.2/AI-Token-Meter-0.2.2-macOS-arm64.zip"))
-        #expect(source.contains("<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>"))
+        #expect(try validateStableAppcast(data).isEmpty)
+    }
+
+    @Test("Stable appcast validation rejects corrupt release metadata", arguments: [
+        ("version URL mismatch", "0.5.1", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "42", "14.0"),
+        ("invalid build", "0.5.0", "zero", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "42", "14.0"),
+        ("invalid signature", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", "not base64!", "42", "14.0"),
+        ("invalid length", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "0", "14.0"),
+        ("invalid minimum OS", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "42", "13.0"),
+    ])
+    func corruptStableAppcastIsRejected(
+        _ label: String,
+        _ version: String,
+        _ build: String,
+        _ archivePath: String,
+        _ signature: String,
+        _ length: String,
+        _ minimumSystemVersion: String
+    ) throws {
+        let fixture = """
+        <?xml version="1.0"?>
+        <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+          <channel><item>
+            <sparkle:version>\(build)</sparkle:version>
+            <sparkle:shortVersionString>\(version)</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>\(minimumSystemVersion)</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/\(archivePath)"
+                       length="\(length)" sparkle:edSignature="\(signature)"/>
+          </item></channel>
+        </rss>
+        """
+
+        #expect(try !validateStableAppcast(Data(fixture.utf8)).isEmpty, Comment(rawValue: label))
     }
 
     private func loadInfoPlist() throws -> [String: Any] {
@@ -140,4 +164,109 @@ struct SoftwareUpdatePackagingTests {
 
     private static let widgetInfoPlistURL = projectRoot
         .appending(path: "Sources/AIMeterWidgetExtension/Resources/Info.plist")
+
+    private static let validFixtureSignature =
+        "N3uMwUOzoejXn+oRZ2gSm0mmxvrbxGgWcgzrFHt2YBxj5G7Wccz+EX+tW0gpQSB5H33QeKbApiwKxZyjxih/Dg=="
+}
+
+private func validateStableAppcast(_ data: Data) throws -> [String] {
+    let delegate = AppcastParserDelegate()
+    let parser = XMLParser(data: data)
+    parser.delegate = delegate
+    guard parser.parse() else {
+        throw parser.parserError ?? AppcastValidationError.invalidXML
+    }
+
+    guard !delegate.items.isEmpty else {
+        return ["appcast contains no release items"]
+    }
+
+    return delegate.items.enumerated().flatMap { index, item in
+        let prefix = "item \(index + 1)"
+        var issues: [String] = []
+        let versionParts = item.shortVersion.split(separator: ".", omittingEmptySubsequences: false)
+        if versionParts.count < 2 || versionParts.contains(where: { Int($0) == nil }) {
+            issues.append("\(prefix) has an invalid version")
+        }
+        if Int(item.build).map({ $0 > 0 }) != true {
+            issues.append("\(prefix) has a non-positive build")
+        }
+
+        let expectedURL = "https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v\(item.shortVersion)/AI-Token-Meter-\(item.shortVersion)-macOS-arm64.zip"
+        if item.url != expectedURL {
+            issues.append("\(prefix) URL does not match its version")
+        }
+        if Data(base64Encoded: item.signature)?.count != 64 {
+            issues.append("\(prefix) has an invalid EdDSA signature encoding")
+        }
+        if Int64(item.length).map({ $0 > 0 }) != true {
+            issues.append("\(prefix) has a non-positive archive length")
+        }
+        if item.minimumSystemVersion != "14.0" {
+            issues.append("\(prefix) does not require macOS 14.0")
+        }
+        return issues
+    }
+}
+
+private struct AppcastItem {
+    var build = ""
+    var shortVersion = ""
+    var minimumSystemVersion = ""
+    var url = ""
+    var signature = ""
+    var length = ""
+}
+
+private final class AppcastParserDelegate: NSObject, XMLParserDelegate {
+    private(set) var items: [AppcastItem] = []
+    private var item: AppcastItem?
+    private var element = ""
+    private var text = ""
+
+    func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        element = qName ?? elementName
+        text = ""
+        if element == "item" {
+            item = AppcastItem()
+        } else if element == "enclosure", item != nil {
+            item?.url = attributeDict["url"] ?? ""
+            item?.signature = attributeDict["sparkle:edSignature"] ?? ""
+            item?.length = attributeDict["length"] ?? ""
+        }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        text += string
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didEndElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?
+    ) {
+        let name = qName ?? elementName
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch name {
+        case "sparkle:version": item?.build = value
+        case "sparkle:shortVersionString": item?.shortVersion = value
+        case "sparkle:minimumSystemVersion": item?.minimumSystemVersion = value
+        case "item":
+            if let item { items.append(item) }
+            item = nil
+        default: break
+        }
+        text = ""
+    }
+}
+
+private enum AppcastValidationError: Error {
+    case invalidXML
 }
