@@ -98,3 +98,5 @@ Task4a固定证据为`bbf701b`及能力报告附节。此协议须在其独立�
 - 首期此检查点只实现官方额度，不添加本机历史token聚合。该数据缺失不影响官方额度；不得用活动统计替代额度。
 - Windows owner拥有windows/、contracts/和合同脚本；Swift owner拥有Sources/、Tests/及Swift合同适配。共同schema仍1，可选新字段向后兼容；Gemini unavailable fixture保留，增加真实转录派生的quota fixture。root拥有设计/计划/台账/开发日志与集成。
 - TDD优先正反解析、发现缺失/不可启动、环境覆盖与固定输入、拒绝headless、版本拒绝、noauth/异常/timeout/cancel清理、fresh/cache字段、详情多档位/无数据与settings状态一致。使用合成CLI/账号夹具，不启动用户CLI或真实服务。
+
+补充生产门槛：启动前拒绝非空`tools.discoveryCommand`（并将自定义callCommand模式视为未支持）、启用的`tools.sandbox`/`GEMINI_SANDBOX`或`security.toolSandboxing`、启用的`advanced.ignoreLocalEnv`、外部认证`security.auth.useExternal`或不一致的enforcedType；承重字段包含未解析动态模板、异常类型或无法解析JSONC时停止。明确配置云端ADC/外部凭据或sandbox代理注入环境时不能悄悄改成另一认证/运行模式。对剩余普通字段不因名称中含shell等字样就添加无证据限制。拒绝上述环境，不传`--ignore-env`；后者会跳过私有cwd空.env并加载用户HOME下环境。默认目录信任开启，不能关掉或写信任规则。第八个合成场景已验证显式`GEMINI_CLI_TRUST_WORKSPACE=false`在不信任模式仍可/model并正常退出、没有信任文件写入；`d11b572`已通过定向独立复审，两端按此更受限模式运行，并覆盖untrusted的真实ready/额度帧。
