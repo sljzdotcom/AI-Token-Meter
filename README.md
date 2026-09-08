@@ -5,7 +5,7 @@
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-3b82f6)
-![Tests 478](https://img.shields.io/badge/tests-478%20passed-2ea44f)
+![Tests 480](https://img.shields.io/badge/tests-480%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -85,7 +85,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-**[Download v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)** from GitHub Releases：
+当前公开稳定版仍是 [v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1)。0.6.0 完成双平台发布门禁后，从 **[Download v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases)** 打开 GitHub Releases 的 **v0.6.0** 条目：
 
 - macOS：下载 `AI-Token-Meter-0.6.0-macOS-arm64.zip` 与同名 `.sha256`；
 - Windows：下载 `AI-Token-Meter-0.6.0-windows-x64-setup.exe` 与同名 `.sha256`。

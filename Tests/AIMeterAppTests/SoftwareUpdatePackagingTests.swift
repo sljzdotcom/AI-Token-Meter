@@ -91,6 +91,18 @@ struct SoftwareUpdatePackagingTests {
         #expect(source.contains("releases/download/v${VERSION}/"))
     }
 
+    @Test("Cross-platform drafts publish the checked-in versioned release notes")
+    func crossPlatformReleaseNotesContract() throws {
+        let source = try String(
+            contentsOf: Self.projectRoot.appending(path: "scripts/package-cross-platform-release.sh"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("RELEASE_NOTES=\"$PROJECT_DIR/docs/releases/v$VERSION.md\""))
+        #expect(source.contains("--notes-file \"$RELEASE_NOTES\""))
+        #expect(!source.contains("--generate-notes"))
+    }
+
     @Test("Archive verifier accepts the signed release and rejects a tampered copy")
     func archiveVerifierContract() throws {
         let source = try String(

@@ -43,3 +43,35 @@ release_may_return_to_draft() {
         && "$rollback_failed" == "0" \
         && "$feeds_safe" == "1" ]]
 }
+
+# Prints the greatest numeric CFBundleVersion found across semantic release
+# tags. Moving channel tags and unrelated names are ignored.
+maximum_release_build() {
+    local repository="$1"
+    local plist_path="$2"
+    local scan_dir
+    local plist_file
+    local tag
+    local build
+    local maximum=0
+    local found=0
+
+    scan_dir="$(mktemp -d "${TMPDIR:-/tmp}/ai-token-meter-release-builds.XXXXXX")" || return 1
+    plist_file="$scan_dir/Info.plist"
+    while IFS= read -r tag; do
+        [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-preview\.[0-9]+)?$ ]] || continue
+        if ! git -C "$repository" show "$tag:$plist_path" >"$plist_file" 2>/dev/null; then
+            continue
+        fi
+        build="$(plutil -extract CFBundleVersion raw -o - "$plist_file" 2>/dev/null || true)"
+        if [[ "$build" =~ ^[0-9]+$ ]] && (( build > maximum )); then
+            maximum="$build"
+            found=1
+        fi
+    done < <(git -C "$repository" tag --list 'v*' --sort=-version:refname)
+    rm -rf "$scan_dir"
+
+    if [[ "$found" == "1" ]]; then
+        printf '%s\n' "$maximum"
+    fi
+}

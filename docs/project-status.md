@@ -10,7 +10,7 @@
 
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
 
-**0.6.0 Gemini 发布候选：** 第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已实现。Windows 首期仅原生 CLI。当前本地回归为 478 项 Swift、109 项前端、249 项宿主 Rust；真实 Gemini 账号不在本轮自动化范围，原生 Windows SDK/ConPTY 门禁必须在发布前通过。见[采集日志](development/2026-09-08-gemini-collector.md)、[发布计划](design/implementation-plans/2026-09-08-v0.6.0-release.md)和[唯一台账](requirements-backlog.md)。
+**0.6.0 Gemini 发布候选：** 第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已实现。Windows 首期仅原生 CLI。当前本地回归为 480 项 Swift、109 项前端、249 项宿主 Rust；真实 Gemini 账号不在本轮自动化范围，原生 Windows SDK/ConPTY 门禁必须在发布前通过。见[采集日志](development/2026-09-08-gemini-collector.md)、[发布计划](design/implementation-plans/2026-09-08-v0.6.0-release.md)和[唯一台账](requirements-backlog.md)。
 
 **0.3.0 功能：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台 CI 并合入 main（`c67112e`）。真实 Windows 桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)和[发布记录](development/2026-09-06-v0.3.0-release.md)。
 
@@ -40,7 +40,7 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 | 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 | CLI 普通 Google OAuth 会话状态 |
 | 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 | 各可见模型档位的官方剩余额度换算已用比例 |
 | 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 | 全部可见档位、重置说明、来源 CLI 版本与采集时间 |
-| 登录/换号 | Services 打开官方 CLI 登录 | Services 打开官方 CLI 登录 | 两阶段验证后替换 Key | Services 打开官方 Gemini CLI 登录 |
+| 登录/换号 | Services 打开官方 CLI 登录 | Services 打开官方 CLI 登录 | 两阶段验证后替换 Key | 先在官方 CLI 登录；Services 提供官方指南与重新检查 |
 | 失败降级 | 最近成功快照或明确错误 | 最近成功快照或明确错误 | 余额与历史各自独立缓存/错误 | 最近成功快照或明确的安装、认证、版本、配置、解析状态 |
 
 “本机近 30 天”不是跨设备官方账户报表；“DeepSeek 余额基准”也不是预算或账单上限。Gemini 只读取 CLI 当前展示的普通 OAuth 模型档位，不覆盖 API Key、Vertex AI、企业账户或外部认证模式。完整口径见[服务与指标说明](user-guide/providers.md)。
@@ -80,7 +80,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 0.6.0 本地候选基线：**459 项主测试 + 19 项 PTY，总计 478 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、249 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
+- 0.6.0 本地候选基线：**461 项主测试 + 19 项 PTY，总计 480 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、249 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 发布前必须由 PR 的原生 Windows runner 完成 Windows SDK、ConPTY、严格 Clippy、完整 Rust、GUI subsystem 与 NSIS 构建；通过前不把宿主 Rust 结果写成原生 Windows 通过。
 - 已发布 0.5.1 基线继续保留：433 项 Swift、85 项前端、21 项密度生命周期、632 个浏览器文字角色、229 项原生 Windows Rust 及双平台标签门禁全部通过。
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；

@@ -141,6 +141,26 @@ struct CLICollectorTests {
         #expect(snapshot.codexResetCredits?.hasCompleteDetails == true)
     }
 
+    @Test("Codex app-server initialization reports the current app version")
+    func codexInitializationReportsAppVersion() async throws {
+        let captureFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ai-meter-codex-initialize-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: captureFile) }
+        let client = CodexAppServerClient(
+            environmentOverrides: ["AI_METER_TEST_INITIALIZE_FILE": captureFile.path],
+            clientVersion: "0.6.0"
+        )
+
+        _ = try await client.readRateLimits(executableURL: fixtureExecutable)
+
+        let data = try Data(contentsOf: captureFile)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let params = try #require(object["params"] as? [String: Any])
+        let clientInfo = try #require(params["clientInfo"] as? [String: Any])
+        #expect(clientInfo["name"] as? String == "ai-token-meter")
+        #expect(clientInfo["version"] as? String == "0.6.0")
+    }
+
     @Test("Codex app-server can run an env-node CLI found inside an nvm bin")
     func codexNVMRuntimePath() async throws {
         let root = FileManager.default.temporaryDirectory

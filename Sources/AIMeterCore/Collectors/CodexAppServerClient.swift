@@ -3,13 +3,19 @@ import Foundation
 struct CodexAppServerClient: Sendable {
     private let beforeProcessRegistration: (@Sendable () -> Void)?
     private let environmentOverrides: [String: String]
+    private let clientVersion: String
 
     init(
         beforeProcessRegistration: (@Sendable () -> Void)? = nil,
-        environmentOverrides: [String: String] = [:]
+        environmentOverrides: [String: String] = [:],
+        clientVersion: String = (Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String) ?? "unknown"
     ) {
         self.beforeProcessRegistration = beforeProcessRegistration
         self.environmentOverrides = environmentOverrides
+        let normalizedVersion = clientVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.clientVersion = normalizedVersion.isEmpty ? "unknown" : normalizedVersion
     }
 
     func readRateLimits(executableURL: URL, timeout: TimeInterval = 10) async throws -> UsageSnapshot {
@@ -115,7 +121,7 @@ struct CodexAppServerClient: Sendable {
             "id": 1,
             "method": "initialize",
             "params": [
-                "clientInfo": ["name": "ai-token-meter", "version": "0.3.0-preview.3"],
+                "clientInfo": ["name": "ai-token-meter", "version": clientVersion],
                 "capabilities": ["experimentalApi": true],
             ],
         ], to: input.fileHandleForWriting)

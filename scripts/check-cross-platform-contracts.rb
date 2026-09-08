@@ -126,8 +126,17 @@ if cross_platform_release_path.file?
   errors << "Cross-platform release entry must create a draft" unless release_script.include?("gh release create") && release_script.include?("--draft")
   errors << "Cross-platform release entry must dispatch the tagged workflow" unless release_script.include?("gh workflow run release.yml") && release_script.include?('--ref "v$VERSION"')
   errors << "Preview packaging must not modify the stable appcast" unless release_script.include?("AI_METER_RELEASE_CHANNEL") && release_script.include?("preview-appcast.xml")
-  unless release_script.include?("SmartScreen") && release_script.include?("unknown publisher")
-    errors << "Windows Preview release notes must explain the SmartScreen unknown-publisher warning"
+  unless release_script.include?('docs/releases/v$VERSION.md') && release_script.include?("--notes-file")
+    errors << "Cross-platform releases must publish the checked-in versioned release notes"
+  end
+  current_release_notes_path = root + "docs/releases/v#{shared_version}.md"
+  if current_release_notes_path.file?
+    current_release_notes = current_release_notes_path.read
+    unless current_release_notes.include?("SmartScreen") && current_release_notes.include?("unknown publisher")
+      errors << "Current release notes must explain the SmartScreen unknown-publisher warning"
+    end
+  else
+    errors << "Current versioned release notes are missing"
   end
   errors << "Stable appcast must not be pushed before the GitHub assets are public" if release_script.include?("git add appcast.xml")
   errors << "Cross-platform release entry must be executable" unless git_tracks_executable?(root, cross_platform_release_path)

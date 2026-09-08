@@ -9,8 +9,13 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 git clone --quiet --no-hardlinks "$PROJECT_DIR" "$TEST_ROOT/repository"
 cp "$PROJECT_DIR/scripts/check-cross-platform-contracts.rb" \
     "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb"
+cp "$PROJECT_DIR/scripts/package-cross-platform-release.sh" \
+    "$TEST_ROOT/repository/scripts/package-cross-platform-release.sh"
 
 cp -R "$PROJECT_DIR/contracts/." "$TEST_ROOT/repository/contracts/"
+current_version="$(tr -d '[:space:]' < "$PROJECT_DIR/VERSION")"
+cp "$PROJECT_DIR/docs/releases/v$current_version.md" \
+    "$TEST_ROOT/repository/docs/releases/v$current_version.md"
 
 release_entry="$TEST_ROOT/repository/scripts/package-cross-platform-release.sh"
 chmod a-x "$release_entry"
