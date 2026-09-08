@@ -116,7 +116,7 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 `AppModel` 是主线程状态中心：
 
 - 创建采集协调器和 DeepSeek 网页会话；
-- 启动后立即刷新，随后每 300 秒刷新；
+- 启动后立即刷新，默认每 300 秒刷新；macOS 未发布修复增加 30–86400 整数秒偏好及可重排等待，修改不取消正在进行的采集，仍以自动刷新语义进入退避协调器；
 - 应用 DeepSeek 余额基准和历史数据；
 - 保存用户设置；
 - 向窗口、通知和菜单栏发布状态。
@@ -149,7 +149,7 @@ Unreleased 多屏层由 `FloatingStripCoordinator` 枚举系统主屏及稳定�
 - `SoftwareUpdateCoordinator` 维护检查、可更新、安装与失败状态，并串行化用户动作；
 - `SparkleUpdateEngine` 是 Sparkle 唯一适配边界，Settings 不直接引用第三方类型；
 - AppDelegate 在整个进程中只创建一个 Sparkle updater controller，并在退出时解除回调；
-- 应用启动和 5 分钟用量刷新不触发更新请求。用户点击 `Check for Updates` 后才读取固定 GitHub appcast，点击 `Update Now` 后才进入 Sparkle 标准下载与安装流程；
+- 应用启动和周期用量刷新不触发更新请求。用户点击 `Check for Updates` 后才读取固定 GitHub appcast，点击 `Update Now` 后才进入 Sparkle 标准下载与安装流程；
 - appcast 的 URL 和 ZIP 的 SHA-256 便于传输与审计，但真正授权安装的是 App 内公开键验证的 EdDSA 签名。验证失败时不替换当前 App。
 
 ## AIMeterWidgetExtension

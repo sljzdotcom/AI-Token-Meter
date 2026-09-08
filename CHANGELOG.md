@@ -4,11 +4,17 @@
 
 ## Unreleased
 
+### Fixed
+
+- macOS 设置→监测的用量刷新间隔可编辑并保存，支持 30 秒至 24 小时，默认五分钟；新间隔重排等待、重启保留，已有采集和限流退避保持有效。暂不发布。
+
 ### Added
 
 - macOS 与 Windows 关于页增加带纸飞机图标的 Telegram @sljzdotcom 链接，仅点击时打开默认浏览器。暂不发布。
 
 ### Changed
+
+- macOS 与 Windows 浮动条展开态去掉顶部横线，背景拖动、Provider点击和折叠态竖线保持。暂不发布。
 
 - Windows 关于页移除中英文作者整行及可见社交标题，保留 Twitter/GitHub 并与 Telegram 一起显示；无障碍名称和键盘操作保留。macOS 作者信息不变。
 

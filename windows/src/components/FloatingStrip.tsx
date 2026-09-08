@@ -53,7 +53,6 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
           }
         }}
       >
-        <div aria-hidden="true" className="floating-strip__drag-handle" />
         {visible.map((snapshot) => (
           <UsageRing
             key={snapshot.providerId}

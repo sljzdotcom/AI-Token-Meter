@@ -81,11 +81,9 @@ button {
 }
 
 .floating-strip[data-density="compact"] { background-image: linear-gradient(rgb(0 0 0 / 46%), rgb(0 0 0 / 46%)), url("/floating-strip-deep-sea.png"); }
-.floating-strip:hover .floating-strip__drag-handle { background: rgb(255 255 255 / 34%); }
 .floating-strip .provider-logo--uniform { width: var(--strip-logo, 21px); height: var(--strip-logo, 21px); }
 .meter-edge--left .floating-strip { transform: scaleX(-1); }
 .meter-edge--left .floating-strip > * { transform: scaleX(-1); }
-.meter-edge--left .floating-strip > .floating-strip__drag-handle { transform: translateX(-50%) scaleX(-1); }
 .meter-stage--strip-only.meter-edge--left .floating-strip { clip-path: url("#strip-clip-right"); }
 .meter-folded { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #040b18 url("/floating-strip-deep-sea.png") center/cover; padding: 0; display: grid; place-items: center; }
 .meter-folded span { width: 3px; height: 40px; border-radius: 3px; background: rgb(255 255 255 / 30%); }
@@ -163,17 +161,6 @@ button {
 .floating-strip::after {
   border-radius: 56px 0 0;
   bottom: -29px;
-}
-
-.floating-strip__drag-handle {
-  background: rgb(255 255 255 / 16%);
-  border-radius: 99px;
-  height: 3px;
-  left: 50%;
-  position: absolute;
-  top: 35px;
-  transform: translateX(-50%);
-  width: 18px;
 }
 
 .usage-ring {

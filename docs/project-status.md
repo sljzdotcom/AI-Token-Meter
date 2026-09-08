@@ -11,6 +11,10 @@
 
 **0.3.0 功能：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台 CI 并合入 main（`c67112e`）。真实 Windows 桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)和[发布记录](development/2026-09-06-v0.3.0-release.md)。
 
+**macOS 刷新间隔修复（本地整合，暂不发布）：** 已完成原生编辑/明确保存与运行时重排等待，保留限流退避；440项Swift、Release及两阶段审查通过，由开发入口接管主分支整合。见[开发记录](development/2026-09-08-macos-refresh-interval.md)。
+
+**顶部横线移除（本地整合，暂不发布）：** 已完成双平台展开态装饰删除，背景拖动及折叠态竖线保留；442项Swift、96项前端、221项宿主Rust、构建和两阶段审查通过，由开发入口接管主分支整合；[开发记录](development/2026-09-08-remove-strip-drag-hint.md)。
+
 ## 一句话定位
 
 **已合入本地 main（暂不发布）：** 两端新增 Telegram 图标链接，Windows 关于页移除作者整行和可见社交标题；macOS 原作者行保留。协调入口整合复测通过，[开发记录](development/2026-09-08-about-telegram.md)。
