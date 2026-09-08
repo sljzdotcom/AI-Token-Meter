@@ -7,6 +7,36 @@ import behavior from "../../../contracts/fixtures/auxiliary/strip-behavior.json"
 import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
+  it.each([
+    ["compact", "left", 78, 286], ["compact", "right", 78, 286],
+    ["comfortable", "left", 108, 356], ["comfortable", "right", 108, 356],
+  ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
+    const activate = vi.fn()
+    const drag = vi.fn()
+    window.addEventListener("meter-drag-requested", drag)
+    try {
+      const { container } = render(<div className={`meter-edge--${edge}`}>
+        <FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={activate}
+          preferences={{...defaultStripPreferences, density}} />
+      </div>)
+      const strip = screen.getByRole("navigation")
+      expect(strip.style.getPropertyValue("--strip-width")).toBe(`${width}px`)
+      expect(strip.style.getPropertyValue("--strip-height")).toBe(`${height}px`)
+      // Dispatch pointerdown with a real button value; jsdom lacks PointerEvent.
+      fireEvent(strip, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
+      expect(drag).toHaveBeenCalledTimes(1)
+      for (const [index, button] of screen.getAllByRole("button").entries()) {
+        fireEvent(button, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
+        fireEvent.click(button)
+        expect(activate).toHaveBeenNthCalledWith(index + 1, defaultStripPreferences.orderedProviders[index])
+      }
+      expect(activate).toHaveBeenCalledTimes(3)
+      expect(drag).toHaveBeenCalledTimes(1)
+      expect(container.querySelector(".floating-strip__drag-handle")).toBeNull()
+    } finally {
+      window.removeEventListener("meter-drag-requested", drag)
+    }
+  })
   it.each(behavior.densities)("matches shared $id dimensions", density => {
     render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
       preferences={{...defaultStripPreferences, density: density.id as "compact" | "comfortable"}} />)
@@ -39,8 +69,12 @@ describe("compact floating strip interactions", () => {
     window.removeEventListener("meter-drag-requested", drag)
   })
   it("folded handle exposes expansion instead of provider buttons", () => {
-    render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}} folded />)
+    const interaction = vi.fn()
+    render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}} folded onInteraction={interaction} />)
     expect(screen.queryByRole("button", {name: /Claude/})).not.toBeInTheDocument()
-    expect(screen.getByRole("button", {name: "Expand floating meter"})).toBeInTheDocument()
+    const expand = screen.getByRole("button", {name: "Expand floating meter"})
+    expect(expand.querySelector("span")).toBeInTheDocument()
+    fireEvent.click(expand)
+    expect(interaction).toHaveBeenCalledWith("pointer", true)
   })
 })
