@@ -11,7 +11,7 @@
 
 **0.3.0 功能：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台 CI 并合入 main（`c67112e`）。真实 Windows 桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)和[发布记录](development/2026-09-06-v0.3.0-release.md)。
 
-**macOS 刷新间隔修复（本分支，暂不发布）：** 原监测页仅有固定五分钟文字；新增原生编辑/保存与运行时重排等待，保留限流退避。见[开发记录](development/2026-09-08-macos-refresh-interval.md)。
+**macOS 刷新间隔修复（本分支，暂不发布）：** 已完成原生编辑/明确保存与运行时重排等待，保留限流退避；440项Swift、Release及两阶段审查通过，待协调入口整合。见[开发记录](development/2026-09-08-macos-refresh-interval.md)。
 
 ## 一句话定位
 

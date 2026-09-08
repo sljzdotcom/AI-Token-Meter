@@ -35,9 +35,20 @@ Release 复现命令：
 CLANG_MODULE_CACHE_PATH=/private/tmp/req010-swift/clang-module-cache swift build --disable-sandbox --cache-path /private/tmp/req010-swift/swiftpm-state/cache --config-path /private/tmp/req010-swift/swiftpm-state/config --security-path /private/tmp/req010-swift/swiftpm-state/security --scratch-path /private/tmp/req010-swift/build -c release
 ```
 
-首次基线因 Sparkle 下载域名解析受限而退出1；复制已有依赖缓存到本任务独立目录后，8项启动基线及后续测试正常通过，未修改缓存来源或跳过测试。上述原生交互通过控件 action 验证，未声称在用户已安装应用执行物理键鼠验收。独立审查以实际原生焦点探针发现：默认 NSTextFieldCell 在结束编辑时也发送 action，导致失焦提前保存，违背仅 Apply/回车提交约定。`01da4da` 关闭结束编辑时发送 action；真实 NSTextView 编辑后失焦保持旧值的 RED 在两种提交方式下记录4个准确失败，修复后22项聚焦测试与门禁通过。回归使用真实 Return NSEvent keyDown 及原生 Apply 动作确认仍可提交。证据：`/private/tmp/req010-focus-red.log`、`/private/tmp/req010-focus-green.log`。独立定向复审与最终分支审查待回传。
+首次基线因 Sparkle 下载域名解析受限而退出1；复制已有依赖缓存到本任务独立目录后，8项启动基线及后续测试正常通过，未修改缓存来源或跳过测试。上述原生交互通过控件 action 验证，未声称在用户已安装应用执行物理键鼠验收。独立审查以实际原生焦点探针发现：默认 NSTextFieldCell 在结束编辑时也发送 action，导致失焦提前保存，违背仅 Apply/回车提交约定。`01da4da` 关闭结束编辑时发送 action；真实 NSTextView 编辑后失焦保持旧值的 RED 在两种提交方式下记录4个准确失败，修复后22项聚焦测试与门禁通过。回归使用真实 Return NSEvent keyDown 及原生 Apply 动作确认仍可提交。证据：`/private/tmp/req010-focus-red.log`、`/private/tmp/req010-focus-green.log`。独立定向复审确认 I1 关闭，无剩余 Critical/Important；最终分支独立审查 `c9aa58c..f206c5b` 亦通过，0 Critical / 0 Important，保留同一可选 Minor 测试边界。
 
 初审还记录非阻塞测试边界：注入的采集操作不携带 manual 参数，新增调度测试无法单独捕获未来误改为 manual:true。当前生产调用已审查为 manual:false，既有 RefreshCoordinator 回归通过；不声称新增测试已证明完整退避集成链路。
+
+## 修复后最终回归
+
+`01da4da` 后再次先运行文档检查，再用相同独立缓存执行完整 `scripts/test.sh`，退出0：**427项主测试/83套件 + 13项独立PTY = 440项**，所有合同/可移植性/资产标准化/feed/193份文档/公开安全门禁通过。随后使用上述完整命令重建 Release，退出0（6.66秒）。控制者直接核对原始日志，未以先前439项结果代替修复后的最终结果。
+
+- `/private/tmp/req010-focus-full.log`
+- `/private/tmp/req010-focus-release.log`
+
+## 完成与回传
+
+2026-09-08 完成开发交付。分支 `codex/macos-refresh-interval`，规格 `7d58936`、实现 `57f8ea3`、失焦修复 `01da4da`、过程证据 `f206c5b`。协调入口最新 `c9aa58c` 已在 `c6a57a2` 同步；相对该基线仅包含 REQ-010 的 macOS 代码、测试和文档，REQ-009 整合记录完整保留。控制者收尾再次检查193份文档及差异格式，台账仅关闭本行，无其他可执行待办；结果回传协调入口核验整合。本开发对话不直接合并 main。
 
 ## 交付边界
 
