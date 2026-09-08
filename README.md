@@ -5,7 +5,7 @@
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-3b82f6)
-![Tests 433](https://img.shields.io/badge/tests-433%20passed-2ea44f)
+![Tests 478](https://img.shields.io/badge/tests-478%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -14,6 +14,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
 > 当前双平台版本：`0.5.1`（macOS build `14`），已通过稳定更新通道交付；旧 Windows Preview 更新源也支持升级到本版。[发布记录](docs/development/2026-09-08-v0.5.1-release.md)保留校验与交付证据。Windows 全部交互式真机验收和 Widget 证书仍单独追踪；Windows 安装器尚无 Authenticode 发布者签名。
+
+> **未发布源码：** 新增青绿 Gemini 第四按钮、四服务显示与排序，以及固定官方 Gemini CLI 0.58.0 普通 OAuth 模式的额度采集。旧用户保留布局并默认隐藏新增按钮，全新配置显示四项。Windows 首期只支持原生 CLI；真实账号和原生 Windows 尚未验收，公开 0.5.1 不包含此功能。[接入说明](docs/user-guide/providers.md#gemini未发布)。
 
 ## Screenshots
 
@@ -196,6 +198,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 ## 文档
 
 - [文档总览](docs/README.md)
+- [跨平台合同与 Gemini 合成转录](contracts/README.md)
 - [当前项目状态](docs/project-status.md)
 - [待完成需求与需求历史](docs/requirements-backlog.md)
 - [安装与首次使用](docs/user-guide/getting-started.md)

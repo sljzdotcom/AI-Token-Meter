@@ -1,12 +1,16 @@
 # 测试指南
 
+## Gemini 验证（未发布）
+
+最终源码的 Windows 前端 109 项、macOS 宿主 Rust 243 项和严格 Clippy、前端构建通过。它们不包含原生 Windows ConPTY 编译/运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
+
 ## 普通测试
 
 ```bash
 bash scripts/test.sh
 ```
 
-当前基线为 **433 个测试、82 个测试组全部通过**。默认完整验证会先运行 420 项普通测试，再从独立测试进程运行 13 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **478 个测试、93 个测试组全部通过**（本地未发布源码）。默认完整验证会先运行 459 项普通测试，再从独立测试进程运行 19 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
 以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.5.1 为前端 85 项、密度生命周期 21 项、macOS 宿主 Rust 221 项、计算样式 632 项；标签发布 CI 通过 229 项原生 Windows Rust（见[发布记录](2026-09-08-v0.5.1-release.md)）。0.5.0 的 218 项原生基线见[历史发布记录](2026-09-07-v0.5.0-release.md)；0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
 

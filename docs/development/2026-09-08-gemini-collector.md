@@ -16,7 +16,16 @@ Windows首期实现native CLI路径；WSL的对应用户目录/系统配置保�
 
 普通测试不依赖临时安装的上游CLI。`scripts/test.sh`主轮排除真实PTY套件，第二轮执行PTYCommandRunnerTests和GeminiPTYTests；GeminiOfficialPTYTests作为独立的显式测试，防止普通CI误访问用户CLI或依赖作者的临时目录。
 
-先按[探测依赖锁说明](../../scripts/fixtures/gemini-cli-probe/README.md)在专用/private/tmp目录恢复固定依赖，再按能力报告运行untrusted合成场景以生成options和网络/文件护栏。然后在仓库根运行：
+先按[探测依赖锁说明](../../scripts/fixtures/gemini-cli-probe/README.md)在专用/private/tmp目录恢复固定依赖，再按能力报告生成以下四个合成场景的options和网络/文件护栏，缺任何一个都不能运行完整官方测试：
+
+```sh
+node scripts/test-gemini-cli-startup.mjs authenticated --untrusted-workspace
+node scripts/test-gemini-cli-startup.mjs missing-auth
+node scripts/test-gemini-cli-startup.mjs invalid-auth
+node scripts/test-gemini-cli-startup.mjs quota-failure
+```
+
+然后在仓库根运行：
 
 ```sh
 AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests
@@ -24,7 +33,7 @@ AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTe
 
 仅在上述明确开关下，该测试读取固定测试目录的options，使用合成HOME、Node权限和进程内网络夹具，经应用实际PTY runner等候界面就绪、逐键打开/model、解析额度及退出。它不发现或启动用户CLI，不使用真实Google凭据。
 
-实施者首次定向执行`AI_METER_GEMINI_OFFICIAL_PTY=1 swift test --filter GeminiOfficialPTYTests`通过1项，5.340秒，见`/private/tmp/req012-gemini-official-pty.log`。这证明当前生产runner能处理该官方CLI合成场景；不是全部采集器、真实账号或原生Windows验收。根代理将在最终代码提交后执行标准入口并补集成结果。
+根代理在修复提交 `f96b08c` 后执行上述标准入口，通过2项测试、4个官方CLI合成场景，11.691秒；包括成功额度与缺认证、无效认证、无额度。日志 `/private/tmp/req012-final-official.log`。该结果证明生产runner在这些官方CLI隔离场景中的行为，不是真实账号或原生Windows验收。
 
 ## 待收尾证据
 

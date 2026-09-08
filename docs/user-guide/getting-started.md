@@ -1,5 +1,11 @@
 # 安装与首次使用
 
+## Gemini 接入范围（未发布）
+
+公开 0.5.1 的安装与三服务配置说明见下文。当前源码新增第四项 Gemini，新用户默认显示四项，旧配置中的 Gemini 默认隐藏，可在 Appearance 中启用并排序。
+
+Gemini 需要另行安装并登录官方 CLI 0.58.0，首期支持普通 Google OAuth；Windows 仅原生 CLI。应用提供官方指南与重新检查，当前不执行安装或登录。不应把 Gemini 网页/桌面应用当作已安装 CLI，也不需要输入 Gemini API Key。真实账号与原生 Windows 尚未验收，见[支持范围](providers.md#gemini未发布)。
+
 ## 1. 准备环境
 
 AI Token Meter `0.5.1` 同时支持 Apple Silicon Mac（macOS 14 或更新版本）与 Windows 11 x64。从源码构建的共同依赖是 Git，平台依赖分别为：

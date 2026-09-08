@@ -1,5 +1,9 @@
 # 当前项目状态
 
+## Gemini 未发布源码
+
+第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已实现。Windows 首期仅原生 CLI。当前本地回归为 478 项 Swift、109 项前端、243 项宿主 Rust；真实账号与原生 Windows 尚未验收，不把未发布功能计入下方公开 0.5.1 能力。需求012的最终状态与收尾见[采集日志](development/2026-09-08-gemini-collector.md)和[唯一台账](requirements-backlog.md)。
+
 - **事实快照：** 2026-09-08
 - **产品：** AI Token Meter
 - **应用版本：** 双平台稳定通道 `0.5.1`（macOS build `14`）
@@ -77,8 +81,8 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 当前源码 macOS 自动化基线：**420 项主测试 + 13 项 PTY，总计 433 项**，0.5.1 本机及标签 CI 通过；真实 CLI/账号、Keychain、GUI 现场验收仍独立跟踪。
-- 当前源码 Windows：85 项 Vitest、21 项密度生命周期、632 个浏览器文字角色；macOS 宿主 221 项 Rust，0.5.1 原生 Windows 标签 229 项 Rust、严格 Clippy、GUI subsystem 与签名 NSIS 全部通过。
+- 已发布 0.5.1 macOS 自动化基线：**420 项主测试 + 13 项 PTY，总计 433 项**，0.5.1 本机及标签 CI 通过；真实 CLI/账号、Keychain、GUI 现场验收仍独立跟踪。
+- 已发布 0.5.1 Windows：85 项 Vitest、21 项密度生命周期、632 个浏览器文字角色；macOS 宿主 221 项 Rust，0.5.1 原生 Windows 标签 229 项 Rust、严格 Clippy、GUI subsystem 与签名 NSIS 全部通过。
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-08-v0.5.1-release.md)。

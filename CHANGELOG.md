@@ -10,6 +10,9 @@
 
 ### Added
 
+- 未发布：Gemini 青绿第四按钮、四服务显示与排序。新配置显示四项，旧配置追加隐藏 Gemini 并保留既有顺序。
+- 未发布：读取固定 Gemini CLI 0.58.0 普通 OAuth 模式的官方模型档位额度，保留全部可见档位、重置说明、来源版本及缓存时间。Windows 首期仅原生 CLI；认证、配置、版本或输出不受支持时明确显示状态。真实账号与原生 Windows 验收待补。
+
 - macOS 与 Windows 关于页增加带纸飞机图标的 Telegram @sljzdotcom 链接，仅点击时打开默认浏览器。暂不发布。
 
 ### Changed

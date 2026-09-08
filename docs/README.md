@@ -12,8 +12,8 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序、三项服务首次配置 |
-| [服务与指标说明](user-guide/providers.md) | Claude Code、OpenAI Codex、DeepSeek 的数据来源、口径和限制 |
+| [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序、已发布三服务及未发布 Gemini 接入范围 |
+| [服务与指标说明](user-guide/providers.md) | 四服务的数据来源、口径、未发布功能和限制 |
 | [设置参考](user-guide/settings.md) | 每一项设置的行为、默认值和注意事项 |
 | [故障排查](user-guide/troubleshooting.md) | 登录、超时、数据不一致、缓存、通知和悬浮条问题 |
 
@@ -21,6 +21,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [跨平台合同](../contracts/README.md) | 共享快照、展示语义及 Gemini 合成 CLI 转录 |
 | [架构概览](architecture/overview.md) | 数据流、模块边界、刷新和降级机制 |
 | [架构决策记录](architecture/decisions.md) | 长期技术决定、原因、代价和重新评估条件 |
 | [代码库结构](architecture/repository-structure.md) | 每个顶层目录与核心源码目录的职责 |

@@ -439,3 +439,5 @@
 | 2026-09-04 | REQ-20260904-005 | 进行中 | TDD 红灯已由 Windows workflow `33830008532` 复现：前端测试、构建、Rust 格式、Clippy、运行时测试及 NSIS 构建全部通过，新增 PE 门禁读取真实 `ai-token-meter-windows.exe` 得到 subsystem `3` 并按预期失败。随后在 Windows 主入口加入 GUI subsystem 声明，等待同一门禁转绿。 |
 | 2026-09-04 | REQ-20260904-005 | 进行中 | 修复后 Windows workflow `33831023542` 全绿，真实 PE 门禁报告 subsystem `2`；macOS workflow `33831023523` 同时通过。进入同步 `0.3.0-preview.2`（build 9）版本、文档、完整门禁与公开双平台发布阶段；最终状态仍需 Windows 真机启动确认。 |
 | 2026-09-04 | REQ-20260904-005 | 进行中 → 待用户确认 | PR #5 合并提交与 `v0.3.0-preview.2` 标签均为 `c3cba89`；Release workflow `33833843964` 的 Windows 签名构建、PE GUI subsystem 门禁、macOS 标签校验及同步发布全绿。公网重下的 macOS/Windows SHA-256、Sparkle、Tauri minisign、Preview feed 与稳定 appcast 隔离全部复验通过；只保留 Windows 真机启动无 Terminal 的用户确认。 |
+
+| 2026-09-08 | REQ-20260908-012 | 进行中 | 已按用户许可提交：macOS采集edd9cdd及流式退出修复f96b08c、Windows采集5a0cced。根回归478 Swift、109前端、243宿主Rust及严格Clippy通过；官方CLI隔离2测试/4场景通过。Windows独立复审发现合法ANSI分块误拒绝、清屏掩盖异常2项P2与父配置类型Minor，继续修复；不把全套绿灯当作审查关闭，不提前执行015。 |
