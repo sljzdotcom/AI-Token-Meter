@@ -370,6 +370,35 @@ test("runs the browser with an isolated disposable profile", async () => {
   assert.deepEqual(removedProfiles, ["/fixture/isolated-profile"])
 })
 
+test("bounds DOM capture inside the external Windows browser watchdog", async () => {
+  const child = new FakeChild()
+  let invocation
+  const watchdogMs = 45_000
+
+  const pending = runBrowser("browser", "http://127.0.0.1:4173", {
+    timeoutMs: watchdogMs,
+    platform: "win32",
+    spawnImpl: (command, args, options) => {
+      invocation = { command, args, options }
+      return child
+    },
+    createBrowserProfile: () => "/fixture/isolated-profile",
+    removeBrowserProfile: () => {},
+    stopProcessTreeImpl: async () => {},
+  })
+
+  child.exitCode = 0
+  child.emit("close", 0)
+  await pending
+
+  const deadlineArgument = invocation.args.find(argument => argument.startsWith("--timeout="))
+  assert.ok(deadlineArgument, "headless DOM capture must have its own deadline")
+  const captureMs = Number(deadlineArgument.slice("--timeout=".length))
+  assert.ok(Number.isInteger(captureMs) && captureMs > 0)
+  assert.ok(captureMs <= 15_000)
+  assert.ok(captureMs < watchdogMs)
+})
+
 test("removes the disposable profile even when process-tree cleanup fails", async () => {
   const child = new FakeChild()
   const removedProfiles = []

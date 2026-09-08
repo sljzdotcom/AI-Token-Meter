@@ -113,6 +113,8 @@ export async function runBrowser(executable, url, {
       "--disable-gpu",
       ...profileArguments,
       "--dump-dom",
+      // Make Chromium finish DOM capture before the outer process watchdog.
+      "--timeout=10000",
       "--virtual-time-budget=1000",
       url,
     ], {
