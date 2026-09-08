@@ -203,7 +203,7 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 **GitHub** 链接，分别进入 [Twitter](https://twitter.com/MillerPanYue) 和 [项目仓库](https://github.com/sljzdotcom/AI-Token-Meter)。点击时才打开系统默认浏览器，不在应用中加载社交页面；若无法打开会给出提示，可重试。Windows 设置顶部显示本地软件 Logo，保留平台系统字体。实施与验证见[开发日志](../development/2026-09-07-about-branding.md)。
 
-0.5.0 已通过双平台稳定更新通道公开，旧 Preview 入口也已同步；安装包、签名及更新源验证见[发布记录](../development/2026-09-07-v0.5.0-release.md)。
+0.5.1 已通过双平台稳定更新通道公开，旧 Preview 入口也已同步；安装包、签名及更新源验证见[发布记录](../development/2026-09-08-v0.5.1-release.md)。
 
 ### 现有设置行为
 

@@ -8,7 +8,7 @@
 
 ## 0.5.1 - 2026-09-08
 
-稳定补丁版准备发布；macOS build14，仅同步版本，产品行为不变。[发布记录](docs/development/2026-09-08-v0.5.1-release.md)。
+稳定补丁版已公开；macOS build14，仅同步版本，产品行为不变。[发布记录](docs/development/2026-09-08-v0.5.1-release.md)。
 
 ### Fixed
 
