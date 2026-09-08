@@ -7,6 +7,9 @@ use std::{collections::VecDeque, time::Duration};
 const READY: &[u8] = include_bytes!("../../../contracts/gemini-cli/0.58.0/ready.ansi.txt");
 const OPEN: &[u8] =
     include_bytes!("../../../contracts/gemini-cli/0.58.0/authenticated-model-open.ansi.txt");
+const UNTRUSTED_OPEN: &[u8] = include_bytes!(
+    "../../../contracts/gemini-cli/0.58.0/authenticated-untrusted-model-open.ansi.txt"
+);
 struct ScriptedTerminal {
     output: VecDeque<Vec<u8>>,
     input: Vec<u8>,
@@ -286,6 +289,37 @@ fn valid_quota_succeeds_whole_two_chunks_and_bytewise_including_split_escape() {
         assert!(terminal.inner.stopped);
     }
 }
+
+#[test]
+fn real_untrusted_transcript_succeeds_at_conpty_sized_read_boundaries() {
+    for chunk_size in [4096, 137] {
+        let mut terminal = ChunkedValidTerminal {
+            inner: ScriptedTerminal {
+                output: VecDeque::from([READY.to_vec()]),
+                input: vec![],
+                stopped: false,
+            },
+            chunk_size,
+            model: UNTRUSTED_OPEN.to_vec(),
+        };
+        let result = collect_session(
+            &mut terminal,
+            "now",
+            &CancellationToken::new(),
+            fragmented_timing(),
+        );
+        assert_eq!(
+            result
+                .as_ref()
+                .map(|snapshot| snapshot.used_ratio.unwrap().get()),
+            Ok(0.6),
+            "chunk {chunk_size}: {result:?}"
+        );
+        assert_eq!(terminal.inner.input, b"/model\r\x1b/quit\r");
+        assert!(terminal.inner.stopped);
+    }
+}
+
 #[test]
 fn final_auth_or_invalid_complete_quota_cannot_be_erased_by_goodbye() {
     for (bad, expected) in [

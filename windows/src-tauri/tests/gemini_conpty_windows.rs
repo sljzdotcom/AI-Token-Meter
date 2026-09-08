@@ -2,9 +2,10 @@
 use ai_token_meter_windows::{
     collectors::{
         CollectionError,
+        gemini::{parse_terminal_quota, terminal_state},
         gemini_environment::GeminiEnvironment,
         gemini_runtime::NativeTerminal,
-        gemini_session::{SessionTiming, collect_session},
+        gemini_session::{GeminiTerminal, SessionTiming, collect_session},
     },
     platform::windows::{
         executable_locator::{CandidateOrigin, ExecutableCandidate, RuntimeSource},
@@ -73,7 +74,8 @@ fn actual_conpty_fixed_input_success_timeout_and_cancel_reap_the_child() {
         } else {
             None
         };
-        let mut terminal = NativeTerminal::open(&candidate, &environment).unwrap();
+        let mut terminal =
+            RecordingTerminal::new(NativeTerminal::open(&candidate, &environment).unwrap());
         let result = collect_session(
             &mut terminal,
             "2026-09-08T08:47:00Z",
@@ -95,11 +97,12 @@ fn actual_conpty_fixed_input_success_timeout_and_cancel_reap_the_child() {
             cancel.join().unwrap();
         }
         let diagnostic = format!(
-            "stage={:?}, raw={}, normalized={}",
+            "stage={:?}, raw={}, normalized={}, {}",
             std::fs::read_to_string(&stage)
                 .unwrap_or_else(|error| format!("unavailable:{:?}", error.kind())),
             bounded_bytes(&raw_input),
-            bounded_bytes(&input)
+            bounded_bytes(&input),
+            terminal.diagnostic()
         );
         match scenario {
             "success" => {
@@ -171,4 +174,89 @@ fn contains_primary_device_attributes_reply(input: &str) -> bool {
                 })
         })
     })
+}
+
+struct RecordingTerminal<T> {
+    inner: T,
+    output: Vec<u8>,
+    read_ends: Vec<usize>,
+    stopped_at: Option<usize>,
+}
+
+impl<T> RecordingTerminal<T> {
+    fn new(inner: T) -> Self {
+        Self {
+            inner,
+            output: Vec::new(),
+            read_ends: Vec::new(),
+            stopped_at: None,
+        }
+    }
+
+    fn diagnostic(&self) -> String {
+        let stopped_at = self.stopped_at.unwrap_or(self.output.len());
+        let output = &self.output[..stopped_at];
+        let reads = self
+            .read_ends
+            .iter()
+            .copied()
+            .filter(|end| *end <= stopped_at)
+            .map(|end| {
+                let prefix = &output[..end];
+                match valid_utf8_prefix(prefix) {
+                    Ok(text) => format!(
+                        "{end}:{:?}/{:?}",
+                        terminal_state(text),
+                        parse_terminal_quota(text, "diagnostic")
+                            .map(|snapshot| snapshot.used_ratio.map(|ratio| ratio.get()))
+                    ),
+                    Err(()) => format!("{end}:invalid-utf8"),
+                }
+            })
+            .collect::<Vec<_>>();
+        format!("output={}, reads={reads:?}", bounded_slice(output))
+    }
+}
+
+impl<T: GeminiTerminal> GeminiTerminal for RecordingTerminal<T> {
+    fn read(&mut self) -> Result<Vec<u8>, CollectionError> {
+        let bytes = self.inner.read()?;
+        if !bytes.is_empty() {
+            self.output.extend_from_slice(&bytes);
+            self.read_ends.push(self.output.len());
+        }
+        Ok(bytes)
+    }
+
+    fn send(&mut self, bytes: &[u8]) -> Result<(), CollectionError> {
+        self.inner.send(bytes)
+    }
+
+    fn stop(&mut self) -> Result<Vec<u8>, CollectionError> {
+        self.stopped_at = Some(self.output.len());
+        let tail = self.inner.stop()?;
+        self.output.extend_from_slice(&tail);
+        Ok(tail)
+    }
+}
+
+fn valid_utf8_prefix(bytes: &[u8]) -> Result<&str, ()> {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => Ok(text),
+        Err(error) if error.error_len().is_none() => {
+            std::str::from_utf8(&bytes[..error.valid_up_to()]).map_err(|_| ())
+        }
+        Err(_) => Err(()),
+    }
+}
+
+fn bounded_slice(bytes: &[u8]) -> String {
+    let head_length = bytes.len().min(96);
+    let tail_start = bytes.len().saturating_sub(256).max(head_length);
+    format!(
+        "len={} head={:?} tail={:?}",
+        bytes.len(),
+        &bytes[..head_length],
+        &bytes[tail_start..]
+    )
 }
