@@ -883,7 +883,7 @@ async fn service_account_statuses(
         statuses.push(crate::collectors::gemini::service_status(
             &_state.usage.snapshot(ProviderId::Gemini),
         ));
-        return Ok(statuses);
+        Ok(statuses)
     }
     #[cfg(not(windows))]
     {

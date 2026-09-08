@@ -24,7 +24,8 @@ if [[ "$#" -eq 0 ]]; then
     # GeminiOfficialPTYTests is an explicit, isolated-upstream opt-in check documented
     # in docs/development/2026-09-08-gemini-collector.md; it needs probe dependencies.
     run_swift_tests --skip 'PTYCommandRunnerTests|GeminiPTYTests|GeminiOfficialPTYTests'
-    run_swift_tests --skip-build --filter 'PTYCommandRunnerTests|GeminiPTYTests'
+    run_swift_tests --skip-build --filter 'PTYCommandRunnerTests'
+    run_swift_tests --skip-build --filter 'GeminiPTYTests'
 else
     run_swift_tests "$@"
 fi
