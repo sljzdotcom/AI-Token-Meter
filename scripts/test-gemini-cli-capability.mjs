@@ -195,9 +195,13 @@ assert.equal(counters.modelGenerationCalls, 0);
 assert.equal(counters.secretReads, 0);
 assert.equal(counters.networkAttempts, 0);
 cleanup();
-const report = { sourceBaseline: 'v0.58.0 / ac9431c9e2290d68af31a77614ff2fddb2391ca3', counters, frames, headless, sourceSha256: hashes,
+const dependencyVersions = {};
+for (const name of ['esbuild', 'react', 'ink', 'ink-testing-library', 'strip-ansi']) dependencyVersions[name] = JSON.parse(await fs.readFile(path.join(deps, name, 'package.json'), 'utf8')).version;
+const dependencyLockSha256 = createHash('sha256').update(await fs.readFile(path.join(deps, '../package-lock.json'))).digest('hex');
+const report = { dependencyVersions, dependencyLockSha256, sourceBaseline: 'v0.58.0 / ac9431c9e2290d68af31a77614ff2fddb2391ca3', counters, frames, headless, sourceSha256: hashes,
   boundary: 'Real pinned command/renderer/loader/headless loop; synthetic config/account/quota and I/O. No CLI startup, OAuth, PTY, Windows, or ADK verification.' };
 const destination = process.env.GEMINI_PROBE_OUTPUT || '/private/tmp/req012-gemini-probe/result.json';
 await fs.writeFile(destination, JSON.stringify(report, null, 2) + '\n');
-console.log('PASS: real /model renders 25% and 60%; empty stats hides quota; headless stats falls through to model boundary; headless model rejects; generation/credential/network = 0.');
+console.log('PASS: real /model renders 25% and 60%; empty stats hides quota; headless stats falls through to model boundary; headless model rejects; modelBoundaryAttempts=3; no real generation implementation; credential/network = 0.');
+console.log(`Dependencies: ${JSON.stringify(dependencyVersions)}; lock SHA-256: ${dependencyLockSha256}`);
 console.log(`Evidence: ${destination}`);

@@ -1,6 +1,6 @@
 # Gemini CLI 额度可行性表征
 
-关联需求：REQ-20260908-012。日期：2026-09-08。范围：固定官方源码的内置命令、最终额度渲染与默认 headless 循环；不包含实际账号、CLI 启动或自动采集验收。
+关联需求：REQ-20260908-012。日期：2026-09-08。下文先记录 Task1；文末 Task4a 附节扩展了合成环境的完整启动验证。Task1 范围：固定官方源码的内置命令、最终额度渲染与默认 headless 循环；不包含实际账号、CLI 启动或自动采集验收。
 
 ## 结论
 
@@ -56,7 +56,7 @@ node --experimental-vm-modules scripts/test-gemini-cli-capability.mjs --expect-e
 正常输出：
 
 ```text
-PASS: real /model renders 25% and 60%; empty stats hides quota; headless stats falls through to model boundary; headless model rejects; generation/credential/network = 0.
+PASS: real /model renders 25% and 60%; empty stats hides quota; headless stats falls through to model boundary; headless model rejects; modelBoundaryAttempts=3; no real generation implementation; credential/network = 0.
 Evidence: /private/tmp/req012-gemini-probe/result.json
 ```
 
@@ -123,7 +123,7 @@ Evidence: /private/tmp/req012-gemini-probe/result.json
 }
 ```
 
-## 启动链尚未覆盖的部分
+## Task1 历史阶段：当时尚未覆盖的启动链
 
 没有执行官方 CLI main、认证恢复、真实 refreshUserQuota 网络响应、真实终端键盘/PTY/ConPTY、TTY 退出、Windows、ADK 非交互分支，也没有验证不同账号/tier/语言/版本的终端可解析性。没有证明 CLI 启动到 `/model` 之间无模型调用或其他用户配置副作用。
 
@@ -149,4 +149,101 @@ Evidence: /private/tmp/req012-gemini-probe/result.json
 
 本阶段正常探测通过；错误空会话额度假设按预期失败；缺少 quota 时真实对话框不显示使用率，没有把未知当零。运行文档检查，结果见任务回传。没有运行产品全套测试，因为本阶段仅新增隔离上游表征脚本和记录。没有安装、启动用户 CLI，没有登录、模型请求、发布或产品数据采集。独立审查由主开发入口安排，不能用本次自查代替。
 
-Git 提交以 `test: characterize Gemini CLI quota command boundaries` 为索引；最终 SHA 在任务回传与后续整合记录中列出。
+Task1 提交为 `8bf76ec`。独立审查通过，无 P1/P2；两项 Minor 已补：stdout 明示 3 次模型边界尝试且无真实生成实现，结果输出实际依赖版本与 lockfile SHA-256。本次 Task1 lockfile 摘要为 `cbace9eaacd30cc93bd35191839e9d1c0dcc66a5bdcde647c901b1d50641caa4`。
+
+## Task4a：完整官方 CLI 合成启动探测
+
+本附节扩展 Task1 的验证边界：固定官方 npm CLI 0.58.0 在真实 macOS 子进程/PTY 中启动，恢复合成 OAuth 缓存，获取进程内 quota 夹具，输入 `/model` 显示 Pro 25%、Flash 60% 和重置描述，再用 Esc、`/quit` 干净退出。没有修改上游 CLI 源码，没有使用真实账户或连接 Google 后端。产品采集器尚未实现，此结果可作为下一阶段采集设计的证据。
+
+### 七个场景与实际断言
+
+| 场景 | 官方 CLI 行为 | 判定 |
+| --- | --- | --- |
+| authenticated（默认限制组合） | 真实 `/model` 有 25%/60%/Resets；Esc、`/quit` exit 0；三个哨兵均无启动尝试 | 合成完整启动链通过 |
+| authenticated --without-mcp-allowlist | 只有文件内 admin 禁用配置时，用户 MCP 哨兵仍尝试启动；测试权限阻止执行 | 否决“admin.mcp.enabled=false 文件设置足以禁用 MCP” |
+| authenticated --sentinel-control | 开启 hooks/MCP/extensions 后，三个独立哨兵全部产生真实启动尝试，分别经 bash hook、用户 MCP、扩展 MCP；权限阻止执行 | 证明哨兵夹具接到了真实副作用路径 |
+| missing-auth | 显示 Google 授权 URL 与 `Enter the authorization code:`；无网络夹具请求，不输入 `/model`；Ctrl+C 后 exit 0 | 需要认证，不能把退出码 0 当成功 |
+| invalid-auth | 合成 tokeninfo 返回 401，随后同样等待授权码；仅 tokeninfo 请求；Ctrl+C 后 exit 0 | 失效账户不会给出额度 |
+| quota-failure | quota 夹具返回 403；可打开模型对话框但无 `Model usage`；Esc、`/quit` exit 0，模型设置未改变 | 缺额度不冒充 0% 或点击模型选择 |
+| version --sentinel-control | `--version` 输出 0.58.0、exit 0；未请求认证/配额、未尝试哨兵，但读取了 settings 与 `.env` | 版本预检仍需要同样的环境隔离 |
+
+所有成功用例明确断言：截止时间内观察到退出、没有未知/模型端点请求、没有浏览器/系统 keychain helper 或 keytar addon 尝试、哨兵文件不存在、模型配置未持久化改变。安全组合断言的是“哨兵启动尝试为零”，不是仅断言“被权限阻止后实际执行为零”。普通 git、编辑器发现、终端父进程探测仍会尝试子进程；本测试拒绝这些操作，不能声称官方配置使整个 CLI 完全不尝试其他子进程。
+
+### 复现与隔离边界
+
+脚本：[test-gemini-cli-startup.mjs](../../scripts/test-gemini-cli-startup.mjs)。测试限定 macOS、Node 26.7.0、系统 Python PTY；这不是给用户安装 Node 26 的要求。所有包只安装到 `/private/tmp/req012-gemini-startup`：
+
+```sh
+npm install --prefix /private/tmp/req012-gemini-startup --ignore-scripts --no-audit --no-fund @google/gemini-cli@0.58.0 nock@14.0.10
+node scripts/test-gemini-cli-startup.mjs authenticated
+node scripts/test-gemini-cli-startup.mjs authenticated --without-mcp-allowlist
+node scripts/test-gemini-cli-startup.mjs authenticated --sentinel-control
+node scripts/test-gemini-cli-startup.mjs missing-auth
+node scripts/test-gemini-cli-startup.mjs invalid-auth
+node scripts/test-gemini-cli-startup.mjs quota-failure
+node scripts/test-gemini-cli-startup.mjs version --sentinel-control
+```
+
+官方包完整性为 `sha512-++LtUYMcLE8dVxMcuwv6kIp8+h6z+std/7iVE+vSunkrwNDaWMFkWw/psv2RSySWjr2A1SsEEIGCK0xULWY2sA==`；脚本检查 npm package-lock 记录并输出 Node/nock 版本及 lock 摘要。本次 lock SHA-256 为 `8257f064a811bc7ba6471ff1fd824de50b292f87aabe91c7f170a9dafd3ca5d9`。npm 完整性核验发生在下载时；运行时没有把 lock 中的字符串校验夸大为重算整个已安装包的签名。
+
+执行测试时保留以下边界：
+
+- CLI 使用复制到专用目录的 Node，启用真实 Node 权限系统，仅允许读取测试根目录及单一 `/.dockerenv` 标记路径，写入本场景目录。环境从白名单重建，HOME/USERPROFILE/TMPDIR 指向合成目录，不继承真实用户 env 或认证变量。
+- 真实网络、CLI 子进程创建、native addons、FFI 等默认禁止；启动前负控实际尝试读取专用目录外的**自建无害文件**、启动 `/usr/bin/true`、连接 loopback discard 端口，均观察到权限拒绝。没有用真实私密文件检验权限。
+- Nock 只在进程内回应 `tokeninfo`、`loadCodeAssist`、`listExperiments`、`retrieveUserQuota` 四类官方端点。其他网络默认拒绝并记录；没有生成端点夹具。WASM 的 `data:` URL 走原生 fetch，不属于网络请求。
+- 只为规避 Node JS realpath 对祖先 `/private` 做 lstat 的权限问题，将**测试目录内** callback realpath 改用 Node 自带 native realpath，保留真实路径解析结果。这个运行器适配不属于产品配置，不能宣称完全没有任何测试适配。
+- Python 驱动的是实际 PTY，持续读取屏幕同时分时输入每个字符，Enter 单独发送。最初驱动在发键时停止读屏导致背压，把输入合并成粘贴；当时的超时/强制关闭结果未冒充通过。修正后正常流程约 8 秒、exit 0，无强制取消。截止时仍会关闭 PTY、尝试终止并记录实际 waitpid；没有观察到退出的用例一定失败。
+- 全部 stdout/stderr 原始终端帧、请求路径/进程尝试/文件路径日志及退出状态保存在对应场景目录的 `terminal.txt`、`events.jsonl`、`outcome.json`、`result.json`。不记录请求 Authorization/header 或真实凭据；CLI 自己产生的失败日志只包含本次合成值。
+
+### 给实际采集器的约束（不依赖 Node 26 测试权限）
+
+1. **固定已验证版本与协议。** 本证据只覆盖官方 npm 0.58.0、macOS、默认交互路径。`--version` 在此版本会先加载 settings/`.env`，因此预检也要使用私有 cwd、空 `.env` 和受控环境；不能先在用户项目中跑一次“不带限制”的版本检测。
+2. **使用实际生效的官方限制项。** `-e none` 禁用扩展；`--allowed-mcp-server-names <本次生成的随机UUID名称>` 将用户 MCP 排除（测试使用固定不存在名称便于复现，产品不应照抄固定名称）。系统覆盖 `hooksConfig.enabled=false`；同时 `privacy.usageStatisticsEnabled=false` 和 `telemetry.enabled=false`，因为仅后者仍会触发 system_profiler 硬件信息采集。IDE/自动更新/内存重启也在夹具中禁用。不得只依赖 `admin.mcp.enabled=false`。
+3. **了解设置优先级。** 普通单值按 schema defaults → system defaults → user → trusted workspace → system overrides 合并；但 `computeMergedSettings()` 明确忽略所有文件中的 admin 字段，改用 remote admin/defaults。这解释了 MCP 负控。`GEMINI_CLI_SYSTEM_SETTINGS_PATH` 指向的是替换的系统设置文件，不是自动叠加文件；尚未验证保留现有企业系统配置的生产方案，不能擅自声称原有系统限制都会保留。
+4. **认证与后台采集分开。** `NO_BROWSER=true` 已验证在缺凭据/401 时抑制浏览器启动，改为手工授权码等待；采集器应识别授权 URL/输码/账号选择/主题/欢迎等待态，立即取消并返回需要认证或不支持状态，不能继续发送 `/model`、登录码或自然语言，也不能仅靠退出码判成功。测试没有为欢迎/主题选择自动按确认；未知 UI 必须停止。调用官方 CLI 自己的 OAuth 缓存恢复，不让应用读取令牌内容。
+5. **系统凭据提示的边界。** 本次白名单环境没有 `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE`、`GOOGLE_APPLICATION_CREDENTIALS`、云端 access token 或代理/扩展注入变量；真实源码在 encrypted storage 开关为真时会改走凭据存储。本次缺/失效 plain OAuth 缓存没有 keytar/helper 尝试，不能泛化到加密存储账号。实际采集器若不能保证同等环境或遇到不支持的凭据模式，应停止，不自动打开 keychain/密码提示。此行为约束由环境和状态机实现，不能假定每个用户有 Node 26 权限系统。
+6. **交互严格限于读额度。** 等待可识别的主输入态后逐键 `/model`，读取完整 `Model usage`；成功或缺额度都用 Esc 关闭，再 `/quit`。实时排空 PTY、使用单独 Enter，不能一次塞多行；对话框内不发送 Enter/方向键/Tab 或模型名称。403 测试证明固定退出序列没有改写 model 设置。
+7. **保持官方终端口径。** Pro/Flash 是 CLI 分组后的模型档位；25%/60% 是 `1 - remainingFraction` 得到的已用比例并四舍五入，不是剩余比例，也不是完整原始模型池。保留 CLI 显示的重置描述；没有时为空，不从“1h”等描述捏造精确 resetAt、总请求上限或原始模型池。
+8. **仍需生产生命周期实现和验收。** Node/Nock/合成 HOME/native realpath 只是测试护栏与夹具，产品不带这些适配。真实用户已有 CLI、实际账号恢复、实际后端、企业配置、Windows/ConPTY、不同终端宽度/语言和超时取消必须由后续实现与平台测试分别验证。源代码支持不等于所有这些现场状态都已通过。
+
+内存/上下文也只覆盖当前夹具：私有 cwd 内空 `.env` 截断父目录环境扫描，合成全局 GEMINI.md 存在但没有生成调用；`context.fileName=[]` 在上游 UI 留下 `1 undefined file` 标签，因此不将这个空数组的 UI 细节推荐为正式产品行为。后续若改用独有的不存在文件名或其他上下文隔离方式，要对该配置单独补证据。
+
+### 最终运行证据
+
+- `authenticated-allowlist`：exit 0，8.16 秒，超时 false，额度可见 true，哨兵尝试 0。
+- `authenticated`：exit 0，8.15 秒，超时 false，额度可见 true，哨兵尝试 1。
+- `authenticated-control`：exit 0，8.16 秒，超时 false，额度可见 true，哨兵尝试 3。
+- `missing-auth-allowlist`：exit 0，8.02 秒，超时 false，额度可见 false，哨兵尝试 0。
+- `invalid-auth-allowlist`：exit 0，8.02 秒，超时 false，额度可见 false，哨兵尝试 0。
+- `quota-failure-allowlist`：exit 0，8.15 秒，超时 false，额度可见 false，哨兵尝试 0。
+- `version-control`：exit 0，1.23 秒，超时 false，额度可见 false，哨兵尝试 0。
+
+后续只调整了超时分支的有界 waitpid 回收：版本场景复查通过，独立合成等待子进程在 2 秒截止后关闭 PTY 并观察到退出，总耗时小于 5 秒；没有拿七个正常退出用例冒充超时分支覆盖。
+
+实际完整对话框帧（去除 ANSI 颜色、CR 与行尾空格后的原始内容，截取最近一次完整 model 对话框）：
+
+```text
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                                                          │
+│ Select Model                                                                                                                             │
+│                                                                                                                                          │
+│   1. Auto                                                                                                                                │
+│      Let Gemini CLI decide the best model for the task: gemini-2.5-pro, gemini-2.5-flash                                                 │
+│ ● 2. Manual                                                                                                                              │
+│      Manually select a model                                                                                                             │
+│                                                                                                                                          │
+│ Remember model for future sessions: false (Press Tab to toggle)                                                                          │
+│ > To use a specific Gemini model on startup, use the --model flag.                                                                       │
+│                                                                                                                                          │
+│ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── │
+│ Model usage                                                                                                                              │
+│                                                                                                                                          │
+│ Pro         ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬  25%  Resets: 5:47 PM (1h)
+│ Flash       ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬  60%  Resets: 5:47 PM (1h)
+│                                                                                                                                          │
+│ (Press Esc to close)                                                                                                                     │
+│                                                                                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+采集器应使用完整最新屏幕中的 `Model usage` 区块；不得从累积 ANSI 文本重复读取旧帧，也不能把启动 footer 的 43% 聚合显示当作某个模型档位。403 场景保留 `Select Model` 对话框但整个 `Model usage` 标题与行消失。
