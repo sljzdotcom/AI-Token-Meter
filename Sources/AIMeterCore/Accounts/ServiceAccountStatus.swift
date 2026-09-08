@@ -43,3 +43,18 @@ public protocol ServiceAccountReading: Sendable {
     var provider: UsageProvider { get }
     func read() async -> ServiceAccountStatus
 }
+
+public extension ServiceAccountStatus {
+    static func fromGeminiSnapshot(_ snapshot: UsageSnapshot) -> Self {
+        let state: ServiceAccountConnectionState
+        switch snapshot.collectionStatus {
+        case .fresh: state = snapshot.geminiQuotaMetrics?.isEmpty == false ? .connected : .unavailable
+        case .notInstalled: state = .notInstalled
+        case .authenticationRequired: state = .signInRequired
+        default: state = .unavailable
+        }
+        return Self(provider: .gemini, connectionState: state,
+                    accountDetail: snapshot.statusMessage ?? (state == .connected ? "Official Gemini CLI quota verified; account identity not provided" : "Gemini CLI quota unavailable"),
+                    checkedAt: snapshot.fetchedAt)
+    }
+}

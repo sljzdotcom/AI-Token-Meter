@@ -98,6 +98,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let codexResetCredits: CodexResetCreditsSummary?
     public let codexLocalActivity: CodexLocalActivitySummary?
     public let claudeLocalActivity: ClaudeLocalActivitySummary?
+    public let geminiQuotaMetrics: [UsageMetric]?
     public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
     public init(
@@ -113,6 +114,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         codexResetCredits: CodexResetCreditsSummary? = nil,
         codexLocalActivity: CodexLocalActivitySummary? = nil,
         claudeLocalActivity: ClaudeLocalActivitySummary? = nil,
+        geminiQuotaMetrics: [UsageMetric]? = nil,
         deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
         self.provider = provider
@@ -127,6 +129,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.codexResetCredits = codexResetCredits
         self.codexLocalActivity = codexLocalActivity
         self.claudeLocalActivity = claudeLocalActivity
+        self.geminiQuotaMetrics = geminiQuotaMetrics
         self.deepSeekUsageHistory = deepSeekUsageHistory
     }
 
@@ -150,6 +153,7 @@ public extension UsageSnapshot {
             codexResetCredits: codexResetCredits,
             codexLocalActivity: activity,
             claudeLocalActivity: claudeLocalActivity,
+            geminiQuotaMetrics: geminiQuotaMetrics,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }
@@ -168,6 +172,7 @@ public extension UsageSnapshot {
             codexResetCredits: codexResetCredits,
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: activity,
+            geminiQuotaMetrics: geminiQuotaMetrics,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }

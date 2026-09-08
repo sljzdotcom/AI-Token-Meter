@@ -110,12 +110,12 @@ struct ServicesSettingsView: View {
 
             Section("Gemini CLI") {
                 ServiceAccountStatusView(status: status(for: .gemini))
-                Text("Automatic quota collection is not available. View quota in the official Gemini CLI; local activity is not an account limit.")
+                Text("Reads official quota through a supported Gemini CLI. Account identity is not provided by this view.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
                     Link("Official Gemini CLI documentation", destination: GeminiDetailView.documentationURL)
-                    Button("Retry") { Task { await model.checkServiceAccount(.gemini); await model.refresh() } }
+                    Button("Retry") { Task { await model.checkServiceAccount(.gemini) } }
                 }
             }
 

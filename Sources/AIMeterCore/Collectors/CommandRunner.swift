@@ -1,6 +1,8 @@
 import Foundation
 
 public struct CommandRequest: Sendable {
+    public let environment: [String: String]?
+    public let geminiQuotaInteraction: Bool
     public let executableURL: URL
     public let arguments: [String]
     public let inputLines: [String]
@@ -18,8 +20,12 @@ public struct CommandRequest: Sendable {
         inputDelay: TimeInterval = 0,
         timeout: TimeInterval,
         currentDirectoryURL: URL? = nil,
-        stopAfterOutputContains: [String] = []
+        stopAfterOutputContains: [String] = [],
+        environment: [String: String]? = nil,
+        geminiQuotaInteraction: Bool = false
     ) {
+        self.environment = environment
+        self.geminiQuotaInteraction = geminiQuotaInteraction
         self.executableURL = executableURL
         self.arguments = arguments
         self.inputLines = inputLines

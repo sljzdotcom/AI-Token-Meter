@@ -172,6 +172,7 @@ public actor RefreshCoordinator {
             codexResetCredits: snapshot.codexResetCredits,
             codexLocalActivity: snapshot.codexLocalActivity,
             claudeLocalActivity: snapshot.claudeLocalActivity,
+            geminiQuotaMetrics: snapshot.geminiQuotaMetrics,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
@@ -183,6 +184,9 @@ public actor RefreshCoordinator {
         let status: CollectionStatus
         let message: String
         switch error {
+        case .geminiUnavailable(let reason):
+            status = .unavailable
+            message = reason
         case .notInstalled:
             status = .notInstalled
             message = "CLI not installed"

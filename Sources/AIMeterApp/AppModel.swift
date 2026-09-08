@@ -178,7 +178,7 @@ final class AppModel {
         let coordinator = RefreshCoordinator(
             collectors: self.isDemoMode
                 ? []
-                : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore)],
+                : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore), GeminiCollector()],
             cache: SnapshotCache(directoryURL: cacheDirectory)
         )
         self.coordinator = coordinator
@@ -296,7 +296,9 @@ final class AppModel {
         guard !Task.isCancelled else { return }
         providersRequiringAction = await coordinator.providersRequiringAction()
         updateAPIKeyConfiguration(from: collected)
-        snapshots = collected.filter { $0.provider != .gemini }.map(applyingLocalBudget).map(applyingDeepSeekHistory) + [.geminiUnavailable]
+        snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
+        if !snapshots.contains(where: { $0.provider == .gemini }) { snapshots.append(.geminiUnavailable) }
+        updateGeminiAccountStatus()
         lastUpdatedAt = Date()
         publishWidgetSnapshot()
 
@@ -306,6 +308,14 @@ final class AppModel {
         if !events.isEmpty {
             notificationHandler?(events)
         }
+    }
+
+    private func updateGeminiAccountStatus() {
+        guard let snapshot = snapshots.first(where: { $0.provider == .gemini }), snapshot != .geminiUnavailable else {
+            serviceAccounts[.gemini] = .geminiUnavailable
+            return
+        }
+        serviceAccounts[.gemini] = .fromGeminiSnapshot(snapshot)
     }
 
     private func setProviderRefreshing(_ provider: UsageProvider, active: Bool) {
@@ -475,9 +485,10 @@ final class AppModel {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
-        for status in statuses {
+        for status in statuses where status.provider != .gemini {
             serviceAccounts[status.provider] = status
         }
+        updateGeminiAccountStatus()
         for provider in UsageProvider.allCases where serviceAccounts[provider]?.connectionState == .checking {
             serviceAccounts[provider] = ServiceAccountStatus(
                 provider: provider,
@@ -489,6 +500,12 @@ final class AppModel {
 
     @discardableResult
     func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
+        if provider == .gemini {
+            await coordinator.clearAuthenticationBackoff(for: .gemini)
+            await refresh()
+            updateGeminiAccountStatus()
+            return serviceAccounts[.gemini] ?? .geminiUnavailable
+        }
         guard signInTokens[provider] == nil, !isRefreshingServiceAccounts else {
             return serviceAccounts[provider] ?? .checking(provider: provider)
         }
