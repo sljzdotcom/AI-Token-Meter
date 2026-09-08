@@ -18,7 +18,7 @@ struct CIWorkflowTests {
         #expect(workflow.contains("run: swift --version"))
     }
 
-    @Test("Full validation gives each PTY resource suite its own test process")
+    @Test("Full validation gives timing-sensitive suites their own test processes")
     func isolatesPTYResourceTests() throws {
         let projectRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -26,7 +26,8 @@ struct CIWorkflowTests {
             .deletingLastPathComponent()
         let testScript = try String(contentsOf: projectRoot.appending(path: "scripts/test.sh"))
 
-        #expect(testScript.contains("--skip 'PTYCommandRunnerTests|GeminiPTYTests|GeminiOfficialPTYTests'"))
+        #expect(testScript.contains("--skip 'PTYCommandRunnerTests|GeminiPTYTests|GeminiOfficialPTYTests|RefreshIntervalSchedulingTests'"))
+        #expect(testScript.contains("--filter 'RefreshIntervalSchedulingTests'"))
         #expect(testScript.contains("--filter 'PTYCommandRunnerTests'"))
         #expect(testScript.contains("--filter 'GeminiPTYTests'"))
         #expect(!testScript.contains("--filter 'PTYCommandRunnerTests|GeminiPTYTests'"))

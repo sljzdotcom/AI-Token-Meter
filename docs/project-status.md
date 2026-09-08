@@ -80,7 +80,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 0.6.0 本地候选基线：**461 项主测试 + 19 项 PTY，总计 480 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、249 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
+- 0.6.0 本地候选基线：**458 项普通测试 + 3 项独立刷新调度 + 13 项 PTY runner + 6 项 Gemini PTY，总计 480 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、249 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 发布前必须由 PR 的原生 Windows runner 完成 Windows SDK、ConPTY、严格 Clippy、完整 Rust、GUI subsystem 与 NSIS 构建；通过前不把宿主 Rust 结果写成原生 Windows 通过。
 - 已发布 0.5.1 基线继续保留：433 项 Swift、85 项前端、21 项密度生命周期、632 个浏览器文字角色、229 项原生 Windows Rust 及双平台标签门禁全部通过。
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；

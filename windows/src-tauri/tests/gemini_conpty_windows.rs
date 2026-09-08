@@ -29,11 +29,16 @@ fn actual_conpty_fixed_input_success_timeout_and_cancel_reap_the_child() {
         let fixture =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/gemini-terminal.cjs");
         let input = dir.path().join("input");
+        let raw_input = dir.path().join("raw-input");
         let pid = dir.path().join("pid");
         environment.variables.extend([
             ("AI_METER_TEST_SCENARIO".into(), scenario.into()),
             ("AI_METER_TEST_PID".into(), pid.clone().into_os_string()),
             ("AI_METER_TEST_INPUT".into(), input.clone().into_os_string()),
+            (
+                "AI_METER_TEST_RAW_INPUT".into(),
+                raw_input.clone().into_os_string(),
+            ),
             (
                 "AI_METER_TEST_FIXTURES".into(),
                 PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -92,6 +97,16 @@ fn actual_conpty_fixed_input_success_timeout_and_cancel_reap_the_child() {
             "cancel" => assert!(matches!(result, Err(CollectionError::Cancelled))),
             _ => assert!(matches!(result, Err(CollectionError::TimedOut))),
         }
+        let raw_input = std::fs::read_to_string(raw_input).unwrap();
+        assert!(
+            raw_input.contains("\x1b[1;1R"),
+            "ConPTY cursor-position handshake was not observed in {scenario}"
+        );
+        assert_eq!(
+            raw_input.replace("\x1b[1;1R", ""),
+            std::fs::read_to_string(&input).unwrap(),
+            "fixture did not isolate terminal protocol input in {scenario}"
+        );
         let pid: u32 = std::fs::read_to_string(&pid).unwrap().parse().unwrap();
         unsafe {
             use windows_sys::Win32::{
