@@ -114,8 +114,8 @@ fn actual_conpty_fixed_input_success_timeout_and_cancel_reap_the_child() {
                 assert_eq!(std::fs::read(&input).unwrap(), b"/model\r\x1b/quit\r");
             }
             "exit-conflict" => assert!(
-                matches!(result, Err(CollectionError::UnrecognizedOutput)),
-                "{diagnostic}"
+                matches!(&result, Err(CollectionError::UnrecognizedOutput)),
+                "exit-conflict scenario returned {result:?}; {diagnostic}"
             ),
             "cancel" => assert!(
                 matches!(result, Err(CollectionError::Cancelled)),

@@ -10,7 +10,53 @@ use crate::{
         },
     },
 };
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+const STOP_DRAIN_TIMEOUT: Duration = Duration::from_millis(750);
+const STOP_DRAIN_POLL: Duration = Duration::from_millis(5);
+const STOP_EXIT_QUIET: Duration = Duration::from_millis(100);
+const STOP_TAIL_LIMIT: usize = 256 * 1024;
+
+fn drain_until_process_exit<P, N, S>(
+    tail: &mut Vec<u8>,
+    deadline: Instant,
+    exit_quiet: Duration,
+    mut poll: P,
+    mut now: N,
+    mut sleep: S,
+) -> Result<(), CollectionError>
+where
+    P: FnMut() -> Result<(Vec<u8>, bool), CollectionError>,
+    N: FnMut() -> Instant,
+    S: FnMut(Duration),
+{
+    let mut empty_after_exit_since = None;
+    loop {
+        let (bytes, exited) = poll()?;
+        if tail.len() + bytes.len() > STOP_TAIL_LIMIT {
+            return Err(CollectionError::UnrecognizedOutput);
+        }
+        let empty = bytes.is_empty();
+        tail.extend(bytes);
+        let current = now();
+        if exited && empty {
+            let quiet_since = empty_after_exit_since.get_or_insert(current);
+            if current.saturating_duration_since(*quiet_since) >= exit_quiet {
+                break;
+            }
+        } else {
+            empty_after_exit_since = None;
+        }
+        if current >= deadline {
+            break;
+        }
+        sleep(STOP_DRAIN_POLL);
+    }
+    Ok(())
+}
 
 /// Native-only discovery: every probe is inside the same checked Gemini environment.
 pub fn discover(
@@ -130,28 +176,24 @@ impl super::gemini_session::GeminiTerminal for NativeTerminal {
         use crate::platform::windows::conpty::ConPtyError;
         let mut tail = Vec::new();
         let result = (|| {
-            let deadline = std::time::Instant::now() + Duration::from_millis(750);
-            loop {
-                let bytes = self.read()?;
-                if tail.len() + bytes.len() > 256 * 1024 {
-                    return Err(CollectionError::UnrecognizedOutput);
-                }
-                let empty = bytes.is_empty();
-                tail.extend(bytes);
-                let exited = self
-                    .child
-                    .as_ref()
-                    .ok_or(CollectionError::Transport)?
-                    .has_exited()
-                    .map_err(|_| CollectionError::Transport)?;
-                if exited && empty {
-                    break;
-                }
-                if std::time::Instant::now() >= deadline {
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(5));
-            }
+            let deadline = Instant::now() + STOP_DRAIN_TIMEOUT;
+            drain_until_process_exit(
+                &mut tail,
+                deadline,
+                STOP_EXIT_QUIET,
+                || {
+                    let bytes = self.read()?;
+                    let exited = self
+                        .child
+                        .as_ref()
+                        .ok_or(CollectionError::Transport)?
+                        .has_exited()
+                        .map_err(|_| CollectionError::Transport)?;
+                    Ok((bytes, exited))
+                },
+                Instant::now,
+                std::thread::sleep,
+            )?;
             if let Some(child) = self.child.as_mut() {
                 match child.wait(Duration::from_millis(100)) {
                     Ok(_) => {}
@@ -169,7 +211,7 @@ impl super::gemini_session::GeminiTerminal for NativeTerminal {
                 if bytes.is_empty() {
                     break;
                 }
-                if tail.len() + bytes.len() > 256 * 1024 {
+                if tail.len() + bytes.len() > STOP_TAIL_LIMIT {
                     return Err(CollectionError::UnrecognizedOutput);
                 }
                 tail.extend(bytes);
@@ -188,6 +230,7 @@ impl super::gemini_session::GeminiTerminal for NativeTerminal {
         result
     }
 }
+
 impl Drop for NativeTerminal {
     fn drop(&mut self) {
         self.child.take();
@@ -228,4 +271,56 @@ pub fn collect(
         &cancellation,
         Default::default(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{cell::Cell, collections::VecDeque};
+
+    #[test]
+    fn stop_drain_collects_output_that_arrives_after_exit_is_observed() {
+        let origin = Instant::now();
+        let elapsed = Cell::new(Duration::ZERO);
+        let mut events = VecDeque::from([
+            (Vec::new(), true),
+            (Vec::new(), true),
+            (b"delayed conflict".to_vec(), true),
+            (Vec::new(), true),
+        ]);
+        let mut tail = Vec::new();
+
+        drain_until_process_exit(
+            &mut tail,
+            origin + STOP_DRAIN_TIMEOUT,
+            STOP_EXIT_QUIET,
+            || Ok(events.pop_front().unwrap_or((Vec::new(), true))),
+            || origin + elapsed.get(),
+            |duration| elapsed.set(elapsed.get() + duration),
+        )
+        .unwrap();
+
+        assert_eq!(tail, b"delayed conflict");
+        assert_eq!(elapsed.get(), Duration::from_millis(115));
+    }
+
+    #[test]
+    fn stop_drain_remains_bounded_while_process_is_running() {
+        let origin = Instant::now();
+        let elapsed = Cell::new(Duration::ZERO);
+        let mut tail = Vec::new();
+
+        drain_until_process_exit(
+            &mut tail,
+            origin + STOP_DRAIN_TIMEOUT,
+            STOP_EXIT_QUIET,
+            || Ok((Vec::new(), false)),
+            || origin + elapsed.get(),
+            |duration| elapsed.set(elapsed.get() + duration),
+        )
+        .unwrap();
+
+        assert!(tail.is_empty());
+        assert_eq!(elapsed.get(), STOP_DRAIN_TIMEOUT);
+    }
 }
