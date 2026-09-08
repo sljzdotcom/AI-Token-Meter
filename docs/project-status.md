@@ -1,11 +1,13 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-07
+- **事实快照：** 2026-09-08
 - **产品：** AI Token Meter
 - **应用版本：** 双平台稳定通道 `0.5.0`（macOS build `13`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**Windows CLI 恢复验证中：** 修复分支已实现显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复；本机完整回归通过，整分支复审与原生 CI 复跑仍在进行。[草稿 PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 和[调查日志](development/2026-09-08-windows-cli-post-login.md)记录进度。当前公开版本仍为 0.5.0，不把分支代码或 CI 当成用户机器已经修好。
 
 **0.3.0 功能：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台 CI 并合入 main（`c67112e`）。真实 Windows 桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)和[发布记录](development/2026-09-06-v0.3.0-release.md)。
 

@@ -12,6 +12,8 @@
 4. 回到 AI Token Meter 手动刷新。
 5. 如果仍提示工作区设置，点击 **Authorize Usage Workspace**，在打开的终端中批准私有工作区。
 
+Windows 的对应入口为修复分支新增的 **Initialize quota access / 初始化额度读取**，当前发布边界见[开发验证记录](../development/2026-09-08-windows-cli-post-login.md)。Settings 已显示已登录账号、额度却提示需要设置时，先处理此独立工作区确认，完成后手动检查状态；不要反复重装或登录。初始化后仍失败需结合最新错误、CLI 版本与更新时间排查，不能仅凭已登录状态认定额度必然可用。
+
 公司代理、防火墙、CLI 升级或 Claude Code 服务端延迟都可能导致超时。AI Token Meter 会保留最近成功缓存，但不会把缓存伪装成实时数据。
 
 ### 官方客户端显示 0%，AI Token Meter 数字不同

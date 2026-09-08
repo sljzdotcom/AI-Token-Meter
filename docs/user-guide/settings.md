@@ -154,6 +154,13 @@ Windows 在每张 Claude Code/OpenAI Codex 服务卡内提供运行方式：
 - **Authorize Usage Workspace** 会打开终端，由用户本人确认工作区；应用不会自动接受信任或权限提示。它与账号登录是两件独立的事。
 - 既有批准继续使用兼容目录 `Application Support/AI Meter/ClaudeUsageWorkspace`。
 
+Windows 修复分支新增 **Initialize quota access / 初始化额度读取**（尚未发布，见[验证记录](../development/2026-09-08-windows-cli-post-login.md)）：
+
+- 已安装且可用的 Claude 服务卡中可使用该入口；已有账号登录不等于工作区已经确认，无需为此重新登录。
+- 原生 CLI 使用 `%LOCALAPPDATA%/AI Token Meter/ClaudeUsageWorkspace`；WSL 使用所选发行版内的 `$HOME/.local/share/ai-token-meter/ClaudeUsageWorkspace`。初始化和后台读取共用此目录，不要求信任整个主目录。
+- 在官方 CLI 完成必要确认后，回到 Services 点击 **Check Status / 检查状态**，重试该服务的实际额度采集。应用打开终端不代表初始化完成。
+- 自动状态检查不反复触发额度重试；手动检查也不会绕过服务端限流等待。不更改 CLI 凭据或自动回答权限问题。
+
 ### Balance baseline
 
 - 默认：¥100。
