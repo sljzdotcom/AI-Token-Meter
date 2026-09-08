@@ -139,4 +139,18 @@ function assertDensity(report) {
       if (sample.fontFamily !== available.fontFamily) throw new Error(`${locale} ${sample.phase} changed update status font family`)
     }
   }
+  if (report.aboutSamples.length !== 4) throw new Error("Missing bilingual wide and narrow About samples")
+  const expectedLabels = ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"]
+  const expectedHrefs = ["https://twitter.com/MillerPanYue", "https://github.com/sljzdotcom/AI-Token-Meter", "https://t.me/sljzdotcom"]
+  for (const sample of report.aboutSamples) {
+    if (JSON.stringify(sample.labels) !== JSON.stringify(expectedLabels)) throw new Error(`${sample.locale}/${sample.width} About labels changed`)
+    if (JSON.stringify(sample.hrefs) !== JSON.stringify(expectedHrefs)) throw new Error(`${sample.locale}/${sample.width} About targets changed`)
+    const expectedGroupName = sample.locale === "en" ? "Author links" : "作者链接"
+    if (sample.groupName !== expectedGroupName) throw new Error(`${sample.locale}/${sample.width} lost its accessible group name`)
+    if (sample.authorVisible || sample.headingVisible) throw new Error(`${sample.locale}/${sample.width} restored removed visible author copy`)
+    if (!sample.equalHeights || !sample.unclipped) throw new Error(`${sample.locale}/${sample.width} clipped or misaligned an About link`)
+    if (sample.iconSizes.some(([width, height]) => width !== 15 || height !== 15)) throw new Error(`${sample.locale}/${sample.width} changed an About icon size`)
+    if (sample.width === 360 && sample.rows < 2) throw new Error(`${sample.locale} narrow About links did not wrap`)
+    if (sample.width === 720 && sample.rows !== 1) throw new Error(`${sample.locale} wide About links did not stay aligned`)
+  }
 }
