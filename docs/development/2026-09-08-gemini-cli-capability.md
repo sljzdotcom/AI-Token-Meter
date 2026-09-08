@@ -267,3 +267,17 @@ node scripts/test-gemini-cli-startup.mjs authenticated --untrusted-workspace
 真实官方 CLI 已通过：输出 untrusted，仍显示 Pro 25%、Flash 60% 和重置描述，正常 exit 0，无强制取消、信任菜单、自动批准或 trustedFolders.json 写入；用户 security 设置保持 true，模型选择不变，三类哨兵尝试 0，未知/模型网络尝试 0。`core/utils/trust.ts:50` 明确返回 false，交互 hook 只在 undefined 时要求选择，这解释了观测。生产可用此更严格环境保留用户信任策略，无须为只读额度先信任私有目录；不能改成 true 或把 enabled 写成 false。
 
 原始完整证据：`/private/tmp/req012-gemini-startup/authenticated-untrusted-allowlist/terminal.txt` 及同目录 result.json/events.jsonl/outcome.json。此场景仍为合成账号/macOS，其他未验证边界不变。
+
+### 受支持启动环境的五项预检门槛
+
+以下只核对固定 v0.58.0 上游源码，不新增真实账号或启动场景；它们补充系统配置、plain OAuth、固定交互与明确不信任目录的既有约束。源码路径均相对于上述固定上游根目录。
+
+1. **自定义工具命令。** 非空 `tools.discoveryCommand` 必须返回不支持：`packages/cli/src/config/config.ts:985` 传入核心，`packages/core/src/config/config.ts:1505`、`:4078` 在初始化创建工具注册表，`packages/core/src/tools/tool-registry.ts:352`、`:403` 直接发现并 spawn 命令，独立于 hooks/MCP/extensions。`tools.callCommand` 是后续发现工具的调用器，首期也按未支持自定义工具模式停止；未声称它本身在空输入启动时已执行。
+2. **环境文件查找。** `advanced.ignoreLocalEnv=true` 或无法解释的类型/模板必须停止，也不能添加 `--ignore-env`。`packages/cli/src/config/settings.ts:675` 设置该标志，`:555–600` 会跳过私有 cwd 的空 `.env`，随后回退 HOME 下 `.gemini/.env` 或 `.env`。默认 false 加私有空 `.env` 才是本次已测截断路径，不能把 ignore-env 误认为禁止所有环境文件。
+3. **其他沙箱运行模式。** `tools.sandbox` 启用或值不明确时停止；`security.toolSandboxing=true` 未纳入行为证据，也停止。`packages/cli/src/config/sandboxConfig.ts:52–70` 中 `GEMINI_SANDBOX` 优先于 argv/settings，`:147` 读取 tools.sandbox；`packages/cli/src/gemini.tsx:569–580` 会启动另一运行时。`packages/cli/src/utils/sandbox.ts:230`、`:250` 还可通过 `GEMINI_SANDBOX_PROXY_COMMAND` 启动自定义命令。不继承这些 sandbox 注入变量及 SANDBOX、BUILD_SANDBOX、SEATBELT_PROFILE、SANDBOX_FLAGS/MOUNTS/ENV、GEMINI_SANDBOX_IMAGE/IMAGE_DEFAULT；拒绝用户明确模式，不通过强行关闭绕过其安全意图。
+4. **外部认证模式。** 除既有 API/Vertex/加密限制，还需拒绝 `security.auth.useExternal=true`、不匹配的 enforcedType 或无法确认的账户模式。`packages/cli/src/gemini.tsx:511` 的 useExternal 会跳过普通 OAuth 启动分支；`packages/core/src/code_assist/oauth2.ts:156–163` 支持 GOOGLE_GENAI_USE_GCA 与 GOOGLE_CLOUD_ACCESS_TOKEN 注入。GOOGLE_APPLICATION_CREDENTIALS、CLOUD_SHELL、GEMINI_CLI_USE_COMPUTE_ADC 等也不在已测 plain OAuth 环境内。不得默默改成其他认证方式。
+5. **动态设置值。** `packages/cli/src/config/settings.ts:804` 在校验前递归展开 settings 中的 `$VAR`、`${VAR}`、`${VAR:-default}`，规则见 `packages/cli/src/utils/envVarResolver.ts:27–59`。这是字符串替换，并不执行 shell，但原始字段看似安全不代表展开后相同。承重字段出现无法可靠解释的模板、异常类型或无法解析的 JSONC 必须停止；首期可以将动态模板整体视为未支持，避免应用复制整套上游解析逻辑。
+
+`mcp.serverCommand` 经 `packages/core/src/tools/mcp-client-manager.ts:580` 转成普通服务器，再由 `:260` 的 allowedNames 筛选，现有随机不匹配允许名称按源码也覆盖它；不要与独立的 tools.discoveryCommand 混淆。preferredEditor 是固定标识符枚举，shell.pager 是工具执行参数，本次有限核查未发现它们在无模型、无编辑快捷键的启动路径主动执行，不扩大为已证实问题。自定义主题可能产生等待菜单，仍按未知交互态取消。
+
+默认信任设置已由第八场景纠正：生产保持用户 folderTrust 设置，使用明确 `GEMINI_CLI_TRUST_WORKSPACE=false`，不写 trustedFolders、不自动选择 Trust folder/Trust parent。此结果只证明上述有界组合，不等同于所有用户配置均被支持。
