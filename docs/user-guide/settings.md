@@ -212,4 +212,5 @@ Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 
 - **Check for Updates**：只有点击时才读取项目的 GitHub 更新清单；macOS 使用 appcast，Windows 使用 `latest.json`。应用启动、定时刷新和后台驻留都不会检查更新。
 - 检查结果会显示正在检查、已是最新版、发现版本、离线或安全失败；`Last checked` 只记录本次用户操作的时间。
 - **Update Now**：仅在本轮已发现更高版本时启用。macOS 使用 Sparkle EdDSA，Windows 使用 Tauri minisign + NSIS；验证通过后才替换并重新启动，应用不会静默安装。
+- **待下次发布的 Windows 提示优化**：发现新版本时，提示文字改为深红色加粗，中英文一致；不改变系统字体和字号，其他更新状态保持原样。当前公开的 0.5.1 尚不包含此样式。
 - `0.1.2` 没有这两个按钮，因此需要从 GitHub Release 手动安装一次当前版本。之后的稳定版本可以从本页更新。

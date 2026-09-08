@@ -13,6 +13,8 @@
 
 ## 一句话定位
 
+**未发布改动：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。用户要求保留到后续版本一起发布；公开 0.5.1 和更新源未变。
+
 **0.5.0 品牌改进：** 双平台 About 作者社交图标链接及 Windows 设置顶部 Logo 已合入 main（`12ad5e2`）并公开发布；[完成证据](development/2026-09-07-about-branding.md)。CLI 安装器按点击在线获取，CLI 本体不内嵌安装包。
 
 **0.5.0 安装与账户引导：** CLI 安装/登录引导和 Windows Settings 页签图标已通过最终复审、双平台 CI 和构建验证，PR #10 已合入 main（`266b1f3`）并公开发布；见[需求与验证](development/2026-09-07-cli-onboarding.md)及[本版发布记录](development/2026-09-07-v0.5.0-release.md)。
