@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-08](2026-09-08-windows-cli-post-login.md) | Windows 登录成功但额度未显示 | 已定位错误分类不一致、受限 PATH 与 Claude 工作区缺口；待实际 Windows CLI/Node 路径验证，未实施修复 |
 | [2026-09-07](2026-09-07-v0.5.0-release.md) | 0.5.0 CLI 引导与 About 品牌展示双平台稳定发布 | 已公开；双平台签名、432 项 Swift/218 项原生 Windows Rust、公开资产与三个更新源验证通过 |
 | [2026-09-07](2026-09-07-about-branding.md) | 在线安装包边界核对、关于页社交链接与 Windows 软件图标 | 已合并，432 项 Swift、218 项原生 Rust、双平台 CI 通过；列入 0.5.0 |
 | [2026-09-07](2026-09-07-cli-onboarding.md) | CLI 安装/账户状态引导与 Windows Settings 页签图标 | 已随 0.5.0 发布；该阶段 macOS 429、Windows 原生 Rust 216、前端 75，双平台 CI/构建通过 |

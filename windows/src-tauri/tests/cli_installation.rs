@@ -79,6 +79,7 @@ fn discovered_native_and_wsl_candidates_are_preserved() {
         },
     ] {
         let candidate = ExecutableCandidate {
+            selected_path: "/existing/cli".into(),
             executable: "/existing/cli".into(),
             launcher: None,
             source,

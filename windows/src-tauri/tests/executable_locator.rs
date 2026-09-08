@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use ai_token_meter_windows::accounts::cli_account::CliProvider;
+use ai_token_meter_windows::persistence::ProviderCliSettings;
 use ai_token_meter_windows::platform::windows::environment::DiscoveryInputs;
 use ai_token_meter_windows::platform::windows::executable_locator::{
     CandidateOrigin, DiscoveryBudget, ExecutableLocator, RuntimeSource,
@@ -180,6 +181,128 @@ fn cmd_wrapper_requires_the_system_command_interpreter() {
 
     assert_eq!(candidate.executable, canonical(&wrapper));
     assert_eq!(candidate.launcher, Some(canonical(&cmd)));
+}
+
+#[test]
+fn official_codex_npm_wrapper_uses_verified_entry_and_separate_node() {
+    let fixture = LocatorFixture::new();
+    let wrapper = fixture.file("User Profile/AppData/Roaming/npm/codex.cmd", "npm wrapper");
+    let package_root = "User Profile/AppData/Roaming/npm/node_modules/@openai/codex";
+    fixture.file(
+        &format!("{package_root}/package.json"),
+        r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+    );
+    let entry = fixture.file(
+        &format!("{package_root}/bin/codex.js"),
+        "console.log('official codex fixture')\n",
+    );
+    let node = fixture.file("Program Files/nodejs/node.exe", "node fixture");
+    let inputs = DiscoveryInputs {
+        custom_path: Some(wrapper),
+        system_registry_paths: vec![parent(&node)],
+        ..fixture.inputs()
+    };
+
+    let candidate = ExecutableLocator::new(inputs)
+        .locate(CliProvider::Codex, |_| true)
+        .expect("verified npm candidate");
+
+    assert_eq!(candidate.executable, canonical(&entry));
+    assert_eq!(candidate.launcher, Some(canonical(&node)));
+    assert_eq!(candidate.origin, CandidateOrigin::Custom);
+}
+
+#[test]
+fn saved_official_codex_wrapper_is_rediscovered_after_settings_reload() {
+    let fixture = LocatorFixture::new();
+    let wrapper = fixture.file("User Profile/AppData/Roaming/npm/codex.cmd", "npm wrapper");
+    let package_root = "User Profile/AppData/Roaming/npm/node_modules/@openai/codex";
+    fixture.file(
+        &format!("{package_root}/package.json"),
+        r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+    );
+    let entry = fixture.file(
+        &format!("{package_root}/bin/codex.js"),
+        "console.log('official codex fixture')\n",
+    );
+    let node = fixture.file("Program Files/nodejs/node.exe", "node fixture");
+    let inputs = DiscoveryInputs {
+        custom_path: Some(wrapper.clone()),
+        system_registry_paths: vec![parent(&node)],
+        ..fixture.inputs()
+    };
+
+    let selected = ExecutableLocator::new(inputs)
+        .locate(CliProvider::Codex, |_| true)
+        .expect("initial npm candidate");
+    let saved = serde_json::to_string(&ProviderCliSettings {
+        custom_path: Some(selected.configured_path().to_string_lossy().into_owned()),
+        ..Default::default()
+    })
+    .expect("serialized settings");
+    let reloaded: ProviderCliSettings = serde_json::from_str(&saved).expect("reloaded settings");
+    let rediscovered = ExecutableLocator::new(DiscoveryInputs {
+        custom_path: reloaded.custom_path.map(PathBuf::from),
+        system_registry_paths: vec![parent(&node)],
+        ..fixture.inputs()
+    })
+    .locate(CliProvider::Codex, |_| true)
+    .expect("rediscovered npm candidate");
+
+    assert_eq!(selected.configured_path(), canonical(&wrapper));
+    assert_eq!(rediscovered.configured_path(), canonical(&wrapper));
+    assert_eq!(rediscovered.executable, canonical(&entry));
+    assert_eq!(rediscovered.launcher, Some(canonical(&node)));
+}
+
+#[test]
+fn codex_npm_wrapper_is_rejected_without_node_entry_or_official_identity() {
+    for (package_json, create_entry, create_node) in [
+        (
+            r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+            true,
+            false,
+        ),
+        (
+            r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+            false,
+            true,
+        ),
+        (
+            r#"{"name":"untrusted-codex","bin":{"codex":"bin/codex.js"}}"#,
+            true,
+            true,
+        ),
+        (
+            r#"{"name":"@openai/codex","bin":{"codex":"other.js"}}"#,
+            true,
+            true,
+        ),
+    ] {
+        let fixture = LocatorFixture::new();
+        let wrapper = fixture.file("npm location/codex.cmd", "npm wrapper");
+        let package_root = "npm location/node_modules/@openai/codex";
+        fixture.file(&format!("{package_root}/package.json"), package_json);
+        if create_entry {
+            fixture.file(&format!("{package_root}/bin/codex.js"), "fixture");
+        }
+        let mut system_registry_paths = Vec::new();
+        if create_node {
+            let node = fixture.file("Program Files/nodejs/node.exe", "node fixture");
+            system_registry_paths.push(parent(&node));
+        }
+        let inputs = DiscoveryInputs {
+            custom_path: Some(wrapper),
+            system_registry_paths,
+            ..fixture.inputs()
+        };
+
+        assert!(
+            ExecutableLocator::new(inputs)
+                .locate(CliProvider::Codex, |_| true)
+                .is_none()
+        );
+    }
 }
 
 #[test]

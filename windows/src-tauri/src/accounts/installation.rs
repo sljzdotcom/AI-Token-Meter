@@ -19,10 +19,12 @@ pub fn installation_decision_for_discovery(
     match discovery {
         CliDiscovery::Found(candidate) => installation_decision(settings, Some(candidate)),
         CliDiscovery::Missing => installation_decision(settings, None),
-        CliDiscovery::Unavailable => match installation_decision(settings, None) {
-            InstallationDecision::ManualRequired => InstallationDecision::ManualRequired,
-            _ => InstallationDecision::Unavailable,
-        },
+        CliDiscovery::Unavailable | CliDiscovery::Cancelled => {
+            match installation_decision(settings, None) {
+                InstallationDecision::ManualRequired => InstallationDecision::ManualRequired,
+                _ => InstallationDecision::Unavailable,
+            }
+        }
     }
 }
 

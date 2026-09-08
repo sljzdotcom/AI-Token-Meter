@@ -9,19 +9,15 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::RuntimeState;
 use crate::accounts::cli_account::CliProvider;
+use crate::accounts::cli_discovery::CliDiscovery;
+use crate::accounts::runtime_discovery::discover_runtime_cli;
 use crate::domain::{ProviderId, UsageSnapshot, UsageStatus};
-use crate::persistence::{AppSettings, CliRuntimeMode, ProviderCliSettings};
+use crate::persistence::{AppSettings, ProviderCliSettings};
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
-use crate::platform::windows::environment::DiscoveryInputs;
-use crate::platform::windows::executable_locator::{
-    DiscoveryBudget, ExecutableCandidate, ExecutableLocator, RuntimeSource,
-};
-use crate::platform::windows::process::{
-    BoundedProcessRunner, CancellationToken, ProcessRequest, command_for_candidate,
-};
-use crate::platform::windows::wsl::{build_wsl_list_invocation, wsl_profile_path};
+use crate::platform::windows::executable_locator::{ExecutableCandidate, RuntimeSource};
+use crate::platform::windows::process::{BoundedProcessRunner, CancellationToken, ProcessRequest};
+use crate::platform::windows::wsl::wsl_profile_path;
 
-use super::CollectionError;
 use super::activity_timeout::collect_optional_with_timeout;
 use super::claude::collect_usage_from_candidate_with_cancellation as collect_claude;
 use super::claude_activity::read_claude_activity_with_cancellation;
@@ -30,6 +26,7 @@ use super::codex_activity::read_codex_activity_with_shared_cancellation;
 use super::deepseek::{DeepSeekBalanceClient, DeepSeekCollector};
 use super::refresh::{ProviderRefreshRequest, RefreshPriority, RefreshResult};
 use super::refresh_schedule::{RefreshWake, wait_for_refresh};
+use super::{CollectionError, candidate_for_collection};
 
 pub fn start(app: &AppHandle) {
     let manual_app = app.clone();
@@ -59,6 +56,14 @@ pub fn start(app: &AppHandle) {
 }
 
 pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
+    trigger_selected(app, priority, None);
+}
+
+pub fn trigger_provider(app: &AppHandle, provider: ProviderId, priority: RefreshPriority) {
+    trigger_selected(app, priority, Some(provider));
+}
+
+fn trigger_selected(app: &AppHandle, priority: RefreshPriority, selected: Option<ProviderId>) {
     let state = app.state::<RuntimeState>();
     let runtime = Arc::clone(&state.usage);
     let coordinator = Arc::clone(&state.refresh_coordinator);
@@ -69,6 +74,7 @@ pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
         let generations = Arc::new(Mutex::new(HashMap::new()));
         let requests = build_requests(&runtime, &settings)
             .into_iter()
+            .filter(|request| selected.is_none_or(|provider| request.provider() == provider))
             .map(|request| {
                 let provider = request.provider();
                 let runtime = Arc::clone(&runtime);
@@ -144,7 +150,7 @@ fn build_requests(
     runtime: &Arc<crate::persistence::UsageRuntime>,
     settings: &AppSettings,
 ) -> Vec<ProviderRefreshRequest> {
-    let working_directory = user_profile().unwrap_or_else(std::env::temp_dir);
+    let working_directory = claude_usage_workspace();
     let claude_settings = settings.claude_cli.clone();
     let codex_settings = settings.codex_cli.clone();
     let credentials = Arc::new(WindowsCredentialManager::new());
@@ -152,11 +158,12 @@ fn build_requests(
     let deepseek_balance_baseline = settings.deepseek_balance_baseline_cents as f64 / 100.0;
 
     let claude_request = ProviderRefreshRequest::new(ProviderId::Claude, move |cancellation| {
-        let Some(candidate) = locate_with_cancellation(
+        let Some(candidate) = candidate_for_collection(discover_runtime_cli(
             CliProvider::Claude,
             &claude_settings,
             Arc::clone(&cancellation),
-        ) else {
+        ))?
+        else {
             return Ok(status_snapshot(
                 ProviderId::Claude,
                 UsageStatus::NotInstalled,
@@ -182,11 +189,12 @@ fn build_requests(
     });
 
     let codex_request = ProviderRefreshRequest::new(ProviderId::Codex, move |cancellation| {
-        let Some(candidate) = locate_with_cancellation(
+        let Some(candidate) = candidate_for_collection(discover_runtime_cli(
             CliProvider::Codex,
             &codex_settings,
             Arc::clone(&cancellation),
-        ) else {
+        ))?
+        else {
             return Ok(status_snapshot(
                 ProviderId::Codex,
                 UsageStatus::NotInstalled,
@@ -231,110 +239,22 @@ fn build_requests(
     vec![claude_request, codex_request, deepseek_request]
 }
 
-pub(crate) fn locate(
-    provider: CliProvider,
-    configuration: &ProviderCliSettings,
-) -> Option<ExecutableCandidate> {
-    locate_with_cancellation(provider, configuration, Arc::new(CancellationToken::new()))
-}
-
-fn locate_with_cancellation(
-    provider: CliProvider,
-    configuration: &ProviderCliSettings,
-    cancellation: Arc<CancellationToken>,
-) -> Option<ExecutableCandidate> {
-    let custom_path = configuration
-        .custom_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from);
-    let inputs = DiscoveryInputs::capture(custom_path);
-    let locator = ExecutableLocator::new(inputs.clone());
-    let mut budget = DiscoveryBudget::new(Duration::from_secs(8), 12);
-
-    if configuration.mode != CliRuntimeMode::Wsl {
-        let native = locator.locate(provider, |candidate| {
-            candidate_is_healthy(candidate, provider, &cancellation, &mut budget)
-        });
-        if native.is_some() || configuration.mode == CliRuntimeMode::NativeWindows {
-            return native;
-        }
-    }
-
-    if cancellation.is_cancelled() {
-        return None;
-    }
-    let timeout = budget.next_process_timeout(Duration::from_secs(3))?;
-    let wsl_output = inputs
-        .system_root
-        .as_deref()
-        .and_then(build_wsl_list_invocation)
-        .and_then(|invocation| {
-            let mut request = ProcessRequest::new(
-                invocation.executable,
-                invocation.arguments.into_iter().map(Into::into).collect(),
-            );
-            request.timeout = timeout;
-            request.max_output_bytes = 16 * 1024;
-            request.cancellation = Arc::clone(&cancellation);
-            BoundedProcessRunner
-                .run(request)
-                .ok()
-                .map(|output| output.stdout)
-        });
-    locator.locate_wsl_with_output(
-        provider,
-        wsl_output.as_deref()?.as_bytes(),
-        if configuration.mode == CliRuntimeMode::Wsl {
-            configuration.wsl_distribution.as_deref()
-        } else {
-            None
-        },
-        |candidate| candidate_is_healthy(candidate, provider, &cancellation, &mut budget),
-    )
-}
-
-fn candidate_is_healthy(
-    candidate: &ExecutableCandidate,
-    provider: CliProvider,
-    cancellation: &Arc<CancellationToken>,
-    budget: &mut DiscoveryBudget,
-) -> bool {
-    if cancellation.is_cancelled() {
-        return false;
-    }
-    let Some(timeout) = budget.next_process_timeout(Duration::from_secs(4)) else {
-        return false;
-    };
-    let Ok(invocation) = command_for_candidate(candidate, provider, &["--version"]) else {
-        return false;
-    };
-    let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
-    request.timeout = timeout;
-    request.max_output_bytes = 16 * 1024;
-    request.cancellation = Arc::clone(cancellation);
-    BoundedProcessRunner
-        .run(request)
-        .is_ok_and(|output| output.exit_code == Some(0))
-}
-
 pub(crate) fn validate_custom_path(
     provider: CliProvider,
     path: &str,
 ) -> Result<String, &'static str> {
-    let inputs = DiscoveryInputs::capture(None);
-    let locator = ExecutableLocator::new(inputs);
-    let cancellation = Arc::new(CancellationToken::new());
-    let mut budget = DiscoveryBudget::new(Duration::from_secs(4), 1);
-    let candidate = locator
-        .validate_custom(
-            provider,
-            PathBuf::from(path.trim()).as_path(),
-            |candidate| candidate_is_healthy(candidate, provider, &cancellation, &mut budget),
-        )
-        .ok_or("The custom CLI path is not a working provider executable")?;
-    Ok(candidate.executable.to_string_lossy().into_owned())
+    let result = discover_runtime_cli(
+        provider,
+        &ProviderCliSettings {
+            custom_path: Some(path.trim().to_owned()),
+            ..Default::default()
+        },
+        Arc::new(CancellationToken::new()),
+    );
+    let CliDiscovery::Found(candidate) = result else {
+        return Err("The custom CLI path is not a working provider executable");
+    };
+    Ok(candidate.configured_path().to_string_lossy().into_owned())
 }
 
 fn attach_claude_activity(
@@ -433,6 +353,14 @@ fn activity_window() -> (i64, i64) {
 
 fn user_profile() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE").map(PathBuf::from)
+}
+
+fn claude_usage_workspace() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("AI Token Meter")
+        .join("ClaudeUsageWorkspace")
 }
 
 fn now_rfc3339() -> String {

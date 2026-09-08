@@ -35,6 +35,7 @@ type SettingsWindowProps = {
   onCheckServiceStatus?: (providerId: ProviderId) => void
   onBeginServiceSignIn?: (providerId: "claude" | "codex") => void
   onBeginServiceInstallation?: (providerId: "claude" | "codex") => void
+  onInitializeClaudeUsage?: () => void
   onOpenInstallationGuide?: (providerId: "claude" | "codex") => void
   busyServices?: ProviderId[]
   onReplaceDeepSeekKey?: () => Promise<boolean> | boolean | void
@@ -109,6 +110,7 @@ export function SettingsWindow({
   onCheckServiceStatus = () => {},
   onBeginServiceSignIn = () => {},
   onBeginServiceInstallation = () => {},
+  onInitializeClaudeUsage = () => {},
   onOpenInstallationGuide = () => {},
   busyServices = [],
   onReplaceDeepSeekKey = () => {},
@@ -318,6 +320,15 @@ export function SettingsWindow({
                     onClick={() => onCheckServiceStatus(providerId)}
                     type="button"
                   >{t("Check Status")}</button>
+                  {providerId === "claude" ? <>
+                    <button
+                      aria-label={t("Initialize Claude Code quota reading")}
+                      disabled={action.disabled || status.connectionState !== "connected"}
+                      onClick={onInitializeClaudeUsage}
+                      type="button"
+                    >{t("Initialize quota reading")}</button>
+                    <small>{t("Opens Claude Code in AI Token Meter’s private empty workspace. Answer any prompt yourself, then choose Check Status.")}</small>
+                  </> : null}
                   {status.connectionState === "notInstalled" || status.connectionState === "unavailable" ? <>
                     <small>{t(cliSettings[providerId].mode === "wsl" || cliSettings[providerId].customPath ? "Use the official instructions for WSL or correct the custom CLI path, then choose Check Status." : status.connectionState === "unavailable" ? "The CLI could not be checked. Choose Check Status or review the installation instructions." : "Downloads and runs the official installer in Terminal.")}</small>
                     <button type="button" onClick={() => onOpenInstallationGuide(providerId)}>{t("Official installation instructions")}</button>

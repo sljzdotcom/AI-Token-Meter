@@ -3,16 +3,16 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::accounts::cli_account::CliProvider;
 use crate::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot, UsageStatus,
 };
+use crate::platform::windows::claude_workspace::ClaudeUsageWorkspace;
 use crate::platform::windows::conpty::{ConPty, ConPtyError, ConPtySize};
 use crate::platform::windows::executable_locator::ExecutableCandidate;
 use crate::platform::windows::process::normalize_output;
 use crate::platform::windows::process::{
     BoundedProcessRunner, CancellationToken, ProcessErrorKind, ProcessRequest,
-    command_for_candidate, restricted_environment_for,
+    restricted_environment_for,
 };
 
 use super::CollectionError;
@@ -38,13 +38,12 @@ pub fn collect_usage_from_candidate_with_cancellation(
     fetched_at: &str,
     cancellation: Arc<CancellationToken>,
 ) -> Result<UsageSnapshot, CollectionError> {
-    verify_authentication(candidate, working_directory, Arc::clone(&cancellation))?;
-    let command = command_for_candidate(
-        candidate,
-        CliProvider::Claude,
-        &["--ax-screen-reader", "--safe-mode"],
-    )
-    .map_err(|_| CollectionError::Transport)?;
+    let workspace = ClaudeUsageWorkspace::for_collection(candidate, working_directory);
+    prepare_workspace(&workspace, Arc::clone(&cancellation))?;
+    verify_authentication(candidate, &workspace, Arc::clone(&cancellation))?;
+    let command = workspace
+        .setup_command(candidate)
+        .map_err(|_| CollectionError::Transport)?;
     let mut terminal = ConPty::open(ConPtySize {
         columns: 120,
         rows: 40,
@@ -52,7 +51,7 @@ pub fn collect_usage_from_candidate_with_cancellation(
     .map_err(map_terminal_error)?;
     let environment = restricted_environment_for(&command.executable);
     let mut child = terminal
-        .spawn(&command, Some(working_directory), &environment)
+        .spawn(&command, workspace.working_directory(), &environment)
         .map_err(map_terminal_error)?;
 
     let initial = terminal
@@ -110,13 +109,14 @@ pub fn collect_usage_from_candidate_with_cancellation(
 
 fn verify_authentication(
     candidate: &ExecutableCandidate,
-    working_directory: &Path,
+    workspace: &ClaudeUsageWorkspace,
     cancellation: Arc<CancellationToken>,
 ) -> Result<(), CollectionError> {
-    let invocation = command_for_candidate(candidate, CliProvider::Claude, &["auth", "status"])
+    let invocation = workspace
+        .command(candidate, &["auth", "status"])
         .map_err(|_| CollectionError::Transport)?;
     let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
-    request.working_directory = Some(working_directory.to_owned());
+    request.working_directory = workspace.working_directory().map(Path::to_owned);
     request.timeout = Duration::from_secs(5);
     request.cancellation = cancellation;
     let output = BoundedProcessRunner
@@ -131,6 +131,33 @@ fn verify_authentication(
         return Err(CollectionError::Transport);
     }
     Ok(())
+}
+
+fn prepare_workspace(
+    workspace: &ClaudeUsageWorkspace,
+    cancellation: Arc<CancellationToken>,
+) -> Result<(), CollectionError> {
+    if let Some(directory) = workspace.working_directory() {
+        std::fs::create_dir_all(directory).map_err(|_| CollectionError::Transport)?;
+        return Ok(());
+    }
+    let Some(invocation) = workspace.prepare_command() else {
+        return Ok(());
+    };
+    let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
+    request.timeout = Duration::from_secs(3);
+    request.max_output_bytes = 4 * 1024;
+    request.cancellation = cancellation;
+    let output = BoundedProcessRunner
+        .run(request)
+        .map_err(|error| match error.kind() {
+            ProcessErrorKind::Cancelled => CollectionError::Cancelled,
+            ProcessErrorKind::TimedOut => CollectionError::TimedOut,
+            _ => CollectionError::Transport,
+        })?;
+    (output.exit_code == Some(0))
+        .then_some(())
+        .ok_or(CollectionError::Transport)
 }
 
 fn detect_blocking_prompt(output: &str) -> Result<(), CollectionError> {

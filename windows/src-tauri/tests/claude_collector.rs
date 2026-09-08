@@ -72,6 +72,7 @@ fn authenticates_and_collects_through_a_real_conpty_session() {
         .canonicalize()
         .expect("Claude CLI fixture");
     let candidate = ExecutableCandidate {
+        selected_path: fixture.clone(),
         executable: fixture,
         launcher: Some(find_node()),
         source: RuntimeSource::NativeWindows,

@@ -116,12 +116,14 @@ fn working_directory_and_minimal_explicit_environment_are_applied() {
 #[test]
 fn provider_login_actions_are_fixed_for_native_and_wsl_sources() {
     let native = ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Tools\claude.exe"),
         executable: PathBuf::from(r"C:\Tools\claude.exe"),
         launcher: None,
         source: RuntimeSource::NativeWindows,
         origin: CandidateOrigin::Custom,
     };
     let wsl = ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Windows\System32\wsl.exe"),
         executable: PathBuf::from(r"C:\Windows\System32\wsl.exe"),
         launcher: None,
         source: RuntimeSource::Wsl {
@@ -151,6 +153,7 @@ fn provider_login_actions_are_fixed_for_native_and_wsl_sources() {
 #[test]
 fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
     let node_candidate = ExecutableCandidate {
+        selected_path: PathBuf::from("codex.cmd"),
         executable: PathBuf::from("codex"),
         launcher: Some(PathBuf::from("node.exe")),
         source: RuntimeSource::NativeWindows,
@@ -162,6 +165,7 @@ fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
     assert_eq!(strings(&node.arguments), ["codex", "login"]);
 
     let unsafe_cmd = ExecutableCandidate {
+        selected_path: PathBuf::from("Tools & whoami/claude.cmd"),
         executable: PathBuf::from("Tools & whoami/claude.cmd"),
         launcher: Some(PathBuf::from("cmd.exe")),
         source: RuntimeSource::NativeWindows,
@@ -176,6 +180,7 @@ fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
 #[test]
 fn interpreter_arguments_remove_windows_extended_path_prefixes() {
     let node_candidate = ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Users\Example\AppData\Roaming\npm\codex.cmd"),
         executable: PathBuf::from(r"\\?\C:\Users\Example\AppData\Roaming\npm\codex"),
         launcher: Some(PathBuf::from("node.exe")),
         source: RuntimeSource::NativeWindows,
@@ -189,6 +194,7 @@ fn interpreter_arguments_remove_windows_extended_path_prefixes() {
     );
 
     let network_candidate = ExecutableCandidate {
+        selected_path: PathBuf::from(r"\\server\tools\claude.cmd"),
         executable: PathBuf::from(r"\\?\UNC\server\tools\claude.cmd"),
         launcher: Some(PathBuf::from("cmd.exe")),
         source: RuntimeSource::NativeWindows,
@@ -199,6 +205,66 @@ fn interpreter_arguments_remove_windows_extended_path_prefixes() {
     assert_eq!(
         cmd.arguments[3],
         OsString::from(r"\\server\tools\claude.cmd")
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn separated_official_npm_entry_runs_with_node_only_path() {
+    use ai_token_meter_windows::platform::windows::environment::DiscoveryInputs;
+    use ai_token_meter_windows::platform::windows::executable_locator::ExecutableLocator;
+
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let npm_root = directory
+        .path()
+        .join("User Profile")
+        .join("AppData")
+        .join("Roaming")
+        .join("npm");
+    let package_root = npm_root.join("node_modules").join("@openai").join("codex");
+    let node_root = directory.path().join("Program Files").join("nodejs");
+    std::fs::create_dir_all(package_root.join("bin")).expect("package directories");
+    std::fs::create_dir_all(&node_root).expect("Node directory");
+    let wrapper = npm_root.join("codex.cmd");
+    std::fs::write(&wrapper, "fixture wrapper").expect("npm wrapper");
+    std::fs::write(
+        package_root.join("package.json"),
+        r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+    )
+    .expect("package identity");
+    std::fs::write(
+        package_root.join("bin").join("codex.js"),
+        "console.log(JSON.stringify({ marker: 'npm-entry-ran', args: process.argv.slice(2), path: process.env.PATH }))\n",
+    )
+    .expect("Codex entry");
+    let isolated_node = node_root.join("node.exe");
+    std::fs::copy(find_node(), &isolated_node).expect("isolated Node executable");
+
+    let candidate = ExecutableLocator::new(DiscoveryInputs {
+        custom_path: Some(wrapper),
+        system_registry_paths: vec![node_root.clone()],
+        ..Default::default()
+    })
+    .locate(CliProvider::Codex, |_| true)
+    .expect("npm Codex candidate");
+    let invocation = command_for_candidate(&candidate, CliProvider::Codex, &["--version"])
+        .expect("direct Node invocation");
+    let output = runner()
+        .run(ProcessRequest::new(
+            invocation.executable.clone(),
+            invocation.arguments,
+        ))
+        .expect("npm entry executes");
+    let value: serde_json::Value = serde_json::from_str(output.stdout.trim()).expect("entry JSON");
+
+    assert_eq!(invocation.executable, isolated_node.canonicalize().unwrap());
+    assert_eq!(value["marker"], "npm-entry-ran");
+    assert_eq!(value["args"], serde_json::json!(["--version"]));
+    assert_eq!(
+        PathBuf::from(value["path"].as_str().unwrap())
+            .canonicalize()
+            .expect("canonical child PATH"),
+        node_root.canonicalize().expect("canonical Node directory")
     );
 }
 

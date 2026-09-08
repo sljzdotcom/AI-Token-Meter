@@ -12,6 +12,8 @@
 4. 回到 AI Token Meter 手动刷新。
 5. 如果仍提示工作区设置，点击 **Authorize Usage Workspace**，在打开的终端中批准私有工作区。
 
+Windows 的对应入口为修复分支新增的 **Initialize quota access / 初始化额度读取**，当前发布边界见[开发验证记录](../development/2026-09-08-windows-cli-post-login.md)。Settings 已显示已登录账号、额度却提示需要设置时，先处理此独立工作区确认，完成后手动检查状态；不要反复重装或登录。初始化后仍失败需结合最新错误、CLI 版本与更新时间排查，不能仅凭已登录状态认定额度必然可用。
+
 公司代理、防火墙、CLI 升级或 Claude Code 服务端延迟都可能导致超时。AI Token Meter 会保留最近成功缓存，但不会把缓存伪装成实时数据。
 
 ### 官方客户端显示 0%，AI Token Meter 数字不同
@@ -35,6 +37,8 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 如果终端能运行 `codex`、Finder 启动的旧版应用却显示未安装，可用 `command -v codex` 核对。路径位于 `~/.nvm/versions/node/.../bin/codex` 表示是旧版定位器未覆盖 nvm，不需要重新安装 CLI；安装 `0.1.2` 后重新打开应用即可。新版还会把该目录置于子进程 PATH 首位，避免 `env: node: No such file or directory`。
 
 Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
+
+已知 `0.5.0` 边界：npm 的 Codex 包装器与 Node 安装在不同目录时，应用受限环境可能无法找到 Node。若终端 `codex --version` 正常，不要因此重复安装或重新登录。修复分支正在验证显式 Node + 官方 npm JS 入口与一致错误分类；是否已进入公开更新通道请以 [CHANGELOG](../../CHANGELOG.md) 和[开发验证记录](../development/2026-09-08-windows-cli-post-login.md)为准。
 
 1. 在 Services 查看来源是否为 `Native Windows` 或 `WSL`，点击 **Check Status**；
 2. 重新打开应用，让它重新读取注册表 PATH 和 WSL 发行版；

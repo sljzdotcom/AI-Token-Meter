@@ -19,5 +19,14 @@ it("busy service blocks login, duplicate installation and runtime changes", () =
   render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" busyServices={["claude"]} serviceStatuses={[{providerId: "claude", connectionState: "notInstalled"}]} />)
   expect(screen.getByRole("button", {name: "Waiting for Terminal… Claude Code"})).toBeDisabled()
   expect(screen.getByRole("button", {name: "Check Claude Code status"})).toBeDisabled()
+  expect(screen.getByRole("button", {name: "Initialize Claude Code quota reading"})).toBeDisabled()
   expect(screen.getAllByRole("combobox")[0]).toBeDisabled()
+})
+
+it("connected Claude offers explicit quota initialization with instructions", () => {
+  const initialize = vi.fn()
+  render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" onInitializeClaudeUsage={initialize} serviceStatuses={[{providerId: "claude", connectionState: "connected", accountLabel: "member@example.com"}]} />)
+  fireEvent.click(screen.getByRole("button", {name: "Initialize Claude Code quota reading"}))
+  expect(initialize).toHaveBeenCalledOnce()
+  expect(screen.getByText("Opens Claude Code in AI Token Meter’s private empty workspace. Answer any prompt yourself, then choose Check Status.")).toBeVisible()
 })
