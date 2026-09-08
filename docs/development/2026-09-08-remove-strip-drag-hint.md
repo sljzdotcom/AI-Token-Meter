@@ -13,6 +13,14 @@ macOS顶部18×3 Capsule关闭命中；Windows装饰为aria-hidden，拖动事�
 
 ## 验证与交付
 
-实现、红绿回归、左右/密度渲染核验、完整测试与独立审查结果在完成后记录。本机浏览器/宿主Rust验证与原生Windows WebView2/DPI现场验收分别记录，不以宿主测试替代原生Windows结果。
+初步红绿证据已核对：Windows新矩阵4项因旧装饰元素失败，修复后11项组件测试通过；macOS实际View与实际Surface顶部区域比较，在四种布局各检测到212个装饰像素而失败，删除后49项原生渲染/拖动/布局等回归通过。原始日志`/private/tmp/req011-windows-red.log`、`req011-windows-green.log`、`req011-swift-red.log`、`req011-swift-green.log`。
+
+控制者另用应用内浏览器在1280×720查看实际comparison页面前后截图：四种布局横线均消失，外轮廓/背景/Logo肉眼一致。四个浮动条和12个Provider按钮的完整boundingRect在前后逐项完全相同（紧凑78×286、环48；舒适108×356、环60），装饰DOM数为0。这是实际浏览器渲染核验；背景拖动与Provider回调隔离由组件事件回归验证。
+
+实现检查点 `e963301`：生产仅删5行Swift装饰、1行DOM和13行专用CSS。控制者查看原生 `/private/tmp/req011-native-red/expanded-compact-left.png`、对应green以及`folded-compact-left.png`，确认顶部横线消失且折叠竖线保留。四种布局原生渲染均有PNG证据；ImageRenderer未绘制原生Button内容，故原生截图只用于装饰区域核验，不能据此声称完整Logo视觉验收。Provider布局/命中依赖相关原生回归，Windows完整Logo外观由上述浏览器截图确认。
+
+Windows前端全量96项和生产构建已通过。首轮全量Swift在与Rust冷编译并行时，两个未修改CLI用例失败：Claude usage `.timedOut`（5.051秒），Codex app server强制终止用例 `.transportFailure`（1.764秒）；429项主测试整体失败，原始证据`/private/tmp/req011-swift-full.log`保留。正在隔离诊断及顺序复验，不据并行负载直接断言根因、不删除断言或以部分通过冒充全量通过；历史时序不稳定见REQ-20260906-003。
+
+最终完整测试与独立审查结果在完成后记录。本机浏览器/宿主Rust验证与原生Windows WebView2/DPI现场验收分别记录，不以宿主测试替代原生Windows结果。
 
 本次不发布、安装替换应用或操作真实账号；0.5.1、版本、签名和更新源保持原状态。由协调入口整合010/011，本开发分支不直接合并main。
