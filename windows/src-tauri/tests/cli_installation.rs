@@ -96,7 +96,10 @@ fn discovered_native_and_wsl_candidates_are_preserved() {
 #[test]
 fn generated_script_runs_only_a_complete_download_and_preserves_exit() {
     use std::fs;
-    for provider in [CliProvider::Claude, CliProvider::Codex] {
+    for (provider, expected_url) in [
+        (CliProvider::Claude, "https://claude.ai/install.ps1"),
+        (CliProvider::Codex, "https://chatgpt.com/codex/install.ps1"),
+    ] {
         for fail in [true, false] {
             let dir = tempfile::tempdir().unwrap();
             let marker = dir.path().join("executed");
@@ -118,13 +121,7 @@ function Invoke-WebRequest {{ param($Uri,$OutFile,[switch]$UseBasicParsing) [IO.
                 .unwrap();
             assert_eq!(marker.exists(), !fail);
             assert_eq!(status.code(), Some(if fail { 1 } else { 7 }));
-            assert_eq!(
-                fs::read_to_string(url_file).unwrap(),
-                match provider {
-                    CliProvider::Claude => "https://claude.ai/install.ps1",
-                    CliProvider::Codex => "https://chatgpt.com/codex/install.ps1",
-                }
-            );
+            assert_eq!(fs::read_to_string(url_file).unwrap(), expected_url);
         }
     }
 }
