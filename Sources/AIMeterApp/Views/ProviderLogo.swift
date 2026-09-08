@@ -43,6 +43,7 @@ private extension UsageProvider {
         case .claude: "claude"
         case .codex: "codex"
         case .deepSeek: "deepseek"
+        case .gemini: "gemini"
         }
     }
 

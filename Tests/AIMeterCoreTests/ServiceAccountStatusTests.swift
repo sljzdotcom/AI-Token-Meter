@@ -15,7 +15,7 @@ struct ServiceAccountStatusTests {
         #expect(status.checkedAt == nil)
     }
 
-    @Test("The coordinator reads all three providers without persisting identity")
+    @Test("The coordinator reads supported accounts and keeps Gemini unknown")
     func coordinatorReadsAllProviders() async {
         let coordinator = ServiceAccountCoordinator(
             claudeReader: FixedServiceAccountReader(status: .init(
@@ -36,8 +36,9 @@ struct ServiceAccountStatusTests {
 
         let statuses = await coordinator.readAll()
 
-        #expect(statuses.map(\.provider) == [.claude, .codex, .deepSeek])
+        #expect(statuses.map(\.provider) == [.claude, .codex, .deepSeek, .gemini])
         #expect(await coordinator.read(.codex).connectionState == .signInRequired)
+        #expect(await coordinator.read(.gemini) == .geminiUnavailable)
     }
 }
 

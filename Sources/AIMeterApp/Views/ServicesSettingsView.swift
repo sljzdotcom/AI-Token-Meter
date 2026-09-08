@@ -108,6 +108,17 @@ struct ServicesSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Gemini CLI") {
+                ServiceAccountStatusView(status: status(for: .gemini))
+                Text("Automatic quota collection is not available. View quota in the official Gemini CLI; local activity is not an account limit.")
+                    .aiMeterFont(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Link("Official Gemini CLI documentation", destination: GeminiDetailView.documentationURL)
+                    Button("Retry") { Task { await model.checkServiceAccount(.gemini); await model.refresh() } }
+                }
+            }
+
             if model.settingsMessageKind.map(SettingsTab.services.accepts) == true,
                let message = model.settingsMessage {
                 Section {

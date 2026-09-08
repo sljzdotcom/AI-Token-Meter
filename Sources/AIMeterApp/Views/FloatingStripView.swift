@@ -148,6 +148,11 @@ struct FloatingDetailView: View {
                         isDemoMode: model.isRunningDemoMode,
                         onInteractionChange: onInteractionChange
                     )
+                } else if provider == .gemini {
+                    GeminiDetailView(snapshot: snapshot) {
+                        Task { await model.checkServiceAccount(.gemini); await model.refresh() }
+                    }
+                    .onHover(perform: onInteractionChange)
                 } else if provider == .codex {
                     CodexDetailView(snapshot: snapshot)
                         .onHover(perform: onInteractionChange)

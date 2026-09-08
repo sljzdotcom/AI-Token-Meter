@@ -31,6 +31,8 @@ enum WidgetResource {
             image(name: "codex", extension: "svg", subdirectory: "Logos")
         case .deepSeek:
             image(name: "deepseek", extension: "svg", subdirectory: "Logos")
+        case .gemini:
+            image(name: "gemini", extension: "svg", subdirectory: "Logos")
         }
     }
 
@@ -58,6 +60,7 @@ extension WidgetProvider {
         case .claude: "sparkles"
         case .codex: "terminal"
         case .deepSeek: "wave.3.right"
+        case .gemini: "sparkle"
         }
     }
 
@@ -69,6 +72,8 @@ extension WidgetProvider {
             [Color(red: 1.0, green: 0.44, blue: 0.68), Color(red: 0.66, green: 0.43, blue: 1.0)]
         case .deepSeek:
             [Color(red: 0.33, green: 0.93, blue: 0.78), Color(red: 0.47, green: 0.41, blue: 1.0)]
+        case .gemini:
+            [Color(red: 62.0 / 255, green: 214.0 / 255, blue: 178.0 / 255)]
         }
     }
 }

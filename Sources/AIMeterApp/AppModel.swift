@@ -47,7 +47,7 @@ final class AppModel {
 
     let deepSeekWebSession: DeepSeekWebSession
 
-    private(set) var snapshots: [UsageSnapshot] = []
+    private(set) var snapshots: [UsageSnapshot] = [.geminiUnavailable]
     private(set) var isRefreshing = false
     private(set) var refreshingProviders: Set<UsageProvider> = []
     private(set) var lastUpdatedAt: Date?
@@ -56,6 +56,7 @@ final class AppModel {
         .claude: .checking(provider: .claude),
         .codex: .checking(provider: .codex),
         .deepSeek: .checking(provider: .deepSeek),
+        .gemini: .geminiUnavailable,
     ]
     private(set) var isReplacingDeepSeekAPIKey = false
     private(set) var launchAtLoginEnabled = false
@@ -217,7 +218,7 @@ final class AppModel {
             self?.attachDeepSeekHistory(history)
         }
         if isDemoMode {
-            snapshots = Self.demoSnapshots
+            snapshots = Self.demoSnapshots + [.geminiUnavailable]
             setDemoServiceAccounts()
             lastUpdatedAt = Date()
             publishWidgetSnapshot()
@@ -274,7 +275,7 @@ final class AppModel {
 
     func refresh(manual: Bool = true) async {
         if isDemoMode {
-            snapshots = Self.demoSnapshots
+            snapshots = Self.demoSnapshots + [.geminiUnavailable]
             lastUpdatedAt = Date()
             publishWidgetSnapshot()
             return
@@ -295,7 +296,7 @@ final class AppModel {
         guard !Task.isCancelled else { return }
         providersRequiringAction = await coordinator.providersRequiringAction()
         updateAPIKeyConfiguration(from: collected)
-        snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
+        snapshots = collected.filter { $0.provider != .gemini }.map(applyingLocalBudget).map(applyingDeepSeekHistory) + [.geminiUnavailable]
         lastUpdatedAt = Date()
         publishWidgetSnapshot()
 
@@ -521,7 +522,7 @@ final class AppModel {
 
     @discardableResult
     func beginCLIInstallation(_ provider: UsageProvider) -> Task<Void, Never>? {
-        guard provider != .deepSeek, signInTokens[provider] == nil else { return nil }
+        guard provider == .claude || provider == .codex, signInTokens[provider] == nil else { return nil }
         let token = UUID()
         signInTokens[provider] = token
         settingsMessageKind = authenticationMessageKind(for: provider)
@@ -743,6 +744,7 @@ final class AppModel {
                 connectionState: .connected,
                 accountLabel: "API Key ••••DEMO"
             ),
+            .gemini: .geminiUnavailable,
         ]
         apiKeyConfigured = true
     }

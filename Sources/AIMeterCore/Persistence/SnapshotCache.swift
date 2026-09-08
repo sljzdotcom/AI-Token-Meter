@@ -40,4 +40,22 @@ public struct SnapshotCache: Sendable {
 private struct CacheEnvelope: Codable {
     let version: Int
     let snapshots: [UsageSnapshot]
+
+    init(version: Int, snapshots: [UsageSnapshot]) {
+        self.version = version
+        self.snapshots = snapshots
+    }
+
+    private enum CodingKeys: String, CodingKey { case version, snapshots }
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        version = try values.decode(Int.self, forKey: .version)
+        var rows = try values.nestedUnkeyedContainer(forKey: .snapshots)
+        var recognized: [UsageSnapshot] = []
+        while !rows.isAtEnd {
+            let row = try rows.superDecoder()
+            if let snapshot = try? UsageSnapshot(from: row) { recognized.append(snapshot) }
+        }
+        snapshots = recognized
+    }
 }

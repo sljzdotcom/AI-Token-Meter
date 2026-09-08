@@ -4,12 +4,14 @@ public enum UsageProvider: String, Codable, CaseIterable, Hashable, Sendable {
     case claude
     case codex
     case deepSeek
+    case gemini
 
     public var displayName: String {
         switch self {
         case .claude: "Claude Code"
         case .codex: "OpenAI Codex"
         case .deepSeek: "DeepSeek"
+        case .gemini: "Gemini"
         }
     }
 }

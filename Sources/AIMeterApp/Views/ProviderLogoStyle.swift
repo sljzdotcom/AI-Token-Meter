@@ -7,6 +7,7 @@ enum ProviderLogoStyle {
         case .claude: 1.28
         case .codex: 1.0
         case .deepSeek: 0.92
+        case .gemini: 1.0
         }
     }
 }

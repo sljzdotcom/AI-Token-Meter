@@ -58,16 +58,16 @@ struct CrossPlatformContractTests {
         let contract = try JSONDecoder().decode(PresentationContract.self, from: data)
 
         #expect(contract.schemaVersion == 1)
-        #expect(contract.providers.map(\.id) == ["claude", "codex", "deepseek"])
+        #expect(contract.providers.map(\.id) == ["claude", "codex", "deepseek", "gemini"])
         #expect(
             contract.providers.map(\.displayName)
-                == ["Claude Code", "OpenAI Codex", "DeepSeek"]
+                == ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
         )
         #expect(
             contract.providers.map(\.progressSemantics)
-                == ["usedQuota", "usedQuota", "consumedFromBalanceBaseline"]
+                == ["usedQuota", "usedQuota", "consumedFromBalanceBaseline", "usedQuota"]
         )
-        #expect(Set(contract.providers.map(\.logoKey)).count == 3)
+        #expect(Set(contract.providers.map(\.logoKey)).count == 4)
     }
 
     @Test("Every fixture conforms to the stable snapshot envelope")
@@ -81,15 +81,19 @@ struct CrossPlatformContractTests {
             includingPropertiesForKeys: nil
         ).filter { $0.pathExtension == "json" }
 
-        #expect(fixtureURLs.count == 4)
+        #expect(fixtureURLs.count == 5)
         for fixtureURL in fixtureURLs {
             let fixture = try JSONDecoder().decode(
                 SnapshotFixture.self,
                 from: Data(contentsOf: fixtureURL)
             )
             #expect(fixture.schemaVersion == 1)
-            #expect(["claude", "codex", "deepseek"].contains(fixture.providerId))
+            #expect(["claude", "codex", "deepseek", "gemini"].contains(fixture.providerId))
             #expect(Self.allowedStatuses.contains(fixture.status))
+            if fixture.providerId == "gemini" {
+                #expect(fixture.status == "unavailable")
+                #expect(fixture.usedRatio == nil)
+            }
             if let usedRatio = fixture.usedRatio {
                 #expect(usedRatio >= 0 && usedRatio <= 1)
             }

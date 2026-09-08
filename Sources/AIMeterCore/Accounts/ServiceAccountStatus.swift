@@ -29,6 +29,11 @@ public struct ServiceAccountStatus: Equatable, Sendable {
         self.checkedAt = checkedAt
     }
 
+    public static var geminiUnavailable: Self {
+        Self(provider: .gemini, connectionState: .unavailable,
+             accountDetail: "Gemini CLI account status is not available. Installation and sign-in have not been checked.", checkedAt: nil)
+    }
+
     public static func checking(provider: UsageProvider) -> Self {
         Self(provider: provider, connectionState: .checking, checkedAt: nil)
     }

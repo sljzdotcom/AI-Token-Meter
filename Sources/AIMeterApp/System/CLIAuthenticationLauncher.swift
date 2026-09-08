@@ -40,7 +40,7 @@ final class CLIAuthenticationLauncher {
         case .codex:
             executableName = "codex"
             scriptName = "Open Codex Login.command"
-        case .deepSeek:
+        case .deepSeek, .gemini:
             throw CLIAuthenticationLaunchError.unsupportedProvider
         }
 

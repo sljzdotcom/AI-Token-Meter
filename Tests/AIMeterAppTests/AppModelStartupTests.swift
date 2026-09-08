@@ -105,7 +105,8 @@ struct AppModelStartupTests {
 
         #expect(recorder.published.count == 1)
         #expect(recorder.published[0].providers.map(\.provider) == [.claude, .codex, .deepSeek])
-        #expect(model.serviceAccounts.values.allSatisfy { $0.connectionState == .connected })
+        #expect(model.serviceAccounts.filter { $0.key != .gemini }.values.allSatisfy { $0.connectionState == .connected })
+        #expect(model.serviceAccounts[.gemini]?.connectionState == .unavailable)
     }
 
     @Test("A completed refresh publishes exactly the displayed snapshots")
@@ -128,7 +129,7 @@ struct AppModelStartupTests {
 
         await model.refresh()
 
-        #expect(model.snapshots == [expected])
+        #expect(model.snapshots == [expected, .geminiUnavailable])
         #expect(recorder.published.count == 1)
         #expect(recorder.published[0].providers.map(\.provider) == [.claude, .codex, .deepSeek])
         #expect(
@@ -192,7 +193,7 @@ struct AppModelStartupTests {
 
         await model.refresh()
 
-        #expect(model.snapshots == [expected])
+        #expect(model.snapshots == [expected, .geminiUnavailable])
         #expect(model.lastUpdatedAt != nil)
         #expect(!model.isRefreshing)
     }

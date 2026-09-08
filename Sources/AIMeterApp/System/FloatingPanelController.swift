@@ -477,6 +477,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         let detailSize: NSSize
         switch session.selectedProvider {
         case .deepSeek: detailSize = NSSize(width: 620, height: 520)
+        case .gemini: detailSize = NSSize(width: 420, height: 280)
         case .codex:
             let creditCount = model.snapshots.first(where: { $0.provider == .codex })?
                 .codexResetCredits?.credits.count ?? 0

@@ -11,7 +11,7 @@ public struct WidgetSnapshotBuilder: Sendable {
             snapshots.map { ($0.provider, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
-        let providers = WidgetProvider.allCases.map { provider in
+        let providers = WidgetProvider.displayedProviders.map { provider in
             guard let usageProvider = UsageProvider(widgetProvider: provider),
                   let snapshot = snapshotsByProvider[usageProvider] else {
                 return Self.unavailable(provider)
@@ -130,6 +130,7 @@ private extension WidgetProvider {
         case .claude: self = .claude
         case .codex: self = .codex
         case .deepSeek: self = .deepSeek
+        case .gemini: self = .gemini
         }
     }
 }
@@ -140,6 +141,7 @@ private extension UsageProvider {
         case .claude: self = .claude
         case .codex: self = .codex
         case .deepSeek: self = .deepSeek
+        case .gemini: self = .gemini
         }
     }
 }

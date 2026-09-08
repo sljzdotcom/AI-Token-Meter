@@ -10,12 +10,16 @@ public enum WidgetProvider: String, Codable, CaseIterable, Sendable {
     case claude
     case codex
     case deepSeek
+    case gemini
+
+    public static let displayedProviders: [WidgetProvider] = [.claude, .codex, .deepSeek]
 
     public var displayName: String {
         switch self {
         case .claude: "Claude Code"
         case .codex: "OpenAI Codex"
         case .deepSeek: "DeepSeek"
+        case .gemini: "Gemini"
         }
     }
 }

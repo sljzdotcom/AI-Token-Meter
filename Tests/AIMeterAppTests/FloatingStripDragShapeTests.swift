@@ -5,6 +5,22 @@ import Testing
 
 @Suite("Floating strip drag region")
 struct FloatingStripDragShapeTests {
+    @Test func fourthProviderHasCompleteClickRegionOnBothEdges() {
+        for (density, height, lastCenter) in [(FloatingStripDensity.compact, 344.0, 259.0), (.comfortable, 428.0, 322.0)] {
+            let rect = CGRect(x: 0, y: 0, width: density.width, height: height)
+            for edge in [FloatingStripEdge.left, .right] {
+                let shape = FloatingStripShape(edge: edge, density: density, providerCount: 4).path(in: rect)
+                let drag = FloatingStripDragShape(edge: edge, density: density, providerCount: 4).path(in: rect)
+                for x in [rect.midX - density.ringSize / 2 + 1, rect.midX, rect.midX + density.ringSize / 2 - 1] {
+                    for y in [lastCenter - density.ringSize / 2 + 1, lastCenter, lastCenter + density.ringSize / 2 - 1] {
+                        #expect(shape.contains(CGPoint(x: x, y: y)))
+                        #expect(!drag.contains(CGPoint(x: x, y: y), eoFill: true))
+                    }
+                }
+            }
+        }
+    }
+
     @Test("Undecorated top stays draggable while every Provider remains click-only")
     func topAndProviderHitRegionsAcrossDensitiesAndEdges() {
         for density in FloatingStripDensity.allCases {
