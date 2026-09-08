@@ -15,7 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260908-007 | Windows 更新提示可读性 | Settings → 关于检查更新发现新版时，将提示文字改成深红色加粗；本次不发布，等待后续统一发布 | 中 | 进行中 | 2026-09-08 | 仅强化有更新状态；其他状态和 macOS 不变，补回归测试与文档，不改版本和更新源 | 用户明确要求；实现与验证待补 |
+| REQ-20260908-007 | Windows 更新提示可读性 | Settings → 关于检查更新发现新版时，将提示文字改成深红色加粗；本次不发布，等待后续统一发布 | 中 | 已完成 | 2026-09-08 | 2026-09-08 实现完成：仅 available 深红粗体；中英文、状态恢复和字号不变验证通过。按用户要求未发布，留待后续版本 | `15d6a35` · 88 项前端/生产构建/14 个浏览器更新状态样本通过 · 两阶段独立审查无发现 · [开发日志](development/2026-09-08-windows-update-notice.md) |
 | REQ-20260908-006 | Windows 修复发布 | 用户要求直接发布已合并的 Windows CLI 登录后采集修复，使现有设备可在应用内检查更新并安装 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：0.5.1/build14 已公开，Windows stable/旧 Preview 与 macOS 更新入口一致；匿名下载、两端签名/哈希/篡改拒绝及旧版兼容验证通过 | Tag `132287b` · appcast `eac027a` · [workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34186704869) · [发布日志](development/2026-09-08-v0.5.1-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1) |
 | REQ-20260908-005 | Windows CI 门禁 | 原生 Windows 严格 Clippy 在新增初始化命令的 Windows 条件分支发现多余 return，阻止后续运行测试 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：等价尾表达式、无 lint 忽略；原生严格 Clippy、229 项 Rust 与 NSIS 构建通过 | `d3c57f2` · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) · [开发日志](development/2026-09-08-windows-cli-post-login.md) |
 | REQ-20260908-004 | 自定义 CLI 回归 | 最终审查发现手工选择官方 npm Codex 包装器时，会把内部 JS 启动目标保存为配置，后续发现却拒绝该目标 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：保存用户包装器身份，执行目标独立；旧行为变异失败，保存→重载→再次发现原生回归通过；未放开任意 JS | `d3c57f2` · 定向复审无阻塞 · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) · [开发日志](development/2026-09-08-windows-cli-post-login.md) |
