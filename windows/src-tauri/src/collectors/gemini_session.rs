@@ -153,6 +153,12 @@ fn validate_frames(text: &str, fetched_at: &str) -> Result<String, CollectionErr
             return Ok(());
         }
         let parsed = parse_visible_quota(visible, fetched_at);
+        if observed.is_some()
+            && complete_dialog(visible)
+            && matches!(parsed, Err(CollectionError::QuotaUnavailable))
+        {
+            return Err(CollectionError::QuotaUnavailable);
+        }
         if matches!(parsed, Err(CollectionError::UnrecognizedOutput))
             && visible
                 .rsplit_once("Select Model")

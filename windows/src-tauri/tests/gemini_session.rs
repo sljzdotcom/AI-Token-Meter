@@ -350,3 +350,64 @@ fn authentication_and_invalid_quota_history_fail_during_live_reads_too() {
         }
     }
 }
+
+const EMPTY_QUOTA: &[u8] = b"\x1b[2J\x1b[HSelect Model\r\n(Press Esc to close)\r\n";
+fn empty_quota_frame() -> Vec<u8> {
+    [EMPTY_QUOTA, "╰────╯\r\n".as_bytes()].concat()
+}
+#[test]
+fn complete_empty_quota_after_capture_stays_unavailable_through_exit_clear() {
+    let mut terminal = ExitTerminal {
+        inner: ScriptedTerminal {
+            output: VecDeque::from([READY.to_vec()]),
+            input: vec![],
+            stopped: false,
+        },
+        tail: [empty_quota_frame(), b"\x1b[2J\x1b[HGoodbye!".to_vec()].concat(),
+    };
+    let result = collect_session(&mut terminal, "now", &CancellationToken::new(), timing());
+    assert_eq!(result.err(), Some(CollectionError::QuotaUnavailable));
+    assert_eq!(terminal.inner.input, b"/model\r\x1b/quit\r");
+    assert!(terminal.inner.stopped);
+}
+#[test]
+fn initial_empty_quota_and_later_empty_quota_during_live_reads_are_unavailable() {
+    for initial in [true, false] {
+        for chunk_size in [usize::MAX, 1] {
+            let model = if initial {
+                empty_quota_frame()
+            } else {
+                [
+                    frame(25),
+                    empty_quota_frame(),
+                    b"\x1b[2J\x1b[HGoodbye!".to_vec(),
+                ]
+                .concat()
+            };
+            let mut terminal = ChunkedValidTerminal {
+                inner: ScriptedTerminal {
+                    output: VecDeque::from([READY.to_vec()]),
+                    input: vec![],
+                    stopped: false,
+                },
+                chunk_size,
+                model,
+            };
+            let result = collect_session(
+                &mut terminal,
+                "now",
+                &CancellationToken::new(),
+                fragmented_timing(),
+            );
+            assert_eq!(
+                result.err(),
+                Some(CollectionError::QuotaUnavailable),
+                "initial {initial}, chunk {chunk_size}"
+            );
+            assert!(terminal.inner.stopped);
+            if initial {
+                assert_eq!(terminal.inner.input, b"/model\r\x1b/quit\r");
+            }
+        }
+    }
+}
