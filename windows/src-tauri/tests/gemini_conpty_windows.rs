@@ -123,14 +123,14 @@ fn actual_conpty_fixed_input_success_timeout_and_cancel_reap_the_child() {
             ),
         }
         let raw_input = std::fs::read_to_string(raw_input).unwrap();
+        let normalized_input = std::fs::read_to_string(&input).unwrap();
         assert!(
-            raw_input.contains("\x1b[1;1R"),
-            "ConPTY cursor-position handshake was not observed in {scenario}"
+            contains_primary_device_attributes_reply(&raw_input),
+            "ConPTY primary device-attributes reply was not observed in {scenario}"
         );
-        assert_eq!(
-            raw_input.replace("\x1b[1;1R", ""),
-            std::fs::read_to_string(&input).unwrap(),
-            "fixture did not isolate terminal protocol input in {scenario}"
+        assert!(
+            !normalized_input.contains("\x1b[?") && !normalized_input.contains("\x1b[1;1R"),
+            "fixture did not isolate recognized terminal protocol input in {scenario}"
         );
         let pid: u32 = std::fs::read_to_string(&pid).unwrap().parse().unwrap();
         unsafe {
@@ -160,4 +160,15 @@ fn bounded_bytes(path: &Path) -> String {
         ),
         Err(error) => format!("unavailable:{:?}", error.kind()),
     }
+}
+
+fn contains_primary_device_attributes_reply(input: &str) -> bool {
+    input.split("\x1b[?").skip(1).any(|tail| {
+        tail.split_once('c').is_some_and(|(parameters, _)| {
+            !parameters.is_empty()
+                && parameters.split(';').all(|parameter| {
+                    !parameter.is_empty() && parameter.bytes().all(|byte| byte.is_ascii_digit())
+                })
+        })
+    })
 }
