@@ -4,7 +4,13 @@
 
 ## Unreleased
 
+### Added
+
+- macOS 与 Windows 关于页增加带纸飞机图标的 Telegram @sljzdotcom 链接，仅点击时打开默认浏览器。暂不发布。
+
 ### Changed
+
+- Windows 关于页移除中英文作者整行及可见社交标题，保留 Twitter/GitHub 并与 Telegram 一起显示；无障碍名称和键盘操作保留。macOS 作者信息不变。
 
 - Windows 设置 → 关于：发现新版本时，提示文字使用深红色加粗；中英文同步，字号和其他更新状态不变。按用户要求暂不发布，随后续版本交付。
 

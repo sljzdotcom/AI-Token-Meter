@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-08](2026-09-08-about-telegram.md) | 关于页精简与 Telegram 链接 | Windows 删除可见作者文字，两端增加固定 Telegram 入口；暂不发布 |
 | [2026-09-08](2026-09-08-windows-update-notice.md) | Windows 关于页新版提示强调 | 深红色加粗，仅 available 状态；按要求暂不发布 |
 | [2026-09-08](2026-09-08-v0.5.1-release.md) | Windows CLI 修复补丁 0.5.1 | 已公开 0.5.1/build14；标签双平台测试、公开签名/哈希/篡改拒绝与三个更新入口验证通过 |
 | [2026-09-08](2026-09-08-windows-cli-post-login.md) | Windows 登录成功但额度未显示 | 修复已合并 PR #12，229 项原生 Windows Rust/双平台 CI 通过；真实账号额度保留现场验收 |

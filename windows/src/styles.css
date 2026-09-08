@@ -783,8 +783,10 @@ button {
   color: #5144c7;
   display: inline-flex;
   gap: 5px;
+  min-height: 30px;
   padding: 5px 8px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .author-links a:focus-visible {
@@ -794,6 +796,7 @@ button {
 
 .author-link-icon {
   fill: currentColor;
+  flex: 0 0 15px;
   height: 15px;
   width: 15px;
 }

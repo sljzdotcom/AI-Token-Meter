@@ -5,6 +5,7 @@ import type { CSSProperties } from "react"
 import { FloatingStrip } from "../components/FloatingStrip"
 import { ProviderDetail } from "../details/ProviderDetail"
 import { SettingsWindow, type UpdateState } from "../settings/SettingsWindow"
+import { AuthorLinks } from "../settings/AuthorLinks"
 import type { UsageSnapshot } from "../state/usage"
 import { defaultStripPreferences } from "../state/stripPreferences"
 import "../styles.css"
@@ -58,7 +59,8 @@ flushSync(() => {
           snapshot={snapshot}
         />
       </main>
-      <SettingsWindow displayFont="Antonio" onDisplayFontChange={() => {}} />
+      <SettingsWindow displayFont="Antonio" onDisplayFontChange={() => {}}
+        onOpenAuthorLink={target => { document.getElementById("about-activation")!.textContent = target }} />
     </>,
   )
 })
@@ -129,6 +131,8 @@ const updateStates: UpdateState[] = [
   {phase: "failed", currentVersion: "0.5.0", message: "Update check failed."},
 ]
 const updateSamples: Array<{locale: string; phase: UpdateState["phase"]; color: string; fontFamily: string; fontWeight: string; fontSize: string}> = []
+const aboutSamples: Array<{locale: string; width: number; labels: string[]; hrefs: Array<string | null>; groupName: string | null; authorVisible: boolean; headingVisible: boolean; rows: number; equalHeights: boolean; unclipped: boolean; iconSizes: Array<[number, number]>}> = []
+const aboutCopySamples: Array<{locale: string; authorVisible: boolean; headingVisible: boolean; labels: string[]; hrefs: Array<string | null>; linkCount: number}> = []
 for (const locale of ["en", "zh-CN"] as const) {
   flushSync(() => setLocale(locale))
   for (const updateState of updateStates) {
@@ -143,5 +147,52 @@ for (const locale of ["en", "zh-CN"] as const) {
     flushSync(() => sampleRoot.unmount())
     host.remove()
   }
+  const settingsHost = document.createElement("div")
+  settingsHost.style.cssText = "position:absolute;left:-10000px;width:760px;height:560px"
+  document.body.append(settingsHost)
+  const settingsRoot = createRoot(settingsHost)
+  flushSync(() => settingsRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" />))
+  flushSync(() => settingsHost.querySelectorAll<HTMLElement>('[role="tab"]')[3].click())
+  const settingsGroup = settingsHost.querySelector<HTMLElement>(".author-links")!
+  const settingsLinks = [...settingsGroup.querySelectorAll<HTMLAnchorElement>("a")]
+  aboutCopySamples.push({
+    locale,
+    authorVisible: (settingsHost.textContent ?? "").includes(locale === "en" ? "Author · Miller" : "作者 · Miller"),
+    headingVisible: [...settingsGroup.children].some(child => child.tagName === "SMALL"),
+    labels: settingsLinks.map(link => link.textContent?.trim() ?? ""),
+    hrefs: settingsLinks.map(link => link.getAttribute("href")),
+    linkCount: settingsLinks.length,
+  })
+  flushSync(() => settingsRoot.unmount())
+  settingsHost.remove()
+  for (const width of [240, 760]) {
+    const host = document.createElement("div")
+    host.style.cssText = `position:absolute;left:-10000px;width:${width}px`
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    flushSync(() => sampleRoot.render(<AuthorLinks onOpen={() => {}} />))
+    const group = host.querySelector<HTMLElement>(".author-links")!
+    const links = [...group.querySelectorAll<HTMLAnchorElement>("a")]
+    const linkRects = links.map(link => link.getBoundingClientRect())
+    const groupRect = group.getBoundingClientRect()
+    aboutSamples.push({
+      locale,
+      width,
+      labels: links.map(link => link.textContent?.trim() ?? ""),
+      hrefs: links.map(link => link.getAttribute("href")),
+      groupName: group.getAttribute("aria-label"),
+      authorVisible: false,
+      headingVisible: [...group.children].some(child => child.tagName === "SMALL"),
+      rows: new Set(linkRects.map(rect => Math.round(rect.top))).size,
+      equalHeights: new Set(linkRects.map(rect => Math.round(rect.height))).size === 1,
+      unclipped: linkRects.every(rect => rect.left >= groupRect.left && rect.right <= groupRect.right && rect.bottom <= groupRect.bottom),
+      iconSizes: links.map(link => {
+        const rect = link.querySelector("svg")!.getBoundingClientRect()
+        return [Math.round(rect.width), Math.round(rect.height)]
+      }),
+    })
+    flushSync(() => sampleRoot.unmount())
+    host.remove()
+  }
 }
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples})
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples})

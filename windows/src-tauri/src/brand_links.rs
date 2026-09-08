@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub enum BrandLink {
     Twitter,
     Github,
+    Telegram,
 }
 
 impl BrandLink {
@@ -12,6 +13,7 @@ impl BrandLink {
         match self {
             Self::Twitter => "https://twitter.com/MillerPanYue",
             Self::Github => "https://github.com/sljzdotcom/AI-Token-Meter",
+            Self::Telegram => "https://t.me/sljzdotcom",
         }
     }
 }

@@ -199,6 +199,10 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 ## About
 
+### 社交链接
+
+**未发布改动：** 两端新增带纸飞机图标的 **Telegram @sljzdotcom**，指向 [Telegram](https://t.me/sljzdotcom)。Windows 关于页去掉作者整行和可见的社交标题，保留三项链接与无障碍名称；macOS 作者信息继续显示。链接按可用宽度换行，点击后才打开默认浏览器。该改动留待后续版本；[开发记录](../development/2026-09-08-about-telegram.md)。
+
 ### 作者社交链接与软件标识（0.5.0 起）
 
 Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 **GitHub** 链接，分别进入 [Twitter](https://twitter.com/MillerPanYue) 和 [项目仓库](https://github.com/sljzdotcom/AI-Token-Meter)。点击时才打开系统默认浏览器，不在应用中加载社交页面；若无法打开会给出提示，可重试。Windows 设置顶部显示本地软件 Logo，保留平台系统字体。实施与验证见[开发日志](../development/2026-09-07-about-branding.md)。

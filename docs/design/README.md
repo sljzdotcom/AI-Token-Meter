@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-08 | 关于页精简与 Telegram | [规格](specifications/2026-09-08-about-telegram-design.md) | [计划](implementation-plans/2026-09-08-about-telegram.md) |
 | 2026-09-08 | Windows 新版本提示强调（暂不发布） | [规格](specifications/2026-09-08-windows-update-notice-design.md) | [计划](implementation-plans/2026-09-08-windows-update-notice.md) |
 | 2026-09-08 | 0.5.1 Windows CLI 修复稳定发布 | 沿用既有双平台发布流程 | [计划](implementation-plans/2026-09-08-v0.5.1-release.md) |
 | 2026-09-08 | Windows CLI 已登录后的发现与额度恢复 | [规格](specifications/2026-09-08-windows-cli-recovery-design.md) | [计划](implementation-plans/2026-09-08-windows-cli-recovery.md) |

@@ -24,6 +24,10 @@ public enum AppBrand {
             label: "GitHub",
             url: URL(string: "https://github.com/sljzdotcom/AI-Token-Meter")!
         ),
+        Link(
+            label: "Telegram @sljzdotcom",
+            url: URL(string: "https://t.me/sljzdotcom")!
+        ),
     ]
 
     public static func versionText(info: [String: Any]) -> String {
