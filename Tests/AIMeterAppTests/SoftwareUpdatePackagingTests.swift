@@ -118,6 +118,7 @@ struct SoftwareUpdatePackagingTests {
         ("version URL mismatch", "0.5.1", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "42", "14.0"),
         ("invalid build", "0.5.0", "zero", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "42", "14.0"),
         ("invalid signature", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", "not base64!", "42", "14.0"),
+        ("short decoded signature", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", "c2hvcnQ=", "42", "14.0"),
         ("invalid length", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "0", "14.0"),
         ("invalid minimum OS", "0.5.0", "13", "v0.5.0/AI-Token-Meter-0.5.0-macOS-arm64.zip", Self.validFixtureSignature, "42", "13.0"),
     ])

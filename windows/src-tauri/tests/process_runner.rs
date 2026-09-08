@@ -116,12 +116,14 @@ fn working_directory_and_minimal_explicit_environment_are_applied() {
 #[test]
 fn provider_login_actions_are_fixed_for_native_and_wsl_sources() {
     let native = ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Tools\claude.exe"),
         executable: PathBuf::from(r"C:\Tools\claude.exe"),
         launcher: None,
         source: RuntimeSource::NativeWindows,
         origin: CandidateOrigin::Custom,
     };
     let wsl = ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Windows\System32\wsl.exe"),
         executable: PathBuf::from(r"C:\Windows\System32\wsl.exe"),
         launcher: None,
         source: RuntimeSource::Wsl {
@@ -151,6 +153,7 @@ fn provider_login_actions_are_fixed_for_native_and_wsl_sources() {
 #[test]
 fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
     let node_candidate = ExecutableCandidate {
+        selected_path: PathBuf::from("codex.cmd"),
         executable: PathBuf::from("codex"),
         launcher: Some(PathBuf::from("node.exe")),
         source: RuntimeSource::NativeWindows,
@@ -162,6 +165,7 @@ fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
     assert_eq!(strings(&node.arguments), ["codex", "login"]);
 
     let unsafe_cmd = ExecutableCandidate {
+        selected_path: PathBuf::from("Tools & whoami/claude.cmd"),
         executable: PathBuf::from("Tools & whoami/claude.cmd"),
         launcher: Some(PathBuf::from("cmd.exe")),
         source: RuntimeSource::NativeWindows,
@@ -176,6 +180,7 @@ fn node_and_cmd_launchers_are_explicit_and_unsafe_cmd_paths_are_rejected() {
 #[test]
 fn interpreter_arguments_remove_windows_extended_path_prefixes() {
     let node_candidate = ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Users\Example\AppData\Roaming\npm\codex.cmd"),
         executable: PathBuf::from(r"\\?\C:\Users\Example\AppData\Roaming\npm\codex"),
         launcher: Some(PathBuf::from("node.exe")),
         source: RuntimeSource::NativeWindows,
@@ -189,6 +194,7 @@ fn interpreter_arguments_remove_windows_extended_path_prefixes() {
     );
 
     let network_candidate = ExecutableCandidate {
+        selected_path: PathBuf::from(r"\\server\tools\claude.cmd"),
         executable: PathBuf::from(r"\\?\UNC\server\tools\claude.cmd"),
         launcher: Some(PathBuf::from("cmd.exe")),
         source: RuntimeSource::NativeWindows,

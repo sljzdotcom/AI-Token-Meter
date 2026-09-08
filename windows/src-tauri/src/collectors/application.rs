@@ -254,7 +254,7 @@ pub(crate) fn validate_custom_path(
     let CliDiscovery::Found(candidate) = result else {
         return Err("The custom CLI path is not a working provider executable");
     };
-    Ok(candidate.executable.to_string_lossy().into_owned())
+    Ok(candidate.configured_path().to_string_lossy().into_owned())
 }
 
 fn attach_claude_activity(

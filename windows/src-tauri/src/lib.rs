@@ -952,10 +952,8 @@ fn begin_claude_usage_initialization(
     #[cfg(windows)]
     {
         let settings = _state.app_settings_snapshot();
-        return crate::accounts::windows_service::launch_claude_usage_initialization(
-            &settings.claude_cli,
-        )
-        .map_err(str::to_owned);
+        crate::accounts::windows_service::launch_claude_usage_initialization(&settings.claude_cli)
+            .map_err(str::to_owned)
     }
     #[cfg(not(windows))]
     {

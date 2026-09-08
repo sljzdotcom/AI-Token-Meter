@@ -112,6 +112,7 @@ fn wsl_collection_and_setup_use_the_same_fixed_distribution_workspace() {
 
 fn native_candidate() -> ExecutableCandidate {
     ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Tools\claude.exe"),
         executable: PathBuf::from(r"C:\Tools\claude.exe"),
         launcher: None,
         source: RuntimeSource::NativeWindows,
@@ -121,6 +122,7 @@ fn native_candidate() -> ExecutableCandidate {
 
 fn wsl_candidate(distribution: &str) -> ExecutableCandidate {
     ExecutableCandidate {
+        selected_path: PathBuf::from(r"C:\Windows\System32\wsl.exe"),
         executable: PathBuf::from(r"C:\Windows\System32\wsl.exe"),
         launcher: None,
         source: RuntimeSource::Wsl {

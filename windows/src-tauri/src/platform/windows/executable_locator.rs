@@ -35,10 +35,17 @@ pub enum CandidateOrigin {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutableCandidate {
+    pub selected_path: PathBuf,
     pub executable: PathBuf,
     pub launcher: Option<PathBuf>,
     pub source: RuntimeSource,
     pub origin: CandidateOrigin,
+}
+
+impl ExecutableCandidate {
+    pub fn configured_path(&self) -> &Path {
+        &self.selected_path
+    }
 }
 
 pub struct ExecutableLocator {
@@ -169,6 +176,7 @@ impl ExecutableLocator {
         }
         for distribution in distributions.into_iter().take(MAX_WSL_DISTRIBUTIONS) {
             let candidate = ExecutableCandidate {
+                selected_path: executable.clone(),
                 executable: executable.clone(),
                 launcher: None,
                 source: RuntimeSource::Wsl { distribution },
@@ -245,31 +253,38 @@ impl ExecutableLocator {
         provider: CliProvider,
         origin: CandidateOrigin,
     ) -> Option<ExecutableCandidate> {
-        let executable = path.canonicalize().ok()?;
-        if !fs::metadata(&executable).ok()?.is_file() || !name_matches(&executable, provider) {
+        let selected_path = path.canonicalize().ok()?;
+        if !fs::metadata(&selected_path).ok()?.is_file() || !name_matches(&selected_path, provider)
+        {
             return None;
         }
 
-        let (executable, launcher) = match executable.extension().and_then(|value| value.to_str()) {
-            Some(extension) if extension.eq_ignore_ascii_case("exe") => (executable, None),
-            Some(extension)
-                if extension.eq_ignore_ascii_case("cmd") && provider == CliProvider::Codex =>
-            {
-                let (entry, node) =
-                    resolve_codex_npm_runtime(&executable, self.node_search_directories().iter())?;
-                (entry, Some(node))
-            }
-            Some(extension) if extension.eq_ignore_ascii_case("cmd") => {
-                (executable, Some(self.command_interpreter()?))
-            }
-            None if has_env_node_shebang(&executable) => {
-                let launcher = find_node_launcher(&executable)?;
-                (executable, Some(launcher))
-            }
-            _ => return None,
-        };
+        let (executable, launcher) =
+            match selected_path.extension().and_then(|value| value.to_str()) {
+                Some(extension) if extension.eq_ignore_ascii_case("exe") => {
+                    (selected_path.clone(), None)
+                }
+                Some(extension)
+                    if extension.eq_ignore_ascii_case("cmd") && provider == CliProvider::Codex =>
+                {
+                    let (entry, node) = resolve_codex_npm_runtime(
+                        &selected_path,
+                        self.node_search_directories().iter(),
+                    )?;
+                    (entry, Some(node))
+                }
+                Some(extension) if extension.eq_ignore_ascii_case("cmd") => {
+                    (selected_path.clone(), Some(self.command_interpreter()?))
+                }
+                None if has_env_node_shebang(&selected_path) => {
+                    let launcher = find_node_launcher(&selected_path)?;
+                    (selected_path.clone(), Some(launcher))
+                }
+                _ => return None,
+            };
 
         Some(ExecutableCandidate {
+            selected_path,
             executable,
             launcher,
             source: RuntimeSource::NativeWindows,
