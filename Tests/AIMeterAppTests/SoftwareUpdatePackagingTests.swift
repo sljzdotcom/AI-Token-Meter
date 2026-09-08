@@ -7,8 +7,8 @@ struct SoftwareUpdatePackagingTests {
     func updateMetadata() throws {
         let plist = try loadInfoPlist()
 
-        #expect(plist["CFBundleShortVersionString"] as? String == "0.5.0")
-        #expect(plist["CFBundleVersion"] as? String == "13")
+        #expect(plist["CFBundleShortVersionString"] as? String == "0.5.1")
+        #expect(plist["CFBundleVersion"] as? String == "14")
         #expect(
             plist["SUFeedURL"] as? String
                 == "https://raw.githubusercontent.com/sljzdotcom/AI-Token-Meter/main/appcast.xml"
@@ -28,8 +28,8 @@ struct SoftwareUpdatePackagingTests {
                 as? [String: Any]
         )
 
-        #expect(plist["CFBundleShortVersionString"] as? String == "0.5.0")
-        #expect(plist["CFBundleVersion"] as? String == "13")
+        #expect(plist["CFBundleShortVersionString"] as? String == "0.5.1")
+        #expect(plist["CFBundleVersion"] as? String == "14")
     }
 
     @Test("Build embeds and explicitly signs Sparkle before the host app")

@@ -1,10 +1,12 @@
 # AI Token Meter
 
+> 0.5.1 Windows CLI 修复补丁准备发布；公开更新通道目前仍为 0.5.0。[发布进度](docs/development/2026-09-08-v0.5.1-release.md)。
+
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?logo=apple)
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-3b82f6)
+![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-3b82f6)
 ![Tests 432](https://img.shields.io/badge/tests-432%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -82,10 +84,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-**[Download v0.5.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.0)** from GitHub Releases（两端安装包与更新源均已验证，见[发布记录](docs/development/2026-09-07-v0.5.0-release.md)）：
+**[Download v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1)** from GitHub Releases（准备发布，尚未公开；进度见[发布记录](docs/development/2026-09-08-v0.5.1-release.md)）：
 
-- macOS：下载 `AI-Token-Meter-0.5.0-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.5.0-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：发布后下载 `AI-Token-Meter-0.5.1-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：发布后下载 `AI-Token-Meter-0.5.1-windows-x64-setup.exe` 与同名 `.sha256`。
 
 已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.5.0`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。本版包含此前 Windows DeepSeek 同步、窗口生命周期、紧凑字号和字体下拉修复。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 

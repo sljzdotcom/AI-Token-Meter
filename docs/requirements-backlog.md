@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260908-006 | Windows 修复发布 | 用户要求直接发布已合并的 Windows CLI 登录后采集修复，使现有设备可在应用内检查更新并安装 | 高 | 进行中 | 2026-09-08 | 按既有签名发布流程准备补丁版，验证公开安装器、签名、哈希与 Windows 更新源；保持既定双平台版本合同，不冒充用户真机验收 | 修复合并 `aca64fc`；验收：旧版 Windows 的更新源返回更高稳定版，公开安装器可下载且签名/哈希通过 |
 | REQ-20260908-005 | Windows CI 门禁 | 原生 Windows 严格 Clippy 在新增初始化命令的 Windows 条件分支发现多余 return，阻止后续运行测试 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：等价尾表达式、无 lint 忽略；原生严格 Clippy、229 项 Rust 与 NSIS 构建通过 | `d3c57f2` · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) · [开发日志](development/2026-09-08-windows-cli-post-login.md) |
 | REQ-20260908-004 | 自定义 CLI 回归 | 最终审查发现手工选择官方 npm Codex 包装器时，会把内部 JS 启动目标保存为配置，后续发现却拒绝该目标 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：保存用户包装器身份，执行目标独立；旧行为变异失败，保存→重载→再次发现原生回归通过；未放开任意 JS | `d3c57f2` · 定向复审无阻塞 · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) · [开发日志](development/2026-09-08-windows-cli-post-login.md) |
 | REQ-20260908-003 | Windows 回归测试 | npm/Node 原生回归已执行入口，但 PATH 断言将 Windows 长路径与同一目录的 8.3 短路径直接按字符串比较而失败 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：完整 PATH 规范化比较保留单一 Node 目录约束，原生真实进程、入口/参数/退出码断言通过 | `3955bb2` · [成功 Windows CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) · [开发日志](development/2026-09-08-windows-cli-post-login.md) |

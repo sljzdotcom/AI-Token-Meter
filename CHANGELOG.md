@@ -4,12 +4,20 @@
 
 ## Unreleased
 
+暂无未发布功能。
+
+## 0.5.1 - 2026-09-08
+
+稳定补丁版准备发布；macOS build14，仅同步版本，产品行为不变。[发布记录](docs/development/2026-09-08-v0.5.1-release.md)。
+
 ### Fixed
 
 - Windows 标准官方 npm Codex 安装使用显式 Node + JS 入口，覆盖 npm 与 Node 分离目录及空格路径；不再依赖包装器通过 PATH 寻找 Node。保留受限进程环境及已有登录信息。
 - Windows 账户、额度、登录与自定义路径验证共用有界 CLI 发现；只有确认缺失才显示未安装，启动失败保持可重试状态，取消不再被误判为需要安装。
 
-Windows CLI 恢复仍在验证中，尚未公开发布。详细边界见[调查与开发记录](docs/development/2026-09-08-windows-cli-post-login.md)。
+- Windows 自定义 Codex 包装器路径与实际 Node/JS 启动目标分开保存，修复保存成功后再次发现失败。
+
+修复已通过双平台 CI；真实账号额度与工作区初始化仍需新版现场验收。详细边界见[调查与开发记录](docs/development/2026-09-08-windows-cli-post-login.md)。
 
 ### Added
 
