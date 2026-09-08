@@ -7,11 +7,12 @@ fn product_metadata_matches_the_shared_contract() {
     assert_eq!(metadata.product_name, "AI Token Meter");
     assert_eq!(metadata.version, "0.5.1");
     assert_eq!(
-        metadata.providers,
-        [
+        metadata.providers.as_slice(),
+        &[
             "Claude Code".to_owned(),
             "OpenAI Codex".to_owned(),
             "DeepSeek".to_owned(),
+            "Gemini".to_owned(),
         ]
     );
 }

@@ -35,7 +35,7 @@ const PROVIDER_CONTRACT: &str = include_str!("../../../contracts/presentation/pr
 pub struct AppMetadata {
     pub product_name: &'static str,
     pub version: String,
-    pub providers: [String; 3],
+    pub providers: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -56,14 +56,7 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
         .providers
         .into_iter()
         .map(|provider| provider.display_name)
-        .collect::<Vec<_>>()
-        .try_into()
-        .map_err(|_| {
-            serde_json::Error::io(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "the shared contract must contain exactly three providers",
-            ))
-        })?;
+        .collect();
 
     Ok(AppMetadata {
         product_name: PRODUCT_NAME,

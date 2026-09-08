@@ -20,7 +20,7 @@
       "enum": ["claude", "codex", "deepseek", "gemini"]
     },
     "displayName": {
-      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek"]
+      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
     },
     "status": {
       "enum": [

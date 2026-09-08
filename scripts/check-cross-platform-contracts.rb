@@ -168,6 +168,8 @@ if schema
   errors << "Snapshot schema status enum is incomplete" unless schema_statuses == allowed_statuses
   schema_providers = schema.dig("properties", "providerId", "enum")
   errors << "Snapshot schema provider enum is incomplete" unless schema_providers == expected_providers
+  schema_names = schema.dig("properties", "displayName", "enum")
+  errors << "Snapshot schema displayName enum is incomplete" unless schema_names == expected_names
 end
 
 if presentation
@@ -196,6 +198,9 @@ fixture_paths.each do |path|
   errors << "#{path.basename}: invalid providerId" unless expected_providers.include?(fixture["providerId"])
   unless expected_identity[fixture["providerId"]] == fixture["displayName"]
     errors << "#{path.basename}: displayName does not match providerId"
+  end
+  unless Array(schema&.dig("properties", "displayName", "enum")).include?(fixture["displayName"])
+    errors << "#{path.basename}: displayName is rejected by snapshot schema"
   end
   errors << "#{path.basename}: invalid status" unless allowed_statuses.include?(fixture["status"])
   if path.basename.to_s == "gemini-unavailable.json" &&
