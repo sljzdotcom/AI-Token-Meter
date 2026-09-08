@@ -4,7 +4,7 @@ import type { CSSProperties } from "react"
 
 import { FloatingStrip } from "../components/FloatingStrip"
 import { ProviderDetail } from "../details/ProviderDetail"
-import { SettingsWindow } from "../settings/SettingsWindow"
+import { SettingsWindow, type UpdateState } from "../settings/SettingsWindow"
 import type { UsageSnapshot } from "../state/usage"
 import { defaultStripPreferences } from "../state/stripPreferences"
 import "../styles.css"
@@ -119,4 +119,29 @@ for (const locale of ["en", "zh-CN"] as const) {
     }
   }
 }
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples})
+const updateStates: UpdateState[] = [
+  {phase: "idle", currentVersion: "0.5.0"},
+  {phase: "checking", currentVersion: "0.5.0"},
+  {phase: "upToDate", currentVersion: "0.5.0"},
+  {phase: "available", currentVersion: "0.5.0", availableVersion: "0.6.0"},
+  {phase: "downloading", currentVersion: "0.5.0", progressPercent: 25},
+  {phase: "installing", currentVersion: "0.5.0"},
+  {phase: "failed", currentVersion: "0.5.0", message: "Update check failed."},
+]
+const updateSamples: Array<{locale: string; phase: UpdateState["phase"]; color: string; fontFamily: string; fontWeight: string; fontSize: string}> = []
+for (const locale of ["en", "zh-CN"] as const) {
+  flushSync(() => setLocale(locale))
+  for (const updateState of updateStates) {
+    const host = document.createElement("div")
+    host.style.cssText = "position:absolute;left:-10000px;width:720px;height:640px"
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    flushSync(() => sampleRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" updateState={updateState} />))
+    flushSync(() => (host.querySelectorAll<HTMLElement>('[role="tab"]')[3]).click())
+    const style = getComputedStyle(host.querySelector<HTMLElement>(".update-status")!)
+    updateSamples.push({locale, phase: updateState.phase, color: style.color, fontFamily: style.fontFamily, fontWeight: style.fontWeight, fontSize: style.fontSize})
+    flushSync(() => sampleRoot.unmount())
+    host.remove()
+  }
+}
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples})

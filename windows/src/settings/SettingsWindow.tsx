@@ -360,7 +360,7 @@ export function SettingsWindow({
             <p>{t("Version")} {updateState.currentVersion}</p>
             <p>{t("Author · Miller")}</p>
             <AuthorLinks onOpen={onOpenAuthorLink} />
-            <p aria-live="polite" className="update-status">{t(updateMessage(updateState))}</p>
+            <p aria-live="polite" className={`update-status${updateState.phase === "available" ? " update-status--available" : ""}`}>{t(updateMessage(updateState))}</p>
             <div className="update-actions">
               <button
                 disabled={["checking", "downloading", "installing"].includes(updateState.phase)}

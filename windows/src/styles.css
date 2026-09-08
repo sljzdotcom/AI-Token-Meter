@@ -802,6 +802,11 @@ button {
   min-height: 1.4em;
 }
 
+.update-status--available {
+  color: #991b1b;
+  font-weight: 700;
+}
+
 .update-actions {
   display: flex;
   gap: 10px;

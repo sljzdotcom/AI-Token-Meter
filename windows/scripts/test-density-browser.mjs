@@ -124,4 +124,19 @@ function assertDensity(report) {
     throw new Error("Settings system font leaked into the meter or Provider detail")
   }
   if (!report.settingsFont.startsWith('"Segoe UI Variable"')) throw new Error("Settings did not retain its system font")
+  if (report.updateSamples.length !== 14) throw new Error("Missing bilingual update status samples")
+  for (const locale of ["en", "zh-CN"]) {
+    const samples = report.updateSamples.filter(sample => sample.locale === locale)
+    const available = samples.find(sample => sample.phase === "available")
+    if (!available) throw new Error(`${locale} available update sample was missing`)
+    if (available.color !== "rgb(153, 27, 27)") throw new Error(`${locale} available update color was ${available.color}`)
+    if (available.fontWeight !== "700") throw new Error(`${locale} available update font weight was ${available.fontWeight}`)
+    for (const sample of samples.filter(sample => sample.phase !== "available")) {
+      if (sample.color === available.color || sample.fontWeight === available.fontWeight) {
+        throw new Error(`${locale} ${sample.phase} inherited available update emphasis`)
+      }
+      if (sample.fontSize !== available.fontSize) throw new Error(`${locale} ${sample.phase} changed update status font size`)
+      if (sample.fontFamily !== available.fontFamily) throw new Error(`${locale} ${sample.phase} changed update status font family`)
+    }
+  }
 }
