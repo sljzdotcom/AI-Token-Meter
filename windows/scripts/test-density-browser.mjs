@@ -140,6 +140,9 @@ function assertDensity(report) {
     }
   }
   if (report.aboutSamples.length !== 4) throw new Error("Missing bilingual wide and narrow About samples")
+  if (report.aboutCopySamples.length !== 2 || report.aboutCopySamples.some(sample => sample.authorVisible || sample.headingVisible)) {
+    throw new Error("The native-size About panel restored removed visible author copy")
+  }
   const expectedLabels = ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"]
   const expectedHrefs = ["https://twitter.com/MillerPanYue", "https://github.com/sljzdotcom/AI-Token-Meter", "https://t.me/sljzdotcom"]
   for (const sample of report.aboutSamples) {
@@ -150,7 +153,7 @@ function assertDensity(report) {
     if (sample.authorVisible || sample.headingVisible) throw new Error(`${sample.locale}/${sample.width} restored removed visible author copy`)
     if (!sample.equalHeights || !sample.unclipped) throw new Error(`${sample.locale}/${sample.width} clipped or misaligned an About link`)
     if (sample.iconSizes.some(([width, height]) => width !== 15 || height !== 15)) throw new Error(`${sample.locale}/${sample.width} changed an About icon size`)
-    if (sample.width === 360 && sample.rows < 2) throw new Error(`${sample.locale} narrow About links did not wrap`)
-    if (sample.width === 720 && sample.rows !== 1) throw new Error(`${sample.locale} wide About links did not stay aligned`)
+    if (sample.width === 240 && sample.rows < 2) throw new Error(`${sample.locale} narrow About links did not wrap`)
+    if (sample.width === 760 && sample.rows !== 1) throw new Error(`${sample.locale} wide About links did not stay aligned`)
   }
 }
