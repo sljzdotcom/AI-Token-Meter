@@ -15,7 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260908-008 | 协作流程 | 在本项目创建长期开发对话；当前对话负责接收/登记碎片需求、派工和验收，开发对话执行并将结果回传本对话 | 中 | 进行中 | 2026-09-08 | 创建项目开发对话、持久化分工与交接规则，验证接单和结果回传；不重做完成项或自动发布 | 用户明确授权新建开发对话 |
+| REQ-20260908-008 | 协作流程 | 在本项目创建长期开发对话；当前对话负责接收/登记碎片需求、派工和验收，开发对话执行并将结果回传本对话 | 中 | 已完成 | 2026-09-08 | 2026-09-08 完成：开发对话已创建、读取一致基线并主动回传，当前待命；分工与本机绑定持久化，不重做完成项或自动发布 | `799a920` · 接单/回传与独立状态核对通过 · [协作规则及接入证据](development/agent-collaboration.md) |
 | REQ-20260908-007 | Windows 更新提示可读性 | Settings → 关于检查更新发现新版时，将提示文字改成深红色加粗；本次不发布，等待后续统一发布 | 中 | 已完成 | 2026-09-08 | 2026-09-08 实现完成：仅 available 深红粗体；中英文、状态恢复和字号不变验证通过。按用户要求未发布，留待后续版本 | `15d6a35` · 88 项前端/生产构建/14 个浏览器更新状态样本通过 · 两阶段独立审查无发现 · [开发日志](development/2026-09-08-windows-update-notice.md) |
 | REQ-20260908-006 | Windows 修复发布 | 用户要求直接发布已合并的 Windows CLI 登录后采集修复，使现有设备可在应用内检查更新并安装 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：0.5.1/build14 已公开，Windows stable/旧 Preview 与 macOS 更新入口一致；匿名下载、两端签名/哈希/篡改拒绝及旧版兼容验证通过 | Tag `132287b` · appcast `eac027a` · [workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34186704869) · [发布日志](development/2026-09-08-v0.5.1-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1) |
 | REQ-20260908-005 | Windows CI 门禁 | 原生 Windows 严格 Clippy 在新增初始化命令的 Windows 条件分支发现多余 return，阻止后续运行测试 | 高 | 已完成 | 2026-09-08 | 2026-09-08 完成：等价尾表达式、无 lint 忽略；原生严格 Clippy、229 项 Rust 与 NSIS 构建通过 | `d3c57f2` · [成功 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) · [开发日志](development/2026-09-08-windows-cli-post-login.md) |
