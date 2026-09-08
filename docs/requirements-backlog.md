@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-07
+**最后更新：** 2026-09-08
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260908-001 | Windows CLI 采集缺陷 | 用户已在终端登录 Claude Code 和 OpenAI Codex，但详情分别显示需要设置/未安装；Settings 已识别 Claude 原生 CLI 2.1.263 及账号，Codex 账户状态暂不可用。核对发现、登录、采集路径和错误展示不一致，恢复正常额度显示 | 高 | 受环境限制 | 2026-09-08 | 已确认检测分类不一致、cmd 启动 PATH 被缩减和 Claude 工作区缺口；需问题 Windows 的 CLI/Node 路径及版本验证具体原因。未改生产代码或发布，不重复登录/读取凭据 | [调查日志](development/2026-09-08-windows-cli-post-login.md)；验收：相同已登录 CLI 能被定位并采集，失败显示真实可操作原因，自动化与 Windows 专项验证有证据 |
 | REQ-20260907-011 | 双平台更新发布 | 发布包含 CLI 安装/登录引导、Windows 页签/顶部 Logo 与双平台 About 社交链接的新稳定版，让各台机器通过应用内检查更新安装 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成：0.5.0/build13 已公开为 latest；双平台 CI、签名资产、匿名 SHA-256/签名和三个更新入口全部通过；不改变账号或设置，真机受限项独立保留 | [计划](design/implementation-plans/2026-09-07-v0.5.0-release.md) · [发布日志](development/2026-09-07-v0.5.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.0) · Tag `de117b0` · appcast `f76ea0f` · workflow `34093997980` |
 | REQ-20260907-010 | About CI 回归 | 原生 macOS CI 的失败提示渲染断言未通过；定位真实视图更新与测试读取时序，保留提示断言和有界失败 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成：两秒有界等待实际渲染条件，原 URL/状态/提示断言保留；本机 432 项通过，原生 CI 两项 About 测试通过。该次既有 CLI 耗时断言失败单独归入 REQ-20260906-003，不冒充全套 CI 通过 | [失败 CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34088536876) · [About 复验](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34088933770) · `48cbd0f` · [日志](development/2026-09-07-about-branding.md) |
 | REQ-20260907-008 | CLI 安装分发核对 | 确认 CLI/安装器是否内嵌软件包、是否增大安装体积；若内嵌大型文件则改为在线下载 | 中 | 已完成 | 2026-09-07 | 2026-09-07 核对完成：现有实现已在点击后在线获取官方安装脚本与 CLI，不内嵌大型 CLI，无需修改安装逻辑 | [核对记录](development/2026-09-07-about-branding.md) · CLI 代码合并 `266b1f3` · 规格 `a10481e` |
