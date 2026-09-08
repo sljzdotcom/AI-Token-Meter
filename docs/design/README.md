@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-08 | 移除双平台顶部横线 | [规格](specifications/2026-09-08-remove-strip-drag-hint-design.md) | [计划](implementation-plans/2026-09-08-remove-strip-drag-hint.md) |
 | 2026-09-08 | macOS 可编辑用量刷新间隔 | [规格](specifications/2026-09-08-macos-refresh-interval-design.md) | [计划](implementation-plans/2026-09-08-macos-refresh-interval.md) |
 | 2026-09-08 | 关于页精简与 Telegram | [规格](specifications/2026-09-08-about-telegram-design.md) | [计划](implementation-plans/2026-09-08-about-telegram.md) |
 | 2026-09-08 | Windows 新版本提示强调（暂不发布） | [规格](specifications/2026-09-08-windows-update-notice-design.md) | [计划](implementation-plans/2026-09-08-windows-update-notice.md) |
