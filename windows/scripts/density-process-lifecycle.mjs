@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join, win32 } from "node:path"
 import { stripVTControlCharacters } from "node:util"
 
 export function spawnManagedProcess(command, args, options, {
@@ -164,10 +164,55 @@ export async function runBrowser(executable, url, {
     if (cleanupErrors.length) {
       const all = [...(failure ? [failure] : []), ...cleanupErrors]
       failure = new AggregateError(all, all.map(error => error.message).join("; "))
+      failure.code = "BROWSER_CLEANUP_FAILED"
     }
   }
   if (failure) throw failure
   return result
+}
+
+export async function runBrowserCandidates(candidates, url, {
+  runBrowserImpl = runBrowser,
+  onDiagnostic = () => {},
+} = {}) {
+  const failures = []
+  for (const browser of candidates) {
+    try {
+      const output = await runBrowserImpl(browser.path, url, {
+        onDiagnostic: message => onDiagnostic(`${browser.label}: ${message}`),
+      })
+      return { browser, output }
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      if (failure.code === "BROWSER_CLEANUP_FAILED") throw failure
+      failures.push(new Error(`${browser.label}: ${failure.message}`, { cause: failure }))
+      onDiagnostic(`${browser.label} failed: ${failure.message}`)
+    }
+  }
+  throw new AggregateError(
+    failures,
+    `No installed browser completed density capture: ${failures.map(error => error.message).join("; ")}`,
+  )
+}
+
+export function selectBrowserCandidates(candidates, {
+  platform = process.platform,
+  exists = () => true,
+} = {}) {
+  const seenPaths = new Set()
+  const seenFamilies = new Set()
+  return candidates
+    .filter(([, path]) => path && exists(path))
+    .filter(([label, path]) => {
+      const identity = platform === "win32" ? path.toLowerCase() : path
+      const family = browserFamily(label, path, platform)
+      if (seenPaths.has(identity) || seenFamilies.has(family)) return false
+      seenPaths.add(identity)
+      seenFamilies.add(family)
+      return true
+    })
+    .slice(0, 2)
+    .map(([label, path]) => ({ label, path }))
 }
 
 export async function runWithCleanup(action, cleanup) {
@@ -211,6 +256,21 @@ function removeTemporaryBrowserProfile(profileDirectory) {
     maxRetries: 3,
     retryDelay: 50,
   })
+}
+
+function browserFamily(label, path, platform) {
+  const executable = (platform === "win32" ? win32.basename(path) : basename(path)).toLowerCase()
+  const normalizedPath = path.replaceAll("\\", "/").toLowerCase()
+  if (["msedge", "msedge.exe", "microsoft edge"].includes(executable)
+    || normalizedPath.includes("/microsoft/edge/")) return "edge"
+  if (["chrome", "chrome.exe", "google chrome", "google-chrome", "google-chrome-stable"].includes(executable)
+    || normalizedPath.includes("/google/chrome/") || normalizedPath.includes("/google chrome.app/")) return "chrome"
+  if (["chromium", "chromium.exe", "chromium-browser"].includes(executable)
+    || normalizedPath.includes("/chromium/")) return "chromium"
+  if (label.startsWith("Microsoft Edge")) return "edge"
+  if (label.startsWith("Google Chrome") || label === "CHROME_BIN") return "chrome"
+  if (label.startsWith("Chromium")) return "chromium"
+  return normalizedPath
 }
 
 function signalProcessGroup(pid, signal, killProcess) {

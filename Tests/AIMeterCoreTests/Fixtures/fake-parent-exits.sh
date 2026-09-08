@@ -1,26 +1,23 @@
 #!/bin/sh
 
-exec /usr/bin/python3 -c '
-import os, sys, time
+trace_path="${1:-}"
+mark() {
+    if [ -n "$trace_path" ]; then
+        printf '%s|%s\n' "$1" "$2" >> "$trace_path" 2>/dev/null || true
+    fi
+}
 
-def mark(phase):
-    if len(sys.argv) > 1:
-        try:
-            with open(sys.argv[1], "a") as trace:
-                trace.write(f"{phase}|{time.time():.9f}|{os.getpid()}\n")
-        except OSError:
-            pass  # Diagnostics must not change the fixture exit behavior.
+mark shell_started "$$"
+printf 'parent-exited\n'
+mark parent_output_flushed "$$"
 
-mark("python_started")
-print("parent-exited", flush=True)
-mark("parent_output_flushed")
-pid = os.fork()
-if pid == 0:
-    mark("child_started")
-    os.setsid()
-    mark("child_detached")
-    time.sleep(6)
-else:
-    mark("parent_exit_requested")
-os._exit(0)
-' "$@"
+# Keep the PTY slave open after this parent exits. Ignoring HUP prevents the
+# noninteractive shell from ending the synthetic descendant with its parent.
+(
+    trap '' HUP
+    sleep 6
+) &
+child_pid=$!
+mark child_spawned "$child_pid"
+mark parent_exit_requested "$$"
+exit 0

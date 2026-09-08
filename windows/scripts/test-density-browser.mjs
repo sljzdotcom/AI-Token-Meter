@@ -4,26 +4,27 @@ import { fileURLToPath } from "node:url"
 
 import {
   extractPreviewUrl,
-  runBrowser,
+  runBrowserCandidates,
   runWithCleanup,
+  selectBrowserCandidates,
   waitForHttpReady,
   spawnDensityPreview,
   stopProcessTree,
 } from "./density-process-lifecycle.mjs"
 
 const windowsRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
-const browser = findBrowser()
+const browsers = findBrowsers()
 const vite = startPreview()
 
 const started = Date.now()
 await runWithCleanup(async () => {
   const baseUrl = await vite.ready
   await waitForHttpReady(`${baseUrl}density-browser.html`)
-  console.log(`Preview ready after ${Date.now() - started}ms; verifying browser density styles with ${browser.label}`)
-  const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`, {
+  console.log(`Preview ready after ${Date.now() - started}ms; verifying browser density styles with ${browsers.map(browser => browser.label).join(", ")}`)
+  const result = await runBrowserCandidates(browsers, `${baseUrl}density-browser.html`, {
     onDiagnostic: message => console.log(`[density] ${message}`),
   })
-  const report = densityReport(output)
+  const report = densityReport(result.output)
   assertDensity(report)
   if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
@@ -42,13 +43,13 @@ await runWithCleanup(async () => {
   }
   console.log("Gemini detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
   console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
-  console.log(`Browser density styles verified with ${browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
+  console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {
   await stopVite(vite.process)
   console.log(`[density] preview cleanup complete; total ${Date.now() - started}ms`)
 })
 
-function findBrowser() {
+function findBrowsers() {
   const programFiles = process.env.ProgramFiles ?? "C:\\Program Files"
   const programFilesX86 = process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"
   const localAppData = process.env.LOCALAPPDATA ?? ""
@@ -57,20 +58,22 @@ function findBrowser() {
     ["CHROME_BIN", process.env.CHROME_BIN],
     ["Google Chrome (macOS)", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
     ["Microsoft Edge (macOS)", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
-    ["Google Chrome (ProgramFiles)", join(programFiles, "Google", "Chrome", "Application", "chrome.exe")],
-    ["Google Chrome (ProgramFiles x86)", join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe")],
     ["Microsoft Edge (ProgramFiles)", join(programFiles, "Microsoft", "Edge", "Application", "msedge.exe")],
     ["Microsoft Edge (ProgramFiles x86)", join(programFilesX86, "Microsoft", "Edge", "Application", "msedge.exe")],
     ["Microsoft Edge (LOCALAPPDATA)", localAppData && join(localAppData, "Microsoft", "Edge", "Application", "msedge.exe")],
+    ["Google Chrome (ProgramFiles)", join(programFiles, "Google", "Chrome", "Application", "chrome.exe")],
+    ["Google Chrome (ProgramFiles x86)", join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe")],
     ["Google Chrome (Linux)", "/usr/bin/google-chrome"],
     ["Chromium (Linux)", "/usr/bin/chromium"],
   ].filter(([, path]) => path)
-  const browser = candidates.find(([, path]) => existsSync(path))
-  if (!browser) {
+  const browsers = selectBrowserCandidates(candidates, {
+    exists: existsSync,
+  })
+  if (!browsers.length) {
     const checked = candidates.map(([label, path]) => `${label}: ${path}`).join("\n")
     throw new Error(`No supported Chrome or Edge executable was found. Checked:\n${checked}\nSet BROWSER_BIN or CHROME_BIN to override.`)
   }
-  return { label: browser[0], path: browser[1] }
+  return browsers
 }
 
 function startPreview() {

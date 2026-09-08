@@ -6,8 +6,10 @@ import test from "node:test"
 import {
   extractPreviewUrl,
   runBrowser,
+  runBrowserCandidates,
   runBoundedCommand,
   runWithCleanup,
+  selectBrowserCandidates,
   waitForHttpReady,
   spawnDensityPreview,
   spawnManagedProcess,
@@ -24,6 +26,71 @@ class FakeChild extends EventEmitter {
     this.stderr = new EventEmitter()
   }
 }
+
+test("falls back to the next installed browser after a bounded process failure", async () => {
+  const attempts = []
+  const diagnostics = []
+  const candidates = [
+    { label: "Microsoft Edge", path: "edge" },
+    { label: "Google Chrome", path: "chrome" },
+  ]
+
+  const result = await runBrowserCandidates(candidates, "http://127.0.0.1:4173", {
+    runBrowserImpl: async (path) => {
+      attempts.push(path)
+      if (path === "edge") throw new Error("Browser timed out after 45000ms")
+      return "<html>density report</html>"
+    },
+    onDiagnostic: message => diagnostics.push(message),
+  })
+
+  assert.deepEqual(attempts, ["edge", "chrome"])
+  assert.equal(result.output, "<html>density report</html>")
+  assert.equal(result.browser, candidates[1])
+  assert.match(diagnostics.join("\n"), /Microsoft Edge failed/)
+})
+
+test("does not hide browser cleanup failure behind a fallback success", async () => {
+  const attempts = []
+  const cleanupFailure = new Error("process tree cleanup failed")
+  cleanupFailure.code = "BROWSER_CLEANUP_FAILED"
+
+  await assert.rejects(runBrowserCandidates([
+    { label: "Microsoft Edge", path: "edge" },
+    { label: "Google Chrome", path: "chrome" },
+  ], "http://127.0.0.1:4173", {
+    runBrowserImpl: async (path) => {
+      attempts.push(path)
+      if (path === "edge") throw cleanupFailure
+      return "<html>density report</html>"
+    },
+  }), /process tree cleanup failed/)
+
+  assert.deepEqual(attempts, ["edge"])
+})
+
+test("deduplicates explicit browser overrides by executable family", () => {
+  const cases = [
+    {
+      override: ["BROWSER_BIN", "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"],
+      duplicate: ["Microsoft Edge (ProgramFiles x86)", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"],
+      alternative: ["Google Chrome (ProgramFiles)", "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"],
+    },
+    {
+      override: ["BROWSER_BIN", "C:\\Portable\\Chrome\\chrome.exe"],
+      duplicate: ["Google Chrome (ProgramFiles)", "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"],
+      alternative: ["Microsoft Edge (ProgramFiles)", "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"],
+    },
+  ]
+
+  for (const { override, duplicate, alternative } of cases) {
+    const selected = selectBrowserCandidates([override, duplicate, alternative], {
+      platform: "win32",
+      exists: () => true,
+    })
+    assert.deepEqual(selected.map(browser => browser.label), [override[0], alternative[0]])
+  }
+})
 
 test("starts Unix commands in their own process group", () => {
   const child = new FakeChild()
