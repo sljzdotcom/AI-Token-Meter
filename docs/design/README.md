@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-08 | Gemini 与四产品管理（待确认） | [调研与设计](specifications/2026-09-08-gemini-provider-design.md) | 确认范围后制定 |
 | 2026-09-08 | 移除双平台顶部横线 | [规格](specifications/2026-09-08-remove-strip-drag-hint-design.md) | [计划](implementation-plans/2026-09-08-remove-strip-drag-hint.md) |
 | 2026-09-08 | macOS 可编辑用量刷新间隔 | [规格](specifications/2026-09-08-macos-refresh-interval-design.md) | [计划](implementation-plans/2026-09-08-macos-refresh-interval.md) |
 | 2026-09-08 | 关于页精简与 Telegram | [规格](specifications/2026-09-08-about-telegram-design.md) | [计划](implementation-plans/2026-09-08-about-telegram.md) |
