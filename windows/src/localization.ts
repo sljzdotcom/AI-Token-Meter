@@ -2,6 +2,11 @@ import { useSyncExternalStore } from "react"
 
 export type Locale = "en" | "zh-CN"
 const zh = {
+  "Gemini status could not be checked. Try again.": "无法检查 Gemini 状态，请重试。",
+  "The documentation could not be opened.": "无法打开官方文档。",
+  "Gemini CLI quota": "Gemini CLI 额度",
+  "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.": "暂无法获取 Gemini CLI 额度。尚未检查安装和登录状态。",
+  "Check Gemini status": "检查 Gemini 状态", "Gemini CLI documentation": "Gemini CLI 官方文档",
   "The CLI could not be checked. Choose Check Status or review the installation instructions.": "无法检查 CLI。请检查状态或查看安装说明。",
   "Install CLI": "安装 CLI", "Waiting for Terminal…": "等待终端…",
   "Downloads and runs the official installer in Terminal.": "将在终端下载并运行官方安装器。",

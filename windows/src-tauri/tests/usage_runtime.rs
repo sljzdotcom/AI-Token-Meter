@@ -55,7 +55,7 @@ fn startup_loads_each_valid_cache_as_cached_without_inventing_missing_data() {
     let runtime = UsageRuntime::load(cache, NOW);
     let snapshots = runtime.snapshots();
 
-    assert_eq!(snapshots.len(), 3);
+    assert_eq!(snapshots.len(), 4);
     assert_eq!(
         snapshot(&snapshots, ProviderId::Claude).status,
         UsageStatus::Cached
@@ -340,6 +340,7 @@ fn fixture(provider: ProviderId) -> UsageSnapshot {
         ProviderId::Claude => include_str!("../../../contracts/fixtures/claude-fresh.json"),
         ProviderId::Codex => include_str!("../../../contracts/fixtures/codex-reset-credit.json"),
         ProviderId::DeepSeek => include_str!("../../../contracts/fixtures/deepseek-balance.json"),
+        ProviderId::Gemini => include_str!("../../../contracts/fixtures/gemini-unavailable.json"),
     };
     UsageSnapshot::decode_compatible(&serde_json::from_str(value).expect("fixture JSON"))
         .expect("usage fixture")
@@ -358,4 +359,25 @@ fn history_fixture() -> DeepSeekHistory {
         total_tokens: 800,
         fetched_at: "2026-09-03T12:04:00Z".to_owned(),
     }
+}
+
+#[test]
+fn gemini_is_present_without_fabricated_quota_or_login_diagnosis() {
+    let runtime = UsageRuntime::unavailable(NOW);
+    let snapshots = runtime.snapshots();
+    let gemini = snapshots
+        .iter()
+        .find(|s| s.provider_id.as_str() == "gemini")
+        .expect("fourth runtime provider");
+    assert_eq!(gemini.display_name, "Gemini");
+    assert_eq!(gemini.status, UsageStatus::Unavailable);
+    assert!(gemini.used_ratio.is_none());
+    assert!(gemini.primary_metric.is_none());
+    assert!(
+        gemini
+            .status_message
+            .as_deref()
+            .unwrap_or("")
+            .contains("not been checked")
+    );
 }

@@ -156,8 +156,8 @@ end
 
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
-expected_providers = %w[claude codex deepseek]
-expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek"]
+expected_providers = %w[claude codex deepseek gemini]
+expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
 expected_identity = expected_providers.zip(expected_names).to_h
 allowed_statuses = %w[
   fresh cached refreshing notInstalled authenticationRequired setupRequired unavailable unrecognizedOutput
@@ -177,7 +177,7 @@ if presentation
   else
     errors << "Provider order or IDs changed" unless providers.map { |item| item["id"] } == expected_providers
     errors << "Provider display names changed" unless providers.map { |item| item["displayName"] } == expected_names
-    errors << "Provider logo keys must be unique" unless providers.map { |item| item["logoKey"] }.uniq.length == 3
+    errors << "Provider logo keys must be unique" unless providers.map { |item| item["logoKey"] }.uniq.length == expected_providers.length
     deepseek = providers.find { |item| item["id"] == "deepseek" }
     unless deepseek && deepseek["progressSemantics"] == "consumedFromBalanceBaseline"
       errors << "DeepSeek must use consumed-from-balance progress semantics"
@@ -186,7 +186,8 @@ if presentation
 end
 
 fixture_paths = (root + "contracts/fixtures").glob("*.json").sort
-errors << "Expected exactly four shared snapshot fixtures" unless fixture_paths.length == 4
+errors << "Expected exactly five shared snapshot fixtures" unless fixture_paths.length == 5
+errors << "Missing Gemini unavailable fixture" unless fixture_paths.any? { |path| path.basename.to_s == "gemini-unavailable.json" }
 fixture_paths.each do |path|
   fixture = read_json(path, errors)
   next unless fixture
@@ -197,6 +198,11 @@ fixture_paths.each do |path|
     errors << "#{path.basename}: displayName does not match providerId"
   end
   errors << "#{path.basename}: invalid status" unless allowed_statuses.include?(fixture["status"])
+  if path.basename.to_s == "gemini-unavailable.json" &&
+      !(fixture["providerId"] == "gemini" && fixture["status"] == "unavailable" &&
+        fixture["usedRatio"].nil? && fixture["primaryMetric"].nil? && fixture["secondaryMetric"].nil?)
+    errors << "Gemini unavailable fixture must not invent quota"
+  end
   ratio = fixture["usedRatio"]
   unless ratio.nil? || (ratio.is_a?(Numeric) && ratio.finite? && ratio.between?(0, 1))
     errors << "#{path.basename}: usedRatio must be null or between 0 and 1"

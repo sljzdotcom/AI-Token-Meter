@@ -43,6 +43,7 @@ pub async fn read_all(checked_at: &str, settings: AppSettings) -> Vec<ServiceAcc
             .await
             .unwrap_or_else(|_| ServiceAccountStatus::unavailable(ProviderId::Codex, checked_at)),
         deepseek,
+        ServiceAccountStatus::unavailable(ProviderId::Gemini, checked_at),
     ]
 }
 
@@ -71,6 +72,7 @@ pub async fn read_one(
             .unwrap_or_else(|_| ServiceAccountStatus::unavailable(provider, &now_rfc3339()))
         }
         ProviderId::DeepSeek => read_deepseek_status(checked_at).await,
+        ProviderId::Gemini => ServiceAccountStatus::unavailable(ProviderId::Gemini, checked_at),
     }
 }
 

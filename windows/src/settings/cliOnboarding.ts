@@ -18,7 +18,7 @@ export class CLIOnboarding {
   private revisions = new Map<ProviderId, number>()
   constructor(private invoke: Invoke, private apply: (status: ServiceAccountStatus) => void, private message: (value: string) => void, private changed: () => void, private sleep = () => new Promise<void>(resolve => setTimeout(resolve, 3000)), private attempts = 40) {}
   isBusy(provider: ProviderId) { return this.busy.has(provider) }
-  dispose() { for (const p of ["claude", "codex", "deepseek"] as const) this.next(p); this.busy.clear() }
+  dispose() { for (const p of ["claude", "codex", "deepseek", "gemini"] as const) this.next(p); this.busy.clear() }
   private next(provider: ProviderId) { const n = (this.revisions.get(provider) ?? 0) + 1; this.revisions.set(provider, n); return n }
   private async read(providerId: ProviderId, retryUsage = false): Promise<ServiceAccountStatus> {
     try { return await this.invoke("service_account_status", { providerId, retryUsage }) as ServiceAccountStatus }

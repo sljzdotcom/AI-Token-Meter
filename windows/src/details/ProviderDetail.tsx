@@ -11,6 +11,8 @@ type ProviderDetailProps = {
   onPointerLeave: PointerEventHandler<HTMLElement>
   onInteractionStart: () => void
   onInteractionEnd: () => void
+  onCheckGeminiStatus?: () => void
+  onOpenGeminiDocumentation?: () => void
   onDeepSeekHistorySync?: () => void
   deepseekHistoryStatus?: DeepSeekHistoryStatus
   deepseekHistoryStatusPathAvailable?: boolean
@@ -23,6 +25,8 @@ export function ProviderDetail({
   onInteractionStart,
   onInteractionEnd,
   onDeepSeekHistorySync,
+  onCheckGeminiStatus,
+  onOpenGeminiDocumentation,
   deepseekHistoryStatus,
   deepseekHistoryStatusPathAvailable,
 }: ProviderDetailProps) {
@@ -46,7 +50,7 @@ export function ProviderDetail({
         <span className="provider-detail__identity">
           <span className="provider-detail__logo"><ProviderLogo provider={snapshot.providerId} /></span>
           <span>
-            <strong>{snapshot.displayName}</strong>
+            <strong>{snapshot.providerId === "gemini" ? "Gemini CLI" : snapshot.displayName}</strong>
             <small>{t(subtitle(snapshot.providerId))}</small>
           </span>
         </span>
@@ -96,6 +100,11 @@ export function ProviderDetail({
         </section>
       ) : null}
 
+      {snapshot.providerId === "gemini" && !snapshot.primaryMetric && <p>{t(snapshot.statusMessage ?? "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
+      {snapshot.providerId === "gemini" && <div className="service-actions">
+        {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Gemini status")}</button>}
+        {onOpenGeminiDocumentation && <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>}
+      </div>}
       <footer>{t(freshness(snapshot))} · {t("Updated")} {formatTime(snapshot.fetchedAt)}</footer>
     </section>
   )
@@ -133,6 +142,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function subtitle(provider: UsageSnapshot["providerId"]) {
+  if (provider === "gemini") return "Gemini CLI quota"
   if (provider === "deepseek") return "Official balance · API usage"
   if (provider === "codex") return "Official quota · Local OpenAI Codex activity"
   return "Official quota · Local Claude Code activity"

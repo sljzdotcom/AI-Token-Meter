@@ -37,6 +37,6 @@ function upsert(snapshots: UsageSnapshot[], replacement: UsageSnapshot) {
 }
 
 function ordered(snapshots: UsageSnapshot[]) {
-  const order = { claude: 0, codex: 1, deepseek: 2 } as const
+  const order = { claude: 0, codex: 1, deepseek: 2, gemini: 3 } as const
   return [...snapshots].sort((left, right) => order[left.providerId] - order[right.providerId])
 }

@@ -377,6 +377,7 @@ fn status_snapshot(provider: ProviderId, status: UsageStatus, fetched_at: &str) 
             ProviderId::Claude => "Claude Code",
             ProviderId::Codex => "OpenAI Codex",
             ProviderId::DeepSeek => "DeepSeek",
+            ProviderId::Gemini => "Gemini",
         }
         .to_owned(),
         status,

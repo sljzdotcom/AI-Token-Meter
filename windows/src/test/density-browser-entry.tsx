@@ -6,7 +6,7 @@ import { FloatingStrip } from "../components/FloatingStrip"
 import { ProviderDetail } from "../details/ProviderDetail"
 import { SettingsWindow, type UpdateState } from "../settings/SettingsWindow"
 import { AuthorLinks } from "../settings/AuthorLinks"
-import type { UsageSnapshot } from "../state/usage"
+import { unavailableSnapshots, type UsageSnapshot } from "../state/usage"
 import { defaultStripPreferences } from "../state/stripPreferences"
 import "../styles.css"
 import { setLocale } from "../localization"
@@ -33,16 +33,16 @@ root.style.fontFamily = "Antonio, 'Segoe UI Variable', sans-serif"
 flushSync(() => {
   createRoot(root).render(
     <>
-      {new URLSearchParams(location.search).has("comparison") && <aside style={{background: "#172131", padding: 24, height: 510, color: "#fff", fontFamily: "sans-serif"}}>
+      {new URLSearchParams(location.search).has("comparison") && <aside style={{background: "#172131", padding: 24, height: 590, color: "#fff", fontFamily: "sans-serif"}}>
         <h2 style={{fontSize: 20}}>AI Token Meter · Compact / Comfortable</h2>
         <p style={{fontSize: 12, opacity: 0.6}}>Browser render · demo data · both screen edges</p>
         <div style={{display: "flex", gap: 32}}>
           {(["compact", "comfortable"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 78 : 108, height: density === "compact" ? 286 : 356}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 78 : 108, height: density === "compact" ? 344 : 428}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
-                snapshots={(["claude", "codex", "deepseek"] as const).map(providerId => ({...snapshot, providerId, usedRatio: 0.25}))} />
+                snapshots={unavailableSnapshots} />
             </div>
           </div>))}
         </div>
@@ -195,4 +195,49 @@ for (const locale of ["en", "zh-CN"] as const) {
     host.remove()
   }
 }
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples})
+
+// Exercise real CSS clipping and hit testing. Literal sizes come from the approved
+// 1–4-row specification, independent of FloatingStrip's size calculation.
+const stripSamples = []
+flushSync(() => setLocale("en"))
+for (const density of ["compact", "comfortable"] as const) {
+  for (const edge of ["left", "right"] as const) {
+    for (const count of [1, 2, 3, 4]) {
+      const width = density === "compact" ? 78 : 108
+      const height = (density === "compact" ? [170,228,286,344] : [212,284,356,428])[count-1]
+      const host = document.createElement("div")
+      host.className = `meter-stage--strip-only meter-edge--${edge}`
+      host.style.cssText = `position:fixed;left:20px;top:20px;width:${width}px;height:${height}px;z-index:2147483647`
+      document.body.appendChild(host)
+      const sampleRoot = createRoot(host)
+      const activated: string[] = []
+      flushSync(() => sampleRoot.render(<FloatingStrip activeProvider={null} onProviderActivate={id => activated.push(id)}
+        preferences={{...defaultStripPreferences, density, hiddenProviders: defaultStripPreferences.orderedProviders.slice(count)}} snapshots={unavailableSnapshots} />))
+      const nav = host.querySelector<HTMLElement>("nav")!
+      const buttons = [...host.querySelectorAll<HTMLButtonElement>("button")]
+      for (const button of buttons) button.style.animation = "none"
+      const rect = nav.getBoundingClientRect()
+      const hitButtons = buttons.every(button => {
+        const bounds = button.getBoundingClientRect()
+        const target = document.elementFromPoint(bounds.x + bounds.width/2, bounds.y + bounds.height/2)
+        return target != null && button.contains(target) && bounds.top >= rect.top && bounds.bottom <= rect.bottom
+      })
+      let drags = 0
+      const drag = () => { drags += 1 }
+      window.addEventListener("meter-drag-requested", drag)
+      nav.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true,button:0}))
+      for (const button of buttons) {
+        button.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true,button:0}))
+        button.click()
+      }
+      window.removeEventListener("meter-drag-requested", drag)
+      stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
+        hitButtons,drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
+        buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,
+        mirroredLogo: buttons.some(button => getComputedStyle(button.querySelector("svg")!).transform !== "none")})
+      flushSync(() => sampleRoot.unmount())
+      host.remove()
+    }
+  }
+}
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples})

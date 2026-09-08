@@ -750,6 +750,9 @@ fn validated_provider_cli_settings(
             ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
             ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
             ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI".to_owned()),
+            ProviderId::Gemini => {
+                return Err("Gemini CLI integration is currently unavailable".to_owned());
+            }
         };
         value.custom_path = Some(
             crate::collectors::application::validate_custom_path(provider, path)
@@ -888,17 +891,20 @@ async fn service_account_statuses(
     }
     #[cfg(not(windows))]
     {
-        Ok(
-            [ProviderId::Claude, ProviderId::Codex, ProviderId::DeepSeek]
-                .into_iter()
-                .map(|provider| {
-                    crate::accounts::service_status::ServiceAccountStatus::unavailable(
-                        provider,
-                        &checked_at,
-                    )
-                })
-                .collect(),
-        )
+        Ok([
+            ProviderId::Claude,
+            ProviderId::Codex,
+            ProviderId::DeepSeek,
+            ProviderId::Gemini,
+        ]
+        .into_iter()
+        .map(|provider| {
+            crate::accounts::service_status::ServiceAccountStatus::unavailable(
+                provider,
+                &checked_at,
+            )
+        })
+        .collect())
     }
 }
 
@@ -970,6 +976,9 @@ fn begin_service_sign_in(
         ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
+        ProviderId::Gemini => {
+            return Err("Gemini CLI integration is currently unavailable".to_owned());
+        }
     };
     #[cfg(windows)]
     {
@@ -993,6 +1002,9 @@ fn open_service_installation_guide(provider_id: ProviderId) -> Result<(), String
         ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("This service does not use a CLI".to_owned()),
+        ProviderId::Gemini => {
+            return Err("Gemini CLI integration is currently unavailable".to_owned());
+        }
     };
     #[cfg(windows)]
     {
@@ -1014,6 +1026,9 @@ async fn begin_service_installation(
         ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
+        ProviderId::Gemini => {
+            return Err("Gemini CLI integration is currently unavailable".to_owned());
+        }
     };
     let configuration = state
         .app_settings_snapshot()
@@ -1182,6 +1197,7 @@ fn set_strip_preferences(
             ProviderId::Claude => "claude",
             ProviderId::Codex => "codex",
             ProviderId::DeepSeek => "deepseek",
+            ProviderId::Gemini => "gemini",
         };
         if !updated
             .strip_preferences
@@ -1330,7 +1346,8 @@ pub fn run() {
             begin_service_installation,
             open_service_installation_guide,
             replace_deepseek_api_key,
-            brand_links::open_brand_link
+            brand_links::open_brand_link,
+            brand_links::open_gemini_documentation
         ])
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())

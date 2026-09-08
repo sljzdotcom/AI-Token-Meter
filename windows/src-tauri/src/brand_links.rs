@@ -45,3 +45,9 @@ fn open_fixed_url(url: &'static str) -> Result<(), &'static str> {
 fn open_fixed_url(_url: &'static str) -> Result<(), &'static str> {
     Err("The author link could not be opened")
 }
+
+#[tauri::command]
+pub fn open_gemini_documentation() -> Result<(), &'static str> {
+    open_fixed_url("https://geminicli.com/docs/resources/quota-and-pricing/")
+        .map_err(|_| "The documentation could not be opened")
+}

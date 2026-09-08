@@ -17,7 +17,7 @@
       "const": 1
     },
     "providerId": {
-      "enum": ["claude", "codex", "deepseek"]
+      "enum": ["claude", "codex", "deepseek", "gemini"]
     },
     "displayName": {
       "enum": ["Claude Code", "OpenAI Codex", "DeepSeek"]

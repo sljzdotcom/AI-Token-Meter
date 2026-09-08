@@ -25,6 +25,15 @@ await runWithCleanup(async () => {
   })
   const report = densityReport(output)
   assertDensity(report)
+  if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
+  for (const sample of report.stripSamples) {
+    if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight || !sample.hitButtons
+      || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
+      || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
+      throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
+  console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
   console.log(`Browser density styles verified with ${browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {
   await stopVite(vite.process)

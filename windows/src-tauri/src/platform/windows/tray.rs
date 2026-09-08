@@ -20,6 +20,9 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let deepseek_summary = MenuItemBuilder::with_id("deepseek-summary", "DeepSeek · Unavailable")
         .enabled(false)
         .build(app)?;
+    let gemini_summary = MenuItemBuilder::with_id("gemini-summary", "Gemini · Unavailable")
+        .enabled(false)
+        .build(app)?;
     let labels = [
         ("refresh", "Refresh"),
         ("settings", "Settings"),
@@ -35,7 +38,12 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         })
         .collect::<tauri::Result<Vec<_>>>()?;
     let menu = MenuBuilder::new(app)
-        .items(&[&claude_summary, &codex_summary, &deepseek_summary])
+        .items(&[
+            &claude_summary,
+            &codex_summary,
+            &deepseek_summary,
+            &gemini_summary,
+        ])
         .separator()
         .items(&[
             &actions[0],
@@ -98,6 +106,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         claude_summary.clone(),
         codex_summary.clone(),
         deepseek_summary.clone(),
+        gemini_summary.clone(),
     ];
     let update_app = app.clone();
     let update_summaries = move |locale| {
@@ -106,6 +115,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
                 ProviderId::Claude => 0,
                 ProviderId::Codex => 1,
                 ProviderId::DeepSeek => 2,
+                ProviderId::Gemini => 3,
             };
             let _ = summaries[index].set_text(format_summary_localized(&snapshot, locale));
         }
@@ -137,6 +147,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             ProviderId::Claude => claude_summary.set_text(text),
             ProviderId::Codex => codex_summary.set_text(text),
             ProviderId::DeepSeek => deepseek_summary.set_text(text),
+            ProviderId::Gemini => gemini_summary.set_text(text),
         };
     });
     Ok(())

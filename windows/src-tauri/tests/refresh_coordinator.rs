@@ -310,6 +310,7 @@ fn fixture(provider: ProviderId) -> UsageSnapshot {
         ProviderId::Claude => include_str!("../../../contracts/fixtures/claude-fresh.json"),
         ProviderId::Codex => include_str!("../../../contracts/fixtures/codex-reset-credit.json"),
         ProviderId::DeepSeek => include_str!("../../../contracts/fixtures/deepseek-balance.json"),
+        ProviderId::Gemini => include_str!("../../../contracts/fixtures/gemini-unavailable.json"),
     };
     UsageSnapshot::decode_compatible(&serde_json::from_str(value).expect("fixture JSON"))
         .expect("usage fixture")

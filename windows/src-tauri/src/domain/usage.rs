@@ -14,6 +14,7 @@ pub enum ProviderId {
     Claude,
     Codex,
     DeepSeek,
+    Gemini,
 }
 
 impl ProviderId {
@@ -22,6 +23,7 @@ impl ProviderId {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::DeepSeek => "deepseek",
+            Self::Gemini => "gemini",
         }
     }
 }

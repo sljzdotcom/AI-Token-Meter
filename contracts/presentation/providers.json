@@ -21,6 +21,13 @@
       "logoKey": "deepseek",
       "accentColor": "#7386FF",
       "progressSemantics": "consumedFromBalanceBaseline"
+    },
+    {
+      "id": "gemini",
+      "displayName": "Gemini",
+      "logoKey": "gemini",
+      "accentColor": "#3ED6B2",
+      "progressSemantics": "usedQuota"
     }
   ]
 }

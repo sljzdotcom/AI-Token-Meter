@@ -265,8 +265,13 @@ impl UsageRuntime {
     }
 }
 
-fn providers() -> [ProviderId; 3] {
-    [ProviderId::Claude, ProviderId::Codex, ProviderId::DeepSeek]
+fn providers() -> [ProviderId; 4] {
+    [
+        ProviderId::Claude,
+        ProviderId::Codex,
+        ProviderId::DeepSeek,
+        ProviderId::Gemini,
+    ]
 }
 
 fn has_visible_data(snapshot: &UsageSnapshot) -> bool {
@@ -315,6 +320,7 @@ fn status_snapshot(
             ProviderId::Claude => "Claude Code",
             ProviderId::Codex => "OpenAI Codex",
             ProviderId::DeepSeek => "DeepSeek",
+            ProviderId::Gemini => "Gemini",
         }
         .to_owned(),
         status,
@@ -324,7 +330,7 @@ fn status_snapshot(
         fetched_at: fetched_at.to_owned(),
         stale_after_seconds: 300,
         source_version: None,
-        status_message: message.map(str::to_owned),
+        status_message: message.or(if provider == ProviderId::Gemini { Some("Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.") } else { None }).map(str::to_owned),
         reset_credits: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
