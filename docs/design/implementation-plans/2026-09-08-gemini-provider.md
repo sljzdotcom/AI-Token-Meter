@@ -83,3 +83,18 @@ expect(screen.getByLabelText('Move Gemini down')).toBeDisabled()
 2026-09-08：Task1已提交`8bf76ec`并通过独立审查（无阻断项）；Task2为`f3a3428`，Task3为`7b7ec5e`。Task2独立审查通过；Task3审查及集成回归修复仍在进行。前端105项/13文件与生产构建通过，文档199份通过。首轮宿主Rust在共享元数据仅允许三产品处失败；首轮Swift436项中的刷新协调器测试仍期望三个模拟采集器，出现两条断言失败。另发现共享snapshot schema名称漏加Gemini；均纳入012当前修复，不宣称完整回归通过。Task4a仍在验证真实CLI合成环境启动、退出、认证失败与用户扩展隔离，尚未接入产品采集器。
 
 修复后复验：`2124b78`关闭Windows元数据/schema两项P2，宿主Rust225项与严格Clippy通过；`8c632db`修复Swift四并发测试期望，436项主测试+13项PTY及全部仓库门禁通过，macOS Release编译通过。证据见[展示阶段开发日志](../../development/2026-09-08-gemini-presentation.md)。
+
+## Task4b/4c：受支持环境的额度采集接口
+
+Task4a固定证据为`bbf701b`及能力报告附节。此协议须在其独立审查通过后执行；真实账号/原生Windows未验证仍独立列为现场边界，不泛化为所有配置支持。
+
+- 仅官方Gemini CLI 0.58.0，通过固定命令/交互协议；版本未知或不符不启动额度交互，准确返回不支持版本。不得调用headless -p /stats，不提取OAuth、不自行请求私有后端。
+- CLI保持其原有用户目录自行读取账号；首期只支持已验证的普通OAuth模式，API/Vertex/加密或注入配置等未证实模式停止并准确标记不支持，不读取token内容。先检测官方默认系统settings/defaults与自定义环境路径；存在原配置但没有经过验证的保留方法时明确unavailable，不覆盖企业限制。只在没有此类配置的受支持环境提供隔离cwd、空.env、私有system settings/defaults覆盖，NO_BROWSER=true；使用已验证的hooksConfig/扩展/随机MCP允许名称/隐私与更新关闭组合。不能依赖测试Node26权限或nock才能保证生产路径安全，不复制synthetic HOME/credential逻辑进入产品。
+- 分步PTY状态机：隔离环境version预检→等待真实输入就绪或认证/信任/主题等阻塞态→仅逐键/model→完整稳定Model usage视图→Esc /quit或有界取消。任何自然语言、授权码、菜单选择均禁止；超时/取消/异常必须清理子进程与PTY。
+- 原始可见文本的Pro/Flash/Flash Lite百分比为已用，官方CLI已按tier归组并取组内最低remaining。保留可见档位，不声称知道原始模型或共享池。忽略启动footer聚合百分比。
+- 两端新增可选geminiQuotaMetrics数组，元素沿用UsageMetric（label为可见档位，current为0..100已用整数百分比，limit100，unit percent，kind officialLimit，resetAt nil，resetDescription可选原样）。保留所有有效档位，primary选最高已用；同值固定显示顺序，secondary可选次高，仅详情数组为完整列表。
+- CLI原文百分比舍入，展示不补造小数精度。缺重置不推算绝对日期。无quota/未知标题/越界百分比/不完整输出/前后冲突帧必须降级，不能假0或无限额。缓存失败保留最后成功数据及原fetchedAt。
+- 账户状态以可观察CLI结果为依据，无凭据或401授权提示立刻停止、authRequired；API/Vertex模式或403/无quota应unavailable，不能误要求重装/登录。身份未输出就不编造email。安装/登录实际操作本轮禁止，UI官方指南和重试可用；生产user-triggered接入动作另按验证范围。
+- 首期此检查点只实现官方额度，不添加本机历史token聚合。该数据缺失不影响官方额度；不得用活动统计替代额度。
+- Windows owner拥有windows/、contracts/和合同脚本；Swift owner拥有Sources/、Tests/及Swift合同适配。共同schema仍1，可选新字段向后兼容；Gemini unavailable fixture保留，增加真实转录派生的quota fixture。root拥有设计/计划/台账/开发日志与集成。
+- TDD优先正反解析、发现缺失/不可启动、环境覆盖与固定输入、拒绝headless、版本拒绝、noauth/异常/timeout/cancel清理、fresh/cache字段、详情多档位/无数据与settings状态一致。使用合成CLI/账号夹具，不启动用户CLI或真实服务。
