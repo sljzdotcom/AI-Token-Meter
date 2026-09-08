@@ -2,7 +2,7 @@
 
 ## Gemini 验证（未发布）
 
-最终源码的 Windows 前端 109 项、macOS 宿主 Rust 243 项和严格 Clippy、前端构建通过。它们不包含原生 Windows ConPTY 编译/运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
+最终源码的 Windows 前端 109 项、macOS 宿主 Rust 249 项和严格 Clippy、前端构建通过。它们不包含原生 Windows ConPTY 编译/运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
 
 ## 普通测试
 

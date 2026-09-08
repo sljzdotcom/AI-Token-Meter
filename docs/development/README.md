@@ -12,8 +12,8 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-08](2026-09-08-gemini-collector.md) | Gemini CLI额度采集接入 | 实现及定向验证中；包含显式官方CLI测试入口，未作最终交付 |
-| [2026-09-08](2026-09-08-gemini-presentation.md) | Gemini四产品展示、配置迁移与集成回归 | 四按钮阶段通过本地回归；实际额度采集继续实施，012未完成 |
+| [2026-09-08](2026-09-08-gemini-collector.md) | Gemini CLI额度采集接入 | 本地实现、回归与独立审查收尾；原生Windows/真实账号受限，未合并发布 |
+| [2026-09-08](2026-09-08-gemini-presentation.md) | Gemini四产品展示、配置迁移与集成回归 | 四按钮与迁移阶段通过；采集阶段见上一条，012仍受环境限制 |
 | [2026-09-08](2026-09-08-gemini-cli-capability.md) | Gemini CLI 官方额度命令与渲染隔离探测 | /model 合成完整启动链通过；headless stats 会触发模型边界，真实账号与Windows待验 |
 | [2026-09-08](2026-09-08-remove-strip-drag-hint.md) | 两端展开态顶部横线移除 | 保留背景拖动、Provider点击和折叠态竖线；暂不发布 |
 | [2026-09-08](2026-09-08-macos-refresh-interval.md) | macOS 五分钟用量刷新间隔不可修改 | 补原生编辑、保存及重排计时；暂不发布 |

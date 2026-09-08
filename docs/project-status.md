@@ -2,7 +2,7 @@
 
 ## Gemini 未发布源码
 
-第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已实现。Windows 首期仅原生 CLI。当前本地回归为 478 项 Swift、109 项前端、243 项宿主 Rust；真实账号与原生 Windows 尚未验收，不把未发布功能计入下方公开 0.5.1 能力。需求012的最终状态与收尾见[采集日志](development/2026-09-08-gemini-collector.md)和[唯一台账](requirements-backlog.md)。
+第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已实现。Windows 首期仅原生 CLI。当前本地回归为 478 项 Swift、109 项前端、249 项宿主 Rust；真实账号与原生 Windows 尚未验收，不把未发布功能计入下方公开 0.5.1 能力。需求012的最终状态与收尾见[采集日志](development/2026-09-08-gemini-collector.md)和[唯一台账](requirements-backlog.md)。
 
 - **事实快照：** 2026-09-08
 - **产品：** AI Token Meter
