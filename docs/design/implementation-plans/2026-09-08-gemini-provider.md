@@ -29,6 +29,10 @@ assert.equal(actualVisibleQuota, expectedVisibleQuota);
 - [ ] 结论必须区分：已验证无模型调用并可见额度；命令内部刷新但不显示；来源存在而自动采集未证实。若不可行，立即回传根代理；不通过制造模型调用补齐、不直接调私有后端。
 - [ ] 用文档索引链接报告，运行文档检查；提交该任务，独立审查证据和结论。后续采集器仅依赖被验证的路径。
 
+## 共同接口与并行边界
+
+Task2/3独立于Task1的额度结论，先交付可测试的按钮/配置扩展，不能宣称完整Gemini采集。两端统一偏好`schemaVersion: 2`、provider ID `gemini`、全新四项显示、旧记录追加隐藏；没有版本但已经包含gemini的记录保留其显示选择。共享合同新增Gemini unavailable fixture，`usedRatio`和primaryMetric均缺失/null，不混入Demo额度。macOS拥有Swift合同测试，Windows拥有contracts和Ruby合同门禁；二者集成前可以注明共同合同尚未落地的已知依赖，最终必须全部验证。UI阶段Gemini未知账号不可提供实际安装/登录执行按钮，只提供官方文档与重试/状态说明，Task4验证路径后再接真实认证动作。原生widget未作为本轮新功能推广，但枚举编译与旧数据兼容必须通过。
+
 ## Task 2: macOS四产品按钮与偏好迁移
 
 **所有权：** `Sources/`、`Tests/`中Swift实现与测试，Gemini品牌资源；不修改Windows、共享合同和台账。默认数据类型用Gemini枚举，注册阶段缺额度时必须unknown/unavailable且primaryMetric为nil。
