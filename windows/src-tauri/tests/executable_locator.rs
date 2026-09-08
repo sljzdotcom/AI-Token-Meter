@@ -183,6 +183,85 @@ fn cmd_wrapper_requires_the_system_command_interpreter() {
 }
 
 #[test]
+fn official_codex_npm_wrapper_uses_verified_entry_and_separate_node() {
+    let fixture = LocatorFixture::new();
+    let wrapper = fixture.file("User Profile/AppData/Roaming/npm/codex.cmd", "npm wrapper");
+    let package_root = "User Profile/AppData/Roaming/npm/node_modules/@openai/codex";
+    fixture.file(
+        &format!("{package_root}/package.json"),
+        r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+    );
+    let entry = fixture.file(
+        &format!("{package_root}/bin/codex.js"),
+        "console.log('official codex fixture')\n",
+    );
+    let node = fixture.file("Program Files/nodejs/node.exe", "node fixture");
+    let inputs = DiscoveryInputs {
+        custom_path: Some(wrapper),
+        system_registry_paths: vec![parent(&node)],
+        ..fixture.inputs()
+    };
+
+    let candidate = ExecutableLocator::new(inputs)
+        .locate(CliProvider::Codex, |_| true)
+        .expect("verified npm candidate");
+
+    assert_eq!(candidate.executable, canonical(&entry));
+    assert_eq!(candidate.launcher, Some(canonical(&node)));
+    assert_eq!(candidate.origin, CandidateOrigin::Custom);
+}
+
+#[test]
+fn codex_npm_wrapper_is_rejected_without_node_entry_or_official_identity() {
+    for (package_json, create_entry, create_node) in [
+        (
+            r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+            true,
+            false,
+        ),
+        (
+            r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+            false,
+            true,
+        ),
+        (
+            r#"{"name":"untrusted-codex","bin":{"codex":"bin/codex.js"}}"#,
+            true,
+            true,
+        ),
+        (
+            r#"{"name":"@openai/codex","bin":{"codex":"other.js"}}"#,
+            true,
+            true,
+        ),
+    ] {
+        let fixture = LocatorFixture::new();
+        let wrapper = fixture.file("npm location/codex.cmd", "npm wrapper");
+        let package_root = "npm location/node_modules/@openai/codex";
+        fixture.file(&format!("{package_root}/package.json"), package_json);
+        if create_entry {
+            fixture.file(&format!("{package_root}/bin/codex.js"), "fixture");
+        }
+        let mut system_registry_paths = Vec::new();
+        if create_node {
+            let node = fixture.file("Program Files/nodejs/node.exe", "node fixture");
+            system_registry_paths.push(parent(&node));
+        }
+        let inputs = DiscoveryInputs {
+            custom_path: Some(wrapper),
+            system_registry_paths,
+            ..fixture.inputs()
+        };
+
+        assert!(
+            ExecutableLocator::new(inputs)
+                .locate(CliProvider::Codex, |_| true)
+                .is_none()
+        );
+    }
+}
+
+#[test]
 fn wsl_utf16_output_is_normalized_and_arguments_never_use_a_shell_string() {
     let utf16 = "Ubuntu\r\nDebian Test\r\n"
         .encode_utf16()

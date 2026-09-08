@@ -12,6 +12,7 @@ pub mod environment;
 pub mod executable_locator;
 pub mod meter_drag;
 pub mod monitor;
+mod npm_runtime;
 pub mod process;
 pub mod strip_preferences;
 pub mod strip_runtime;

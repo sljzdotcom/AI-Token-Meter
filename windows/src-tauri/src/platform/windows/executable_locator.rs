@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use crate::accounts::cli_account::CliProvider;
 
 use super::environment::DiscoveryInputs;
+use super::npm_runtime::resolve_codex_npm_runtime;
 use super::wsl::{build_wsl_list_invocation, decode_distribution_list};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -45,6 +46,7 @@ pub struct ExecutableLocator {
 }
 
 const MAX_DIRECTORIES_PER_SOURCE: usize = 128;
+pub(super) const MAX_NODE_DIRECTORIES: usize = MAX_DIRECTORIES_PER_SOURCE * 5 + 1;
 const MAX_WSL_DISTRIBUTIONS: usize = 64;
 const SHEBANG_READ_LIMIT: u64 = 256;
 
@@ -248,12 +250,22 @@ impl ExecutableLocator {
             return None;
         }
 
-        let launcher = match executable.extension().and_then(|value| value.to_str()) {
-            Some(extension) if extension.eq_ignore_ascii_case("exe") => None,
-            Some(extension) if extension.eq_ignore_ascii_case("cmd") => {
-                Some(self.command_interpreter()?)
+        let (executable, launcher) = match executable.extension().and_then(|value| value.to_str()) {
+            Some(extension) if extension.eq_ignore_ascii_case("exe") => (executable, None),
+            Some(extension)
+                if extension.eq_ignore_ascii_case("cmd") && provider == CliProvider::Codex =>
+            {
+                let (entry, node) =
+                    resolve_codex_npm_runtime(&executable, self.node_search_directories().iter())?;
+                (entry, Some(node))
             }
-            None if has_env_node_shebang(&executable) => Some(find_node_launcher(&executable)?),
+            Some(extension) if extension.eq_ignore_ascii_case("cmd") => {
+                (executable, Some(self.command_interpreter()?))
+            }
+            None if has_env_node_shebang(&executable) => {
+                let launcher = find_node_launcher(&executable)?;
+                (executable, Some(launcher))
+            }
             _ => return None,
         };
 
@@ -275,6 +287,19 @@ impl ExecutableLocator {
             .canonicalize()
             .ok()?;
         fs::metadata(&path).ok()?.is_file().then_some(path)
+    }
+
+    fn node_search_directories(&self) -> Vec<PathBuf> {
+        [
+            &self.inputs.process_paths,
+            &self.inputs.user_registry_paths,
+            &self.inputs.system_registry_paths,
+            &self.inputs.conventional_paths,
+            &self.inputs.desktop_application_paths,
+        ]
+        .into_iter()
+        .flat_map(|paths| paths.iter().take(MAX_DIRECTORIES_PER_SOURCE).cloned())
+        .collect()
     }
 }
 

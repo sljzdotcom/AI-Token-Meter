@@ -204,6 +204,61 @@ fn interpreter_arguments_remove_windows_extended_path_prefixes() {
 
 #[cfg(windows)]
 #[test]
+fn separated_official_npm_entry_runs_with_node_only_path() {
+    use ai_token_meter_windows::platform::windows::environment::DiscoveryInputs;
+    use ai_token_meter_windows::platform::windows::executable_locator::ExecutableLocator;
+
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let npm_root = directory
+        .path()
+        .join("User Profile")
+        .join("AppData")
+        .join("Roaming")
+        .join("npm");
+    let package_root = npm_root.join("node_modules").join("@openai").join("codex");
+    let node_root = directory.path().join("Program Files").join("nodejs");
+    std::fs::create_dir_all(package_root.join("bin")).expect("package directories");
+    std::fs::create_dir_all(&node_root).expect("Node directory");
+    let wrapper = npm_root.join("codex.cmd");
+    std::fs::write(&wrapper, "fixture wrapper").expect("npm wrapper");
+    std::fs::write(
+        package_root.join("package.json"),
+        r#"{"name":"@openai/codex","bin":{"codex":"bin/codex.js"}}"#,
+    )
+    .expect("package identity");
+    std::fs::write(
+        package_root.join("bin").join("codex.js"),
+        "console.log(JSON.stringify({ marker: 'npm-entry-ran', args: process.argv.slice(2), path: process.env.PATH }))\n",
+    )
+    .expect("Codex entry");
+    let isolated_node = node_root.join("node.exe");
+    std::fs::copy(find_node(), &isolated_node).expect("isolated Node executable");
+
+    let candidate = ExecutableLocator::new(DiscoveryInputs {
+        custom_path: Some(wrapper),
+        system_registry_paths: vec![node_root.clone()],
+        ..Default::default()
+    })
+    .locate(CliProvider::Codex, |_| true)
+    .expect("npm Codex candidate");
+    let invocation = command_for_candidate(&candidate, CliProvider::Codex, &["--version"])
+        .expect("direct Node invocation");
+    let output = runner()
+        .run(ProcessRequest::new(
+            invocation.executable.clone(),
+            invocation.arguments,
+        ))
+        .expect("npm entry executes");
+    let value: serde_json::Value = serde_json::from_str(output.stdout.trim()).expect("entry JSON");
+
+    assert_eq!(invocation.executable, isolated_node.canonicalize().unwrap());
+    assert_eq!(value["marker"], "npm-entry-ran");
+    assert_eq!(value["args"], serde_json::json!(["--version"]));
+    assert_eq!(PathBuf::from(value["path"].as_str().unwrap()), node_root);
+}
+
+#[cfg(windows)]
+#[test]
 fn a_parent_exit_does_not_leave_a_descendant_running() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let sentinel = directory.path().join("descendant-survived");
