@@ -46,6 +46,27 @@ codex --version
 - 路径回归修正 `3955bb2`：完整 PATH 与期望目录规范化后严格相等，保留单目录约束及入口/参数/退出码断言。本机 process_runner 9 项通过，原生 CI 仍需复跑。
 - Task 4：`06b5fe4`，appcast 测试验证每条发布元数据及官方版本对应下载地址，不再固定 0.2.2；5 类损坏数据用例在朴素字段存在性检查变异下均失败，正确契约下通过。本机完整 Swift 420 + PTY 13、全部脚本尾部验证通过。签名仅在该单元测试检查 Base64/64 字节格式，真正资产签名验证仍由既有发布门禁负责。
 - 根任务复跑 Windows 侧本机测试：Rust 220、严格 Clippy/格式、前端 85、生产构建、21 项浏览器生命周期与 632 个文字角色计算样式全部通过。这是 macOS 宿主上的 Windows 代码验证；原生 Windows 复跑与用户账号现场验收分别追踪。
+- 整分支审查发现 REQ-20260908-004：自定义 npm 路径验证成功后，把实际 JS 启动目标存入设置；后续发现因只接受包装器/原生入口而拒绝。必须保留用户选择的规范化包装器路径，与实际启动目标分离，补保存→重载→再次发现回归。合并前处理，不以分段测试通过掩盖集成问题。
+- `ceec724` 的 macOS 原生 CI `34184562223` 已通过；Windows 原生 CI `34184562214` 仍在运行，自定义路径修正后仍需验证新提交。
+- 该轮 Windows CI 随后在严格 Clippy 因初始化命令 Windows 分支的多余 return 失败，尚未进入运行测试；归 REQ-20260908-005。与自定义路径问题放在同一最终修复轮次，保留 lint 门禁和返回错误语义，不使用忽略规则。
 - 完整 Swift 基线发现既有 `stableAppcastContract` 固定断言 0.2.2，更新源滚动为 0.5.0 后三条断言失败；归入 REQ-20260908-002，不能称全套通过。不是本次 Windows 代码引入，也不会通过跳过测试处理。
 
-进行中：已收到路径证据，进入测试驱动修复。该记录不是修复完成或真机通过声明。既有自动化和 0.5.0 发布通过记录仍保留，同时明确其未覆盖本次真实安装方式/初始化路径。
+### 最终修复与复验
+
+`d3c57f2` 保留 CLI 的两种不同身份：设置持久化用户选择的规范化包装器路径，受限进程实际执行经过官方包验证的 JS 入口及独立 Node。没有扩大为任意 JS 文件执行。新增 `saved_official_codex_wrapper_is_rediscovered_after_settings_reload` 覆盖设置序列化、重载和再次发现。
+
+该测试先因缺少独立配置路径接口编译失败，随后额外做行为变异验证：临时恢复旧逻辑、保存 JS 执行目标时，测试在 `rediscovered npm candidate` 处失败；恢复保存包装器后同一测试通过。错误实现未提交。
+
+同一提交将 Windows 初始化命令的多余 `return` 改为等价尾表达式，没有忽略 Clippy；Swift appcast 负例补入合法 Base64 但解码仅 5 字节的签名，继续要求 64 字节格式。该格式断言不替代真正的发布签名验证。
+
+根任务在修复后重跑本机完整 Rust：221 项通过，严格 Clippy、格式检查通过；完整 macOS 420 项主测试、13 项独立 PTY、跨平台合同、发布资产/更新源脚本、180 份文档和公开安全检查通过。原生 Windows 与 macOS 的精确提交复验分别见 [Windows CI 34185344676](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344676) 与 [macOS CI 34185344720](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34185344720)，当前仍待完成。
+
+最终定向复审已逐项确认自定义路径、Windows 条件分支与签名负例修复，无新增 Critical/Important/Minor。根任务再次验证前端 85 项、生产构建、21 项浏览器生命周期和 632 个文字角色计算样式均通过。临时 SDD 报告归档到本机临时目录，不作为第二文档体系；持久证据以本日志、设计/计划、需求台账和 Git 提交为准。
+
+### 原生 CI 终验（2026-09-08）
+
+精确实现提交 `d3c57f2` 的上述两轮 CI 均成功。Windows 原生严格 Clippy、229 项 Rust 测试、85 项前端、21 项浏览器生命周期、632 个文字角色计算样式、NSIS debug 安装包构建、GUI subsystem 检查及产物上传全部通过。两个关键用例 `separated_official_npm_entry_runs_with_node_only_path` 与 `saved_official_codex_wrapper_is_rediscovered_after_settings_reload` 在真实 Windows runner 中通过。
+
+macOS CI 完整验证成功，与本机 420 + 13 项及合同/文档/公开安全门禁结果一致。临时 CI 安装包不等于公开签名 Release，也未接入应用更新源。
+
+实现与自动化验收完成，[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 已按既有授权合入 main，合并提交 `aca64fc`。REQ-20260908-002 至 005 已完成；001 保留受环境限制：没有用户 Windows 远程会话，未操作真实账号或工作区信任，需新版交付后完成现场额度验收。本轮未修改版本号、签名或更新源，公开版仍是 0.5.0。
