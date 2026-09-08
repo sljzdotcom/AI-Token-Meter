@@ -6,6 +6,8 @@
 
 ### 紧凑浮动条（0.3.0 起）
 
+未发布调整：两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
+
 - **Floating strip size**：默认 Compact（78×286），可选 Comfortable（108×356）；隐藏一项时高度自动缩短。原背景和三个Logo保留，切换不改变保存的显示器与位置中心。
 - **Fold when idle**：默认 Never，可选5秒或15秒。折叠成窄把手，移入指针即可展开。操作详情、拖动、刷新和读屏期间不自动折叠。
 - **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order恢复三项和默认顺序。隐藏只影响浮动条，菜单、采集与Widget不受影响。

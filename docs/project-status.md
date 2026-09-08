@@ -13,6 +13,8 @@
 
 **macOS 刷新间隔修复（本分支，暂不发布）：** 已完成原生编辑/明确保存与运行时重排等待，保留限流退避；440项Swift、Release及两阶段审查通过，待协调入口整合。见[开发记录](development/2026-09-08-macos-refresh-interval.md)。
 
+**顶部横线移除（本分支，暂不发布）：** 已批准双平台删除展开态装饰，保留背景拖动及折叠态竖线；[开发记录](development/2026-09-08-remove-strip-drag-hint.md)。
+
 ## 一句话定位
 
 **已合入本地 main（暂不发布）：** 两端新增 Telegram 图标链接，Windows 关于页移除作者整行和可见社交标题；macOS 原作者行保留。协调入口整合复测通过，[开发记录](development/2026-09-08-about-telegram.md)。

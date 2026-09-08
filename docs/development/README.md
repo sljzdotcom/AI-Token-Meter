@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-08](2026-09-08-remove-strip-drag-hint.md) | 两端展开态顶部横线移除 | 保留背景拖动、Provider点击和折叠态竖线；暂不发布 |
 | [2026-09-08](2026-09-08-macos-refresh-interval.md) | macOS 五分钟用量刷新间隔不可修改 | 补原生编辑、保存及重排计时；暂不发布 |
 | [2026-09-08](2026-09-08-about-telegram.md) | 关于页精简与 Telegram 链接 | Windows 删除可见作者文字，两端增加固定 Telegram 入口；暂不发布 |
 | [2026-09-08](2026-09-08-windows-update-notice.md) | Windows 关于页新版提示强调 | 深红色加粗，仅 available 状态；按要求暂不发布 |
