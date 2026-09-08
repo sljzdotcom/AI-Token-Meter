@@ -24,8 +24,8 @@ export class CLIOnboarding {
     try { return await this.invoke("service_account_status", { providerId, retryUsage }) as ServiceAccountStatus }
     catch { return { providerId, connectionState: "unavailable" } }
   }
-  async check(providerId: ProviderId, retryUsage = false) {
-    if (this.isBusy(providerId)) return
+  async check(providerId: ProviderId, retryUsage = false, replacePending = false) {
+    if (this.isBusy(providerId) && !replacePending) return
     const revision = this.next(providerId)
     this.busy.add(providerId); this.changed()
     this.apply({ providerId, connectionState: "checking" })

@@ -354,7 +354,7 @@ export function SettingsWindow({
               >{t("Check Status")}</button>
             </Service>
             <Service name="Gemini CLI" status={serviceStatuses.find(status => status.providerId === "gemini") ?? {providerId: "gemini", connectionState: "unavailable"}}>
-              <small>{t("Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</small>
+              <small>{t("Official quota through Gemini CLI 0.58.0 on native Windows. Use the official CLI guide to set up OAuth, then retry.")}</small>
               <button type="button" aria-label={t("Check Gemini status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
               <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>
             </Service>

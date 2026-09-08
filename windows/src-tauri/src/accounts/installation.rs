@@ -96,6 +96,9 @@ pub fn powershell_script(provider: CliProvider) -> String {
     let url = match provider {
         CliProvider::Claude => "https://claude.ai/install.ps1",
         CliProvider::Codex => "https://chatgpt.com/codex/install.ps1",
+        CliProvider::Gemini => {
+            return "throw 'Gemini installation requires the official guide'".into();
+        }
     };
     format!(
         r#"$ErrorActionPreference = 'Stop'

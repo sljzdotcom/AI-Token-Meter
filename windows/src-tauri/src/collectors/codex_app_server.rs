@@ -287,6 +287,7 @@ pub fn parse_rate_limits_response(
         source_version: Some("codex-app-server".to_owned()),
         status_message: None,
         reset_credits,
+        gemini_quota_metrics: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
         history_fetched_at: None,

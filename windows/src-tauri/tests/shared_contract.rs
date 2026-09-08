@@ -19,7 +19,7 @@ fn every_shared_fixture_decodes_into_the_windows_domain() {
         .collect::<Vec<_>>();
     paths.sort();
 
-    assert_eq!(paths.len(), 5);
+    assert_eq!(paths.len(), 6);
     for path in paths {
         let value: Value =
             serde_json::from_slice(&fs::read(&path).expect("fixture bytes")).expect("fixture json");

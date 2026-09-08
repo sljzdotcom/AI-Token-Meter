@@ -24,6 +24,10 @@ pub fn discover_runtime_cli(
     settings: &ProviderCliSettings,
     cancellation: Arc<CancellationToken>,
 ) -> CliDiscovery {
+    // Gemini version probes must use its preflight environment, never this generic path.
+    if provider == CliProvider::Gemini {
+        return CliDiscovery::Unavailable;
+    }
     discover_runtime_cli_with_inputs(provider, settings, cancellation, discovery_inputs())
 }
 
@@ -111,6 +115,7 @@ fn probe_runtime_candidate(
         let script = match provider {
             CliProvider::Claude => "command -v claude >/dev/null 2>&1",
             CliProvider::Codex => "command -v codex >/dev/null 2>&1",
+            CliProvider::Gemini => return CliProbe::Unavailable,
         };
         let Some(timeout) = budget.next_process_timeout(Duration::from_secs(3)) else {
             return CliProbe::Unavailable;

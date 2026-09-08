@@ -150,6 +150,8 @@ pub struct UsageSnapshot {
     pub primary_metric: Option<UsageMetric>,
     #[serde(default)]
     pub secondary_metric: Option<UsageMetric>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gemini_quota_metrics: Vec<UsageMetric>,
     pub fetched_at: String,
     pub stale_after_seconds: u64,
     #[serde(default)]
@@ -183,6 +185,23 @@ impl UsageSnapshot {
             return Err(UsageDecodeError::new(
                 "staleAfterSeconds must be greater than zero",
             ));
+        }
+        let mut tier_names = std::collections::HashSet::new();
+        if snapshot.gemini_quota_metrics.len() > 3
+            || snapshot.gemini_quota_metrics.iter().any(|metric| {
+                snapshot.provider_id != ProviderId::Gemini
+                    || !["Pro", "Flash", "Flash Lite"].contains(&metric.label.as_str())
+                    || !tier_names.insert(&metric.label)
+                    || !metric.current.is_finite()
+                    || !(0.0..=100.0).contains(&metric.current)
+                    || metric.current.fract() != 0.0
+                    || metric.limit != Some(100.0)
+                    || metric.unit != MetricUnit::Percent
+                    || metric.kind != MetricKind::OfficialLimit
+                    || metric.reset_at.is_some()
+            })
+        {
+            return Err(UsageDecodeError::new("invalid Gemini quota tier"));
         }
         Ok(snapshot)
     }
@@ -240,6 +259,7 @@ impl UsageSnapshot {
                 "Unsupported usage snapshot schema version {schema_version}"
             )),
             reset_credits: Vec::new(),
+            gemini_quota_metrics: Vec::new(),
             local_activity: None,
             daily_history: Vec::new(),
             history_fetched_at: None,

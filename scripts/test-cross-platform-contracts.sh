@@ -46,6 +46,16 @@ grep -Fq "Snapshot schema displayName enum is incomplete" "$TEST_ROOT/schema-mis
 grep -Fq "gemini-unavailable.json: displayName is rejected by snapshot schema" "$TEST_ROOT/schema-missing-gemini.log"
 cp "$TEST_ROOT/original-schema.json" "$snapshot_schema"
 
+quota_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-fresh.json"
+cp "$quota_fixture" "$TEST_ROOT/original-quota.json"
+ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["geminiQuotaMetrics"][0]["current"]=110; File.write(path,JSON.generate(value))' "$quota_fixture"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-invalid-tier.log" 2>&1; then
+    echo "Gemini tier percentages above 100 must be rejected." >&2
+    exit 1
+fi
+grep -Fq "invalid Gemini quota tier" "$TEST_ROOT/gemini-invalid-tier.log"
+cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
+
 gemini_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-unavailable.json"
 cp "$gemini_fixture" "$TEST_ROOT/original-gemini.json"
 ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["displayName"] = "Unknown Product"; File.write(path, JSON.generate(value))' "$gemini_fixture"

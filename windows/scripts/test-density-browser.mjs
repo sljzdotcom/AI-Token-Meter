@@ -33,6 +33,14 @@ await runWithCleanup(async () => {
       throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
     }
   }
+  if (report.geminiSamples?.length !== 8) throw new Error("Missing Gemini detail states")
+  for (const sample of report.geminiSamples) {
+    if (!sample.unclipped || sample.retries !== 1 || sample.guides !== 1 || !sample.reasonVisible
+      || (sample.hasQuota ? sample.texts.length !== 3 || !sample.texts.some(text=>text.includes("Flash Lite") && text.includes("10%")) : sample.texts.some(text=>text.includes("0%")))) {
+      throw new Error(`Gemini detail state mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
+  console.log("Gemini detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
   console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
   console.log(`Browser density styles verified with ${browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {

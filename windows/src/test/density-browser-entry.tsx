@@ -1,3 +1,4 @@
+import geminiFresh from "../../../contracts/fixtures/gemini-fresh.json"
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
 import type { CSSProperties } from "react"
@@ -240,4 +241,30 @@ for (const density of ["compact", "comfortable"] as const) {
     }
   }
 }
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples})
+const geminiSamples = []
+for (const width of [340, 440]) {
+  for (const status of ["fresh", "cached", "authenticationRequired", "unavailable"] as const) {
+    const hasQuota = status === "fresh" || status === "cached"
+    const host = document.createElement("div")
+    host.className = "detail-surface"
+    host.style.cssText = `position:fixed;left:0;top:0;width:${width}px;height:760px;z-index:2147483647`
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    let retries = 0, guides = 0
+    const value: UsageSnapshot = {...geminiFresh, status, providerId:"gemini", fetchedAt:new Date().toISOString(),
+      usedRatio:hasQuota ? .6 : null, primaryMetric:hasQuota ? geminiFresh.primaryMetric as UsageSnapshot["primaryMetric"] : null,
+      secondaryMetric:null, geminiQuotaMetrics:hasQuota ? [...geminiFresh.geminiQuotaMetrics, {...geminiFresh.geminiQuotaMetrics[0],label:"Flash Lite",current:10}] as NonNullable<UsageSnapshot["geminiQuotaMetrics"]> : [],
+      statusMessage:status === "cached" ? "Cached · sign in required" : status === "unavailable" ? "Gemini CLI configuration is not supported" : null}
+    flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={()=>{}} onPointerLeave={()=>{}} onInteractionStart={()=>{}} onInteractionEnd={()=>{}} onCheckGeminiStatus={()=>{retries++}} onOpenGeminiDocumentation={()=>{guides++}} />))
+    const cards = [...host.querySelectorAll<HTMLElement>(".metric-card")]
+    const texts = cards.map(card=>card.textContent ?? "")
+    const bounds = host.getBoundingClientRect()
+    const nodes = [...host.querySelectorAll<HTMLElement>(".metric-card, .service-actions button, footer")]
+    for (const button of host.querySelectorAll<HTMLButtonElement>("button")) button.click()
+    geminiSamples.push({width,status,hasQuota,texts,retries,guides,reasonVisible:status !== "cached" || host.textContent!.includes("Cached · sign in required"),
+      unclipped:nodes.every(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom})})
+    flushSync(()=>sampleRoot.unmount());host.remove()
+  }
+}
+
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})

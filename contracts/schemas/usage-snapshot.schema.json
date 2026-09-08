@@ -61,6 +61,11 @@
       "type": ["string", "null"],
       "maxLength": 240
     },
+    "geminiQuotaMetrics": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/geminiQuotaMetric" }
+    },
     "resetCredits": {
       "type": "array",
       "items": {
@@ -84,6 +89,39 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "geminiQuotaMetric": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metric"
+        }
+      ],
+      "properties": {
+        "label": {
+          "enum": [
+            "Pro",
+            "Flash",
+            "Flash Lite"
+          ]
+        },
+        "current": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "limit": {
+          "const": 100
+        },
+        "unit": {
+          "const": "percent"
+        },
+        "kind": {
+          "const": "officialLimit"
+        },
+        "resetAt": {
+          "type": "null"
+        }
+      }
+    },
     "metric": {
       "type": ["object", "null"],
       "required": ["label", "current", "unit", "kind"],

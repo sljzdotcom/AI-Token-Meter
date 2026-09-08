@@ -876,11 +876,14 @@ async fn service_account_statuses(
     let checked_at = current_timestamp();
     #[cfg(windows)]
     {
-        return Ok(crate::accounts::windows_service::read_all(
-            &checked_at,
-            _state.app_settings_snapshot(),
-        )
-        .await);
+        let mut statuses =
+            crate::accounts::windows_service::read_all(&checked_at, _state.app_settings_snapshot())
+                .await;
+        statuses.retain(|status| status.provider_id != ProviderId::Gemini);
+        statuses.push(crate::collectors::gemini::service_status(
+            &_state.usage.snapshot(ProviderId::Gemini),
+        ));
+        return Ok(statuses);
     }
     #[cfg(not(windows))]
     {
@@ -911,12 +914,16 @@ async fn service_account_status(
     let checked_at = current_timestamp();
     #[cfg(windows)]
     {
-        let status = crate::accounts::windows_service::read_one(
-            provider_id,
-            &checked_at,
-            _state.app_settings_snapshot(),
-        )
-        .await;
+        let status = if provider_id == ProviderId::Gemini {
+            crate::collectors::gemini::service_status(&_state.usage.snapshot(ProviderId::Gemini))
+        } else {
+            crate::accounts::windows_service::read_one(
+                provider_id,
+                &checked_at,
+                _state.app_settings_snapshot(),
+            )
+            .await
+        };
         if _retry_usage {
             _state
                 .refresh_coordinator

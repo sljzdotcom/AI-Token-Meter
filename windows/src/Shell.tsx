@@ -298,8 +298,7 @@ export function DetailSurface() {
         onInteractionEnd={() => setPaused(false)}
         onInteractionStart={() => setPaused(true)}
         onCheckGeminiStatus={() => {
-          void invoke<ServiceAccountStatus>("service_account_status", {providerId: "gemini", retryUsage: false})
-            .then(status => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: status.accountDetail ?? "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked."} : current))
+          void invoke<ServiceAccountStatus>("service_account_status", {providerId: "gemini", retryUsage: true})
             .catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "Gemini status could not be checked. Try again."} : current))
         }}
         onOpenGeminiDocumentation={() => {
@@ -406,10 +405,15 @@ function SettingsSurface() {
   }, [])
   useEffect(() => {
     let disposed = false
+    let stop: (() => void) | undefined
     const refresh = () => { if (!disposed) for (const provider of ["claude", "codex", "deepseek", "gemini"] as const) void onboarding.check(provider, false) }
     refresh()
+    // Read the collector's new result, including when an older status read is pending.
+    void listen<UsageSnapshot>("snapshot-updated", event => {
+      if (!disposed && event.payload.providerId === "gemini") void onboarding.check("gemini", false, true)
+    }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(() => {})
     window.addEventListener("focus", refresh)
-    return () => { disposed = true; window.removeEventListener("focus", refresh); onboarding.dispose() }
+    return () => { disposed = true; stop?.(); window.removeEventListener("focus", refresh); onboarding.dispose() }
   }, [onboarding])
   const applyServiceStatus = (status: ServiceAccountStatus) => {
     setServiceStatuses((current) => [

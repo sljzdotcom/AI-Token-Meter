@@ -846,7 +846,7 @@ describe("Windows meter interface", () => {
   })
 })
 
-it("Gemini detail invokes only status and fixed documentation actions and reports failures", async () => {
+it("Gemini detail requests quota retry and fixed documentation actions without installation or sign-in", async () => {
   const gemini: UsageSnapshot = {schemaVersion:1,providerId:"gemini",displayName:"Gemini",status:"unavailable",usedRatio:null,primaryMetric:null,fetchedAt:"2026-09-08T00:00:00Z",staleAfterSeconds:300}
   const calls: string[] = []
   tauri.invoke.mockImplementation(command => {
@@ -862,7 +862,7 @@ it("Gemini detail invokes only status and fixed documentation actions and report
   expect(screen.getByText("Gemini CLI")).toBeVisible()
   fireEvent.click(screen.getByRole("button", {name:"Check Gemini status"}))
   expect(await screen.findByText("Gemini status could not be checked. Try again.")).toBeVisible()
-  expect(tauri.invoke).toHaveBeenCalledWith("service_account_status", {providerId:"gemini",retryUsage:false})
+  expect(tauri.invoke).toHaveBeenCalledWith("service_account_status", {providerId:"gemini",retryUsage:true})
   fireEvent.click(screen.getByRole("button", {name:"Gemini CLI documentation"}))
   expect(await screen.findByText("The documentation could not be opened.")).toBeVisible()
   expect(calls).not.toContain("begin_service_sign_in")

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use crate::accounts::cli_account::CliProvider;
 
 use super::environment::DiscoveryInputs;
-use super::npm_runtime::resolve_codex_npm_runtime;
+use super::npm_runtime::resolve_provider_npm_runtime;
 use super::wsl::{build_wsl_list_invocation, decode_distribution_list};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -265,10 +265,12 @@ impl ExecutableLocator {
                     (selected_path.clone(), None)
                 }
                 Some(extension)
-                    if extension.eq_ignore_ascii_case("cmd") && provider == CliProvider::Codex =>
+                    if extension.eq_ignore_ascii_case("cmd")
+                        && matches!(provider, CliProvider::Codex | CliProvider::Gemini) =>
                 {
-                    let (entry, node) = resolve_codex_npm_runtime(
+                    let (entry, node) = resolve_provider_npm_runtime(
                         &selected_path,
+                        provider,
                         self.node_search_directories().iter(),
                     )?;
                     (entry, Some(node))

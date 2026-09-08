@@ -92,6 +92,7 @@ pub fn launch_login(
     let invocation = match provider {
         CliProvider::Claude => claude_login_command(&candidate),
         CliProvider::Codex => codex_login_command(&candidate),
+        CliProvider::Gemini => return Err("Gemini sign-in requires the official CLI guide"),
     }
     .map_err(|_| "The sign-in command could not be prepared")?;
     let mut command = Command::new(&invocation.executable);
@@ -186,6 +187,7 @@ pub fn open_installation_guide(provider: CliProvider) -> Result<(), &'static str
     let url = match provider {
         CliProvider::Claude => "https://code.claude.com/docs/en/setup",
         CliProvider::Codex => "https://learn.chatgpt.com/docs/codex/cli",
+        CliProvider::Gemini => "https://geminicli.com/docs/get-started/authentication/",
     };
     let root =
         std::env::var_os("SystemRoot").ok_or("The installation guide could not be opened")?;
@@ -209,6 +211,9 @@ fn read_cli_status(
     let provider_id = match provider {
         CliProvider::Claude => ProviderId::Claude,
         CliProvider::Codex => ProviderId::Codex,
+        CliProvider::Gemini => {
+            return ServiceAccountStatus::unavailable(ProviderId::Gemini, checked_at);
+        }
     };
     let candidate = match discover_account_cli(provider, configuration) {
         CliDiscovery::Found(candidate) => candidate,
@@ -226,6 +231,9 @@ fn read_cli_status(
     let status = match provider {
         CliProvider::Claude => read_claude_status(&candidate, checked_at),
         CliProvider::Codex => read_codex_status(&candidate, checked_at),
+        CliProvider::Gemini => {
+            return ServiceAccountStatus::unavailable(ProviderId::Gemini, checked_at);
+        }
     }
     .unwrap_or_else(|| ServiceAccountStatus::unavailable(provider_id, checked_at));
     status.with_runtime(&candidate.source, version)

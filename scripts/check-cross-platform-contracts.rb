@@ -188,7 +188,7 @@ if presentation
 end
 
 fixture_paths = (root + "contracts/fixtures").glob("*.json").sort
-errors << "Expected exactly five shared snapshot fixtures" unless fixture_paths.length == 5
+errors << "Expected exactly six shared snapshot fixtures" unless fixture_paths.length == 6
 errors << "Missing Gemini unavailable fixture" unless fixture_paths.any? { |path| path.basename.to_s == "gemini-unavailable.json" }
 fixture_paths.each do |path|
   fixture = read_json(path, errors)
@@ -207,6 +207,24 @@ fixture_paths.each do |path|
       !(fixture["providerId"] == "gemini" && fixture["status"] == "unavailable" &&
         fixture["usedRatio"].nil? && fixture["primaryMetric"].nil? && fixture["secondaryMetric"].nil?)
     errors << "Gemini unavailable fixture must not invent quota"
+  end
+  tiers = fixture["geminiQuotaMetrics"]
+  if tiers
+    valid = fixture["providerId"] == "gemini" && tiers.is_a?(Array) && tiers.length <= 3 && tiers.all? { |item| item.is_a?(Hash) }
+    valid &&= tiers.map { |item| item["label"] }.uniq.length == tiers.length
+    valid &&= tiers.all? do |item|
+      current = item["current"]
+      Array(schema&.dig("$defs", "geminiQuotaMetric", "properties", "label", "enum")).include?(item["label"]) &&
+        current.is_a?(Numeric) && current.finite? && current == current.to_i && current.between?(0, 100) &&
+        item["limit"] == 100 && item["unit"] == "percent" && item["kind"] == "officialLimit" && item["resetAt"].nil?
+    end
+    errors << "#{path.basename}: invalid Gemini quota tier" unless valid
+  end
+  if path.basename.to_s == "gemini-fresh.json"
+    unless tiers&.map { |item| [item["label"], item["current"]] } == [["Pro", 25], ["Flash", 60]] &&
+        fixture.dig("primaryMetric", "label") == "Flash" && fixture["usedRatio"] == 0.6
+      errors << "Gemini fresh fixture must preserve the official synthetic transcript tiers"
+    end
   end
   ratio = fixture["usedRatio"]
   unless ratio.nil? || (ratio.is_a?(Numeric) && ratio.finite? && ratio.between?(0, 1))

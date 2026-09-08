@@ -60,8 +60,10 @@ export function ProviderDetail({
       <section aria-label={t("Official quota")} className="detail-section">
         <h2>{t("Official quota")}</h2>
         <div className="metric-grid">
-          {snapshot.primaryMetric ? <MetricCard metric={snapshot.primaryMetric} /> : <UnavailableCard status={snapshot.status} />}
-          {snapshot.secondaryMetric ? <MetricCard metric={snapshot.secondaryMetric} /> : null}
+          {snapshot.providerId === "gemini" && snapshot.geminiQuotaMetrics?.length
+            ? snapshot.geminiQuotaMetrics.map(metric => <MetricCard key={metric.label} metric={metric} />)
+            : <>{snapshot.primaryMetric ? <MetricCard metric={snapshot.primaryMetric} /> : <UnavailableCard status={snapshot.status} />}
+              {snapshot.secondaryMetric ? <MetricCard metric={snapshot.secondaryMetric} /> : null}</>}
         </div>
       </section>
 
@@ -100,7 +102,8 @@ export function ProviderDetail({
         </section>
       ) : null}
 
-      {snapshot.providerId === "gemini" && !snapshot.primaryMetric && <p>{t(snapshot.statusMessage ?? "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
+      {snapshot.providerId === "gemini" && (snapshot.statusMessage || !snapshot.primaryMetric) && <p>{t(snapshot.statusMessage ?? "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
+      {snapshot.providerId === "gemini" && snapshot.sourceVersion && <p>Gemini CLI {snapshot.sourceVersion} · /model · {t("Official quota")}</p>}
       {snapshot.providerId === "gemini" && <div className="service-actions">
         {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Gemini status")}</button>}
         {onOpenGeminiDocumentation && <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>}

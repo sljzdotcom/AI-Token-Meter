@@ -27,6 +27,7 @@ export type UsageSnapshot = {
   usedRatio?: number | null
   primaryMetric?: UsageMetric | null
   secondaryMetric?: UsageMetric | null
+  geminiQuotaMetrics?: UsageMetric[]
   fetchedAt: string
   staleAfterSeconds: number
   sourceVersion?: string | null

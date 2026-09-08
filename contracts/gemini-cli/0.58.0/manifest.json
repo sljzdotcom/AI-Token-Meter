@@ -1,0 +1,45 @@
+{
+  "cliVersion": "0.58.0",
+  "fixtures": {
+    "authenticated-untrusted.ansi.txt": {
+      "sha256": "b0fd7549f15b5c229154117b5492601cf18eb4a41a4af842f9aff6be2676c12c",
+      "bytes": 69686
+    },
+    "untrusted-ready.ansi.txt": {
+      "sha256": "f3873ccf20ce8036a9980172b1bd38649d6d010e1fe1ee81398d489749358d47",
+      "bytes": 3677
+    },
+    "missing-auth.ansi.txt": {
+      "sha256": "872c4ea162489ca7578fb0d9db3eb956e553ac23c1013656602de12e37af985c",
+      "bytes": 220
+    },
+    "quota-failure.ansi.txt": {
+      "sha256": "9e5892fae7d1852676cff1927786a654588c917a782e79a8eb7f7316c90e5826",
+      "bytes": 62097
+    },
+    "authenticated-untrusted-model-open.ansi.txt": {
+      "sha256": "f99a733872f6a74c98d1efe46fee9e7c3e55e09c97581dbaa1102aa1f9b8878a",
+      "bytes": 40069
+    },
+    "ready.ansi.txt": {
+      "sha256": "32e9e1c90a6e9bf561f8c88c925771a14ab7cfe20300eb701711021af3709743",
+      "bytes": 3428
+    },
+    "quota-failure-model-open.ansi.txt": {
+      "sha256": "82634b513ef23a6e575c7dbf7555e84f2279ad745433848e8efd5abaead19e87",
+      "bytes": 37469
+    },
+    "authenticated-model-open.ansi.txt": {
+      "sha256": "5bacff58eaf8c2e879c06322f93be2844d73525b7c67dd02892b91c93febb01e",
+      "bytes": 38965
+    },
+    "authenticated.ansi.txt": {
+      "sha256": "39dab36740e0b9fd29692a448a2738795b42d35765f038842bb79ec97c583955",
+      "bytes": 108009
+    },
+    "invalid-auth.ansi.txt": {
+      "sha256": "872c4ea162489ca7578fb0d9db3eb956e553ac23c1013656602de12e37af985c",
+      "bytes": 220
+    }
+  }
+}
