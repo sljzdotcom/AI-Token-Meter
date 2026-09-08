@@ -139,12 +139,21 @@ function assertDensity(report) {
       if (sample.fontFamily !== available.fontFamily) throw new Error(`${locale} ${sample.phase} changed update status font family`)
     }
   }
-  if (report.aboutSamples.length !== 4) throw new Error("Missing bilingual wide and narrow About samples")
-  if (report.aboutCopySamples.length !== 2 || report.aboutCopySamples.some(sample => sample.authorVisible || sample.headingVisible)) {
-    throw new Error("The native-size About panel restored removed visible author copy")
-  }
   const expectedLabels = ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"]
   const expectedHrefs = ["https://twitter.com/MillerPanYue", "https://github.com/sljzdotcom/AI-Token-Meter", "https://t.me/sljzdotcom"]
+  if (report.aboutSamples.length !== 4) throw new Error("Missing bilingual wide and narrow About samples")
+  if (report.aboutCopySamples.length !== 2
+    || new Set(report.aboutCopySamples.map(sample => sample.locale)).size !== 2
+    || report.aboutCopySamples.some(sample =>
+    !["en", "zh-CN"].includes(sample.locale)
+    || sample.authorVisible
+    || sample.headingVisible
+    || sample.linkCount !== 3
+    || JSON.stringify(sample.labels) !== JSON.stringify(expectedLabels)
+    || JSON.stringify(sample.hrefs) !== JSON.stringify(expectedHrefs)
+  )) {
+    throw new Error("The native-size About panel restored removed visible author copy")
+  }
   for (const sample of report.aboutSamples) {
     if (JSON.stringify(sample.labels) !== JSON.stringify(expectedLabels)) throw new Error(`${sample.locale}/${sample.width} About labels changed`)
     if (JSON.stringify(sample.hrefs) !== JSON.stringify(expectedHrefs)) throw new Error(`${sample.locale}/${sample.width} About targets changed`)

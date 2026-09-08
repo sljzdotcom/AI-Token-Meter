@@ -132,7 +132,7 @@ const updateStates: UpdateState[] = [
 ]
 const updateSamples: Array<{locale: string; phase: UpdateState["phase"]; color: string; fontFamily: string; fontWeight: string; fontSize: string}> = []
 const aboutSamples: Array<{locale: string; width: number; labels: string[]; hrefs: Array<string | null>; groupName: string | null; authorVisible: boolean; headingVisible: boolean; rows: number; equalHeights: boolean; unclipped: boolean; iconSizes: Array<[number, number]>}> = []
-const aboutCopySamples: Array<{locale: string; authorVisible: boolean; headingVisible: boolean}> = []
+const aboutCopySamples: Array<{locale: string; authorVisible: boolean; headingVisible: boolean; labels: string[]; hrefs: Array<string | null>; linkCount: number}> = []
 for (const locale of ["en", "zh-CN"] as const) {
   flushSync(() => setLocale(locale))
   for (const updateState of updateStates) {
@@ -154,10 +154,14 @@ for (const locale of ["en", "zh-CN"] as const) {
   flushSync(() => settingsRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" />))
   flushSync(() => settingsHost.querySelectorAll<HTMLElement>('[role="tab"]')[3].click())
   const settingsGroup = settingsHost.querySelector<HTMLElement>(".author-links")!
+  const settingsLinks = [...settingsGroup.querySelectorAll<HTMLAnchorElement>("a")]
   aboutCopySamples.push({
     locale,
     authorVisible: (settingsHost.textContent ?? "").includes(locale === "en" ? "Author · Miller" : "作者 · Miller"),
     headingVisible: [...settingsGroup.children].some(child => child.tagName === "SMALL"),
+    labels: settingsLinks.map(link => link.textContent?.trim() ?? ""),
+    hrefs: settingsLinks.map(link => link.getAttribute("href")),
+    linkCount: settingsLinks.length,
   })
   flushSync(() => settingsRoot.unmount())
   settingsHost.remove()
