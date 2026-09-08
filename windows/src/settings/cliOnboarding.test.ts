@@ -3,6 +3,43 @@ import { CLIOnboarding, serviceAction } from "./cliOnboarding"
 import type { ServiceAccountStatus } from "./SettingsWindow"
 
 describe("CLI onboarding", () => {
+  it("only an explicit status check requests a quota retry", async () => {
+    const calls: Array<{command: string; retryUsage?: boolean}> = []
+    const controller = new CLIOnboarding(async (command, args) => {
+      calls.push({command, retryUsage: args.retryUsage})
+      return {providerId: args.providerId, connectionState: "connected"}
+    }, () => {}, () => {}, () => {})
+    await controller.check("claude")
+    await controller.check("claude", true)
+    expect(calls).toEqual([
+      {command: "service_account_status", retryUsage: false},
+      {command: "service_account_status", retryUsage: true},
+    ])
+  })
+  it("initialization is available for a connected Claude account and waits for manual checking", async () => {
+    const commands: string[] = []
+    const messages: string[] = []
+    const controller = new CLIOnboarding(async (command, args) => {
+      commands.push(command)
+      if (command === "service_account_status") return {providerId: args.providerId, connectionState: "connected", accountLabel: "kept"}
+      if (command === "begin_claude_usage_initialization") return null
+      throw Error("unexpected command")
+    }, () => {}, value => messages.push(value), () => {})
+    await controller.initializeClaudeUsage()
+    expect(commands).toEqual(["service_account_status", "begin_claude_usage_initialization"])
+    expect(messages).toEqual(["Complete Claude Code workspace setup in Terminal, then choose Check Status."])
+    expect(controller.isBusy("claude")).toBe(false)
+  })
+  it("initialization failure clears busy state and gives retry instructions", async () => {
+    const messages: string[] = []
+    const controller = new CLIOnboarding(async command => {
+      if (command === "service_account_status") return {providerId: "claude", connectionState: "connected"}
+      throw Error("fixture")
+    }, () => {}, value => messages.push(value), () => {})
+    await controller.initializeClaudeUsage()
+    expect(messages.at(-1)).toBe("The Claude Code setup window could not be opened. Choose Check Status or retry initialization.")
+    expect(controller.isBusy("claude")).toBe(false)
+  })
   it("missing invites installation, unavailable retries, connected stays neutral", () => {
     expect(serviceAction("notInstalled", false)).toEqual({ title: "Install CLI", attention: true, disabled: false })
     expect(serviceAction("unavailable", false)).toEqual({ title: "Check Status", attention: false, disabled: false })

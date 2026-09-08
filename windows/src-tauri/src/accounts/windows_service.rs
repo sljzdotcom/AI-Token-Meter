@@ -9,6 +9,7 @@ use crate::accounts::service_status::{
 use crate::collectors::codex_app_server::collect_account_status_from_invocation;
 use crate::domain::ProviderId;
 use crate::persistence::{AppSettings, ProviderCliSettings};
+use crate::platform::windows::claude_workspace::ClaudeUsageWorkspace;
 use crate::platform::windows::credential_manager::WindowsCredentialManager;
 use crate::platform::windows::process::{
     BoundedProcessRunner, CancellationToken, ProcessRequest, command_for_candidate,
@@ -105,6 +106,53 @@ pub fn launch_login(
         .map_err(|_| "The sign-in window could not be opened")
 }
 
+pub fn launch_claude_usage_initialization(
+    configuration: &ProviderCliSettings,
+) -> Result<(), &'static str> {
+    use std::os::windows::process::CommandExt;
+
+    let candidate = match discover_account_cli(CliProvider::Claude, configuration) {
+        CliDiscovery::Found(candidate) => candidate,
+        CliDiscovery::Missing => return Err("CLI is not installed"),
+        CliDiscovery::Unavailable | CliDiscovery::Cancelled => {
+            return Err("CLI is temporarily unavailable");
+        }
+    };
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let workspace = ClaudeUsageWorkspace::for_candidate(&candidate, &local_app_data);
+    if let Some(directory) = workspace.working_directory() {
+        std::fs::create_dir_all(directory)
+            .map_err(|_| "The private workspace could not be created")?;
+    } else if let Some(invocation) = workspace.prepare_command() {
+        let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
+        request.timeout = Duration::from_secs(3);
+        request.max_output_bytes = 4 * 1024;
+        let output = BoundedProcessRunner
+            .run(request)
+            .map_err(|_| "The private workspace could not be created")?;
+        if output.exit_code != Some(0) {
+            return Err("The private workspace could not be created");
+        }
+    }
+    let invocation = workspace
+        .setup_command(&candidate)
+        .map_err(|_| "The initialization command could not be prepared")?;
+    let mut command = Command::new(&invocation.executable);
+    configure_restricted_command(&mut command, &invocation.executable);
+    command
+        .args(&invocation.arguments)
+        .creation_flags(CREATE_NEW_CONSOLE);
+    if let Some(directory) = workspace.working_directory() {
+        command.current_dir(directory);
+    }
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| "The Claude Code setup window could not be opened")
+}
+
 pub fn launch_installation(
     provider: CliProvider,
     configuration: &ProviderCliSettings,
@@ -196,17 +244,35 @@ fn read_claude_status(
     candidate: &crate::platform::windows::executable_locator::ExecutableCandidate,
     checked_at: &str,
 ) -> Option<ServiceAccountStatus> {
-    let invocation = command_for_candidate(
-        candidate,
-        CliProvider::Claude,
-        &["auth", "status", "--json"],
-    )
-    .ok()?;
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let workspace = ClaudeUsageWorkspace::for_candidate(candidate, &local_app_data);
+    prepare_claude_workspace(&workspace)?;
+    let invocation = workspace
+        .command(candidate, &["auth", "status", "--json"])
+        .ok()?;
     let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
+    request.working_directory = workspace.working_directory().map(std::path::Path::to_owned);
     request.timeout = Duration::from_secs(5);
     request.max_output_bytes = 32 * 1024;
     let output = BoundedProcessRunner.run(request).ok()?;
     parse_claude_auth_status(&format!("{}\n{}", output.stdout, output.stderr), checked_at).ok()
+}
+
+fn prepare_claude_workspace(workspace: &ClaudeUsageWorkspace) -> Option<()> {
+    if let Some(directory) = workspace.working_directory() {
+        return std::fs::create_dir_all(directory).ok();
+    }
+    let invocation = workspace.prepare_command()?;
+    let mut request = ProcessRequest::new(invocation.executable, invocation.arguments);
+    request.timeout = Duration::from_secs(3);
+    request.max_output_bytes = 4 * 1024;
+    BoundedProcessRunner
+        .run(request)
+        .ok()
+        .filter(|output| output.exit_code == Some(0))
+        .map(|_| ())
 }
 
 fn read_codex_status(

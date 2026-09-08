@@ -398,7 +398,7 @@ function SettingsSurface() {
   }, [])
   useEffect(() => {
     let disposed = false
-    const refresh = () => { if (!disposed) for (const provider of ["claude", "codex", "deepseek"] as const) void onboarding.check(provider) }
+    const refresh = () => { if (!disposed) for (const provider of ["claude", "codex", "deepseek"] as const) void onboarding.check(provider, false) }
     refresh()
     window.addEventListener("focus", refresh)
     return () => { disposed = true; window.removeEventListener("focus", refresh); onboarding.dispose() }
@@ -410,7 +410,7 @@ function SettingsSurface() {
     ])
   }
   const checkServiceStatus = (providerId: ProviderId) => {
-    void onboarding.check(providerId)
+    void onboarding.check(providerId, true)
   }
   useEffect(() => {
     let disposed = false
@@ -493,6 +493,7 @@ function SettingsSurface() {
       busyServices={(["claude", "codex", "deepseek"] as const).filter(provider => onboarding.isBusy(provider))}
       onBeginServiceSignIn={provider => { void onboarding.begin(provider, "login") }}
       onBeginServiceInstallation={provider => { void onboarding.begin(provider, "install") }}
+      onInitializeClaudeUsage={() => { void onboarding.initializeClaudeUsage() }}
       onOpenInstallationGuide={providerId => { void invoke("open_service_installation_guide", {providerId}).catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onReplaceDeepSeekKey={async () => {
         setServiceMessage("Open the protected Windows prompt to replace the API Key.")

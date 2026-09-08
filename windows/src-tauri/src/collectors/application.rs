@@ -56,6 +56,14 @@ pub fn start(app: &AppHandle) {
 }
 
 pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
+    trigger_selected(app, priority, None);
+}
+
+pub fn trigger_provider(app: &AppHandle, provider: ProviderId, priority: RefreshPriority) {
+    trigger_selected(app, priority, Some(provider));
+}
+
+fn trigger_selected(app: &AppHandle, priority: RefreshPriority, selected: Option<ProviderId>) {
     let state = app.state::<RuntimeState>();
     let runtime = Arc::clone(&state.usage);
     let coordinator = Arc::clone(&state.refresh_coordinator);
@@ -66,6 +74,7 @@ pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
         let generations = Arc::new(Mutex::new(HashMap::new()));
         let requests = build_requests(&runtime, &settings)
             .into_iter()
+            .filter(|request| selected.is_none_or(|provider| request.provider() == provider))
             .map(|request| {
                 let provider = request.provider();
                 let runtime = Arc::clone(&runtime);
@@ -141,7 +150,7 @@ fn build_requests(
     runtime: &Arc<crate::persistence::UsageRuntime>,
     settings: &AppSettings,
 ) -> Vec<ProviderRefreshRequest> {
-    let working_directory = user_profile().unwrap_or_else(std::env::temp_dir);
+    let working_directory = claude_usage_workspace();
     let claude_settings = settings.claude_cli.clone();
     let codex_settings = settings.codex_cli.clone();
     let credentials = Arc::new(WindowsCredentialManager::new());
@@ -344,6 +353,14 @@ fn activity_window() -> (i64, i64) {
 
 fn user_profile() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE").map(PathBuf::from)
+}
+
+fn claude_usage_workspace() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("AI Token Meter")
+        .join("ClaudeUsageWorkspace")
 }
 
 fn now_rfc3339() -> String {

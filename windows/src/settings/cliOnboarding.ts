@@ -2,7 +2,7 @@ import type { ProviderId } from "../state/usage"
 import type { ServiceAccountStatus } from "./SettingsWindow"
 
 type CLIProvider = "claude" | "codex"
-type Invoke = (command: string, args: { providerId: ProviderId }) => Promise<unknown>
+type Invoke = (command: string, args: { providerId: ProviderId; retryUsage?: boolean }) => Promise<unknown>
 
 export function serviceAction(state: ServiceAccountStatus["connectionState"], busy: boolean) {
   return {
@@ -20,18 +20,37 @@ export class CLIOnboarding {
   isBusy(provider: ProviderId) { return this.busy.has(provider) }
   dispose() { for (const p of ["claude", "codex", "deepseek"] as const) this.next(p); this.busy.clear() }
   private next(provider: ProviderId) { const n = (this.revisions.get(provider) ?? 0) + 1; this.revisions.set(provider, n); return n }
-  private async read(providerId: ProviderId): Promise<ServiceAccountStatus> {
-    try { return await this.invoke("service_account_status", { providerId }) as ServiceAccountStatus }
+  private async read(providerId: ProviderId, retryUsage = false): Promise<ServiceAccountStatus> {
+    try { return await this.invoke("service_account_status", { providerId, retryUsage }) as ServiceAccountStatus }
     catch { return { providerId, connectionState: "unavailable" } }
   }
-  async check(providerId: ProviderId) {
+  async check(providerId: ProviderId, retryUsage = false) {
     if (this.isBusy(providerId)) return
     const revision = this.next(providerId)
     this.busy.add(providerId); this.changed()
     this.apply({ providerId, connectionState: "checking" })
-    const status = await this.read(providerId)
+    const status = await this.read(providerId, retryUsage)
     if (this.revisions.get(providerId) !== revision) return
     this.apply(status); this.busy.delete(providerId); this.changed()
+  }
+  async initializeClaudeUsage() {
+    const providerId = "claude" as const
+    if (this.isBusy(providerId)) return
+    const revision = this.next(providerId)
+    const current = () => this.revisions.get(providerId) === revision
+    this.busy.add(providerId); this.changed()
+    try {
+      const status = await this.read(providerId)
+      if (!current()) return
+      this.apply(status)
+      if (status.connectionState !== "connected") return
+      await this.invoke("begin_claude_usage_initialization", {providerId})
+      if (current()) this.message("Complete Claude Code workspace setup in Terminal, then choose Check Status.")
+    } catch {
+      if (current()) this.message("The Claude Code setup window could not be opened. Choose Check Status or retry initialization.")
+    } finally {
+      if (current()) { this.busy.delete(providerId); this.changed() }
+    }
   }
   async begin(providerId: CLIProvider, kind: "install" | "login") {
     if (this.isBusy(providerId)) return

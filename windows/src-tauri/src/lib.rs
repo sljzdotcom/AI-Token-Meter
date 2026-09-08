@@ -904,7 +904,9 @@ async fn service_account_statuses(
 
 #[tauri::command]
 async fn service_account_status(
+    _app: tauri::AppHandle,
     provider_id: ProviderId,
+    _retry_usage: bool,
     _state: State<'_, RuntimeState>,
 ) -> Result<crate::accounts::service_status::ServiceAccountStatus, String> {
     let checked_at = current_timestamp();
@@ -916,13 +918,15 @@ async fn service_account_status(
             _state.app_settings_snapshot(),
         )
         .await;
-        if provider_id != ProviderId::DeepSeek
-            && status.connection_state
-                == crate::accounts::service_status::ServiceAccountConnectionState::Connected
-        {
+        if _retry_usage {
             _state
                 .refresh_coordinator
-                .clear_authentication_backoff(provider_id);
+                .clear_manual_retry_backoff(provider_id);
+            crate::collectors::application::trigger_provider(
+                &_app,
+                provider_id,
+                crate::collectors::refresh::RefreshPriority::Manual,
+            );
         }
         Ok(status)
     }
@@ -934,6 +938,28 @@ async fn service_account_status(
                 &checked_at,
             ),
         )
+    }
+}
+
+#[tauri::command]
+fn begin_claude_usage_initialization(
+    provider_id: ProviderId,
+    _state: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    if provider_id != ProviderId::Claude {
+        return Err("Only Claude Code uses the private usage workspace".to_owned());
+    }
+    #[cfg(windows)]
+    {
+        let settings = _state.app_settings_snapshot();
+        return crate::accounts::windows_service::launch_claude_usage_initialization(
+            &settings.claude_cli,
+        )
+        .map_err(str::to_owned);
+    }
+    #[cfg(not(windows))]
+    {
+        Err("Claude Code usage initialization is available in the Windows app".to_owned())
     }
 }
 
@@ -1302,6 +1328,7 @@ pub fn run() {
             service_account_statuses,
             service_account_status,
             begin_service_sign_in,
+            begin_claude_usage_initialization,
             begin_service_installation,
             open_service_installation_guide,
             replace_deepseek_api_key,

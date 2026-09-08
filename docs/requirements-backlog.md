@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260908-003 | Windows 回归测试 | npm/Node 原生回归已执行入口，但 PATH 断言将 Windows 长路径与同一目录的 8.3 短路径直接按字符串比较而失败 | 高 | 待处理 | 2026-09-08 | 在 Task 3 后规范化期望目录进行严格比较；保留 PATH 仅含一个 Node 目录、入口/参数与退出码断言，不跳过测试 | [Windows CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34183253409)；process_runner.rs:257，10 通过/1 失败 |
 | REQ-20260908-002 | 发布测试回归 | 完整验证发现 appcast 测试固定要求旧版 0.2.2，更新源滚动移除旧项后失败；改为验证真实发布条目的版本、签名与下载路径契约 | 中 | 待处理 | 2026-09-08 | 本机 419 项中的 1 项/3 断言失败，先完成 Windows 修复后处理；不改更新源、不跳过签名/路径校验 | `SoftwareUpdatePackagingTests.stableAppcastContract`；验收：当前有效更新源通过，损坏版本/签名/下载路径失败 |
 | REQ-20260908-001 | Windows CLI 采集缺陷 | 用户已在终端登录 Claude Code 和 OpenAI Codex，但详情分别显示需要设置/未安装；Settings 已识别 Claude 原生 CLI 2.1.263 及账号，Codex 账户状态暂不可用。核对发现、登录、采集路径和错误展示不一致，恢复正常额度显示 | 高 | 进行中 | 2026-09-08 | 用户已补 Codex 0.153.4、npm shim 与独立 Node 安装路径，符合受限 PATH 失败条件；进入测试驱动修复：显式 npm/Node 启动、统一检测状态、Claude 隔离工作区初始化入口；不重装/重复登录/自动信任 | [调查日志](development/2026-09-08-windows-cli-post-login.md)；验收：相同已登录 CLI 能被定位并采集，失败显示真实可操作原因，自动化与 Windows 专项验证有证据 |
 | REQ-20260907-011 | 双平台更新发布 | 发布包含 CLI 安装/登录引导、Windows 页签/顶部 Logo 与双平台 About 社交链接的新稳定版，让各台机器通过应用内检查更新安装 | 高 | 已完成 | 2026-09-07 | 2026-09-07 完成：0.5.0/build13 已公开为 latest；双平台 CI、签名资产、匿名 SHA-256/签名和三个更新入口全部通过；不改变账号或设置，真机受限项独立保留 | [计划](design/implementation-plans/2026-09-07-v0.5.0-release.md) · [发布日志](development/2026-09-07-v0.5.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.0) · Tag `de117b0` · appcast `f76ea0f` · workflow `34093997980` |
@@ -176,6 +177,8 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-08 | REQ-20260908-001 | 进行中 | 任务 3 代码与本机回归完成：Claude 原生/WSL 认证、采集和显式初始化共用应用专用工作区；仅显式检查解除可恢复阻塞并触发单服务额度重试，限流等待保留。完整 Rust、85 项前端、构建、严格 Clippy、格式和 180 份文档门禁通过；等待原生 Windows CI，整体需求继续保持进行中。证据：Task 3 报告及提交 `feat(windows): isolate Claude usage workspace`。 |
+| 2026-09-08 | REQ-20260908-001 | 进行中 | 任务 3 开始：以失败先行回归锁定 Windows Claude 采集与显式初始化共用应用专用空工作区、原生/WSL 安全启动、初始化反馈与仅手动检查重试额度；不修改凭据、不自动信任、不重装、不改 macOS 生产代码。 |
 | 2026-09-08 | REQ-20260908-001 | 进行中 | 任务 1 开始：以失败先行回归锁定 Windows 全局 npm Codex 包装器与独立 Node 目录的显式入口恢复；保留受限环境白名单，不修改账户或采集业务。 |
 | 2026-09-08 | REQ-20260908-001 | 进行中 | 任务 1 代码与本机回归完成：官方 npm 身份/入口、独立 Node、空格路径和缺失/错误身份边界已覆盖，33 项定向 Rust 回归与严格 Clippy 通过。Windows-only 真实进程用例已添加，等待原生 Windows runner 执行；整体需求继续保持进行中。 |
 | 2026-09-07 | REQ-20260907-011 | 已完成 | 0.5.0/build13 已公开为 latest，CLI 引导与 About 品牌需求一并交付；本机/标签 macOS 432 项、Windows 原生 Rust 218 项及完整双平台发布通过。匿名公开资产哈希、两端签名和三个更新源全部验证，Tag `de117b0`、appcast `f76ea0f`、workflow `34093997980`。README/指南/版本历史同步。阶段末当前队列无其他进行中/待处理项；受限、延期与待用户确认项原样保留。 |

@@ -124,6 +124,18 @@ impl RefreshCoordinator {
         }
     }
 
+    pub fn clear_manual_retry_backoff(&self, provider: ProviderId) {
+        let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+        let retryable = state
+            .backoffs
+            .get(&provider)
+            .is_some_and(|backoff| backoff.kind != "rateLimited");
+        if retryable {
+            state.backoffs.remove(&provider);
+            self.persist_backoffs(&state);
+        }
+    }
+
     fn persist_backoffs(&self, state: &RefreshState) {
         if let Some(path) = &self.backoff_path
             && crate::persistence::AtomicJsonStore::write(path, &state.backoffs).is_err()

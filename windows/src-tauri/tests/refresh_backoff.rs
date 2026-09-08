@@ -66,3 +66,84 @@ fn rate_limit_survives_restart_and_manual_requests_without_recollecting() {
     }
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn explicit_recovery_never_clears_a_rate_limit() {
+    let coordinator = RefreshCoordinator::new();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let first_calls = Arc::clone(&calls);
+    let first = coordinator.refresh(
+        ProviderRefreshRequest::new(ProviderId::Claude, move |_| {
+            first_calls.fetch_add(1, Ordering::SeqCst);
+            Err(CollectionError::RateLimited(90))
+        }),
+        RefreshPriority::Manual,
+    );
+    assert_eq!(
+        first,
+        RefreshResult::Failed(CollectionError::RateLimited(90))
+    );
+
+    let blocked_calls = Arc::clone(&calls);
+    let blocked = coordinator.refresh(
+        ProviderRefreshRequest::new(ProviderId::Claude, move |_| {
+            blocked_calls.fetch_add(1, Ordering::SeqCst);
+            Err(CollectionError::Transport)
+        }),
+        RefreshPriority::Manual,
+    );
+    assert_eq!(
+        blocked,
+        RefreshResult::Deferred(CollectionError::RateLimited(0))
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    coordinator.clear_manual_retry_backoff(ProviderId::Claude);
+    let retried_calls = Arc::clone(&calls);
+    let retried = coordinator.refresh(
+        ProviderRefreshRequest::new(ProviderId::Claude, move |_| {
+            retried_calls.fetch_add(1, Ordering::SeqCst);
+            Err(CollectionError::Transport)
+        }),
+        RefreshPriority::Manual,
+    );
+    assert_eq!(
+        retried,
+        RefreshResult::Deferred(CollectionError::RateLimited(0))
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn explicit_recovery_clears_setup_or_authentication_blocking() {
+    let coordinator = RefreshCoordinator::new();
+    assert_eq!(
+        coordinator.refresh(
+            ProviderRefreshRequest::new(ProviderId::Claude, |_| {
+                Err(CollectionError::SetupRequired)
+            }),
+            RefreshPriority::Manual,
+        ),
+        RefreshResult::Failed(CollectionError::SetupRequired)
+    );
+    assert_eq!(
+        coordinator.refresh(
+            ProviderRefreshRequest::new(ProviderId::Claude, |_| {
+                Err(CollectionError::Transport)
+            }),
+            RefreshPriority::Manual,
+        ),
+        RefreshResult::Deferred(CollectionError::AuthenticationRequired)
+    );
+
+    coordinator.clear_manual_retry_backoff(ProviderId::Claude);
+    assert_eq!(
+        coordinator.refresh(
+            ProviderRefreshRequest::new(ProviderId::Claude, |_| {
+                Err(CollectionError::Transport)
+            }),
+            RefreshPriority::Manual,
+        ),
+        RefreshResult::Failed(CollectionError::Transport)
+    );
+}
