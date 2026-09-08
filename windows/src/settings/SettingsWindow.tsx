@@ -358,7 +358,6 @@ export function SettingsWindow({
           <div className="about-card">
             <strong>{t("AI Token Meter")}</strong>
             <p>{t("Version")} {updateState.currentVersion}</p>
-            <p>{t("Author · Miller")}</p>
             <AuthorLinks onOpen={onOpenAuthorLink} />
             <p aria-live="polite" className={`update-status${updateState.phase === "available" ? " update-status--available" : ""}`}>{t(updateMessage(updateState))}</p>
             <div className="update-actions">
