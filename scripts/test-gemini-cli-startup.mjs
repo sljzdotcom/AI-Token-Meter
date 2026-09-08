@@ -15,10 +15,12 @@ assert.equal(packageIntegrity, 'sha512-++LtUYMcLE8dVxMcuwv6kIp8+h6z+std/7iVE+vSu
 await fs.copyFile(process.execPath, path.join(root, 'node'));
 await fs.chmod(path.join(root, 'node'), 0o755);
 const scenario = process.argv.slice(2).find(x => !x.startsWith('--')) || 'authenticated';
+const untrustedWorkspace = process.argv.includes('--untrusted-workspace');
 const sentinelControl = process.argv.includes('--sentinel-control');
 const useAllowlist = !sentinelControl && !process.argv.includes('--without-mcp-allowlist');
 assert.ok(['authenticated', 'missing-auth', 'invalid-auth', 'version', 'quota-failure'].includes(scenario));
-const runRoot = path.join(root, scenario + (useAllowlist ? '-allowlist' : '') + (sentinelControl ? '-control' : ''));
+assert.ok(!untrustedWorkspace || (scenario === 'authenticated' && useAllowlist && !sentinelControl), 'Untrusted scenario requires the default authenticated isolation combination');
+const runRoot = path.join(root, scenario + (untrustedWorkspace ? '-untrusted' : '') + (useAllowlist ? '-allowlist' : '') + (sentinelControl ? '-control' : ''));
 await fs.mkdir(path.join(runRoot, 'home/.gemini/extensions/sentinel'), { recursive: true });
 await fs.mkdir(path.join(runRoot, 'workspace'), { recursive: true });
 await fs.writeFile(path.join(runRoot, 'workspace/.env'), '');
@@ -30,7 +32,7 @@ const mcpSentinel = path.join(runRoot, 'mcp-sentinel.sh');
 const extensionSentinel = path.join(runRoot, 'extension-sentinel.sh');
 for (const target of [hookSentinel, mcpSentinel, extensionSentinel]) { await fs.copyFile(sentinel, target); await fs.chmod(target, 0o700); }
 const settings = {
-  security: { auth: { selectedType: 'oauth-personal' }, folderTrust: { enabled: false } },
+  security: { auth: { selectedType: 'oauth-personal' }, folderTrust: { enabled: untrustedWorkspace } },
   general: { previewFeatures: false, enableAutoUpdate: false },
   advanced: { autoConfigureMemory: false }, telemetry: { enabled: false },
   hooksConfig: { enabled: true }, hooks: { SessionStart: [{ hooks: [{ type: 'command', command: hookSentinel }] }] },
@@ -46,6 +48,8 @@ await fs.writeFile(path.join(runRoot, 'system.json'), JSON.stringify({
   general: { enableAutoUpdate: false }, advanced: { autoConfigureMemory: false },
 }));
 await fs.writeFile(path.join(runRoot, 'system-defaults.json'), '{}');
+const trustedFoldersPath = path.join(runRoot, 'home/.gemini/trustedFolders.json');
+if (untrustedWorkspace) assert.equal(await fs.access(trustedFoldersPath).then(() => true, () => false), false, 'Start without a trust rule');
 const authPath = path.join(runRoot, 'home/.gemini/oauth_creds.json');
 await fs.rm(authPath, { force: true });
 if (scenario === 'authenticated' || scenario === 'invalid-auth' || scenario === 'quota-failure') {
@@ -70,6 +74,10 @@ assert.equal(process.permission.has('addons'), false);
 assert.equal(process.permission.has('ffi'), false);
 log({type:'guard-check', filesystemBlocked:true, subprocessBlocked:true, addonsBlocked:true, ffiBlocked:true});
 require('node:net').connect({host:'127.0.0.1',port:9}).on('error', error => { assert.equal(error.code,'ERR_ACCESS_DENIED'); log({type:'guard-network-check', blocked:true}); }).on('connect', () => { throw new Error('Network permission guard failed'); });
+for (const target of [fs, fs.promises]) for (const name of target === fs ? ['writeFile','writeFileSync','appendFile','appendFileSync','rename','renameSync'] : ['writeFile','appendFile','rename']) {
+  const original = target[name];
+  target[name] = function(p,...args) { if (/trustedFolders/.test(String(p)) || (name.startsWith('rename') && /trustedFolders/.test(String(args[0])))) log({type:'trust-write-attempt', path:String(p)}); return original.call(this,p,...args); };
+}
 for (const target of [fs, fs.promises]) for (const name of target === fs ? ['readFile','readFileSync'] : ['readFile']) {
   const original = target[name];
   target[name] = function(p,...args) { if (typeof p === 'string' && /settings|\.env|GEMINI\.md|oauth_creds|google_accounts/.test(p)) log({type:'file-read', path:p}); return original.call(this,p,...args); };
@@ -108,7 +116,7 @@ await fs.writeFile(events, '');
 const options = {
   scenario, cwd: path.join(runRoot, 'workspace'),
   argv: [path.join(root, 'node'), '--permission', `--allow-fs-read=${root}`, '--allow-fs-read=/.dockerenv', `--allow-fs-write=${runRoot}`, '--require', path.join(runRoot, 'preload.cjs'), cli, ...(scenario === 'version' ? ['--version'] : []), ...(sentinelControl ? [] : ['-e', 'none']), ...(useAllowlist ? ['--allowed-mcp-server-names', 'probe-no-such-server'] : [])],
-  env: { HOME: path.join(runRoot, 'home'), USERPROFILE: path.join(runRoot, 'home'), PATH: root + ':/usr/bin:/bin', TERM: 'xterm-256color', LANG: 'en_US.UTF-8', SHELL: '/bin/sh', NO_BROWSER: 'true', GEMINI_CLI_NO_RELAUNCH: 'true', GEMINI_CLI_SYSTEM_SETTINGS_PATH: path.join(runRoot, 'system.json'), GEMINI_CLI_SYSTEM_DEFAULTS_PATH: path.join(runRoot, 'system-defaults.json'), PROBE_EVENTS: events, PROBE_SCENARIO: scenario, TMPDIR: runRoot },
+  env: { ...(untrustedWorkspace ? { GEMINI_CLI_TRUST_WORKSPACE: 'false' } : {}), HOME: path.join(runRoot, 'home'), USERPROFILE: path.join(runRoot, 'home'), PATH: root + ':/usr/bin:/bin', TERM: 'xterm-256color', LANG: 'en_US.UTF-8', SHELL: '/bin/sh', NO_BROWSER: 'true', GEMINI_CLI_NO_RELAUNCH: 'true', GEMINI_CLI_SYSTEM_SETTINGS_PATH: path.join(runRoot, 'system.json'), GEMINI_CLI_SYSTEM_DEFAULTS_PATH: path.join(runRoot, 'system-defaults.json'), PROBE_EVENTS: events, PROBE_SCENARIO: scenario, TMPDIR: runRoot },
   transcript: path.join(runRoot, 'terminal.txt'), outcome: path.join(runRoot, 'outcome.json'),
 };
 await fs.writeFile(path.join(runRoot, 'options.json'), JSON.stringify(options));
@@ -169,7 +177,7 @@ const outcome = JSON.parse(await fs.readFile(options.outcome, 'utf8'));
 const calls = (await fs.readFile(events, 'utf8')).trim().split('\n').filter(Boolean).map(x => JSON.parse(x));
 const plainTerminal = terminal.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
 const sentinelAttempts = calls.filter(x => x.type === 'child-attempt' && /(?:hook|mcp|extension)-sentinel/.test(JSON.stringify([x.command,x.args])));
-const report = { nodeVersion: process.version, nockVersion: JSON.parse(await fs.readFile(path.join(root,'node_modules/nock/package.json'),'utf8')).version, lockSha256:createHash('sha256').update(lockfile).digest('hex'), sentinelAttempts, packageIntegrity, scenario, useAllowlist, sentinelControl, outcome, calls, terminalPath: options.transcript, visibleQuota: terminal.includes('25%') && terminal.includes('60%') };
+const report = { nodeVersion: process.version, nockVersion: JSON.parse(await fs.readFile(path.join(root,'node_modules/nock/package.json'),'utf8')).version, lockSha256:createHash('sha256').update(lockfile).digest('hex'), sentinelAttempts, packageIntegrity, scenario, untrustedWorkspace, useAllowlist, sentinelControl, outcome, calls, terminalPath: options.transcript, visibleQuota: terminal.includes('25%') && terminal.includes('60%') };
 await fs.writeFile(path.join(runRoot, 'result.json'), JSON.stringify(report,null,2));
 // These assertions reject a real upstream behavior change, not fixture membership.
 assert.equal(outcome.timedOut, false, 'CLI must exit before the deadline');
@@ -182,6 +190,13 @@ assert.equal(calls.filter(x => x.type === 'addon-attempt' && /keytar/i.test(x.pa
 assert.equal(await fs.access(path.join(runRoot,'sentinel-fired')).then(() => true, () => false), false, 'No sentinel may actually execute');
 const finalSettings=JSON.parse(await fs.readFile(path.join(runRoot,'home/.gemini/settings.json'),'utf8'));
 assert.deepEqual(finalSettings.model,settings.model,'Opening and escaping quota dialog must not persist a model selection');
+if (untrustedWorkspace) {
+  assert.equal(calls.filter(x => x.type === 'trust-write-attempt').length, 0, 'No trust file write attempt');
+  assert.equal(await fs.access(trustedFoldersPath).then(() => true, () => false), false, 'No automatic trust approval or trust file write');
+  assert.deepEqual(finalSettings.security, settings.security, 'Trust settings must remain enabled');
+  assert.doesNotMatch(plainTerminal, /Do you trust the files in this folder\?|A folder trust level must be selected/);
+  assert.match(plainTerminal, /This folder is untrusted|Untrusted/);
+}
 const fixtureRequests=calls.filter(x=>x.type==='fixture-request').map(x=>x.name);
 if (scenario === 'authenticated') {
   assert.match(plainTerminal,/Model usage/);

@@ -255,3 +255,15 @@ Task4a 独立审查通过，无 P1/P2；唯一 Minor 为依赖锁持久化，已
 以下为固定 v0.58.0 源码定点核对，不读取真实本机系统配置：`packages/cli/src/config/settings.ts:104` 中 macOS 默认系统文件是 `/Library/Application Support/GeminiCli/settings.json`，Windows 为 `C:\ProgramData\gemini-cli\settings.json`，Linux 为 `/etc/gemini-cli/settings.json`，非空 `GEMINI_CLI_SYSTEM_SETTINGS_PATH` 优先。`:117` 中 defaults 文件由非空 `GEMINI_CLI_SYSTEM_DEFAULTS_PATH` 指定，否则为最终系统 settings 同目录下的 `system-defaults.json`；custom settings 路径会同时改变默认 defaults 目录。
 
 `packages/core/src/code_assist/oauth2.ts:112` 的加密开关精确比较环境变量 `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE === 'true'`；这是 env，不是 JSON settings 字段。常量定义见 `packages/core/src/mcp/token-storage/index.ts:13`。`oauth2.ts:697` 加密分支调用 OAuthCredentialStorage.loadCredentials，后者使用 HybridTokenStorage/KeychainTokenStorage；未开启时才读取官方 plain OAuth 缓存路径，此外仍可能读取 `GOOGLE_APPLICATION_CREDENTIALS`。本测试环境移除了这些注入变量；没有验证或迁移真实加密账户。
+
+### Task4a 第八场景：保留默认信任设置并明确不信任目录
+
+七场景合成设置中的 `security.folderTrust.enabled=false` 不是用户默认。上游默认 true，无匹配信任规则的新目录会由 `useFolderTrust.ts:79` 打开信任对话，即使目录为空。根开发入口另行授权了一个独立有界场景：保持 `folderTrust.enabled=true`，环境设置官方支持的 `GEMINI_CLI_TRUST_WORKSPACE=false`，其他限制与 `/model`/Esc/`/quit` 协议完全不变。
+
+```sh
+node scripts/test-gemini-cli-startup.mjs authenticated --untrusted-workspace
+```
+
+真实官方 CLI 已通过：输出 untrusted，仍显示 Pro 25%、Flash 60% 和重置描述，正常 exit 0，无强制取消、信任菜单、自动批准或 trustedFolders.json 写入；用户 security 设置保持 true，模型选择不变，三类哨兵尝试 0，未知/模型网络尝试 0。`core/utils/trust.ts:50` 明确返回 false，交互 hook 只在 undefined 时要求选择，这解释了观测。生产可用此更严格环境保留用户信任策略，无须为只读额度先信任私有目录；不能改成 true 或把 enabled 写成 false。
+
+原始完整证据：`/private/tmp/req012-gemini-startup/authenticated-untrusted-allowlist/terminal.txt` 及同目录 result.json/events.jsonl/outcome.json。此场景仍为合成账号/macOS，其他未验证边界不变。
