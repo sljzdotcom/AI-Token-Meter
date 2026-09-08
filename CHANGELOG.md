@@ -4,7 +4,11 @@
 
 ## Unreleased
 
-暂无未发布变更。
+### Fixed
+
+- Windows 标准官方 npm Codex 安装使用显式 Node + JS 入口，覆盖 npm 与 Node 分离目录及空格路径；不再依赖包装器通过 PATH 寻找 Node。保留受限进程环境及已有登录信息。
+
+Windows CLI 恢复仍在验证中，尚未公开发布。详细边界见[调查与开发记录](docs/development/2026-09-08-windows-cli-post-login.md)。
 
 ## 0.5.0 - 2026-09-07
 

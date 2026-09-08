@@ -36,6 +36,8 @@ AI Token Meter 依赖 `app-server` 的结构化接口。接口不可用或格式
 
 Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
 
+已知 `0.5.0` 边界：npm 的 Codex 包装器与 Node 安装在不同目录时，应用受限环境可能无法找到 Node。若终端 `codex --version` 正常，不要因此重复安装或重新登录。修复分支正在验证显式 Node + 官方 npm JS 入口与一致错误分类；是否已进入公开更新通道请以 [CHANGELOG](../../CHANGELOG.md) 和[开发验证记录](../development/2026-09-08-windows-cli-post-login.md)为准。
+
 1. 在 Services 查看来源是否为 `Native Windows` 或 `WSL`，点击 **Check Status**；
 2. 重新打开应用，让它重新读取注册表 PATH 和 WSL 发行版；
 3. 原生 npm/Node 脚本必须能找到配套 `node.exe`，应用不会执行任意 PowerShell profile；

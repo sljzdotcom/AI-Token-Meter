@@ -1,6 +1,6 @@
 # 2026-09-08：Windows 登录成功后额度无法显示的调查
 
-关联 REQ-20260908-001；基线 main `3dfd4ae` / 0.5.0。当前只完成静态链路调查，未修改生产代码、未发布修复、未在用户 Windows 上执行命令。
+关联 REQ-20260908-001；基线 main `3dfd4ae` / 0.5.0。最初仅做静态调查；收到用户路径证据后进入隔离分支 `codex/windows-cli-recovery` 实施，尚未发布修复、未在用户 Windows 上执行命令。
 
 ## 用户证据
 
@@ -17,7 +17,7 @@
 
 ## 下一步证据与安全边界
 
-维护环境是 macOS，没有用户那台 Windows 的远程执行接口。请仅收集发生问题机器中以下只读输出，先确认 Native/npm/WSL 与 Node 所在目录：
+维护环境是 macOS，没有用户那台 Windows 的远程执行接口。此前请求以下只读输出确认 Native/npm/WSL 与 Node 所在目录，用户已经提供，不必再次索取：
 
 ```powershell
 Get-Command codex,claude,node -All | Select-Object Name,CommandType,Source
@@ -28,6 +28,17 @@ codex --version
 
 不要求再次登录、不读取 auth.json/凭据存储、不打印完整环境或授权 URL、不让用户信任整个主目录。路径中的用户名可自行遮去，保留目录层级。随后针对实际入口补失败测试，统一检测分类与启动依赖，并单独验证 Claude 的工作区初始化路径；运行时环境修改不能顺便放开任意 provider override、权限或自动信任。
 
+## 2026-09-08 补充证据与实施
+
+用户确认 `codex-cli 0.153.4`，Codex 的 `.ps1` / `.cmd` / 扩展名为空的包装器位于用户 npm 目录；Node 位于独立的 `Program Files/nodejs` 目录；Claude 为用户本地 bin 下的原生 exe。这与代码中的受限 PATH 缺少 Node 条件相符，不是 CLI 未安装。用户的终端成功输出并不等于已运行新版应用验证。
+
+推荐方案已记录为[规格](../design/specifications/2026-09-08-windows-cli-recovery-design.md)与[实施计划](../design/implementation-plans/2026-09-08-windows-cli-recovery.md)，设计提交 `ef9cc35`。三部分依次为显式 npm/Node 启动、统一发现失败分类、Claude 隔离工作区初始化。基线的 executable_locator、cli_discovery、claude_collector 定向测试通过；它们尚未覆盖此次新增回归。
+
 ## 状态
 
-受环境限制：等待 Windows 路径/版本证据后继续验证根因。该记录不是修复完成或真机通过声明。既有自动化和 0.5.0 发布通过记录仍保留，同时明确其未覆盖本次真实安装方式/初始化路径。
+### 分段证据
+
+- Task 1：`65d2b19`，标准官方 npm Codex 包验证后使用显式 Node + JS 入口；保留受限环境。16 项定位、5 项发现、9 项进程、3 项安装策略测试通过，严格 Clippy/格式检查通过；独立规格与质量审查无阻塞。新增 Windows-only 真实 Node/进程用例待原生 CI 运行；macOS 交叉编译缺少 MSVC `assert.h`，不算 Windows 验证通过。
+- 完整 Swift 基线发现既有 `stableAppcastContract` 固定断言 0.2.2，更新源滚动为 0.5.0 后三条断言失败；归入 REQ-20260908-002，不能称全套通过。不是本次 Windows 代码引入，也不会通过跳过测试处理。
+
+进行中：已收到路径证据，进入测试驱动修复。该记录不是修复完成或真机通过声明。既有自动化和 0.5.0 发布通过记录仍保留，同时明确其未覆盖本次真实安装方式/初始化路径。
