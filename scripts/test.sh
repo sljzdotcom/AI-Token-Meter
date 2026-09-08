@@ -20,8 +20,11 @@ run_swift_tests() {
 }
 
 if [[ "$#" -eq 0 ]]; then
-    run_swift_tests --skip PTYCommandRunnerTests
-    run_swift_tests --skip-build --filter PTYCommandRunnerTests
+    # Keep real terminal allocation/cancellation tests outside the parallel main run.
+    # GeminiOfficialPTYTests is an explicit, isolated-upstream opt-in check documented
+    # in docs/development/2026-09-08-gemini-collector.md; it needs probe dependencies.
+    run_swift_tests --skip 'PTYCommandRunnerTests|GeminiPTYTests|GeminiOfficialPTYTests'
+    run_swift_tests --skip-build --filter 'PTYCommandRunnerTests|GeminiPTYTests'
 else
     run_swift_tests "$@"
 fi
