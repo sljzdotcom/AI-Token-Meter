@@ -16,7 +16,7 @@
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
-| 0.6.0 Gemini 与累积改进发布候选 | `edd9cdd`、`f96b08c`、`5a0cced`、`8675152`、`057e79f`、`be2f350`、`b9d5955` | Gemini 四服务展示与普通 OAuth CLI 额度采集、刷新间隔、顶部横线、About/Telegram 与新版提示改进；本地 480 Swift、109 前端、249 宿主 Rust，等待原生 PR CI 与正式发布证据 |
+| 0.6.0 Gemini 与累积改进发布候选 | `edd9cdd`、`f96b08c`、`5a0cced`、`8675152`、`057e79f`、`be2f350`、`b9d5955`、`46e6de7` | Gemini 四服务展示与普通 OAuth CLI 额度采集、刷新间隔、顶部横线、About/Telegram 与新版提示改进；发布复审修复后 Critical/Important/Minor 均为 0，本地 480 Swift、109 前端、249 宿主 Rust，等待原生 PR CI 与正式发布证据 |
 | Windows 新版提示强调（列入 0.6.0） | `f7cc2c5`、`844c9ae`、`15d6a35` | 需求/规格及 available 深红粗体；88 项前端、14 个浏览器更新状态样本通过 |
 | 0.5.1 Windows CLI 恢复与补丁发布 | `aca64fc`、`132287b`、`eac027a` | PR #12 合并；433 项 Swift、229 项原生 Windows Rust、双平台签名资产与三个公开更新入口通过；账号现场验收仍独立跟踪 |
 | 0.5.0 双平台稳定发布 | `13c12a2`、`de117b0`、`f76ea0f` | 版本/build13、发布规格与测试诊断；432 项 Swift、218 项原生 Windows Rust、两端签名安装包及三个公开更新源验证 |
