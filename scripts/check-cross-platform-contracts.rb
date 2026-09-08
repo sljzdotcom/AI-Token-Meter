@@ -164,6 +164,11 @@ allowed_statuses = %w[
 ]
 
 if schema
+  gemini_metric = schema.dig("$defs", "geminiQuotaMetric")
+  unless gemini_metric.is_a?(Hash) && gemini_metric["type"] == "object" &&
+      (%w[label current limit unit kind] - Array(gemini_metric["required"])).empty?
+    errors << "Gemini metric schema must require a non-null object with limit and source fields"
+  end
   schema_statuses = schema.dig("properties", "status", "enum")
   errors << "Snapshot schema status enum is incomplete" unless schema_statuses == allowed_statuses
   schema_providers = schema.dig("properties", "providerId", "enum")

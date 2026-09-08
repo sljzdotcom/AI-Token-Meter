@@ -3,12 +3,12 @@
 use super::CollectionError;
 
 pub fn screen(raw: &str) -> Result<String, CollectionError> {
-    observe_frames(raw, |_| Ok(()))
+    observe_frames(raw, |_, _| Ok(()))
 }
 
 pub fn observe_frames(
     raw: &str,
-    mut observe: impl FnMut(&str) -> Result<(), CollectionError>,
+    mut observe: impl FnMut(&str, bool) -> Result<(), CollectionError>,
 ) -> Result<String, CollectionError> {
     if raw.len() > 512 * 1024 {
         return Err(CollectionError::UnrecognizedOutput);
@@ -43,6 +43,12 @@ pub fn observe_frames(
                         .map(|p| p.parse().unwrap_or(0))
                         .collect();
                     let n = values[0].max(1);
+                    if op == 'J' {
+                        observe(&render(&rows), false)?;
+                    }
+                    if op == 'K' {
+                        observe(&render_line(&rows, row), false)?;
+                    }
                     match op {
                         'm' | 'n' | 'c' | 'u' => {}
                         'A' => row = row.saturating_sub(n),
@@ -107,10 +113,12 @@ pub fn observe_frames(
                     }
                 }
                 Some('\\') => {}
+                None => break, // A read can end after ESC; replay when its suffix arrives.
                 _ => return Err(CollectionError::UnrecognizedOutput),
             },
             '\r' => column = 0,
             '\n' => {
+                observe(&render_line(&rows, row), false)?;
                 row += 1;
                 column = 0;
                 if row >= 256 {
@@ -133,12 +141,14 @@ pub fn observe_frames(
                 rows[row][column] = c;
                 column += 1;
                 if c == '╯' {
-                    observe(&render(&rows))?;
+                    observe(&render(&rows), true)?;
                 }
             }
         }
     }
-    Ok(render(&rows))
+    let visible = render(&rows);
+    observe(&visible, false)?;
+    Ok(visible)
 }
 
 fn render(rows: &[Vec<char>]) -> String {
@@ -146,4 +156,10 @@ fn render(rows: &[Vec<char>]) -> String {
         .map(|line| line.iter().collect::<String>().trim_end().to_owned())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn render_line(rows: &[Vec<char>], row: usize) -> String {
+    rows.get(row)
+        .map(|line| line.iter().collect())
+        .unwrap_or_default()
 }

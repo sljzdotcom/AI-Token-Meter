@@ -46,6 +46,16 @@ grep -Fq "Snapshot schema displayName enum is incomplete" "$TEST_ROOT/schema-mis
 grep -Fq "gemini-unavailable.json: displayName is rejected by snapshot schema" "$TEST_ROOT/schema-missing-gemini.log"
 cp "$TEST_ROOT/original-schema.json" "$snapshot_schema"
 
+for regression in nullable missing-limit; do
+    ruby -rjson -e 'path, regression=ARGV; value=JSON.parse(File.read(path)); metric=value["$defs"]["geminiQuotaMetric"]; regression == "nullable" ? metric["type"]=["object","null"] : metric["required"].delete("limit"); File.write(path,JSON.generate(value))' "$snapshot_schema" "$regression"
+    if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-schema-$regression.log" 2>&1; then
+        echo "A nullable Gemini tier or missing required limit must be rejected by the schema contract." >&2
+        exit 1
+    fi
+    grep -Fq "Gemini metric schema must require a non-null object with limit and source fields" "$TEST_ROOT/gemini-schema-$regression.log"
+    cp "$TEST_ROOT/original-schema.json" "$snapshot_schema"
+done
+
 quota_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-fresh.json"
 cp "$quota_fixture" "$TEST_ROOT/original-quota.json"
 ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["geminiQuotaMetrics"][0]["current"]=110; File.write(path,JSON.generate(value))' "$quota_fixture"

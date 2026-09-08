@@ -85,6 +85,14 @@ impl GeminiEnvironment {
                 if !settings.is_object() {
                     return Err(CollectionError::UnsupportedConfiguration);
                 }
+                for pointer in ["/security", "/security/auth", "/tools", "/advanced"] {
+                    if settings
+                        .pointer(pointer)
+                        .is_some_and(|value| !value.is_object())
+                    {
+                        return Err(CollectionError::UnsupportedConfiguration);
+                    }
+                }
                 for pointer in ["/security/auth/selectedType", "/security/auth/enforcedType"] {
                     if let Some(value) = settings.pointer(pointer)
                         && value.as_str() != Some("oauth-personal")

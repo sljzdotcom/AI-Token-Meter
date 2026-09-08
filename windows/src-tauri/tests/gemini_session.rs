@@ -157,7 +157,12 @@ fn complete_conflicting_frames_are_rejected_independent_of_read_chunking() {
             chunk_size,
             conflict_on_exit: false,
         };
-        let result = collect_session(&mut terminal, "now", &CancellationToken::new(), timing());
+        let result = collect_session(
+            &mut terminal,
+            "now",
+            &CancellationToken::new(),
+            fragmented_timing(),
+        );
         assert!(
             matches!(result, Err(CollectionError::UnrecognizedOutput)),
             "chunk {chunk_size}: {result:?}"
@@ -228,5 +233,120 @@ fn exit_clear_and_repeated_identical_frame_preserve_capture_but_auth_does_not() 
             assert_eq!(result.unwrap().used_ratio.unwrap().get(), 0.6);
         }
         assert!(terminal.inner.stopped);
+    }
+}
+
+struct ChunkedValidTerminal {
+    inner: ScriptedTerminal,
+    chunk_size: usize,
+    model: Vec<u8>,
+}
+impl GeminiTerminal for ChunkedValidTerminal {
+    fn read(&mut self) -> Result<Vec<u8>, CollectionError> {
+        self.inner.read()
+    }
+    fn send(&mut self, bytes: &[u8]) -> Result<(), CollectionError> {
+        self.inner.send(bytes)?;
+        if self.inner.input == b"/model\r" {
+            self.inner.output.clear();
+            self.inner
+                .output
+                .extend(self.model.chunks(self.chunk_size).map(<[u8]>::to_vec));
+        }
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<Vec<u8>, CollectionError> {
+        self.inner.stop()
+    }
+}
+#[test]
+fn valid_quota_succeeds_whole_two_chunks_and_bytewise_including_split_escape() {
+    for chunk_size in [usize::MAX, 1, frame(25).len() / 2] {
+        let mut terminal = ChunkedValidTerminal {
+            inner: ScriptedTerminal {
+                output: VecDeque::from([READY.to_vec()]),
+                input: vec![],
+                stopped: false,
+            },
+            chunk_size,
+            model: frame(25),
+        };
+        let result = collect_session(
+            &mut terminal,
+            "now",
+            &CancellationToken::new(),
+            fragmented_timing(),
+        );
+        assert_eq!(
+            result.as_ref().map(|s| s.used_ratio.unwrap().get()),
+            Ok(0.6),
+            "chunk {chunk_size}: {result:?}"
+        );
+        assert_eq!(terminal.inner.input, b"/model\r\x1b/quit\r");
+        assert!(terminal.inner.stopped);
+    }
+}
+#[test]
+fn final_auth_or_invalid_complete_quota_cannot_be_erased_by_goodbye() {
+    for (bad, expected) in [
+        (
+            b"\x1b[2J\x1b[HEnter the authorization code:".to_vec(),
+            CollectionError::AuthenticationRequired,
+        ),
+        (frame(110), CollectionError::UnrecognizedOutput),
+    ] {
+        let tail = [bad.as_slice(), b"\x1b[2J\x1b[HGoodbye!"].concat();
+        let mut terminal = ExitTerminal {
+            inner: ScriptedTerminal {
+                output: VecDeque::from([READY.to_vec()]),
+                input: vec![],
+                stopped: false,
+            },
+            tail,
+        };
+        let result = collect_session(&mut terminal, "now", &CancellationToken::new(), timing());
+        assert_eq!(result.err(), Some(expected));
+        assert!(terminal.inner.stopped);
+    }
+}
+
+fn fragmented_timing() -> SessionTiming {
+    SessionTiming {
+        deadline: Duration::from_secs(2),
+        stable: Duration::ZERO,
+        key_delay: Duration::ZERO,
+        poll: Duration::ZERO,
+    }
+}
+
+#[test]
+fn authentication_and_invalid_quota_history_fail_during_live_reads_too() {
+    for (bad, expected) in [
+        (
+            b"\x1b[2J\x1b[HEnter the authorization code:".to_vec(),
+            CollectionError::AuthenticationRequired,
+        ),
+        (frame(110), CollectionError::UnrecognizedOutput),
+    ] {
+        for chunk_size in [usize::MAX, 1] {
+            let model = [frame(25), bad.clone(), b"\x1b[2J\x1b[HGoodbye!".to_vec()].concat();
+            let mut terminal = ChunkedValidTerminal {
+                inner: ScriptedTerminal {
+                    output: VecDeque::from([READY.to_vec()]),
+                    input: vec![],
+                    stopped: false,
+                },
+                chunk_size,
+                model,
+            };
+            let result = collect_session(
+                &mut terminal,
+                "now",
+                &CancellationToken::new(),
+                fragmented_timing(),
+            );
+            assert_eq!(result.err(), Some(expected));
+            assert!(terminal.inner.stopped);
+        }
     }
 }

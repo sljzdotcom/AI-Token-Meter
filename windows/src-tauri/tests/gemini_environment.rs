@@ -121,3 +121,26 @@ fn unsupported_user_settings_stop_before_any_cli_execution() {
     std::fs::write(dir.path().join(".gemini/settings.json"), r#"{"security":{"auth":{"selectedType":"oauth-personal","enforcedType":"oauth-personal"}}}"#).unwrap();
     assert!(GeminiEnvironment::prepare(dir.path(), inputs(dir.path()), &[]).is_ok());
 }
+
+#[test]
+fn malformed_or_template_parent_settings_are_rejected_before_launch() {
+    for value in [
+        serde_json::json!({"security":{"auth":[]}}),
+        serde_json::json!({"tools":"${TOOLS}"}),
+        serde_json::json!({"security":null}),
+        serde_json::json!({"advanced":42}),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".gemini")).unwrap();
+        std::fs::write(dir.path().join(".gemini/settings.json"), value.to_string()).unwrap();
+        let result = GeminiEnvironment::prepare(
+            dir.path(),
+            vec![("USERPROFILE".into(), dir.path().into())],
+            &[],
+        );
+        assert!(
+            matches!(result, Err(CollectionError::UnsupportedConfiguration)),
+            "{value}"
+        );
+    }
+}

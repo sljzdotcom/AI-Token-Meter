@@ -1,7 +1,7 @@
 use super::{
     CollectionError,
-    gemini::{TerminalState, parse_terminal_quota, parse_visible_quota, terminal_state},
-    gemini_terminal::{observe_frames, screen},
+    gemini::{TerminalState, parse_visible_quota, visible_state},
+    gemini_terminal::observe_frames,
 };
 use crate::{domain::UsageSnapshot, platform::windows::process::CancellationToken};
 use std::time::{Duration, Instant};
@@ -48,8 +48,6 @@ pub fn collect_session(
             let text =
                 std::str::from_utf8(&raw).map_err(|_| CollectionError::UnrecognizedOutput)?;
             validate_frames(text, fetched_at)?;
-            // Exit/Goodbye can clear the quota, but a final blocking UI still invalidates it.
-            terminal_state(text)?;
             Ok(snapshot)
         }
         Err(error) => {
@@ -86,6 +84,7 @@ fn run(
         if raw.len() + bytes.len() > 512 * 1024 {
             return Err(CollectionError::UnrecognizedOutput);
         }
+        let has_output = !bytes.is_empty();
         raw.extend(bytes);
         let text = match std::str::from_utf8(raw) {
             Ok(s) => s,
@@ -95,13 +94,16 @@ fn run(
             }
             Err(_) => return Err(CollectionError::UnrecognizedOutput),
         };
-        validate_frames(text, fetched_at)?;
-        let visible = screen(text)?;
+        let visible = if has_output {
+            validate_frames(text, fetched_at)?
+        } else {
+            previous.clone()
+        };
         if visible != previous {
             changed = Instant::now();
             previous = visible;
         }
-        let state = terminal_state(text)?;
+        let state = visible_state(&previous)?;
         if let Some((keys, index)) = typing.as_mut() {
             if Instant::now() >= next_key {
                 terminal.send(&keys[*index..*index + 1])?;
@@ -119,9 +121,9 @@ fn run(
                     typing = Some((b"/model\r", 0));
                     next_key = Instant::now();
                 }
-                1 if state == TerminalState::Model => {
+                1 if state == TerminalState::Model && complete_dialog(&previous) => {
                     // Only the current complete dialog is eligible; no accumulation of old frames.
-                    let parsed = parse_terminal_quota(text, fetched_at);
+                    let parsed = parse_visible_quota(&previous, fetched_at);
                     if matches!(parsed, Err(CollectionError::UnrecognizedOutput)) {
                         return parsed;
                     }
@@ -142,10 +144,25 @@ fn run(
     }
 }
 
-fn validate_frames(text: &str, fetched_at: &str) -> Result<(), CollectionError> {
+fn validate_frames(text: &str, fetched_at: &str) -> Result<String, CollectionError> {
     let mut observed = None;
-    observe_frames(text, |visible| {
-        if let Ok(snapshot) = parse_visible_quota(visible, fetched_at) {
+    observe_frames(text, |visible, dialog_bottom| {
+        // Validate blocking UI before any erase, including the final shutdown drain.
+        visible_state(visible)?;
+        if !dialog_bottom {
+            return Ok(());
+        }
+        let parsed = parse_visible_quota(visible, fetched_at);
+        if matches!(parsed, Err(CollectionError::UnrecognizedOutput))
+            && visible
+                .rsplit_once("Select Model")
+                .is_some_and(|(_, dialog)| {
+                    dialog.contains("Model usage") && dialog.contains("(Press Esc to close)")
+                })
+        {
+            return Err(CollectionError::UnrecognizedOutput);
+        }
+        if let Ok(snapshot) = parsed {
             if observed
                 .as_ref()
                 .is_some_and(|previous| previous != &snapshot.gemini_quota_metrics)
@@ -155,6 +172,12 @@ fn validate_frames(text: &str, fetched_at: &str) -> Result<(), CollectionError> 
             observed = Some(snapshot.gemini_quota_metrics);
         }
         Ok(())
-    })?;
-    Ok(())
+    })
+}
+
+fn complete_dialog(visible: &str) -> bool {
+    visible
+        .rsplit_once("Select Model")
+        .and_then(|(_, dialog)| dialog.split_once("(Press Esc to close)"))
+        .is_some_and(|(_, bottom)| bottom.contains('╯'))
 }

@@ -90,6 +90,8 @@
   "additionalProperties": true,
   "$defs": {
     "geminiQuotaMetric": {
+      "type": "object",
+      "required": ["label", "current", "limit", "unit", "kind"],
       "allOf": [
         {
           "$ref": "#/$defs/metric"
