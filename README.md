@@ -48,7 +48,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。Windows 从 `0.3.0-preview.3` 起，查看详情不会自动打开网页，用户显式点击同步后才启动支持关闭、复用聚焦、失败恢复与可见进度的官网窗口；macOS 现有行为不变。
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
-- 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
+- 默认每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知；Windows 已支持修改间隔，macOS 的可编辑间隔修复暂未发布，见[设置说明](docs/user-guide/settings.md#refresh-interval)。
 - DeepSeek API Key 存入 macOS Keychain；替换时先经官方余额接口验证，失败会保留旧 Key，设置页只显示最后四位遮罩。
 - Settings → About 支持手动检查 GitHub 新版本；发现更高版本后，由用户明确点击更新，macOS Sparkle 验证 EdDSA、Windows Tauri 验证 minisign 签名后安装。应用不会静默安装。
 
