@@ -12,8 +12,8 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序、已发布三服务及未发布 Gemini 接入范围 |
-| [服务与指标说明](user-guide/providers.md) | 四服务的数据来源、口径、未发布功能和限制 |
+| [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序及四服务接入范围 |
+| [服务与指标说明](user-guide/providers.md) | 四服务的数据来源、口径和限制 |
 | [设置参考](user-guide/settings.md) | 每一项设置的行为、默认值和注意事项 |
 | [故障排查](user-guide/troubleshooting.md) | 登录、超时、数据不一致、缓存、通知和悬浮条问题 |
 
@@ -62,6 +62,8 @@
 | [v0.3.0-preview.1 Release notes](releases/v0.3.0-preview.1.md) | Windows 浮动条轮廓、白边和贴边稳定性修复及真机复验项 |
 | [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
 | [v0.3.0-preview.3 Release notes](releases/v0.3.0-preview.3.md) | Windows DeepSeek 显式同步、可恢复窗口生命周期、紧凑界面与字体下拉可读性修复 |
+| [v0.6.0 Release notes](releases/v0.6.0.md) | Gemini 四服务、刷新间隔、浮动条与关于页改进，以及双平台稳定更新边界 |
+| [v0.6.0 发布记录](development/2026-09-08-v0.6.0-release.md) | 本地候选、原生 CI、签名资产、更新源和公开验收证据 |
 | [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [浮动条位置稳定持久化](development/2026-09-03-floating-strip-placement-persistence.md) | 稳定物理显示器身份、多屏无损回退、重连恢复和跨平台实现证据 |
 | [DeepSeek 截止时间饥饿修复](development/2026-09-03-deepseek-timeout-starvation.md) | 阻塞 Keychain 读取、独立 GCD 单调时钟截止时间与 CI 回归证据 |

@@ -1,6 +1,6 @@
 # 架构概览
 
-## Gemini 集成（未发布）
+## Gemini 集成（0.6.0 起）
 
 两平台注册第四个 Provider，Swift `GeminiCollector` 与 Rust `gemini` collector 通过环境预检、受控版本发现和 PTY/ConPTY 会话读取额度。Windows Gemini 与旧通用 WSL/账号探测分离，首期只允许 native。
 
@@ -122,7 +122,7 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 `AppModel` 是主线程状态中心：
 
 - 创建采集协调器和 DeepSeek 网页会话；
-- 启动后立即刷新，默认每 300 秒刷新；macOS 未发布修复增加 30–86400 整数秒偏好及可重排等待，修改不取消正在进行的采集，仍以自动刷新语义进入退避协调器；
+- 启动后立即刷新，默认每 300 秒刷新；两平台支持 30–86400 整数秒偏好，macOS 修改后重排等待且不取消正在进行的采集，仍以自动刷新语义进入退避协调器；
 - 应用 DeepSeek 余额基准和历史数据；
 - 保存用户设置；
 - 向窗口、通知和菜单栏发布状态。

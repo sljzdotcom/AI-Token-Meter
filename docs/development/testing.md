@@ -1,6 +1,6 @@
 # 测试指南
 
-## Gemini 验证（未发布）
+## Gemini 验证（0.6.0）
 
 最终源码的 Windows 前端 109 项、macOS 宿主 Rust 249 项和严格 Clippy、前端构建通过。它们不包含原生 Windows ConPTY 编译/运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
 
@@ -10,9 +10,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **478 个测试、93 个测试组全部通过**（本地未发布源码）。默认完整验证会先运行 459 项普通测试，再从独立测试进程运行 19 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+0.6.0 候选基线为 **478 个测试、93 个测试组全部通过**。默认完整验证会先运行 459 项普通测试，再从独立测试进程运行 19 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.5.1 为前端 85 项、密度生命周期 21 项、macOS 宿主 Rust 221 项、计算样式 632 项；标签发布 CI 通过 229 项原生 Windows Rust（见[发布记录](2026-09-08-v0.5.1-release.md)）。0.5.0 的 218 项原生基线见[历史发布记录](2026-09-07-v0.5.0-release.md)；0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
+以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.6.0 候选本机为前端 109 项、密度浏览器 16 个布局与 632 个文字角色、macOS 宿主 Rust 249 项；原生 Windows 数字以本版 PR 和发布 workflow 的实际结果为准。0.5.1 标签曾通过 229 项原生 Windows Rust（见[发布记录](2026-09-08-v0.5.1-release.md)）。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
 
 普通测试覆盖：
 
@@ -215,9 +215,9 @@ git diff --check
 
 至少验证：
 
-- 三个 Logo、圆环方向与真实百分比一致；
+- 四个 Logo、圆环方向与真实百分比一致；
 - 0% 不绘制虚假最小弧；
-- 三个详情都能打开并按设置自动收起；
+- 四个详情都能打开并按设置自动收起；
 - Settings 显示 Appearance、Monitoring、Services、About 四个 Tab，并始终使用系统字体；
 - About 显示 AI Token Meter、Private AI usage monitor 和真实版本号；
 - About 启动后不自动请求 appcast；点击 Check for Updates 后能分别展示新版、最新版和离线安全状态；只有发现新版后 Update Now 才启用；
@@ -228,8 +228,8 @@ git diff --check
 - 隐藏/恢复悬浮条与多显示器重定位正常；目标屏在线时不因主屏角色或枚举顺序跳屏；
 - Automatic 可拖到左右任一侧；0.4.0 起 macOS Left/Right 允许跨屏拖动但松手后固定相应侧，Windows 拖动沿用最近边缘；重启后恢复目标物理屏、侧边和相对高度；
 - 目标屏断开时临时回到当前主屏且配置不变；目标屏重新接入后自动恢复；
-- 左右轮廓、阴影、拖动提示和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
-- 三个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；
+- 左右轮廓、阴影、背景拖动命中和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
+- 四个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；
 - VoiceOver 能读出服务、数值和详情状态；
 - 浮岛玻璃表面可通过 VoiceOver 调整动作和普通键盘方向键移动；VoiceOver 阅读详情时不会被自动收起打断；
 - 退出 App 后无遗留事件监听或刷新任务。
