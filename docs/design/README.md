@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-08 | 0.6.0 Gemini 与累计改动稳定发布 | 沿用 Gemini 规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-08-v0.6.0-release.md) |
 | 2026-09-08 | Gemini 与四产品管理 | [调研与设计](specifications/2026-09-08-gemini-provider-design.md) | [计划](implementation-plans/2026-09-08-gemini-provider.md) |
 | 2026-09-08 | 移除双平台顶部横线 | [规格](specifications/2026-09-08-remove-strip-drag-hint-design.md) | [计划](implementation-plans/2026-09-08-remove-strip-drag-hint.md) |
 | 2026-09-08 | macOS 可编辑用量刷新间隔 | [规格](specifications/2026-09-08-macos-refresh-interval-design.md) | [计划](implementation-plans/2026-09-08-macos-refresh-interval.md) |
