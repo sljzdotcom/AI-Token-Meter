@@ -11,7 +11,7 @@
 
 PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`按上游已知缺陷修正；完整261项runtime、严格Clippy、NSIS、GUI subsystem和安装器上传均在后续PR、main及正式发布门禁中通过，没有跳过或降低测试。
 
-**0.6.3/build18发布候选：** 用户已明确要求把macOS About作者行精简直接发布为可更新的新版本。491项Swift、124项Windows前端、5项终端协议、261项Rust、真实浏览器密度、严格Clippy和无Widget Release App本机门禁全绿，审查为0/0/0；下一步进入PR与原生双平台CI。在签名资产公开和三个更新源完成验证前，公开稳定版仍是0.6.2。Google Antigravity与Gemini CLI的产品关系另由REQ-007调研，不在缺少官方结论时混入本补丁版。[发布记录](development/2026-09-09-v0.6.3-release.md)。
+**0.6.3/build18发布候选：** 用户已明确要求把macOS About作者行精简直接发布为可更新的新版本。491项Swift、124项Windows前端、5项终端协议、261项Rust、真实浏览器密度、严格Clippy和无Widget Release App本机门禁全绿，审查为0/0/0；[PR #20](https://github.com/sljzdotcom/AI-Token-Meter/pull/20)首轮精确候选`9c6c067`的macOS CI 34352300567与Windows CI 34352300602全绿。记录证据后的最终候选还需双平台复验，再合入main并发布。在签名资产公开和三个更新源完成验证前，公开稳定版仍是0.6.2。Google Antigravity与Gemini CLI的产品关系另由REQ-007调研，不在缺少官方结论时混入本补丁版。[发布记录](development/2026-09-09-v0.6.3-release.md)。
 
 **菜单面板品牌增强已随0.6.2交付：** macOS菜单栏弹出面板在标题左侧复用32pt应用图标，Windows原生托盘菜单以同一图标和软件名作为不可点击的首行；背景、刷新位置、用量摘要和事件路由保持。合成截图只使用纯色测试图标，功能基线491项Swift、124项前端、261项Rust、真实浏览器密度和无Widget Release App门禁均通过。[开发记录](development/2026-09-09-menu-panel-app-logo.md)。
 
