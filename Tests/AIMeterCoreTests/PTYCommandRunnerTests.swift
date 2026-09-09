@@ -200,7 +200,7 @@ struct PTYCommandRunnerTests {
                 group.addTask {
                     let result = try await PTYCommandRunner().run(CommandRequest(
                         executableURL: fixtureExecutable,
-                        inputLines: ["identity"],
+                        inputLines: ["concurrent"],
                         timeout: 3
                     ))
                     return (index, result)
@@ -216,7 +216,16 @@ struct PTYCommandRunnerTests {
 
         #expect(results.count == 32)
         #expect(results.allSatisfy { $0.1.exitCode == 0 })
-        #expect(results.allSatisfy { $0.1.output.contains("user:\(NSUserName())") })
+        let missingOutput = results
+            .filter { !$0.1.output.contains("concurrent-output") }
+            .sorted { $0.0 < $1.0 }
+        if !missingOutput.isEmpty {
+            let diagnostic = missingOutput.map {
+                "index=\($0.0) exit=\($0.1.exitCode) bytes=\($0.1.output.utf8.count)"
+            }.joined(separator: "; ")
+            print("PTY concurrent output diagnostics: \(diagnostic)")
+        }
+        #expect(missingOutput.isEmpty)
     }
 
     private var fixtureExecutable: URL {

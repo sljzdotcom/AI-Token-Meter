@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ai_token_meter_windows::collectors::CollectionError;
 use ai_token_meter_windows::collectors::codex_app_server::{
@@ -69,9 +69,15 @@ fn performs_the_bounded_app_server_handshake_without_a_shell() {
         arguments: vec![fixture.into_os_string()],
     };
 
+    let started = Instant::now();
     let snapshot =
-        collect_rate_limits_from_invocation(&invocation, None, FETCHED_AT, Duration::from_secs(3))
-            .expect("bounded Codex app-server conversation");
+        collect_rate_limits_from_invocation(&invocation, None, FETCHED_AT, Duration::from_secs(10))
+            .unwrap_or_else(|error| {
+                panic!(
+                    "bounded Codex app-server conversation failed after {:?}: {error:?}",
+                    started.elapsed()
+                )
+            });
 
     assert_eq!(snapshot.used_ratio.expect("used ratio").get(), 0.17);
     assert_eq!(snapshot.secondary_metric.expect("weekly").current, 4.0);

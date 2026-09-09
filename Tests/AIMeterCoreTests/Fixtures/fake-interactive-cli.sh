@@ -51,6 +51,9 @@ case "$ai_meter_command" in
   identity)
     printf 'user:%s\n' "${USER:-missing}"
     ;;
+  concurrent)
+    printf 'concurrent-output\n'
+    ;;
   pwd)
     printf 'working-directory:%s\n' "$PWD"
     ;;
