@@ -31,9 +31,9 @@
 - 验证：`Tests/AIMeterAppTests/BrandLinksViewTests.swift`
 - 验证：`Tests/AIMeterAppTests/SettingsStructureTests.swift`
 
-- [ ] **步骤1：从`AboutSettingsView`删除`Text(AppBrand.authorLine)`及其两个专用样式修饰符，不改变相邻版本文字或`BrandLinksView`。**
-- [ ] **步骤2：运行`swift test --filter 'AppBrandTests|BrandLinksViewTests|SettingsStructureTests'`，确认品牌元数据、三条链接、窄宽度布局、点击、失败反馈与Settings结构全部通过。**
-- [ ] **步骤3：检查生产差异，确认Windows源码、链接目标、版本和更新源均未改变。**
+- [x] **步骤1：从`AboutSettingsView`删除`Text(AppBrand.authorLine)`及其两个专用样式修饰符，不改变相邻版本文字或`BrandLinksView`。**
+- [x] **步骤2：运行`swift test --filter 'AppBrandTests|BrandLinksViewTests|SettingsStructureTests'`，确认品牌元数据、三条链接、窄宽度布局、点击、失败反馈与Settings结构全部通过。**
+- [x] **步骤3：检查生产差异，确认Windows源码、链接目标、版本和更新源均未改变。**
 
 ### 任务3：完整验证、文档与本地整合
 
@@ -44,9 +44,9 @@
 - 修改：`docs/requirements-backlog.md`
 - 修改：`CHANGELOG.md`
 
-- [ ] **步骤1：运行项目规定的完整Swift测试与macOS无Widget Release App构建，读取退出码和测试总数。**
-- [ ] **步骤2：运行`scripts/check-docs.sh`、跨平台合同、公开安全与`git diff --check`。**
-- [ ] **步骤3：逐项审查范围、布局、链接、版权、Windows隔离和未发布边界，修复发现并重跑受影响检查。**
+- [x] **步骤1：运行项目规定的完整Swift测试与macOS无Widget Release App构建，读取退出码和测试总数。**
+- [x] **步骤2：运行`scripts/check-docs.sh`、跨平台合同、公开安全与`git diff --check`。**
+- [x] **步骤3：逐项审查范围、布局、链接、版权、Windows隔离和未发布边界，修复发现并重跑受影响检查。**
 - [ ] **步骤4：把REQ-006标为已完成，记录测试、审查和Git证据；提交候选。**
 - [ ] **步骤5：保留协调入口未提交记录及既有stash，把验证后的提交安全快进整合到本地main；不推送、不打标签、不改feed。**
 - [ ] **步骤6：重新读取需求台账，向协调入口回传REQ-006结果并继续REQ-007官方调研。**

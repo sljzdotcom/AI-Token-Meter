@@ -25,7 +25,7 @@ PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`
 
 ## 一句话定位
 
-**0.6.0 关于页改进：** 两端新增 Telegram 图标链接，Windows 关于页移除作者整行和可见社交标题；macOS 原作者行保留。协调入口整合复测通过，[开发记录](development/2026-09-08-about-telegram.md)。
+**当前开发中的 About 精简：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。该改动尚未公开发布，[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
 
 **0.6.0 更新提示：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。
 
@@ -87,6 +87,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - 0.6.1最终本地基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
 - 0.6.2菜单面板品牌基线：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和261项宿主Rust，production build、格式、严格Clippy、6份跨平台合同、219份Markdown、公开安全与无Widget Release App验证通过。
+- 当前 macOS About 精简候选：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；无Widget Release App、6份跨平台合同、222份Markdown与公开安全检查通过，审查为Critical/Important/Minor `0/0/0`。
 - 四服务功能候选`8ad127e`及合并`99e018a`的双平台CI全绿；最终发布候选`7437f63`的PR CI `34314828597`/`34314828526`与合并提交`6fc4e1e`的main CI `34315740630`/`34315740626`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。

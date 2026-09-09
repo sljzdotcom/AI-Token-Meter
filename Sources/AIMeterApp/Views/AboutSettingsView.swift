@@ -25,9 +25,6 @@ struct AboutSettingsView: View {
                         Text(versionText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(AppBrand.authorLine)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                         BrandLinksView()
                     }
                 }

@@ -219,7 +219,7 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 ### 社交链接
 
-0.6.0 起两端显示带纸飞机图标的 **Telegram @sljzdotcom**，指向 [Telegram](https://t.me/sljzdotcom)。Windows 关于页去掉作者整行和可见的社交标题，保留三项链接与无障碍名称；macOS 作者信息继续显示。链接按可用宽度换行，点击后才打开默认浏览器。[开发记录](../development/2026-09-08-about-telegram.md)。
+两端均显示带纸飞机图标的 **Telegram @sljzdotcom**，指向 [Telegram](https://t.me/sljzdotcom)。Windows 关于页不显示作者整行和社交标题；当前 macOS 源码也已移除独立作者行。两端保留三项链接与无障碍名称，链接按可用宽度换行，点击后才打开默认浏览器。README、许可证与代码版权归属不受界面精简影响。[当前开发记录](../development/2026-09-09-macos-about-author-line-removal.md)。
 
 ### 作者社交链接与软件标识（0.5.0 起）
 

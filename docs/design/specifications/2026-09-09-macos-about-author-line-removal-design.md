@@ -4,7 +4,7 @@
 
 ## 目标与范围
 
-macOS Settings → About 不再显示独立的 `Author: Miller` 文字行。标题、副标题、版本、Twitter、GitHub、Telegram、隐私说明和软件更新控件全部保留；Windows 已在既有需求中移除作者行，本次不再修改。README、MIT License及代码版权信息继续保留作者归属，本次也不发布新版本。
+macOS Settings → About 不再显示独立的 `Author: Miller` 文字行。标题、副标题、版本、Twitter、GitHub、Telegram、隐私说明和软件更新控件全部保留；Windows 已在既有需求中移除作者行，本次不再修改。README、MIT License及代码版权信息继续保留作者归属。用户随后另行授权生成新版本，发布工作由 `REQ-20260909-008` 独立追踪。
 
 ## 方案比较与决定
 
