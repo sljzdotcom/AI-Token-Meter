@@ -29,7 +29,7 @@ Windows 宿主环境可真实构建 Tauri 原生菜单项，但不能替代交�
 - 真实浏览器密度：25项进程生命周期、8个Gemini详情场景、16组四服务布局和608个文字角色通过。首次仅因受限环境禁止绑定回环预览端口而停止，获准后同一命令全绿。
 - Windows Rust：完整261项通过，含5项托盘摘要/品牌测试；`cargo fmt --check` 与全目标 `-D warnings` Clippy通过。首次完整运行的6项本地HTTP夹具只因受限环境禁止绑定localhost而失败，获准后原命令全部通过。
 - macOS无Widget Release App构建通过，便携资源、Sparkle framework/helper、`@rpath`、嵌套组件与严格签名结构均通过。
-- 6份跨平台合同、合同可移植性、Windows发布资产归一化、更新源工具、215份Markdown、公开发布安全和Git差异检查全部通过。
+- 6份跨平台合同、合同可移植性、Windows发布资产归一化、更新源工具、216份Markdown、公开发布安全和Git差异检查全部通过。
 
 ## 审查结论
 
@@ -39,4 +39,5 @@ Windows 宿主环境可真实构建 Tauri 原生菜单项，但不能替代交�
 
 - 规格与计划：`2f52437`
 - 测试驱动实现：`da50eb3`
+- 验证与审查记录：`d4de77b`；该检查点已快进整合到本地 `main`，整合前协调入口的未提交需求状态已单独保存。
 - 当前公开稳定版仍为 [0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1)。本需求属于 Unreleased；本轮不创建新版本、标签、Release或更新源提交。
