@@ -245,14 +245,8 @@ struct CLICollectorTests {
 
     @Test("Codex app server timeout kills a process that ignores termination")
     func codexTimeoutIsBounded() async throws {
-        let pidFile = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ai-meter-codex-\(UUID().uuidString).pid")
-        defer {
-            try? FileManager.default.removeItem(at: pidFile)
-        }
-        let client = CodexAppServerClient(environmentOverrides: [
-            "AI_METER_TEST_PID_FILE": pidFile.path,
-        ])
+        let processID = ProcessIDCapture()
+        let client = CodexAppServerClient(processDidLaunch: processID.record)
         let startedAt = Date()
 
         await #expect(throws: UsageCollectionError.timedOut) {
@@ -263,7 +257,7 @@ struct CLICollectorTests {
         }
 
         #expect(Date().timeIntervalSince(startedAt) < 2)
-        let pid = try await readPID(from: pidFile)
+        let pid = try #require(processID.value)
         #expect(await processExited(pid, within: 2))
     }
 
@@ -365,6 +359,19 @@ struct CLICollectorTests {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runtime.path)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: codex.path)
         return codex
+    }
+}
+
+private final class ProcessIDCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue: pid_t?
+
+    var value: pid_t? {
+        lock.withLock { storedValue }
+    }
+
+    func record(_ processID: pid_t) {
+        lock.withLock { storedValue = processID }
     }
 }
 

@@ -2,17 +2,20 @@ import Foundation
 
 struct CodexAppServerClient: Sendable {
     private let beforeProcessRegistration: (@Sendable () -> Void)?
+    private let processDidLaunch: (@Sendable (Int32) -> Void)?
     private let environmentOverrides: [String: String]
     private let clientVersion: String
 
     init(
         beforeProcessRegistration: (@Sendable () -> Void)? = nil,
+        processDidLaunch: (@Sendable (Int32) -> Void)? = nil,
         environmentOverrides: [String: String] = [:],
         clientVersion: String = (Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String) ?? "unknown"
     ) {
         self.beforeProcessRegistration = beforeProcessRegistration
+        self.processDidLaunch = processDidLaunch
         self.environmentOverrides = environmentOverrides
         let normalizedVersion = clientVersion.trimmingCharacters(in: .whitespacesAndNewlines)
         self.clientVersion = normalizedVersion.isEmpty ? "unknown" : normalizedVersion
@@ -111,6 +114,7 @@ struct CodexAppServerClient: Sendable {
             input: input.fileHandleForWriting,
             output: output.fileHandleForReading
         )
+        processDidLaunch?(process.processIdentifier)
         defer {
             processBox.stop()
             _ = terminationWaiter.wait()
