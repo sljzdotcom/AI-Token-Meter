@@ -12,7 +12,7 @@
 
 建议先在 AI Token Meter 菜单栏手动刷新一次，再按下面的服务分类检查。
 
-下一稳定版起，Claude Code、OpenAI Codex和DeepSeek详情在确实需要配置时会提供 **Open Services Settings / 打开服务设置**。它会直接打开Services；若只是普通网络超时且仍有缓存，则继续显示旧额度和更新时间，不会把检测失败误写成未安装。
+0.6.1 起，Claude Code、OpenAI Codex和DeepSeek详情在确实需要配置时会提供 **Open Services Settings / 打开服务设置**。它会直接打开Services；若只是普通网络超时且仍有缓存，则继续显示旧额度和更新时间，不会把检测失败误写成未安装。
 
 ## Claude Code
 

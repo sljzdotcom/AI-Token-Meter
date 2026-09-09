@@ -119,7 +119,7 @@ Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留�
 
 Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查四项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
 
-下一稳定版起，Claude Code、OpenAI Codex或DeepSeek详情在需要安装、登录、凭据或其他设置处理时提供 **Open Services Settings / 打开服务设置**，并直接选中Services。带登录或设置失败原因的缓存会继续显示最后成功额度，同时提供恢复按钮；普通网络超时缓存只显示旧数据与时间，不误导用户重新安装。Gemini继续使用详情中的状态重试和安装指南；缺失或未知状态显示Node.js 20+、固定0.58.0安装命令、Google登录与回流检查，已安装待登录时跳过重装说明，连接后不显示安装步骤。
+0.6.1 起，Claude Code、OpenAI Codex或DeepSeek详情在需要安装、登录、凭据或其他设置处理时提供 **Open Services Settings / 打开服务设置**，并直接选中Services。带登录或设置失败原因的缓存会继续显示最后成功额度，同时提供恢复按钮；普通网络超时缓存只显示旧数据与时间，不误导用户重新安装。Gemini继续使用详情中的状态重试和安装指南；缺失或未知状态显示Node.js 20+、固定0.58.0安装命令、Google登录与回流检查，已安装待登录时跳过重装说明，连接后不显示安装步骤。
 
 ### Claude Code 与 OpenAI Codex 账户
 
@@ -225,7 +225,7 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 **GitHub** 链接，分别进入 [Twitter](https://twitter.com/MillerPanYue) 和 [项目仓库](https://github.com/sljzdotcom/AI-Token-Meter)。点击时才打开系统默认浏览器，不在应用中加载社交页面；若无法打开会给出提示，可重试。Windows 设置顶部显示本地软件 Logo，保留平台系统字体。实施与验证见[开发日志](../development/2026-09-07-about-branding.md)。
 
-0.6.0 使用双平台稳定更新通道，旧 Preview 入口也会同步；发布证据见[0.6.0 记录](../development/2026-09-08-v0.6.0-release.md)。
+0.6.1 继续使用双平台稳定更新通道并同步旧 Preview 入口；发布候选与后续公开证据见[0.6.1 记录](../development/2026-09-09-v0.6.1-release.md)。
 
 ### 现有设置行为
 

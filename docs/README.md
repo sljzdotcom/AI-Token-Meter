@@ -63,7 +63,9 @@
 | [v0.3.0-preview.1 Release notes](releases/v0.3.0-preview.1.md) | Windows 浮动条轮廓、白边和贴边稳定性修复及真机复验项 |
 | [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
 | [v0.3.0-preview.3 Release notes](releases/v0.3.0-preview.3.md) | Windows DeepSeek 显式同步、可恢复窗口生命周期、紧凑界面与字体下拉可读性修复 |
+| [v0.6.1 Release notes](releases/v0.6.1.md) | 四服务首次接入、DeepSeek凭据恢复与Gemini官方安装引导修复 |
 | [v0.6.0 Release notes](releases/v0.6.0.md) | Gemini 四服务、刷新间隔、浮动条与关于页改进，以及双平台稳定更新边界 |
+| [v0.6.1 发布记录](development/2026-09-09-v0.6.1-release.md) | 发布候选、原生CI、双平台签名资产、公开更新源与匿名验收证据 |
 | [v0.6.0 发布记录](development/2026-09-08-v0.6.0-release.md) | 本地候选、原生 CI、签名资产、更新源和公开验收证据 |
 | [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [浮动条位置稳定持久化](development/2026-09-03-floating-strip-placement-persistence.md) | 稳定物理显示器身份、多屏无损回退、重连恢复和跨平台实现证据 |

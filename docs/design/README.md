@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-09 | 0.6.1 四服务接入修复稳定发布 | 沿用四服务接入规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-09-v0.6.1-release.md) |
 | 2026-09-09 | 四服务商新用户接入一致性 | [审计与设计](specifications/2026-09-09-four-provider-onboarding-consistency-design.md) | [计划](implementation-plans/2026-09-09-four-provider-onboarding-consistency.md) |
 | 2026-09-08 | 0.6.0 Gemini 与累计改动稳定发布 | 沿用 Gemini 规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-08-v0.6.0-release.md) |
 | 2026-09-08 | Gemini 与四产品管理 | [调研与设计](specifications/2026-09-08-gemini-provider-design.md) | [计划](implementation-plans/2026-09-08-gemini-provider.md) |

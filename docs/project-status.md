@@ -7,6 +7,8 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
+**0.6.1/build16 发布候选：** 四服务商接入一致性与Gemini安装引导已在PR #17合入`main`提交`99e018a`。本机490项Swift、124项前端、259项Rust、浏览器与无Widget Release门禁通过，独立复核0/0/0；合并提交的macOS CI `34311839223`与Windows CI `34311839232`全绿。版本元数据和发布资料正在进入独立发布审查、候选PR、签名资产及公开更新源阶段；标签和Release尚未创建。[发布记录](development/2026-09-09-v0.6.1-release.md)。
+
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
 
 **0.6.0 Gemini 已公开发布：** 第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已交付。Windows 首期仅原生 CLI。最终本地回归为 485 项 Swift、109 项前端、256 项宿主 Rust；PR、main 与正式发布流水线的原生 Windows SDK/ConPTY 门禁全部通过。真实 Gemini 账号不在本轮自动化范围，仍作为现场边界。见[采集日志](development/2026-09-08-gemini-collector.md)、[发布记录](development/2026-09-08-v0.6.0-release.md)和[唯一台账](requirements-backlog.md)。
@@ -79,6 +81,8 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
+- 0.6.1发布候选基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
+- 四服务接入精确候选`8ad127e`的PR macOS/Windows CI `34311026875`/`34311026878`全绿；合并提交`99e018a`的main CI `34311839223`/`34311839232`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。
 - 已发布 0.5.1 基线继续保留：433 项 Swift、85 项前端、21 项密度生命周期、632 个浏览器文字角色、229 项原生 Windows Rust 及双平台标签门禁全部通过。
