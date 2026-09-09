@@ -49,6 +49,13 @@ public extension ServiceAccountStatus {
         let state: ServiceAccountConnectionState
         switch snapshot.collectionStatus {
         case .fresh: state = snapshot.geminiQuotaMetrics?.isEmpty == false ? .connected : .unavailable
+        case .cached:
+            let message = snapshot.statusMessage?.lowercased() ?? ""
+            if message.contains("sign in required") || message.contains("authentication required") {
+                state = .signInRequired
+            } else {
+                state = snapshot.geminiQuotaMetrics?.isEmpty == false ? .connected : .unavailable
+            }
         case .notInstalled: state = .notInstalled
         case .authenticationRequired: state = .signInRequired
         default: state = .unavailable

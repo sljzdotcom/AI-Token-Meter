@@ -62,12 +62,12 @@ Settings中的Claude/Codex继续保留主动作和手动检查。当主动作本
 
 DeepSeek根据当前凭据状态显示`Save API Key`或`Replace API Key`。验证失败文案同样区分首次保存与替换：首次流程失败说明新Key没有保存；替换失败说明旧Key继续保留。候选Key验证成功前不覆盖旧Key的事务边界不变。
 
-Gemini缺失、检查中或状态未知时显示Node.js 20+、`npm install -g @google/gemini-cli@0.58.0`、运行`gemini`选择Google登录以及返回应用重试的完整顺序。已安装但需要登录时跳过安装命令；连接后不显示安装步骤。两端按钮使用“Gemini CLI 0.58.0 installation guide”并固定打开官方`/docs/get-started/installation/`，不再打开额度说明页，也不执行命令。
+Gemini缺失、检查中或状态未知时显示Node.js 20+、`npm install -g @google/gemini-cli@0.58.0`、运行`gemini`选择Google登录以及返回应用重试的完整顺序。已安装但需要登录时跳过安装命令；带认证原因的旧额度缓存同样只提示登录，普通网络或限流缓存继续被动展示旧额度，不提示安装或登录；连接后不显示安装步骤。两端按钮使用“Gemini CLI 0.58.0 installation guide”并固定打开官方`/docs/get-started/installation/`，不再打开额度说明页，也不执行命令。
 
 ## 测试与验收
 
 1. Swift与TypeScript各自用纯策略矩阵覆盖四服务商和所有快照状态，确保详情动作不会随视图改版漂移。
-2. 视图测试覆盖Claude/Codex不可用时只有一个状态检查按钮、DeepSeek首次保存/替换文案及详情恢复按钮，以及Gemini缺失/已安装/连接三种状态的安装、登录和回流文案。
+2. 视图测试覆盖Claude/Codex不可用时只有一个状态检查按钮、DeepSeek首次保存/替换文案及详情恢复按钮，以及Gemini缺失、待登录、连接、认证缓存和普通网络缓存的安装、登录及回流文案。
 3. macOS路由测试验证先选择Services，再激活并打开Settings；Windows Rust/React测试验证固定页签路由及详情调用。
 4. 固定链接测试验证两端只打开官方安装页；保留并运行既有发现、安装、登录、凭据事务、Gemini能力、浮动条和详情回归，证明没有新增自动安装、自动登录、真实网络或凭据暴露路径。
 5. 完整门禁前运行`scripts/check-docs.sh`；完成独立审查与双平台CI。真实Google账号、Windows交互式终端/WebView2及DPI继续明确列为现场边界，不由模拟测试冒充通过。

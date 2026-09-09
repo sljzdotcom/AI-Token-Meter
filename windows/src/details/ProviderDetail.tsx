@@ -37,7 +37,7 @@ export function ProviderDetail({
   useLocale()
   const percent = snapshot.usedRatio == null ? null : Math.round(snapshot.usedRatio * 100)
   const recovery = detailRecovery(snapshot.providerId, snapshot.status, snapshot.statusMessage)
-  const geminiInstructions = snapshot.providerId === "gemini" ? geminiInstallationInstructions(geminiSetupStateForSnapshot(snapshot.status)) : []
+  const geminiInstructions = snapshot.providerId === "gemini" ? geminiInstallationInstructions(geminiSetupStateForSnapshot(snapshot)) : []
   return (
     <section
       aria-label={t("{name} details", {name: snapshot.displayName})}

@@ -58,6 +58,27 @@ it("keeps Gemini on dedicated retry and supported-version installation controls"
   expect(screen.getByText("Return to AI Token Meter and choose Check Status.")).toBeVisible()
 })
 
+it("routes cached Gemini authentication to sign-in while keeping network cache passive", () => {
+  const base = {
+    ...snapshot("gemini", "cached"),
+    displayName: "Gemini",
+    usedRatio: 0.25,
+    geminiQuotaMetrics: [{label: "Pro", current: 25, limit: 100, unit: "percent" as const, kind: "officialLimit" as const}],
+  }
+  const props = {
+    ...handlers,
+    onCheckGeminiStatus: () => {},
+    onOpenGeminiInstallationGuide: () => {},
+  }
+  const {rerender} = render(<ProviderDetail {...props} snapshot={{...base, statusMessage: "Cached · sign in required"}} />)
+  expect(screen.getByText("Run gemini and choose Sign in with Google.")).toBeVisible()
+  expect(screen.queryByText("npm install -g @google/gemini-cli@0.58.0")).not.toBeInTheDocument()
+
+  rerender(<ProviderDetail {...props} snapshot={{...base, statusMessage: "Cached · refresh timed out"}} />)
+  expect(screen.queryByText("Run gemini and choose Sign in with Google.")).not.toBeInTheDocument()
+  expect(screen.queryByText("npm install -g @google/gemini-cli@0.58.0")).not.toBeInTheDocument()
+})
+
 it("keeps cached quota visible while exposing expired-login recovery", () => {
   const open = vi.fn()
   render(<ProviderDetail {...handlers} snapshot={{

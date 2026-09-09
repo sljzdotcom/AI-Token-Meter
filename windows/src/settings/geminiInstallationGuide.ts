@@ -13,10 +13,14 @@ export function geminiInstallationInstructions(state: GeminiSetupState): string[
   return ["Requires Node.js 20 or later.", GEMINI_INSTALL_COMMAND, signIn, finish]
 }
 
-export function geminiSetupStateForSnapshot(status: UsageSnapshot["status"]): GeminiSetupState {
-  if (status === "fresh" || status === "cached") return "connected"
-  if (status === "authenticationRequired") return "signInRequired"
-  if (status === "notInstalled") return "notInstalled"
-  if (status === "refreshing") return "checking"
+export function geminiSetupStateForSnapshot(snapshot: Pick<UsageSnapshot, "status" | "statusMessage">): GeminiSetupState {
+  if (snapshot.status === "fresh") return "connected"
+  if (snapshot.status === "cached") {
+    const message = snapshot.statusMessage?.toLowerCase() ?? ""
+    return message.includes("sign in required") || message.includes("authentication required") ? "signInRequired" : "connected"
+  }
+  if (snapshot.status === "authenticationRequired") return "signInRequired"
+  if (snapshot.status === "notInstalled") return "notInstalled"
+  if (snapshot.status === "refreshing") return "checking"
   return "unavailable"
 }
