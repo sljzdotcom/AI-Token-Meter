@@ -2,7 +2,7 @@
 
 关联需求：REQ-20260909-007。调研日期：2026-09-09。代码基线：`506092f`。
 
-状态：本机只读能力验证和官方资料核对已完成；用户可见身份与额度范围采用下述推荐方案前，等待用户确认。本文不构成发布授权。
+状态：用户于2026-09-10明确确认采用推荐方案，进入双平台实施。本文不构成发布授权。
 
 ## 已验证事实
 
@@ -25,7 +25,7 @@ Google 当前把 Antigravity CLI 作为原生 macOS、Linux 与 Windows 的终�
 - [Status line JSON 结构](https://antigravity.google/docs/cli/statusline/)
 - [AI Credits 与额度](https://antigravity.google/docs/cli/credits/)
 
-## 需要确认的产品决定
+## 已确认的产品决定
 
 ### 推荐：第四项整体迁移为 Antigravity
 
@@ -72,4 +72,3 @@ macOS 将替换 Swift 的 Gemini 发现、环境、PTY 对话框和解析路径�
 4. 进度环继续表示已用比例，额度卡明确表示剩余比例与重置时间；Gemini 和 Claude/GPT 两组不会互相覆盖。
 5. 采集过程无模型提示、工具执行、账号配置写入、OAuth/Keychain 内容读取或公开日志中的个人额度。
 6. 运行文档检查、双平台完整测试、原生 CI 与独立审查。真实 Windows GUI/DPI 和不同账号套餐仍保留为现场边界，不由夹具冒充通过。
-

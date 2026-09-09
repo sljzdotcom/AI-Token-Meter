@@ -40,7 +40,8 @@
 | [Windows DeepSeek 历史与界面密度修复计划](design/implementation-plans/2026-09-04-windows-deepseek-history-and-density.md) | Rust/React 状态、WebView2 生命周期、TDD、门禁与真机验收步骤 |
 | [Windows DeepSeek 最终质量门禁修复设计](design/specifications/2026-09-04-windows-deepseek-final-quality-gate-design.md) | 分片停滞时限、attempt/generation 所有权与清理失败恢复 |
 | [Windows DeepSeek 最终质量门禁修复计划](design/implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) | 三阶段 TDD、独立审查、全量门禁与 Windows runner 验证 |
-| [Google Antigravity CLI 接入迁移](design/specifications/2026-09-09-antigravity-cli-migration-design.md) | 官方`agy`身份、无推理额度结构、兼容迁移、安全边界与待确认的数据范围 |
+| [Google Antigravity CLI 接入迁移](design/specifications/2026-09-09-antigravity-cli-migration-design.md) | 官方`agy`身份、无推理额度结构、已确认数据范围、兼容迁移与安全边界 |
+| [Google Antigravity CLI 接入迁移计划](design/implementation-plans/2026-09-10-antigravity-cli-migration.md) | Swift/Rust额度解析、官方命令、双平台界面、兼容迁移与验证检查点 |
 
 ## 开发与维护
 
