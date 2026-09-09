@@ -26,12 +26,19 @@ it("uses Save for a first DeepSeek Key and Replace only when one is already stor
 })
 
 it("busy service blocks login, duplicate installation and runtime changes", () => {
-  render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" busyServices={["claude", "deepseek"]} serviceStatuses={[{providerId: "claude", connectionState: "notInstalled"}, {providerId: "deepseek", connectionState: "checking"}]} />)
+  render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" busyServices={["claude", "deepseek"]} verifyingDeepSeekKey serviceStatuses={[{providerId: "claude", connectionState: "notInstalled"}, {providerId: "deepseek", connectionState: "checking"}]} />)
   expect(screen.getByRole("button", {name: "Waiting for Terminal… Claude Code"})).toBeDisabled()
   expect(screen.getByRole("button", {name: "Check Claude Code status"})).toBeDisabled()
   expect(screen.getByRole("button", {name: "Initialize Claude Code quota reading"})).toBeDisabled()
   expect(screen.getAllByRole("combobox")[0]).toBeDisabled()
   expect(screen.getByRole("button", {name: "Verifying DeepSeek API Key"})).toBeDisabled()
+  expect(screen.getByRole("button", {name: "Check DeepSeek status"})).toBeDisabled()
+})
+
+it("does not describe an ordinary DeepSeek status check as API Key verification", () => {
+  render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" serviceStatuses={[{providerId: "deepseek", connectionState: "checking"}]} />)
+  expect(screen.getByRole("button", {name: "Save DeepSeek API Key"})).toBeDisabled()
+  expect(screen.queryByRole("button", {name: "Verifying DeepSeek API Key"})).not.toBeInTheDocument()
   expect(screen.getByRole("button", {name: "Check DeepSeek status"})).toBeDisabled()
 })
 

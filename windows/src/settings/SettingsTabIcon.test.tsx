@@ -48,6 +48,6 @@ describe("Windows Settings tab icons", () => {
     monitoringTab.focus()
     fireEvent.keyDown(monitoringTab, { key: "ArrowRight" })
     expect(screen.getByRole("tab", { name: "Services" })).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByRole("button", { name: "Verifying DeepSeek API Key" })).toBeVisible()
+    expect(screen.getByRole("button", { name: "Save DeepSeek API Key" })).toBeVisible()
   })
 })

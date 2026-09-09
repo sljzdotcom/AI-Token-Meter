@@ -515,6 +515,7 @@ export function SettingsSurface() {
       }}
       onCheckServiceStatus={checkServiceStatus}
       busyServices={(["claude", "codex", "deepseek", "gemini"] as const).filter(provider => onboarding.isBusy(provider) || (provider === "deepseek" && deepSeekReplacing))}
+      verifyingDeepSeekKey={deepSeekReplacing}
       onBeginServiceSignIn={provider => { void onboarding.begin(provider, "login") }}
       onBeginServiceInstallation={provider => { void onboarding.begin(provider, "install") }}
       onInitializeClaudeUsage={() => { void onboarding.initializeClaudeUsage() }}

@@ -40,6 +40,7 @@ type SettingsWindowProps = {
   onOpenGeminiDocumentation?: () => void
   onOpenInstallationGuide?: (providerId: "claude" | "codex") => void
   busyServices?: ProviderId[]
+  verifyingDeepSeekKey?: boolean
   onReplaceDeepSeekKey?: () => Promise<boolean> | boolean | void
   serviceMessage?: string | null
   cliSettings?: Record<"claude" | "codex", ProviderCliSettings>
@@ -116,6 +117,7 @@ export function SettingsWindow({
   onOpenInstallationGuide = () => {},
   onOpenGeminiDocumentation = () => {},
   busyServices = [],
+  verifyingDeepSeekKey = false,
   onReplaceDeepSeekKey = () => {},
   serviceMessage,
   cliSettings = { claude: defaultCliSettings, codex: defaultCliSettings },
@@ -345,13 +347,13 @@ export function SettingsWindow({
             <Service name="DeepSeek" status={deepSeekStatus}>
               <small>{t("Windows opens a protected credential prompt; the Key never enters this WebView.")}</small>
               <button
-                aria-label={t(deepSeekBusy ? "Verifying DeepSeek API Key" : deepSeekCredential.actionLabel)}
+                aria-label={t(verifyingDeepSeekKey ? "Verifying DeepSeek API Key" : deepSeekCredential.actionLabel)}
                 disabled={deepSeekBusy}
                 onClick={async () => {
                   await onReplaceDeepSeekKey()
                 }}
                 type="button"
-              >{t(deepSeekBusy ? "Verifying…" : deepSeekCredential.actionTitle)}</button>
+              >{t(verifyingDeepSeekKey ? "Verifying…" : deepSeekCredential.actionTitle)}</button>
               <button
                 aria-label={t("Check DeepSeek status")}
                 disabled={deepSeekBusy}
