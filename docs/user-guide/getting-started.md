@@ -36,7 +36,7 @@ shasum -a 256 -c AI-Token-Meter-0.6.1-macOS-arm64.zip.sha256
 
 Windows 从同一 [v0.6.1 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1) 下载 `AI-Token-Meter-0.6.1-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
 
-发布完成后，已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口将共同指向 `0.6.1`；设置与凭据的存储位置保持不变。
+已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口均已指向 `0.6.1`；设置与凭据的存储位置保持不变。
 
 ## 3. 从源码构建
 

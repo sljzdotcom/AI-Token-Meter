@@ -2,12 +2,12 @@
 
 - **事实快照：** 2026-09-09
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.6.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)（macOS build `15`）
+- **当前公开稳定版：** 双平台 [`0.6.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1)（macOS build `16`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.6.1/build16 发布候选：** 四服务商接入一致性与Gemini安装引导已在PR #17合入`main`提交`99e018a`。本机490项Swift、124项前端、259项Rust、浏览器与无Widget Release门禁通过，独立复核0/0/0；合并提交的macOS CI `34311839223`与Windows CI `34311839232`全绿。版本元数据和发布资料正在进入独立发布审查、候选PR、签名资产及公开更新源阶段；标签和Release尚未创建。[发布记录](development/2026-09-09-v0.6.1-release.md)。
+**0.6.1/build16 已公开发布：** 四服务商接入一致性与Gemini安装引导已交付。发布候选`7437f63`的PR #18双平台CI、合并提交`6fc4e1e`的main双平台CI及发布workflow `34316932269`全部通过；发布后稳定appcast提交为`6945b15`。七个公开资产和三条更新入口已匿名重下，SHA-256、Sparkle/Tauri签名及篡改拒绝均验证通过。[发布记录](development/2026-09-09-v0.6.1-release.md)。
 
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
 
@@ -81,15 +81,15 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 0.6.1发布候选基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
-- 四服务接入精确候选`8ad127e`的PR macOS/Windows CI `34311026875`/`34311026878`全绿；合并提交`99e018a`的main CI `34311839223`/`34311839232`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
+- 0.6.1最终本地基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
+- 四服务功能候选`8ad127e`及合并`99e018a`的双平台CI全绿；最终发布候选`7437f63`的PR CI `34314828597`/`34314828526`与合并提交`6fc4e1e`的main CI `34315740630`/`34315740626`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。
 - 已发布 0.5.1 基线继续保留：433 项 Swift、85 项前端、21 项密度生命周期、632 个浏览器文字角色、229 项原生 Windows Rust 及双平台标签门禁全部通过。
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-08-v0.6.0-release.md)。
-- `v0.6.0` 标签为 `94bf320`，appcast `bacd138` 首项为 0.6.0/build15，Windows stable/旧 Preview 同步为 0.6.0；发布 workflow `34303172498` 三项 job 成功，匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-09-v0.6.1-release.md)。
+- `v0.6.1` 标签指向 `6fc4e1e`，appcast `6945b15` 首项为0.6.1/build16，Windows stable/旧 Preview同步为0.6.1；发布 workflow `34316932269`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 
@@ -106,7 +106,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 待用户确认 | `0.3.0-preview.3` 已列入 `REQ-20260904-006` 修复；在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
-| Gemini 真实普通 OAuth 账号与实际额度 | 受环境限制 | 用户在已登录 Gemini CLI 0.58.0 的设备安装 0.6.0 后核对档位、重置说明和刷新；本轮不代用户登录或消耗额度 |
+| Gemini 真实普通 OAuth 账号与实际额度 | 受环境限制 | 用户在已登录 Gemini CLI 0.58.0 的设备安装 0.6.1 后核对档位、重置说明和刷新；本轮不代用户登录或消耗额度 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
 

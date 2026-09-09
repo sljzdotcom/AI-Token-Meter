@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前公开稳定版为 `0.6.0`、macOS build `15`，tag 为 [`v0.6.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)；`0.6.1`/build16已进入发布候选流程。macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。稳定 appcast、Windows stable latest.json 与旧 Windows Preview feed 仍指向0.6.0，只有0.6.1资产公开并通过恢复保护后才会推进；候选及后续公开证据记录在[0.6.1发布记录](2026-09-09-v0.6.1-release.md)。真机验收和代码签名证书状态继续独立记录，不因稳定通道发布而自动变为完成。
+当前公开稳定版为 `0.6.1`、macOS build `16`，tag 为 [`v0.6.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1)。macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release；稳定 appcast、Windows stable latest.json 与旧 Windows Preview feed 均已指向0.6.1并通过匿名下载、哈希、签名与篡改拒绝验证，完整证据见[0.6.1发布记录](2026-09-09-v0.6.1-release.md)。真机验收和代码签名证书状态继续独立记录，不因稳定通道发布而自动变为完成。
 
 ## 发布前检查清单
 
