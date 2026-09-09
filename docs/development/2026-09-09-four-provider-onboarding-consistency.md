@@ -22,6 +22,7 @@
 - Claude/Codex主操作已经是“Check Status”时不再显示第二个同名按钮，其他状态仍保留独立检查。
 - DeepSeek首次配置显示“Save API Key”，已有Key显示“Replace API Key”。候选Key仍先验证再写入；首次失败只说明新Key未保存，替换失败才说明旧Key保留。
 - DeepSeek API Key缺失时先引导Services。官网登录继续只用于官网历史；已有历史数据和旧额度仍可保留显示。
+- 用户验收确认Gemini按钮实际打开额度说明页而非安装方法。两端现改为明确的0.58.0安装指南并固定直达官方安装页；未安装或未知状态显示Node.js 20+、精确npm命令、Google登录和回到应用检查的顺序，待登录时跳过重装，连接后隐藏安装步骤。
 
 ## 自动化验证
 
@@ -32,6 +33,7 @@
 - 无Widget的macOS Release App完成arm64构建；可移植资源、Sparkle framework/helper、`@rpath`、嵌套组件和严格签名结构通过。
 - 初次独立审查为Critical 0、Important 2、Minor 1：Windows原生Key提示框关闭后的网络验证没有真正进入busy状态；有旧官网历史时恢复入口排在历史之后；两个TypeScript文件还带EOF空行。失败先行补充真实Settings生命周期、恢复顺序和后端单事务测试后，验证期间的替换、检查与窗口聚焦刷新均锁定，Rust命令也拒绝并发替换；恢复入口调整到历史之前，格式检查恢复通过。
 - 首轮修复复核关闭全部原有发现，并指出一项Minor：普通DeepSeek状态读取与真实Key替换共用验证文案。新增失败测试后以独立的真实替换标志控制文案，普通读取仍禁用按钮但保持“Save API Key”；最终复核精确提交`978a170`为Critical 0、Important 0、Minor 0。
+- REQ-20260909-003扩展先让Swift安装策略、Windows缺失/待登录/连接视图和Rust固定URL测试失败；实现后定向Swift、47项相关前端、TypeScript production build与3项Rust链接测试通过。扩展后的完整本机门禁为462项常规Swift、3项刷新调度、18项PTY runner和6项Gemini PTY，共489项；Windows为123项前端、5项终端输入协议、25项密度进程生命周期、8个Gemini详情场景、16组四服务布局、608个浏览器文字角色和259项宿主Rust；严格Clippy、Rust格式、production build、6份跨平台合同、210份Markdown、公开安全与diff检查均通过。无Widget macOS Release App再次通过资源、Sparkle嵌套组件和严格签名验证；扩展候选独立审查仍待提交后完成。
 - 实现检查点为`80da33f`，并发、顺序与格式修复为`4149086`，最终文案修复为`978a170`。完整本机门禁再次通过；原生双平台CI、main整合和发布证据将在后续阶段补齐，未完成前不把需求标为完成。
 
 ## 安全、隐私与现场边界

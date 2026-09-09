@@ -6,7 +6,7 @@
 
 四项全显示时 Compact 为 78×344、Comfortable 为 108×428；显示三项时仍为 78×286、108×356。尺寸随实际可见数量变化。
 
-Gemini 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡提供官方指南和检查状态；当前不提供执行安装、登录或重新登录。固定版本、认证模式与 Windows 原生限制见[Gemini 指标说明](providers.md#gemini)。
+Gemini 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡按状态显示固定0.58.0的安装或登录步骤，安装按钮直达官方安装页，并提供检查状态；当前不执行安装、登录或重新登录。固定版本、认证模式与Windows原生限制见[Gemini指标说明](providers.md#gemini)。
 
 使用 macOS 菜单栏或 Windows 系统托盘的齿轮打开设置；macOS 也可按 `⌘,`。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用平台系统字体，不受显示字体偏好影响。
 
@@ -119,7 +119,7 @@ Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留�
 
 Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查四项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
 
-下一稳定版起，Claude Code、OpenAI Codex或DeepSeek详情在需要安装、登录、凭据或其他设置处理时提供 **Open Services Settings / 打开服务设置**，并直接选中Services。带登录或设置失败原因的缓存会继续显示最后成功额度，同时提供恢复按钮；普通网络超时缓存只显示旧数据与时间，不误导用户重新安装。Gemini继续使用详情中的状态重试和官方文档，因为当前版本不会替用户执行Gemini安装或OAuth登录。
+下一稳定版起，Claude Code、OpenAI Codex或DeepSeek详情在需要安装、登录、凭据或其他设置处理时提供 **Open Services Settings / 打开服务设置**，并直接选中Services。带登录或设置失败原因的缓存会继续显示最后成功额度，同时提供恢复按钮；普通网络超时缓存只显示旧数据与时间，不误导用户重新安装。Gemini继续使用详情中的状态重试和安装指南；缺失或未知状态显示Node.js 20+、固定0.58.0安装命令、Google登录与回流检查，已安装待登录时跳过重装说明，连接后不显示安装步骤。
 
 ### Claude Code 与 OpenAI Codex 账户
 

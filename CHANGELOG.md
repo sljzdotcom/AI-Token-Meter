@@ -9,6 +9,7 @@
 - macOS与Windows的Claude Code、OpenAI Codex和DeepSeek详情在需要安装、登录、凭据或设置处理时可直接打开Services；带认证原因的旧额度缓存继续显示数据并提供恢复动作，普通网络超时缓存保持只读。
 - Claude Code/OpenAI Codex账户状态无法检查时不再在同一服务卡显示两个“Check Status”按钮。
 - DeepSeek首次配置显示“Save API Key”，已有Key才显示“Replace API Key”；首次失败不再错误声称保留旧Key。API Key缺失时先引导Services，官网历史登录不再冒充余额凭据恢复。
+- Gemini详情与Services的按钮改为明确的0.58.0安装指南并直达官方安装页；缺失时显示Node.js 20+、固定版本安装命令、Google登录及回到应用检查状态的完整步骤，已安装或连接状态不会提示重装。
 
 ## 0.6.0 - 2026-09-09
 

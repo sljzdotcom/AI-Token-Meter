@@ -255,7 +255,7 @@ for (const width of [340, 440]) {
       usedRatio:hasQuota ? .6 : null, primaryMetric:hasQuota ? geminiFresh.primaryMetric as UsageSnapshot["primaryMetric"] : null,
       secondaryMetric:null, geminiQuotaMetrics:hasQuota ? [...geminiFresh.geminiQuotaMetrics, {...geminiFresh.geminiQuotaMetrics[0],label:"Flash Lite",current:10}] as NonNullable<UsageSnapshot["geminiQuotaMetrics"]> : [],
       statusMessage:status === "cached" ? "Cached · sign in required" : status === "unavailable" ? "Gemini CLI configuration is not supported" : null}
-    flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={()=>{}} onPointerLeave={()=>{}} onInteractionStart={()=>{}} onInteractionEnd={()=>{}} onCheckGeminiStatus={()=>{retries++}} onOpenGeminiDocumentation={()=>{guides++}} />))
+    flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={()=>{}} onPointerLeave={()=>{}} onInteractionStart={()=>{}} onInteractionEnd={()=>{}} onCheckGeminiStatus={()=>{retries++}} onOpenGeminiInstallationGuide={()=>{guides++}} />))
     const cards = [...host.querySelectorAll<HTMLElement>(".metric-card")]
     const texts = cards.map(card=>card.textContent ?? "")
     const bounds = host.getBoundingClientRect()

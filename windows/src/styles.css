@@ -721,6 +721,24 @@ button {
   min-width: 220px;
 }
 
+.gemini-setup-guide {
+  display: grid;
+  flex: 1 1 100%;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+}
+
+.gemini-install-command {
+  background: rgba(68, 78, 102, 0.08);
+  border: 1px solid rgba(68, 78, 102, 0.16);
+  border-radius: 6px;
+  color: inherit;
+  font-family: "Cascadia Mono", Consolas, monospace !important;
+  padding: 5px 7px;
+  user-select: all;
+}
+
 .cli-runtime-controls {
   display: grid;
   flex: 1 1 100%;

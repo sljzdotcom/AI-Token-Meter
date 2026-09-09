@@ -1400,7 +1400,7 @@ pub fn run() {
             open_service_installation_guide,
             replace_deepseek_api_key,
             brand_links::open_brand_link,
-            brand_links::open_gemini_documentation
+            brand_links::open_gemini_installation_guide
         ])
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())

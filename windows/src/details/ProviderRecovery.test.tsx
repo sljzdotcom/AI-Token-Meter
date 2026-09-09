@@ -47,11 +47,15 @@ it("puts DeepSeek credential recovery before retained official history", () => {
   expect(recovery.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
-it("keeps Gemini on its dedicated retry and documentation controls", () => {
-  render(<ProviderDetail {...handlers} snapshot={{...snapshot("gemini", "notInstalled"), displayName: "Gemini"}} onOpenServicesSettings={() => {}} onCheckGeminiStatus={() => {}} onOpenGeminiDocumentation={() => {}} />)
+it("keeps Gemini on dedicated retry and supported-version installation controls", () => {
+  render(<ProviderDetail {...handlers} snapshot={{...snapshot("gemini", "notInstalled"), displayName: "Gemini"}} onOpenServicesSettings={() => {}} onCheckGeminiStatus={() => {}} onOpenGeminiInstallationGuide={() => {}} />)
   expect(screen.queryByRole("button", {name: "Open Services Settings"})).not.toBeInTheDocument()
   expect(screen.getByRole("button", {name: "Check Gemini status"})).toBeVisible()
-  expect(screen.getByRole("button", {name: "Gemini CLI documentation"})).toBeVisible()
+  expect(screen.getByRole("button", {name: "Gemini CLI 0.58.0 installation guide"})).toBeVisible()
+  expect(screen.getByText("Requires Node.js 20 or later.")).toBeVisible()
+  expect(screen.getByText("npm install -g @google/gemini-cli@0.58.0")).toBeVisible()
+  expect(screen.getByText("Run gemini and choose Sign in with Google.")).toBeVisible()
+  expect(screen.getByText("Return to AI Token Meter and choose Check Status.")).toBeVisible()
 })
 
 it("keeps cached quota visible while exposing expired-login recovery", () => {

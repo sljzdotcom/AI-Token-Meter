@@ -846,14 +846,14 @@ describe("Windows meter interface", () => {
   })
 })
 
-it("Gemini detail requests quota retry and fixed documentation actions without installation or sign-in", async () => {
+it("Gemini detail requests quota retry and the fixed installation guide without automatic setup", async () => {
   const gemini: UsageSnapshot = {schemaVersion:1,providerId:"gemini",displayName:"Gemini",status:"unavailable",usedRatio:null,primaryMetric:null,fetchedAt:"2026-09-08T00:00:00Z",staleAfterSeconds:300}
   const calls: string[] = []
   tauri.invoke.mockImplementation(command => {
     calls.push(command)
     if (command === "app_settings") return Promise.resolve(detailSettings)
     if (command === "service_account_status") return Promise.reject(Error("fixture unavailable"))
-    if (command === "open_gemini_documentation") return Promise.reject(Error("fixture open error"))
+    if (command === "open_gemini_installation_guide") return Promise.reject(Error("fixture open error"))
     return Promise.resolve(undefined)
   })
   render(<DetailSurface />)
@@ -863,8 +863,9 @@ it("Gemini detail requests quota retry and fixed documentation actions without i
   fireEvent.click(screen.getByRole("button", {name:"Check Gemini status"}))
   expect(await screen.findByText("Gemini status could not be checked. Try again.")).toBeVisible()
   expect(tauri.invoke).toHaveBeenCalledWith("service_account_status", {providerId:"gemini",retryUsage:true})
-  fireEvent.click(screen.getByRole("button", {name:"Gemini CLI documentation"}))
-  expect(await screen.findByText("The documentation could not be opened.")).toBeVisible()
+  fireEvent.click(screen.getByRole("button", {name:"Gemini CLI 0.58.0 installation guide"}))
+  expect(await screen.findByText("The installation guide could not be opened.")).toBeVisible()
+  expect(calls).toContain("open_gemini_installation_guide")
   expect(calls).not.toContain("begin_service_sign_in")
   expect(calls).not.toContain("begin_service_installation")
   expect(screen.queryByText(/0%/)).not.toBeInTheDocument()

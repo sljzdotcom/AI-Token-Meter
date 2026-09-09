@@ -115,12 +115,14 @@ struct ServicesSettingsView: View {
             }
 
             Section("Gemini CLI") {
-                ServiceAccountStatusView(status: status(for: .gemini))
+                let geminiStatus = status(for: .gemini)
+                ServiceAccountStatusView(status: geminiStatus)
                 Text("Reads official quota through a supported Gemini CLI. Account identity is not provided by this view.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
+                GeminiInstallationHelp(state: geminiStatus.connectionState)
                 HStack {
-                    Link("Official Gemini CLI documentation", destination: GeminiDetailView.documentationURL)
+                    Link("Gemini CLI 0.58.0 installation guide", destination: GeminiInstallationGuide.url)
                     Button("Retry") { Task { await model.checkServiceAccount(.gemini) } }
                 }
             }

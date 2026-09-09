@@ -33,6 +33,22 @@ it("unknown Gemini capability shows unavailable without implying missing install
   render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" />)
   expect(screen.getByText("Gemini CLI")).toBeVisible()
   expect(screen.getByRole("button", {name:"Check Gemini status"})).toBeEnabled()
-  expect(screen.getByRole("button", {name:"Gemini CLI documentation"})).toBeEnabled()
+  expect(screen.getByRole("button", {name:"Gemini CLI 0.58.0 installation guide"})).toBeEnabled()
+  expect(screen.getByText("Requires Node.js 20 or later.")).toBeVisible()
+  expect(screen.getByText("npm install -g @google/gemini-cli@0.58.0")).toBeVisible()
+  expect(screen.getByText("Run gemini and choose Sign in with Google.")).toBeVisible()
+  expect(screen.getByText("Return to AI Token Meter and choose Check Status.")).toBeVisible()
   expect(screen.queryByRole("button", {name:/Install.*Gemini|Sign in.*Gemini/})).not.toBeInTheDocument()
+})
+
+it("installed Gemini guidance skips reinstall and directs sign-in or status checking", () => {
+  const {rerender} = render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" serviceStatuses={[{providerId: "gemini", connectionState: "signInRequired"}]} />)
+  expect(screen.queryByText("npm install -g @google/gemini-cli@0.58.0")).not.toBeInTheDocument()
+  expect(screen.getByText("Run gemini and choose Sign in with Google.")).toBeVisible()
+  expect(screen.getByText("Return to AI Token Meter and choose Check Status.")).toBeVisible()
+
+  rerender(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" serviceStatuses={[{providerId: "gemini", connectionState: "connected"}]} />)
+  expect(screen.queryByText("Run gemini and choose Sign in with Google.")).not.toBeInTheDocument()
+  expect(screen.getByRole("button", {name:"Gemini CLI 0.58.0 installation guide"})).toBeEnabled()
+  expect(screen.getByRole("button", {name:"Check Gemini status"})).toBeEnabled()
 })

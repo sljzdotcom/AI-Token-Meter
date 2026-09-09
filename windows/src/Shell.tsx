@@ -302,8 +302,8 @@ export function DetailSurface() {
           void invoke<ServiceAccountStatus>("service_account_status", {providerId: "gemini", retryUsage: true})
             .catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "Gemini status could not be checked. Try again."} : current))
         }}
-        onOpenGeminiDocumentation={() => {
-          void invoke("open_gemini_documentation").catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "The documentation could not be opened."} : current))
+        onOpenGeminiInstallationGuide={() => {
+          void invoke("open_gemini_installation_guide").catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "The installation guide could not be opened."} : current))
         }}
         onOpenServicesSettings={() => {
           void invoke("open_settings", {tab: "Services"})
@@ -519,7 +519,7 @@ export function SettingsSurface() {
       onBeginServiceSignIn={provider => { void onboarding.begin(provider, "login") }}
       onBeginServiceInstallation={provider => { void onboarding.begin(provider, "install") }}
       onInitializeClaudeUsage={() => { void onboarding.initializeClaudeUsage() }}
-      onOpenGeminiDocumentation={() => { void invoke("open_gemini_documentation").catch(() => setServiceMessage("The documentation could not be opened.")) }}
+      onOpenGeminiInstallationGuide={() => { void invoke("open_gemini_installation_guide").catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onOpenInstallationGuide={providerId => { void invoke("open_service_installation_guide", {providerId}).catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onReplaceDeepSeekKey={async () => {
         if (deepSeekReplacingRef.current) return false

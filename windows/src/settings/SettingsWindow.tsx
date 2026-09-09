@@ -7,6 +7,7 @@ import { defaultStripPreferences, type StripPreferences } from "../state/stripPr
 import { serviceAction } from "./cliOnboarding"
 import { SettingsTabIcon } from "./SettingsTabIcon"
 import { deepSeekCredentialPresentation } from "./deepSeekCredentialPresentation"
+import { GEMINI_INSTALL_COMMAND, GEMINI_INSTALLATION_GUIDE_LABEL, geminiInstallationInstructions } from "./geminiInstallationGuide"
 import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
 import appLogo from "../../src-tauri/icons/128x128.png"
 
@@ -37,7 +38,7 @@ type SettingsWindowProps = {
   onBeginServiceSignIn?: (providerId: "claude" | "codex") => void
   onBeginServiceInstallation?: (providerId: "claude" | "codex") => void
   onInitializeClaudeUsage?: () => void
-  onOpenGeminiDocumentation?: () => void
+  onOpenGeminiInstallationGuide?: () => void
   onOpenInstallationGuide?: (providerId: "claude" | "codex") => void
   busyServices?: ProviderId[]
   verifyingDeepSeekKey?: boolean
@@ -115,7 +116,7 @@ export function SettingsWindow({
   onBeginServiceInstallation = () => {},
   onInitializeClaudeUsage = () => {},
   onOpenInstallationGuide = () => {},
-  onOpenGeminiDocumentation = () => {},
+  onOpenGeminiInstallationGuide = () => {},
   busyServices = [],
   verifyingDeepSeekKey = false,
   onReplaceDeepSeekKey = () => {},
@@ -147,6 +148,8 @@ export function SettingsWindow({
   const deepSeekStatus = statusFor(serviceStatuses, "deepseek")
   const deepSeekCredential = deepSeekCredentialPresentation(deepSeekStatus.connectionState === "connected")
   const deepSeekBusy = busyServices.includes("deepseek") || deepSeekStatus.connectionState === "checking"
+  const geminiStatus = statusFor(serviceStatuses, "gemini")
+  const geminiInstructions = geminiInstallationInstructions(geminiStatus.connectionState)
   return (
     <section aria-label={t("AI Token Meter Settings")} className="settings-window settings-window--compact-density settings-window--system-font" role="dialog">
       <header><img alt="" aria-hidden="true" src={appLogo} /><div><strong>{t("AI Token Meter")}</strong><small>{t("Private AI usage, at a glance.")}</small></div></header>
@@ -361,10 +364,15 @@ export function SettingsWindow({
                 type="button"
               >{t("Check Status")}</button>
             </Service>
-            <Service name="Gemini CLI" status={serviceStatuses.find(status => status.providerId === "gemini") ?? {providerId: "gemini", connectionState: "unavailable"}}>
-              <small>{t("Official quota through Gemini CLI 0.58.0 on native Windows. Use the official CLI guide to set up OAuth, then retry.")}</small>
+            <Service name="Gemini CLI" status={geminiStatus}>
+              <small>{t("AI Token Meter supports Gemini CLI 0.58.0 on native Windows.")}</small>
+              {geminiInstructions.length ? <div className="gemini-setup-guide">
+                {geminiInstructions.map(instruction => instruction === GEMINI_INSTALL_COMMAND
+                  ? <code className="gemini-install-command" key={instruction}>{instruction}</code>
+                  : <small key={instruction}>{t(instruction)}</small>)}
+              </div> : null}
               <button type="button" aria-label={t("Check Gemini status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
-              <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>
+              <button type="button" onClick={onOpenGeminiInstallationGuide}>{t(GEMINI_INSTALLATION_GUIDE_LABEL)}</button>
             </Service>
             {serviceMessage ? <p aria-live="polite" className="service-message">{t(serviceMessage)}</p> : null}
           </div>

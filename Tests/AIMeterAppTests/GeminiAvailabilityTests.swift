@@ -6,6 +6,23 @@ import Testing
 @Suite("Gemini capability state")
 @MainActor
 struct GeminiAvailabilityTests {
+    @Test("Gemini setup help uses the supported release and an installation page")
+    func setupHelpTargetsSupportedRelease() {
+        #expect(GeminiInstallationGuide.url.absoluteString == "https://geminicli.com/docs/get-started/installation/")
+        #expect(GeminiInstallationGuide.installCommand == "npm install -g @google/gemini-cli@0.58.0")
+        #expect(GeminiInstallationGuide.instructions(for: .notInstalled) == [
+            "Requires Node.js 20 or later.",
+            "npm install -g @google/gemini-cli@0.58.0",
+            "Run gemini and choose Sign in with Google.",
+            "Return to AI Token Meter and choose Retry.",
+        ])
+        #expect(GeminiInstallationGuide.instructions(for: .signInRequired) == [
+            "Run gemini and choose Sign in with Google.",
+            "Return to AI Token Meter and choose Retry.",
+        ])
+        #expect(GeminiInstallationGuide.instructions(for: .connected).isEmpty)
+    }
+
     @Test func refreshPublishesRealGeminiQuotaAndAccountState() async throws {
         let suite = "GeminiRefresh-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))

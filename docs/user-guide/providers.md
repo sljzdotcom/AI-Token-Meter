@@ -109,7 +109,9 @@ DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 �
 
 ## Gemini
 
-当前仅支持官方 Gemini CLI **0.58.0** 的普通 Google OAuth 登录模式（`oauth-personal`），Windows 仅支持原生 CLI。Gemini 网页或桌面客户端不等于该 CLI；无需为本功能提供 API Key。已在官方 CLI 登录的用户由 CLI 自行恢复认证，应用不读取 OAuth 凭据。Settings 提供官方指南与重新检查，不自动安装、登录、升级或批准目录。
+当前仅支持官方 Gemini CLI **0.58.0** 的普通 Google OAuth 登录模式（`oauth-personal`），Windows 仅支持原生 CLI。Gemini 网页或桌面客户端不等于该 CLI；无需为本功能提供 API Key。已在官方 CLI 登录的用户由 CLI 自行恢复认证，应用不读取 OAuth 凭据。
+
+新用户先准备Node.js 20或更高版本，再在macOS Terminal或Windows PowerShell运行 `npm install -g @google/gemini-cli@0.58.0`。安装后运行 `gemini` 并选择 **Sign in with Google**，然后回到Settings → Services选择 **Retry / Check Status**。两端的安装指南按钮直达[Gemini CLI官方安装页](https://geminicli.com/docs/get-started/installation/)；应用不自动安装、登录、升级或批准目录。已检测到CLI但需要登录时不再提示重装，连接后也不显示安装命令。
 
 应用在私有空目录的不信任模式等待 CLI 就绪，再打开 `/model`，从完整模型选择框读取 Pro、Flash、Flash Lite 等实际可见档位。每项是上游显示的**已用百分比**；圆环选择最高已用档位，不把档位相加。重置时间保留 CLI 原文，未知时不推算。未提供本机 Token 历史或 Gemini 网页、Vertex/API 的跨产品总量。
 

@@ -2,7 +2,6 @@ import AIMeterCore
 import SwiftUI
 
 struct GeminiDetailView: View {
-    static let documentationURL = URL(string: "https://geminicli.com/docs/resources/quota-and-pricing/")!
     let snapshot: UsageSnapshot
     let onRetry: () -> Void
 
@@ -34,8 +33,9 @@ struct GeminiDetailView: View {
                 Text("Quota unavailable").aiMeterFont(.headline)
             }
             if let message = snapshot.statusMessage { Text(message).foregroundStyle(.secondary) }
+            GeminiInstallationHelp(state: ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState)
             HStack {
-                Link("Official quota documentation", destination: Self.documentationURL)
+                Link("Gemini CLI 0.58.0 installation guide", destination: GeminiInstallationGuide.url)
                 Spacer()
                 Button("Retry", action: onRetry)
             }

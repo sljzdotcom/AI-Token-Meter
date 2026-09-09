@@ -2,7 +2,7 @@
 
 关联需求：REQ-20260908-015。审计日期：2026-09-09。基线：`e3c4071`，需求接单：`57a8293`。
 
-状态：按用户既有授权采用推荐方案实施。用户另以“确认发布”授权本项验收完成后发布下一稳定版本，登记为REQ-20260909-001；发布不会先于本项验证完成。
+状态：按用户既有授权采用推荐方案实施。用户另以“确认发布”授权本项验收完成后发布下一稳定版本，登记为REQ-20260909-001；发布不会先于本项验证完成。原候选审查与本机门禁完成后，用户以REQ-20260909-003补充Gemini安装按钮的真实验收反馈，本规格纳入修正后再发布。
 
 ## 目标与原则
 
@@ -23,11 +23,11 @@
 | macOS Claude Code | `PATH`及常见用户级CLI目录中的官方`claude` | 安装CLI；点击后才运行官方终端安装脚本 | 在终端运行官方登录；额度读取另有一次性私有空工作区授权 | 保持“账户状态暂不可用”，不误报缺失 | 详情中工作区状态直达一次性授权；其他问题打开Services |
 | macOS OpenAI Codex | `PATH`、常见用户级CLI目录及官方应用内置`codex` | 安装CLI；点击后才运行官方终端安装脚本 | 在终端运行官方登录 | 保持“账户状态暂不可用”，不误报缺失 | 详情打开Services |
 | macOS DeepSeek | Keychain中的API Key；不依赖DeepSeek桌面应用或CLI | 不适用 | 保存API Key，先验证后替换；失败保留旧Key | 网络验证失败与无Key分开表达 | 无Key时详情先打开Services；官网登录只用于已配置后的历史同步 |
-| macOS Gemini | 常见原生CLI路径中的官方Gemini CLI 0.58.0 | 官方文档；本期不自动执行安装器 | 官方CLI OAuth流程，应用只重试状态 | 版本、认证模式、配置、权限和网络错误保留具体说明 | 详情和Settings均提供重试及官方文档 |
+| macOS Gemini | 常见原生CLI路径中的官方Gemini CLI 0.58.0 | Node.js 20+、固定版本npm命令及官方安装页；不自动执行安装器 | 运行`gemini`并选择Google登录，应用只重试状态 | 版本、认证模式、配置、权限和网络错误保留具体说明 | 详情和Settings提供安装/登录/回流步骤、重试及官方安装页 |
 | Windows Claude Code | Auto、Native Windows、显式WSL发行版或自定义官方CLI | Auto/Native确认缺失后可点击官方安装；WSL/自定义走说明 | 在所选运行环境打开官方登录；额度读取另有私有空工作区初始化 | 坏路径、探测失败和取消保持“暂不可用” | 详情打开Services，再按运行环境操作 |
 | Windows OpenAI Codex | Auto、Native Windows、显式WSL发行版或自定义官方CLI | Auto/Native确认缺失后可点击官方安装；WSL/自定义走说明 | 在所选运行环境打开官方登录 | 坏路径、探测失败和取消保持“暂不可用” | 详情打开Services，再按运行环境操作 |
 | Windows DeepSeek | Windows Credential Manager中的API Key；不依赖DeepSeek桌面应用或CLI | 不适用 | 受保护Windows提示框保存或替换，先验证后写入 | 验证失败时按是否已有Key给出准确结果 | 无Key时详情打开Services；官网同步继续只负责历史 |
-| Windows Gemini | Native Windows官方Gemini CLI 0.58.0 | 官方文档；本期不自动执行安装器 | 官方CLI OAuth流程，应用只重试状态 | WSL明确不支持；版本、配置、权限和网络错误保留说明 | 详情和Settings均提供重试及官方文档 |
+| Windows Gemini | Native Windows官方Gemini CLI 0.58.0 | Node.js 20+、PowerShell固定版本npm命令及官方安装页；不自动执行安装器 | 运行`gemini`并选择Google登录，应用只重试状态 | WSL明确不支持；版本、配置、权限和网络错误保留说明 | 详情和Settings提供安装/登录/回流步骤、重试及官方安装页 |
 
 ## 现状审计结论
 
@@ -39,7 +39,7 @@
 2. Windows DeepSeek在首次配置、尚无Key时仍显示“Replace API Key”，并在失败时固定声称“现有Key仍有效”。macOS说明和失败消息也会在首次配置时提到不存在的旧Key。
 3. macOS DeepSeek详情会在API Key缺失时优先展示官网登录；该登录只解决历史同步，不能恢复余额采集。
 4. 双平台Claude/Codex详情在未安装、需登录、输出变化或暂不可用时能显示状态，却没有可达的恢复按钮；DeepSeek详情缺少API Key恢复入口。
-5. Gemini已有“重试＋官方文档”，符合其当前能力边界。把它强行改成自动安装或自动登录会降低真实性，因此保留差异。
+5. Gemini原有“官方文档”按钮实际打开额度与价格页面，用户无法从中找到安装方法。它仍不应自动安装或自动登录，但必须把按钮改成明确的固定版本安装指南，直达官方安装页，并在应用内给出可执行步骤。
 
 ## 统一呈现与交互
 
@@ -62,10 +62,12 @@ Settings中的Claude/Codex继续保留主动作和手动检查。当主动作本
 
 DeepSeek根据当前凭据状态显示`Save API Key`或`Replace API Key`。验证失败文案同样区分首次保存与替换：首次流程失败说明新Key没有保存；替换失败说明旧Key继续保留。候选Key验证成功前不覆盖旧Key的事务边界不变。
 
+Gemini缺失、检查中或状态未知时显示Node.js 20+、`npm install -g @google/gemini-cli@0.58.0`、运行`gemini`选择Google登录以及返回应用重试的完整顺序。已安装但需要登录时跳过安装命令；连接后不显示安装步骤。两端按钮使用“Gemini CLI 0.58.0 installation guide”并固定打开官方`/docs/get-started/installation/`，不再打开额度说明页，也不执行命令。
+
 ## 测试与验收
 
 1. Swift与TypeScript各自用纯策略矩阵覆盖四服务商和所有快照状态，确保详情动作不会随视图改版漂移。
-2. 视图测试覆盖Claude/Codex不可用时只有一个状态检查按钮、DeepSeek首次保存/替换文案及详情恢复按钮。
+2. 视图测试覆盖Claude/Codex不可用时只有一个状态检查按钮、DeepSeek首次保存/替换文案及详情恢复按钮，以及Gemini缺失/已安装/连接三种状态的安装、登录和回流文案。
 3. macOS路由测试验证先选择Services，再激活并打开Settings；Windows Rust/React测试验证固定页签路由及详情调用。
-4. 保留并运行既有发现、安装、登录、凭据事务、Gemini能力、浮动条和详情回归，证明没有新增自动安装、自动登录、真实网络或凭据暴露路径。
+4. 固定链接测试验证两端只打开官方安装页；保留并运行既有发现、安装、登录、凭据事务、Gemini能力、浮动条和详情回归，证明没有新增自动安装、自动登录、真实网络或凭据暴露路径。
 5. 完整门禁前运行`scripts/check-docs.sh`；完成独立审查与双平台CI。真实Google账号、Windows交互式终端/WebView2及DPI继续明确列为现场边界，不由模拟测试冒充通过。
