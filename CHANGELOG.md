@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+## 0.6.3 - 2026-09-09
+
+稳定界面补丁版；macOS build18。精简macOS关于页的作者展示，同时保持联系入口与开源归属。[发布记录](docs/development/2026-09-09-v0.6.3-release.md)。
+
+### Changed
+
+- macOS Settings → About 移除独立的 `Author: Miller` 可见行及其占用的间距；版本、Twitter、GitHub、Telegram、更新功能和开源署名保持。
+
 ## 0.6.2 - 2026-09-09
 
 稳定品牌补丁版；macOS build17。在双平台菜单面板顶部加入现有应用 Logo，保持原有布局与操作。[发布记录](docs/development/2026-09-09-v0.6.2-release.md)。
@@ -42,7 +50,7 @@
 
 - macOS 与 Windows 浮动条展开态去掉顶部横线，背景拖动、Provider 点击和折叠态竖线保持。
 
-- Windows 关于页移除中英文作者整行及可见社交标题，保留 Twitter/GitHub 并与 Telegram 一起显示；无障碍名称和键盘操作保留。macOS 作者信息不变。
+- Windows 关于页移除中英文作者整行及可见社交标题，保留 Twitter/GitHub 并与 Telegram 一起显示；无障碍名称和键盘操作保留。当时的 macOS 作者行仍保留，后续变化见 Unreleased。
 
 - Windows 设置 → 关于：发现新版本时，提示文字使用深红色加粗；中英文同步，字号和其他更新状态不变。
 
