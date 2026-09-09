@@ -83,18 +83,19 @@ public struct PTYCommandRunner: CommandRunning {
 
         beforeProcessRegistration?()
         processBox.set(process, descriptorBox: descriptorBox)
-        close(slaveDescriptor)
-        slaveDescriptor = -1
 
-        let reader = Task.detached(priority: .utility) {
-            Self.readPTY(
+        let readerStarted = AsyncOneShotSignal()
+        let reader = Task.detached(priority: .userInitiated) {
+            await Self.readPTY(
                 activeMasterDescriptor,
                 controller: descriptorBox,
                 processBox: processBox,
                 stopAfterOutputContains: request.stopAfterOutputContains,
-                geminiQuotaInteraction: request.geminiQuotaInteraction
+                geminiQuotaInteraction: request.geminiQuotaInteraction,
+                started: readerStarted
             )
         }
+        await readerStarted.value()
 
         if request.inputDelay > 0 {
             try? await Task.sleep(for: .seconds(request.inputDelay))
@@ -120,6 +121,9 @@ public struct PTYCommandRunner: CommandRunning {
         let exitCode = await terminationWaiter.value()
 
         descriptorBox.requestStop()
+        try? await Task.sleep(for: .milliseconds(100))
+        close(slaveDescriptor)
+        slaveDescriptor = -1
         let outputData = await reader.value
         descriptorBox.close()
         processBox.clear(process)
@@ -138,13 +142,15 @@ public struct PTYCommandRunner: CommandRunning {
         controller: ClosableDescriptor,
         processBox: RunningProcessBox,
         stopAfterOutputContains stopPhrases: [String],
-        geminiQuotaInteraction: Bool
-    ) -> PTYReadResult {
+        geminiQuotaInteraction: Bool,
+        started: AsyncOneShotSignal
+    ) async -> PTYReadResult {
         var result = Data()
         var buffer = [UInt8](repeating: 0, count: 4_096)
         var drain = PTYReadDrainState()
         var matchedStopPhrase = false
         var interaction = GeminiPTYInteraction()
+        started.signal()
 
         readLoop: while true {
             if geminiQuotaInteraction && !controller.stopRequested {
@@ -187,7 +193,7 @@ public struct PTYCommandRunner: CommandRunning {
             case .keepReading:
                 continue
             case .wait:
-                usleep(10_000)
+                try? await Task.sleep(for: .milliseconds(10))
             case .finish:
                 break readLoop
             }
@@ -359,6 +365,35 @@ private final class ClosableDescriptor: @unchecked Sendable {
         }
         if let descriptorToClose {
             Darwin.close(descriptorToClose)
+        }
+    }
+}
+
+private final class AsyncOneShotSignal: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isSignaled = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func signal() {
+        let continuationToResume = lock.withLock {
+            guard !isSignaled else { return nil as CheckedContinuation<Void, Never>? }
+            isSignaled = true
+            defer { continuation = nil }
+            return continuation
+        }
+        continuationToResume?.resume()
+    }
+
+    func value() async {
+        await withCheckedContinuation { pendingContinuation in
+            let resumeImmediately = lock.withLock {
+                if isSignaled { return true }
+                continuation = pendingContinuation
+                return false
+            }
+            if resumeImmediately {
+                pendingContinuation.resume()
+            }
         }
     }
 }

@@ -77,6 +77,22 @@ struct PTYCommandRunnerTests {
         #expect(valueReturned.value)
     }
 
+    @Test("A delayed reader preserves output from a child that already exited")
+    func delayedReaderPreservesFastOutput() async throws {
+        let runner = PTYCommandRunner {
+            usleep(100_000)
+        }
+        let result = try await runner.run(CommandRequest(
+            executableURL: URL(fileURLWithPath: "/bin/echo"),
+            arguments: ["fast-output"],
+            inputLines: [],
+            timeout: 2
+        ))
+
+        #expect(result.exitCode == 0)
+        #expect(result.output.contains("fast-output"))
+    }
+
     @Test("Sends fixed input and preserves the child exit status")
     func sendsInputAndPreservesExitStatus() async throws {
         let runner = PTYCommandRunner()
@@ -247,8 +263,8 @@ struct PTYCommandRunnerTests {
         #expect(result.output.contains("delayed-tail-output"))
     }
 
-    @Test("Captures output after the terminal closes and reopens before process exit")
-    func capturesOutputAfterTerminalReopens() async throws {
+    @Test("Captures output after the child closes and reopens its standard streams")
+    func capturesOutputAfterChildStreamsReopen() async throws {
         let result = try await PTYCommandRunner().run(CommandRequest(
             executableURL: reopenedTailExecutable,
             inputLines: [],
