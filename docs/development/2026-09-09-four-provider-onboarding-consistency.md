@@ -35,7 +35,7 @@
 - 首轮修复复核关闭全部原有发现，并指出一项Minor：普通DeepSeek状态读取与真实Key替换共用验证文案。新增失败测试后以独立的真实替换标志控制文案，普通读取仍禁用按钮但保持“Save API Key”；最终复核精确提交`978a170`为Critical 0、Important 0、Minor 0。
 - REQ-20260909-003扩展先让Swift安装策略、Windows缺失/待登录/连接视图和Rust固定URL测试失败；实现后定向Swift、47项相关前端、TypeScript production build与3项Rust链接测试通过。扩展后的完整本机门禁为462项常规Swift、3项刷新调度、18项PTY runner和6项Gemini PTY，共489项；Windows为123项前端、5项终端输入协议、25项密度进程生命周期、8个Gemini详情场景、16组四服务布局、608个浏览器文字角色和259项宿主Rust；严格Clippy、Rust格式、production build、6份跨平台合同、210份Markdown、公开安全与diff检查均通过。无Widget macOS Release App再次通过资源、Sparkle嵌套组件和严格签名验证；扩展候选独立审查仍待提交后完成。
 - 扩展候选`ad45fc3`的独立审查为Critical 0、Important 1、Minor 0：macOS把全部Gemini缓存当未知状态而提示重装，Windows详情把全部缓存当连接状态而隐藏过期登录恢复。双平台认证缓存与普通网络缓存视图测试先分别复现错误；现统一为认证缓存保留旧额度并只提示Google登录，普通缓存保持被动展示且不提示安装或登录。修复后完整本机门禁为463项常规Swift、3项刷新调度、18项PTY runner和6项Gemini PTY，共490项；Windows为124项前端、5项终端输入协议、25项密度进程生命周期、8个Gemini详情场景、16组四服务布局和608个浏览器文字角色；production build、6份跨平台合同、210份Markdown、公开安全、Rust格式及无Widget Release构建全绿。Rust生产代码未变，沿用同一候选259项完整宿主回归与严格Clippy证据。修复提交`a5a4aa4`的增量复核确认原发现关闭且没有新增问题，最终为Critical 0、Important 0、Minor 0。
-- 实现检查点为`80da33f`，并发、顺序与格式修复为`4149086`，最终文案修复为`978a170`。完整本机门禁再次通过；原生双平台CI、main整合和发布证据将在后续阶段补齐，未完成前不把需求标为完成。
+- 实现检查点为`80da33f`，并发、顺序与格式修复为`4149086`，最终文案修复为`978a170`。PR #17精确候选`8ad127e`的macOS/Windows CI `34311026875`/`34311026878`全绿，合并为main提交`99e018a`后，main CI `34311839223`/`34311839232`再次通过；Windows完成严格Clippy、259项runtime、真实ConPTY、NSIS、GUI subsystem与上传。自动化范围结项，稳定发布由`REQ-20260909-001`单独留证。
 
 ## 安全、隐私与现场边界
 
@@ -51,4 +51,5 @@
 - DeepSeek事务串行化、恢复顺序与格式修复：`4149086`
 - 最终复核候选：`978a170`，独立审查Critical/Important/Minor为`0/0/0`
 - Gemini安装引导扩展：`ad45fc3`；缓存分流修复：`a5a4aa4`，最终独立复核Critical/Important/Minor为`0/0/0`。
-- 整合与发布证据：完成对应阶段后回写。
+- PR与main整合：PR #17候选`8ad127e274ab211d25d5ebcf5dde31b7bcac4c78`，合并`99e018a79295bcfd6a2174511969a21f2ca1771b`；两端PR及main原生CI全绿。
+- 稳定发布证据：[0.6.1发布记录](2026-09-09-v0.6.1-release.md)。

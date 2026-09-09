@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-3b82f6)
-![Tests 485](https://img.shields.io/badge/tests-485%20passed-2ea44f)
+![Version 0.6.1](https://img.shields.io/badge/version-0.6.1-3b82f6)
+![Tests 490](https://img.shields.io/badge/tests-490%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Gemini. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版：[v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)（macOS build `15`）。本版新增青绿 Gemini 第四按钮、四服务显示与排序，以及固定官方 Gemini CLI 0.58.0 普通 OAuth 模式的额度采集。旧用户保留布局并默认隐藏新增按钮，全新配置显示四项。Windows 首期只支持原生 Gemini CLI；真实账号和交互式 Windows GUI/DPI 仍单独追踪。[接入说明](docs/user-guide/providers.md#gemini)。
+> 本源码版本为 0.6.1（macOS build `16`）。本版统一四服务的首次接入与错误恢复，并修正 Gemini 官方安装引导；签名资产与公开更新状态见[发布记录](docs/development/2026-09-09-v0.6.1-release.md)。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.6.0` / build `15` 已公开发布：新增 Gemini、四服务布局、可编辑 macOS 刷新间隔，并交付顶部横线移除、About Telegram 与 Windows 更新提示改进。[Release Notes](docs/releases/v0.6.0.md)。
+> `0.6.1` / build `16`：Claude Code、OpenAI Codex 与 DeepSeek 的详情可直达 Services；DeepSeek 首次保存、验证事务和历史说明更准确；Gemini 提供 Node.js 20+、固定 0.58.0 命令、Google 登录与回流检查。[Release Notes](docs/releases/v0.6.1.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -85,12 +85,12 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-当前公开稳定版是 **[Download v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)**：
+0.6.1 稳定版发布页：**[Download v0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1)**：
 
-- macOS：下载 `AI-Token-Meter-0.6.0-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.6.0-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.6.1-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.6.1-windows-x64-setup.exe` 与同名 `.sha256`。
 
-已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.6.0`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
+发布完成后，已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.6.1`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
 Windows 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -241,7 +241,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前公开稳定版：[v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)（macOS build `15`），macOS 与 Windows 使用同一稳定更新通道。
+- 本源码版本为 `0.6.1`（macOS build `16`）；公开签名资产和更新源状态以[发布记录](docs/development/2026-09-09-v0.6.1-release.md)为准。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
