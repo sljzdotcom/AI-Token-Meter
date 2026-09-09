@@ -2,7 +2,7 @@
 
 - **事实快照：** 2026-09-09
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.6.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.2)（macOS build `17`）
+- **当前公开稳定版：** 双平台 [`0.6.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)（macOS build `18`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
@@ -11,7 +11,7 @@
 
 PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`按上游已知缺陷修正；完整261项runtime、严格Clippy、NSIS、GUI subsystem和安装器上传均在后续PR、main及正式发布门禁中通过，没有跳过或降低测试。
 
-**0.6.3/build18发布候选：** 用户已明确要求把macOS About作者行精简直接发布为可更新的新版本。491项Swift、124项Windows前端、5项终端协议、261项Rust、真实浏览器密度、严格Clippy和无Widget Release App本机门禁全绿，审查为0/0/0；[PR #20](https://github.com/sljzdotcom/AI-Token-Meter/pull/20)首轮精确候选`9c6c067`的macOS CI 34352300567与Windows CI 34352300602全绿。记录证据后的最终候选还需双平台复验，再合入main并发布。在签名资产公开和三个更新源完成验证前，公开稳定版仍是0.6.2。Google Antigravity与Gemini CLI的产品关系另由REQ-007调研，不在缺少官方结论时混入本补丁版。[发布记录](development/2026-09-09-v0.6.3-release.md)。
+**0.6.3/build18 已公开发布：** macOS About作者行精简已随双平台稳定版交付。PR #20和测试可靠性修复PR #21的最终候选、合并提交`dff54d8`的main双平台CI以及发布workflow `34361767956`全部通过；稳定appcast提交为`fd737f0`。七项公开资产与三条更新入口已通过无登录下载、SHA-256、Sparkle/Tauri签名和篡改拒绝验证。Google Antigravity与Gemini CLI的产品关系另由REQ-007调研，不在缺少官方结论时混入本补丁版。[发布记录](development/2026-09-09-v0.6.3-release.md)。
 
 **菜单面板品牌增强已随0.6.2交付：** macOS菜单栏弹出面板在标题左侧复用32pt应用图标，Windows原生托盘菜单以同一图标和软件名作为不可点击的首行；背景、刷新位置、用量摘要和事件路由保持。合成截图只使用纯色测试图标，功能基线491项Swift、124项前端、261项Rust、真实浏览器密度和无Widget Release App门禁均通过。[开发记录](development/2026-09-09-menu-panel-app-logo.md)。
 
@@ -27,7 +27,7 @@ PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`
 
 ## 一句话定位
 
-**About 精简已进入0.6.3：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
+**About 精简已随0.6.3交付：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
 
 **0.6.0 更新提示：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。
 
@@ -89,15 +89,15 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - 0.6.1最终本地基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
 - 0.6.2菜单面板品牌基线：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和261项宿主Rust，production build、格式、严格Clippy、6份跨平台合同、219份Markdown、公开安全与无Widget Release App验证通过。
-- 当前 macOS About 精简候选：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；无Widget Release App、6份跨平台合同、222份Markdown与公开安全检查通过，审查为Critical/Important/Minor `0/0/0`。
+- 0.6.3 macOS About 精简稳定版：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；无Widget Release App、6份跨平台合同、228份Markdown与公开安全检查通过，审查为Critical/Important/Minor `0/0/0`，发布workflow的macOS与Windows签名门禁均通过。
 - 四服务功能候选`8ad127e`及合并`99e018a`的双平台CI全绿；最终发布候选`7437f63`的PR CI `34314828597`/`34314828526`与合并提交`6fc4e1e`的main CI `34315740630`/`34315740626`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。
 - 已发布 0.5.1 基线继续保留：433 项 Swift、85 项前端、21 项密度生命周期、632 个浏览器文字角色、229 项原生 Windows Rust 及双平台标签门禁全部通过。
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.6.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.2) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-09-v0.6.2-release.md)。
-- `v0.6.2` 标签指向 `ac0ec30`，appcast `416ed08` 首项为0.6.2/build17，Windows stable/旧 Preview同步为0.6.2；发布 workflow `34336495454`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.6.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-09-v0.6.3-release.md)。
+- `v0.6.3` 标签指向 `dff54d8`，appcast `fd737f0` 首项为0.6.3/build18，Windows stable/旧 Preview同步为0.6.3；发布 workflow `34361767956`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
 

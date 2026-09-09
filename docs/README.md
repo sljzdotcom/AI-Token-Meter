@@ -67,7 +67,7 @@
 | [v0.6.2 Release notes](releases/v0.6.2.md) | macOS菜单栏面板与Windows原生托盘菜单顶部应用Logo |
 | [v0.6.1 Release notes](releases/v0.6.1.md) | 四服务首次接入、DeepSeek凭据恢复与Gemini官方安装引导修复 |
 | [v0.6.0 Release notes](releases/v0.6.0.md) | Gemini 四服务、刷新间隔、浮动条与关于页改进，以及双平台稳定更新边界 |
-| [v0.6.3 发布记录](development/2026-09-09-v0.6.3-release.md) | 版本候选、原生CI、双平台签名资产、更新源与匿名验收证据 |
+| [v0.6.3 发布记录](development/2026-09-09-v0.6.3-release.md) | 版本/build18、原生CI、双平台签名资产、三个更新源与匿名验收证据 |
 | [v0.6.2 发布记录](development/2026-09-09-v0.6.2-release.md) | 版本候选、原生CI、双平台签名资产、更新源与匿名验收证据 |
 | [v0.6.1 发布记录](development/2026-09-09-v0.6.1-release.md) | 发布候选、原生CI、双平台签名资产、公开更新源与匿名验收证据 |
 | [v0.6.0 发布记录](development/2026-09-08-v0.6.0-release.md) | 本地候选、原生 CI、签名资产、更新源和公开验收证据 |
