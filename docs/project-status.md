@@ -25,7 +25,7 @@ PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`
 
 ## 一句话定位
 
-**当前开发中的 About 精简：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。该改动尚未公开发布，[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
+**当前待发布的 About 精简：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。改动已合入本地 `main`，尚未公开发布，[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
 
 **0.6.0 更新提示：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。
 
