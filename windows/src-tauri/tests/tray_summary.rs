@@ -1,26 +1,27 @@
 use std::path::PathBuf;
 
 use ai_token_meter_windows::domain::{UsageSnapshot, UsageStatus};
-use ai_token_meter_windows::platform::windows::tray::{build_brand_header, format_summary};
+use ai_token_meter_windows::platform::windows::tray::{brand_header_definition, format_summary};
 use tauri::image::Image;
 
 #[test]
-fn tray_brand_header_is_a_disabled_icon_item() {
-    let app = tauri::test::mock_app();
-    let item = build_brand_header(app.handle(), Image::new_owned(vec![255, 0, 255, 255], 1, 1))
-        .expect("brand header");
+fn tray_brand_header_definition_preserves_identity_state_and_icon() {
+    let pixels = vec![255, 0, 255, 255];
+    let definition =
+        brand_header_definition(Image::new_owned(pixels.clone(), 1, 1)).expect("brand header");
 
-    assert_eq!(item.id().as_ref(), "brand-header");
-    assert_eq!(item.text().unwrap(), "AI Token Meter");
-    assert!(!item.is_enabled().unwrap());
+    assert_eq!(definition.id, "brand-header");
+    assert_eq!(definition.text, "AI Token Meter");
+    assert!(!definition.enabled);
+    assert_eq!(definition.icon.rgba(), pixels);
+    assert_eq!((definition.icon.width(), definition.icon.height()), (1, 1));
 }
 
 #[test]
-fn tray_brand_header_consumes_the_supplied_rgba_icon() {
-    let app = tauri::test::mock_app();
+fn tray_brand_header_rejects_malformed_rgba_without_a_tauri_runtime() {
     let malformed = Image::new_owned(vec![255], 1, 1);
 
-    assert!(build_brand_header(app.handle(), malformed).is_err());
+    assert!(brand_header_definition(malformed).is_err());
 }
 
 #[test]

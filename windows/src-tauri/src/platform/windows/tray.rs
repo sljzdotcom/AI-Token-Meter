@@ -7,13 +7,40 @@ use crate::domain::{MetricKind, MetricUnit, ProviderId, UsageSnapshot, UsageStat
 
 use super::window_controller::{show_settings_window, toggle_meter_window};
 
+pub struct BrandHeaderDefinition<'a> {
+    pub id: &'static str,
+    pub text: &'static str,
+    pub enabled: bool,
+    pub icon: Image<'a>,
+}
+
+pub fn brand_header_definition<'a>(icon: Image<'a>) -> tauri::Result<BrandHeaderDefinition<'a>> {
+    let expected_len = (icon.width() as usize)
+        .checked_mul(icon.height() as usize)
+        .and_then(|pixels| pixels.checked_mul(4));
+    if expected_len != Some(icon.rgba().len()) {
+        return Err(tauri::Error::InvalidIcon(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "brand header icon dimensions do not match its RGBA data",
+        )));
+    }
+
+    Ok(BrandHeaderDefinition {
+        id: "brand-header",
+        text: "AI Token Meter",
+        enabled: false,
+        icon,
+    })
+}
+
 pub fn build_brand_header<R: Runtime>(
     app: &AppHandle<R>,
     icon: Image<'_>,
 ) -> tauri::Result<IconMenuItem<R>> {
-    IconMenuItemBuilder::with_id("brand-header", "AI Token Meter")
-        .enabled(false)
-        .icon(icon)
+    let definition = brand_header_definition(icon)?;
+    IconMenuItemBuilder::with_id(definition.id, definition.text)
+        .enabled(definition.enabled)
+        .icon(definition.icon)
         .build(app)
 }
 
