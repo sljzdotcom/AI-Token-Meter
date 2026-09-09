@@ -19,7 +19,7 @@
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
-| 0.6.2 菜单面板Logo稳定发布候选 | `2f52437`、`da50eb3`、`169f4a7` | macOS弹出面板和Windows原生托盘菜单复用现有应用Logo；491项Swift、261项Rust的功能基线已通过，版本/build17及公开发布证据正在收尾 |
+| 0.6.2 菜单面板Logo稳定发布候选 | `2f52437`、`da50eb3`、`169f4a7`、`1efc8ed` | macOS弹出面板和Windows原生托盘菜单复用现有应用Logo；491项Swift、261项Rust的功能基线及PR #19双平台候选CI已通过，版本/build17及公开发布证据正在收尾 |
 | 双平台菜单面板应用 Logo | `2f52437`、`da50eb3`、`d4de77b` | macOS 在弹出面板标题前显示32pt现有应用图标；Windows原生托盘菜单增加禁用品牌首行和分隔线；合成渲染、真实Tauri菜单项、491项Swift、261项Rust及构建门禁通过，本地main已整合，暂未发布 |
 | 0.6.1 四服务接入修复稳定发布 | `8ad127e`、`99e018a`、`2f73061`、`7437f63`、`6fc4e1e`、`6945b15` | Claude Code/OpenAI Codex/DeepSeek详情恢复、重复检查移除、DeepSeek首次保存与验证事务、Gemini官方安装引导；本机490 Swift/259 Rust、PR与main双平台原生CI、签名发布、公开资产和三个更新入口验证完成 |
 | 0.6.0 Gemini 与累积改进稳定发布 | `edd9cdd`、`f96b08c`、`5a0cced`、`8675152`、`057e79f`、`be2f350`、`26d207b`、`94bf320`、`bacd138` | Gemini 四服务展示与普通 OAuth CLI 额度采集、刷新间隔、顶部横线、About/Telegram 与新版提示改进；最终本机 485 Swift、256 Rust，PR 与 main 双平台原生 CI、签名发布、公开资产和三个更新入口验证完成 |

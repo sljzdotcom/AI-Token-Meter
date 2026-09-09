@@ -22,6 +22,8 @@ PR #19首轮Windows CI `34330043004`通过前端、真实浏览器、production 
 
 修正先把测试改为要求尚不存在的`brand_header_definition`并取得未解析导入RED，再让生产构建函数通过这一纯定义传递固定ID、文案、禁用状态和图标。两项回归直接验证合法RGBA原样进入定义、错误尺寸被拒绝，不启动上游有缺陷的MockRuntime；正式路径仍把同一定义交给真实Tauri `IconMenuItemBuilder`，Windows原生编译、runtime、NSIS与GUI subsystem门禁不跳过。
 
+修正提交`1efc8ed`的Windows CI `34332463420`用时12分17秒全绿，完整runtime、NSIS、GUI subsystem和安装器上传均通过；同一提交的macOS CI `34332463456`用时2分47秒通过。该缺陷由`REQ-20260909-005`结项。
+
 ## 渲染与视觉证据
 
 macOS 测试以2×比例渲染真实面板，扫描纯品红像素边界，要求图标为62至64像素见方且位于前导120像素内。生成物只在设置 `AI_METER_DOC_SCREENSHOT_DIR` 时写入 `/private/tmp/req002-menu-brand/menu-panel-brand-header.png`；截图使用合成图标和 demo 模型，不包含真实账号、额度或截图元数据。人工查看确认图标位于标题左侧，标题/副标题整体垂直对齐，右侧刷新按钮和面板背景未改变。
