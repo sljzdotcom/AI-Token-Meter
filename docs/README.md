@@ -63,9 +63,11 @@
 | [v0.3.0-preview.1 Release notes](releases/v0.3.0-preview.1.md) | Windows 浮动条轮廓、白边和贴边稳定性修复及真机复验项 |
 | [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
 | [v0.3.0-preview.3 Release notes](releases/v0.3.0-preview.3.md) | Windows DeepSeek 显式同步、可恢复窗口生命周期、紧凑界面与字体下拉可读性修复 |
+| [v0.6.3 Release notes](releases/v0.6.3.md) | macOS About独立作者行移除，保留社交链接与开源归属 |
 | [v0.6.2 Release notes](releases/v0.6.2.md) | macOS菜单栏面板与Windows原生托盘菜单顶部应用Logo |
 | [v0.6.1 Release notes](releases/v0.6.1.md) | 四服务首次接入、DeepSeek凭据恢复与Gemini官方安装引导修复 |
 | [v0.6.0 Release notes](releases/v0.6.0.md) | Gemini 四服务、刷新间隔、浮动条与关于页改进，以及双平台稳定更新边界 |
+| [v0.6.3 发布记录](development/2026-09-09-v0.6.3-release.md) | 版本候选、原生CI、双平台签名资产、更新源与匿名验收证据 |
 | [v0.6.2 发布记录](development/2026-09-09-v0.6.2-release.md) | 版本候选、原生CI、双平台签名资产、更新源与匿名验收证据 |
 | [v0.6.1 发布记录](development/2026-09-09-v0.6.1-release.md) | 发布候选、原生CI、双平台签名资产、公开更新源与匿名验收证据 |
 | [v0.6.0 发布记录](development/2026-09-08-v0.6.0-release.md) | 本地候选、原生 CI、签名资产、更新源和公开验收证据 |

@@ -15,7 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260909-008 | 双平台新版本发布 | 用户在确认macOS About作者行删除后明确要求发布新版本，供现有设备更新 | 高 | 进行中 | 2026-09-09 | 0.6.3/build18已确认未占用；从已完成REQ-006的本地main建立同步版本与文档候选，随后完成本机门禁、PR/main双平台CI、签名资产、三个稳定更新入口和匿名公网验收。REQ-007涉及产品身份与额度语义，官方调研完成前不混入本次补丁版 | 用户原话“确认发布” · 公开基线v0.6.2/build17 · GitHub Release/标签核对完成 |
+| REQ-20260909-008 | 双平台新版本发布 | 用户在确认macOS About作者行删除后明确要求发布新版本，供现有设备更新 | 高 | 进行中 | 2026-09-09 | 0.6.3/build18元数据已按失败先行同步，Release Notes和候选文档已建立；下一步完成全量本机门禁和发布审查，再推送PR、原生CI、main整合、签名Release及三个更新源。REQ-007涉及产品身份与额度语义，官方调研完成前不混入本次补丁版 | 用户原话“确认发布” · 基线`1015ea3` · 计划`6506692` · 0.6.3远端未占用 · [发布记录](development/2026-09-09-v0.6.3-release.md) |
 | REQ-20260909-006 | macOS About精简 | 用户明确要求删除macOS Settings→About中的“Author: Miller”整行 | 中 | 已完成 | 2026-09-09 | 2026-09-09完成：仅删除macOS可见作者行及其自然消失的间距；三条链接、版本/更新、README/LICENSE/版权和Windows保持。实现、完整门禁、审查与本地main整合完成；获授权的新版本发布由REQ-008独立追踪 | 候选及整合`657068f` · 定向15项、完整491项Swift、无Widget Release App、6份跨平台合同、222份文档、公开安全通过 · 审查0/0/0 · [开发记录](development/2026-09-09-macos-about-author-line-removal.md) |
 | REQ-20260909-007 | Google CLI接入迁移 | 用户反馈原Gemini CLI已过时、目前改用Google Antigravity CLI，要求在应用中修改对应接入 | 高 | 进行中 | 2026-09-09 | 先由开发核实官方产品关系、实际CLI包名/安装入口、版本、认证和可合法读取的用量接口；用户关于替代关系的陈述待官方证据确认，不能只改名称或把不同额度混用。按核实结果调整双平台发现、安装/登录引导、采集、展示与旧配置迁移，保留仍有效旧接入并防止数据丢失；如实际为并存产品或需变更第四产品身份/额度范围，回传推荐方案请用户确认重大分歧。不得借用私有OAuth调用未授权后端、不自动迁移账号/安装CLI；常规技术决定自行推进，不自动发布 | 用户本次明确要求改用Antigravity CLI；官方支持/替代关系与额度读取尚待调研，不能标记已完成 |
 | REQ-20260909-005 | Windows CI / Tauri测试入口 | v0.6.2 PR新增托盘品牌回归调用Tauri `mock_app()`，原生Windows测试程序在进入测试前以`STATUS_ENTRYPOINT_NOT_FOUND`退出，阻断NSIS门禁 | 高 | 已完成 | 2026-09-09 | 2026-09-09完成：品牌合同改为不启动MockRuntime并按失败先行转绿；生产路径仍使用真实IconMenuItemBuilder。完整261项本机Rust/严格Clippy及PR原生Windows runtime、NSIS、GUI subsystem、安装器上传全部通过，未跳过或降低CI | 修正`1efc8ed` · [失败Windows CI 34330043004](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34330043004) · [通过Windows CI 34332463420](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34332463420) · [通过macOS CI 34332463456](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34332463456) · Tauri上游`tauri-apps/tauri#13419` |
@@ -204,6 +204,9 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-09 | REQ-20260909-008 | 进行中 | 0.6.3/build18元数据失败先行：Swift合同准确报告旧0.6.2/build17共7处不符，Rust元数据测试报告0.6.2不等于0.6.3；同步根版本、两份plist、npm/Cargo/Tauri与锁文件后29项Swift及1项Rust定向测试转绿。Release Notes和候选文档已建立，进入全量门禁。 |
+| 2026-09-09 | REQ-20260909-008 | 新建 → 进行中 | 用户在确认macOS About作者行移除后明确回复“确认发布”。远端最高稳定版/标签为0.6.2且0.6.3未占用；下一补丁版确定为0.6.3/build18，由开发入口完成版本候选、审查、PR/main原生双平台CI、签名Release、三个更新源和公网匿名验证。 |
+| 2026-09-09 | REQ-20260909-006 | 进行中 → 已完成 | 实现候选`657068f`及完成记录`1015ea3`已安全快进本地main；删除macOS About独立作者行，三条链接、版本/更新、README/LICENSE/版权与Windows保持。491项Swift、Release App、6份合同、222份文档、公开安全及0/0/0审查通过，公开交付转由REQ-008追踪。 |
 | 2026-09-09 | REQ-20260909-004 | 进行中 → 已完成 | 发布后证据提交`9394106`的macOS CI 34338927059用时3分26秒全绿；Windows CI 34338927098用时10分49秒通过完整原生门禁与安装器上传。结合已完成的公开资产匿名验证、两端签名与篡改拒绝、三个更新入口一致性，0.6.2/build17发布正式结项。 |
 | 2026-09-09 | REQ-20260909-004 | 进行中 | 最终候选`39c3460`的PR双平台CI全绿，PR #19合并为`ac0ec30`后main双平台CI再次通过；`v0.6.2`由workflow 34336495454公开，appcast提交`416ed08`。七项资产已匿名重下，macOS ZIP SHA-256为`8da7c87b…ccd1`、Windows安装器为`04643d38…612f`，Sparkle/Tauri签名与篡改拒绝通过，三个更新入口逐字节一致；等待发布后证据提交的精确main CI。 |
 | 2026-09-09 | REQ-20260909-005 | 进行中 → 已完成 | 修正提交`1efc8ed`的macOS CI 34332463456用时2分47秒全绿；Windows CI 34332463420用时12分17秒通过前端、真实浏览器、production build、格式、严格Clippy、完整runtime、NSIS、GUI subsystem和安装器上传。上游MockRuntime缺陷已隔离，生产仍使用真实Tauri菜单构建器，门禁未跳过或降低。 |

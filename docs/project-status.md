@@ -11,6 +11,8 @@
 
 PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`按上游已知缺陷修正；完整261项runtime、严格Clippy、NSIS、GUI subsystem和安装器上传均在后续PR、main及正式发布门禁中通过，没有跳过或降低测试。
 
+**0.6.3/build18发布候选：** 用户已明确要求把macOS About作者行精简直接发布为可更新的新版本。版本合同、Release Notes和本机门禁正在按[发布计划](design/implementation-plans/2026-09-09-v0.6.3-release.md)推进；在签名资产公开和三个更新源完成验证前，公开稳定版仍是0.6.2。Google Antigravity与Gemini CLI的产品关系另由REQ-007调研，不在缺少官方结论时混入本补丁版。
+
 **菜单面板品牌增强已随0.6.2交付：** macOS菜单栏弹出面板在标题左侧复用32pt应用图标，Windows原生托盘菜单以同一图标和软件名作为不可点击的首行；背景、刷新位置、用量摘要和事件路由保持。合成截图只使用纯色测试图标，功能基线491项Swift、124项前端、261项Rust、真实浏览器密度和无Widget Release App门禁均通过。[开发记录](development/2026-09-09-menu-panel-app-logo.md)。
 
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
@@ -25,7 +27,7 @@ PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`
 
 ## 一句话定位
 
-**当前待发布的 About 精简：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。改动已合入本地 `main`，尚未公开发布，[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
+**About 精简已进入0.6.3：** macOS 关于页已移除独立作者行，版本及 Twitter、GitHub、Telegram 图标链接保持；README、许可证和代码版权归属不变。[开发记录](development/2026-09-09-macos-about-author-line-removal.md)。0.6.0 已完成两端 Telegram 链接与 Windows 作者行移除，[历史记录](development/2026-09-08-about-telegram.md)。
 
 **0.6.0 更新提示：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。
 

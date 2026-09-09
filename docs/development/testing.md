@@ -10,9 +10,9 @@
 bash scripts/test.sh
 ```
 
-0.6.2 发布基线为 **491 个测试全部通过**。默认完整验证会先运行 464 项普通测试，再用独立测试进程运行 3 项主线程刷新调度测试、18 项 PTY runner 测试和 6 项 Gemini PTY 测试，避免 CI runner 的并行主线程负载干扰有界调度断言，也避免两个真实终端 Suite 争用系统资源；原行为断言和期限保持不变。新增品牌回归用2×位图渲染真实菜单面板并核对32pt前导图标。浮动条原生渲染回归继续使用明确的2×Retina位图，并把逻辑点坐标换算成像素后核对完整provider数量、密度和左右边缘矩阵。并发PTY fixture只使用Shell内建读取，不在32路命令之上额外派生管道进程。传入`--filter`等参数时仍只运行调用者指定的单次测试命令。Keychain隔离读写、已安装Claude Code auth状态、已安装Claude Code CLI额度快照和已安装OpenAI Codex CLI额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+0.6.3 发布候选基线为 **491 个测试全部通过**。默认完整验证会先运行 464 项普通测试，再用独立测试进程运行 3 项主线程刷新调度测试、18 项 PTY runner 测试和 6 项 Gemini PTY 测试，避免 CI runner 的并行主线程负载干扰有界调度断言，也避免两个真实终端 Suite 争用系统资源；原行为断言和期限保持不变。新增品牌回归用2×位图渲染真实菜单面板并核对32pt前导图标。浮动条原生渲染回归继续使用明确的2×Retina位图，并把逻辑点坐标换算成像素后核对完整provider数量、密度和左右边缘矩阵。并发PTY fixture只使用Shell内建读取，不在32路命令之上额外派生管道进程。传入`--filter`等参数时仍只运行调用者指定的单次测试命令。Keychain隔离读写、已安装Claude Code auth状态、已安装Claude Code CLI额度快照和已安装OpenAI Codex CLI额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前macOS基线，不与Windows相加计算通过率。0.6.2本机另有前端124项和终端协议5项、密度浏览器25项生命周期/8个Gemini详情场景/16个布局/608个文字角色、macOS宿主Rust261项；新增2项Rust回归在不启动Tauri MockRuntime的情况下验证品牌行ID、文案、禁用状态、RGBA尺寸/字节保留及错误字节拒绝，生产路径再把同一已验证定义交给真实`IconMenuItemBuilder`。原生Windows编译、runtime、NSIS和GUI subsystem由Windows CI放行。三项既有终端回归继续覆盖Windows ConPTY模型页帧、标准ECH字符擦除与登录提示保护。40KB真实记录的137/4096字节分片回归保留两秒deadline并放在独立`gemini_fragmentation`集成测试程序中。0.6.2原生CI、标签发布门禁和公网结果记录在[发布记录](2026-09-09-v0.6.2-release.md)。
+以上数字是当前macOS基线，不与Windows相加计算通过率。0.6.3候选本机另有前端124项和终端协议5项、密度浏览器25项生命周期/8个Gemini详情场景/16个布局/608个文字角色、macOS宿主Rust261项；新增2项Rust回归在不启动Tauri MockRuntime的情况下验证品牌行ID、文案、禁用状态、RGBA尺寸/字节保留及错误字节拒绝，生产路径再把同一已验证定义交给真实`IconMenuItemBuilder`。原生Windows编译、runtime、NSIS和GUI subsystem由Windows CI放行。三项既有终端回归继续覆盖Windows ConPTY模型页帧、标准ECH字符擦除与登录提示保护。40KB真实记录的137/4096字节分片回归保留两秒deadline并放在独立`gemini_fragmentation`集成测试程序中。0.6.3候选的原生CI、标签发布门禁和公网结果将记录在[发布记录](2026-09-09-v0.6.3-release.md)。
 
 普通测试覆盖：
 

@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+## 0.6.3 - 2026-09-09
+
+稳定界面补丁版；macOS build18。精简macOS关于页的作者展示，同时保持联系入口与开源归属。[发布记录](docs/development/2026-09-09-v0.6.3-release.md)。
+
 ### Changed
 
 - macOS Settings → About 移除独立的 `Author: Miller` 可见行及其占用的间距；版本、Twitter、GitHub、Telegram、更新功能和开源署名保持。
