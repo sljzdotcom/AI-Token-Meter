@@ -14,6 +14,7 @@ struct ServiceAccountSettingsTests {
             let action = model.serviceAction(for: .claude)
             #expect(action.needsAttention == [.notInstalled, .signInRequired].contains(state))
             #expect(action.title == (state == .notInstalled ? "Install CLI" : state == .connected ? "Sign in again" : state == .unavailable ? "Check Status" : "Sign in"))
+            #expect(action.showsSeparateStatusCheck == (state != .unavailable))
         }
         #expect(!CLIServiceAction(state: .checking, busy: false).isEnabled)
         #expect(!CLIServiceAction(state: .notInstalled, busy: true).isEnabled)
@@ -201,6 +202,19 @@ struct ServiceAccountSettingsTests {
         #expect(!didReplace)
         #expect(model.serviceAccounts[.deepSeek] == oldStatus)
         #expect(model.settingsMessage == "DeepSeek rejected this API Key. The existing Key was kept.")
+    }
+
+    @Test("A rejected first DeepSeek Key does not claim that an old Key exists")
+    func rejectedFirstDeepSeekCandidate() async {
+        let model = makeModel(
+            deepSeekReplace: { _ in throw DeepSeekCredentialReplacementError.invalidKey }
+        )
+
+        let didReplace = await model.replaceDeepSeekAPIKey("bad-key")
+
+        #expect(!didReplace)
+        #expect(!model.apiKeyConfigured)
+        #expect(model.settingsMessage == "DeepSeek rejected this API Key. The new API Key was not saved.")
     }
 
     @Test("CLI login opens once, polls, and refreshes usage after connection")

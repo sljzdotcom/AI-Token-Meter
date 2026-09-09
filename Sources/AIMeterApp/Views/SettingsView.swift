@@ -33,8 +33,11 @@ struct SettingsView: View {
                 .tag(SettingsTab.about)
         }
         .aiMeterFontScope(.settings)
-        .onReceive(NotificationCenter.default.publisher(for: .init("AIMeterOpenAppearance"))) { _ in
-            selectedTab = .appearance
+        .onAppear {
+            selectedTab = model.requestedSettingsTab
+        }
+        .onChange(of: model.requestedSettingsTab) { _, tab in
+            selectedTab = tab
         }
         .task {
             await model.refreshServiceAccounts()

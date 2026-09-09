@@ -21,6 +21,7 @@ import { useUsageSnapshots } from "./state/useUsageSnapshots"
 import { defaultStripPreferences, type StripPreferences } from "./state/stripPreferences"
 import { setLocale, type Locale } from "./localization"
 import { CLIOnboarding } from "./settings/cliOnboarding"
+import { deepSeekCredentialPresentation } from "./settings/deepSeekCredentialPresentation"
 import { displayFontStack } from "./displayFonts"
 
 type RuntimeSettings = {
@@ -304,6 +305,9 @@ export function DetailSurface() {
         onOpenGeminiDocumentation={() => {
           void invoke("open_gemini_documentation").catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "The documentation could not be opened."} : current))
         }}
+        onOpenServicesSettings={() => {
+          void invoke("open_settings", {tab: "Services"})
+        }}
         onDeepSeekHistorySync={() => {
           if (!deepseekHistoryStatusPathAvailable) return
           const attempt = ++deepseekHistoryAttempt.current
@@ -509,14 +513,16 @@ function SettingsSurface() {
       onOpenGeminiDocumentation={() => { void invoke("open_gemini_documentation").catch(() => setServiceMessage("The documentation could not be opened.")) }}
       onOpenInstallationGuide={providerId => { void invoke("open_service_installation_guide", {providerId}).catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onReplaceDeepSeekKey={async () => {
-        setServiceMessage("Open the protected Windows prompt to replace the API Key.")
+        const hasExistingKey = serviceStatuses.some(status => status.providerId === "deepseek" && status.connectionState === "connected")
+        const copy = deepSeekCredentialPresentation(hasExistingKey)
+        setServiceMessage(copy.pendingMessage)
         try {
           const status = await invoke<ServiceAccountStatus>("replace_deepseek_api_key")
           applyServiceStatus(status)
-          setServiceMessage("DeepSeek accepted the replacement API Key.")
+          setServiceMessage(copy.successMessage)
           return true
         } catch {
-          setServiceMessage("The replacement was not saved. The existing API Key remains active.")
+          setServiceMessage(copy.failureMessage)
           return false
         }
       }}

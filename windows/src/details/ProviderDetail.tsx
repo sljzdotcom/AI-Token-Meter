@@ -4,6 +4,7 @@ import { t, useLocale, getLocale } from "../localization"
 import type { UsageMetric, UsageSnapshot } from "../state/usage"
 import { ProviderLogo } from "../components/ProviderLogo"
 import { DeepSeekHistory, type DeepSeekHistoryStatus } from "./DeepSeekDetail"
+import { detailRecovery } from "./serviceRecovery"
 
 type ProviderDetailProps = {
   snapshot: UsageSnapshot
@@ -13,6 +14,7 @@ type ProviderDetailProps = {
   onInteractionEnd: () => void
   onCheckGeminiStatus?: () => void
   onOpenGeminiDocumentation?: () => void
+  onOpenServicesSettings?: () => void
   onDeepSeekHistorySync?: () => void
   deepseekHistoryStatus?: DeepSeekHistoryStatus
   deepseekHistoryStatusPathAvailable?: boolean
@@ -27,11 +29,13 @@ export function ProviderDetail({
   onDeepSeekHistorySync,
   onCheckGeminiStatus,
   onOpenGeminiDocumentation,
+  onOpenServicesSettings,
   deepseekHistoryStatus,
   deepseekHistoryStatusPathAvailable,
 }: ProviderDetailProps) {
   useLocale()
   const percent = snapshot.usedRatio == null ? null : Math.round(snapshot.usedRatio * 100)
+  const recovery = detailRecovery(snapshot.providerId, snapshot.status, snapshot.statusMessage)
   return (
     <section
       aria-label={t("{name} details", {name: snapshot.displayName})}
@@ -90,7 +94,7 @@ export function ProviderDetail({
         </section>
       ) : null}
 
-      {snapshot.providerId === "deepseek" ? (
+      {snapshot.providerId === "deepseek" && (recovery !== "services" || snapshot.dailyHistory?.length) ? (
         <section className="detail-section detail-section--history">
           <h2>{t("Last 30 days · Official website")}</h2>
           <DeepSeekHistory
@@ -108,6 +112,11 @@ export function ProviderDetail({
         {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Gemini status")}</button>}
         {onOpenGeminiDocumentation && <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>}
       </div>}
+      {recovery === "services" && onOpenServicesSettings ? <div className="service-actions">
+        {snapshot.statusMessage ? <p>{t(snapshot.statusMessage)}</p> : null}
+        {snapshot.providerId === "deepseek" && snapshot.status === "authenticationRequired" ? <p>{t("Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history.")}</p> : null}
+        <button type="button" onClick={onOpenServicesSettings}>{t("Open Services Settings")}</button>
+      </div> : null}
       <footer>{t(freshness(snapshot))} · {t("Updated")} {formatTime(snapshot.fetchedAt)}</footer>
     </section>
   )

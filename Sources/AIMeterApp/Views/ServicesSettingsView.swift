@@ -15,10 +15,12 @@ struct ServicesSettingsView: View {
                 HStack {
                     serviceActionButton(.claude)
 
-                    Button("Check Status") {
-                        Task { await model.checkServiceAccount(.claude) }
+                    if model.serviceAction(for: .claude).showsSeparateStatusCheck {
+                        Button("Check Status") {
+                            Task { await model.checkServiceAccount(.claude) }
+                        }
+                        .disabled(!model.serviceAction(for: .claude).isEnabled)
                     }
-                    .disabled(!model.serviceAction(for: .claude).isEnabled)
 
                     Spacer()
 
@@ -38,10 +40,12 @@ struct ServicesSettingsView: View {
                 HStack {
                     serviceActionButton(.codex)
 
-                    Button("Check Status") {
-                        Task { await model.checkServiceAccount(.codex) }
+                    if model.serviceAction(for: .codex).showsSeparateStatusCheck {
+                        Button("Check Status") {
+                            Task { await model.checkServiceAccount(.codex) }
+                        }
+                        .disabled(!model.serviceAction(for: .codex).isEnabled)
                     }
-                    .disabled(!model.serviceAction(for: .codex).isEnabled)
                 }
                 installationNotice(.codex)
             }
@@ -103,7 +107,9 @@ struct ServicesSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Text("A replacement is saved only after DeepSeek verifies it. If verification fails, the existing Key remains active.")
+                Text(model.apiKeyConfigured
+                    ? "A replacement is saved only after DeepSeek verifies it. If verification fails, the existing Key remains active."
+                    : "The API Key is saved only after DeepSeek verifies it. If verification fails, the new Key is not saved.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }

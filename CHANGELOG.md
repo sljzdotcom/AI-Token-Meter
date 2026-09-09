@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- macOS与Windows的Claude Code、OpenAI Codex和DeepSeek详情在需要安装、登录、凭据或设置处理时可直接打开Services；带认证原因的旧额度缓存继续显示数据并提供恢复动作，普通网络超时缓存保持只读。
+- Claude Code/OpenAI Codex账户状态无法检查时不再在同一服务卡显示两个“Check Status”按钮。
+- DeepSeek首次配置显示“Save API Key”，已有Key才显示“Replace API Key”；首次失败不再错误声称保留旧Key。API Key缺失时先引导Services，官网历史登录不再冒充余额凭据恢复。
+
 ## 0.6.0 - 2026-09-09
 
 稳定功能版已公开发布；macOS build15。新增 Gemini 与四服务布局，并交付此前积累的设置和界面改进。真实 Gemini 账号、Windows 交互式 GUI/DPI 仍保留现场验收边界。[发布记录](docs/development/2026-09-08-v0.6.0-release.md)。

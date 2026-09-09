@@ -8,6 +8,7 @@ struct DeepSeekAnalyticsView: View {
     @Bindable var webSession: DeepSeekWebSession
     let isDemoMode: Bool
     let onInteractionChange: (Bool) -> Void
+    let onOpenServicesSettings: () -> Void
     @State private var isHovering = false
 
     private var presentation: ProviderPresentation {
@@ -21,7 +22,12 @@ struct DeepSeekAnalyticsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            if shouldShowWebPage {
+            if needsServiceRecovery {
+                serviceRecoveryPanel
+                if let history {
+                    analytics(history)
+                }
+            } else if shouldShowWebPage {
                 loginPanel
             } else if let history {
                 analytics(history)
@@ -87,6 +93,35 @@ struct DeepSeekAnalyticsView: View {
         if isDemoMode { return false }
         if case .signedOut = webSession.state { return true }
         return history == nil
+    }
+
+    private var needsServiceRecovery: Bool {
+        ServiceRecoveryPresentation.detailAction(
+            provider: .deepSeek,
+            status: snapshot.collectionStatus,
+            statusMessage: snapshot.statusMessage
+        ) == .openServicesSettings
+    }
+
+    private var serviceRecoveryPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(snapshot.collectionStatus == .authenticationRequired
+                ? "Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history."
+                : presentation.detailText)
+                .aiMeterFont(.caption)
+                .foregroundStyle(AIMeterVisualTheme.secondaryText)
+            if let status = presentation.statusText {
+                Text(status)
+                    .aiMeterFont(.caption2)
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
+            }
+            Button("Open Services Settings", action: onOpenServicesSettings)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .aiMeterGlassCard()
     }
 
     private var loginPanel: some View {

@@ -869,3 +869,19 @@ it("Gemini detail requests quota retry and fixed documentation actions without i
   expect(calls).not.toContain("begin_service_installation")
   expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
 })
+
+it("actionable provider details open the Services settings tab", async () => {
+  const unavailableCodex: UsageSnapshot = {
+    ...snapshots[1],
+    status: "notInstalled",
+    usedRatio: null,
+    primaryMetric: null,
+  }
+  render(<DetailSurface />)
+  await act(async () => { await Promise.resolve() })
+  act(() => emitTauriEvent("active-detail-changed", unavailableCodex))
+
+  fireEvent.click(screen.getByRole("button", {name: "Open Services Settings"}))
+
+  expect(tauri.invoke).toHaveBeenCalledWith("open_settings", {tab: "Services"})
+})

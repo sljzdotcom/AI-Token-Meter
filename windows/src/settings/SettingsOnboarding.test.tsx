@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { expect, it, vi } from "vitest"
 import { SettingsWindow } from "./SettingsWindow"
 
@@ -12,15 +12,26 @@ it("missing service offers an enabled install action and preserves unavailable r
   expect(install).toHaveBeenCalledWith("claude")
   fireEvent.click(screen.getByRole("button", {name: "Check Status OpenAI Codex"}))
   expect(check).toHaveBeenCalledWith("codex")
+  const codexCard = screen.getByText("OpenAI Codex").closest("article")!
+  expect(within(codexCard).getAllByRole("button", {name: /Check/})).toHaveLength(1)
   expect(screen.getByText("Downloads and runs the official installer in Terminal.")).toBeVisible()
 })
 
+it("uses Save for a first DeepSeek Key and Replace only when one is already stored", () => {
+  const {rerender} = render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" serviceStatuses={[{providerId: "deepseek", connectionState: "signInRequired"}]} />)
+  expect(screen.getByRole("button", {name: "Save DeepSeek API Key"})).toHaveTextContent("Save API Key")
+
+  rerender(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" serviceStatuses={[{providerId: "deepseek", connectionState: "connected"}]} />)
+  expect(screen.getByRole("button", {name: "Replace DeepSeek API Key"})).toHaveTextContent("Replace API Key")
+})
+
 it("busy service blocks login, duplicate installation and runtime changes", () => {
-  render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" busyServices={["claude"]} serviceStatuses={[{providerId: "claude", connectionState: "notInstalled"}]} />)
+  render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" busyServices={["claude", "deepseek"]} serviceStatuses={[{providerId: "claude", connectionState: "notInstalled"}, {providerId: "deepseek", connectionState: "checking"}]} />)
   expect(screen.getByRole("button", {name: "Waiting for Terminal… Claude Code"})).toBeDisabled()
   expect(screen.getByRole("button", {name: "Check Claude Code status"})).toBeDisabled()
   expect(screen.getByRole("button", {name: "Initialize Claude Code quota reading"})).toBeDisabled()
   expect(screen.getAllByRole("combobox")[0]).toBeDisabled()
+  expect(screen.getByRole("button", {name: "Save DeepSeek API Key"})).toBeDisabled()
 })
 
 it("connected Claude offers explicit quota initialization with instructions", () => {

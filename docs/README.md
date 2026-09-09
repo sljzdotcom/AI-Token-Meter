@@ -52,6 +52,7 @@
 | [维护手册](development/maintenance-playbook.md) | 变更影响矩阵、Provider 诊断、安装、回滚和安全处置 |
 | [提交历史](development/commit-history.md) | 从项目创建至今的 Git 节点与阶段说明 |
 | [开发日志索引](development/README.md) | 按日期查阅详细开发与验收记录 |
+| [四服务商新用户接入一致性](development/2026-09-09-four-provider-onboarding-consistency.md) | 双平台详情恢复、Services接入、DeepSeek首次保存文案与安全边界 |
 | [全项目复盘](development/2026-09-02-project-retrospective.md) | 全仓库盘点、文档差距、清理证据和最终验证 |
 | [公开 GitHub 发布](development/2026-09-02-public-github-release.md) | MIT、作者、社区文件、脱敏截图、历史扫描、CI 与 Release 证据 |
 | [GitHub 应用内更新](development/2026-09-02-github-app-update.md) | Sparkle 手动检查、EdDSA 签名、发布流水线与真实隔离更新验收 |

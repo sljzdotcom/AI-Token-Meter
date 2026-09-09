@@ -9,6 +9,7 @@ export function serviceAction(state: ServiceAccountStatus["connectionState"], bu
     title: busy ? "Waiting for Terminal…" : state === "notInstalled" ? "Install CLI" : state === "connected" ? "Sign in again" : state === "unavailable" ? "Check Status" : "Sign in",
     attention: !busy && (state === "notInstalled" || state === "signInRequired"),
     disabled: busy || state === "checking",
+    showsSeparateStatusCheck: state !== "unavailable",
   }
 }
 

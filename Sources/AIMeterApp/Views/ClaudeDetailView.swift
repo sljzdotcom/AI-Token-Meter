@@ -5,6 +5,7 @@ import SwiftUI
 struct ClaudeDetailView: View {
     let snapshot: UsageSnapshot
     let onSetup: () -> Void
+    let onOpenServicesSettings: () -> Void
 
     private var presentation: ProviderPresentation {
         ProviderPresentation(snapshot: snapshot)
@@ -67,6 +68,7 @@ struct ClaudeDetailView: View {
                         quotaCard(metric, resetText: presentation.secondaryResetText)
                     }
                 }
+                recoveryButton
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(presentation.detailText)
@@ -76,16 +78,32 @@ struct ClaudeDetailView: View {
                             .aiMeterFont(.caption)
                             .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     }
-                    if snapshot.collectionStatus == .setupRequired {
-                        Button("Open one-time setup", action: onSetup)
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                    }
+                    recoveryButton
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .aiMeterGlassCard()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var recoveryButton: some View {
+        if let recovery = ServiceRecoveryPresentation.detailAction(
+            provider: .claude,
+            status: snapshot.collectionStatus,
+            statusMessage: snapshot.statusMessage
+        ) {
+            Button(
+                recovery == .openClaudeWorkspace
+                    ? "Open one-time setup"
+                    : "Open Services Settings",
+                action: recovery == .openClaudeWorkspace
+                    ? onSetup
+                    : onOpenServicesSettings
+            )
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
         }
     }
 

@@ -818,8 +818,25 @@ fn handle_detail_focus_lost(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
-    show_settings_window(&app).map_err(|_| "Settings could not be opened".to_owned())
+fn open_settings(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
+    let tab = validated_settings_tab(tab.as_deref())?;
+    show_settings_window(&app).map_err(|_| "Settings could not be opened".to_owned())?;
+    if let Some(tab) = tab {
+        app.emit("settings-tab-requested", tab)
+            .map_err(|_| "Settings tab could not be opened".to_owned())?;
+    }
+    Ok(())
+}
+
+fn validated_settings_tab(tab: Option<&str>) -> Result<Option<&'static str>, String> {
+    match tab {
+        None => Ok(None),
+        Some("Appearance") => Ok(Some("Appearance")),
+        Some("Monitoring") => Ok(Some("Monitoring")),
+        Some("Services") => Ok(Some("Services")),
+        Some("About") => Ok(Some("About")),
+        Some(_) => Err("Unknown Settings tab".to_owned()),
+    }
 }
 
 #[tauri::command]
@@ -1416,6 +1433,18 @@ pub fn run() {
 #[cfg(test)]
 mod threshold_tests {
     use super::*;
+
+    #[test]
+    fn settings_tab_requests_accept_only_fixed_application_tabs() {
+        assert_eq!(validated_settings_tab(None), Ok(None));
+        for tab in ["Appearance", "Monitoring", "Services", "About"] {
+            assert_eq!(validated_settings_tab(Some(tab)), Ok(Some(tab)));
+        }
+        assert_eq!(
+            validated_settings_tab(Some("../../credentials")),
+            Err("Unknown Settings tab".to_owned())
+        );
+    }
 
     #[test]
     fn alerts_fire_once_per_level_and_rearm_after_usage_resets() {

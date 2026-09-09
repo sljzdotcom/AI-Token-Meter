@@ -12,6 +12,8 @@
 
 建议先在 AI Token Meter 菜单栏手动刷新一次，再按下面的服务分类检查。
 
+下一稳定版起，Claude Code、OpenAI Codex和DeepSeek详情在确实需要配置时会提供 **Open Services Settings / 打开服务设置**。它会直接打开Services；若只是普通网络超时且仍有缓存，则继续显示旧额度和更新时间，不会把检测失败误写成未安装。
+
 ## Claude Code
 
 ### 显示 Unavailable 或 Request timed out
@@ -72,7 +74,9 @@ Windows 中 PowerShell 能运行 CLI、应用却显示未安装时：
 
 ### 没有余额
 
+- 详情显示需要API Key时，先点击 **Open Services Settings**；不要用 **Sync official history** 代替API Key配置，官网登录只负责30天历史；
 - 打开 Settings > Services，确认显示遮罩状态 `API Key ••••XXXX`；
+- 首次配置使用 **Save API Key**，只有已确认存在Key时才使用 **Replace API Key**；首次失败表示新Key未保存，不代表设备上一定没有旧的无效项；
 - 如果 Keychain 中确实有旧 Key，但临时构建显示 `Account status unavailable`，通常是 ad-hoc 签名的 CDHash 在重编译后变化，macOS 不再允许新二进制静默读取旧项。不要删除旧 Key；改用稳定代码签名，或在确认新构建可信后从 Services 重新录入一次；
 - 401：输入新 Key 并点击 **Replace API Key**；候选值验证失败不会覆盖原 Key；
 - 429：等待后重试；

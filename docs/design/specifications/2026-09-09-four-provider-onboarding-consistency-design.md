@@ -49,7 +49,8 @@
 
 | 快照状态 | Claude | Codex | DeepSeek | Gemini |
 | --- | --- | --- | --- | --- |
-| `fresh` / `cached` / `refreshing` | 无新增动作 | 无新增动作 | 正常展示余额及独立官网历史 | 保留重试/文档 |
+| `fresh` / 普通`cached` / `refreshing` | 无新增动作 | 无新增动作 | 正常展示余额及独立官网历史 | 保留重试/文档 |
+| 带登录、凭据或设置失败原因的`cached` | 保留旧额度并提供对应工作区或Services动作 | 保留旧额度并打开Services | 保留旧余额并打开Services；不先展示无关的官网登录 | 保留重试/文档 |
 | `setupRequired` | 一次性工作区授权 | 打开Services | 打开Services | 保留重试/文档 |
 | `authenticationRequired` | 打开Services | 打开Services | 打开Services；不先展示无关的官网登录 | 保留重试/文档 |
 | `notInstalled` | 打开Services | 打开Services | 打开Services | 保留重试/文档 |
@@ -59,7 +60,7 @@ macOS使用应用内设置路由通知，同时激活应用、打开Settings并�
 
 Settings中的Claude/Codex继续保留主动作和手动检查。当主动作本身就是“Check Status”时不再渲染第二个同名按钮；其余状态保留独立检查，方便用户在终端完成操作后手动确认。
 
-DeepSeek根据当前凭据状态显示`Save API Key`或`Replace API Key`。验证失败文案同样区分首次保存与替换：首次失败说明没有保存任何Key；替换失败说明旧Key继续保留。候选Key验证成功前不覆盖旧Key的事务边界不变。
+DeepSeek根据当前凭据状态显示`Save API Key`或`Replace API Key`。验证失败文案同样区分首次保存与替换：首次流程失败说明新Key没有保存；替换失败说明旧Key继续保留。候选Key验证成功前不覆盖旧Key的事务边界不变。
 
 ## 测试与验收
 
@@ -68,4 +69,3 @@ DeepSeek根据当前凭据状态显示`Save API Key`或`Replace API Key`。验�
 3. macOS路由测试验证先选择Services，再激活并打开Settings；Windows Rust/React测试验证固定页签路由及详情调用。
 4. 保留并运行既有发现、安装、登录、凭据事务、Gemini能力、浮动条和详情回归，证明没有新增自动安装、自动登录、真实网络或凭据暴露路径。
 5. 完整门禁前运行`scripts/check-docs.sh`；完成独立审查与双平台CI。真实Google账号、Windows交互式终端/WebView2及DPI继续明确列为现场边界，不由模拟测试冒充通过。
-

@@ -6,6 +6,7 @@ import type { ProviderId } from "../state/usage"
 import { defaultStripPreferences, type StripPreferences } from "../state/stripPreferences"
 import { serviceAction } from "./cliOnboarding"
 import { SettingsTabIcon } from "./SettingsTabIcon"
+import { deepSeekCredentialPresentation } from "./deepSeekCredentialPresentation"
 import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
 import appLogo from "../../src-tauri/icons/128x128.png"
 
@@ -141,6 +142,8 @@ export function SettingsWindow({
   useEffect(() => {
     if (requestedTab) setActiveTab(requestedTab)
   }, [requestedTab])
+  const deepSeekStatus = statusFor(serviceStatuses, "deepseek")
+  const deepSeekCredential = deepSeekCredentialPresentation(deepSeekStatus.connectionState === "connected")
   return (
     <section aria-label={t("AI Token Meter Settings")} className="settings-window settings-window--compact-density settings-window--system-font" role="dialog">
       <header><img alt="" aria-hidden="true" src={appLogo} /><div><strong>{t("AI Token Meter")}</strong><small>{t("Private AI usage, at a glance.")}</small></div></header>
@@ -316,12 +319,12 @@ export function SettingsWindow({
                     onClick={() => status.connectionState === "notInstalled" ? onBeginServiceInstallation(providerId) : status.connectionState === "unavailable" ? onCheckServiceStatus(providerId) : onBeginServiceSignIn(providerId)}
                     type="button"
                   >{t(action.title)}</button>
-                  <button
-                    aria-label={t("Check {name} status", {name})}
-                    disabled={action.disabled}
-                    onClick={() => onCheckServiceStatus(providerId)}
-                    type="button"
-                  >{t("Check Status")}</button>
+                  {action.showsSeparateStatusCheck ? <button
+                      aria-label={t("Check {name} status", {name})}
+                      disabled={action.disabled}
+                      onClick={() => onCheckServiceStatus(providerId)}
+                      type="button"
+                    >{t("Check Status")}</button> : null}
                   {providerId === "claude" ? <>
                     <button
                       aria-label={t("Initialize Claude Code quota reading")}
@@ -338,15 +341,16 @@ export function SettingsWindow({
                 </Service>
               )
             })}
-            <Service name="DeepSeek" status={statusFor(serviceStatuses, "deepseek")}>
+            <Service name="DeepSeek" status={deepSeekStatus}>
               <small>{t("Windows opens a protected credential prompt; the Key never enters this WebView.")}</small>
               <button
-                aria-label={t("Replace DeepSeek API Key")}
+                aria-label={t(deepSeekCredential.actionLabel)}
+                disabled={busyServices.includes("deepseek") || deepSeekStatus.connectionState === "checking"}
                 onClick={async () => {
                   await onReplaceDeepSeekKey()
                 }}
                 type="button"
-              >{t("Replace API Key")}</button>
+              >{t(deepSeekCredential.actionTitle)}</button>
               <button
                 aria-label={t("Check DeepSeek status")}
                 onClick={() => onCheckServiceStatus("deepseek")}
