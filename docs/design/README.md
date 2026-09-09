@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-09 | 0.6.3 macOS About 精简稳定发布 | 沿用 macOS About 精简规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-09-v0.6.3-release.md) |
 | 2026-09-09 | macOS About 作者行移除 | [规格](specifications/2026-09-09-macos-about-author-line-removal-design.md) | [计划](implementation-plans/2026-09-09-macos-about-author-line-removal.md) |
 | 2026-09-09 | 0.6.2 菜单面板 Logo 稳定发布 | 沿用菜单面板品牌规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-09-v0.6.2-release.md) |
 | 2026-09-09 | 菜单面板应用 Logo 展示 | [规格](specifications/2026-09-09-menu-panel-app-logo-design.md) | [计划](implementation-plans/2026-09-09-menu-panel-app-logo.md) |
