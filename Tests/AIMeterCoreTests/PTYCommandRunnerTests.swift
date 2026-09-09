@@ -23,6 +23,60 @@ struct PTYCommandRunnerTests {
         #expect(ProcessTerminationWaiter.fallbackWaitQoSClass == .userInitiated)
     }
 
+    @Test("A terminal close before process exit keeps the reader alive for late output")
+    func terminalCloseBeforeExitKeepsReaderAlive() {
+        var drain = PTYReadDrainState()
+
+        #expect(drain.observe(.terminalClosed, stopRequested: false, now: 10) == .wait)
+        #expect(drain.observe(.terminalClosed, stopRequested: true, now: 10.01) == .wait)
+        #expect(drain.observe(.bytes(18), stopRequested: true, now: 10.02) == .keepReading)
+        #expect(drain.observe(.terminalClosed, stopRequested: true, now: 10.03) == .wait)
+        #expect(drain.observe(.terminalClosed, stopRequested: true, now: 10.14) == .finish)
+    }
+
+    @Test("The stop drain deadline also bounds a continuous byte stream")
+    func stopDrainDeadlineBoundsBytes() {
+        var drain = PTYReadDrainState()
+
+        #expect(drain.observe(.noData, stopRequested: true, now: 20) == .wait)
+        #expect(drain.observe(.bytes(1), stopRequested: true, now: 20.74) == .keepReading)
+        #expect(drain.observe(.bytes(1), stopRequested: true, now: 20.76) == .finish)
+    }
+
+    @Test("Process exit starts PTY draining before exit waiters resume")
+    func processExitStartsPTYDrainBeforeWaitersResume() async throws {
+        let exitActionStarted = DispatchSemaphore(value: 0)
+        let allowExitAction = DispatchSemaphore(value: 0)
+        let valueReturned = LockedFlag()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        let waiter = ProcessTerminationWaiter {
+            exitActionStarted.signal()
+            allowExitAction.wait()
+        }
+        waiter.attach(to: process)
+
+        try process.run()
+        waiter.beginFallbackWait(for: process)
+        let didStartExitAction = await waitForSignal(exitActionStarted, timeout: 2)
+        #expect(didStartExitAction)
+        guard didStartExitAction else {
+            allowExitAction.signal()
+            return
+        }
+
+        let waitTask = Task {
+            _ = await waiter.value()
+            valueReturned.set()
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!valueReturned.value)
+
+        allowExitAction.signal()
+        _ = await waitTask.value
+        #expect(valueReturned.value)
+    }
+
     @Test("Sends fixed input and preserves the child exit status")
     func sendsInputAndPreservesExitStatus() async throws {
         let runner = PTYCommandRunner()
@@ -193,6 +247,18 @@ struct PTYCommandRunnerTests {
         #expect(result.output.contains("delayed-tail-output"))
     }
 
+    @Test("Captures output after the terminal closes and reopens before process exit")
+    func capturesOutputAfterTerminalReopens() async throws {
+        let result = try await PTYCommandRunner().run(CommandRequest(
+            executableURL: reopenedTailExecutable,
+            inputLines: [],
+            timeout: 2
+        ))
+
+        #expect(result.exitCode == 0)
+        #expect(result.output.contains("reopened-tail-output"))
+    }
+
     @Test("Concurrent terminal commands do not lose their output")
     func concurrentCommandsPreserveOutput() async throws {
         let results = try await withThrowingTaskGroup(of: (Int, CommandResult).self) { group in
@@ -246,6 +312,29 @@ struct PTYCommandRunnerTests {
 
     private var delayedTailExecutable: URL {
         Bundle.module.url(forResource: "fake-delayed-tail", withExtension: "sh")!
+    }
+
+    private var reopenedTailExecutable: URL {
+        Bundle.module.url(forResource: "fake-reopened-tail", withExtension: "sh")!
+    }
+}
+
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isSet = false
+
+    var value: Bool { lock.withLock { isSet } }
+
+    func set() {
+        lock.withLock { isSet = true }
+    }
+}
+
+private func waitForSignal(_ semaphore: DispatchSemaphore, timeout: TimeInterval) async -> Bool {
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global().async {
+            continuation.resume(returning: semaphore.wait(timeout: .now() + timeout) == .success)
+        }
     }
 }
 

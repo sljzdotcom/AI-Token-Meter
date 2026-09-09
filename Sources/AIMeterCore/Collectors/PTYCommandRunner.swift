@@ -57,7 +57,9 @@ public struct PTYCommandRunner: CommandRunning {
         _ = fcntl(activeMasterDescriptor, F_SETFL, currentFlags | O_NONBLOCK)
 
         let process = Process()
-        let terminationWaiter = ProcessTerminationWaiter()
+        let terminationWaiter = ProcessTerminationWaiter {
+            descriptorBox.requestStop()
+        }
         let startedAt = Date()
         let slaveHandle = FileHandle(fileDescriptor: slaveDescriptor, closeOnDealloc: false)
 
@@ -140,21 +142,17 @@ public struct PTYCommandRunner: CommandRunning {
     ) -> PTYReadResult {
         var result = Data()
         var buffer = [UInt8](repeating: 0, count: 4_096)
-        var remainingStopDrainBytes: Int?
-        var stopDrainDeadline: Date?
+        var drain = PTYReadDrainState()
         var matchedStopPhrase = false
         var interaction = GeminiPTYInteraction()
 
-        while true {
-            if remainingStopDrainBytes == nil, controller.stopRequested {
-                remainingStopDrainBytes = 256 * 1_024
-                stopDrainDeadline = Date().addingTimeInterval(0.75)
-            }
+        readLoop: while true {
             if geminiQuotaInteraction && !controller.stopRequested {
                 interaction.advance(descriptor: descriptor)
                 if interaction.error != nil { processBox.stop() }
             }
             let count = Darwin.read(descriptor, &buffer, buffer.count)
+            let readError = count < 0 ? errno : 0
             if count > 0 {
                 result.append(buffer, count: count)
                 if geminiQuotaInteraction {
@@ -168,18 +166,30 @@ public struct PTYCommandRunner: CommandRunning {
                         processBox.stop()
                     }
                 }
-                if let remaining = remainingStopDrainBytes {
-                    let updated = remaining - count
-                    remainingStopDrainBytes = updated
-                    if updated <= 0 { break }
-                }
-            } else if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
-                if let stopDrainDeadline {
-                    if Date() >= stopDrainDeadline { break }
-                }
-                usleep(10_000)
+            }
+
+            let observation: PTYReadObservation
+            if count > 0 {
+                observation = .bytes(count)
+            } else if count == 0 || readError == EIO {
+                observation = .terminalClosed
+            } else if readError == EAGAIN || readError == EWOULDBLOCK || readError == EINTR {
+                observation = .noData
             } else {
-                break
+                observation = .unrecoverableError
+            }
+
+            switch drain.observe(
+                observation,
+                stopRequested: controller.stopRequested,
+                now: ProcessInfo.processInfo.systemUptime
+            ) {
+            case .keepReading:
+                continue
+            case .wait:
+                usleep(10_000)
+            case .finish:
+                break readLoop
             }
         }
         if geminiQuotaInteraction { interaction.finish() }
@@ -211,9 +221,15 @@ final class ProcessTerminationWaiter: @unchecked Sendable {
 
     private let lock = NSLock()
     private let blockingSignal = DispatchSemaphore(value: 0)
+    private let onExit: (@Sendable () -> Void)?
     private var exitCode: Int32?
     private var continuation: CheckedContinuation<Int32, Never>?
     private var fallbackWaitStarted = false
+    private var isCompleting = false
+
+    init(onExit: (@Sendable () -> Void)? = nil) {
+        self.onExit = onExit
+    }
 
     func attach(to process: Process) {
         process.terminationHandler = { [self] process in
@@ -257,15 +273,22 @@ final class ProcessTerminationWaiter: @unchecked Sendable {
     }
 
     private func complete(with status: Int32) {
-        let completion: (didComplete: Bool, continuation: CheckedContinuation<Int32, Never>?) = lock.withLock {
-            guard exitCode == nil else { return (false, nil) }
-            exitCode = status
-            defer { continuation = nil }
-            return (true, continuation)
+        let claimedCompletion = lock.withLock {
+            guard exitCode == nil, !isCompleting else { return false }
+            isCompleting = true
+            return true
         }
-        guard completion.didComplete else { return }
+        guard claimedCompletion else { return }
+
+        onExit?()
+        let continuationToResume = lock.withLock {
+            exitCode = status
+            isCompleting = false
+            defer { continuation = nil }
+            return continuation
+        }
         blockingSignal.signal()
-        completion.continuation?.resume(returning: status)
+        continuationToResume?.resume(returning: status)
     }
 }
 
@@ -343,6 +366,69 @@ private final class ClosableDescriptor: @unchecked Sendable {
 private struct PTYReadResult {
     let data: Data
     let error: UsageCollectionError?
+}
+
+enum PTYReadObservation: Equatable {
+    case bytes(Int)
+    case noData
+    case terminalClosed
+    case unrecoverableError
+}
+
+enum PTYReadAction: Equatable {
+    case keepReading
+    case wait
+    case finish
+}
+
+/// Keeps transient terminal closure separate from confirmed process exit.
+/// A macOS PTY master can report EOF while no slave is open, then receive data if the slave reopens.
+struct PTYReadDrainState {
+    private static let byteLimit = 256 * 1_024
+    private static let maximumDuration: TimeInterval = 0.75
+    private static let terminalQuietDuration: TimeInterval = 0.1
+
+    private var remainingBytes: Int?
+    private var deadline: TimeInterval?
+    private var terminalQuietDeadline: TimeInterval?
+
+    mutating func observe(
+        _ observation: PTYReadObservation,
+        stopRequested: Bool,
+        now: TimeInterval
+    ) -> PTYReadAction {
+        if stopRequested, remainingBytes == nil {
+            remainingBytes = Self.byteLimit
+            deadline = now + Self.maximumDuration
+        }
+        if let deadline, now >= deadline { return .finish }
+
+        switch observation {
+        case let .bytes(count):
+            terminalQuietDeadline = nil
+            guard let remainingBytes else { return .keepReading }
+            let updated = remainingBytes - count
+            self.remainingBytes = updated
+            return updated <= 0 ? .finish : .keepReading
+
+        case .noData:
+            if let deadline, now >= deadline { return .finish }
+            return .wait
+
+        case .terminalClosed:
+            guard let deadline else {
+                terminalQuietDeadline = nil
+                return .wait
+            }
+            if now >= deadline { return .finish }
+            let quietDeadline = terminalQuietDeadline ?? min(deadline, now + Self.terminalQuietDuration)
+            terminalQuietDeadline = quietDeadline
+            return now >= quietDeadline ? .finish : .wait
+
+        case .unrecoverableError:
+            return .finish
+        }
+    }
 }
 
 /// Lives on the single reader task, so input scheduling never blocks draining output.
