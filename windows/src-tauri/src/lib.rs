@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Deserialize;
 use tauri::{Emitter, Manager, State};
@@ -65,6 +65,35 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
     })
 }
 
+#[cfg_attr(not(windows), allow(dead_code))]
+#[derive(Default)]
+struct ExclusiveOperationGate {
+    active: AtomicBool,
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+impl ExclusiveOperationGate {
+    fn try_enter(&self) -> Result<ExclusiveOperationGuard<'_>, ()> {
+        self.active
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| ExclusiveOperationGuard {
+                active: &self.active,
+            })
+            .map_err(|_| ())
+    }
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+struct ExclusiveOperationGuard<'a> {
+    active: &'a AtomicBool,
+}
+
+impl Drop for ExclusiveOperationGuard<'_> {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+    }
+}
+
 pub struct RuntimeState {
     pub(crate) meter_instances: Mutex<std::collections::BTreeMap<String, String>>,
     pub(crate) display_reconcile: crate::platform::windows::display_coordinator::ReconcileQueue,
@@ -82,6 +111,8 @@ pub struct RuntimeState {
     pub(crate) strip_focus: AtomicBool,
     pub(crate) strip_menu: AtomicBool,
     pub(crate) strip_reset: AtomicBool,
+    #[cfg_attr(not(windows), allow(dead_code))]
+    deepseek_key_replacement: ExclusiveOperationGate,
     deepseek_history:
         Arc<Mutex<crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime>>,
     pub(crate) detail_state: Mutex<DetailState>,
@@ -114,6 +145,7 @@ impl Default for RuntimeState {
             strip_focus: AtomicBool::new(false),
             strip_menu: AtomicBool::new(false),
             strip_reset: AtomicBool::new(false),
+            deepseek_key_replacement: ExclusiveOperationGate::default(),
             meter_drag: Arc::new(crate::platform::windows::meter_drag::MeterDragGate::default()),
             deepseek_history: Arc::new(Mutex::new(
                 crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime::default(),
@@ -1075,6 +1107,10 @@ async fn replace_deepseek_api_key(
 ) -> Result<crate::accounts::service_status::ServiceAccountStatus, String> {
     #[cfg(windows)]
     {
+        let _replacement_guard = state
+            .deepseek_key_replacement
+            .try_enter()
+            .map_err(|()| "DeepSeek API Key verification is already in progress".to_owned())?;
         let parent = app
             .get_webview_window("settings")
             .and_then(|window| window.hwnd().ok())
@@ -1433,6 +1469,15 @@ pub fn run() {
 #[cfg(test)]
 mod threshold_tests {
     use super::*;
+
+    #[test]
+    fn deepseek_key_replacement_allows_only_one_operation_at_a_time() {
+        let gate = ExclusiveOperationGate::default();
+        let active = gate.try_enter().expect("first operation should start");
+        assert!(gate.try_enter().is_err());
+        drop(active);
+        assert!(gate.try_enter().is_ok());
+    }
 
     #[test]
     fn settings_tab_requests_accept_only_fixed_application_tabs() {

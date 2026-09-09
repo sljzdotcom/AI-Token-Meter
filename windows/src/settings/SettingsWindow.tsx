@@ -144,6 +144,7 @@ export function SettingsWindow({
   }, [requestedTab])
   const deepSeekStatus = statusFor(serviceStatuses, "deepseek")
   const deepSeekCredential = deepSeekCredentialPresentation(deepSeekStatus.connectionState === "connected")
+  const deepSeekBusy = busyServices.includes("deepseek") || deepSeekStatus.connectionState === "checking"
   return (
     <section aria-label={t("AI Token Meter Settings")} className="settings-window settings-window--compact-density settings-window--system-font" role="dialog">
       <header><img alt="" aria-hidden="true" src={appLogo} /><div><strong>{t("AI Token Meter")}</strong><small>{t("Private AI usage, at a glance.")}</small></div></header>
@@ -344,15 +345,16 @@ export function SettingsWindow({
             <Service name="DeepSeek" status={deepSeekStatus}>
               <small>{t("Windows opens a protected credential prompt; the Key never enters this WebView.")}</small>
               <button
-                aria-label={t(deepSeekCredential.actionLabel)}
-                disabled={busyServices.includes("deepseek") || deepSeekStatus.connectionState === "checking"}
+                aria-label={t(deepSeekBusy ? "Verifying DeepSeek API Key" : deepSeekCredential.actionLabel)}
+                disabled={deepSeekBusy}
                 onClick={async () => {
                   await onReplaceDeepSeekKey()
                 }}
                 type="button"
-              >{t(deepSeekCredential.actionTitle)}</button>
+              >{t(deepSeekBusy ? "Verifying…" : deepSeekCredential.actionTitle)}</button>
               <button
                 aria-label={t("Check DeepSeek status")}
+                disabled={deepSeekBusy}
                 onClick={() => onCheckServiceStatus("deepseek")}
                 type="button"
               >{t("Check Status")}</button>

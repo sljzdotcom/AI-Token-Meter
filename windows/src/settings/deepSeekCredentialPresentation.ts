@@ -5,7 +5,6 @@ export type DeepSeekCredentialPresentation = {
   successMessage: string
   failureMessage: string
 }
-
 export function deepSeekCredentialPresentation(hasExistingKey: boolean): DeepSeekCredentialPresentation {
   return hasExistingKey ? {
     actionTitle: "Replace API Key",
@@ -21,4 +20,3 @@ export function deepSeekCredentialPresentation(hasExistingKey: boolean): DeepSee
     failureMessage: "The API Key was not saved. No existing Key was changed.",
   }
 }
-

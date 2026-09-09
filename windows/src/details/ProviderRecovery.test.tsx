@@ -35,6 +35,18 @@ it("does not offer unrelated official history sync before a DeepSeek API Key is 
   expect(screen.queryByText("Sync official history")).not.toBeInTheDocument()
 })
 
+it("puts DeepSeek credential recovery before retained official history", () => {
+  render(<ProviderDetail {...handlers} snapshot={{
+    ...snapshot("deepseek", "authenticationRequired"),
+    statusMessage: "DeepSeek API Key is required",
+    dailyHistory: [{date: "2026-09-08", costCny: 1.25, requests: 4, tokens: 1000}],
+  }} onOpenServicesSettings={() => {}} onDeepSeekHistorySync={() => {}} />)
+
+  const recovery = screen.getByRole("button", {name: "Open Services Settings"})
+  const history = screen.getByRole("heading", {name: "Last 30 days · Official website"})
+  expect(recovery.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
 it("keeps Gemini on its dedicated retry and documentation controls", () => {
   render(<ProviderDetail {...handlers} snapshot={{...snapshot("gemini", "notInstalled"), displayName: "Gemini"}} onOpenServicesSettings={() => {}} onCheckGeminiStatus={() => {}} onOpenGeminiDocumentation={() => {}} />)
   expect(screen.queryByRole("button", {name: "Open Services Settings"})).not.toBeInTheDocument()

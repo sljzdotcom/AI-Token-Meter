@@ -11,7 +11,6 @@ it("uses save copy when no DeepSeek Key exists", () => {
     failureMessage: "The API Key was not saved. No existing Key was changed.",
   })
 })
-
 it("uses replacement copy when a DeepSeek Key already exists", () => {
   expect(deepSeekCredentialPresentation(true)).toEqual({
     actionTitle: "Replace API Key",
@@ -21,4 +20,3 @@ it("uses replacement copy when a DeepSeek Key already exists", () => {
     failureMessage: "The replacement was not saved. The existing API Key remains active.",
   })
 })
-

@@ -25,14 +25,17 @@
 
 ## 自动化验证
 
-- Windows失败先行覆盖恢复按钮、DeepSeek历史误导、重复检查按钮、首次保存文案及带认证原因的缓存；实现后前端完整回归为119项，并通过TypeScript检查。
+- Windows失败先行覆盖恢复按钮、DeepSeek历史误导、重复检查按钮、首次保存文案及带认证原因的缓存；实现后前端完整回归为121项，并通过TypeScript检查。
 - macOS失败先行覆盖四服务恢复矩阵、Settings固定页签和首次DeepSeek失败文案；实现后相关3个Suite共26项通过。
-- Windows Rust固定页签白名单测试通过；`cargo fmt --check`和`git diff --check`通过。
-- 完整Swift、Release构建、Windows Rust/浏览器密度、独立审查、原生双平台CI和发布证据将在本记录后续阶段补齐，未完成前不把需求标为完成。
+- 完整macOS门禁为461项常规测试、3项独立刷新调度、18项PTY runner和6项Gemini PTY，共488项；6份跨平台合同、发布脚本回归、210份Markdown文档和公开安全扫描通过。
+- Windows为121项前端和5项终端输入协议测试、25项密度进程生命周期、16组四服务布局及608个真实浏览器文字角色；production build、258项宿主Rust、`cargo fmt --check`和严格Clippy通过。两次未获权限的Rust全套仅有6项回环服务因沙箱禁止bind失败，同一命令在获准本机环境全部通过。
+- 无Widget的macOS Release App完成arm64构建；可移植资源、Sparkle framework/helper、`@rpath`、嵌套组件和严格签名结构通过。
+- 初次独立审查为Critical 0、Important 2、Minor 1：Windows原生Key提示框关闭后的网络验证没有真正进入busy状态；有旧官网历史时恢复入口排在历史之后；两个TypeScript文件还带EOF空行。失败先行补充真实Settings生命周期、恢复顺序和后端单事务测试后，验证期间的替换、检查与窗口聚焦刷新均锁定，Rust命令也拒绝并发替换；恢复入口调整到历史之前，格式检查恢复通过。
+- 实现检查点为`80da33f`。审查修复正在交回原审查者复核；原生双平台CI、main整合和发布证据将在后续阶段补齐，未完成前不把需求标为完成。
 
 ## 安全、隐私与现场边界
 
-本轮没有新增自动安装、自动登录、真实账号操作或凭据读取路径。DeepSeek候选Key仍只进入macOS Keychain流程或Windows原生受保护提示框，固定Settings页签路由不接收路径、命令或凭据。
+本轮没有新增自动安装、自动登录、真实账号操作或凭据读取路径。DeepSeek候选Key仍只进入macOS Keychain流程或Windows原生受保护提示框，固定Settings页签路由不接收路径、命令或凭据。Windows前端与Rust后端都阻止同一时间启动第二次Key替换，避免验证或回滚相互覆盖。
 
 真实Gemini普通OAuth账号、Windows交互式终端/WebView2、物理DPI与官网登录仍是既有现场边界；自动化结果不会替代这些真机检查。
 
@@ -40,4 +43,5 @@
 
 - 接单与审计开始：`57a8293`
 - 审计、规格与实施计划：`7886a63`
-- 实现、复审、整合与发布证据：完成对应阶段后回写。
+- 双平台实现与本地候选门禁：`80da33f`
+- 复审、整合与发布证据：完成对应阶段后回写。

@@ -94,6 +94,12 @@ export function ProviderDetail({
         </section>
       ) : null}
 
+      {recovery === "services" && onOpenServicesSettings ? <div className="service-actions">
+        {snapshot.statusMessage ? <p>{t(snapshot.statusMessage)}</p> : null}
+        {snapshot.providerId === "deepseek" && snapshot.status === "authenticationRequired" ? <p>{t("Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history.")}</p> : null}
+        <button type="button" onClick={onOpenServicesSettings}>{t("Open Services Settings")}</button>
+      </div> : null}
+
       {snapshot.providerId === "deepseek" && (recovery !== "services" || snapshot.dailyHistory?.length) ? (
         <section className="detail-section detail-section--history">
           <h2>{t("Last 30 days · Official website")}</h2>
@@ -112,11 +118,6 @@ export function ProviderDetail({
         {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Gemini status")}</button>}
         {onOpenGeminiDocumentation && <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>}
       </div>}
-      {recovery === "services" && onOpenServicesSettings ? <div className="service-actions">
-        {snapshot.statusMessage ? <p>{t(snapshot.statusMessage)}</p> : null}
-        {snapshot.providerId === "deepseek" && snapshot.status === "authenticationRequired" ? <p>{t("Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history.")}</p> : null}
-        <button type="button" onClick={onOpenServicesSettings}>{t("Open Services Settings")}</button>
-      </div> : null}
       <footer>{t(freshness(snapshot))} · {t("Updated")} {formatTime(snapshot.fetchedAt)}</footer>
     </section>
   )

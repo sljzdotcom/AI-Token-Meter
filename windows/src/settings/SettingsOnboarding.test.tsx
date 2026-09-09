@@ -31,7 +31,8 @@ it("busy service blocks login, duplicate installation and runtime changes", () =
   expect(screen.getByRole("button", {name: "Check Claude Code status"})).toBeDisabled()
   expect(screen.getByRole("button", {name: "Initialize Claude Code quota reading"})).toBeDisabled()
   expect(screen.getAllByRole("combobox")[0]).toBeDisabled()
-  expect(screen.getByRole("button", {name: "Save DeepSeek API Key"})).toBeDisabled()
+  expect(screen.getByRole("button", {name: "Verifying DeepSeek API Key"})).toBeDisabled()
+  expect(screen.getByRole("button", {name: "Check DeepSeek status"})).toBeDisabled()
 })
 
 it("connected Claude offers explicit quota initialization with instructions", () => {

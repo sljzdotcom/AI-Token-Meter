@@ -363,11 +363,13 @@ export function DetailSurface() {
   )
 }
 
-function SettingsSurface() {
+export function SettingsSurface() {
   const settings = useRuntimeSettings()
   const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.5.0" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
   const [serviceMessage, setServiceMessage] = useState<string | null>(null)
+  const [deepSeekReplacing, setDeepSeekReplacing] = useState(false)
+  const deepSeekReplacingRef = useRef(false)
   const [, updateOperations] = useState(0)
   const [onboarding] = useState(() => new CLIOnboarding(
     (command, args) => invoke(command, args),
@@ -410,7 +412,12 @@ function SettingsSurface() {
   useEffect(() => {
     let disposed = false
     let stop: (() => void) | undefined
-    const refresh = () => { if (!disposed) for (const provider of ["claude", "codex", "deepseek", "gemini"] as const) void onboarding.check(provider, false) }
+    const refresh = () => {
+      if (disposed) return
+      for (const provider of ["claude", "codex", "deepseek", "gemini"] as const) {
+        if (provider !== "deepseek" || !deepSeekReplacingRef.current) void onboarding.check(provider, false)
+      }
+    }
     refresh()
     // Read the collector's new result, including when an older status read is pending.
     void listen<UsageSnapshot>("snapshot-updated", event => {
@@ -426,6 +433,7 @@ function SettingsSurface() {
     ])
   }
   const checkServiceStatus = (providerId: ProviderId) => {
+    if (providerId === "deepseek" && deepSeekReplacingRef.current) return
     void onboarding.check(providerId, true)
   }
   useEffect(() => {
@@ -506,13 +514,16 @@ function SettingsSurface() {
           .catch(() => setServiceMessage("The CLI runtime setting could not be saved."))
       }}
       onCheckServiceStatus={checkServiceStatus}
-      busyServices={(["claude", "codex", "deepseek", "gemini"] as const).filter(provider => onboarding.isBusy(provider))}
+      busyServices={(["claude", "codex", "deepseek", "gemini"] as const).filter(provider => onboarding.isBusy(provider) || (provider === "deepseek" && deepSeekReplacing))}
       onBeginServiceSignIn={provider => { void onboarding.begin(provider, "login") }}
       onBeginServiceInstallation={provider => { void onboarding.begin(provider, "install") }}
       onInitializeClaudeUsage={() => { void onboarding.initializeClaudeUsage() }}
       onOpenGeminiDocumentation={() => { void invoke("open_gemini_documentation").catch(() => setServiceMessage("The documentation could not be opened.")) }}
       onOpenInstallationGuide={providerId => { void invoke("open_service_installation_guide", {providerId}).catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onReplaceDeepSeekKey={async () => {
+        if (deepSeekReplacingRef.current) return false
+        deepSeekReplacingRef.current = true
+        setDeepSeekReplacing(true)
         const hasExistingKey = serviceStatuses.some(status => status.providerId === "deepseek" && status.connectionState === "connected")
         const copy = deepSeekCredentialPresentation(hasExistingKey)
         setServiceMessage(copy.pendingMessage)
@@ -524,6 +535,9 @@ function SettingsSurface() {
         } catch {
           setServiceMessage(copy.failureMessage)
           return false
+        } finally {
+          deepSeekReplacingRef.current = false
+          setDeepSeekReplacing(false)
         }
       }}
     />

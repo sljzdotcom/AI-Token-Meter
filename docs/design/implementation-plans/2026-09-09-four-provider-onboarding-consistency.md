@@ -28,8 +28,8 @@
 
 ## Task 4：审计证据、完整验证与整合
 
-- [ ] 更新开发日志、README/文档索引（如新增文档需要）及需求台账证据。
-- [ ] 运行`scripts/check-docs.sh`、Swift完整测试/Release构建、Windows前端/Rust/构建及相关浏览器门禁。
+- [x] 更新开发日志、README/文档索引（如新增文档需要）及需求台账证据。
+- [x] 运行`scripts/check-docs.sh`、Swift完整测试/Release构建、Windows前端/Rust/构建及相关浏览器门禁。
 - [ ] 请求独立审查，关闭Critical/Important发现后重新运行受影响门禁。
 - [ ] 由开发入口安全整合到main并回传提交、测试、审查和现场边界。
 

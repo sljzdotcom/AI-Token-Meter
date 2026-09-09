@@ -37,7 +37,7 @@ import { App } from "./App"
 import { MeterClipPaths } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
 import { ProviderDetail } from "./details/ProviderDetail"
-import { DetailSurface } from "./Shell"
+import { DetailSurface, SettingsSurface } from "./Shell"
 import { SettingsWindow } from "./settings/SettingsWindow"
 import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
 import type { UsageSnapshot } from "./state/usage"
@@ -884,4 +884,51 @@ it("actionable provider details open the Services settings tab", async () => {
   fireEvent.click(screen.getByRole("button", {name: "Open Services Settings"}))
 
   expect(tauri.invoke).toHaveBeenCalledWith("open_settings", {tab: "Services"})
+})
+
+it("keeps DeepSeek replacement and status checks locked until verification finishes", async () => {
+  let finishReplacement: (status: ServiceAccountStatus) => void = () => {}
+  let deepSeekStatusChecks = 0
+  tauri.invoke.mockImplementation((command: string, args?: {providerId?: UsageSnapshot["providerId"]}) => {
+    if (command === "app_settings") return Promise.resolve(detailSettings)
+    if (command === "available_displays" || command === "available_wsl_distributions") return Promise.resolve([])
+    if (command === "update_state") return Promise.resolve({phase: "idle", currentVersion: "0.6.0"})
+    if (command === "service_account_status") {
+      if (args?.providerId === "deepseek") deepSeekStatusChecks += 1
+      return Promise.resolve({
+        providerId: args?.providerId,
+        connectionState: args?.providerId === "deepseek" ? "connected" : "unavailable",
+      })
+    }
+    if (command === "replace_deepseek_api_key") {
+      return new Promise<ServiceAccountStatus>((resolve) => { finishReplacement = resolve })
+    }
+    return Promise.resolve(undefined)
+  })
+
+  render(<SettingsSurface />)
+  fireEvent.click(screen.getByRole("tab", {name: "Services"}))
+  const replace = await screen.findByRole("button", {name: "Replace DeepSeek API Key"})
+  fireEvent.click(replace)
+
+  const verifying = await screen.findByRole("button", {name: "Verifying DeepSeek API Key"})
+  expect(verifying).toBeDisabled()
+  expect(verifying).toHaveTextContent("Verifying…")
+  const check = screen.getByRole("button", {name: "Check DeepSeek status"})
+  expect(check).toBeDisabled()
+  fireEvent.click(verifying)
+  fireEvent.click(check)
+  expect(tauri.invoke.mock.calls.filter(([command]) => command === "replace_deepseek_api_key")).toHaveLength(1)
+
+  const checksBeforeFocus = deepSeekStatusChecks
+  window.dispatchEvent(new Event("focus"))
+  await act(async () => { await Promise.resolve() })
+  expect(deepSeekStatusChecks).toBe(checksBeforeFocus)
+
+  await act(async () => {
+    finishReplacement({providerId: "deepseek", connectionState: "connected"})
+    await Promise.resolve()
+  })
+  expect(await screen.findByRole("button", {name: "Replace DeepSeek API Key"})).toBeEnabled()
+  expect(screen.getByRole("button", {name: "Check DeepSeek status"})).toBeEnabled()
 })

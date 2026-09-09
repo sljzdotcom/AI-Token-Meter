@@ -57,7 +57,7 @@ const zh = {
   "Complete Claude Code workspace setup in Terminal, then choose Check Status.": "请在终端完成 Claude Code 工作区初始化，然后选择“检查状态”。",
   "The Claude Code setup window could not be opened. Choose Check Status or retry initialization.": "无法打开 Claude Code 初始化窗口。请检查状态或重试初始化。",
   "Windows opens a protected credential prompt; the Key never enters this WebView.": "Windows 会打开受保护的凭据提示框；密钥不会进入此网页视图。",
-  "Replace DeepSeek API Key": "替换 DeepSeek API 密钥", "Save DeepSeek API Key": "保存 DeepSeek API 密钥", "Check DeepSeek status": "检查 DeepSeek 状态", "Replace API Key": "替换 API 密钥", "Save API Key": "保存 API 密钥",
+  "Replace DeepSeek API Key": "替换 DeepSeek API 密钥", "Save DeepSeek API Key": "保存 DeepSeek API 密钥", "Verifying DeepSeek API Key": "正在验证 DeepSeek API 密钥", "Verifying…": "正在验证…", "Check DeepSeek status": "检查 DeepSeek 状态", "Replace API Key": "替换 API 密钥", "Save API Key": "保存 API 密钥",
   "Version": "版本", "Author · Miller": "作者 · Miller", "Checking…": "正在检查…", "Check for Updates": "检查更新", "Installing…": "正在安装…", "Update Now": "立即更新",
   "Author links": "作者链接", "The author link could not be opened.": "无法打开作者链接。",
   "Automatic": "自动", "Native Windows": "Windows 原生", "Choose distribution": "选择发行版", "Optional custom CLI path": "可选的自定义 CLI 路径",
