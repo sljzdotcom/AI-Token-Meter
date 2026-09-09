@@ -9,7 +9,9 @@
 
 **0.6.1/build16 已公开发布：** 四服务商接入一致性与Gemini安装引导已交付。发布候选`7437f63`的PR #18双平台CI、合并提交`6fc4e1e`的main双平台CI及发布workflow `34316932269`全部通过；发布后稳定appcast提交为`6945b15`。七个公开资产和三条更新入口已匿名重下，SHA-256、Sparkle/Tauri签名及篡改拒绝均验证通过。[发布记录](development/2026-09-09-v0.6.1-release.md)。
 
-**菜单面板品牌增强已整合本地main：** macOS 菜单栏弹出面板在标题左侧复用32pt应用图标，Windows原生托盘菜单以同一图标和软件名作为不可点击的首行；背景、刷新位置、用量摘要和事件路由保持。合成截图只使用纯色测试图标，491项Swift、124项前端、261项Rust、真实浏览器密度和无Widget Release App门禁均通过，验证记录`d4de77b`已快进整合。[开发记录](development/2026-09-09-menu-panel-app-logo.md)。该变化仍在 Unreleased，不属于已经公开的0.6.1。
+**0.6.2/build17发布候选：** 用户已明确要求把菜单面板Logo直接发布为新版本。版本合同、Release Notes和本机门禁正在按[发布计划](design/implementation-plans/2026-09-09-v0.6.2-release.md)推进；在签名资产公开和三个更新源完成验证前，公开稳定版仍是0.6.1。
+
+**菜单面板品牌增强已进入0.6.2：** macOS菜单栏弹出面板在标题左侧复用32pt应用图标，Windows原生托盘菜单以同一图标和软件名作为不可点击的首行；背景、刷新位置、用量摘要和事件路由保持。合成截图只使用纯色测试图标，功能基线491项Swift、124项前端、261项Rust、真实浏览器密度和无Widget Release App门禁均通过。[开发记录](development/2026-09-09-menu-panel-app-logo.md)。
 
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
 

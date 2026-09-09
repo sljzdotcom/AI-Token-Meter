@@ -8,7 +8,7 @@ Gemini 需要另行安装并登录官方 CLI 0.58.0，首期支持普通 Google 
 
 ## 1. 准备环境
 
-AI Token Meter `0.6.1` 同时支持 Apple Silicon Mac（macOS 14 或更新版本）与 Windows 11 x64。从源码构建的共同依赖是 Git，平台依赖分别为：
+AI Token Meter `0.6.2` 同时支持 Apple Silicon Mac（macOS 14 或更新版本）与 Windows 11 x64。从源码构建的共同依赖是 Git，平台依赖分别为：
 
 - Xcode Command Line Tools；
 - Swift 6 工具链；
@@ -24,19 +24,19 @@ Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView
 
 ## 2. 下载公开版本
 
-从 [v0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1) 下载 `AI-Token-Meter-0.6.1-macOS-arm64.zip` 和同名 `.sha256`，并在下载目录验证：
+0.6.2发布完成后，从 [v0.6.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.2) 下载 `AI-Token-Meter-0.6.2-macOS-arm64.zip` 和同名 `.sha256`，并在下载目录验证：
 
 ```bash
-shasum -a 256 -c AI-Token-Meter-0.6.1-macOS-arm64.zip.sha256
+shasum -a 256 -c AI-Token-Meter-0.6.2-macOS-arm64.zip.sha256
 ```
 
 解压后把 `AI Token Meter.app` 移到 `/Applications`。当前公开包为 ad-hoc signed、not notarized；首次运行如果 macOS 阻止，请在 Finder 中右键 App 并选择“打开”。不要从不可信镜像下载，也不要绕过更新签名失败。
 
 `0.1.2` 不含更新器，因此要手动安装一次当前版本。安装 `0.2.0` 或更新版本后，后续稳定版本可在 Settings → About 手动检查和安装。
 
-Windows 从同一 [v0.6.1 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1) 下载 `AI-Token-Meter-0.6.1-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
+Windows 从同一 [v0.6.2 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.2) 下载 `AI-Token-Meter-0.6.2-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
 
-已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口均已指向 `0.6.1`；设置与凭据的存储位置保持不变。
+发布完成后，已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口将共同指向 `0.6.2`；设置与凭据的存储位置保持不变。
 
 ## 3. 从源码构建
 
