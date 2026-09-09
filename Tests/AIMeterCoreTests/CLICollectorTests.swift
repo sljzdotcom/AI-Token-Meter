@@ -148,7 +148,7 @@ struct CLICollectorTests {
         defer { try? FileManager.default.removeItem(at: captureFile) }
         let client = CodexAppServerClient(
             environmentOverrides: ["AI_METER_TEST_INITIALIZE_FILE": captureFile.path],
-            clientVersion: "0.6.1"
+            clientVersion: "0.6.2"
         )
 
         _ = try await client.readRateLimits(executableURL: fixtureExecutable)
@@ -158,7 +158,7 @@ struct CLICollectorTests {
         let params = try #require(object["params"] as? [String: Any])
         let clientInfo = try #require(params["clientInfo"] as? [String: Any])
         #expect(clientInfo["name"] as? String == "ai-token-meter")
-        #expect(clientInfo["version"] as? String == "0.6.1")
+        #expect(clientInfo["version"] as? String == "0.6.2")
     }
 
     @Test("Codex app-server can run an env-node CLI found inside an nvm bin")

@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.6.1](https://img.shields.io/badge/version-0.6.1-3b82f6)
-![Tests 490](https://img.shields.io/badge/tests-490%20passed-2ea44f)
+![Version 0.6.2](https://img.shields.io/badge/version-0.6.2-3b82f6)
+![Tests 491](https://img.shields.io/badge/tests-491%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Gemini. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为 0.6.1（macOS build `16`）。本版统一四服务的首次接入与错误恢复，并修正 Gemini 官方安装引导；双平台签名资产与公开更新源均已验证，见[发布记录](docs/development/2026-09-09-v0.6.1-release.md)。
+> 本源码版本为 0.6.2（macOS build `17`）发布候选，准备把双平台菜单面板顶部应用 Logo 交付给现有设备。公开稳定版在发布事务完成前仍为 [0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1)；候选与后续公开证据见[发布记录](docs/development/2026-09-09-v0.6.2-release.md)。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.6.1` / build `16`：Claude Code、OpenAI Codex 与 DeepSeek 的详情可直达 Services；DeepSeek 首次保存、验证事务和历史说明更准确；Gemini 提供 Node.js 20+、固定 0.58.0 命令、Google 登录与回流检查。[Release Notes](docs/releases/v0.6.1.md)。
+> `0.6.2` / build `17`：macOS 菜单栏弹出面板在标题旁显示现有应用 Logo，Windows 原生托盘菜单以同一 Logo 与软件名作为顶部品牌行；背景、刷新入口、用量摘要和菜单动作保持。[Release Notes](docs/releases/v0.6.2.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -33,6 +33,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
 - 菜单栏使用 18×18pt 单色 Quantum Dial：断环进度和指针动态显示四项服务中的最高已用比例，旁边保留精确百分比；无有效数据时显示中性仪表与 `—`。
+- 点击菜单栏后的弹出面板在 AI Token Meter 标题左侧显示现有应用 Logo；Windows 原生托盘菜单顶部提供等价的 Logo 与软件名品牌行。
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 OpenAI Codex 重置券摘要。
 - 贴边浮岛按设置显示一至四个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
 - Claude Code、OpenAI Codex、DeepSeek、Gemini 分别使用黄橙、玫红紫、薄荷紫、青绿强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
@@ -85,12 +86,12 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-0.6.1 稳定版发布页：**[Download v0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1)**：
+0.6.2 发布完成后的稳定版页面：**[Download v0.6.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.2)**：
 
-- macOS：下载 `AI-Token-Meter-0.6.1-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.6.1-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.6.2-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.6.2-windows-x64-setup.exe` 与同名 `.sha256`。
 
-已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.6.1`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
+发布完成后，已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.6.2`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
 Windows 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -241,7 +242,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前公开稳定版为 `0.6.1`（macOS build `16`）；公开签名资产和更新源证据见[发布记录](docs/development/2026-09-09-v0.6.1-release.md)。
+- 本源码版本为 `0.6.2`（macOS build `17`）发布候选；公开稳定版和签名更新源在发布完成前仍为0.6.1，状态见[0.6.2发布记录](docs/development/2026-09-09-v0.6.2-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

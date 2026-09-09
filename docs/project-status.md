@@ -9,6 +9,12 @@
 
 **0.6.1/build16 已公开发布：** 四服务商接入一致性与Gemini安装引导已交付。发布候选`7437f63`的PR #18双平台CI、合并提交`6fc4e1e`的main双平台CI及发布workflow `34316932269`全部通过；发布后稳定appcast提交为`6945b15`。七个公开资产和三条更新入口已匿名重下，SHA-256、Sparkle/Tauri签名及篡改拒绝均验证通过。[发布记录](development/2026-09-09-v0.6.1-release.md)。
 
+**0.6.2/build17发布候选：** 用户已明确要求把菜单面板Logo直接发布为新版本。版本合同、Release Notes和本机门禁正在按[发布计划](design/implementation-plans/2026-09-09-v0.6.2-release.md)推进；在签名资产公开和三个更新源完成验证前，公开稳定版仍是0.6.1。
+
+PR #19修正候选`1efc8ed`的macOS CI `34332463456`与Windows CI `34332463420`全绿；Windows已通过完整runtime、NSIS、GUI subsystem和安装器上传。首轮Tauri MockRuntime入口失败已由`REQ-20260909-005`按上游已知缺陷修正，测试和CI门禁未跳过。
+
+**菜单面板品牌增强已进入0.6.2：** macOS菜单栏弹出面板在标题左侧复用32pt应用图标，Windows原生托盘菜单以同一图标和软件名作为不可点击的首行；背景、刷新位置、用量摘要和事件路由保持。合成截图只使用纯色测试图标，功能基线491项Swift、124项前端、261项Rust、真实浏览器密度和无Widget Release App门禁均通过。[开发记录](development/2026-09-09-menu-panel-app-logo.md)。
+
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
 
 **0.6.0 Gemini 已公开发布：** 第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已交付。Windows 首期仅原生 CLI。最终本地回归为 485 项 Swift、109 项前端、256 项宿主 Rust；PR、main 与正式发布流水线的原生 Windows SDK/ConPTY 门禁全部通过。真实 Gemini 账号不在本轮自动化范围，仍作为现场边界。见[采集日志](development/2026-09-08-gemini-collector.md)、[发布记录](development/2026-09-08-v0.6.0-release.md)和[唯一台账](requirements-backlog.md)。
@@ -48,7 +54,7 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 
 ## 当前界面
 
-- 菜单栏：18×18pt Quantum Dial 模板图像，显示四项服务中最高有效已用比例和精确百分比；
+- 菜单栏：18×18pt Quantum Dial 模板图像显示四项服务中最高有效已用比例和精确百分比；点击后的面板标题左侧显示现有应用 Logo；
 - 桌面浮岛：默认右侧贴边，可 Automatic/Left/Right，按稳定物理显示器身份记录目标屏、侧边和纵向位置；目标屏断开时仅临时回当前主屏，重新接入后自动恢复；只在桌面层显示；
 - 详情：用户点击后临时位于普通应用窗口上方，空白点击或 3/5/8/15/30 秒无交互后关闭；
 - Settings：Appearance、Monitoring、Services、About 四个 Tab，始终使用系统字体；
@@ -82,6 +88,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
 - 0.6.1最终本地基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
+- 菜单面板品牌候选基线：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和261项宿主Rust，production build、格式、严格Clippy、6份跨平台合同、216份Markdown、公开安全与无Widget Release App验证通过。
 - 四服务功能候选`8ad127e`及合并`99e018a`的双平台CI全绿；最终发布候选`7437f63`的PR CI `34314828597`/`34314828526`与合并提交`6fc4e1e`的main CI `34315740630`/`34315740626`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。
