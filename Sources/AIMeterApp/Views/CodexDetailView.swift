@@ -3,6 +3,7 @@ import SwiftUI
 
 struct CodexDetailView: View {
     let snapshot: UsageSnapshot
+    var onOpenServicesSettings: () -> Void = {}
 
     private var presentation: ProviderPresentation {
         ProviderPresentation(snapshot: snapshot)
@@ -47,14 +48,44 @@ struct CodexDetailView: View {
             Text("Official quota")
                 .aiMeterFont(.caption, weight: .semibold)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
-            HStack(spacing: 9) {
-                if let metric = snapshot.primaryMetric {
-                    quotaCard(metric, resetText: presentation.primaryResetText)
+            if snapshot.primaryMetric != nil || snapshot.secondaryMetric != nil {
+                HStack(spacing: 9) {
+                    if let metric = snapshot.primaryMetric {
+                        quotaCard(metric, resetText: presentation.primaryResetText)
+                    }
+                    if let metric = snapshot.secondaryMetric {
+                        quotaCard(metric, resetText: presentation.secondaryResetText)
+                    }
                 }
-                if let metric = snapshot.secondaryMetric {
-                    quotaCard(metric, resetText: presentation.secondaryResetText)
+                recoveryButton
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(presentation.detailText)
+                        .aiMeterFont(.subheadline, weight: .semibold)
+                    if let status = presentation.statusText {
+                        Text(status)
+                            .aiMeterFont(.caption)
+                            .foregroundStyle(AIMeterVisualTheme.secondaryText)
+                    }
+                    recoveryButton
                 }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .aiMeterGlassCard()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var recoveryButton: some View {
+        if ServiceRecoveryPresentation.detailAction(
+            provider: .codex,
+            status: snapshot.collectionStatus,
+            statusMessage: snapshot.statusMessage
+        ) == .openServicesSettings {
+            Button("Open Services Settings", action: onOpenServicesSettings)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
         }
     }
 

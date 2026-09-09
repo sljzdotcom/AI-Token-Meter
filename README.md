@@ -39,7 +39,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - 浮岛会按物理显示器稳定标识记住目标屏、侧边和垂直位置；目标屏暂时断开时只临时回到当前主屏，重新接入后自动恢复，详情始终朝桌面内部展开。
 - 浮岛保持 macOS 桌面层，普通应用和全屏应用可自然覆盖；用户点击 Provider 后，临时详情会显示在普通应用窗口上方，关闭或自动隐藏后立即退出窗口栈。
 - Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
-- Services 始终显示四项服务的当前连接状态；Claude Code/OpenAI Codex 可一键打开官方 CLI 登录或重新登录，Gemini 当前提供官方指南与重新检查。
+- Services 始终显示四项服务的当前连接状态；Claude Code/OpenAI Codex 可一键打开官方 CLI 登录或重新登录，Gemini 提供固定0.58.0安装步骤、官方安装指南与重新检查。
 - OpenAI Codex 可从 Shell PATH、`~/.local/bin`、nvm/常见 Node 管理器或已安装 ChatGPT/Codex App 中自动发现；Finder 启动时也会为 Node 脚本补齐运行 PATH，确实缺失时提供官方安装指南。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio、DIN Condensed、Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi 之间即时切换；仅使用本机已安装字体，Settings 永远保持平台系统字体。
@@ -143,9 +143,9 @@ npm run tauri build
 1. 启动 AI Token Meter。全新配置会在屏幕右侧显示四个用量环；从旧版本升级时保留原三项布局，可在 Appearance 中启用并排序 Gemini。macOS 使用菜单栏图标，Windows 使用系统托盘图标。
 2. 从菜单栏或系统托盘打开 Settings；macOS 也可以按 `⌘,`。
 3. 在 Services 查看 Claude Code 与 OpenAI Codex 当前账户；需要登录或换账号时点击 **Sign in** / **Sign in again**，在打开的官方终端流程中完成登录。如 Claude Code 提示工作区设置，再点击 **Authorize Usage Workspace** 并批准。
-4. 如需 DeepSeek，在 Services 选择 **Replace API Key**。macOS 使用受保护输入，Windows 打开系统 Credential UI；应用验证成功后才写入 Keychain/Credential Manager，Key 不进入 Windows WebView。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
+4. 如需 DeepSeek，首次在 Services 选择 **Save API Key**，已有Key时才选择 **Replace API Key**。macOS 使用受保护输入，Windows 打开系统 Credential UI；应用验证成功后才写入 Keychain/Credential Manager，Key 不进入 Windows WebView。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
-6. 如需 Gemini，请先在官方 Gemini CLI 0.58.0 完成普通 Google OAuth 登录，再在 Services 点击重新检查；应用不会读取 OAuth 内容、自动登录或修改目录信任。
+6. 如需 Gemini，先准备Node.js 20或更高版本，在macOS Terminal或Windows PowerShell运行 `npm install -g @google/gemini-cli@0.58.0`；再运行 `gemini` 并选择 **Sign in with Google**。回到Services点击 **Check Status**。界面中的 **Gemini CLI 0.58.0 installation guide** 会直达[官方安装页](https://geminicli.com/docs/get-started/installation/)；应用不会自动安装、读取OAuth内容、代为登录或修改目录信任。
 7. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。Windows 还可分别为 Claude Code/OpenAI Codex 选择 Automatic、Native Windows、WSL 发行版或自定义 CLI 路径。
 8. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
 

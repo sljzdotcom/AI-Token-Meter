@@ -1,3 +1,5 @@
+import Foundation
+
 enum SettingsMessageKind: Equatable {
     case launchAtLogin
     case claudeWorkspace
@@ -44,4 +46,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
             false
         }
     }
+}
+
+extension Notification.Name {
+    static let aiMeterOpenSettings = Notification.Name("AIMeterOpenSettings")
 }

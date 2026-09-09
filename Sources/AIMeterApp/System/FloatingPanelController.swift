@@ -254,6 +254,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             model: model,
             provider: provider,
             onClaudeSetup: model.openClaudeWorkspaceSetup,
+            onOpenServicesSettings: { [weak self] in
+                self?.model.requestSettings(.services)
+            },
             onInteractionChange: { [weak self] isInteracting in
                 guard let self else { return }
                 guard FloatingDetailInteractionOwnership.accepts(
@@ -652,7 +655,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     func menuDidClose(_ menu: NSMenu) { menuIsOpen = false; applyDetailInteractionState(); tickFold() }
     @objc private func refreshFromMenu() { Task { await model.refresh() } }
     @objc private func hideFromMenu() { model.hideStripForOneHour() }
-    @objc private func settingsFromMenu() { NotificationCenter.default.post(name: .init("AIMeterOpenAppearance"), object: nil) }
+    @objc private func settingsFromMenu() { model.requestSettings(.appearance) }
     @objc private func quitFromMenu() { NSApp.terminate(nil) }
 
     private static func makePanel(

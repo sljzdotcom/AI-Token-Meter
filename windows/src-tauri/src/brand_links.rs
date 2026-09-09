@@ -47,7 +47,11 @@ fn open_fixed_url(_url: &'static str) -> Result<(), &'static str> {
 }
 
 #[tauri::command]
-pub fn open_gemini_documentation() -> Result<(), &'static str> {
-    open_fixed_url("https://geminicli.com/docs/resources/quota-and-pricing/")
-        .map_err(|_| "The documentation could not be opened")
+pub fn open_gemini_installation_guide() -> Result<(), &'static str> {
+    open_fixed_url(gemini_installation_guide_url())
+        .map_err(|_| "The installation guide could not be opened")
+}
+
+pub fn gemini_installation_guide_url() -> &'static str {
+    "https://geminicli.com/docs/get-started/installation/"
 }

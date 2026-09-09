@@ -50,6 +50,12 @@ describe("compact floating strip interactions", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25")
     expect(screen.getByRole("button")).toHaveAccessibleDescription("Action required")
   })
+
+  it("cached DeepSeek authentication failures use the same action-required signal", () => {
+    render(<UsageRing snapshot={{...unavailableSnapshots[2], status: "cached", usedRatio: 0.25, statusMessage: "Cached · authentication required"}} onActivate={() => {}} />)
+
+    expect(screen.getByRole("button")).toHaveAccessibleDescription("Action required")
+  })
   it("refreshing keeps the last quota while announcing the separate operation", () => {
     render(<UsageRing snapshot={{...unavailableSnapshots[0], status: "refreshing", usedRatio: 0.25}} onActivate={() => {}} />)
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25")

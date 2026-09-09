@@ -4,6 +4,7 @@ import type { CSSProperties } from "react"
 import type { UsageSnapshot } from "../state/usage"
 import { ProviderLogo } from "./ProviderLogo"
 import { t, useLocale } from "../localization"
+import { cachedStatusNeedsAction } from "../details/serviceRecovery"
 
 type UsageRingProps = {
   snapshot: UsageSnapshot
@@ -23,7 +24,7 @@ export function UsageRing({ snapshot, selected = false, needsAction = false, onA
   } as CSSProperties
   const operation = snapshot.status === "refreshing" ? "refreshing"
     : needsAction || ["authenticationRequired", "setupRequired", "notInstalled"].includes(snapshot.status)
-      || ["Cached · sign in required", "Cached · setup required"].includes(snapshot.statusMessage ?? "") ? "waiting" : "idle"
+      || (snapshot.status === "cached" && cachedStatusNeedsAction(snapshot.statusMessage)) ? "waiting" : "idle"
 
   return (
     <button

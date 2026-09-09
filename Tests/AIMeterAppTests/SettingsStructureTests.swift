@@ -30,6 +30,29 @@ struct SettingsStructureTests {
         #expect(!SettingsTab.about.accepts(.launchAtLogin))
     }
 
+    @Test("A detail recovery request keeps Services selected while Settings opens")
+    @MainActor
+    func servicesPresentationRequest() {
+        let suiteName = "SettingsStructureTests.Route.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let model = AppModel(defaults: defaults, secretStore: InMemorySecretStore())
+        let recorder = SettingsNotificationRecorder()
+        let observer = NotificationCenter.default.addObserver(
+            forName: .aiMeterOpenSettings,
+            object: nil,
+            queue: nil
+        ) { _ in
+            recorder.record()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        model.requestSettings(.services)
+
+        #expect(model.requestedSettingsTab == .services)
+        #expect(recorder.count == 1)
+    }
+
     @Test("DeepSeek credential feedback targets the Services tab")
     @MainActor
     func deepSeekMessageDestination() {
@@ -107,4 +130,12 @@ private final class InMemorySecretStore: SecretStore, @unchecked Sendable {
 
 private struct MissingExecutableLocator: ExecutableLocating {
     func locate(named name: String) -> URL? { nil }
+}
+
+private final class SettingsNotificationRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func record() { lock.withLock { value += 1 } }
+    var count: Int { lock.withLock { value } }
 }

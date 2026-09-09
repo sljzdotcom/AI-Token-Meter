@@ -21,6 +21,7 @@ import { useUsageSnapshots } from "./state/useUsageSnapshots"
 import { defaultStripPreferences, type StripPreferences } from "./state/stripPreferences"
 import { setLocale, type Locale } from "./localization"
 import { CLIOnboarding } from "./settings/cliOnboarding"
+import { deepSeekCredentialPresentation } from "./settings/deepSeekCredentialPresentation"
 import { displayFontStack } from "./displayFonts"
 
 type RuntimeSettings = {
@@ -301,8 +302,11 @@ export function DetailSurface() {
           void invoke<ServiceAccountStatus>("service_account_status", {providerId: "gemini", retryUsage: true})
             .catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "Gemini status could not be checked. Try again."} : current))
         }}
-        onOpenGeminiDocumentation={() => {
-          void invoke("open_gemini_documentation").catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "The documentation could not be opened."} : current))
+        onOpenGeminiInstallationGuide={() => {
+          void invoke("open_gemini_installation_guide").catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "The installation guide could not be opened."} : current))
+        }}
+        onOpenServicesSettings={() => {
+          void invoke("open_settings", {tab: "Services"})
         }}
         onDeepSeekHistorySync={() => {
           if (!deepseekHistoryStatusPathAvailable) return
@@ -359,11 +363,13 @@ export function DetailSurface() {
   )
 }
 
-function SettingsSurface() {
+export function SettingsSurface() {
   const settings = useRuntimeSettings()
   const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.5.0" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
   const [serviceMessage, setServiceMessage] = useState<string | null>(null)
+  const [deepSeekReplacing, setDeepSeekReplacing] = useState(false)
+  const deepSeekReplacingRef = useRef(false)
   const [, updateOperations] = useState(0)
   const [onboarding] = useState(() => new CLIOnboarding(
     (command, args) => invoke(command, args),
@@ -406,7 +412,12 @@ function SettingsSurface() {
   useEffect(() => {
     let disposed = false
     let stop: (() => void) | undefined
-    const refresh = () => { if (!disposed) for (const provider of ["claude", "codex", "deepseek", "gemini"] as const) void onboarding.check(provider, false) }
+    const refresh = () => {
+      if (disposed) return
+      for (const provider of ["claude", "codex", "deepseek", "gemini"] as const) {
+        if (provider !== "deepseek" || !deepSeekReplacingRef.current) void onboarding.check(provider, false)
+      }
+    }
     refresh()
     // Read the collector's new result, including when an older status read is pending.
     void listen<UsageSnapshot>("snapshot-updated", event => {
@@ -422,6 +433,7 @@ function SettingsSurface() {
     ])
   }
   const checkServiceStatus = (providerId: ProviderId) => {
+    if (providerId === "deepseek" && deepSeekReplacingRef.current) return
     void onboarding.check(providerId, true)
   }
   useEffect(() => {
@@ -502,22 +514,31 @@ function SettingsSurface() {
           .catch(() => setServiceMessage("The CLI runtime setting could not be saved."))
       }}
       onCheckServiceStatus={checkServiceStatus}
-      busyServices={(["claude", "codex", "deepseek", "gemini"] as const).filter(provider => onboarding.isBusy(provider))}
+      busyServices={(["claude", "codex", "deepseek", "gemini"] as const).filter(provider => onboarding.isBusy(provider) || (provider === "deepseek" && deepSeekReplacing))}
+      verifyingDeepSeekKey={deepSeekReplacing}
       onBeginServiceSignIn={provider => { void onboarding.begin(provider, "login") }}
       onBeginServiceInstallation={provider => { void onboarding.begin(provider, "install") }}
       onInitializeClaudeUsage={() => { void onboarding.initializeClaudeUsage() }}
-      onOpenGeminiDocumentation={() => { void invoke("open_gemini_documentation").catch(() => setServiceMessage("The documentation could not be opened.")) }}
+      onOpenGeminiInstallationGuide={() => { void invoke("open_gemini_installation_guide").catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onOpenInstallationGuide={providerId => { void invoke("open_service_installation_guide", {providerId}).catch(() => setServiceMessage("The installation guide could not be opened.")) }}
       onReplaceDeepSeekKey={async () => {
-        setServiceMessage("Open the protected Windows prompt to replace the API Key.")
+        if (deepSeekReplacingRef.current) return false
+        deepSeekReplacingRef.current = true
+        setDeepSeekReplacing(true)
+        const hasExistingKey = serviceStatuses.some(status => status.providerId === "deepseek" && status.connectionState === "connected")
+        const copy = deepSeekCredentialPresentation(hasExistingKey)
+        setServiceMessage(copy.pendingMessage)
         try {
           const status = await invoke<ServiceAccountStatus>("replace_deepseek_api_key")
           applyServiceStatus(status)
-          setServiceMessage("DeepSeek accepted the replacement API Key.")
+          setServiceMessage(copy.successMessage)
           return true
         } catch {
-          setServiceMessage("The replacement was not saved. The existing API Key remains active.")
+          setServiceMessage(copy.failureMessage)
           return false
+        } finally {
+          deepSeekReplacingRef.current = false
+          setDeepSeekReplacing(false)
         }
       }}
     />

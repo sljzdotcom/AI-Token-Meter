@@ -6,6 +6,23 @@ import Testing
 @Suite("Gemini capability state")
 @MainActor
 struct GeminiAvailabilityTests {
+    @Test("Gemini setup help uses the supported release and an installation page")
+    func setupHelpTargetsSupportedRelease() {
+        #expect(GeminiInstallationGuide.url.absoluteString == "https://geminicli.com/docs/get-started/installation/")
+        #expect(GeminiInstallationGuide.installCommand == "npm install -g @google/gemini-cli@0.58.0")
+        #expect(GeminiInstallationGuide.instructions(for: .notInstalled) == [
+            "Requires Node.js 20 or later.",
+            "npm install -g @google/gemini-cli@0.58.0",
+            "Run gemini and choose Sign in with Google.",
+            "Return to AI Token Meter and choose Retry.",
+        ])
+        #expect(GeminiInstallationGuide.instructions(for: .signInRequired) == [
+            "Run gemini and choose Sign in with Google.",
+            "Return to AI Token Meter and choose Retry.",
+        ])
+        #expect(GeminiInstallationGuide.instructions(for: .connected).isEmpty)
+    }
+
     @Test func refreshPublishesRealGeminiQuotaAndAccountState() async throws {
         let suite = "GeminiRefresh-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -25,7 +42,7 @@ struct GeminiAvailabilityTests {
     }
 
     @Test(arguments: [CollectionStatus.cached, .authenticationRequired, .notInstalled, .unavailable])
-    func failedRefreshDoesNotLeaveSettingsConnected(_ status: CollectionStatus) async throws {
+    func failedRefreshPreservesTheRecoverableAccountState(_ status: CollectionStatus) async throws {
         let suite = "GeminiFailure-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -39,11 +56,35 @@ struct GeminiAvailabilityTests {
                              isDemoMode: false, refreshOperation: { [sample] })
         await model.refresh()
         let state = model.serviceAccounts[.gemini]
-        #expect(state?.connectionState == (status == .authenticationRequired ? .signInRequired : status == .notInstalled ? .notInstalled : .unavailable))
+        #expect(state?.connectionState == (status == .cached ? .connected : status == .authenticationRequired ? .signInRequired : status == .notInstalled ? .notInstalled : .unavailable))
         #expect(state?.accountDetail == "Latest Gemini check failed")
         #expect(state?.accountLabel == nil)
         #expect(model.snapshots.first?.fetchedAt == previous)
         #expect(model.snapshots.first?.primaryMetric?.current == (status == .cached ? 25 : nil))
+        if status == .cached {
+            let instructions = GeminiInstallationGuide.instructions(for: state?.connectionState ?? .unavailable)
+            #expect(instructions.isEmpty)
+        }
+    }
+
+    @Test("Cached Gemini authentication asks for sign-in without suggesting reinstall")
+    func cachedAuthenticationKeepsQuotaAndRequestsSignIn() throws {
+        let metric = UsageMetric(label: "Pro", current: 25, limit: 100, unit: .percent)
+        let snapshot = UsageSnapshot(
+            provider: .gemini,
+            primaryMetric: metric,
+            availability: .available,
+            collectionStatus: .cached,
+            statusMessage: "Cached · sign in required",
+            geminiQuotaMetrics: [metric]
+        )
+
+        let state = ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState
+        #expect(state == .signInRequired)
+        #expect(GeminiInstallationGuide.instructions(for: state) == [
+            "Run gemini and choose Sign in with Google.",
+            "Return to AI Token Meter and choose Retry.",
+        ])
     }
 
     // Catch accidental launch/login or fake quota in initial and refreshed runtime state.

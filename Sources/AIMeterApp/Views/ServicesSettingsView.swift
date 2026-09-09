@@ -15,10 +15,12 @@ struct ServicesSettingsView: View {
                 HStack {
                     serviceActionButton(.claude)
 
-                    Button("Check Status") {
-                        Task { await model.checkServiceAccount(.claude) }
+                    if model.serviceAction(for: .claude).showsSeparateStatusCheck {
+                        Button("Check Status") {
+                            Task { await model.checkServiceAccount(.claude) }
+                        }
+                        .disabled(!model.serviceAction(for: .claude).isEnabled)
                     }
-                    .disabled(!model.serviceAction(for: .claude).isEnabled)
 
                     Spacer()
 
@@ -38,10 +40,12 @@ struct ServicesSettingsView: View {
                 HStack {
                     serviceActionButton(.codex)
 
-                    Button("Check Status") {
-                        Task { await model.checkServiceAccount(.codex) }
+                    if model.serviceAction(for: .codex).showsSeparateStatusCheck {
+                        Button("Check Status") {
+                            Task { await model.checkServiceAccount(.codex) }
+                        }
+                        .disabled(!model.serviceAction(for: .codex).isEnabled)
                     }
-                    .disabled(!model.serviceAction(for: .codex).isEnabled)
                 }
                 installationNotice(.codex)
             }
@@ -103,18 +107,22 @@ struct ServicesSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Text("A replacement is saved only after DeepSeek verifies it. If verification fails, the existing Key remains active.")
+                Text(model.apiKeyConfigured
+                    ? "A replacement is saved only after DeepSeek verifies it. If verification fails, the existing Key remains active."
+                    : "The API Key is saved only after DeepSeek verifies it. If verification fails, the new Key is not saved.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Section("Gemini CLI") {
-                ServiceAccountStatusView(status: status(for: .gemini))
+                let geminiStatus = status(for: .gemini)
+                ServiceAccountStatusView(status: geminiStatus)
                 Text("Reads official quota through a supported Gemini CLI. Account identity is not provided by this view.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
+                GeminiInstallationHelp(state: geminiStatus.connectionState)
                 HStack {
-                    Link("Official Gemini CLI documentation", destination: GeminiDetailView.documentationURL)
+                    Link("Gemini CLI 0.58.0 installation guide", destination: GeminiInstallationGuide.url)
                     Button("Retry") { Task { await model.checkServiceAccount(.gemini) } }
                 }
             }

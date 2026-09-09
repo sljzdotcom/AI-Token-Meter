@@ -6,7 +6,7 @@
 
 四项全显示时 Compact 为 78×344、Comfortable 为 108×428；显示三项时仍为 78×286、108×356。尺寸随实际可见数量变化。
 
-Gemini 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡提供官方指南和检查状态；当前不提供执行安装、登录或重新登录。固定版本、认证模式与 Windows 原生限制见[Gemini 指标说明](providers.md#gemini)。
+Gemini 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡按状态显示固定0.58.0的安装或登录步骤，安装按钮直达官方安装页，并提供检查状态；当前不执行安装、登录或重新登录。固定版本、认证模式与Windows原生限制见[Gemini指标说明](providers.md#gemini)。
 
 使用 macOS 菜单栏或 Windows 系统托盘的齿轮打开设置；macOS 也可按 `⌘,`。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用平台系统字体，不受显示字体偏好影响。
 
@@ -119,6 +119,8 @@ Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留�
 
 Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查四项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
 
+下一稳定版起，Claude Code、OpenAI Codex或DeepSeek详情在需要安装、登录、凭据或其他设置处理时提供 **Open Services Settings / 打开服务设置**，并直接选中Services。带登录或设置失败原因的缓存会继续显示最后成功额度，同时提供恢复按钮；普通网络超时缓存只显示旧数据与时间，不误导用户重新安装。Gemini继续使用详情中的状态重试和安装指南；缺失或未知状态显示Node.js 20+、固定0.58.0安装命令、Google登录与回流检查，已安装待登录时跳过重装说明，连接后不显示安装步骤。
+
 ### Claude Code 与 OpenAI Codex 账户
 
 #### 安装与登录引导（0.5.0 起）
@@ -132,6 +134,8 @@ Settings → Services 将按检测结果显示主操作，颜色只是提醒，�
 | 需要登录/登录失效 | 橙色 **Sign in / 登录** | 进入官方 CLI 授权流程，应用不代填密码或 MFA |
 | 已连接 | **Sign in again / 重新登录** | 保留当前账号；不增加退出登录，也不会自动清除 CLI 凭据 |
 | 无法检查 | **Check Status / 检查状态** | 不能把检测失败当成未安装，不自动重装 |
+
+当主操作本身已经是 **Check Status** 时，同一卡片不再显示第二个同名按钮。其他状态仍保留独立检查，方便在终端完成安装、登录或工作区确认后手动重新检测。
 
 安装完成后自动重新查找 CLI，再检查账户；打开终端本身不代表安装成功。未在规定时间内完成时可重新检查状态；不需要为了恢复按钮而重启应用。已有可用 CLI 不会因点击安装而被重装或升级。
 
@@ -189,9 +193,12 @@ Windows 数字项允许先清空或修改草稿，只有失焦或按 Enter 时�
 
 - 当前 Key 只显示 `API Key ••••ABCD` 形式的最后四位；输入框始终为空，不回填完整 Key。
 - **Save API Key / Replace API Key**：先用候选 Key 调用 DeepSeek 官方余额接口；只有验证成功才更新 macOS Keychain 或 Windows Credential Manager 并刷新。Windows 候选 Key 由原生 Credential UI 直接交给 Rust 后端，不进入 React/WebView 状态或字符串 IPC。
-- 401 会提示 Key 无效；网络、超时、响应异常或 Keychain 写入失败都会保留旧 Key，并保留输入内容供修改重试。
+- 没有已确认Key时显示 **Save API Key**，已有Key时才显示 **Replace API Key**。首次验证失败只说明新Key没有保存；替换失败才说明旧Key继续保留。
+- 401 会提示 Key 无效；网络、超时、响应异常或 Keychain/Credential Manager 写入失败不会用候选Key覆盖原值，并保留可重试状态。
 - **Remove**：从 Keychain 删除密钥并刷新状态。
 - 验证期间按钮和输入框会暂时禁用，并显示 `Verifying…`。
+
+DeepSeek余额与官网30天历史是两条独立链路。余额需要Services中的API Key；**Sync official history**和官网登录只同步历史，不能代替API Key配置。余额凭据缺失时，详情会先显示打开Services的恢复动作；已有历史数据仍保留。
 
 ## 本地持久化
 

@@ -41,9 +41,9 @@ describe("CLI onboarding", () => {
     expect(controller.isBusy("claude")).toBe(false)
   })
   it("missing invites installation, unavailable retries, connected stays neutral", () => {
-    expect(serviceAction("notInstalled", false)).toEqual({ title: "Install CLI", attention: true, disabled: false })
-    expect(serviceAction("unavailable", false)).toEqual({ title: "Check Status", attention: false, disabled: false })
-    expect(serviceAction("connected", false)).toEqual({ title: "Sign in again", attention: false, disabled: false })
+    expect(serviceAction("notInstalled", false)).toEqual({ title: "Install CLI", attention: true, disabled: false, showsSeparateStatusCheck: true })
+    expect(serviceAction("unavailable", false)).toEqual({ title: "Check Status", attention: false, disabled: false, showsSeparateStatusCheck: false })
+    expect(serviceAction("connected", false)).toEqual({ title: "Sign in again", attention: false, disabled: false, showsSeparateStatusCheck: true })
     expect(serviceAction("signInRequired", false).attention).toBe(true)
     expect(serviceAction("checking", false).disabled).toBe(true)
     expect(serviceAction("notInstalled", true).disabled).toBe(true)

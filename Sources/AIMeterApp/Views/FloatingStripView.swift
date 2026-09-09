@@ -98,7 +98,7 @@ struct FloatingStripView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .aiMeterFontScope(.content(model.displayFontChoice))
-        .onReceive(NotificationCenter.default.publisher(for: .init("AIMeterOpenAppearance"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .aiMeterOpenSettings)) { _ in
             NSApp.activate(ignoringOtherApps: true)
             openSettings()
         }
@@ -135,6 +135,7 @@ struct FloatingDetailView: View {
     @Bindable var model: AppModel
     let provider: UsageProvider
     let onClaudeSetup: () -> Void
+    let onOpenServicesSettings: () -> Void
     let onInteractionChange: (Bool) -> Void
 
     @ViewBuilder
@@ -146,7 +147,8 @@ struct FloatingDetailView: View {
                         snapshot: snapshot,
                         webSession: model.deepSeekWebSession,
                         isDemoMode: model.isRunningDemoMode,
-                        onInteractionChange: onInteractionChange
+                        onInteractionChange: onInteractionChange,
+                        onOpenServicesSettings: onOpenServicesSettings
                     )
                 } else if provider == .gemini {
                     GeminiDetailView(snapshot: snapshot) {
@@ -154,10 +156,17 @@ struct FloatingDetailView: View {
                     }
                     .onHover(perform: onInteractionChange)
                 } else if provider == .codex {
-                    CodexDetailView(snapshot: snapshot)
+                    CodexDetailView(
+                        snapshot: snapshot,
+                        onOpenServicesSettings: onOpenServicesSettings
+                    )
                         .onHover(perform: onInteractionChange)
                 } else {
-                    ClaudeDetailView(snapshot: snapshot, onSetup: onClaudeSetup)
+                    ClaudeDetailView(
+                        snapshot: snapshot,
+                        onSetup: onClaudeSetup,
+                        onOpenServicesSettings: onOpenServicesSettings
+                    )
                         .onHover(perform: onInteractionChange)
                 }
             }

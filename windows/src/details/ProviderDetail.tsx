@@ -4,6 +4,8 @@ import { t, useLocale, getLocale } from "../localization"
 import type { UsageMetric, UsageSnapshot } from "../state/usage"
 import { ProviderLogo } from "../components/ProviderLogo"
 import { DeepSeekHistory, type DeepSeekHistoryStatus } from "./DeepSeekDetail"
+import { detailRecovery } from "./serviceRecovery"
+import { GEMINI_INSTALL_COMMAND, GEMINI_INSTALLATION_GUIDE_LABEL, geminiInstallationInstructions, geminiSetupStateForSnapshot } from "../settings/geminiInstallationGuide"
 
 type ProviderDetailProps = {
   snapshot: UsageSnapshot
@@ -12,7 +14,8 @@ type ProviderDetailProps = {
   onInteractionStart: () => void
   onInteractionEnd: () => void
   onCheckGeminiStatus?: () => void
-  onOpenGeminiDocumentation?: () => void
+  onOpenGeminiInstallationGuide?: () => void
+  onOpenServicesSettings?: () => void
   onDeepSeekHistorySync?: () => void
   deepseekHistoryStatus?: DeepSeekHistoryStatus
   deepseekHistoryStatusPathAvailable?: boolean
@@ -26,12 +29,15 @@ export function ProviderDetail({
   onInteractionEnd,
   onDeepSeekHistorySync,
   onCheckGeminiStatus,
-  onOpenGeminiDocumentation,
+  onOpenGeminiInstallationGuide,
+  onOpenServicesSettings,
   deepseekHistoryStatus,
   deepseekHistoryStatusPathAvailable,
 }: ProviderDetailProps) {
   useLocale()
   const percent = snapshot.usedRatio == null ? null : Math.round(snapshot.usedRatio * 100)
+  const recovery = detailRecovery(snapshot.providerId, snapshot.status, snapshot.statusMessage)
+  const geminiInstructions = snapshot.providerId === "gemini" ? geminiInstallationInstructions(geminiSetupStateForSnapshot(snapshot)) : []
   return (
     <section
       aria-label={t("{name} details", {name: snapshot.displayName})}
@@ -90,7 +96,13 @@ export function ProviderDetail({
         </section>
       ) : null}
 
-      {snapshot.providerId === "deepseek" ? (
+      {recovery === "services" && onOpenServicesSettings ? <div className="service-actions">
+        {snapshot.statusMessage ? <p>{t(snapshot.statusMessage)}</p> : null}
+        {snapshot.providerId === "deepseek" && snapshot.status === "authenticationRequired" ? <p>{t("Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history.")}</p> : null}
+        <button type="button" onClick={onOpenServicesSettings}>{t("Open Services Settings")}</button>
+      </div> : null}
+
+      {snapshot.providerId === "deepseek" && (recovery !== "services" || snapshot.dailyHistory?.length) ? (
         <section className="detail-section detail-section--history">
           <h2>{t("Last 30 days · Official website")}</h2>
           <DeepSeekHistory
@@ -104,9 +116,14 @@ export function ProviderDetail({
 
       {snapshot.providerId === "gemini" && (snapshot.statusMessage || !snapshot.primaryMetric) && <p>{t(snapshot.statusMessage ?? "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
       {snapshot.providerId === "gemini" && snapshot.sourceVersion && <p>Gemini CLI {snapshot.sourceVersion} · /model · {t("Official quota")}</p>}
+      {snapshot.providerId === "gemini" && geminiInstructions.length ? <div className="gemini-setup-guide">
+        {geminiInstructions.map(instruction => instruction === GEMINI_INSTALL_COMMAND
+          ? <code className="gemini-install-command" key={instruction}>{instruction}</code>
+          : <small key={instruction}>{t(instruction)}</small>)}
+      </div> : null}
       {snapshot.providerId === "gemini" && <div className="service-actions">
         {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Gemini status")}</button>}
-        {onOpenGeminiDocumentation && <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>}
+        {onOpenGeminiInstallationGuide && <button type="button" onClick={onOpenGeminiInstallationGuide}>{t(GEMINI_INSTALLATION_GUIDE_LABEL)}</button>}
       </div>}
       <footer>{t(freshness(snapshot))} · {t("Updated")} {formatTime(snapshot.fetchedAt)}</footer>
     </section>

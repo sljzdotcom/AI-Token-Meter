@@ -1,4 +1,4 @@
-use ai_token_meter_windows::brand_links::BrandLink;
+use ai_token_meter_windows::brand_links::{BrandLink, gemini_installation_guide_url};
 
 #[test]
 fn accepts_only_the_three_fixed_brand_link_identifiers() {
@@ -28,4 +28,12 @@ fn resolves_identifiers_to_fixed_https_destinations() {
         "https://github.com/sljzdotcom/AI-Token-Meter"
     );
     assert_eq!(BrandLink::Telegram.url(), "https://t.me/sljzdotcom");
+}
+
+#[test]
+fn gemini_help_opens_the_official_installation_page() {
+    assert_eq!(
+        gemini_installation_guide_url(),
+        "https://geminicli.com/docs/get-started/installation/"
+    );
 }

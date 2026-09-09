@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Deserialize;
 use tauri::{Emitter, Manager, State};
@@ -65,6 +65,35 @@ pub fn app_metadata() -> Result<AppMetadata, serde_json::Error> {
     })
 }
 
+#[cfg_attr(not(windows), allow(dead_code))]
+#[derive(Default)]
+struct ExclusiveOperationGate {
+    active: AtomicBool,
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+impl ExclusiveOperationGate {
+    fn try_enter(&self) -> Result<ExclusiveOperationGuard<'_>, ()> {
+        self.active
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| ExclusiveOperationGuard {
+                active: &self.active,
+            })
+            .map_err(|_| ())
+    }
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+struct ExclusiveOperationGuard<'a> {
+    active: &'a AtomicBool,
+}
+
+impl Drop for ExclusiveOperationGuard<'_> {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+    }
+}
+
 pub struct RuntimeState {
     pub(crate) meter_instances: Mutex<std::collections::BTreeMap<String, String>>,
     pub(crate) display_reconcile: crate::platform::windows::display_coordinator::ReconcileQueue,
@@ -82,6 +111,8 @@ pub struct RuntimeState {
     pub(crate) strip_focus: AtomicBool,
     pub(crate) strip_menu: AtomicBool,
     pub(crate) strip_reset: AtomicBool,
+    #[cfg_attr(not(windows), allow(dead_code))]
+    deepseek_key_replacement: ExclusiveOperationGate,
     deepseek_history:
         Arc<Mutex<crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime>>,
     pub(crate) detail_state: Mutex<DetailState>,
@@ -114,6 +145,7 @@ impl Default for RuntimeState {
             strip_focus: AtomicBool::new(false),
             strip_menu: AtomicBool::new(false),
             strip_reset: AtomicBool::new(false),
+            deepseek_key_replacement: ExclusiveOperationGate::default(),
             meter_drag: Arc::new(crate::platform::windows::meter_drag::MeterDragGate::default()),
             deepseek_history: Arc::new(Mutex::new(
                 crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime::default(),
@@ -818,8 +850,25 @@ fn handle_detail_focus_lost(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
-    show_settings_window(&app).map_err(|_| "Settings could not be opened".to_owned())
+fn open_settings(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
+    let tab = validated_settings_tab(tab.as_deref())?;
+    show_settings_window(&app).map_err(|_| "Settings could not be opened".to_owned())?;
+    if let Some(tab) = tab {
+        app.emit("settings-tab-requested", tab)
+            .map_err(|_| "Settings tab could not be opened".to_owned())?;
+    }
+    Ok(())
+}
+
+fn validated_settings_tab(tab: Option<&str>) -> Result<Option<&'static str>, String> {
+    match tab {
+        None => Ok(None),
+        Some("Appearance") => Ok(Some("Appearance")),
+        Some("Monitoring") => Ok(Some("Monitoring")),
+        Some("Services") => Ok(Some("Services")),
+        Some("About") => Ok(Some("About")),
+        Some(_) => Err("Unknown Settings tab".to_owned()),
+    }
 }
 
 #[tauri::command]
@@ -1058,6 +1107,10 @@ async fn replace_deepseek_api_key(
 ) -> Result<crate::accounts::service_status::ServiceAccountStatus, String> {
     #[cfg(windows)]
     {
+        let _replacement_guard = state
+            .deepseek_key_replacement
+            .try_enter()
+            .map_err(|()| "DeepSeek API Key verification is already in progress".to_owned())?;
         let parent = app
             .get_webview_window("settings")
             .and_then(|window| window.hwnd().ok())
@@ -1347,7 +1400,7 @@ pub fn run() {
             open_service_installation_guide,
             replace_deepseek_api_key,
             brand_links::open_brand_link,
-            brand_links::open_gemini_documentation
+            brand_links::open_gemini_installation_guide
         ])
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
@@ -1416,6 +1469,27 @@ pub fn run() {
 #[cfg(test)]
 mod threshold_tests {
     use super::*;
+
+    #[test]
+    fn deepseek_key_replacement_allows_only_one_operation_at_a_time() {
+        let gate = ExclusiveOperationGate::default();
+        let active = gate.try_enter().expect("first operation should start");
+        assert!(gate.try_enter().is_err());
+        drop(active);
+        assert!(gate.try_enter().is_ok());
+    }
+
+    #[test]
+    fn settings_tab_requests_accept_only_fixed_application_tabs() {
+        assert_eq!(validated_settings_tab(None), Ok(None));
+        for tab in ["Appearance", "Monitoring", "Services", "About"] {
+            assert_eq!(validated_settings_tab(Some(tab)), Ok(Some(tab)));
+        }
+        assert_eq!(
+            validated_settings_tab(Some("../../credentials")),
+            Err("Unknown Settings tab".to_owned())
+        );
+    }
 
     #[test]
     fn alerts_fire_once_per_level_and_rearm_after_usage_resets() {

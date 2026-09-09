@@ -37,7 +37,7 @@ import { App } from "./App"
 import { MeterClipPaths } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
 import { ProviderDetail } from "./details/ProviderDetail"
-import { DetailSurface } from "./Shell"
+import { DetailSurface, SettingsSurface } from "./Shell"
 import { SettingsWindow } from "./settings/SettingsWindow"
 import type { ProviderCliSettings, ServiceAccountStatus } from "./settings/SettingsWindow"
 import type { UsageSnapshot } from "./state/usage"
@@ -846,14 +846,14 @@ describe("Windows meter interface", () => {
   })
 })
 
-it("Gemini detail requests quota retry and fixed documentation actions without installation or sign-in", async () => {
+it("Gemini detail requests quota retry and the fixed installation guide without automatic setup", async () => {
   const gemini: UsageSnapshot = {schemaVersion:1,providerId:"gemini",displayName:"Gemini",status:"unavailable",usedRatio:null,primaryMetric:null,fetchedAt:"2026-09-08T00:00:00Z",staleAfterSeconds:300}
   const calls: string[] = []
   tauri.invoke.mockImplementation(command => {
     calls.push(command)
     if (command === "app_settings") return Promise.resolve(detailSettings)
     if (command === "service_account_status") return Promise.reject(Error("fixture unavailable"))
-    if (command === "open_gemini_documentation") return Promise.reject(Error("fixture open error"))
+    if (command === "open_gemini_installation_guide") return Promise.reject(Error("fixture open error"))
     return Promise.resolve(undefined)
   })
   render(<DetailSurface />)
@@ -863,9 +863,73 @@ it("Gemini detail requests quota retry and fixed documentation actions without i
   fireEvent.click(screen.getByRole("button", {name:"Check Gemini status"}))
   expect(await screen.findByText("Gemini status could not be checked. Try again.")).toBeVisible()
   expect(tauri.invoke).toHaveBeenCalledWith("service_account_status", {providerId:"gemini",retryUsage:true})
-  fireEvent.click(screen.getByRole("button", {name:"Gemini CLI documentation"}))
-  expect(await screen.findByText("The documentation could not be opened.")).toBeVisible()
+  fireEvent.click(screen.getByRole("button", {name:"Gemini CLI 0.58.0 installation guide"}))
+  expect(await screen.findByText("The installation guide could not be opened.")).toBeVisible()
+  expect(calls).toContain("open_gemini_installation_guide")
   expect(calls).not.toContain("begin_service_sign_in")
   expect(calls).not.toContain("begin_service_installation")
   expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
+})
+
+it("actionable provider details open the Services settings tab", async () => {
+  const unavailableCodex: UsageSnapshot = {
+    ...snapshots[1],
+    status: "notInstalled",
+    usedRatio: null,
+    primaryMetric: null,
+  }
+  render(<DetailSurface />)
+  await act(async () => { await Promise.resolve() })
+  act(() => emitTauriEvent("active-detail-changed", unavailableCodex))
+
+  fireEvent.click(screen.getByRole("button", {name: "Open Services Settings"}))
+
+  expect(tauri.invoke).toHaveBeenCalledWith("open_settings", {tab: "Services"})
+})
+
+it("keeps DeepSeek replacement and status checks locked until verification finishes", async () => {
+  let finishReplacement: (status: ServiceAccountStatus) => void = () => {}
+  let deepSeekStatusChecks = 0
+  tauri.invoke.mockImplementation((command: string, args?: {providerId?: UsageSnapshot["providerId"]}) => {
+    if (command === "app_settings") return Promise.resolve(detailSettings)
+    if (command === "available_displays" || command === "available_wsl_distributions") return Promise.resolve([])
+    if (command === "update_state") return Promise.resolve({phase: "idle", currentVersion: "0.6.0"})
+    if (command === "service_account_status") {
+      if (args?.providerId === "deepseek") deepSeekStatusChecks += 1
+      return Promise.resolve({
+        providerId: args?.providerId,
+        connectionState: args?.providerId === "deepseek" ? "connected" : "unavailable",
+      })
+    }
+    if (command === "replace_deepseek_api_key") {
+      return new Promise<ServiceAccountStatus>((resolve) => { finishReplacement = resolve })
+    }
+    return Promise.resolve(undefined)
+  })
+
+  render(<SettingsSurface />)
+  fireEvent.click(screen.getByRole("tab", {name: "Services"}))
+  const replace = await screen.findByRole("button", {name: "Replace DeepSeek API Key"})
+  fireEvent.click(replace)
+
+  const verifying = await screen.findByRole("button", {name: "Verifying DeepSeek API Key"})
+  expect(verifying).toBeDisabled()
+  expect(verifying).toHaveTextContent("Verifying…")
+  const check = screen.getByRole("button", {name: "Check DeepSeek status"})
+  expect(check).toBeDisabled()
+  fireEvent.click(verifying)
+  fireEvent.click(check)
+  expect(tauri.invoke.mock.calls.filter(([command]) => command === "replace_deepseek_api_key")).toHaveLength(1)
+
+  const checksBeforeFocus = deepSeekStatusChecks
+  window.dispatchEvent(new Event("focus"))
+  await act(async () => { await Promise.resolve() })
+  expect(deepSeekStatusChecks).toBe(checksBeforeFocus)
+
+  await act(async () => {
+    finishReplacement({providerId: "deepseek", connectionState: "connected"})
+    await Promise.resolve()
+  })
+  expect(await screen.findByRole("button", {name: "Replace DeepSeek API Key"})).toBeEnabled()
+  expect(screen.getByRole("button", {name: "Check DeepSeek status"})).toBeEnabled()
 })

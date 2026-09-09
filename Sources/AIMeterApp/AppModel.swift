@@ -62,6 +62,7 @@ final class AppModel {
     private(set) var launchAtLoginEnabled = false
     private(set) var settingsMessage: String?
     private(set) var settingsMessageKind: SettingsMessageKind?
+    private(set) var requestedSettingsTab = SettingsTab.appearance
     private(set) var displayFontChoice: DisplayFontChoice
     private(set) var floatingStripPosition: FloatingStripPosition
     private(set) var floatingStripDisplays: FloatingStripDisplays
@@ -472,6 +473,11 @@ final class AppModel {
         }
     }
 
+    func requestSettings(_ tab: SettingsTab) {
+        requestedSettingsTab = tab
+        NotificationCenter.default.post(name: .aiMeterOpenSettings, object: nil)
+    }
+
     func refreshServiceAccounts() async {
         if isDemoMode {
             setDemoServiceAccounts()
@@ -661,6 +667,7 @@ final class AppModel {
 
     func replaceDeepSeekAPIKey(_ apiKey: String) async -> Bool {
         guard !isReplacingDeepSeekAPIKey else { return false }
+        let hadExistingKey = apiKeyConfigured
         isReplacingDeepSeekAPIKey = true
         defer { isReplacingDeepSeekAPIKey = false }
 
@@ -678,16 +685,24 @@ final class AppModel {
             case .emptyCandidate:
                 settingsMessage = "Enter a DeepSeek API Key first."
             case .invalidKey:
-                settingsMessage = "DeepSeek rejected this API Key. The existing Key was kept."
+                settingsMessage = hadExistingKey
+                    ? "DeepSeek rejected this API Key. The existing Key was kept."
+                    : "DeepSeek rejected this API Key. The new API Key was not saved."
             case .verificationUnavailable:
-                settingsMessage = "DeepSeek could not verify this Key. The existing Key was kept."
+                settingsMessage = hadExistingKey
+                    ? "DeepSeek could not verify this Key. The existing Key was kept."
+                    : "DeepSeek could not verify this Key. The new API Key was not saved."
             case .keychainFailure:
-                settingsMessage = "The existing DeepSeek Key was kept because Keychain could not be updated."
+                settingsMessage = hadExistingKey
+                    ? "The existing DeepSeek Key was kept because Keychain could not be updated."
+                    : "The DeepSeek API Key was not saved because Keychain could not be updated."
             }
             settingsMessageKind = .deepSeekCredential
             return false
         } catch {
-            settingsMessage = "DeepSeek could not verify this Key. The existing Key was kept."
+            settingsMessage = hadExistingKey
+                ? "DeepSeek could not verify this Key. The existing Key was kept."
+                : "DeepSeek could not verify this Key. The new API Key was not saved."
             settingsMessageKind = .deepSeekCredential
             return false
         }
