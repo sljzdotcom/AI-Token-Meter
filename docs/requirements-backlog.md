@@ -15,7 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260909-004 | 双平台Logo版本发布 | 用户在收到顶部应用Logo本地实现完成但未发布的回传后，明确要求“让开发直接发布新版本” | 高 | 进行中 | 2026-09-09 | 0.6.2/build17版本元数据已按失败先行同步，Release Notes与候选文档已建立；下一步完成全量本机门禁和发布审查，再推送PR、原生CI、main整合、签名Release及三个更新源。失败先修复，不上传秘密、不覆盖用户安装 | 用户本次直接发布指令 · 基线169f4a7 · 计划2fb10b6 · 0.6.2远端未占用 · [发布记录](development/2026-09-09-v0.6.2-release.md) |
+| REQ-20260909-004 | 双平台Logo版本发布 | 用户在收到顶部应用Logo本地实现完成但未发布的回传后，明确要求“让开发直接发布新版本” | 高 | 进行中 | 2026-09-09 | 0.6.2/build17精确候选已通过491项Swift、124项前端、5项终端协议、261项Rust、真实Chrome、严格Clippy、Release App、合同/文档/公开安全及0/0/0审查；下一步推送PR并等待原生CI，再完成main整合、签名Release及三个更新源。失败先修复，不上传秘密、不覆盖用户安装 | 用户本次直接发布指令 · 基线169f4a7 · 候选b76585a · 计划2fb10b6 · 0.6.2远端未占用 · [发布记录](development/2026-09-09-v0.6.2-release.md) |
 | REQ-20260909-001 | 双平台新版本发布 | 用户确认在四产品新用户接入一致性修复完成并验收后，直接生成并公开发布可供现有设备更新的新稳定版本 | 高 | 已完成 | 2026-09-09 | 2026-09-09完成：0.6.1/build16已公开发布；PR与main双平台原生CI、标签发布workflow、七项公开资产匿名重下、SHA-256、Sparkle/Tauri签名及篡改拒绝全部通过，稳定macOS/Windows及旧Preview更新源均指向0.6.1。真实账号和物理Windows GUI/DPI继续保持现场边界。 | 用户原话“确认发布” · [Release v0.6.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.1) · [PR #18](https://github.com/sljzdotcom/AI-Token-Meter/pull/18) · 合并`6fc4e1e` · [workflow 34316932269](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34316932269) · appcast`6945b15` · macOS SHA-256 `2ef442c2…364e` · Windows SHA-256 `211d31bf…b659` · [发布记录](development/2026-09-09-v0.6.1-release.md) |
 | REQ-20260909-003 | Gemini 安装引导反馈 | 用户无法从Gemini CLI当前按钮获得清晰安装方法，怀疑跳转并非安装教程；需核对链接及按钮语义并修复新用户安装路径 | 高 | 已完成 | 2026-09-09 | 2026-09-09完成：两端直达官方安装指南并明确Node.js 20+、固定支持0.58.0、安装命令、普通Google OAuth登录和安装后重试；认证缓存仅提示登录、普通缓存被动保留。真实用户安装/登录仍由用户触发。 | 用户反馈“那个按钮点出来好像不是安装方法” · 精确复核`a5a4aa4`为0/0/0 · [PR #17](https://github.com/sljzdotcom/AI-Token-Meter/pull/17) · 合并`99e018a` · [main macOS CI 34311839223](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34311839223) · [main Windows CI 34311839232](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34311839232) |
 | REQ-20260909-002 | 菜单面板品牌展示 | 用户要求截图中菜单弹出面板顶部AI Token Meter软件名旁增加应用Logo，融入现有背景，不突兀 | 中 | 已完成 | 2026-09-09 | 2026-09-09完成：macOS使用32pt现有应用图标和10pt间距；Windows原生托盘菜单使用同一默认图标的禁用品牌首行。背景、刷新、用量摘要和事件保持；实现、完整本机门禁、逐项审查和本地main整合完成，现由REQ-004纳入0.6.2公开交付 | 规格`2f52437` · 实现`da50eb3` · 本地main整合`d4de77b` · 491项Swift/124项前端/261项Rust、真实浏览器、Release App、合同/文档/公开安全全绿 · [开发记录](development/2026-09-09-menu-panel-app-logo.md) |
@@ -200,6 +200,7 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-09 | REQ-20260909-004 | 进行中 | 精确候选`b76585a`本机门禁完成：491项Swift、124项前端、5项Node终端协议、261项Rust、真实Chrome密度、production build、格式、严格Clippy、0.6.2/build17 arm64 Release App、6份合同、219份Markdown与公开安全全绿。范围、单调版本、Logo行为、签名/回滚、隐私及现场边界审查为0/0/0，进入PR与原生CI。 |
 | 2026-09-09 | REQ-20260909-004 | 进行中 | 0.6.2/build17元数据失败先行：Swift合同先准确报告旧0.6.1/build16共7处不符，Rust元数据测试报告0.6.1不等于0.6.2；同步根版本、两份plist、npm/Cargo/Tauri与锁文件后14项Swift及1项Rust定向测试转绿。Release Notes和候选文档已建立，进入全量门禁。 |
 | 2026-09-09 | REQ-20260909-004 | 新建 → 进行中 | 用户在收到菜单Logo已完成但尚未发布的说明后，明确要求开发直接发布新版本。远端最高稳定版/标签为0.6.1且0.6.2未占用；下一补丁版确定为0.6.2/build17，由开发入口完成版本候选、独立审查、PR/main原生双平台CI、签名Release、三个更新源和公网匿名验证。 |
 | 2026-09-09 | REQ-20260909-002 | 进行中 → 已完成 | 规格`2f52437`、失败先行实现`da50eb3`及验证/审查记录`d4de77b`已快进整合到本地main；协调入口的未提交需求状态在整合前单独保存。完整门禁和0/0/0审查通过，版本、标签、公开Release和更新源均未改变。 |
