@@ -4,6 +4,64 @@ import Testing
 
 @Suite("Floating strip preferences and idle folding")
 struct FloatingStripPreferencesTests {
+    // Catch a fourth row being clipped by the previous three-provider size cap.
+    @Test func fourthProviderHasFullHeightAndLegacySizesStayStable() {
+        for (density, heights) in [(FloatingStripDensity.compact, [170.0, 228, 286, 344]), (.comfortable, [212.0, 284, 356, 428])] {
+            for (index, height) in heights.enumerated() {
+                #expect(density.height(providerCount: index + 1) == height)
+            }
+        }
+    }
+
+    // Catch migration erasing ordering, visibility, density, or applying twice.
+    @Test func legacyMigrationAndRestartPreserveUserChoices() throws {
+        let data = Data(#"{"density":"comfortable","foldDelay":15,"orderedProviders":["deepSeek","codex","claude"],"hiddenProviders":["codex"],"hiddenUntil":123}"#.utf8)
+        let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
+        #expect(value.orderedProviders.map(\.rawValue) == ["deepSeek", "codex", "claude", "gemini"])
+        #expect(value.visibleProviders.map(\.rawValue) == ["deepSeek", "claude"])
+        #expect(value.density == .comfortable)
+        #expect(value.foldDelay == .fifteenSeconds)
+        #expect(value.hiddenUntil == 123)
+        let gemini = try #require(UsageProvider(rawValue: "gemini"))
+        let changed = value.settingVisible(gemini, visible: true)
+        let encoded = try JSONEncoder().encode(changed)
+        let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(json["schemaVersion"] as? Int == 2)
+        #expect(try JSONDecoder().decode(FloatingStripPreferences.self, from: encoded) == changed)
+    }
+
+    @Test func freshDefaultsAndExistingGeminiChoiceRemainVisible() throws {
+        #expect(FloatingStripPreferences().visibleProviders.map(\.rawValue) == ["claude", "codex", "deepSeek", "gemini"])
+        let data = Data(#"{"orderedProviders":["gemini","codex","gemini","future"],"hiddenProviders":["claude","deepSeek"]}"#.utf8)
+        let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
+        #expect(value.visibleProviders.map(\.rawValue) == ["gemini", "codex"])
+    }
+
+    @Test func everyOrderAndNonemptyVisibilitySetSurvivesPersistence() throws {
+        let providers = UsageProvider.allCases
+        #expect(providers.count == 4)
+        func permutations(_ remaining: [UsageProvider]) -> [[UsageProvider]] {
+            if remaining.isEmpty { return [[]] }
+            return remaining.flatMap { first in permutations(remaining.filter { $0 != first }).map { [first] + $0 } }
+        }
+        let orders = permutations(providers)
+        #expect(orders.count == 24)
+        for order in orders {
+            for mask in 1..<16 {
+                var value = FloatingStripPreferences()
+                value.orderedProviders = order
+                value.hiddenProviders = order.enumerated().filter { mask & (1 << $0.offset) == 0 }.map(\.element)
+                value.normalize()
+                let restored = try JSONDecoder().decode(FloatingStripPreferences.self, from: JSONEncoder().encode(value))
+                #expect(restored.orderedProviders == order)
+                #expect(restored.visibleProviders == order.enumerated().filter { mask & (1 << $0.offset) != 0 }.map(\.element))
+                if restored.visibleProviders.count == 1, let only = restored.visibleProviders.first {
+                    #expect(restored.settingVisible(only, visible: false).visibleProviders == [only])
+                }
+            }
+        }
+    }
+
     @Test func unknownFieldsDoNotEraseRecognizedPreferences() throws {
         let data = Data(#"{"density":"future","foldDelay":5,"orderedProviders":["codex","future","claude"],"hiddenProviders":["claude"]}"#.utf8)
         let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
@@ -20,10 +78,10 @@ struct FloatingStripPreferencesTests {
         #expect(value.density == .compact)
         #expect(value.foldDelay == .never)
         value.orderedProviders = [.codex, .codex]
-        value.hiddenProviders = [.claude, .codex, .deepSeek]
+        value.hiddenProviders = UsageProvider.allCases
         store.save(value)
         let restored = store.load()
-        #expect(restored.orderedProviders == [.codex, .claude, .deepSeek])
+        #expect(restored.orderedProviders.map(\.rawValue) == ["codex", "claude", "deepSeek", "gemini"])
         #expect(restored.visibleProviders == [.codex])
         #expect(!restored.settingVisible(.codex, visible: false).visibleProviders.isEmpty)
     }

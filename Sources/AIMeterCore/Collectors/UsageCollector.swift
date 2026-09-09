@@ -6,6 +6,7 @@ public protocol UsageCollector: Sendable {
 }
 
 public enum UsageCollectionError: Error, Equatable, Sendable {
+    case geminiUnavailable(String)
     case notInstalled
     case authenticationRequired
     case setupRequired

@@ -51,8 +51,10 @@ struct RefreshCoordinatorTests {
 
         let snapshots = await coordinator.refresh()
 
-        #expect(concurrencyProbe.maxConcurrentCalls == 3)
-        #expect(snapshots.map(\.provider) == [.claude, .codex, .deepSeek])
+        // All four independently delayed collectors must overlap; result order is literal,
+        // so returning the reversed registration order cannot satisfy this check.
+        #expect(concurrencyProbe.maxConcurrentCalls == 4)
+        #expect(snapshots.map(\.provider) == [.claude, .codex, .deepSeek, .gemini])
         #expect(snapshots.allSatisfy { $0.collectionStatus == .fresh })
     }
 

@@ -57,7 +57,7 @@ struct WidgetTimelineSource: TimelineProvider {
     static func emptyEnvelope(at date: Date) -> WidgetSnapshotEnvelope {
         WidgetSnapshotEnvelope(
             generatedAt: date,
-            providers: WidgetProvider.allCases.map { provider in
+            providers: WidgetProvider.displayedProviders.map { provider in
                 WidgetProviderSnapshot(
                     provider: provider,
                     valueText: "Unavailable",
@@ -148,7 +148,7 @@ struct WidgetTimelineSource: TimelineProvider {
             envelope.providers.map { ($0.provider, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
-        let providers = WidgetProvider.allCases.map { provider in
+        let providers = WidgetProvider.displayedProviders.map { provider in
             byProvider[provider] ?? unavailableProvider(provider)
         }
         let nextReset = envelope.nextReset.flatMap { summary in

@@ -236,7 +236,15 @@ fn build_requests(
         ))
     });
 
-    vec![claude_request, codex_request, deepseek_request]
+    let gemini_request = ProviderRefreshRequest::new(ProviderId::Gemini, move |cancellation| {
+        super::gemini_runtime::collect(&now_rfc3339(), cancellation)
+    });
+    vec![
+        claude_request,
+        codex_request,
+        deepseek_request,
+        gemini_request,
+    ]
 }
 
 pub(crate) fn validate_custom_path(
@@ -377,6 +385,7 @@ fn status_snapshot(provider: ProviderId, status: UsageStatus, fetched_at: &str) 
             ProviderId::Claude => "Claude Code",
             ProviderId::Codex => "OpenAI Codex",
             ProviderId::DeepSeek => "DeepSeek",
+            ProviderId::Gemini => "Gemini",
         }
         .to_owned(),
         status,
@@ -388,6 +397,7 @@ fn status_snapshot(provider: ProviderId, status: UsageStatus, fetched_at: &str) 
         source_version: None,
         status_message: None,
         reset_credits: Vec::new(),
+        gemini_quota_metrics: Vec::new(),
         local_activity: None,
         daily_history: Vec::new(),
         history_fetched_at: None,

@@ -1,14 +1,18 @@
 # 测试指南
 
+## Gemini 验证（0.6.0）
+
+最终源码的 Windows 前端 109 项、macOS 宿主 Rust 252 项和严格 Clippy、前端构建通过。它们不包含原生 Windows ConPTY 编译/运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
+
 ## 普通测试
 
 ```bash
 bash scripts/test.sh
 ```
 
-当前基线为 **433 个测试、82 个测试组全部通过**。默认完整验证会先运行 420 项普通测试，再从独立测试进程运行 13 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+0.6.0 候选基线为 **480 个测试、93 个测试组全部通过**。默认完整验证会先运行 458 项普通测试，再用独立测试进程运行 3 项主线程刷新调度测试、13 项 PTY runner 测试和 6 项 Gemini PTY 测试，避免 CI runner 的并行主线程负载干扰有界调度断言，也避免两个真实终端 Suite 争用系统资源；原行为断言和期限保持不变。浮动条原生渲染回归使用明确的 2× Retina 位图，并把逻辑点坐标换算成像素后核对完整 provider 数量、密度和左右边缘矩阵，防止 1× SVG 抗锯齿让细线 Logo 的高亮参考掩码为空。并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.5.1 为前端 85 项、密度生命周期 21 项、macOS 宿主 Rust 221 项、计算样式 632 项；标签发布 CI 通过 229 项原生 Windows Rust（见[发布记录](2026-09-08-v0.5.1-release.md)）。0.5.0 的 218 项原生基线见[历史发布记录](2026-09-07-v0.5.0-release.md)；0.3.0 的 403 项 macOS 与 Windows 51/12/179 项历史基线见[紧凑浮动条记录](2026-09-06-compact-progressive-strip.md)。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
+以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.6.0 候选本机为前端 109 项、密度浏览器 16 个布局与 632 个文字角色、macOS 宿主 Rust 252 项；三项新增回归分别覆盖 Windows ConPTY 捕获的7778字节模型页帧、标准ECH字符擦除的效果与光标不移动语义，以及登录提示不能被同一帧中的ECH擦除所掩盖。40KB真实记录的137/4096字节分片回归保留两秒deadline并放在独立`gemini_fragmentation`集成测试程序中，避免与其他会话回归并行争用该行为期限；Cargo会串行执行不同集成测试程序。原生 Windows 数字以本版 PR 和发布 workflow 的实际结果为准。0.5.1 标签曾通过 229 项原生 Windows Rust（见[发布记录](2026-09-08-v0.5.1-release.md)）。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
 
 普通测试覆盖：
 
@@ -157,6 +161,8 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
 npm --prefix windows run tauri build
 ```
 
+`npm --prefix windows test` 除 109 项前端测试外，还运行 5 项 Gemini 合成终端输入回归：通过一次原始字符串扫描只剥离原生 ConPTY 已证实的主设备属性回复和固定光标位置回复，并保留不完整、异常、未支持或被另一回复隔开的控制序列，避免测试夹具把终端握手误当作 `/model`、Escape 或 `/quit` 业务输入。
+
 `test:density` 先用独立配置构建 production fixture，再运行 21 项跨平台进程回收测试，最后由 Vite preview 与 Chrome/Edge headless 加载构建产物并核对详情、Settings、系统字体隔离和原生 select/option 的计算样式。Unix/macOS 先让整个进程组享有 TERM 宽限，再探测全组；leader 已退出但后代仍在时，只有宽限期结束后才 KILL。Windows 保留 `taskkill /T /F`，并使用一次性独立 Chrome profile，防止已有浏览器进程接管 `--dump-dom`；fixture 在 React 同步提交后立即读取计算样式，不依赖后台 `requestAnimationFrame`。门禁需要本机回环端口和可用浏览器。真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture，并编译 DWM 无边框合成、鼠标释放监视、Win32 物理显示器接口、拓扑监听与 WebView2 托管历史窗口，运行其纯策略测试，再验证更新状态与完整 NSIS 生成。可见轮廓由 WebView2 SVG 抗锯齿路径负责，不再使用 GDI `HRGN`。CI runner 不冒充真实显示器拔插、官网真实登录、窗口前台焦点或原生下拉弹层；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
 
 交互式 Windows 真机还必须手工覆盖：左右贴边、125%/200% DPI、多显示器拔插、全屏 Edge 隐藏/恢复、普通窗口上方详情、外部点击关闭、真实指针拖动、Native/WSL 账号显示、DeepSeek WebView2 登录与 30 日图表。CI runner 没有可替代这些视觉/账户证据的桌面会话。
@@ -211,9 +217,9 @@ git diff --check
 
 至少验证：
 
-- 三个 Logo、圆环方向与真实百分比一致；
+- 四个 Logo、圆环方向与真实百分比一致；
 - 0% 不绘制虚假最小弧；
-- 三个详情都能打开并按设置自动收起；
+- 四个详情都能打开并按设置自动收起；
 - Settings 显示 Appearance、Monitoring、Services、About 四个 Tab，并始终使用系统字体；
 - About 显示 AI Token Meter、Private AI usage monitor 和真实版本号；
 - About 启动后不自动请求 appcast；点击 Check for Updates 后能分别展示新版、最新版和离线安全状态；只有发现新版后 Update Now 才启用；
@@ -224,8 +230,8 @@ git diff --check
 - 隐藏/恢复悬浮条与多显示器重定位正常；目标屏在线时不因主屏角色或枚举顺序跳屏；
 - Automatic 可拖到左右任一侧；0.4.0 起 macOS Left/Right 允许跨屏拖动但松手后固定相应侧，Windows 拖动沿用最近边缘；重启后恢复目标物理屏、侧边和相对高度；
 - 目标屏断开时临时回到当前主屏且配置不变；目标屏重新接入后自动恢复；
-- 左右轮廓、阴影、拖动提示和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
-- 三个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；
+- 左右轮廓、阴影、背景拖动命中和详情展开方向正确镜像，贴边处无透明空白或可见接缝；
+- 四个服务 Logo 在 60 点圆环中视觉重量接近，App Icon 在 Finder 与 Dock 小尺寸可辨认；
 - VoiceOver 能读出服务、数值和详情状态；
 - 浮岛玻璃表面可通过 VoiceOver 调整动作和普通键盘方向键移动；VoiceOver 阅读详情时不会被自动收起打断；
 - 退出 App 后无遗留事件监听或刷新任务。

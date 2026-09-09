@@ -7,16 +7,15 @@ struct PTYCommandRunnerTests {
     @Test("Parent-exit diagnostics retain only recognized numeric fixture metadata")
     func parentExitDiagnosticsSanitizeMetadata() {
         let trace = """
-        python_started|100.25|123
-        parent_exit_requested|100.5|123
-        private-command-and-account-output|100.6|123
-        child_detached|nan|456
-        child_detached|100.7|not-a-pid
+        shell_started|123
+        parent_exit_requested|123
+        private-command-and-account-output|123
+        child_spawned|not-a-pid
         """
-        let phases = ParentExitDiagnostics.sanitizedPhases(trace, startedAt: 100)
-        #expect(phases == ["python_started at=0.250s pid=123", "parent_exit_requested at=0.500s pid=123"])
+        let phases = ParentExitDiagnostics.sanitizedPhases(trace)
+        #expect(phases == ["shell_started pid=123", "parent_exit_requested pid=123"])
         #expect(!phases.joined().contains("private-command-and-account-output"))
-        #expect(ParentExitDiagnostics.sanitizedPhases("", startedAt: 100).isEmpty)
+        #expect(ParentExitDiagnostics.sanitizedPhases("").isEmpty)
     }
 
     @Test("Fallback process waits use user initiated quality of service")
@@ -152,7 +151,7 @@ struct PTYCommandRunnerTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let startedAt = Date()
         let diagnostics = ParentExitDiagnostics(
-            traceURL: directory.appendingPathComponent("phases"), startedAt: startedAt)
+            traceURL: directory.appendingPathComponent("phases"))
         let runner = PTYCommandRunner { diagnostics.recordRegistration() }
 
         do {
@@ -172,7 +171,8 @@ struct PTYCommandRunnerTests {
             #expect(result.output.contains("parent-exited"))
             #expect(elapsed < 3)
             // Verify the diagnostic path runs, without making child scheduling a new deadline.
-            #expect(phases.contains { $0.hasPrefix("python_started ") })
+            #expect(phases.contains { $0.hasPrefix("shell_started ") })
+            #expect(phases.contains { $0.hasPrefix("child_spawned ") })
             #expect(phases.contains { $0.hasPrefix("parent_exit_requested ") })
         } catch {
             let outcome = error as? UsageCollectionError == .timedOut ? "timedOut" : "other_error"
@@ -243,14 +243,12 @@ struct PTYCommandRunnerTests {
 /// Test-only metadata: no command text, environment, paths, or captured CLI output.
 private final class ParentExitDiagnostics: @unchecked Sendable {
     let traceURL: URL
-    private let startedAt: Date
     private let monotonicStart = ProcessInfo.processInfo.systemUptime
     private let lock = NSLock()
     private var registrationElapsed: TimeInterval?
 
-    init(traceURL: URL, startedAt: Date) {
+    init(traceURL: URL) {
         self.traceURL = traceURL
-        self.startedAt = startedAt
     }
 
     func recordRegistration() {
@@ -259,30 +257,25 @@ private final class ParentExitDiagnostics: @unchecked Sendable {
 
     func phases() -> [String] {
         let trace = (try? String(contentsOf: traceURL, encoding: .utf8)) ?? ""
-        return Self.sanitizedPhases(trace, startedAt: startedAt.timeIntervalSince1970)
+        return Self.sanitizedPhases(trace)
     }
 
     func summary(outcome: String) -> String {
         let registration = lock.withLock { registrationElapsed.map { String(format: "%.3fs", $0) } ?? "not_observed" }
         let elapsed = String(format: "%.3fs", ProcessInfo.processInfo.systemUptime - monotonicStart)
-        // Fixture phase offsets use wall time for cross-process comparison; the runner
-        // duration and registration offset use a monotonic clock to expose clock jumps.
         return "PTY parent-exit diagnostics: deadline=2.000s outcome=\(outcome) "
             + "runner_elapsed=\(elapsed) before_registration=\(registration) "
-            + "fixture_wall_phases=[\(phases().joined(separator: "; "))]"
+            + "fixture_phases=[\(phases().joined(separator: "; "))]"
     }
 
-    static func sanitizedPhases(_ trace: String, startedAt: TimeInterval) -> [String] {
-        let allowed = Set(["python_started", "parent_output_flushed", "parent_exit_requested",
-                           "child_started", "child_detached"])
+    static func sanitizedPhases(_ trace: String) -> [String] {
+        let allowed = Set(["shell_started", "parent_output_flushed", "child_spawned",
+                           "parent_exit_requested"])
         return trace.split(separator: "\n").prefix(32).compactMap { line in
             let fields = line.split(separator: "|", omittingEmptySubsequences: false)
-            guard fields.count == 3, allowed.contains(String(fields[0])),
-                  let timestamp = Double(fields[1]), timestamp.isFinite,
-                  let pid = Int32(fields[2]), pid > 0 else { return nil }
-            let elapsed = timestamp - startedAt
-            guard elapsed.isFinite else { return nil }
-            return "\(fields[0]) at=\(String(format: "%.3f", elapsed))s pid=\(pid)"
+            guard fields.count == 2, allowed.contains(String(fields[0])),
+                  let pid = Int32(fields[1]), pid > 0 else { return nil }
+            return "\(fields[0]) pid=\(pid)"
         }
     }
 }

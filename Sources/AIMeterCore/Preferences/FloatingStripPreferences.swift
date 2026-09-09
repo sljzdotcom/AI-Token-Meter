@@ -7,7 +7,8 @@ public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
     public var spacing: Double { self == .compact ? 10 : 12 }
     public var baseHeight: Double { self == .compact ? 286 : 356 }
     public func height(providerCount: Int) -> Double {
-        baseHeight - Double(3 - min(max(providerCount, 1), 3)) * (ringSize + spacing)
+        let firstHeight = self == .compact ? 170.0 : 212.0
+        return firstHeight + Double(min(max(providerCount, 1), 4) - 1) * (ringSize + spacing)
     }
 }
 
@@ -17,6 +18,7 @@ public enum FloatingStripFoldDelay: Int, Codable, CaseIterable, Sendable {
 }
 
 public struct FloatingStripPreferences: Codable, Equatable, Sendable {
+    public private(set) var schemaVersion = 2
     public var density: FloatingStripDensity = .compact
     public var foldDelay: FloatingStripFoldDelay = .never
     public var orderedProviders: [UsageProvider] = UsageProvider.allCases
@@ -25,13 +27,17 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
 
     public init(hiddenUntil: TimeInterval? = nil) { self.hiddenUntil = hiddenUntil }
 
-    private enum CodingKeys: String, CodingKey { case density, foldDelay, orderedProviders, hiddenProviders, hiddenUntil }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, density, foldDelay, orderedProviders, hiddenProviders, hiddenUntil }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         density = (try? values.decode(FloatingStripDensity.self, forKey: .density)) ?? .compact
         foldDelay = (try? values.decode(FloatingStripFoldDelay.self, forKey: .foldDelay)) ?? .never
         orderedProviders = (try? values.decode([String].self, forKey: .orderedProviders))?.compactMap(UsageProvider.init(rawValue:)) ?? UsageProvider.allCases
         hiddenProviders = (try? values.decode([String].self, forKey: .hiddenProviders))?.compactMap(UsageProvider.init(rawValue:)) ?? []
+        let version = (try? values.decode(Int.self, forKey: .schemaVersion)) ?? 1
+        let recorded = ((try? values.decode([String].self, forKey: .orderedProviders)) ?? [])
+            + ((try? values.decode([String].self, forKey: .hiddenProviders)) ?? [])
+        if version < 2 && !recorded.contains("gemini") { hiddenProviders.append(.gemini) }
         hiddenUntil = try? values.decode(TimeInterval.self, forKey: .hiddenUntil)
         normalize()
     }
@@ -43,7 +49,7 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
     public mutating func normalize() {
         var seen = Set<UsageProvider>()
         orderedProviders = (orderedProviders + UsageProvider.allCases).filter { seen.insert($0).inserted }
-        hiddenProviders = Array(Set(hiddenProviders))
+        hiddenProviders = orderedProviders.filter { hiddenProviders.contains($0) }
         if visibleProviders.isEmpty, let first = orderedProviders.first {
             hiddenProviders.removeAll { $0 == first }
         }

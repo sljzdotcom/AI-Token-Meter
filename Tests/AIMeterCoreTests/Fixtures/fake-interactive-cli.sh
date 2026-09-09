@@ -7,6 +7,9 @@ fi
 
 if [ "$1" = "app-server" ]; then
   IFS= read -r ai_meter_initialize
+  if [ -n "${AI_METER_TEST_INITIALIZE_FILE:-}" ]; then
+    printf '%s\n' "$ai_meter_initialize" > "$AI_METER_TEST_INITIALIZE_FILE"
+  fi
   printf '{"id":1,"result":{"userAgent":"fake-codex"}}\n'
   IFS= read -r ai_meter_initialized
   IFS= read -r ai_meter_rate_request

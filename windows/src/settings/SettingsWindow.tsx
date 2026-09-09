@@ -36,6 +36,7 @@ type SettingsWindowProps = {
   onBeginServiceSignIn?: (providerId: "claude" | "codex") => void
   onBeginServiceInstallation?: (providerId: "claude" | "codex") => void
   onInitializeClaudeUsage?: () => void
+  onOpenGeminiDocumentation?: () => void
   onOpenInstallationGuide?: (providerId: "claude" | "codex") => void
   busyServices?: ProviderId[]
   onReplaceDeepSeekKey?: () => Promise<boolean> | boolean | void
@@ -112,6 +113,7 @@ export function SettingsWindow({
   onBeginServiceInstallation = () => {},
   onInitializeClaudeUsage = () => {},
   onOpenInstallationGuide = () => {},
+  onOpenGeminiDocumentation = () => {},
   busyServices = [],
   onReplaceDeepSeekKey = () => {},
   serviceMessage,
@@ -200,7 +202,7 @@ export function SettingsWindow({
               <div>
                 {stripPreferences.orderedProviders.map((id, index) => {
                   const visible = !stripPreferences.hiddenProviders.includes(id)
-                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : "DeepSeek"
+                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Gemini" : "DeepSeek"
                   const move = (offset: number) => {
                     const order = [...stripPreferences.orderedProviders]
                     ;[order[index], order[index+offset]] = [order[index+offset], order[index]]
@@ -218,11 +220,11 @@ export function SettingsWindow({
                       onStripPreferencesChange({...stripPreferences, orderedProviders: order})
                     }}>
                     <label><input type="checkbox" checked={visible}
-                      disabled={visible && stripPreferences.hiddenProviders.length === 2}
+                      disabled={visible && stripPreferences.orderedProviders.filter(provider => !stripPreferences.hiddenProviders.includes(provider)).length === 1}
                       onChange={e => onStripPreferencesChange({...stripPreferences,
                         hiddenProviders: e.target.checked ? stripPreferences.hiddenProviders.filter(p => p !== id) : [...stripPreferences.hiddenProviders, id]})} />{label}</label>
                     <button type="button" aria-label={t("Move {name} up", {name: label})} disabled={index === 0} onClick={() => move(-1)}>↑</button>
-                    <button type="button" aria-label={t("Move {name} down", {name: label})} disabled={index === 2} onClick={() => move(1)}>↓</button>
+                    <button type="button" aria-label={t("Move {name} down", {name: label})} disabled={index === stripPreferences.orderedProviders.length - 1} onClick={() => move(1)}>↓</button>
                   </div>
                 })}
                 <button type="button" onClick={() => onStripPreferencesChange({...stripPreferences,
@@ -351,6 +353,11 @@ export function SettingsWindow({
                 type="button"
               >{t("Check Status")}</button>
             </Service>
+            <Service name="Gemini CLI" status={serviceStatuses.find(status => status.providerId === "gemini") ?? {providerId: "gemini", connectionState: "unavailable"}}>
+              <small>{t("Official quota through Gemini CLI 0.58.0 on native Windows. Use the official CLI guide to set up OAuth, then retry.")}</small>
+              <button type="button" aria-label={t("Check Gemini status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
+              <button type="button" onClick={onOpenGeminiDocumentation}>{t("Gemini CLI documentation")}</button>
+            </Service>
             {serviceMessage ? <p aria-live="polite" className="service-message">{t(serviceMessage)}</p> : null}
           </div>
         ) : null}
@@ -358,9 +365,8 @@ export function SettingsWindow({
           <div className="about-card">
             <strong>{t("AI Token Meter")}</strong>
             <p>{t("Version")} {updateState.currentVersion}</p>
-            <p>{t("Author · Miller")}</p>
             <AuthorLinks onOpen={onOpenAuthorLink} />
-            <p aria-live="polite" className="update-status">{t(updateMessage(updateState))}</p>
+            <p aria-live="polite" className={`update-status${updateState.phase === "available" ? " update-status--available" : ""}`}>{t(updateMessage(updateState))}</p>
             <div className="update-actions">
               <button
                 disabled={["checking", "downloading", "installing"].includes(updateState.phase)}

@@ -1,10 +1,16 @@
 # 架构概览
 
+## Gemini 集成（0.6.0 起）
+
+两平台注册第四个 Provider，Swift `GeminiCollector` 与 Rust `gemini` collector 通过环境预检、受控版本发现和 PTY/ConPTY 会话读取额度。Windows Gemini 与旧通用 WSL/账号探测分离，首期只允许 native。
+
+快照新增可选 `geminiQuotaMetrics`，旧记录默认空；保留全部可见档位，主指标选择最高已用百分比，字段通过缓存、脱敏与 UI。Settings 从同次采集结果推导状态。连续终端流逐帧验证，停止发键后仍校验退出尾部，防止冲突或认证提示被旧成功帧覆盖。界面四项配置采用 schemaVersion 2 迁移；Widget 默认仍显示原三项。见[协议](../design/implementation-plans/2026-09-08-gemini-provider.md)及[合同](../../contracts/README.md)。
+
 ## 目标
 
 AI Token Meter 的架构围绕四个约束设计：
 
-1. 三个服务互不拖累，单项失败不影响其他项；
+1. 各服务互不拖累，单项失败不影响其他项；
 2. 凭证由系统或官方 CLI 管理，业务层只接收必要数据；
 3. UI 只消费统一领域模型，不直接解析终端或网页响应；
 4. 网络或工具暂时不可用时保留可辨识的缓存，而不是显示伪实时数据。
@@ -55,7 +61,7 @@ React meter / detail / settings <───────────────�
 Settings About ─> Tauri Updater ─> GitHub latest.json ─> minisign-verified NSIS archive
 ```
 
-Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发刷新三项 Provider，并以 generation 防止已取消旧请求回写。Native 与 WSL 候选都经过固定发现、健康检查和参数边界；CLI 账号状态、实际用量与登录动作共享所选候选，避免跨环境串号。
+Windows `RuntimeState` 从 `%LOCALAPPDATA%` 缓存启动，按设置周期并发刷新已注册 Provider，并以 generation 防止已取消旧请求回写。Native 与 WSL 候选都经过固定发现、健康检查和参数边界；CLI 账号状态、实际用量与登录动作共享所选候选，避免跨环境串号。
 
 Tauri 的常驻窗口角色为浮动条、唯一 `detail` 与 `settings`。Unreleased 的 `display_coordinator` 根据显示模式维护 `meter` / `meter-*` 实例；增加的 WebView 只订阅同一 RuntimeState，不增加 Provider 采集。前端只订阅固定脱敏 DTO 和事件；Win32 层负责无任务栏窗口、透明背景、DPI/显示器定位、全屏隐藏、详情临时置前和托盘生命周期。浮动条 Bezier 由 WebView 单一抗锯齿裁剪，原生层不重复粗粒度裁剪。DeepSeek 历史使用独立 WebView2 数据目录、官方 HTTPS allowlist、短期 nonce 和有界分片，远程页面不能调用通用文件或 Shell 能力。
 
@@ -116,7 +122,7 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 `AppModel` 是主线程状态中心：
 
 - 创建采集协调器和 DeepSeek 网页会话；
-- 启动后立即刷新，随后每 300 秒刷新；
+- 启动后立即刷新，默认每 300 秒刷新；两平台支持 30–86400 整数秒偏好，macOS 修改后重排等待且不取消正在进行的采集，仍以自动刷新语义进入退避协调器；
 - 应用 DeepSeek 余额基准和历史数据；
 - 保存用户设置；
 - 向窗口、通知和菜单栏发布状态。
@@ -149,7 +155,7 @@ Unreleased 多屏层由 `FloatingStripCoordinator` 枚举系统主屏及稳定�
 - `SoftwareUpdateCoordinator` 维护检查、可更新、安装与失败状态，并串行化用户动作；
 - `SparkleUpdateEngine` 是 Sparkle 唯一适配边界，Settings 不直接引用第三方类型；
 - AppDelegate 在整个进程中只创建一个 Sparkle updater controller，并在退出时解除回调；
-- 应用启动和 5 分钟用量刷新不触发更新请求。用户点击 `Check for Updates` 后才读取固定 GitHub appcast，点击 `Update Now` 后才进入 Sparkle 标准下载与安装流程；
+- 应用启动和周期用量刷新不触发更新请求。用户点击 `Check for Updates` 后才读取固定 GitHub appcast，点击 `Update Now` 后才进入 Sparkle 标准下载与安装流程；
 - appcast 的 URL 和 ZIP 的 SHA-256 便于传输与审计，但真正授权安装的是 App 内公开键验证的 EdDSA 签名。验证失败时不替换当前 App。
 
 ## AIMeterWidgetExtension

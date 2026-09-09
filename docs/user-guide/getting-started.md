@@ -1,35 +1,42 @@
 # 安装与首次使用
 
+## Gemini 接入范围
+
+0.6.0 新增第四项 Gemini。新用户默认显示四项；从旧版本升级时 Gemini 默认隐藏并保留原布局，可在 Appearance 中启用并排序。
+
+Gemini 需要另行安装并登录官方 CLI 0.58.0，首期支持普通 Google OAuth；Windows 仅原生 CLI。应用提供官方指南与重新检查，当前不执行安装或登录。不应把 Gemini 网页/桌面应用当作已安装 CLI，也不需要输入 Gemini API Key。真实账号仍待现场验收，见[支持范围](providers.md#gemini)。
+
 ## 1. 准备环境
 
-AI Token Meter `0.5.1` 同时支持 Apple Silicon Mac（macOS 14 或更新版本）与 Windows 11 x64。从源码构建的共同依赖是 Git，平台依赖分别为：
+AI Token Meter `0.6.0` 同时支持 Apple Silicon Mac（macOS 14 或更新版本）与 Windows 11 x64。从源码构建的共同依赖是 Git，平台依赖分别为：
 
 - Xcode Command Line Tools；
 - Swift 6 工具链；
 - Git；
 - Claude Code CLI（可选）；
 - OpenAI Codex CLI（可选）；
+- Gemini CLI 0.58.0（可选）；
 - DeepSeek API Key（可选）。
 
-Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView2 Runtime；macOS 需要 Xcode Command Line Tools 与 Swift 6。三项 Provider 在两平台均为可选服务。
+Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView2 Runtime；macOS 需要 Xcode Command Line Tools 与 Swift 6。四项 Provider 在两平台均为可选服务。
 
-三项服务彼此独立。没有安装或配置某项服务时，其他服务仍可正常使用。
+四项服务彼此独立。没有安装或配置某项服务时，其他服务仍可正常使用。
 
 ## 2. 下载公开版本
 
-从 [v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1) 下载 `AI-Token-Meter-0.5.1-macOS-arm64.zip` 和同名 `.sha256`。在下载目录验证：
+当前公开稳定版仍是 [v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1)。0.6.0 完成双平台发布门禁后，从 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases) 的 **v0.6.0** 条目下载 `AI-Token-Meter-0.6.0-macOS-arm64.zip` 和同名 `.sha256`。在下载目录验证：
 
 ```bash
-shasum -a 256 -c AI-Token-Meter-0.5.1-macOS-arm64.zip.sha256
+shasum -a 256 -c AI-Token-Meter-0.6.0-macOS-arm64.zip.sha256
 ```
 
 解压后把 `AI Token Meter.app` 移到 `/Applications`。当前公开包为 ad-hoc signed、not notarized；首次运行如果 macOS 阻止，请在 Finder 中右键 App 并选择“打开”。不要从不可信镜像下载，也不要绕过更新签名失败。
 
 `0.1.2` 不含更新器，因此要手动安装一次当前版本。安装 `0.2.0` 或更新版本后，后续稳定版本可在 Settings → About 手动检查和安装。
 
-从 [v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1) 下载 `AI-Token-Meter-0.5.1-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
+0.6.0 公开后，从同一 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases) 条目下载 `AI-Token-Meter-0.6.0-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
 
-已有 macOS `0.2.x` / `0.3.0-preview.x` 或 Windows Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。旧 Windows Preview feed 同样指向 `0.5.1`，升级后使用稳定更新源；设置与凭据的存储位置保持不变。
+发布完成后，已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口都会指向 `0.6.0`；设置与凭据的存储位置保持不变。
 
 ## 3. 从源码构建
 
@@ -143,7 +150,15 @@ Windows 同样不依赖交互式 PowerShell 配置：会检查当前进程环境
 
 该登录会话只属于 AI Token Meter，不读取其他浏览器的 Cookie。网页结构或网络暂时不可用时，详情会退回最近一次标准化缓存。
 
-## 8. 检查与安装更新
+## 8. 配置 Gemini
+
+1. 安装官方 Gemini CLI 0.58.0，并在终端使用普通 Google OAuth 完成登录。
+2. 打开 Settings → Services，查看 Gemini 状态并点击重新检查。
+3. 在 Appearance 中启用或调整 Gemini 的浮动条位置；从旧版本升级时它默认隐藏。
+
+AI Token Meter 在私有空目录中明确使用不信任工作区模式，只在识别到就绪界面后打开 `/model` 并退出。它不读取 OAuth 内容、不批准目录信任、不发送模型请求。Windows 首期只支持原生 CLI；WSL、API Key、Vertex、外部或企业认证模式会显示不支持。
+
+## 9. 检查与安装更新
 
 1. 打开 Settings → About。
 2. 点击 **Check for Updates**。只有此时应用才访问 GitHub 更新清单。
@@ -152,20 +167,20 @@ Windows 同样不依赖交互式 PowerShell 配置：会检查当前进程环境
 
 显示 `You're up to date` 时，**Update Now** 会保持禁用。离线、清单不可用、签名不匹配或目标不可写时，当前应用保持不变。Windows 使用固定 GitHub `latest.json` 与内置 minisign 公钥；macOS 使用固定 appcast 与 Sparkle EdDSA 公钥。参见[故障排查](troubleshooting.md#检查更新失败或-update-now-不可用)。
 
-## 9. 常用操作
+## 10. 常用操作
 
 - 点击圆环：展开对应服务详情。
-- 从三个 Logo 以外的玻璃空白处拖动：调整浮岛上下位置；Automatic 模式还可拖到另一侧。
+- 从服务 Logo 以外的玻璃空白处拖动：调整浮岛上下位置；Automatic 模式还可拖到另一侧。
 - 设置中的 **Screen edge**：选择 Automatic、Left 或 Right。
 - 点击空白处：立即关闭详情。
 - 悬停在详情上：暂停自动隐藏倒计时。
-- 菜单栏 Quantum Dial：断环进度和指针表示三项服务中的最高有效已用比例，旁边显示精确百分比；无有效数据时显示中性仪表与 `—`。
-- 菜单栏刷新按钮：立即刷新三项服务，并同步更新 Quantum Dial 与百分比。
+- 菜单栏 Quantum Dial：断环进度和指针表示四项服务中的最高有效已用比例，旁边显示精确百分比；无有效数据时显示中性仪表与 `—`。
+- 菜单栏刷新按钮：立即刷新四项服务，并同步更新 Quantum Dial 与百分比。
 - `⌘,`：打开设置。
 - 菜单栏退出项：完全退出应用。
 - Settings → About 的 **Check for Updates**：手动检查 GitHub 稳定版；不会开启后台检查。
 
-## 10. 卸载
+## 11. 卸载
 
 1. 在 **Monitoring** 设置中关闭“Open AI Token Meter at login”。
 2. 如需删除 DeepSeek API Key，点击 **Remove**。

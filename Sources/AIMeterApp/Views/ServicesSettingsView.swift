@@ -108,6 +108,17 @@ struct ServicesSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Gemini CLI") {
+                ServiceAccountStatusView(status: status(for: .gemini))
+                Text("Reads official quota through a supported Gemini CLI. Account identity is not provided by this view.")
+                    .aiMeterFont(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Link("Official Gemini CLI documentation", destination: GeminiDetailView.documentationURL)
+                    Button("Retry") { Task { await model.checkServiceAccount(.gemini) } }
+                }
+            }
+
             if model.settingsMessageKind.map(SettingsTab.services.accepts) == true,
                let message = model.settingsMessage {
                 Section {

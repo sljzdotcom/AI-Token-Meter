@@ -4,6 +4,23 @@ import Testing
 
 @Suite("Snapshot cache", .serialized)
 struct SnapshotCacheTests {
+    // A future provider must not discard recognized cached observations.
+    @Test func unknownProviderDoesNotEraseKnownSnapshots() throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = SnapshotCache(directoryURL: directory)
+        let snapshot = makeSnapshot(fetchedAt: Date(timeIntervalSince1970: 100))
+        try cache.save([snapshot])
+        var envelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: cache.fileURL)) as? [String: Any])
+        var rows = try #require(envelope["snapshots"] as? [[String: Any]])
+        var future = rows[0]
+        future["provider"] = "future-provider"
+        rows.insert(future, at: 0)
+        envelope["snapshots"] = rows
+        try JSONSerialization.data(withJSONObject: envelope).write(to: cache.fileURL)
+        #expect(try cache.load() == [snapshot])
+    }
+
     @Test("Atomically persists and reloads non-sensitive snapshots")
     func persistsSnapshots() throws {
         let directory = temporaryDirectory()

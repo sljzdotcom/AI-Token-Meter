@@ -1,4 +1,4 @@
-export type ProviderId = "claude" | "codex" | "deepseek"
+export type ProviderId = "claude" | "codex" | "deepseek" | "gemini"
 export type UsageStatus =
   | "fresh"
   | "cached"
@@ -27,6 +27,7 @@ export type UsageSnapshot = {
   usedRatio?: number | null
   primaryMetric?: UsageMetric | null
   secondaryMetric?: UsageMetric | null
+  geminiQuotaMetrics?: UsageMetric[]
   fetchedAt: string
   staleAfterSeconds: number
   sourceVersion?: string | null
@@ -52,6 +53,7 @@ export const unavailableSnapshots: UsageSnapshot[] = [
   ["claude", "Claude Code"],
   ["codex", "OpenAI Codex"],
   ["deepseek", "DeepSeek"],
+  ["gemini", "Gemini"],
 ].map(([providerId, displayName]) => ({
   schemaVersion: 1,
   providerId: providerId as ProviderId,

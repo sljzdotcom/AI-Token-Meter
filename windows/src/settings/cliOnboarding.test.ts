@@ -121,3 +121,33 @@ describe("CLI onboarding", () => {
     expect(controller.isBusy("codex")).toBe(false)
   })
 })
+
+it("disposing invalidates an in-flight Gemini status check", async () => {
+  let complete!: (value: unknown) => void
+  const statuses: ServiceAccountStatus[] = []
+  const controller = new CLIOnboarding(() => new Promise(resolve => { complete = resolve }), status => statuses.push(status), () => {}, () => {})
+  const operation = controller.check("gemini")
+  controller.dispose()
+  complete({providerId:"gemini",connectionState:"unavailable"})
+  await operation
+  expect(statuses).toEqual([{providerId:"gemini",connectionState:"checking"}])
+})
+
+it('a Gemini snapshot event supersedes an older status read without retrying quota', async () => {
+  let release!: (value: unknown) => void
+  const pending = new Promise(resolve => { release = resolve })
+  const statuses: ServiceAccountStatus[] = []
+  const retries: boolean[] = []
+  const controller = new CLIOnboarding(async (_, args) => {
+    retries.push(args.retryUsage ?? false)
+    if (retries.length === 1) return pending
+    return {providerId: 'gemini', connectionState: 'connected'}
+  }, value => statuses.push(value), () => {}, () => {})
+  const old = controller.check('gemini', true)
+  await controller.check('gemini', false, true)
+  release({providerId: 'gemini', connectionState: 'unavailable'})
+  await old
+  expect(statuses.at(-1)?.connectionState).toBe('connected')
+  expect(retries).toEqual([true, false])
+  expect(controller.isBusy('gemini')).toBe(false)
+})

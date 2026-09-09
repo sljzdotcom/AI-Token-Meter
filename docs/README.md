@@ -4,6 +4,7 @@
 
 - [当前项目状态](project-status.md)：版本、能力、数据、验证基线、发布事实和仍未完成事项的权威快照。
 - [待完成需求与需求历史](requirements-backlog.md)：所有新需求的第一登记点，包含进行中、待确认、延期、受环境限制和已完成事项。
+- [需求与开发对话协作](development/agent-collaboration.md)：原对话提需求和验收，开发对话执行，按需求 ID 派工和回传结果。
 
 这里是 AI Token Meter 的长期维护文档入口。文档分为用户指南、架构、安全、开发与历史设计记录五类；README 只保留最常用的信息，本目录负责完整说明。
 
@@ -11,8 +12,8 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序、三项服务首次配置 |
-| [服务与指标说明](user-guide/providers.md) | Claude Code、OpenAI Codex、DeepSeek 的数据来源、口径和限制 |
+| [安装与首次使用](user-guide/getting-started.md) | 系统要求、构建、移动到应用程序及四服务接入范围 |
+| [服务与指标说明](user-guide/providers.md) | 四服务的数据来源、口径和限制 |
 | [设置参考](user-guide/settings.md) | 每一项设置的行为、默认值和注意事项 |
 | [故障排查](user-guide/troubleshooting.md) | 登录、超时、数据不一致、缓存、通知和悬浮条问题 |
 
@@ -20,6 +21,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [跨平台合同](../contracts/README.md) | 共享快照、展示语义及 Gemini 合成 CLI 转录 |
 | [架构概览](architecture/overview.md) | 数据流、模块边界、刷新和降级机制 |
 | [架构决策记录](architecture/decisions.md) | 长期技术决定、原因、代价和重新评估条件 |
 | [代码库结构](architecture/repository-structure.md) | 每个顶层目录与核心源码目录的职责 |
@@ -60,6 +62,8 @@
 | [v0.3.0-preview.1 Release notes](releases/v0.3.0-preview.1.md) | Windows 浮动条轮廓、白边和贴边稳定性修复及真机复验项 |
 | [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
 | [v0.3.0-preview.3 Release notes](releases/v0.3.0-preview.3.md) | Windows DeepSeek 显式同步、可恢复窗口生命周期、紧凑界面与字体下拉可读性修复 |
+| [v0.6.0 Release notes](releases/v0.6.0.md) | Gemini 四服务、刷新间隔、浮动条与关于页改进，以及双平台稳定更新边界 |
+| [v0.6.0 发布记录](development/2026-09-08-v0.6.0-release.md) | 本地候选、原生 CI、签名资产、更新源和公开验收证据 |
 | [Windows 平台开发日志](development/2026-09-03-windows-platform.md) | Windows CI 逐轮证据、ConPTY/Credential Manager/WebView2/Win32/NSIS 结果与未完成真机项 |
 | [浮动条位置稳定持久化](development/2026-09-03-floating-strip-placement-persistence.md) | 稳定物理显示器身份、多屏无损回退、重连恢复和跨平台实现证据 |
 | [DeepSeek 截止时间饥饿修复](development/2026-09-03-deepseek-timeout-starvation.md) | 阻塞 Keychain 读取、独立 GCD 单调时钟截止时间与 CI 回归证据 |

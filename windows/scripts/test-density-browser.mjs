@@ -4,34 +4,52 @@ import { fileURLToPath } from "node:url"
 
 import {
   extractPreviewUrl,
-  runBrowser,
+  runBrowserCandidates,
   runWithCleanup,
+  selectBrowserCandidates,
   waitForHttpReady,
   spawnDensityPreview,
   stopProcessTree,
 } from "./density-process-lifecycle.mjs"
 
 const windowsRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
-const browser = findBrowser()
+const browsers = findBrowsers()
 const vite = startPreview()
 
 const started = Date.now()
 await runWithCleanup(async () => {
   const baseUrl = await vite.ready
   await waitForHttpReady(`${baseUrl}density-browser.html`)
-  console.log(`Preview ready after ${Date.now() - started}ms; verifying browser density styles with ${browser.label}`)
-  const output = await runBrowser(browser.path, `${baseUrl}density-browser.html`, {
+  console.log(`Preview ready after ${Date.now() - started}ms; verifying browser density styles with ${browsers.map(browser => browser.label).join(", ")}`)
+  const result = await runBrowserCandidates(browsers, `${baseUrl}density-browser.html`, {
     onDiagnostic: message => console.log(`[density] ${message}`),
   })
-  const report = densityReport(output)
+  const report = densityReport(result.output)
   assertDensity(report)
-  console.log(`Browser density styles verified with ${browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
+  if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
+  for (const sample of report.stripSamples) {
+    if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight || !sample.hitButtons
+      || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
+      || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
+      throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
+  if (report.geminiSamples?.length !== 8) throw new Error("Missing Gemini detail states")
+  for (const sample of report.geminiSamples) {
+    if (!sample.unclipped || sample.retries !== 1 || sample.guides !== 1 || !sample.reasonVisible
+      || (sample.hasQuota ? sample.texts.length !== 3 || !sample.texts.some(text=>text.includes("Flash Lite") && text.includes("10%")) : sample.texts.some(text=>text.includes("0%")))) {
+      throw new Error(`Gemini detail state mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
+  console.log("Gemini detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
+  console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
+  console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {
   await stopVite(vite.process)
   console.log(`[density] preview cleanup complete; total ${Date.now() - started}ms`)
 })
 
-function findBrowser() {
+function findBrowsers() {
   const programFiles = process.env.ProgramFiles ?? "C:\\Program Files"
   const programFilesX86 = process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"
   const localAppData = process.env.LOCALAPPDATA ?? ""
@@ -40,20 +58,22 @@ function findBrowser() {
     ["CHROME_BIN", process.env.CHROME_BIN],
     ["Google Chrome (macOS)", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
     ["Microsoft Edge (macOS)", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
-    ["Google Chrome (ProgramFiles)", join(programFiles, "Google", "Chrome", "Application", "chrome.exe")],
-    ["Google Chrome (ProgramFiles x86)", join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe")],
     ["Microsoft Edge (ProgramFiles)", join(programFiles, "Microsoft", "Edge", "Application", "msedge.exe")],
     ["Microsoft Edge (ProgramFiles x86)", join(programFilesX86, "Microsoft", "Edge", "Application", "msedge.exe")],
     ["Microsoft Edge (LOCALAPPDATA)", localAppData && join(localAppData, "Microsoft", "Edge", "Application", "msedge.exe")],
+    ["Google Chrome (ProgramFiles)", join(programFiles, "Google", "Chrome", "Application", "chrome.exe")],
+    ["Google Chrome (ProgramFiles x86)", join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe")],
     ["Google Chrome (Linux)", "/usr/bin/google-chrome"],
     ["Chromium (Linux)", "/usr/bin/chromium"],
   ].filter(([, path]) => path)
-  const browser = candidates.find(([, path]) => existsSync(path))
-  if (!browser) {
+  const browsers = selectBrowserCandidates(candidates, {
+    exists: existsSync,
+  })
+  if (!browsers.length) {
     const checked = candidates.map(([label, path]) => `${label}: ${path}`).join("\n")
     throw new Error(`No supported Chrome or Edge executable was found. Checked:\n${checked}\nSet BROWSER_BIN or CHROME_BIN to override.`)
   }
-  return { label: browser[0], path: browser[1] }
+  return browsers
 }
 
 function startPreview() {
@@ -124,4 +144,45 @@ function assertDensity(report) {
     throw new Error("Settings system font leaked into the meter or Provider detail")
   }
   if (!report.settingsFont.startsWith('"Segoe UI Variable"')) throw new Error("Settings did not retain its system font")
+  if (report.updateSamples.length !== 14) throw new Error("Missing bilingual update status samples")
+  for (const locale of ["en", "zh-CN"]) {
+    const samples = report.updateSamples.filter(sample => sample.locale === locale)
+    const available = samples.find(sample => sample.phase === "available")
+    if (!available) throw new Error(`${locale} available update sample was missing`)
+    if (available.color !== "rgb(153, 27, 27)") throw new Error(`${locale} available update color was ${available.color}`)
+    if (available.fontWeight !== "700") throw new Error(`${locale} available update font weight was ${available.fontWeight}`)
+    for (const sample of samples.filter(sample => sample.phase !== "available")) {
+      if (sample.color === available.color || sample.fontWeight === available.fontWeight) {
+        throw new Error(`${locale} ${sample.phase} inherited available update emphasis`)
+      }
+      if (sample.fontSize !== available.fontSize) throw new Error(`${locale} ${sample.phase} changed update status font size`)
+      if (sample.fontFamily !== available.fontFamily) throw new Error(`${locale} ${sample.phase} changed update status font family`)
+    }
+  }
+  const expectedLabels = ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"]
+  const expectedHrefs = ["https://twitter.com/MillerPanYue", "https://github.com/sljzdotcom/AI-Token-Meter", "https://t.me/sljzdotcom"]
+  if (report.aboutSamples.length !== 4) throw new Error("Missing bilingual wide and narrow About samples")
+  if (report.aboutCopySamples.length !== 2
+    || new Set(report.aboutCopySamples.map(sample => sample.locale)).size !== 2
+    || report.aboutCopySamples.some(sample =>
+    !["en", "zh-CN"].includes(sample.locale)
+    || sample.authorVisible
+    || sample.headingVisible
+    || sample.linkCount !== 3
+    || JSON.stringify(sample.labels) !== JSON.stringify(expectedLabels)
+    || JSON.stringify(sample.hrefs) !== JSON.stringify(expectedHrefs)
+  )) {
+    throw new Error("The native-size About panel restored removed visible author copy")
+  }
+  for (const sample of report.aboutSamples) {
+    if (JSON.stringify(sample.labels) !== JSON.stringify(expectedLabels)) throw new Error(`${sample.locale}/${sample.width} About labels changed`)
+    if (JSON.stringify(sample.hrefs) !== JSON.stringify(expectedHrefs)) throw new Error(`${sample.locale}/${sample.width} About targets changed`)
+    const expectedGroupName = sample.locale === "en" ? "Author links" : "作者链接"
+    if (sample.groupName !== expectedGroupName) throw new Error(`${sample.locale}/${sample.width} lost its accessible group name`)
+    if (sample.authorVisible || sample.headingVisible) throw new Error(`${sample.locale}/${sample.width} restored removed visible author copy`)
+    if (!sample.equalHeights || !sample.unclipped) throw new Error(`${sample.locale}/${sample.width} clipped or misaligned an About link`)
+    if (sample.iconSizes.some(([width, height]) => width !== 15 || height !== 15)) throw new Error(`${sample.locale}/${sample.width} changed an About icon size`)
+    if (sample.width === 240 && sample.rows < 2) throw new Error(`${sample.locale} narrow About links did not wrap`)
+    if (sample.width === 760 && sample.rows !== 1) throw new Error(`${sample.locale} wide About links did not stay aligned`)
+  }
 }

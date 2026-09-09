@@ -2,6 +2,7 @@
 pub enum CliProvider {
     Claude,
     Codex,
+    Gemini,
 }
 
 impl CliProvider {
@@ -9,6 +10,7 @@ impl CliProvider {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
+            Self::Gemini => "gemini",
         }
     }
 
@@ -16,6 +18,7 @@ impl CliProvider {
         match self {
             Self::Claude => ["claude.exe", "claude.cmd", "claude"],
             Self::Codex => ["codex.exe", "codex.cmd", "codex"],
+            Self::Gemini => ["gemini.exe", "gemini.cmd", "gemini"],
         }
     }
 }

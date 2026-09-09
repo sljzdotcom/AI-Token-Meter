@@ -17,7 +17,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             arguments = "auth login"
         case .codex:
             arguments = "login"
-        case .deepSeek:
+        case .deepSeek, .gemini:
             throw CLIAuthenticationScriptError.unsupportedProvider
         }
 

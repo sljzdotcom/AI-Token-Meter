@@ -7,7 +7,11 @@ struct MonitoringSettingsView: View {
     var body: some View {
         Form {
             Section("Monitoring") {
-                LabeledContent("Refresh interval", value: "5 minutes")
+                LabeledContent("Refresh interval") {
+                    RefreshIntervalEditor(seconds: model.refreshIntervalSeconds) {
+                        model.setRefreshInterval($0)
+                    }
+                }
                 Toggle(
                     "Usage alerts at 70% and 90%",
                     isOn: Binding(

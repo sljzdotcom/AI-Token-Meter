@@ -43,6 +43,7 @@ struct BrandLinksView: View {
         VStack(alignment: .leading, spacing: 6) {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { linkButtons }
+                    .fixedSize(horizontal: true, vertical: false)
                 VStack(alignment: .leading, spacing: 6) { linkButtons }
             }
             if model.openingFailed {
@@ -50,6 +51,7 @@ struct BrandLinksView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -85,7 +87,8 @@ private struct BrandLinkButton: NSViewRepresentable {
         let button = NSButton(title: link.label, target: context.coordinator, action: #selector(Coordinator.activate))
         button.bezelStyle = .inline
         button.isBordered = false
-        button.image = BrandIcon.image(for: link.label == "GitHub" ? .github : .x)
+        let icon: BrandIcon.Kind = link.label == "GitHub" ? .github : link.label.hasPrefix("Telegram") ? .telegram : .x
+        button.image = BrandIcon.image(for: icon)
         button.imagePosition = .imageLeading
         button.imageHugsTitle = true
         button.toolTip = "Opens in your default browser"
@@ -98,6 +101,14 @@ private struct BrandLinkButton: NSViewRepresentable {
         context.coordinator.activateHandler = activate
     }
 
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView button: NSButton,
+        context: Context
+    ) -> CGSize? {
+        button.fittingSize
+    }
+
     final class Coordinator: NSObject {
         var activateHandler: () -> Void
         init(activate: @escaping () -> Void) { self.activateHandler = activate }
@@ -106,12 +117,16 @@ private struct BrandLinkButton: NSViewRepresentable {
 }
 
 private enum BrandIcon {
-    enum Kind { case x, github }
+    enum Kind { case x, github, telegram }
 
     static func image(for kind: Kind) -> NSImage {
         NSImage(size: NSSize(width: 15, height: 15), flipped: true) { _ in
             NSColor.labelColor.setFill()
-            let path = kind == .x ? xPath : githubPath
+            let path = switch kind {
+            case .x: xPath
+            case .github: githubPath
+            case .telegram: telegramPath
+            }
             path.fill()
             return true
         }
@@ -133,6 +148,20 @@ private enum BrandIcon {
         path.move(to: NSPoint(x: 9, y: 3)); path.line(to: NSPoint(x: 12, y: 1))
         path.line(to: NSPoint(x: 12.5, y: 6)); path.close()
         path.appendRect(NSRect(x: 5.5, y: 11, width: 4, height: 4))
+        return path
+    }
+
+    private static var telegramPath: NSBezierPath {
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: 1, y: 7.2))
+        path.line(to: NSPoint(x: 14, y: 1.5))
+        path.line(to: NSPoint(x: 11.8, y: 13.7))
+        path.line(to: NSPoint(x: 7.8, y: 10.8))
+        path.line(to: NSPoint(x: 5.8, y: 12.7))
+        path.line(to: NSPoint(x: 6.1, y: 9.5))
+        path.line(to: NSPoint(x: 11.8, y: 4.3))
+        path.line(to: NSPoint(x: 4.7, y: 8.8))
+        path.close()
         return path
     }
 }

@@ -6,6 +6,7 @@ import Observation
 @Observable
 final class AppModel {
     private enum DefaultsKey {
+        static let refreshIntervalSeconds = "refreshIntervalSeconds"
         static let showFloatingStrip = "showFloatingStrip"
         static let notificationsEnabled = "notificationsEnabled"
         static let monthlyBudget = "monthlyBudget"
@@ -31,9 +32,13 @@ final class AppModel {
     private let signInPollAttempts: Int
     private let signInPollInterval: Duration
     private let signInSleep: @Sendable (Duration) async throws -> Void
+    private let refreshSleep: @Sendable (Duration) async throws -> Void
     private let isDemoMode: Bool
     private var thresholdEvaluator: ThresholdEvaluator
     private var refreshLoop: Task<Void, Never>?
+    private var refreshWait: Task<Void, Never>?
+    private var refreshRunID: UUID?
+    private var refreshWaitID: UUID?
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
     private var signInTokens: [UsageProvider: UUID] = [:]
     private var providersRequiringAction: Set<UsageProvider> = []
@@ -42,7 +47,7 @@ final class AppModel {
 
     let deepSeekWebSession: DeepSeekWebSession
 
-    private(set) var snapshots: [UsageSnapshot] = []
+    private(set) var snapshots: [UsageSnapshot] = [.geminiUnavailable]
     private(set) var isRefreshing = false
     private(set) var refreshingProviders: Set<UsageProvider> = []
     private(set) var lastUpdatedAt: Date?
@@ -51,6 +56,7 @@ final class AppModel {
         .claude: .checking(provider: .claude),
         .codex: .checking(provider: .codex),
         .deepSeek: .checking(provider: .deepSeek),
+        .gemini: .geminiUnavailable,
     ]
     private(set) var isReplacingDeepSeekAPIKey = false
     private(set) var launchAtLoginEnabled = false
@@ -61,6 +67,8 @@ final class AppModel {
     private(set) var floatingStripDisplays: FloatingStripDisplays
     private(set) var availableStripDisplays: [FloatingStripDisplayChoice] = []
     private(set) var stripPreferences: FloatingStripPreferences
+
+    private(set) var refreshIntervalSeconds: Int
 
     var showFloatingStrip: Bool
     var notificationsEnabled: Bool
@@ -89,11 +97,16 @@ final class AppModel {
         deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
         signInPollAttempts: Int = 40,
         signInPollInterval: Duration = .seconds(3),
+        refreshSleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         signInSleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
             try await Task.sleep(for: duration)
         }
     ) {
         self.defaults = defaults
+        let storedInterval = defaults.object(forKey: DefaultsKey.refreshIntervalSeconds) as? NSNumber
+        let storedSeconds = storedInterval?.doubleValue ?? 300
+        self.refreshIntervalSeconds = storedSeconds.isFinite && storedSeconds.rounded() == storedSeconds
+            && (30...86400).contains(storedSeconds) ? Int(storedSeconds) : 300
         self.secretStore = secretStore
         self.launchAtLoginService = launchAtLoginService
         self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
@@ -131,6 +144,7 @@ final class AppModel {
         self.signInPollAttempts = max(signInPollAttempts, 1)
         self.signInPollInterval = signInPollInterval
         self.signInSleep = signInSleep
+        self.refreshSleep = refreshSleep
         self.isDemoMode = isDemoMode
             ?? (ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1")
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
@@ -164,7 +178,7 @@ final class AppModel {
         let coordinator = RefreshCoordinator(
             collectors: self.isDemoMode
                 ? []
-                : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore)],
+                : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore), GeminiCollector()],
             cache: SnapshotCache(directoryURL: cacheDirectory)
         )
         self.coordinator = coordinator
@@ -183,13 +197,28 @@ final class AppModel {
 
     var isRunningDemoMode: Bool { isDemoMode }
 
+    @discardableResult
+    func setRefreshInterval(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.utf8.allSatisfy({ (48...57).contains($0) }),
+              let seconds = Int(trimmed), (30...86400).contains(seconds) else { return false }
+        guard seconds != refreshIntervalSeconds else { return true }
+        refreshIntervalSeconds = seconds
+        defaults.set(seconds, forKey: DefaultsKey.refreshIntervalSeconds)
+        // Only the sleeping timer is replaceable; never cancel an active collection.
+        if let runID = refreshRunID, refreshWait != nil {
+            scheduleAutomaticRefresh(runID: runID)
+        }
+        return true
+    }
+
     func start() {
-        guard refreshLoop == nil else { return }
+        guard refreshRunID == nil else { return }
         deepSeekWebSession.onHistoryChange = { [weak self] history in
             self?.attachDeepSeekHistory(history)
         }
         if isDemoMode {
-            snapshots = Self.demoSnapshots
+            snapshots = Self.demoSnapshots + [.geminiUnavailable]
             setDemoServiceAccounts()
             lastUpdatedAt = Date()
             publishWidgetSnapshot()
@@ -198,22 +227,45 @@ final class AppModel {
         if notificationsEnabled {
             notificationPermissionHandler?()
         }
+        let runID = UUID()
+        refreshRunID = runID
+        beginAutomaticRefresh(runID: runID, checkAccounts: true)
+    }
+
+    private func beginAutomaticRefresh(runID: UUID, checkAccounts: Bool = false) {
         refreshLoop = Task { [weak self] in
-            guard let self else { return }
-            await refreshServiceAccounts()
+            guard let self, self.refreshRunID == runID else { return }
+            if checkAccounts { await refreshServiceAccounts() }
+            guard !Task.isCancelled, refreshRunID == runID else { return }
             await refresh(manual: false)
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(for: .seconds(300))
-                } catch {
-                    return
-                }
-                await refresh(manual: false)
-            }
+            guard !Task.isCancelled, refreshRunID == runID else { return }
+            refreshLoop = nil
+            scheduleAutomaticRefresh(runID: runID)
+        }
+    }
+
+    private func scheduleAutomaticRefresh(runID: UUID) {
+        refreshWait?.cancel()
+        let waitID = UUID()
+        refreshWaitID = waitID
+        let interval = Duration.seconds(refreshIntervalSeconds)
+        refreshWait = Task { [weak self] in
+            guard let self else { return }
+            do { try await refreshSleep(interval) } catch { return }
+            // Cancellation may arrive after a clock has completed, or a clock may
+            // ignore cancellation. Both identities must still belong to this wait.
+            guard !Task.isCancelled, refreshRunID == runID, refreshWaitID == waitID else { return }
+            refreshWait = nil
+            refreshWaitID = nil
+            beginAutomaticRefresh(runID: runID)
         }
     }
 
     func stop() {
+        refreshRunID = nil
+        refreshWaitID = nil
+        refreshWait?.cancel()
+        refreshWait = nil
         refreshLoop?.cancel()
         refreshLoop = nil
         signInTasks.values.forEach { $0.cancel() }
@@ -223,7 +275,7 @@ final class AppModel {
 
     func refresh(manual: Bool = true) async {
         if isDemoMode {
-            snapshots = Self.demoSnapshots
+            snapshots = Self.demoSnapshots + [.geminiUnavailable]
             lastUpdatedAt = Date()
             publishWidgetSnapshot()
             return
@@ -245,6 +297,8 @@ final class AppModel {
         providersRequiringAction = await coordinator.providersRequiringAction()
         updateAPIKeyConfiguration(from: collected)
         snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
+        if !snapshots.contains(where: { $0.provider == .gemini }) { snapshots.append(.geminiUnavailable) }
+        updateGeminiAccountStatus()
         lastUpdatedAt = Date()
         publishWidgetSnapshot()
 
@@ -254,6 +308,14 @@ final class AppModel {
         if !events.isEmpty {
             notificationHandler?(events)
         }
+    }
+
+    private func updateGeminiAccountStatus() {
+        guard let snapshot = snapshots.first(where: { $0.provider == .gemini }), snapshot != .geminiUnavailable else {
+            serviceAccounts[.gemini] = .geminiUnavailable
+            return
+        }
+        serviceAccounts[.gemini] = .fromGeminiSnapshot(snapshot)
     }
 
     private func setProviderRefreshing(_ provider: UsageProvider, active: Bool) {
@@ -423,9 +485,10 @@ final class AppModel {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
-        for status in statuses {
+        for status in statuses where status.provider != .gemini {
             serviceAccounts[status.provider] = status
         }
+        updateGeminiAccountStatus()
         for provider in UsageProvider.allCases where serviceAccounts[provider]?.connectionState == .checking {
             serviceAccounts[provider] = ServiceAccountStatus(
                 provider: provider,
@@ -437,6 +500,12 @@ final class AppModel {
 
     @discardableResult
     func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
+        if provider == .gemini {
+            await coordinator.clearAuthenticationBackoff(for: .gemini)
+            await refresh()
+            updateGeminiAccountStatus()
+            return serviceAccounts[.gemini] ?? .geminiUnavailable
+        }
         guard signInTokens[provider] == nil, !isRefreshingServiceAccounts else {
             return serviceAccounts[provider] ?? .checking(provider: provider)
         }
@@ -470,7 +539,7 @@ final class AppModel {
 
     @discardableResult
     func beginCLIInstallation(_ provider: UsageProvider) -> Task<Void, Never>? {
-        guard provider != .deepSeek, signInTokens[provider] == nil else { return nil }
+        guard provider == .claude || provider == .codex, signInTokens[provider] == nil else { return nil }
         let token = UUID()
         signInTokens[provider] = token
         settingsMessageKind = authenticationMessageKind(for: provider)
@@ -692,6 +761,7 @@ final class AppModel {
                 connectionState: .connected,
                 accountLabel: "API Key ••••DEMO"
             ),
+            .gemini: .geminiUnavailable,
         ]
         apiKeyConfigured = true
     }

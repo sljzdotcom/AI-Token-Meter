@@ -36,6 +36,8 @@ extension UsageProvider {
             .init(startHex: 0xFF6FAE, endHex: 0xA96DFF)
         case .deepSeek:
             .init(startHex: 0x54EDC6, endHex: 0x7769FF)
+        case .gemini:
+            .init(startHex: 0x3ED6B2, endHex: 0x3ED6B2)
         }
     }
 }

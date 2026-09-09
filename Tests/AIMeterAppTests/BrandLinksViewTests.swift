@@ -21,14 +21,36 @@ struct BrandLinksViewTests {
 
         let buttons = try #require(await renderedViews(in: host) {
             let buttons = $0.compactMap { $0 as? NSButton }
-            return buttons.count == 2 ? buttons : nil
+            return buttons.count == 3 ? buttons : nil
         })
-        #expect(buttons.map(\.title) == ["@MillerPanYue", "GitHub"])
+        #expect(buttons.map(\.title) == ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"])
         #expect(buttons.allSatisfy { $0.image?.size == NSSize(width: 15, height: 15) })
+        #expect(buttons.map { $0.accessibilityLabel() } == ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"])
+        #expect(buttons.allSatisfy { $0.accessibilityHelp() == "Opens in your default browser" })
 
-        try #require(buttons.first).performClick(nil)
+        try #require(buttons.last).performClick(nil)
 
-        #expect(opened?.absoluteString == "https://twitter.com/MillerPanYue")
+        #expect(opened?.absoluteString == "https://t.me/sljzdotcom")
+    }
+
+    @MainActor
+    @Test("A narrow host renders all three buttons without clipping")
+    func narrowHostKeepsAllButtonsVisible() async throws {
+        let model = BrandLinksModel(action: BrandLinkOpenAction { _ in true })
+        let host = NSHostingView(
+            rootView: BrandLinksView(model: model)
+                .frame(width: 180, alignment: .leading)
+        )
+        let window = hostInWindow(host, width: 180, height: 100)
+        #expect(window.contentView === host)
+
+        let buttons = try #require(await renderedViews(in: host) { views in
+            let buttons = views.compactMap { $0 as? NSButton }
+            return buttons.count == 3 ? buttons : nil
+        })
+        let frames = buttons.map { $0.convert($0.bounds, to: host) }
+        #expect(frames.allSatisfy { host.bounds.contains($0) })
+        #expect(Set(frames.map { Int($0.minY.rounded()) }).count == 3)
     }
 
     @MainActor
@@ -67,8 +89,8 @@ private func viewDescendants(of view: NSView) -> [NSView] {
 }
 
 @MainActor
-private func hostInWindow<Content: View>(_ host: NSHostingView<Content>, height: CGFloat) -> NSWindow {
-    let frame = NSRect(x: 0, y: 0, width: 320, height: height)
+private func hostInWindow<Content: View>(_ host: NSHostingView<Content>, width: CGFloat = 320, height: CGFloat) -> NSWindow {
+    let frame = NSRect(x: 0, y: 0, width: width, height: height)
     let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
     host.frame = frame
     window.contentView = host

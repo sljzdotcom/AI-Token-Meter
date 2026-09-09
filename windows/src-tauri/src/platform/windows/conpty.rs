@@ -26,6 +26,8 @@ pub struct ConPty {
     input_write: windows_sys::Win32::Foundation::HANDLE,
     #[cfg(windows)]
     output_read: windows_sys::Win32::Foundation::HANDLE,
+    #[cfg(windows)]
+    cursor_query_tail: Vec<u8>,
 }
 
 #[cfg(any(windows, test))]
@@ -102,6 +104,66 @@ impl ConPty {
         }
     }
 
+    /// Nonblocking bounded drain, used while a fixed-input state machine types commands.
+    pub fn read_available(&mut self) -> Result<Vec<u8>, ConPtyError> {
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::{Storage::FileSystem::ReadFile, System::Pipes::PeekNamedPipe};
+            let mut available = 0;
+            if unsafe {
+                PeekNamedPipe(
+                    self.output_read,
+                    std::ptr::null_mut(),
+                    0,
+                    std::ptr::null_mut(),
+                    &mut available,
+                    std::ptr::null_mut(),
+                )
+            } == 0
+            {
+                if unsafe { windows_sys::Win32::Foundation::GetLastError() }
+                    == windows_sys::Win32::Foundation::ERROR_BROKEN_PIPE
+                {
+                    return Ok(Vec::new());
+                }
+                return Err(ConPtyError::ReadFailed);
+            }
+            if available == 0 {
+                return Ok(Vec::new());
+            }
+            let mut bytes = vec![0; available.min(4096) as usize];
+            let mut count = 0;
+            if unsafe {
+                ReadFile(
+                    self.output_read,
+                    bytes.as_mut_ptr().cast(),
+                    bytes.len() as u32,
+                    &mut count,
+                    std::ptr::null_mut(),
+                )
+            } == 0
+            {
+                return Err(ConPtyError::ReadFailed);
+            }
+            bytes.truncate(count as usize);
+            self.cursor_query_tail.extend_from_slice(&bytes);
+            let queries = count_subsequence(&self.cursor_query_tail, CURSOR_POSITION_QUERY);
+            for _ in 0..queries {
+                self.write_all_windows(DEFAULT_CURSOR_POSITION)?;
+            }
+            let keep = self
+                .cursor_query_tail
+                .len()
+                .saturating_sub(CURSOR_POSITION_QUERY.len() - 1);
+            self.cursor_query_tail.drain(..keep);
+            Ok(bytes)
+        }
+        #[cfg(not(windows))]
+        {
+            Err(ConPtyError::UnsupportedPlatform)
+        }
+    }
+
     pub fn read_until(
         &mut self,
         patterns: &[&str],
@@ -143,6 +205,25 @@ pub struct ConPtyChild {
 }
 
 impl ConPtyChild {
+    /// Poll without terminating a still-running process; used while draining its PTY.
+    pub fn has_exited(&self) -> Result<bool, ConPtyError> {
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::{
+                Foundation::{WAIT_OBJECT_0, WAIT_TIMEOUT},
+                System::Threading::WaitForSingleObject,
+            };
+            match unsafe { WaitForSingleObject(self.process, 0) } {
+                WAIT_OBJECT_0 => Ok(true),
+                WAIT_TIMEOUT => Ok(false),
+                _ => Err(ConPtyError::ProcessControlFailed),
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            Err(ConPtyError::UnsupportedPlatform)
+        }
+    }
     pub fn wait(&mut self, timeout: std::time::Duration) -> Result<u32, ConPtyError> {
         #[cfg(windows)]
         {
@@ -570,6 +651,7 @@ fn open_windows(size: ConPtySize) -> Result<ConPty, ConPtyError> {
         handle,
         input_write,
         output_read,
+        cursor_query_tail: Vec::new(),
     })
 }
 

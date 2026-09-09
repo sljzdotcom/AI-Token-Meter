@@ -20,6 +20,7 @@ public struct ServiceAccountCoordinator: Sendable {
         case .claude: await claudeReader.read()
         case .codex: await codexReader.read()
         case .deepSeek: await deepSeekReader.read()
+        case .gemini: .geminiUnavailable
         }
     }
 
@@ -27,6 +28,6 @@ public struct ServiceAccountCoordinator: Sendable {
         async let claude = claudeReader.read()
         async let codex = codexReader.read()
         async let deepSeek = deepSeekReader.read()
-        return await [claude, codex, deepSeek]
+        return await [claude, codex, deepSeek, .geminiUnavailable]
     }
 }

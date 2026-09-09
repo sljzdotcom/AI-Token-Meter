@@ -12,7 +12,7 @@ struct CompactStripRenderingTests {
                 let view = ZStack {
                     FloatingStripSurface(edge: edge, density: density, providerCount: 3)
                     VStack(spacing: density.spacing) {
-                        ForEach(UsageProvider.allCases, id: \.self) { provider in
+                        ForEach([UsageProvider.claude, .codex, .deepSeek], id: \.self) { provider in
                             UsageRing(presentation: ProviderPresentation(snapshot: UsageSnapshot(
                                 provider: provider,
                                 primaryMetric: UsageMetric(label: "Usage", current: 25, limit: 100, unit: .percent),

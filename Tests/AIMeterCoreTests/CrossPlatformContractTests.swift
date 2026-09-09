@@ -19,7 +19,7 @@ struct CrossPlatformContractTests {
                 as? [String: Any]
         )
 
-        #expect(sharedVersion == "0.5.1")
+        #expect(sharedVersion == "0.6.0")
         #expect(sharedVersion == plist["CFBundleShortVersionString"] as? String)
 
         let packageData = try Data(
@@ -58,16 +58,16 @@ struct CrossPlatformContractTests {
         let contract = try JSONDecoder().decode(PresentationContract.self, from: data)
 
         #expect(contract.schemaVersion == 1)
-        #expect(contract.providers.map(\.id) == ["claude", "codex", "deepseek"])
+        #expect(contract.providers.map(\.id) == ["claude", "codex", "deepseek", "gemini"])
         #expect(
             contract.providers.map(\.displayName)
-                == ["Claude Code", "OpenAI Codex", "DeepSeek"]
+                == ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
         )
         #expect(
             contract.providers.map(\.progressSemantics)
-                == ["usedQuota", "usedQuota", "consumedFromBalanceBaseline"]
+                == ["usedQuota", "usedQuota", "consumedFromBalanceBaseline", "usedQuota"]
         )
-        #expect(Set(contract.providers.map(\.logoKey)).count == 3)
+        #expect(Set(contract.providers.map(\.logoKey)).count == 4)
     }
 
     @Test("Every fixture conforms to the stable snapshot envelope")
@@ -81,15 +81,25 @@ struct CrossPlatformContractTests {
             includingPropertiesForKeys: nil
         ).filter { $0.pathExtension == "json" }
 
-        #expect(fixtureURLs.count == 4)
+        #expect(fixtureURLs.count == 6)
         for fixtureURL in fixtureURLs {
             let fixture = try JSONDecoder().decode(
                 SnapshotFixture.self,
                 from: Data(contentsOf: fixtureURL)
             )
             #expect(fixture.schemaVersion == 1)
-            #expect(["claude", "codex", "deepseek"].contains(fixture.providerId))
+            #expect(["claude", "codex", "deepseek", "gemini"].contains(fixture.providerId))
             #expect(Self.allowedStatuses.contains(fixture.status))
+            if fixture.providerId == "gemini", fixture.status == "unavailable" {
+                #expect(fixture.status == "unavailable")
+                #expect(fixture.usedRatio == nil)
+            }
+            if fixture.providerId == "gemini", fixture.status == "fresh" {
+                #expect(fixture.usedRatio == 0.6)
+                #expect(fixture.geminiQuotaMetrics?.map(\.label) == ["Pro", "Flash"])
+                #expect(fixture.geminiQuotaMetrics?.map(\.current) == [25, 60])
+                #expect(fixture.geminiQuotaMetrics?.allSatisfy { $0.limit == 100 && $0.unit == "percent" && $0.kind == "officialLimit" } == true)
+            }
             if let usedRatio = fixture.usedRatio {
                 #expect(usedRatio >= 0 && usedRatio <= 1)
             }
@@ -115,6 +125,14 @@ struct CrossPlatformContractTests {
         let status: String
         let usedRatio: Double?
         let fetchedAt: String
+        let geminiQuotaMetrics: [Metric]?
+        struct Metric: Decodable {
+            let label: String
+            let current: Double
+            let limit: Double?
+            let unit: String
+            let kind: String
+        }
     }
 
     private static let allowedStatuses: Set<String> = [

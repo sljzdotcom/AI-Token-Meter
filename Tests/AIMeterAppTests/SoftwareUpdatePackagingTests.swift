@@ -7,8 +7,8 @@ struct SoftwareUpdatePackagingTests {
     func updateMetadata() throws {
         let plist = try loadInfoPlist()
 
-        #expect(plist["CFBundleShortVersionString"] as? String == "0.5.1")
-        #expect(plist["CFBundleVersion"] as? String == "14")
+        #expect(plist["CFBundleShortVersionString"] as? String == "0.6.0")
+        #expect(plist["CFBundleVersion"] as? String == "15")
         #expect(
             plist["SUFeedURL"] as? String
                 == "https://raw.githubusercontent.com/sljzdotcom/AI-Token-Meter/main/appcast.xml"
@@ -28,8 +28,8 @@ struct SoftwareUpdatePackagingTests {
                 as? [String: Any]
         )
 
-        #expect(plist["CFBundleShortVersionString"] as? String == "0.5.1")
-        #expect(plist["CFBundleVersion"] as? String == "14")
+        #expect(plist["CFBundleShortVersionString"] as? String == "0.6.0")
+        #expect(plist["CFBundleVersion"] as? String == "15")
     }
 
     @Test("Build embeds and explicitly signs Sparkle before the host app")
@@ -89,6 +89,18 @@ struct SoftwareUpdatePackagingTests {
         #expect(source.contains("KEY_ACCOUNT=\"com.millerpan.AIMeter\""))
         #expect(source.contains("--account \"$KEY_ACCOUNT\""))
         #expect(source.contains("releases/download/v${VERSION}/"))
+    }
+
+    @Test("Cross-platform drafts publish the checked-in versioned release notes")
+    func crossPlatformReleaseNotesContract() throws {
+        let source = try String(
+            contentsOf: Self.projectRoot.appending(path: "scripts/package-cross-platform-release.sh"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("RELEASE_NOTES=\"$PROJECT_DIR/docs/releases/v$VERSION.md\""))
+        #expect(source.contains("--notes-file \"$RELEASE_NOTES\""))
+        #expect(!source.contains("--generate-notes"))
     }
 
     @Test("Archive verifier accepts the signed release and rejects a tampered copy")

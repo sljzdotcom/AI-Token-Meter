@@ -5,6 +5,38 @@ import Testing
 
 @Suite("Floating strip drag region")
 struct FloatingStripDragShapeTests {
+    @Test func fourthProviderHasCompleteClickRegionOnBothEdges() {
+        for (density, height, lastCenter) in [(FloatingStripDensity.compact, 344.0, 259.0), (.comfortable, 428.0, 322.0)] {
+            let rect = CGRect(x: 0, y: 0, width: density.width, height: height)
+            for edge in [FloatingStripEdge.left, .right] {
+                let shape = FloatingStripShape(edge: edge, density: density, providerCount: 4).path(in: rect)
+                let drag = FloatingStripDragShape(edge: edge, density: density, providerCount: 4).path(in: rect)
+                for x in [rect.midX - density.ringSize / 2 + 1, rect.midX, rect.midX + density.ringSize / 2 - 1] {
+                    for y in [lastCenter - density.ringSize / 2 + 1, lastCenter, lastCenter + density.ringSize / 2 - 1] {
+                        #expect(shape.contains(CGPoint(x: x, y: y)))
+                        #expect(!drag.contains(CGPoint(x: x, y: y), eoFill: true))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Undecorated top stays draggable while every Provider remains click-only")
+    func topAndProviderHitRegionsAcrossDensitiesAndEdges() {
+        for density in FloatingStripDensity.allCases {
+            let rect = CGRect(x: 0, y: 0, width: density.width, height: density.baseHeight)
+            for edge in [FloatingStripEdge.left, .right] {
+                let path = FloatingStripDragShape(edge: edge, density: density).path(in: rect)
+                let centerX = density.width / 2
+                #expect(path.contains(CGPoint(x: centerX, y: density == .compact ? 36 : 44), eoFill: true))
+                let centers = density == .compact ? [85.0, 143.0, 201.0] : [106.0, 178.0, 250.0]
+                for y in centers {
+                    #expect(!path.contains(CGPoint(x: centerX, y: y), eoFill: true))
+                }
+                #expect(path.contains(CGPoint(x: centerX, y: density == .compact ? 114 : 142), eoFill: true))
+            }
+        }
+    }
     @Test("Compact hit testing excludes every visible ring after provider removal")
     func compactHitRegions() {
         let rect = CGRect(x: 0, y: 0, width: 78, height: 228)

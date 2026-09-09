@@ -19,6 +19,7 @@ extension UsageProvider {
         case .claude: "sparkles"
         case .codex: "terminal"
         case .deepSeek: "wave.3.right.circle"
+        case .gemini: "sparkle"
         }
     }
 }

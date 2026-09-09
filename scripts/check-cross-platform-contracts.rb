@@ -126,8 +126,17 @@ if cross_platform_release_path.file?
   errors << "Cross-platform release entry must create a draft" unless release_script.include?("gh release create") && release_script.include?("--draft")
   errors << "Cross-platform release entry must dispatch the tagged workflow" unless release_script.include?("gh workflow run release.yml") && release_script.include?('--ref "v$VERSION"')
   errors << "Preview packaging must not modify the stable appcast" unless release_script.include?("AI_METER_RELEASE_CHANNEL") && release_script.include?("preview-appcast.xml")
-  unless release_script.include?("SmartScreen") && release_script.include?("unknown publisher")
-    errors << "Windows Preview release notes must explain the SmartScreen unknown-publisher warning"
+  unless release_script.include?('docs/releases/v$VERSION.md') && release_script.include?("--notes-file")
+    errors << "Cross-platform releases must publish the checked-in versioned release notes"
+  end
+  current_release_notes_path = root + "docs/releases/v#{shared_version}.md"
+  if current_release_notes_path.file?
+    current_release_notes = current_release_notes_path.read
+    unless current_release_notes.include?("SmartScreen") && current_release_notes.include?("unknown publisher")
+      errors << "Current release notes must explain the SmartScreen unknown-publisher warning"
+    end
+  else
+    errors << "Current versioned release notes are missing"
   end
   errors << "Stable appcast must not be pushed before the GitHub assets are public" if release_script.include?("git add appcast.xml")
   errors << "Cross-platform release entry must be executable" unless git_tracks_executable?(root, cross_platform_release_path)
@@ -156,18 +165,25 @@ end
 
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
-expected_providers = %w[claude codex deepseek]
-expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek"]
+expected_providers = %w[claude codex deepseek gemini]
+expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
 expected_identity = expected_providers.zip(expected_names).to_h
 allowed_statuses = %w[
   fresh cached refreshing notInstalled authenticationRequired setupRequired unavailable unrecognizedOutput
 ]
 
 if schema
+  gemini_metric = schema.dig("$defs", "geminiQuotaMetric")
+  unless gemini_metric.is_a?(Hash) && gemini_metric["type"] == "object" &&
+      (%w[label current limit unit kind] - Array(gemini_metric["required"])).empty?
+    errors << "Gemini metric schema must require a non-null object with limit and source fields"
+  end
   schema_statuses = schema.dig("properties", "status", "enum")
   errors << "Snapshot schema status enum is incomplete" unless schema_statuses == allowed_statuses
   schema_providers = schema.dig("properties", "providerId", "enum")
   errors << "Snapshot schema provider enum is incomplete" unless schema_providers == expected_providers
+  schema_names = schema.dig("properties", "displayName", "enum")
+  errors << "Snapshot schema displayName enum is incomplete" unless schema_names == expected_names
 end
 
 if presentation
@@ -177,7 +193,7 @@ if presentation
   else
     errors << "Provider order or IDs changed" unless providers.map { |item| item["id"] } == expected_providers
     errors << "Provider display names changed" unless providers.map { |item| item["displayName"] } == expected_names
-    errors << "Provider logo keys must be unique" unless providers.map { |item| item["logoKey"] }.uniq.length == 3
+    errors << "Provider logo keys must be unique" unless providers.map { |item| item["logoKey"] }.uniq.length == expected_providers.length
     deepseek = providers.find { |item| item["id"] == "deepseek" }
     unless deepseek && deepseek["progressSemantics"] == "consumedFromBalanceBaseline"
       errors << "DeepSeek must use consumed-from-balance progress semantics"
@@ -186,7 +202,8 @@ if presentation
 end
 
 fixture_paths = (root + "contracts/fixtures").glob("*.json").sort
-errors << "Expected exactly four shared snapshot fixtures" unless fixture_paths.length == 4
+errors << "Expected exactly six shared snapshot fixtures" unless fixture_paths.length == 6
+errors << "Missing Gemini unavailable fixture" unless fixture_paths.any? { |path| path.basename.to_s == "gemini-unavailable.json" }
 fixture_paths.each do |path|
   fixture = read_json(path, errors)
   next unless fixture
@@ -196,7 +213,33 @@ fixture_paths.each do |path|
   unless expected_identity[fixture["providerId"]] == fixture["displayName"]
     errors << "#{path.basename}: displayName does not match providerId"
   end
+  unless Array(schema&.dig("properties", "displayName", "enum")).include?(fixture["displayName"])
+    errors << "#{path.basename}: displayName is rejected by snapshot schema"
+  end
   errors << "#{path.basename}: invalid status" unless allowed_statuses.include?(fixture["status"])
+  if path.basename.to_s == "gemini-unavailable.json" &&
+      !(fixture["providerId"] == "gemini" && fixture["status"] == "unavailable" &&
+        fixture["usedRatio"].nil? && fixture["primaryMetric"].nil? && fixture["secondaryMetric"].nil?)
+    errors << "Gemini unavailable fixture must not invent quota"
+  end
+  tiers = fixture["geminiQuotaMetrics"]
+  if tiers
+    valid = fixture["providerId"] == "gemini" && tiers.is_a?(Array) && tiers.length <= 3 && tiers.all? { |item| item.is_a?(Hash) }
+    valid &&= tiers.map { |item| item["label"] }.uniq.length == tiers.length
+    valid &&= tiers.all? do |item|
+      current = item["current"]
+      Array(schema&.dig("$defs", "geminiQuotaMetric", "properties", "label", "enum")).include?(item["label"]) &&
+        current.is_a?(Numeric) && current.finite? && current == current.to_i && current.between?(0, 100) &&
+        item["limit"] == 100 && item["unit"] == "percent" && item["kind"] == "officialLimit" && item["resetAt"].nil?
+    end
+    errors << "#{path.basename}: invalid Gemini quota tier" unless valid
+  end
+  if path.basename.to_s == "gemini-fresh.json"
+    unless tiers&.map { |item| [item["label"], item["current"]] } == [["Pro", 25], ["Flash", 60]] &&
+        fixture.dig("primaryMetric", "label") == "Flash" && fixture["usedRatio"] == 0.6
+      errors << "Gemini fresh fixture must preserve the official synthetic transcript tiers"
+    end
+  end
   ratio = fixture["usedRatio"]
   unless ratio.nil? || (ratio.is_a?(Numeric) && ratio.finite? && ratio.between?(0, 1))
     errors << "#{path.basename}: usedRatio must be null or between 0 and 1"

@@ -54,6 +54,7 @@ extension UsageSnapshot {
             codexResetCredits: codexResetCredits?.privacySanitized(),
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity?.privacySanitized(),
+            geminiQuotaMetrics: geminiQuotaMetrics?.map { $0.privacySanitized() },
             deepSeekUsageHistory: deepSeekUsageHistory?.privacySanitized()
         )
     }

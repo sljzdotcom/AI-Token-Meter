@@ -94,11 +94,6 @@ struct FloatingStripView: View {
             }
             .padding(.vertical, FloatingStripContentLayout.verticalPadding)
             .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
-            VStack {
-                Capsule().fill(.white.opacity(0.16)).frame(width: 18, height: 3)
-                    .padding(.top, density == .compact ? 35 : 43)
-                Spacer()
-            }.allowsHitTesting(false).accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -153,6 +148,11 @@ struct FloatingDetailView: View {
                         isDemoMode: model.isRunningDemoMode,
                         onInteractionChange: onInteractionChange
                     )
+                } else if provider == .gemini {
+                    GeminiDetailView(snapshot: snapshot) {
+                        Task { await model.checkServiceAccount(.gemini) }
+                    }
+                    .onHover(perform: onInteractionChange)
                 } else if provider == .codex {
                     CodexDetailView(snapshot: snapshot)
                         .onHover(perform: onInteractionChange)

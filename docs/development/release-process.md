@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前稳定通道版本为 `0.5.1`、macOS build `14`，tag 为 `v0.5.1`；macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。稳定 appcast、Windows stable latest.json 与旧 Windows Preview feed 同步推进，避免旧机器无法发现更新。公开资产与签名验证见[本版发布记录](2026-09-08-v0.5.1-release.md)。真机验收和代码签名证书状态继续独立记录，不因稳定通道发布而自动变为完成。
+当前发布候选为 `0.6.0`、macOS build `15`，目标 tag 为 `v0.6.0`；macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。稳定 appcast、Windows stable latest.json 与旧 Windows Preview feed 同步推进，避免旧机器无法发现更新。发布证据将记录在[本版发布记录](2026-09-08-v0.6.0-release.md)。真机验收和代码签名证书状态继续独立记录，不因稳定通道发布而自动变为完成。
 
 ## 发布前检查清单
 
@@ -102,7 +102,7 @@ Sparkle 固定为 `2.9.4`。生产私钥只保存在维护者 macOS Keychain 的
 
 ```bash
 SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
-scripts/package-update-release.sh 0.5.1 14
+scripts/package-update-release.sh 0.6.0 15
 ```
 
 入口按固定顺序执行：完整测试与文档门禁 → 公开安全扫描 → Release 构建 → Sparkle Bundle 验证 → 最终 ZIP → SHA-256 → 官方工具生成 appcast → 独立 enclosure/EdDSA/篡改验证。ZIP 一旦用于生成 appcast 就不得重建；任何字节变化都必须重新生成 enclosure。

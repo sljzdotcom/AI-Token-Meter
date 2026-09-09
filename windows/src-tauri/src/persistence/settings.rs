@@ -31,7 +31,10 @@ pub struct AppSettings {
     pub locale: Locale,
     #[serde(default, deserialize_with = "deserialize_displays")]
     pub displays: Option<crate::platform::windows::monitor::DisplayPreferences>,
-    #[serde(default, deserialize_with = "deserialize_strip_preferences")]
+    #[serde(
+        default = "legacy_strip_preferences",
+        deserialize_with = "deserialize_strip_preferences"
+    )]
     pub strip_preferences: crate::platform::windows::strip_preferences::StripPreferences,
     pub edge: MeterEdge,
     #[serde(default = "default_meter_vertical_per_mille")]
@@ -54,12 +57,18 @@ pub struct AppSettings {
     pub codex_cli: ProviderCliSettings,
 }
 
+fn legacy_strip_preferences() -> crate::platform::windows::strip_preferences::StripPreferences {
+    let mut value = crate::platform::windows::strip_preferences::StripPreferences::default();
+    value.hidden_providers.push("gemini".into());
+    value
+}
+
 fn deserialize_strip_preferences<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<crate::platform::windows::strip_preferences::StripPreferences, D::Error> {
     let value = serde_json::Value::deserialize(deserializer)?;
     let mut preferences: crate::platform::windows::strip_preferences::StripPreferences =
-        serde_json::from_value(value).unwrap_or_default();
+        serde_json::from_value(value).unwrap_or_else(|_| legacy_strip_preferences());
     preferences.normalize();
     Ok(preferences)
 }
@@ -146,7 +155,7 @@ impl AppSettings {
         match provider {
             crate::domain::ProviderId::Claude => Some(&self.claude_cli),
             crate::domain::ProviderId::Codex => Some(&self.codex_cli),
-            crate::domain::ProviderId::DeepSeek => None,
+            crate::domain::ProviderId::DeepSeek | crate::domain::ProviderId::Gemini => None,
         }
     }
 
@@ -160,6 +169,9 @@ impl AppSettings {
             crate::domain::ProviderId::Claude => self.claude_cli = value,
             crate::domain::ProviderId::Codex => self.codex_cli = value,
             crate::domain::ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI"),
+            crate::domain::ProviderId::Gemini => {
+                return Err("Gemini CLI integration is currently unavailable");
+            }
         }
         Ok(())
     }

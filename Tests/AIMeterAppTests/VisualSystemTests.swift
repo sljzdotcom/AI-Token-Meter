@@ -219,7 +219,7 @@ struct VisualSystemTests {
             UsageProvider.deepSeek.accentPalette
                 == .init(startHex: 0x54EDC6, endHex: 0x7769FF)
         )
-        #expect(Set(UsageProvider.allCases.map(\.accentPalette)).count == 3)
+        #expect(Set(UsageProvider.allCases.map(\.accentPalette)).count == 4)
     }
 
     @Test("DeepSeek always keeps its balance palette while other providers use semantic overrides")
@@ -248,7 +248,7 @@ struct VisualSystemTests {
         let normalColors = try UsageProvider.allCases.map {
             try progressBarPixel(provider: $0, semantic: .normal)
         }
-        #expect(Set(normalColors).count == 3)
+        #expect(Set(normalColors).count == 4)
 
         let claudeWarning = try progressBarPixel(provider: .claude, semantic: .warning)
         let codexWarning = try progressBarPixel(provider: .codex, semantic: .warning)

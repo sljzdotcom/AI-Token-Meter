@@ -1,0 +1,251 @@
+[8m[?u]11;?\[>q[>4;?m[c[2K[0m]0;◇  Ready (workspace)                                                            [?25l
+[38;5;244m╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m ⠋ Waiting for authentication... (Press Esc or Ctrl+C to cancel)                                                                          [38;5;244m│[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯[39m
+[?25l[?1006l[?1002l[?1004h]0;◇  Ready (workspace)                                                            [?2004h[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+                                                                                                                            [38;5;248m? for shortcuts[39m
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                                          [38;5;248m1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> [7m[39m [27m[38;5;248m Type your message or @path/to/file[39m                                                                                                     [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[4A[4G[4B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+ [38;5;74m▝[38;5;110m▜[38;5;140m▄[38;5;139m [38;5;174m [39m   [1m[38;5;231mGemini CLI[22m[38;5;248m v0.58.0[39m
+ [38;5;74m [38;5;110m [38;5;140m▝[38;5;139m▜[38;5;174m▄[39m
+ [38;5;74m [38;5;110m▗[38;5;140m▟[38;5;139m▀[38;5;174m [39m   [1m[38;5;231mSigned in with Google[22m[38;5;248m /auth[39m
+ [38;5;74m▝[38;5;110m▀[38;5;140m  [38;5;139m [38;5;174m [39m  [1m[38;5;231mPlan:[22m Synthetic Free Tier[38;5;248m /upgrade[39m
+
+
+[38;5;231mTips for getting started:[39m
+[38;5;231m1. [38;5;248m/help[38;5;231m for more information[39m
+[38;5;231m2. Ask coding questions, edit code or run commands[39m
+[38;5;231m3. Be specific for the best results[39m
+
+[38;5;229m⚠ [39m [38;5;229mSecurity Warning: Skipping system policies from /Library/Application Support/GeminiCli/policies: Failed to access directory: Access to[39m
+   [38;5;229mthis API has been restricted. Use --allow-fs-read to manage permissions.[39m
+[?25l
+
+                                                                                                                            [38;5;248m? for shortcuts[39m
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> [7m[39m [27m[38;5;248m Type your message or @path/to/file[39m                                                                                                     [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[4A[4G[4B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> [38;5;231m/[7m[39m [27m                                                                                                                                       [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[4A[5G[4B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> [38;5;231m/[7m[39m [27m                                                                                                                                       [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;248mclear[39m            [38;5;248mClear the screen and start a new session[39m
+ [38;5;248mcompress[39m         [38;5;248mCompresses the context by replacing it with a summary[39m
+ [38;5;248mdirectory[39m        [38;5;248mManage workspace directories[39m
+ [38;5;248mfooter[39m           [38;5;248mConfigure which items appear in the footer (statusline)[39m
+ [38;5;248mquit[39m             [38;5;248mExit the cli[39m
+ [38;5;248mstats[39m            [38;5;248mCheck session stats. Usage: /stats [session|model|tools][39m
+ [38;5;248mtasks[39m            [38;5;248mToggle background tasks view[39m
+ [38;5;248mabout[39m            [38;5;248mShow version info[39m
+ [90m▼[39m
+ [90m(0/41)[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[14A[5G[14B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> [38;5;231m/[7m[39m [27m                                                                                                                                       [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mclear[39m            [38;5;194mClear the screen and start a new session[39m                                                                               [49m
+ [38;5;248mcompress[39m         [38;5;248mCompresses the context by replacing it with a summary[39m
+ [38;5;248mdirectory[39m        [38;5;248mManage workspace directories[39m
+ [38;5;248mfooter[39m           [38;5;248mConfigure which items appear in the footer (statusline)[39m
+ [38;5;248mquit[39m             [38;5;248mExit the cli[39m
+ [38;5;248mstats[39m            [38;5;248mCheck session stats. Usage: /stats [session|model|tools][39m
+ [38;5;248mtasks[39m            [38;5;248mToggle background tasks view[39m
+ [38;5;248mabout[39m            [38;5;248mShow version info[39m
+ [90m▼[39m
+ [90m(1/41)[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[14A[5G[14B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /m[7m[39m [27m                                                                                                                                      [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mclear[39m            [38;5;194mClear the screen and start a new session[39m                                                                               [49m
+ [38;5;248mcompress[39m         [38;5;248mCompresses the context by replacing it with a summary[39m
+ [38;5;248mdirectory[39m        [38;5;248mManage workspace directories[39m
+ [38;5;248mfooter[39m           [38;5;248mConfigure which items appear in the footer (statusline)[39m
+ [38;5;248mquit[39m             [38;5;248mExit the cli[39m
+ [38;5;248mstats[39m            [38;5;248mCheck session stats. Usage: /stats [session|model|tools][39m
+ [38;5;248mtasks[39m            [38;5;248mToggle background tasks view[39m
+ [38;5;248mabout[39m            [38;5;248mShow version info[39m
+ [90m▼[39m
+ [90m(1/41)[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[14A[6G[14B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /m[7m[39m [27m                                                                                                                                      [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmcp[39m              [38;5;194mManage configured Model Context Protocol (MCP) servers[39m                                                                 [49m
+ [38;5;248mmemory[39m           [38;5;248mCommands for interacting with memory[39m
+ [38;5;248mmodel[39m            [38;5;248mManage model configuration[39m
+ [38;5;248mbug-memory[39m       [38;5;248mCapture a V8 heap snapshot to disk to attach to a bug report[39m
+ [38;5;248mcommands[39m         [38;5;248mManage custom slash commands. Usage: /commands [list|reload][39m
+ [38;5;248mcompress[39m         [38;5;248mCompresses the context by replacing it with a summary[39m
+ [38;5;248mresume[39m           [38;5;248mBrowse auto-saved conversations and manage chat checkpoints[39m
+ [38;5;248mtheme[39m            [38;5;248mChange the theme[39m
+ [90m▼[39m
+ [90m(1/11)[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[14A[6G[14B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /mo[7m[39m [27m                                                                                                                                     [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmcp[39m              [38;5;194mManage configured Model Context Protocol (MCP) servers[39m                                                                 [49m
+ [38;5;248mmemory[39m           [38;5;248mCommands for interacting with memory[39m
+ [38;5;248mmodel[39m            [38;5;248mManage model configuration[39m
+ [38;5;248mbug-memory[39m       [38;5;248mCapture a V8 heap snapshot to disk to attach to a bug report[39m
+ [38;5;248mcommands[39m         [38;5;248mManage custom slash commands. Usage: /commands [list|reload][39m
+ [38;5;248mcompress[39m         [38;5;248mCompresses the context by replacing it with a summary[39m
+ [38;5;248mresume[39m           [38;5;248mBrowse auto-saved conversations and manage chat checkpoints[39m
+ [38;5;248mtheme[39m            [38;5;248mChange the theme[39m
+ [90m▼[39m
+ [90m(1/11)[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[14A[7G[14B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /mo[7m[39m [27m                                                                                                                                     [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmodel[39m        [38;5;194mManage model configuration[39m                                                                                                 [49m
+ [38;5;248mbug-memory[39m   [38;5;248mCapture a V8 heap snapshot to disk to attach to a bug report[39m
+ [38;5;248mmemory[39m       [38;5;248mCommands for interacting with memory[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[7A[7G[7B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /mod[7m[39m [27m                                                                                                                                    [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmodel[39m        [38;5;194mManage model configuration[39m                                                                                                 [49m
+ [38;5;248mbug-memory[39m   [38;5;248mCapture a V8 heap snapshot to disk to attach to a bug report[39m
+ [38;5;248mmemory[39m       [38;5;248mCommands for interacting with memory[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[7A[8G[7B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /mod[7m[39m [27m                                                                                                                                    [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmodel[39m   [38;5;194mManage model configuration[39m                                                                                                      [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[5A[8G[5B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /mode[7m[39m [27m                                                                                                                                   [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmodel[39m   [38;5;194mManage model configuration[39m                                                                                                      [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[5A[9G[5B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /model[7m[39m [27m                                                                                                                                  [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;194m[48;5;28mmodel[39m   [38;5;194mManage model configuration[39m                                                                                                      [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[5A[10G[5B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+                                                                                                                            [38;5;248m? for shortcuts[39m
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> [7m[39m [27m[38;5;248m Type your message or @path/to/file[39m                                                                                                     [49m
+[48;5;240m                                                                                                                                            [49m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[4A[4G[4B[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G[48;5;240m                                                                                                                                            [49m
+[48;5;240m [38;5;183m> /model[39m                                                                                                                                   [49m
+[48;5;240m                                                                                                                                            [49m
+[?25l
+
+                                                                                                                            [38;5;248m? for shortcuts[39m
+[2m[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m[22m
+ [38;5;248mShift+Tab to accept edits[39m                                                                       [38;5;248m1 undefined file · 1 MCP server, 1 Blocked[39m
+ [38;5;248mworkspace (/directory)[39m                                                          [38;5;248msandbox[39m              [38;5;248m/model[39m                          [38;5;248mquota[39m
+ [38;5;231m/private/tmp/req012-gemini-startup/authenticated-allowlist/workspace[39m            [38;5;217mno sandbox[39m           [38;5;231mAuto (Gemini 2.5)[39m            43% used
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+[38;5;244m╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [1mSelect Model[22m                                                                                                                             [38;5;244m│[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [38;5;231m [39m [38;5;231m1.[39m [38;5;231mAuto[39m                                                                                                                                [38;5;244m│[39m
+[38;5;244m│[39m      [38;5;248mLet Gemini CLI decide the best model for the task: gemini-2.5-pro, gemini-2.5-flash[39m                                                 [38;5;244m│[39m
+[38;5;244m│[39m [38;5;194m[48;5;28m●[39m [38;5;194m2.[39m [38;5;194mManual[39m                                                                             [49m                                                 [38;5;244m│[39m
+[38;5;244m│[39m [48;5;28m     [38;5;248mManually select a model[39m                                                            [49m                                                 [38;5;244m│[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [1m[38;5;231mRemember model for future sessions: [22m[38;5;194mfalse[38;5;248m (Press Tab to toggle)[39m                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [38;5;248m> To use a specific Gemini model on startup, use the --model flag.[39m                                                                       [38;5;244m│[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m [38;5;244m│[39m
+[38;5;244m│[39m [1m[38;5;231mModel usage[22m[39m                                                                                                                              [38;5;244m│[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [38;5;231mPro[39m         [38;5;194m▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬[38;5;244m▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬[39m  [38;5;231m25% [39m [38;5;248mResets: 5:47 PM (1h)        [39m
+[38;5;244m│[39m [38;5;231mFlash[39m       [38;5;194m▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬[38;5;244m▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬[39m  [38;5;231m60% [39m [38;5;248mResets: 5:47 PM (1h)        [39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m│[39m [38;5;248m(Press Esc to close)[39m                                                                                                                     [38;5;244m│[39m
+[38;5;244m│[39m                                                                                                                                          [38;5;244m│[39m
+[38;5;244m╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯[39m

@@ -37,6 +37,7 @@ AI-Meter/
 contracts/
 ├── schemas/                   # UsageSnapshot JSON Schema
 ├── fixtures/                  # Swift/Rust 共用脱敏快照与辅助 CLI fixture
+├── gemini-cli/                # 固定0.58.0合成账号ANSI转录、哈希与来源
 ├── presentation/              # Provider 顺序、正式名称、颜色与进度语义
 └── parity/                    # macOS/Windows 功能对等矩阵与证据
 ```
@@ -50,7 +51,7 @@ windows/
 ├── src/                       # React 浮动条、详情、Settings 与安全 Tauri bridge
 ├── src-tauri/
 │   ├── src/accounts/          # Services 当前账号、登录和 DeepSeek 换 Key
-│   ├── src/collectors/        # Claude/Codex/DeepSeek 与 30 天聚合
+│   ├── src/collectors/        # Claude/Codex/DeepSeek/Gemini 与独立活动聚合
 │   ├── src/domain/            # 共享合同对应 Rust 类型与展示语义
 │   ├── src/persistence/       # AppData 原子设置/缓存
 │   ├── src/platform/windows/  # Credential Manager、ConPTY、Job、Win32 窗口、托盘、WebView2
@@ -76,7 +77,7 @@ Sources/AIMeterApp/
 ├── Resources/
 │   ├── Info.plist              # Bundle 元数据、最低系统版本、Agent App 标记
 │   ├── AIMeterApp.entitlements # 签名构建时注入的 App Group 模板
-│   └── Logos/                  # Claude Code、OpenAI Codex、DeepSeek 图标资源
+│   └── Logos/                  # Claude Code、OpenAI Codex、DeepSeek、Gemini 图标资源
 ├── System/
 │   ├── ClaudeWorkspaceSetupLauncher.swift
 │   ├── ClaudeDetailPanelLayout.swift

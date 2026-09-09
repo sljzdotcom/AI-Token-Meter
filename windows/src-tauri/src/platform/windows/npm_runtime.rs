@@ -14,24 +14,36 @@ struct PackageIdentity {
 
 #[derive(Deserialize)]
 struct PackageBin {
+    #[serde(default)]
     codex: String,
+    #[serde(default)]
+    gemini: String,
 }
 
-pub(super) fn resolve_codex_npm_runtime<'a>(
+pub(super) fn resolve_provider_npm_runtime<'a>(
     wrapper: &Path,
+    provider: crate::accounts::cli_account::CliProvider,
     node_directories: impl IntoIterator<Item = &'a PathBuf>,
 ) -> Option<(PathBuf, PathBuf)> {
     let npm_root = wrapper.parent()?;
-    let package_root = npm_root.join("node_modules").join("@openai").join("codex");
+    let (scope, package, entry_path) = match provider {
+        crate::accounts::cli_account::CliProvider::Codex => ("@openai", "codex", "bin/codex.js"),
+        crate::accounts::cli_account::CliProvider::Gemini => {
+            ("@google", "gemini-cli", "bundle/gemini.js")
+        }
+        _ => return None,
+    };
+    let package_root = npm_root.join("node_modules").join(scope).join(package);
     let identity = read_package_identity(&package_root.join("package.json"))?;
-    if identity.name != "@openai/codex" || identity.bin.codex != "bin/codex.js" {
+    let bin = if provider == crate::accounts::cli_account::CliProvider::Gemini {
+        &identity.bin.gemini
+    } else {
+        &identity.bin.codex
+    };
+    if identity.name != format!("{scope}/{package}") || bin != entry_path {
         return None;
     }
-    let entry = package_root
-        .join("bin")
-        .join("codex.js")
-        .canonicalize()
-        .ok()?;
+    let entry = package_root.join(entry_path).canonicalize().ok()?;
     if !fs::metadata(&entry).ok()?.is_file() {
         return None;
     }

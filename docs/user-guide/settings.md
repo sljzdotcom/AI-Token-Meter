@@ -1,14 +1,24 @@
 # 设置参考
 
+## Gemini 与四服务配置（0.6.0 起）
+
+青绿 `#3ED6B2` Gemini 是第四项服务。全新配置默认四项可见；旧记录缺少 Gemini 时将其追加末尾并隐藏，保留既有顺序与显示选择；已有 Gemini 的记录保留其选择。保存采用偏好 schemaVersion 2。Restore default order 恢复四项默认顺序与显示，至少保留一项可见；隐藏不停止采集。
+
+四项全显示时 Compact 为 78×344、Comfortable 为 108×428；显示三项时仍为 78×286、108×356。尺寸随实际可见数量变化。
+
+Gemini 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡提供官方指南和检查状态；当前不提供执行安装、登录或重新登录。固定版本、认证模式与 Windows 原生限制见[Gemini 指标说明](providers.md#gemini)。
+
 使用 macOS 菜单栏或 Windows 系统托盘的齿轮打开设置；macOS 也可按 `⌘,`。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用平台系统字体，不受显示字体偏好影响。
 
 ## Appearance
 
 ### 紧凑浮动条（0.3.0 起）
 
-- **Floating strip size**：默认 Compact（78×286），可选 Comfortable（108×356）；隐藏一项时高度自动缩短。原背景和三个Logo保留，切换不改变保存的显示器与位置中心。
+0.6.0 起两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
+
+- **Floating strip size**：默认 Compact；四项全显示为 78×344，Comfortable 为 108×428。每隐藏一项高度自动缩短，三项尺寸保持 78×286 / 108×356；切换不改变保存的显示器与位置中心。
 - **Fold when idle**：默认 Never，可选5秒或15秒。折叠成窄把手，移入指针即可展开。操作详情、拖动、刷新和读屏期间不自动折叠。
-- **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order恢复三项和默认顺序。隐藏只影响浮动条，菜单、采集与Widget不受影响。
+- **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order 恢复四项和默认顺序。隐藏只影响浮动条，菜单、采集与 Widget 不受影响。
 - 右键浮动条可 **Refresh now**、**Hide for 1 hour**、打开Appearance或退出。临时隐藏可跨重启恢复剩余时长；菜单栏/托盘的 **Show Floating Strip Now** 可立即取消隐藏。
 - 外环仍表示额度，内环仅提示刷新或需登录/设置；失败时保留成功数据，并显示Cached及距上次成功更新时间。限流时反复点击刷新不会绕过等待。
 
@@ -38,7 +48,7 @@ Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续�
 - **Move to primary display**：切回跟随主屏，无需清除配置或重装。
 - 单屏模式从玻璃空白处跨屏拖动，松手后选择该屏；所有屏模式每个实例留在所属屏。
 
-- **Automatic（默认）**：可从三个 Logo 以外的任意玻璃空白处上下移动，也可横向拖到另一侧；松手后吸附最近边缘。
+- **Automatic（默认）**：可从服务 Logo 以外的任意玻璃空白处上下移动，也可横向拖到另一侧；松手后吸附最近边缘。
 - **Left**：松手后固定在目标屏左侧，不再阻止单屏模式跨屏拖动。
 - **Right**：松手后固定在目标屏右侧，不再阻止单屏模式跨屏拖动。
 - macOS 的 Left/Right 是共享约束，不擦除记住的边缘，切回 Automatic 可恢复；Windows 的 Left/Right 是摆放选择，拖动仍沿用最近边缘吸附。
@@ -47,7 +57,7 @@ Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续�
 
 macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 使用无任务栏 Win32 工具窗口，并在同显示器出现全屏前台应用时隐藏。点击 Provider 后的临时详情都会在普通应用窗口上方显示，关闭或自动隐藏后立即撤销临时置前。两平台都会保存显示器、Left/Right 侧边与归一化垂直位置；显示器断开时无损回退主屏，不会把临时位置写回配置。
 
-三个服务圆环只负责打开详情。移动浮岛可从顶部、圆环之间或底部的玻璃空白处开始；Logo 命中区和透明肩部不会触发拖动，因此不会与服务点击互相冲突。
+服务圆环只负责打开详情。移动浮岛可从顶部、圆环之间或底部的玻璃空白处开始；Logo 命中区和透明肩部不会触发拖动，因此不会与服务点击互相冲突。
 
 键盘或 VoiceOver 用户可聚焦浮岛玻璃表面：上/下方向键按 10% 步进移动，左/右方向键会明确把侧边偏好设为 Left/Right；VoiceOver 也提供同名自定义动作并朗读当前侧边与垂直位置。
 
@@ -89,7 +99,8 @@ Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留�
 
 ### Refresh interval
 
-- macOS 固定为 5 分钟；Windows 可设置 30 秒至 24 小时，默认仍为 5 分钟。
+- 两平台都可输入 30 至 86400 的整数秒，默认 300 秒（5 分钟）；点击 Apply 或按回车保存。非法值会提示且不改变已保存设置。
+- macOS 保存后正在等待的周期从新间隔重新计时；正在采集时不中断，完成后按新间隔等待。重启后保留设置，服务端限流和退避仍优先。见[诊断与验证](../development/2026-09-08-macos-refresh-interval.md)。
 - 启动时会先刷新一次，也可从菜单栏/系统托盘手动刷新。Windows 保存新间隔后会立即废弃旧倒计时并从新间隔重新计时，不需要重启。
 
 ### Usage alerts at 70% and 90%
@@ -106,7 +117,7 @@ Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留�
 
 ## Services
 
-Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查三项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
+Services 集中放置外部服务的当前账户、重新登录、配置与一次性操作。打开 Settings 时会并行检查四项服务；`Checking`、`Connected`、`Sign-in required`、`CLI not installed` 与 `Account status unavailable` 相互区分。
 
 ### Claude Code 与 OpenAI Codex 账户
 
@@ -154,7 +165,7 @@ Windows 在每张 Claude Code/OpenAI Codex 服务卡内提供运行方式：
 - **Authorize Usage Workspace** 会打开终端，由用户本人确认工作区；应用不会自动接受信任或权限提示。它与账号登录是两件独立的事。
 - 既有批准继续使用兼容目录 `Application Support/AI Meter/ClaudeUsageWorkspace`。
 
-Windows 修复分支新增 **Initialize quota access / 初始化额度读取**（尚未发布，见[验证记录](../development/2026-09-08-windows-cli-post-login.md)）：
+0.5.1 起 Windows 提供 **Initialize quota access / 初始化额度读取**（见[验证记录](../development/2026-09-08-windows-cli-post-login.md)）：
 
 - 已安装且可用的 Claude 服务卡中可使用该入口；已有账号登录不等于工作区已经确认，无需为此重新登录。
 - 原生 CLI 使用 `%LOCALAPPDATA%/AI Token Meter/ClaudeUsageWorkspace`；WSL 使用所选发行版内的 `$HOME/.local/share/ai-token-meter/ClaudeUsageWorkspace`。初始化和后台读取共用此目录，不要求信任整个主目录。
@@ -199,11 +210,15 @@ Windows 的非敏感 JSON 位于 `%APPDATA%\AI Token Meter` 与 `%LOCALAPPDATA%\
 
 ## About
 
+### 社交链接
+
+0.6.0 起两端显示带纸飞机图标的 **Telegram @sljzdotcom**，指向 [Telegram](https://t.me/sljzdotcom)。Windows 关于页去掉作者整行和可见的社交标题，保留三项链接与无障碍名称；macOS 作者信息继续显示。链接按可用宽度换行，点击后才打开默认浏览器。[开发记录](../development/2026-09-08-about-telegram.md)。
+
 ### 作者社交链接与软件标识（0.5.0 起）
 
 Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 **GitHub** 链接，分别进入 [Twitter](https://twitter.com/MillerPanYue) 和 [项目仓库](https://github.com/sljzdotcom/AI-Token-Meter)。点击时才打开系统默认浏览器，不在应用中加载社交页面；若无法打开会给出提示，可重试。Windows 设置顶部显示本地软件 Logo，保留平台系统字体。实施与验证见[开发日志](../development/2026-09-07-about-branding.md)。
 
-0.5.1 已通过双平台稳定更新通道公开，旧 Preview 入口也已同步；安装包、签名及更新源验证见[发布记录](../development/2026-09-08-v0.5.1-release.md)。
+0.6.0 使用双平台稳定更新通道，旧 Preview 入口也会同步；发布证据见[0.6.0 记录](../development/2026-09-08-v0.6.0-release.md)。
 
 ### 现有设置行为
 
@@ -212,4 +227,5 @@ Miller 作者信息后增加带图标的 **@MillerPanYue（Twitter / X）** 与 
 - **Check for Updates**：只有点击时才读取项目的 GitHub 更新清单；macOS 使用 appcast，Windows 使用 `latest.json`。应用启动、定时刷新和后台驻留都不会检查更新。
 - 检查结果会显示正在检查、已是最新版、发现版本、离线或安全失败；`Last checked` 只记录本次用户操作的时间。
 - **Update Now**：仅在本轮已发现更高版本时启用。macOS 使用 Sparkle EdDSA，Windows 使用 Tauri minisign + NSIS；验证通过后才替换并重新启动，应用不会静默安装。
+- 0.6.0 起，Windows 发现新版本时使用深红色加粗提示；中英文一致，不改变系统字体、字号或其他更新状态。
 - `0.1.2` 没有这两个按钮，因此需要从 GitHub Release 手动安装一次当前版本。之后的稳定版本可以从本页更新。

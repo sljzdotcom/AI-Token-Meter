@@ -4,16 +4,16 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-3b82f6)
-![Tests 433](https://img.shields.io/badge/tests-433%20passed-2ea44f)
+![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-3b82f6)
+![Tests 480](https://img.shields.io/badge/tests-480%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex 和 DeepSeek 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
+AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex、DeepSeek 和 Gemini 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
 
-> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
+> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Gemini. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前双平台版本：`0.5.1`（macOS build `14`），已通过稳定更新通道交付；旧 Windows Preview 更新源也支持升级到本版。[发布记录](docs/development/2026-09-08-v0.5.1-release.md)保留校验与交付证据。Windows 全部交互式真机验收和 Widget 证书仍单独追踪；Windows 安装器尚无 Authenticode 发布者签名。
+> 当前发布候选：`0.6.0`（macOS build `15`）。本版新增青绿 Gemini 第四按钮、四服务显示与排序，以及固定官方 Gemini CLI 0.58.0 普通 OAuth 模式的额度采集。旧用户保留布局并默认隐藏新增按钮，全新配置显示四项。Windows 首期只支持原生 Gemini CLI；真实账号和交互式 Windows GUI/DPI 仍单独追踪。[接入说明](docs/user-guide/providers.md#gemini)。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.5.1` / build `14` 已发布：修复 Windows 已登录 CLI 检测与额度恢复，增加 Claude 额度初始化入口；macOS 仅同步版本。公开资产签名及三个更新源已验证。[发布记录](docs/development/2026-09-08-v0.5.1-release.md)。
+> `0.6.0` / build `15` 发布候选：新增 Gemini、四服务布局、可编辑 macOS 刷新间隔，并交付顶部横线移除、About Telegram 与 Windows 更新提示改进。[Release Notes](docs/releases/v0.6.0.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -32,23 +32,24 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 `0.3.0` 新增：默认 Compact 紧凑浮动条、可选闲置折叠、服务显示/排序、右键快捷菜单和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)。
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
-- 菜单栏使用 18×18pt 单色 Quantum Dial：断环进度和指针动态显示三项服务中的最高已用比例，旁边保留精确百分比；无有效数据时显示中性仪表与 `—`。
+- 菜单栏使用 18×18pt 单色 Quantum Dial：断环进度和指针动态显示四项服务中的最高已用比例，旁边保留精确百分比；无有效数据时显示中性仪表与 `—`。
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 OpenAI Codex 重置券摘要。
-- 贴边浮岛只显示三个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
-- Claude Code、OpenAI Codex、DeepSeek 分别使用黄橙、玫红紫、薄荷紫强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
+- 贴边浮岛按设置显示一至四个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
+- Claude Code、OpenAI Codex、DeepSeek、Gemini 分别使用黄橙、玫红紫、薄荷紫、青绿强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会按物理显示器稳定标识记住目标屏、侧边和垂直位置；目标屏暂时断开时只临时回到当前主屏，重新接入后自动恢复，详情始终朝桌面内部展开。
 - 浮岛保持 macOS 桌面层，普通应用和全屏应用可自然覆盖；用户点击 Provider 后，临时详情会显示在普通应用窗口上方，关闭或自动隐藏后立即退出窗口栈。
 - Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
-- Services 始终显示 Claude Code、OpenAI Codex、DeepSeek 当前连接状态；Claude Code/OpenAI Codex 可一键打开官方 CLI 登录或重新登录，完成后自动回查。
+- Services 始终显示四项服务的当前连接状态；Claude Code/OpenAI Codex 可一键打开官方 CLI 登录或重新登录，Gemini 当前提供官方指南与重新检查。
 - OpenAI Codex 可从 Shell PATH、`~/.local/bin`、nvm/常见 Node 管理器或已安装 ChatGPT/Codex App 中自动发现；Finder 启动时也会为 Node 脚本补齐运行 PATH，确实缺失时提供官方安装指南。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
 - 浮动条、详情和菜单点击面板的显示字体可在 System Default、Antonio、DIN Condensed、Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi 之间即时切换；仅使用本机已安装字体，Settings 永远保持平台系统字体。
 - Claude Code：读取当前会话与周额度，并在专用详情页补充本机最近 30 天的会话、活跃日、Token 总量和每日趋势；两种数据口径明确分区。
 - OpenAI Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
+- Gemini：在受限空目录中打开官方 CLI `/model`，读取 Pro、Flash、Flash Lite 等实际可见档位的已用百分比和重置说明；圆环取最高已用档位，不合计档位或发送模型请求。
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。Windows 从 `0.3.0-preview.3` 起，查看详情不会自动打开网页，用户显式点击同步后才启动支持关闭、复用聚焦、失败恢复与可见进度的官网窗口；macOS 现有行为不变。
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
-- 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
+- 默认每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知；两平台均支持 30 秒至 24 小时的刷新间隔，见[设置说明](docs/user-guide/settings.md#refresh-interval)。
 - DeepSeek API Key 存入 macOS Keychain；替换时先经官方余额接口验证，失败会保留旧 Key，设置页只显示最后四位遮罩。
 - Settings → About 支持手动检查 GitHub 新版本；发现更高版本后，由用户明确点击更新，macOS Sparkle 验证 EdDSA、Windows Tauri 验证 minisign 签名后安装。应用不会静默安装。
 
@@ -59,6 +60,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | Claude Code | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage`；Windows 本机活动跟随所选 Native/WSL profile | 当前会话、周额度、重置时间、近 30 天本机活动 | 安装并登录 Claude Code；首次可能需批准 AI Token Meter 私有工作区 |
 | OpenAI Codex | OpenAI Codex CLI 官方 `app-server` JSON-RPC + 当前 Native/WSL profile 状态库的允许聚合列 | 通用用量窗口、重置额度、近 30 天本机活动 | 安装并登录 OpenAI Codex CLI |
 | DeepSeek | 官方余额 API + App 内隔离的 `platform.deepseek.com` 会话（macOS WebKit / Windows WebView2） | 余额、基准消耗环、近 30 天成本/请求/Token 图表 | 在设置中保存 API Key；历史图表首次需登录官网 |
+| Gemini | 官方 Gemini CLI 0.58.0 的 `/model` 可见额度（macOS PTY / Windows native ConPTY） | 全部可见模型档位已用百分比、重置说明、来源版本 | 安装官方 CLI 并用普通 Google OAuth 登录；App 内重新检查 |
 
 详细的数据口径、降级行为与限制见 [服务与指标说明](docs/user-guide/providers.md)。
 
@@ -70,24 +72,25 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - macOS 14 Sonoma 或更新版本。
 - 从源码构建时需要 Xcode Command Line Tools 与 Swift 6 工具链。
 - 桌面 Widget 需要在 Xcode 登录 Apple Account 并具备有效的 Apple Development 证书；没有证书时仍可构建普通主应用。
-- Claude Code 与 OpenAI Codex 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。
+- Claude Code、OpenAI Codex 与 Gemini 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。Gemini 当前固定支持 0.58.0 普通 OAuth。
 - DeepSeek 是可选服务；余额需要 API Key，30 天用量图表需要在 App 的隔离网页中登录 DeepSeek 平台。
 
 ### Windows
 
 - Windows 11 x64；需要 Microsoft Edge WebView2 Runtime（安装器可引导下载）。
 - Claude Code 与 OpenAI Codex 可使用 Windows 原生安装，也可从 WSL 发行版发现；应用明确显示实际来源和 CLI 版本。
+- Gemini 首期只支持 Windows 原生 CLI 0.58.0；WSL、API Key、Vertex、企业或外部认证配置会显示不支持，现有配置不会被改写。
 - DeepSeek API Key 保存在当前 Windows 用户的 Credential Manager；30 天历史使用应用独立的 WebView2 用户数据目录。
 - Windows Widget 尚未实现。当前无 Authenticode 证书，安装器可能出现 SmartScreen 提示；只应从本项目 GitHub Release 下载并核对 SHA-256。
 
 ## 下载与安装
 
-**[Download v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1)** from GitHub Releases（安装包、签名与更新入口已验证；见[发布记录](docs/development/2026-09-08-v0.5.1-release.md)）：
+当前公开稳定版仍是 [v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1)。0.6.0 完成双平台发布门禁后，从 **[Download v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases)** 打开 GitHub Releases 的 **v0.6.0** 条目：
 
-- macOS：下载 `AI-Token-Meter-0.5.1-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.5.1-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.6.0-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.6.0-windows-x64-setup.exe` 与同名 `.sha256`。
 
-已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.5.1`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。本版包含此前 Windows DeepSeek 同步、窗口生命周期、紧凑字号和字体下拉修复。早期无更新器的 macOS `0.1.2` 需手动安装一次。
+发布完成后，已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.6.0`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
 Windows 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -137,19 +140,20 @@ npm run tauri build
 
 ## 第一次使用
 
-1. 启动 AI Token Meter。屏幕右侧出现贴边浮岛和三个用量环；macOS 使用菜单栏图标，Windows 使用系统托盘图标。
+1. 启动 AI Token Meter。全新配置会在屏幕右侧显示四个用量环；从旧版本升级时保留原三项布局，可在 Appearance 中启用并排序 Gemini。macOS 使用菜单栏图标，Windows 使用系统托盘图标。
 2. 从菜单栏或系统托盘打开 Settings；macOS 也可以按 `⌘,`。
 3. 在 Services 查看 Claude Code 与 OpenAI Codex 当前账户；需要登录或换账号时点击 **Sign in** / **Sign in again**，在打开的官方终端流程中完成登录。如 Claude Code 提示工作区设置，再点击 **Authorize Usage Workspace** 并批准。
 4. 如需 DeepSeek，在 Services 选择 **Replace API Key**。macOS 使用受保护输入，Windows 打开系统 Credential UI；应用验证成功后才写入 Keychain/Credential Manager，Key 不进入 Windows WebView。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
-6. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。Windows 还可分别为 Claude Code/OpenAI Codex 选择 Automatic、Native Windows、WSL 发行版或自定义 CLI 路径。
-7. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
+6. 如需 Gemini，请先在官方 Gemini CLI 0.58.0 完成普通 Google OAuth 登录，再在 Services 点击重新检查；应用不会读取 OAuth 内容、自动登录或修改目录信任。
+7. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。Windows 还可分别为 Claude Code/OpenAI Codex 选择 Automatic、Native Windows、WSL 发行版或自定义 CLI 路径。
+8. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
 
 Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。
 
 ## 如何理解圆环
 
-- **Claude Code / OpenAI Codex**：圆环表示官方额度已经使用的比例，越接近一整圈，剩余额度越少。
+- **Claude Code / OpenAI Codex / Gemini**：圆环表示官方额度已经使用的比例，越接近一整圈，剩余额度越少；Gemini 使用可见档位中最高的已用比例。
 - **DeepSeek**：圆环表示参考余额已经消耗的比例。基准为 ¥100、余额为 ¥77.99 时，圆环约为 `22.01%`。
 - 圆环中的 Logo 只表示服务；百分比、余额、重置时间和明细在点击后的详情中显示。
 - 菜单栏 Quantum Dial 的弧长、指针与旁边百分比采用同一个最高有效使用比例；余额金额本身不直接触发额度提醒。
@@ -196,6 +200,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 ## 文档
 
 - [文档总览](docs/README.md)
+- [跨平台合同与 Gemini 合成转录](contracts/README.md)
 - [当前项目状态](docs/project-status.md)
 - [待完成需求与需求历史](docs/requirements-backlog.md)
 - [安装与首次使用](docs/user-guide/getting-started.md)
@@ -220,7 +225,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 隐私与安全摘要
 
-- Claude Code 与 OpenAI Codex 凭证由各自 CLI 管理，AI Token Meter 不读取或保存它们的凭证文件。
+- Claude Code、OpenAI Codex 与 Gemini 凭证由各自 CLI 管理，AI Token Meter 不读取或保存它们的凭证文件。
 - Services 中的 Claude Code/OpenAI Codex 邮箱、套餐和 DeepSeek Key 后四位只存在内存，不进入缓存、Widget、通知或登录脚本。
 - OpenAI Codex 本机活动只读取线程表中的 Token 数与创建/更新时间，不读取标题、预览、提示词或回复。
 - DeepSeek API Key 使用 `AfterFirstUnlockThisDeviceOnly` 级别保存在 macOS Keychain，不随 iCloud Keychain 同步。
@@ -236,7 +241,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前双平台版本：`0.5.1`（macOS build `14`），macOS 与 Windows 使用稳定更新通道。
+- 当前发布候选：`0.6.0`（macOS build `15`），macOS 与 Windows 使用同一稳定更新通道。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

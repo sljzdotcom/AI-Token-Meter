@@ -29,6 +29,11 @@ if git rev-parse "v$VERSION" >/dev/null 2>&1; then
     echo "tag v$VERSION already exists" >&2
     exit 1
 fi
+RELEASE_NOTES="$PROJECT_DIR/docs/releases/v$VERSION.md"
+if [[ ! -s "$RELEASE_NOTES" ]]; then
+    echo "versioned release notes are missing: $RELEASE_NOTES" >&2
+    exit 1
+fi
 
 gh auth status --hostname github.com >/dev/null
 if [[ "$VERSION" == *-preview.* ]]; then
@@ -65,12 +70,9 @@ git tag -a "v$VERSION" -m "AI Token Meter v$VERSION"
 git push origin main
 git push origin "v$VERSION"
 
-release_args=("v$VERSION" --repo "$REPOSITORY_SLUG" --verify-tag --draft --generate-notes)
+release_args=("v$VERSION" --repo "$REPOSITORY_SLUG" --verify-tag --draft --notes-file "$RELEASE_NOTES")
 if [[ "$VERSION" == *-preview.* ]]; then
-    release_args+=(
-        --prerelease
-        --notes "Windows Preview notice: this installer is not Authenticode-signed yet, so Microsoft Defender SmartScreen may show an unknown publisher warning. Verify the published SHA-256 before choosing Run anyway. In-app updates remain protected by the separate Tauri minisign signature."
-    )
+    release_args+=(--prerelease)
 fi
 gh release create "${release_args[@]}" \
     "$RELEASE_DIR/$MAC_ARCHIVE" \

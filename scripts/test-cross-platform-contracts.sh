@@ -9,6 +9,13 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 git clone --quiet --no-hardlinks "$PROJECT_DIR" "$TEST_ROOT/repository"
 cp "$PROJECT_DIR/scripts/check-cross-platform-contracts.rb" \
     "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb"
+cp "$PROJECT_DIR/scripts/package-cross-platform-release.sh" \
+    "$TEST_ROOT/repository/scripts/package-cross-platform-release.sh"
+
+cp -R "$PROJECT_DIR/contracts/." "$TEST_ROOT/repository/contracts/"
+current_version="$(tr -d '[:space:]' < "$PROJECT_DIR/VERSION")"
+cp "$PROJECT_DIR/docs/releases/v$current_version.md" \
+    "$TEST_ROOT/repository/docs/releases/v$current_version.md"
 
 release_entry="$TEST_ROOT/repository/scripts/package-cross-platform-release.sh"
 chmod a-x "$release_entry"
@@ -30,4 +37,57 @@ fi
 grep -Fq "Cross-platform release entry must be executable" \
     "$TEST_ROOT/tracked-non-executable.log"
 
-echo "Cross-platform contract portability tests passed."
+git -C "$TEST_ROOT/repository" update-index --chmod=+x scripts/package-cross-platform-release.sh
+
+snapshot_schema="$TEST_ROOT/repository/contracts/schemas/usage-snapshot.schema.json"
+cp "$snapshot_schema" "$TEST_ROOT/original-schema.json"
+ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["properties"]["displayName"]["enum"].delete("Gemini"); File.write(path, JSON.generate(value))' "$snapshot_schema"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" \
+    "$TEST_ROOT/repository" >"$TEST_ROOT/schema-missing-gemini.log" 2>&1; then
+    echo "Snapshot schema must accept the registered Gemini display name." >&2
+    exit 1
+fi
+grep -Fq "Snapshot schema displayName enum is incomplete" "$TEST_ROOT/schema-missing-gemini.log"
+grep -Fq "gemini-unavailable.json: displayName is rejected by snapshot schema" "$TEST_ROOT/schema-missing-gemini.log"
+cp "$TEST_ROOT/original-schema.json" "$snapshot_schema"
+
+for regression in nullable missing-limit; do
+    ruby -rjson -e 'path, regression=ARGV; value=JSON.parse(File.read(path)); metric=value["$defs"]["geminiQuotaMetric"]; regression == "nullable" ? metric["type"]=["object","null"] : metric["required"].delete("limit"); File.write(path,JSON.generate(value))' "$snapshot_schema" "$regression"
+    if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-schema-$regression.log" 2>&1; then
+        echo "A nullable Gemini tier or missing required limit must be rejected by the schema contract." >&2
+        exit 1
+    fi
+    grep -Fq "Gemini metric schema must require a non-null object with limit and source fields" "$TEST_ROOT/gemini-schema-$regression.log"
+    cp "$TEST_ROOT/original-schema.json" "$snapshot_schema"
+done
+
+quota_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-fresh.json"
+cp "$quota_fixture" "$TEST_ROOT/original-quota.json"
+ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["geminiQuotaMetrics"][0]["current"]=110; File.write(path,JSON.generate(value))' "$quota_fixture"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-invalid-tier.log" 2>&1; then
+    echo "Gemini tier percentages above 100 must be rejected." >&2
+    exit 1
+fi
+grep -Fq "invalid Gemini quota tier" "$TEST_ROOT/gemini-invalid-tier.log"
+cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
+
+gemini_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-unavailable.json"
+cp "$gemini_fixture" "$TEST_ROOT/original-gemini.json"
+ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["displayName"] = "Unknown Product"; File.write(path, JSON.generate(value))' "$gemini_fixture"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" \
+    "$TEST_ROOT/repository" >"$TEST_ROOT/fixture-invalid-name.log" 2>&1; then
+    echo "Snapshot schema must reject an unknown fixture display name." >&2
+    exit 1
+fi
+grep -Fq "gemini-unavailable.json: displayName is rejected by snapshot schema" "$TEST_ROOT/fixture-invalid-name.log"
+cp "$TEST_ROOT/original-gemini.json" "$gemini_fixture"
+
+ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["usedRatio"] = 0; File.write(path, JSON.generate(value))' "$gemini_fixture"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" \
+    "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-false-zero.log" 2>&1; then
+    echo "Unavailable Gemini fixture must reject fabricated zero quota." >&2
+    exit 1
+fi
+grep -Fq "Gemini unavailable fixture must not invent quota" "$TEST_ROOT/gemini-false-zero.log"
+
+echo "Cross-platform contract portability, schema display-name, and unavailable-quota tests passed."

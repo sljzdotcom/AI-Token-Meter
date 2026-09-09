@@ -2,16 +2,27 @@
 
 - **事实快照：** 2026-09-08
 - **产品：** AI Token Meter
-- **应用版本：** 双平台稳定通道 `0.5.1`（macOS build `14`）
-- **维护分支：** `main`
+- **发布候选：** 双平台 `0.6.0`（macOS build `15`）
+- **当前公开稳定版：** `0.5.1`（macOS build `14`）；0.6.0 完成原生门禁和公开验收后替换
+- **维护分支：** `codex/gemini-research-design`；发布后回到 `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
 **Windows CLI 恢复已合入 main（`aca64fc`）：** 显式 npm/Node 启动、统一发现失败分类、Claude 原生/WSL 隔离工作区与初始化、保留限流的手动恢复及自定义包装器路径持久化均已完成。独立复审无阻塞，`d3c57f2` 双平台 CI 全绿，Windows 229 项 Rust 和 NSIS 构建通过。[PR #12](https://github.com/sljzdotcom/AI-Token-Meter/pull/12) 与[调查日志](development/2026-09-08-windows-cli-post-login.md)记录集成证据。修复已随 0.5.1 公开发布，真实账号额度与初始化保留现场验收边界。
 
+**0.6.0 Gemini 发布候选：** 第四个青绿按钮、四项显示排序与旧配置迁移，以及固定 Gemini CLI 0.58.0 普通 OAuth 的额度采集已实现。Windows 首期仅原生 CLI。当前本地回归为 480 项 Swift、109 项前端、249 项宿主 Rust；真实 Gemini 账号不在本轮自动化范围，原生 Windows SDK/ConPTY 门禁必须在发布前通过。见[采集日志](development/2026-09-08-gemini-collector.md)、[发布计划](design/implementation-plans/2026-09-08-v0.6.0-release.md)和[唯一台账](requirements-backlog.md)。
+
 **0.3.0 功能：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台 CI 并合入 main（`c67112e`）。真实 Windows 桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)和[发布记录](development/2026-09-06-v0.3.0-release.md)。
 
+**macOS 刷新间隔修复（列入 0.6.0）：** 已完成原生编辑/明确保存与运行时重排等待，保留限流退避；440项Swift、Release及两阶段审查通过，由开发入口以 `0a00aae` 完成主分支整合。见[开发记录](development/2026-09-08-macos-refresh-interval.md)。
+
+**顶部横线移除（列入 0.6.0）：** 已完成双平台展开态装饰删除，背景拖动及折叠态竖线保留；442项Swift、96项前端、221项宿主Rust、构建和两阶段审查通过，由开发入口以 `0a00aae` 完成主分支整合；[开发记录](development/2026-09-08-remove-strip-drag-hint.md)。
+
 ## 一句话定位
+
+**0.6.0 关于页改进：** 两端新增 Telegram 图标链接，Windows 关于页移除作者整行和可见社交标题；macOS 原作者行保留。协调入口整合复测通过，[开发记录](development/2026-09-08-about-telegram.md)。
+
+**0.6.0 更新提示：** Windows 关于页发现新版的提示改为深红色加粗，见[开发记录](development/2026-09-08-windows-update-notice.md)。
 
 **0.5.0 品牌改进：** 双平台 About 作者社交图标链接及 Windows 设置顶部 Logo 已合入 main（`12ad5e2`）并公开发布；[完成证据](development/2026-09-07-about-branding.md)。CLI 安装器按点击在线获取，CLI 本体不内嵌安装包。
 
@@ -19,24 +30,24 @@
 
 **0.4.0 历史功能：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。这些功能继续包含在 0.5.1；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 
-AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex 和 DeepSeek 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
+AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex、DeepSeek 和 Gemini 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
 
 ## 当前能力矩阵
 
-| 能力 | Claude Code | OpenAI Codex | DeepSeek |
-| --- | --- | --- | --- |
-| 主要来源 | CLI `/usage` | 自动发现的 CLI/桌面 App 内置 `app-server` JSON-RPC | 官方余额 API |
-| 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 |
-| 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 |
-| 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 |
-| 登录/换号 | Services 打开官方 CLI 登录 | Services 打开官方 CLI 登录 | 两阶段验证后替换 Key |
-| 失败降级 | 最近成功快照或明确错误 | 最近成功快照或明确错误 | 余额与历史各自独立缓存/错误 |
+| 能力 | Claude Code | OpenAI Codex | DeepSeek | Gemini |
+| --- | --- | --- | --- | --- |
+| 主要来源 | CLI `/usage` | 自动发现的 CLI/桌面 App 内置 `app-server` JSON-RPC | 官方余额 API | 官方 Gemini CLI 0.58.0 交互式 `/model` |
+| 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 | CLI 普通 Google OAuth 会话状态 |
+| 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 | 各可见模型档位的官方剩余额度换算已用比例 |
+| 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 | 全部可见档位、重置说明、来源 CLI 版本与采集时间 |
+| 登录/换号 | Services 打开官方 CLI 登录 | Services 打开官方 CLI 登录 | 两阶段验证后替换 Key | 先在官方 CLI 登录；Services 提供官方指南与重新检查 |
+| 失败降级 | 最近成功快照或明确错误 | 最近成功快照或明确错误 | 余额与历史各自独立缓存/错误 | 最近成功快照或明确的安装、认证、版本、配置、解析状态 |
 
-“本机近 30 天”不是跨设备官方账户报表；“DeepSeek 余额基准”也不是预算或账单上限。完整口径见[服务与指标说明](user-guide/providers.md)。
+“本机近 30 天”不是跨设备官方账户报表；“DeepSeek 余额基准”也不是预算或账单上限。Gemini 只读取 CLI 当前展示的普通 OAuth 模型档位，不覆盖 API Key、Vertex AI、企业账户或外部认证模式。完整口径见[服务与指标说明](user-guide/providers.md)。
 
 ## 当前界面
 
-- 菜单栏：18×18pt Quantum Dial 模板图像，显示三项服务中最高有效已用比例和精确百分比；
+- 菜单栏：18×18pt Quantum Dial 模板图像，显示四项服务中最高有效已用比例和精确百分比；
 - 桌面浮岛：默认右侧贴边，可 Automatic/Left/Right，按稳定物理显示器身份记录目标屏、侧边和纵向位置；目标屏断开时仅临时回当前主屏，重新接入后自动恢复；只在桌面层显示；
 - 详情：用户点击后临时位于普通应用窗口上方，空白点击或 3/5/8/15/30 秒无交互后关闭；
 - Settings：Appearance、Monitoring、Services、About 四个 Tab，始终使用系统字体；
@@ -52,7 +63,7 @@ Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单�
 
 | 数据 | 位置/所有者 | 是否敏感 |
 | --- | --- | --- |
-| Claude Code/OpenAI Codex 凭证 | 官方 CLI 自行管理 | 是；本应用不读取凭证文件 |
+| Claude Code/OpenAI Codex/Gemini 凭证 | 官方 CLI 自行管理 | 是；本应用不读取凭证文件 |
 | DeepSeek API Key | Keychain 服务 `com.millerpan.AIMeter.deepseek` | 是；`AfterFirstUnlockThisDeviceOnly` |
 | 统一快照 | `~/Library/Application Support/AI Meter/usage-snapshots.json` | 脱敏聚合 |
 | DeepSeek 历史 | 同目录 `deepseek-usage-history.json` | 标准化逐日聚合 |
@@ -61,7 +72,7 @@ Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单�
 | DeepSeek 官网会话 | App 隔离 WebKit 数据存储 | 敏感，由 WebKit 管理 |
 | Widget 快照 | 签名 App Group 容器 | 最小脱敏展示数据 |
 
-Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDATA%\AI Token Meter\cache\` 和独立 WebView2 数据目录；DeepSeek Key 使用 Windows Credential Manager。两平台都不保存 Claude Code/OpenAI Codex 凭证。
+Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDATA%\AI Token Meter\cache\` 和独立 WebView2 数据目录；DeepSeek Key 使用 Windows Credential Manager。两平台都不保存 Claude Code、OpenAI Codex 或 Gemini 凭证。
 
 产品已改名，但 Bundle ID `com.millerpan.AIMeter`、可执行文件 `AIMeterApp`、Keychain 服务和 `Application Support/AI Meter` 保持不变，这是兼容策略，不是遗漏。
 
@@ -69,8 +80,9 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 
 - Swift 6 / SwiftPM；更新层固定使用 Sparkle `2.9.4` 二进制依赖；
 - Debug/测试和 Release 均面向 `arm64-apple-macosx14.0`；
-- 当前源码 macOS 自动化基线：**420 项主测试 + 13 项 PTY，总计 433 项**，0.5.1 本机及标签 CI 通过；真实 CLI/账号、Keychain、GUI 现场验收仍独立跟踪。
-- 当前源码 Windows：85 项 Vitest、21 项密度生命周期、632 个浏览器文字角色；macOS 宿主 221 项 Rust，0.5.1 原生 Windows 标签 229 项 Rust、严格 Clippy、GUI subsystem 与签名 NSIS 全部通过。
+- 0.6.0 本地候选基线：**458 项普通测试 + 3 项独立刷新调度 + 13 项 PTY runner + 6 项 Gemini PTY，总计 480 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、249 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
+- 0.6.0 发布前必须由 PR 的原生 Windows runner 完成 Windows SDK、ConPTY、严格 Clippy、完整 Rust、GUI subsystem 与 NSIS 构建；通过前不把宿主 Rust 结果写成原生 Windows 通过。
+- 已发布 0.5.1 基线继续保留：433 项 Swift、85 项前端、21 项密度生命周期、632 个浏览器文字角色、229 项原生 Windows Rust 及双平台标签门禁全部通过。
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-08-v0.5.1-release.md)。
@@ -91,6 +103,8 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 待用户确认 | `0.3.0-preview.3` 已列入 `REQ-20260904-006` 修复；在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
+| Gemini 真实普通 OAuth 账号与实际额度 | 受环境限制 | 用户在已登录 Gemini CLI 0.58.0 的设备安装 0.6.0 后核对档位、重置说明和刷新；本轮不代用户登录或消耗额度 |
+| Gemini Windows 原生 CLI/ConPTY | 进行中 | 0.6.0 PR 的原生 Windows SDK/ConPTY 门禁通过；失败必须诊断修复，不能绕过 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
 

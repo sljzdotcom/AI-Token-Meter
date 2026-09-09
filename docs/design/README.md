@@ -13,6 +13,12 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-08 | 0.6.0 Gemini 与累计改动稳定发布 | 沿用 Gemini 规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-08-v0.6.0-release.md) |
+| 2026-09-08 | Gemini 与四产品管理 | [调研与设计](specifications/2026-09-08-gemini-provider-design.md) | [计划](implementation-plans/2026-09-08-gemini-provider.md) |
+| 2026-09-08 | 移除双平台顶部横线 | [规格](specifications/2026-09-08-remove-strip-drag-hint-design.md) | [计划](implementation-plans/2026-09-08-remove-strip-drag-hint.md) |
+| 2026-09-08 | macOS 可编辑用量刷新间隔 | [规格](specifications/2026-09-08-macos-refresh-interval-design.md) | [计划](implementation-plans/2026-09-08-macos-refresh-interval.md) |
+| 2026-09-08 | 关于页精简与 Telegram | [规格](specifications/2026-09-08-about-telegram-design.md) | [计划](implementation-plans/2026-09-08-about-telegram.md) |
+| 2026-09-08 | Windows 新版本提示强调（暂不发布） | [规格](specifications/2026-09-08-windows-update-notice-design.md) | [计划](implementation-plans/2026-09-08-windows-update-notice.md) |
 | 2026-09-08 | 0.5.1 Windows CLI 修复稳定发布 | 沿用既有双平台发布流程 | [计划](implementation-plans/2026-09-08-v0.5.1-release.md) |
 | 2026-09-08 | Windows CLI 已登录后的发现与额度恢复 | [规格](specifications/2026-09-08-windows-cli-recovery-design.md) | [计划](implementation-plans/2026-09-08-windows-cli-recovery.md) |
 | 2026-09-07 | 0.5.0 双平台稳定发布 | 沿用既有发布流程 | [计划](implementation-plans/2026-09-07-v0.5.0-release.md) |

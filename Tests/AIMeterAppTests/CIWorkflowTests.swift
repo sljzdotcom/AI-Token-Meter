@@ -18,7 +18,7 @@ struct CIWorkflowTests {
         #expect(workflow.contains("run: swift --version"))
     }
 
-    @Test("Full validation isolates PTY resource tests from the general test process")
+    @Test("Full validation gives timing-sensitive suites their own test processes")
     func isolatesPTYResourceTests() throws {
         let projectRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -26,8 +26,11 @@ struct CIWorkflowTests {
             .deletingLastPathComponent()
         let testScript = try String(contentsOf: projectRoot.appending(path: "scripts/test.sh"))
 
-        #expect(testScript.contains("--skip PTYCommandRunnerTests"))
-        #expect(testScript.contains("--filter PTYCommandRunnerTests"))
+        #expect(testScript.contains("--skip 'PTYCommandRunnerTests|GeminiPTYTests|GeminiOfficialPTYTests|RefreshIntervalSchedulingTests'"))
+        #expect(testScript.contains("--filter 'RefreshIntervalSchedulingTests'"))
+        #expect(testScript.contains("--filter 'PTYCommandRunnerTests'"))
+        #expect(testScript.contains("--filter 'GeminiPTYTests'"))
+        #expect(!testScript.contains("--filter 'PTYCommandRunnerTests|GeminiPTYTests'"))
         #expect(testScript.contains("--skip-build"))
     }
 
@@ -94,8 +97,16 @@ struct CIWorkflowTests {
         #expect(script.contains("AI-Token-Meter-${VERSION}-macOS-arm64.zip"))
         #expect(script.contains("AI_METER_RELEASE_CHANNEL"))
         #expect(script.contains("preview-appcast.xml"))
-        #expect(script.contains("SmartScreen"))
-        #expect(script.contains("unknown publisher"))
+        let version = try String(
+            contentsOf: projectRoot.appending(path: "VERSION"),
+            encoding: .utf8
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        let releaseNotes = try String(
+            contentsOf: projectRoot.appending(path: "docs/releases/v\(version).md"),
+            encoding: .utf8
+        )
+        #expect(releaseNotes.contains("SmartScreen"))
+        #expect(releaseNotes.contains("unknown publisher"))
         #expect(!script.contains("git add appcast.xml"))
         #expect(!script.contains("TAURI_SIGNING_PRIVATE_KEY="))
         #expect(!script.contains("security export"))

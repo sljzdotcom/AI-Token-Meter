@@ -9,7 +9,7 @@ public struct CLIInstallationScriptBuilder: Sendable {
         switch provider {
         case .claude: url = "https://claude.ai/install.sh"; interpreter = "/bin/bash"
         case .codex: url = "https://chatgpt.com/codex/install.sh"; interpreter = "/bin/sh"
-        case .deepSeek: throw CLIAuthenticationScriptError.unsupportedProvider
+        case .deepSeek, .gemini: throw CLIAuthenticationScriptError.unsupportedProvider
         }
         return """
         #!/bin/sh

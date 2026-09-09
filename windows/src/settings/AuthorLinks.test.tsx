@@ -12,11 +12,23 @@ describe("About author links", () => {
 
     expect(screen.getByRole("link", {name: /MillerPanYue/})).toHaveAttribute("href", "https://twitter.com/MillerPanYue")
     expect(screen.getByRole("link", {name: "GitHub"})).toHaveAttribute("href", "https://github.com/sljzdotcom/AI-Token-Meter")
+    expect(screen.getByRole("link", {name: /Telegram.*sljzdotcom/})).toHaveAttribute("href", "https://t.me/sljzdotcom")
     expect(open).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ["en", "Author links"],
+    ["zh-CN", "作者链接"],
+  ] as const)("keeps the %s group accessible without a visible heading", (locale, groupName) => {
+    act(() => setLocale(locale))
+    render(<AuthorLinks onOpen={() => {}} />)
+
+    expect(screen.getByRole("region", {name: groupName})).toBeVisible()
+    expect(screen.queryByText(groupName)).not.toBeInTheDocument()
+  })
+
   it("opens only after activation and displays a recoverable failure", async () => {
-    const open = vi.fn<(target: "twitter" | "github") => Promise<void>>().mockRejectedValue(new Error("blocked"))
+    const open = vi.fn<(target: "twitter" | "github" | "telegram") => Promise<void>>().mockRejectedValue(new Error("blocked"))
     render(<AuthorLinks onOpen={open} />)
 
     fireEvent.click(screen.getByRole("link", {name: "GitHub"}))
@@ -30,7 +42,8 @@ describe("About author links", () => {
     act(() => setLocale("zh-CN"))
     render(<AuthorLinks onOpen={() => Promise.reject(new Error("blocked"))} />)
 
-    expect(screen.getByText("作者链接")).toBeVisible()
+    expect(screen.getByRole("region", {name: "作者链接"})).toBeVisible()
+    expect(screen.queryByText("作者链接")).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("link", {name: /MillerPanYue/}))
     await act(async () => { await Promise.resolve() })
     expect(screen.getByRole("status")).toHaveTextContent("无法打开作者链接。")

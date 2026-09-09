@@ -9,6 +9,11 @@ pub mod codex_activity;
 pub mod codex_app_server;
 pub mod deepseek;
 pub mod deepseek_history;
+pub mod gemini;
+pub mod gemini_environment;
+pub mod gemini_runtime;
+pub mod gemini_session;
+mod gemini_terminal;
 pub mod refresh;
 pub mod refresh_schedule;
 
@@ -18,6 +23,9 @@ pub enum CollectionError {
     AuthenticationRequired,
     SetupRequired,
     InvalidResponse,
+    UnsupportedConfiguration,
+    UnsupportedVersion,
+    QuotaUnavailable,
     UnrecognizedOutput,
     TimedOut,
     Transport,

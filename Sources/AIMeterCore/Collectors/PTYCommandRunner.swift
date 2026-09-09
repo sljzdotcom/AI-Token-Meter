@@ -17,7 +17,8 @@ public struct PTYCommandRunner: CommandRunning {
     public func run(_ request: CommandRequest) async throws -> CommandResult {
         let processBox = RunningProcessBox()
 
-        return try await withThrowingTaskGroup(of: CommandResult.self) { group in
+        return try await withTaskCancellationHandler {
+        try await withThrowingTaskGroup(of: CommandResult.self) { group in
             group.addTask {
                 try await execute(request, processBox: processBox)
             }
@@ -31,8 +32,10 @@ public struct PTYCommandRunner: CommandRunning {
             guard let firstResult = try await group.next() else {
                 throw UsageCollectionError.transportFailure
             }
+            try Task.checkCancellation()
             return firstResult
         }
+        } onCancel: { processBox.stop() }
     }
 
     private func execute(
@@ -41,7 +44,7 @@ public struct PTYCommandRunner: CommandRunning {
     ) async throws -> CommandResult {
         var masterDescriptor: Int32 = -1
         var slaveDescriptor: Int32 = -1
-        var windowSize = winsize(ws_row: 40, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
+        var windowSize = winsize(ws_row: request.geminiQuotaInteraction ? 50 : 40, ws_col: request.geminiQuotaInteraction ? 140 : 120, ws_xpixel: 0, ws_ypixel: 0)
         let allocationResult = Self.allocationLock.withLock {
             openpty(&masterDescriptor, &slaveDescriptor, nil, nil, &windowSize)
         }
@@ -63,7 +66,7 @@ public struct PTYCommandRunner: CommandRunning {
         process.standardInput = slaveHandle
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
-        process.environment = controlledEnvironment()
+        process.environment = request.environment ?? controlledEnvironment()
         process.currentDirectoryURL = request.currentDirectoryURL
         terminationWaiter.attach(to: process)
 
@@ -86,13 +89,15 @@ public struct PTYCommandRunner: CommandRunning {
                 activeMasterDescriptor,
                 controller: descriptorBox,
                 processBox: processBox,
-                stopAfterOutputContains: request.stopAfterOutputContains
+                stopAfterOutputContains: request.stopAfterOutputContains,
+                geminiQuotaInteraction: request.geminiQuotaInteraction
             )
         }
 
         if request.inputDelay > 0 {
-            try await Task.sleep(for: .seconds(request.inputDelay))
+            try? await Task.sleep(for: .seconds(request.inputDelay))
         }
+        if !request.geminiQuotaInteraction && !(request.environment != nil && request.inputLines.isEmpty) {
         let terminator = request.inputLineTerminator
         let input = request.inputLines.joined(separator: terminator) + terminator
         let bytes = Array(input.utf8)
@@ -109,13 +114,15 @@ public struct PTYCommandRunner: CommandRunning {
             }
         }
 
+        }
         let exitCode = await terminationWaiter.value()
 
         descriptorBox.requestStop()
         let outputData = await reader.value
         descriptorBox.close()
         processBox.clear(process)
-        let output = String(decoding: outputData, as: UTF8.self)
+        if let error = outputData.error { throw error }
+        let output = String(decoding: outputData.data, as: UTF8.self)
 
         return CommandResult(
             output: output,
@@ -128,22 +135,32 @@ public struct PTYCommandRunner: CommandRunning {
         _ descriptor: Int32,
         controller: ClosableDescriptor,
         processBox: RunningProcessBox,
-        stopAfterOutputContains stopPhrases: [String]
-    ) -> Data {
+        stopAfterOutputContains stopPhrases: [String],
+        geminiQuotaInteraction: Bool
+    ) -> PTYReadResult {
         var result = Data()
         var buffer = [UInt8](repeating: 0, count: 4_096)
         var remainingStopDrainBytes: Int?
         var stopDrainDeadline: Date?
         var matchedStopPhrase = false
+        var interaction = GeminiPTYInteraction()
 
         while true {
             if remainingStopDrainBytes == nil, controller.stopRequested {
                 remainingStopDrainBytes = 256 * 1_024
                 stopDrainDeadline = Date().addingTimeInterval(0.75)
             }
+            if geminiQuotaInteraction && !controller.stopRequested {
+                interaction.advance(descriptor: descriptor)
+                if interaction.error != nil { processBox.stop() }
+            }
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count > 0 {
                 result.append(buffer, count: count)
+                if geminiQuotaInteraction {
+                    interaction.receive(Data(buffer.prefix(count)))
+                    if interaction.error != nil { processBox.stop() }
+                }
                 if !matchedStopPhrase, !stopPhrases.isEmpty {
                     let output = String(decoding: result, as: UTF8.self)
                     if stopPhrases.contains(where: output.contains) {
@@ -165,7 +182,8 @@ public struct PTYCommandRunner: CommandRunning {
                 break
             }
         }
-        return result
+        if geminiQuotaInteraction { interaction.finish() }
+        return PTYReadResult(data: interaction.captured.map { Data($0.utf8) } ?? result, error: interaction.error)
     }
 
     private func controlledEnvironment() -> [String: String] {
@@ -318,6 +336,61 @@ private final class ClosableDescriptor: @unchecked Sendable {
         }
         if let descriptorToClose {
             Darwin.close(descriptorToClose)
+        }
+    }
+}
+
+private struct PTYReadResult {
+    let data: Data
+    let error: UsageCollectionError?
+}
+
+/// Lives on the single reader task, so input scheduling never blocks draining output.
+private struct GeminiPTYInteraction {
+    private var terminal = GeminiTerminalObservation()
+    private var interactionError: UsageCollectionError?
+    var error: UsageCollectionError? { terminal.error ?? interactionError }
+    var captured: String?
+    private var sentModel = false
+    private var closing = false
+    private var pending: [(TimeInterval, UInt8)] = []
+    private var previousScreen = ""
+    private var unchangedSince: TimeInterval = 0
+
+    mutating func receive(_ data: Data) { terminal.receive(data) }
+    mutating func finish() { terminal.finish() }
+
+    mutating func advance(descriptor: Int32) {
+        guard error == nil else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let text = terminal.text
+        if text != previousScreen { previousScreen = text; unchangedSince = now }
+        if let blocking = GeminiTerminalProtocol.blockingError(text) { interactionError = blocking; pending = []; return }
+        if !sentModel && GeminiTerminalProtocol.isReady(text) && now - unchangedSince >= 0.15 {
+            schedule("/model\r", at: now); sentModel = true
+        }
+        if sentModel && !closing && pending.isEmpty && now - unchangedSince >= 0.3 && text.contains("Select Model") && text.contains("(Press Esc to close)") && text.contains("╯") {
+            // Validate before closing; the collector receives this captured frame, not the exit screen.
+            do { _ = try GeminiUsageParser().parse(text) }
+            catch let failure as UsageCollectionError {
+                if case .geminiUnavailable = failure { /* close an empty quota dialog normally */ }
+                else { interactionError = failure; return }
+            } catch { interactionError = .unrecognizedOutput; return }
+            captured = text; closing = true
+            schedule("\u{1b}", at: now)
+            schedule("/quit\r", at: now + 0.8)
+        }
+        if let next = pending.first, next.0 <= now {
+            var byte = next.1
+            if Darwin.write(descriptor, &byte, 1) == 1 { pending.removeFirst() }
+            else if errno != EAGAIN && errno != EWOULDBLOCK { interactionError = .transportFailure }
+        }
+    }
+    private mutating func schedule(_ text: String, at start: TimeInterval) {
+        var time = start
+        for byte in text.utf8 {
+            if byte == 13 { time += 0.3 }
+            pending.append((time, byte)); time += 0.1
         }
     }
 }

@@ -1,0 +1,2 @@
+# Terminal CR/LF, trailing cells, and escapes are protocol bytes, not source formatting.
+*.ansi.txt -text -diff -whitespace

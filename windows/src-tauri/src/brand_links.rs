@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub enum BrandLink {
     Twitter,
     Github,
+    Telegram,
 }
 
 impl BrandLink {
@@ -12,6 +13,7 @@ impl BrandLink {
         match self {
             Self::Twitter => "https://twitter.com/MillerPanYue",
             Self::Github => "https://github.com/sljzdotcom/AI-Token-Meter",
+            Self::Telegram => "https://t.me/sljzdotcom",
         }
     }
 }
@@ -42,4 +44,10 @@ fn open_fixed_url(url: &'static str) -> Result<(), &'static str> {
 #[cfg(not(windows))]
 fn open_fixed_url(_url: &'static str) -> Result<(), &'static str> {
     Err("The author link could not be opened")
+}
+
+#[tauri::command]
+pub fn open_gemini_documentation() -> Result<(), &'static str> {
+    open_fixed_url("https://geminicli.com/docs/resources/quota-and-pricing/")
+        .map_err(|_| "The documentation could not be opened")
 }

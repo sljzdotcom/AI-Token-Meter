@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/release-feed-utils.sh"
 INFO_PLIST="$PROJECT_DIR/Sources/AIMeterApp/Resources/Info.plist"
 APP_BUNDLE="$PROJECT_DIR/dist/AI Token Meter.app"
 KEY_ACCOUNT="com.millerpan.AIMeter"
@@ -59,16 +60,10 @@ if [[ "$VERSION" != "$SOURCE_VERSION" || "$BUILD" != "$SOURCE_BUILD" ]]; then
     exit 1
 fi
 
-LATEST_TAG="$(git -C "$PROJECT_DIR" tag --sort=-version:refname | head -n 1)"
-if [[ -n "$LATEST_TAG" ]]; then
-    PREVIOUS_PLIST="$(mktemp "${TMPDIR:-/tmp}/ai-token-meter-previous-plist.XXXXXX")"
-    trap 'rm -f "$PREVIOUS_PLIST"' EXIT
-    git -C "$PROJECT_DIR" show "$LATEST_TAG:Sources/AIMeterApp/Resources/Info.plist" > "$PREVIOUS_PLIST"
-    PREVIOUS_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PREVIOUS_PLIST" 2>/dev/null || true)"
-    if [[ "$PREVIOUS_BUILD" =~ ^[0-9]+$ ]] && (( BUILD <= PREVIOUS_BUILD )); then
-        echo "release build must be greater than the latest tagged build" >&2
-        exit 1
-    fi
+PREVIOUS_BUILD="$(maximum_release_build "$PROJECT_DIR" "Sources/AIMeterApp/Resources/Info.plist")"
+if [[ "$PREVIOUS_BUILD" =~ ^[0-9]+$ ]] && (( BUILD <= PREVIOUS_BUILD )); then
+    echo "release build must be greater than every tagged release build" >&2
+    exit 1
 fi
 
 if [[ "${AI_METER_RELEASE_ALLOW_DIRTY:-0}" != "1" ]] \

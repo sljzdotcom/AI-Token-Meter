@@ -33,6 +33,35 @@ export PATH="$TEST_ROOT/bin:$PATH"
 export GITHUB_REPOSITORY="sljzdotcom/AI-Token-Meter"
 source "$SCRIPT_DIR/release-feed-utils.sh"
 
+VERSION_REPOSITORY="$TEST_ROOT/version-repository"
+mkdir -p "$VERSION_REPOSITORY"
+git -C "$VERSION_REPOSITORY" init -q
+git -C "$VERSION_REPOSITORY" config user.name "Release Test"
+git -C "$VERSION_REPOSITORY" config user.email "release-test@example.invalid"
+
+write_test_plist() {
+    local build="$1"
+    cat >"$VERSION_REPOSITORY/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>CFBundleVersion</key><string>$build</string></dict></plist>
+EOF
+}
+
+write_test_plist 14
+git -C "$VERSION_REPOSITORY" add Info.plist
+git -C "$VERSION_REPOSITORY" commit -qm "stable release"
+git -C "$VERSION_REPOSITORY" tag v0.5.1
+
+write_test_plist 7
+git -C "$VERSION_REPOSITORY" add Info.plist
+git -C "$VERSION_REPOSITORY" commit -qm "older preview build"
+git -C "$VERSION_REPOSITORY" tag v0.6.0-preview.0
+git -C "$VERSION_REPOSITORY" tag windows-preview-feed
+git -C "$VERSION_REPOSITORY" tag v-not-a-release
+
+test "$(maximum_release_build "$VERSION_REPOSITORY" Info.plist)" = "14"
+
 export MOCK_GH_RESPONSE=present
 test "$(probe_github_release windows-preview-feed "$TEST_ROOT/present")" = "present"
 
