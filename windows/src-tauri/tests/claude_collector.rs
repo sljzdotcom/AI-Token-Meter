@@ -1,4 +1,6 @@
 use std::path::Path;
+#[cfg(windows)]
+use std::time::Instant;
 
 use ai_token_meter_windows::collectors::CollectionError;
 #[cfg(windows)]
@@ -68,20 +70,35 @@ fn authenticates_and_collects_through_a_real_conpty_session() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("fixtures")
-        .join("claude-cli-fixture.js")
+        .join("claude-cli-fixture.cmd")
         .canonicalize()
         .expect("Claude CLI fixture");
     let candidate = ExecutableCandidate {
         selected_path: fixture.clone(),
         executable: fixture,
-        launcher: Some(find_node()),
+        launcher: Some(find_command_interpreter()),
         source: RuntimeSource::NativeWindows,
         origin: CandidateOrigin::Custom,
     };
     let directory = tempfile::tempdir().expect("workspace");
 
+    let started = Instant::now();
     let snapshot = collect_usage_from_candidate(&candidate, directory.path(), FETCHED_AT)
-        .expect("real Claude ConPTY collection");
+        .unwrap_or_else(|error| {
+            let stages = [
+                "claude-fixture-auth-started.marker",
+                "claude-fixture-interactive-started.marker",
+                "claude-fixture-usage-received.marker",
+                "claude-fixture-unsupported.marker",
+            ]
+            .into_iter()
+            .filter(|marker| directory.path().join(marker).is_file())
+            .collect::<Vec<_>>();
+            panic!(
+                "real Claude ConPTY collection failed after {:?}: {error:?}; fixture stages: {stages:?}",
+                started.elapsed()
+            )
+        });
 
     assert_eq!(snapshot.used_ratio.expect("used ratio").get(), 0.23);
     assert_eq!(snapshot.secondary_metric.expect("weekly").current, 5.0);
@@ -98,11 +115,15 @@ fn fixture() -> String {
 }
 
 #[cfg(windows)]
-fn find_node() -> std::path::PathBuf {
-    std::env::var_os("PATH")
-        .into_iter()
-        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .map(|directory| directory.join("node.exe"))
-        .find_map(|path| path.canonicalize().ok().filter(|path| path.is_file()))
-        .expect("Node.js is required by the frontend toolchain")
+fn find_command_interpreter() -> std::path::PathBuf {
+    [
+        std::env::var_os("COMSPEC").map(std::path::PathBuf::from),
+        std::env::var_os("SystemRoot")
+            .map(std::path::PathBuf::from)
+            .map(|root| root.join("System32").join("cmd.exe")),
+    ]
+    .into_iter()
+    .flatten()
+    .find_map(|path| path.canonicalize().ok().filter(|path| path.is_file()))
+    .expect("Windows command interpreter")
 }
