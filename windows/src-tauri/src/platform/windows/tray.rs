@@ -1,10 +1,21 @@
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::image::Image;
+use tauri::menu::{IconMenuItem, IconMenuItemBuilder, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Listener, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager, Runtime};
 
 use crate::domain::{MetricKind, MetricUnit, ProviderId, UsageSnapshot, UsageStatus};
 
 use super::window_controller::{show_settings_window, toggle_meter_window};
+
+pub fn build_brand_header<R: Runtime>(
+    app: &AppHandle<R>,
+    icon: Image<'_>,
+) -> tauri::Result<IconMenuItem<R>> {
+    IconMenuItemBuilder::with_id("brand-header", "AI Token Meter")
+        .enabled(false)
+        .icon(icon)
+        .build(app)
+}
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let locale = app
@@ -37,7 +48,14 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             MenuItemBuilder::with_id(*id, crate::localization::text(locale, key)).build(app)
         })
         .collect::<tauri::Result<Vec<_>>>()?;
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
+    let brand_header = build_brand_header(app, icon.clone())?;
     let menu = MenuBuilder::new(app)
+        .item(&brand_header)
+        .separator()
         .items(&[
             &claude_summary,
             &codex_summary,
@@ -56,10 +74,6 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         .item(&actions[5])
         .build()?;
 
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
     TrayIconBuilder::with_id("ai-token-meter")
         .icon(icon)
         .tooltip("AI Token Meter")

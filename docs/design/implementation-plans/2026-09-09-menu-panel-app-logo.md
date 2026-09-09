@@ -16,11 +16,11 @@
 - 创建：`Tests/AIMeterAppTests/MenuBarBrandingTests.swift`
 - 修改：`Sources/AIMeterApp/Views/MenuBarPanel.swift`
 
-- [ ] **步骤 1：编写真实渲染失败测试**
+- [x] **步骤 1：编写真实渲染失败测试**
 
   构造纯品红 `NSImage`，把它注入真实 `MenuBarPanel` 后用 `ImageRenderer` 以 2× 渲染。扫描输出中独立推导的品红像素范围，要求存在约 64×64 像素的顶部前导图像块；没有品牌图标或图标未接入真实面板时测试必须失败。测试使用独立 `UserDefaults`、demo `AppModel` 和空白合成数据。
 
-- [ ] **步骤 2：运行测试确认 RED**
+- [x] **步骤 2：运行测试确认 RED**
 
   运行：
   ```sh
@@ -28,7 +28,7 @@
   ```
   预期：编译或断言失败，原因是 `MenuBarPanel` 尚不支持注入并显示品牌图标。
 
-- [ ] **步骤 3：实现最少 SwiftUI 变更**
+- [x] **步骤 3：实现最少 SwiftUI 变更**
 
   为 `MenuBarPanel` 增加默认读取应用图标的初始化参数，在现有 `header` 中把图标放到标题块前：
   ```swift
@@ -40,7 +40,7 @@
   ```
   图标与标题块使用 10pt 间距；原标题、副标题、`Spacer` 与刷新按钮保持原行为。
 
-- [ ] **步骤 4：运行定向 GREEN 与相关回归**
+- [x] **步骤 4：运行定向 GREEN 与相关回归**
 
   运行品牌渲染测试，以及 `TypographyTests`、`AppBrandTests`、菜单栏摘要与图标测试。确认合成图像不写入仓库，只保存到 `/private/tmp/req002-menu-brand/` 供本轮查看。
 
@@ -51,11 +51,11 @@
 - 修改：`windows/src-tauri/src/platform/windows/tray.rs`
 - 修改：`windows/src-tauri/tests/tray_summary.rs`
 
-- [ ] **步骤 1：编写真实 Tauri 菜单项失败测试**
+- [x] **步骤 1：编写真实 Tauri 菜单项失败测试**
 
   仅在 dev/test 依赖启用 Tauri `test` 特性。测试通过 `tauri::test::mock_app()` 调用待新增的 `build_brand_header`：合法 1×1 RGBA 图像应得到 ID `brand-header`、文本 `AI Token Meter`、`enabled == false` 的 `IconMenuItem`；非法 RGBA 字节数必须构建失败，以证明图标参数被实际消费。
 
-- [ ] **步骤 2：运行测试确认 RED**
+- [x] **步骤 2：运行测试确认 RED**
 
   运行：
   ```sh
@@ -63,7 +63,7 @@
   ```
   预期：编译失败，原因是 `build_brand_header` 尚不存在。
 
-- [ ] **步骤 3：实现最少原生菜单变更**
+- [x] **步骤 3：实现最少原生菜单变更**
 
   用 `IconMenuItemBuilder` 实现通用运行时构建函数：
   ```rust
@@ -74,7 +74,7 @@
   ```
   `install` 先取得默认窗口图标，构建品牌行并将其置于菜单第一项；品牌行后加分隔线。托盘本身继续复用同一图标，其他菜单项与事件路由不变。
 
-- [ ] **步骤 4：运行定向 GREEN 与格式/静态检查**
+- [x] **步骤 4：运行定向 GREEN 与格式/静态检查**
 
   重跑 `tray_summary`，然后运行 `cargo fmt --check` 和严格 Clippy。若 MockRuntime 暴露平台限制，保留原始失败证据并改用可执行的真实菜单构建边界，不退化为源码字符串断言。
 

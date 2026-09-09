@@ -18,7 +18,16 @@ struct MenuBarLabel: View {
 
 struct MenuBarPanel: View {
     @Bindable var model: AppModel
+    let brandIcon: NSImage
     @Environment(\.openSettings) private var openSettings
+
+    init(
+        model: AppModel,
+        brandIcon: NSImage = NSApplication.shared.applicationIconImage
+    ) {
+        self.model = model
+        self.brandIcon = brandIcon
+    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -57,7 +66,12 @@ struct MenuBarPanel: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 10) {
+            Image(nsImage: brandIcon)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 32, height: 32)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(AppBrand.displayName)
                     .aiMeterFont(.title2, weight: .bold)

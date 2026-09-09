@@ -1,7 +1,27 @@
 use std::path::PathBuf;
 
 use ai_token_meter_windows::domain::{UsageSnapshot, UsageStatus};
-use ai_token_meter_windows::platform::windows::tray::format_summary;
+use ai_token_meter_windows::platform::windows::tray::{build_brand_header, format_summary};
+use tauri::image::Image;
+
+#[test]
+fn tray_brand_header_is_a_disabled_icon_item() {
+    let app = tauri::test::mock_app();
+    let item = build_brand_header(app.handle(), Image::new_owned(vec![255, 0, 255, 255], 1, 1))
+        .expect("brand header");
+
+    assert_eq!(item.id().as_ref(), "brand-header");
+    assert_eq!(item.text().unwrap(), "AI Token Meter");
+    assert!(!item.is_enabled().unwrap());
+}
+
+#[test]
+fn tray_brand_header_consumes_the_supplied_rgba_icon() {
+    let app = tauri::test::mock_app();
+    let malformed = Image::new_owned(vec![255], 1, 1);
+
+    assert!(build_brand_header(app.handle(), malformed).is_err());
+}
 
 #[test]
 fn tray_summary_uses_provider_semantics_without_inventing_usage() {
