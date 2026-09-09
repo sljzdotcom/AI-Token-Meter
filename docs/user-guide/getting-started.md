@@ -24,7 +24,7 @@ Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView
 
 ## 2. 下载公开版本
 
-当前公开稳定版仍是 [v0.5.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.5.1)。0.6.0 完成双平台发布门禁后，从 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases) 的 **v0.6.0** 条目下载 `AI-Token-Meter-0.6.0-macOS-arm64.zip` 和同名 `.sha256`。在下载目录验证：
+当前公开稳定版是 [v0.6.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0)。从该 Release 下载 `AI-Token-Meter-0.6.0-macOS-arm64.zip` 和同名 `.sha256`，并在下载目录验证：
 
 ```bash
 shasum -a 256 -c AI-Token-Meter-0.6.0-macOS-arm64.zip.sha256
@@ -34,9 +34,9 @@ shasum -a 256 -c AI-Token-Meter-0.6.0-macOS-arm64.zip.sha256
 
 `0.1.2` 不含更新器，因此要手动安装一次当前版本。安装 `0.2.0` 或更新版本后，后续稳定版本可在 Settings → About 手动检查和安装。
 
-0.6.0 公开后，从同一 [GitHub Releases](https://github.com/sljzdotcom/AI-Token-Meter/releases) 条目下载 `AI-Token-Meter-0.6.0-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
+Windows 从同一 [v0.6.0 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.0) 下载 `AI-Token-Meter-0.6.0-windows-x64-setup.exe` 与同名 `.sha256`；不要从第三方网盘取得 Windows 版本。安装器是 current-user NSIS，不要求管理员权限；取得 Authenticode 证书前 Windows 可能显示 SmartScreen，请先确认发布页域名和 SHA-256。应用内更新 archive 另有 Tauri minisign 验证。
 
-发布完成后，已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口都会指向 `0.6.0`；设置与凭据的存储位置保持不变。
+已有 macOS `0.2.x` 或更高版本、Windows 稳定版及旧 Preview 无需重新下载：Settings → About → **Check for Updates** → **Update Now**。三条更新入口均已指向 `0.6.0`；设置与凭据的存储位置保持不变。
 
 ## 3. 从源码构建
 

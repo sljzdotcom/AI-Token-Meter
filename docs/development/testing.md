@@ -2,7 +2,7 @@
 
 ## Gemini 验证（0.6.0）
 
-最终源码的 Windows 前端 109 项、macOS 宿主 Rust 252 项和严格 Clippy、前端构建通过。它们不包含原生 Windows ConPTY 编译/运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
+0.6.0 最终源码的 Windows 前端 109 项、macOS 宿主 Rust 256 项、严格 Clippy 和前端构建通过；PR、main 与正式发布流水线也已完成原生 Windows SDK/ConPTY 编译和运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
 
 ## 普通测试
 
@@ -10,9 +10,9 @@
 bash scripts/test.sh
 ```
 
-0.6.0 候选基线为 **480 个测试、93 个测试组全部通过**。默认完整验证会先运行 458 项普通测试，再用独立测试进程运行 3 项主线程刷新调度测试、13 项 PTY runner 测试和 6 项 Gemini PTY 测试，避免 CI runner 的并行主线程负载干扰有界调度断言，也避免两个真实终端 Suite 争用系统资源；原行为断言和期限保持不变。浮动条原生渲染回归使用明确的 2× Retina 位图，并把逻辑点坐标换算成像素后核对完整 provider 数量、密度和左右边缘矩阵，防止 1× SVG 抗锯齿让细线 Logo 的高亮参考掩码为空。并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+0.6.0 稳定版基线为 **485 个测试、93 个测试组全部通过**。默认完整验证会先运行 458 项普通测试，再用独立测试进程运行 3 项主线程刷新调度测试、18 项 PTY runner 测试和 6 项 Gemini PTY 测试，避免 CI runner 的并行主线程负载干扰有界调度断言，也避免两个真实终端 Suite 争用系统资源；原行为断言和期限保持不变。浮动条原生渲染回归使用明确的 2× Retina 位图，并把逻辑点坐标换算成像素后核对完整 provider 数量、密度和左右边缘矩阵，防止 1× SVG 抗锯齿让细线 Logo 的高亮参考掩码为空。并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.6.0 候选本机为前端 109 项、密度浏览器 16 个布局与 632 个文字角色、macOS 宿主 Rust 252 项；三项新增回归分别覆盖 Windows ConPTY 捕获的7778字节模型页帧、标准ECH字符擦除的效果与光标不移动语义，以及登录提示不能被同一帧中的ECH擦除所掩盖。40KB真实记录的137/4096字节分片回归保留两秒deadline并放在独立`gemini_fragmentation`集成测试程序中，避免与其他会话回归并行争用该行为期限；Cargo会串行执行不同集成测试程序。原生 Windows 数字以本版 PR 和发布 workflow 的实际结果为准。0.5.1 标签曾通过 229 项原生 Windows Rust（见[发布记录](2026-09-08-v0.5.1-release.md)）。间歇性终端测试失败保留在 REQ-20260906-003，不能把通过复跑写成根因已修复。
+以上数字是当前 macOS 基线，不与 Windows 相加计算通过率。0.6.0 本机另有前端 109 项、密度浏览器 16 个布局与 632 个文字角色、macOS 宿主 Rust 256 项；三项回归分别覆盖 Windows ConPTY 捕获的7778字节模型页帧、标准ECH字符擦除的效果与光标不移动语义，以及登录提示不能被同一帧中的ECH擦除所掩盖。40KB真实记录的137/4096字节分片回归保留两秒deadline并放在独立`gemini_fragmentation`集成测试程序中，避免与其他会话回归并行争用该行为期限；Cargo会串行执行不同集成测试程序。最终候选、main合并头和正式发布workflow均完成原生Windows门禁；对应精确run与终端可靠性修复证据见[发布记录](2026-09-08-v0.6.0-release.md)。
 
 普通测试覆盖：
 

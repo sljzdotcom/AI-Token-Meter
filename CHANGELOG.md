@@ -4,9 +4,9 @@
 
 ## Unreleased
 
-## 0.6.0 - 2026-09-08
+## 0.6.0 - 2026-09-09
 
-稳定功能版发布候选；macOS build15。新增 Gemini 与四服务布局，并交付此前积累的设置和界面改进。真实 Gemini 账号、Windows 交互式 GUI/DPI 仍保留现场验收边界。
+稳定功能版已公开发布；macOS build15。新增 Gemini 与四服务布局，并交付此前积累的设置和界面改进。真实 Gemini 账号、Windows 交互式 GUI/DPI 仍保留现场验收边界。[发布记录](docs/development/2026-09-08-v0.6.0-release.md)。
 
 ### Fixed
 
