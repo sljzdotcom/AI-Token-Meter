@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Added
+
+- macOS 菜单栏弹出面板在 AI Token Meter 标题旁显示现有应用 Logo；Windows 原生托盘菜单以同一 Logo 和软件名作为顶部品牌行。两端保持现有背景、刷新入口、用量摘要与菜单操作不变。
+
 ## 0.6.1 - 2026-09-09
 
 稳定修复版；macOS build16。统一四服务商首次接入与恢复路径，修正Gemini安装指南。真实账号和交互式Windows GUI/DPI继续保留现场验收边界。[发布记录](docs/development/2026-09-09-v0.6.1-release.md)。
