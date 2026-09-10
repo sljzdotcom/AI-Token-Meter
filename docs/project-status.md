@@ -8,7 +8,7 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.7.2详情与Compact修复：** macOS Google Antigravity详情补回统一深海黑蓝底板；Compact逻辑宽度由65收至56.5pt/px，每侧留白由8.5精确减至4.25，48pt/px圆环和全部纵向尺寸保持。双平台完整本机候选门禁通过，签名发布与公网证据见[发布记录](development/2026-09-10-v0.7.2-release.md)。
+**0.7.2详情与Compact修复已公开：** macOS Google Antigravity详情补回统一深海黑蓝底板；Compact逻辑宽度由65收至56.5pt/px，每侧留白由8.5精确减至4.25，48pt/px圆环和全部纵向尺寸保持。PR #30、合并后main及发布workflow `34486558748`的双平台门禁全部通过；七项公网资产、两端签名与篡改拒绝、三个更新入口均已验收，[发布记录](development/2026-09-10-v0.7.2-release.md)。
 
 **菜单面板顶部Logo放大已随0.7.1交付：** macOS菜单栏弹出面板的应用Logo由32pt放大至40pt，面板宽度、文字、间距、系统菜单栏图标及Windows界面保持。实现`7cadd72`经[PR #25](https://github.com/sljzdotcom/AI-Token-Meter/pull/25)合并为`0a086a2`，PR及main双平台门禁全部通过。[开发记录](development/2026-09-10-menu-panel-logo-enlargement.md)。
 
@@ -101,7 +101,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - 0.6.3 macOS About 精简稳定版：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；无Widget Release App、6份跨平台合同、228份Markdown与公开安全检查通过，审查为Critical/Important/Minor `0/0/0`，发布workflow的macOS与Windows签名门禁均通过。
 - Antigravity迁移合入main后的基线：**461项普通测试 + 3项独立刷新调度 + 18项PTY runner，总计482项Swift**；Windows为124项前端、241项宿主Rust、25项浏览器生命周期、8个Antigravity详情状态、16组布局和608个文字角色。PR #22实现门禁、PR #23原生测试夹具门禁与main最终workflow `34433979440`/`34433979383`均通过；Windows包含完整runtime、真实ConPTY、真实Edge、严格Clippy、NSIS、GUI subsystem和安装器上传。
 - 0.7.1/build20稳定版通过**463项普通测试 + 3项独立刷新调度 + 18项PTY runner，总计484项Swift**；Windows为124项前端、241项宿主Rust、25项浏览器生命周期、8个Antigravity详情状态、16组布局和608个文字角色。前端文件串行调度并保留单项5秒上限；PR #28、合并后main与发布workflow `34460178399`的原生双平台门禁全部通过。
-- 0.7.2/build21候选通过**464项普通测试 + 3项独立刷新调度 + 18项PTY runner，总计485项Swift**；Windows为124项前端、242项宿主Rust、25项浏览器生命周期、8个Antigravity详情状态、9种详情表面、16组布局和608个文字角色。production build、格式、严格Clippy、6份合同、254份Markdown、公开安全与无Widget Release App验证通过。
+- 0.7.2/build21通过**464项普通测试 + 3项独立刷新调度 + 18项PTY runner，总计485项Swift**；Windows为124项前端、242项宿主Rust、25项浏览器生命周期、8个Antigravity详情状态、9种详情表面、16组布局和608个文字角色。production build、格式、严格Clippy、6份合同、254份Markdown、公开安全与无Widget Release App验证通过；PR #30、合并后main及发布workflow `34486558748`再次完成原生门禁。
 - 四服务功能候选`8ad127e`及合并`99e018a`的双平台CI全绿；最终发布候选`7437f63`的PR CI `34314828597`/`34314828526`与合并提交`6fc4e1e`的main CI `34315740630`/`34315740626`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。
