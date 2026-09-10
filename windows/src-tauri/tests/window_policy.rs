@@ -310,34 +310,34 @@ fn meter_shape_tapers_to_the_screen_edge_without_square_shoulders() {
     let points = meter_shape_points(PhysicalSize::new(116, 450), Edge::Right);
     assert_eq!(
         points.first().map(|point| (point.x, point.y)),
-        Some((116, 20))
+        Some((116, 18))
     );
     assert_eq!(
         points.last().map(|point| (point.x, point.y)),
-        Some((116, 430))
+        Some((116, 441))
     );
-    assert!(points.iter().any(|point| point.x == 0 && point.y == 111));
-    assert!(points.iter().any(|point| point.x == 0 && point.y == 339));
+    assert!(points.iter().any(|point| point.x == 0 && point.y == 98));
+    assert!(points.iter().any(|point| point.x == 0 && point.y == 299));
     assert!(points.iter().all(|point| (0..=116).contains(&point.x)));
 
     let left_points = meter_shape_points(PhysicalSize::new(116, 450), Edge::Left);
     assert_eq!(
         left_points.first().map(|point| (point.x, point.y)),
-        Some((0, 20))
+        Some((0, 18))
     );
     assert_eq!(
         left_points.last().map(|point| (point.x, point.y)),
-        Some((0, 430))
+        Some((0, 441))
     );
     assert!(
         left_points
             .iter()
-            .any(|point| point.x == 116 && point.y == 111)
+            .any(|point| point.x == 116 && point.y == 98)
     );
     assert!(
         left_points
             .iter()
-            .any(|point| point.x == 116 && point.y == 339)
+            .any(|point| point.x == 116 && point.y == 299)
     );
     assert_eq!(points.len(), left_points.len());
     assert!(

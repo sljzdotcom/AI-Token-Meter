@@ -18,8 +18,8 @@ enum FloatingStripLayout {
         return normalizedCenterY(for: CGRect(x: frame.minX, y: frame.midY - height / 2, width: frame.width, height: height), in: visibleFrame)
     }
     static func foldedFrame(from expanded: CGRect, edge: FloatingStripEdge) -> CGRect {
-        CGRect(x: edge == .left ? expanded.minX : expanded.maxX - 12,
-               y: expanded.midY - 48, width: 12, height: 96)
+        CGRect(x: edge == .left ? expanded.minX : expanded.maxX - 16,
+               y: expanded.midY - 48, width: 16, height: 96)
     }
     static let detailGap: CGFloat = 9
     static let detailScreenInset: CGFloat = 8

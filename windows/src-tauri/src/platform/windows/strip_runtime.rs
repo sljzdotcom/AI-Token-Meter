@@ -2,7 +2,9 @@ use super::strip_preferences::FoldState;
 use super::window_controller::METER_WINDOW_LABEL;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
+
+pub const FOLD_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 pub fn restore(app: &tauri::AppHandle) -> tauri::Result<()> {
     super::display_coordinator::reconcile(app)
@@ -17,16 +19,16 @@ pub fn start(app: tauri::AppHandle) {
         let origin = Instant::now();
         let mut fold = FoldState::default();
         loop {
-            std::thread::sleep(Duration::from_millis(250));
+            std::thread::sleep(FOLD_POLL_INTERVAL);
             let Some(meter) = app.get_webview_window(METER_WINDOW_LABEL) else {
                 return;
             };
             let state = app.state::<crate::RuntimeState>();
             let prefs = state.app_settings_snapshot().strip_preferences;
             let reset = state.strip_reset.swap(false, Ordering::AcqRel);
-            let locked = state.strip_pointer.load(Ordering::Acquire)
-                || reset
-                || state.strip_focus.load(Ordering::Acquire)
+            let hovering = state.strip_pointer.load(Ordering::Acquire)
+                || state.strip_focus.load(Ordering::Acquire);
+            let locked_open = reset
                 || state.strip_menu.load(Ordering::Acquire)
                 || state.meter_drag_is_active()
                 || state
@@ -44,15 +46,17 @@ pub fn start(app: tauri::AppHandle) {
                     .is_some_and(|settings| settings.is_visible().unwrap_or(false))
                 || screen_reader_active()
                 || !meter.is_visible().unwrap_or(false);
-            let next = fold.update(origin.elapsed().as_secs_f64(), prefs.fold_delay, locked);
+            let next = fold.update(
+                origin.elapsed().as_secs_f64(),
+                prefs.reveal_delay_milliseconds,
+                prefs.collapse_delay_milliseconds,
+                hovering,
+                locked_open,
+            );
             let previous = state.strip_folded.swap(next, Ordering::AcqRel);
-            if needs_restore(previous, next, reset) {
-                if restore(&app).is_ok() {
-                    let _ = app.emit("strip-folded", next);
-                } else {
-                    state.strip_folded.store(previous, Ordering::Release);
-                    state.strip_reset.store(true, Ordering::Release);
-                }
+            if needs_restore(previous, next, reset) && restore(&app).is_err() {
+                state.strip_folded.store(previous, Ordering::Release);
+                state.strip_reset.store(true, Ordering::Release);
             }
         }
     });

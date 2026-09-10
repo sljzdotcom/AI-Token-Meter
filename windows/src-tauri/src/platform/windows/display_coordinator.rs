@@ -174,9 +174,15 @@ pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
                     state.meter_drag.finish(session);
                     let _ = crate::publish_settings(&app);
                 }
-                if let Err(error) = reconcile_once(&app) {
-                    eprintln!("Meter reconciliation failed: {error}");
-                    state.strip_reset.store(true, Ordering::Release);
+                match reconcile_once(&app) {
+                    Ok(Some(applied_folded)) => {
+                        let _ = app.emit("strip-folded", applied_folded);
+                    }
+                    Ok(None) => {}
+                    Err(error) => {
+                        eprintln!("Meter reconciliation failed: {error}");
+                        state.strip_reset.store(true, Ordering::Release);
+                    }
                 }
             });
         });
@@ -184,10 +190,10 @@ pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
+fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<Option<bool>> {
     let state = app.state::<crate::RuntimeState>();
     if state.meter_drag_is_active() {
-        return Ok(());
+        return Ok(None);
     }
     let instances = state
         .meter_instances
@@ -195,8 +201,9 @@ fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
         .map_err(|_| tauri::Error::WindowNotFound)?
         .clone();
     if state.meter_drag_is_active() {
-        return Ok(());
+        return Ok(None);
     }
+    let applied_folded = state.strip_folded.load(Ordering::Acquire);
     let displays = online(app)?;
     let identities: Vec<_> = displays
         .iter()
@@ -206,7 +213,7 @@ fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
     let prefs = settings.displays.clone().unwrap_or_default();
     let targets = prefs.targets(&identities);
     if targets.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
     let plan = {
         let mut detail = state
@@ -260,7 +267,7 @@ fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
             .lock()
             .unwrap()
             .insert(label.clone(), id.clone());
-        window.set_focusable(false)?;
+        window.set_focusable(window_controller::meter_accepts_keyboard_focus())?;
         window.set_always_on_top(false)?;
         let placement = prefs.placement(id);
         window_controller::restore_meter_position(
@@ -268,6 +275,7 @@ fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
             crate::edge_from_settings(placement.edge),
             f64::from(placement.vertical_per_mille.min(1000)) / 1000.0,
             Some(id),
+            applied_folded,
         )?;
         window.emit("meter-edge-changed", placement.edge)?;
         if state
@@ -283,7 +291,7 @@ fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<()> {
         }
     }
     app.emit("displays-changed", displays)?;
-    Ok(())
+    Ok(Some(applied_folded))
 }
 
 pub fn placement_for_window(app: &tauri::AppHandle, label: &str) -> DisplayPlacement {

@@ -13,6 +13,9 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-10 | 65pt贴边浮动条、悬停展开与快捷设置 | [规格](specifications/2026-09-10-floating-strip-hover-redesign.md) | [计划](implementation-plans/2026-09-10-floating-strip-hover-redesign.md) |
+| 2026-09-10 | Google Antigravity详情强调色恢复 | [规格](specifications/2026-09-10-antigravity-accent-restoration-design.md) | [计划](implementation-plans/2026-09-10-antigravity-accent-restoration.md) |
+| 2026-09-11 | 0.7.3浮动条交互与Antigravity视觉发布 | — | [计划](implementation-plans/2026-09-11-v0.7.3-release.md) |
 | 2026-09-10 | 0.7.2详情与Compact稳定修复版 | 沿用两项修复规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-10-v0.7.2-release.md) |
 | 2026-09-10 | Antigravity详情底板修复 | [规格](specifications/2026-09-10-antigravity-detail-surface-fix-design.md) | [计划](implementation-plans/2026-09-10-antigravity-detail-surface-fix.md) |
 | 2026-09-10 | Compact圆环两侧留白减半 | [规格](specifications/2026-09-10-compact-strip-padding-halving-design.md) | [计划](implementation-plans/2026-09-10-compact-strip-padding-halving.md) |

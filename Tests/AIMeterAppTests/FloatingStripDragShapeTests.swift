@@ -11,7 +11,7 @@ struct FloatingStripDragShapeTests {
     }
 
     @Test func fourthProviderHasCompleteClickRegionOnBothEdges() {
-        for (density, height, lastCenter) in [(FloatingStripDensity.compact, 344.0, 259.0), (.comfortable, 428.0, 322.0)] {
+        for (density, height, lastCenter) in [(FloatingStripDensity.compact, 386.0, 259.0), (.comfortable, 476.0, 322.0)] {
             let rect = CGRect(x: 0, y: 0, width: density.width, height: height)
             for edge in [FloatingStripEdge.left, .right] {
                 let shape = FloatingStripShape(edge: edge, density: density, providerCount: 4).path(in: rect)
@@ -21,6 +21,30 @@ struct FloatingStripDragShapeTests {
                         #expect(shape.contains(CGPoint(x: x, y: y)))
                         #expect(!drag.contains(CGPoint(x: x, y: y), eoFill: true))
                     }
+                }
+            }
+        }
+    }
+
+    @Test("All ring circumferences and the Settings icon remain inside the mirrored surface")
+    func ringsAndSettingsStayInsideSurface() {
+        for density in FloatingStripDensity.allCases {
+            for count in 1...4 {
+                let rect = CGRect(x: 0, y: 0, width: density.width, height: density.height(providerCount: count))
+                for edge in [FloatingStripEdge.left, .right] {
+                    let path = FloatingStripShape(edge: edge, density: density, providerCount: count).path(in: rect)
+                    for frame in FloatingStripContentLayout.providerFrames(in: rect, density: density, count: count) {
+                        for step in 0..<72 {
+                            let angle = Double(step) * .pi * 2 / 72
+                            let point = CGPoint(
+                                x: frame.midX + cos(angle) * (frame.width / 2 - 0.5),
+                                y: frame.midY + sin(angle) * (frame.height / 2 - 0.5)
+                            )
+                            #expect(path.contains(point), "\(density.rawValue)/\(edge)/\(count) misses \(point)")
+                        }
+                    }
+                    let gear = FloatingStripContentLayout.settingsButtonFrame(in: rect, edge: edge, density: density, count: count)
+                    #expect(path.contains(CGPoint(x: gear.midX, y: gear.midY)))
                 }
             }
         }
@@ -44,18 +68,18 @@ struct FloatingStripDragShapeTests {
     }
     @Test("Compact hit testing excludes every visible ring after provider removal")
     func compactHitRegions() {
-        let rect = CGRect(x: 0, y: 0, width: 56.5, height: 228)
+        let rect = CGRect(x: 0, y: 0, width: 65, height: 270)
         let shape = FloatingStripDragShape(edge: .right, density: .compact, providerCount: 2)
         let path = shape.path(in: rect)
-        #expect(!path.contains(CGPoint(x: 28.25, y: 85), eoFill: true))
-        #expect(!path.contains(CGPoint(x: 28.25, y: 143), eoFill: true))
-        #expect(path.contains(CGPoint(x: 28.25, y: 114), eoFill: true))
-        #expect(path.contains(CGPoint(x: 50, y: 50), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 32.5, y: 85), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 32.5, y: 143), eoFill: true))
+        #expect(path.contains(CGPoint(x: 32.5, y: 114), eoFill: true))
+        #expect(path.contains(CGPoint(x: 58, y: 50), eoFill: true))
     }
 
     @Test("Glass background drags while provider buttons remain click-only")
     func dragRegionExcludesProviderButtons() {
-        let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
+        let rect = CGRect(x: 0, y: 0, width: 108, height: 404)
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
         #expect(right.contains(CGPoint(x: 75, y: 58), eoFill: true))
@@ -69,7 +93,7 @@ struct FloatingStripDragShapeTests {
 
     @Test("Left drag region mirrors the right region")
     func dragRegionMirrors() {
-        let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
+        let rect = CGRect(x: 0, y: 0, width: 108, height: 404)
         let left = FloatingStripDragShape(edge: .left).path(in: rect)
 
         #expect(left.contains(CGPoint(x: 33, y: 58), eoFill: true))
@@ -79,7 +103,7 @@ struct FloatingStripDragShapeTests {
 
     @Test("Drag exclusions remain fixed-size and centered in a scaled translated shape")
     func dragRegionUsesFixedCenteredProviderFrames() {
-        let rect = CGRect(x: 100, y: 200, width: 216, height: 712)
+        let rect = CGRect(x: 100, y: 200, width: 216, height: 808)
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
         #expect(right.contains(CGPoint(x: 250, y: 316), eoFill: true))
@@ -92,7 +116,7 @@ struct FloatingStripDragShapeTests {
 
     @Test("Every provider exclusion keeps adjacent glass draggable")
     func providerExclusionBoundariesLeaveAdjacentGlassDraggable() {
-        let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
+        let rect = CGRect(x: 0, y: 0, width: 108, height: 404)
         let right = FloatingStripDragShape(edge: .right).path(in: rect)
 
         for (top, center, bottom) in [(76, 106, 136), (148, 178, 208), (220, 250, 280)] {

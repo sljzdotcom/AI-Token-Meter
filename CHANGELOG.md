@@ -4,6 +4,23 @@
 
 ## Unreleased
 
+## 0.7.3 - 2026-09-11
+
+稳定界面更新；macOS build22。重新设计65pt贴边浮动条的悬停交互与Settings入口，并恢复Google Antigravity详情强调色。[发布记录](docs/development/2026-09-11-v0.7.3-release.md)。
+
+### Added
+
+- 浮动条闲置时收成7pt/px可见细条，指针进入后展开；Appearance可分别设置0–2000ms显示延迟和0–5000ms收起延迟，默认150/800ms。
+- 浮动条底部弧区增加Settings齿轮，直接打开唯一Appearance设置窗口。
+
+### Changed
+
+- Compact展开宽度采用65pt/px，48pt/px圆环保持；新的分区高度和镜像Bezier轮廓完整包住1至4个Provider，过渡先处理内容可见性再调整窗口。
+
+### Fixed
+
+- Google Antigravity详情恢复青绿色标题、额度值与进度强调，深海不透明底板和额度语义保持。
+
 ## 0.7.2 - 2026-09-10
 
 稳定修复版；macOS build21。恢复Google Antigravity详情深色底板，并把Compact圆环两侧留白精确减半。[发布记录](docs/development/2026-09-10-v0.7.2-release.md)。

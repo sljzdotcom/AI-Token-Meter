@@ -11,11 +11,21 @@ struct AppearanceSettingsView: View {
                     Text("Compact").tag(FloatingStripDensity.compact)
                     Text("Comfortable").tag(FloatingStripDensity.comfortable)
                 }
-                Picker("Fold when idle", selection: stripBinding(\.foldDelay)) {
-                    ForEach(FloatingStripFoldDelay.allCases, id: \.self) { delay in
-                        Text(delay.displayName).tag(delay)
-                    }
-                }
+                Stepper(
+                    "Show delay: \(model.stripPreferences.revealDelayMilliseconds) ms",
+                    value: stripBinding(\.revealDelayMilliseconds),
+                    in: 0...2_000,
+                    step: 50
+                )
+                Stepper(
+                    "Hide delay: \(model.stripPreferences.collapseDelayMilliseconds) ms",
+                    value: stripBinding(\.collapseDelayMilliseconds),
+                    in: 0...5_000,
+                    step: 50
+                )
+                Text("The show and hide delays apply immediately. Open details, menus, dragging and refreshes keep the meter expanded.")
+                    .aiMeterFont(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle(
                     "Show floating meter",
                     isOn: Binding(

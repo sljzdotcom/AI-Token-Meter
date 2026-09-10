@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 pub struct StripPreferences {
     pub schema_version: u64,
     pub density: String,
-    pub fold_delay: u64,
+    pub reveal_delay_milliseconds: u64,
+    pub collapse_delay_milliseconds: u64,
     pub ordered_providers: Vec<String>,
     pub hidden_providers: Vec<String>,
     pub hidden_until: Option<i64>,
@@ -19,6 +20,8 @@ impl<'de> Deserialize<'de> for StripPreferences {
             schema_version: Option<u64>,
             density: Option<String>,
             fold_delay: Option<u64>,
+            reveal_delay_milliseconds: Option<u64>,
+            collapse_delay_milliseconds: Option<u64>,
             ordered_providers: Option<Vec<String>>,
             hidden_providers: Option<Vec<String>>,
             hidden_until: Option<i64>,
@@ -34,8 +37,19 @@ impl<'de> Deserialize<'de> for StripPreferences {
         if let Some(density) = stored.density {
             value.density = density;
         }
-        if let Some(delay) = stored.fold_delay {
-            value.fold_delay = delay;
+        if stored.schema_version.unwrap_or(0) >= 3 {
+            if let Some(delay) = stored.reveal_delay_milliseconds {
+                value.reveal_delay_milliseconds = delay;
+            }
+            if let Some(delay) = stored.collapse_delay_milliseconds {
+                value.collapse_delay_milliseconds = delay;
+            }
+        } else if let Some(delay) = stored.fold_delay {
+            value.collapse_delay_milliseconds = if delay == 0 {
+                800
+            } else {
+                delay.saturating_mul(1_000).min(5_000)
+            };
         }
         if let Some(order) = stored.ordered_providers {
             value.ordered_providers = order;
@@ -55,9 +69,10 @@ impl<'de> Deserialize<'de> for StripPreferences {
 impl Default for StripPreferences {
     fn default() -> Self {
         Self {
-            schema_version: 2,
+            schema_version: 3,
             density: "compact".into(),
-            fold_delay: 0,
+            reveal_delay_milliseconds: 150,
+            collapse_delay_milliseconds: 800,
             ordered_providers: vec![
                 "claude".into(),
                 "codex".into(),
@@ -75,11 +90,14 @@ impl StripPreferences {
         if self.density != "comfortable" {
             self.density = "compact".into();
         }
-        if ![0, 5, 15].contains(&self.fold_delay) {
-            self.fold_delay = 0;
+        if self.reveal_delay_milliseconds > 2_000 {
+            self.reveal_delay_milliseconds = 150;
+        }
+        if self.collapse_delay_milliseconds > 5_000 {
+            self.collapse_delay_milliseconds = 800;
         }
         let known = ["claude", "codex", "deepseek", "gemini"];
-        self.schema_version = 2;
+        self.schema_version = 3;
         let mut order = Vec::new();
         for id in self
             .ordered_providers
@@ -110,13 +128,13 @@ impl StripPreferences {
     }
     pub fn logical_size(&self, folded: bool) -> (f64, f64) {
         if folded {
-            return (12.0, 96.0);
+            return (16.0, 96.0);
         }
         let count = self.visible_providers().len().clamp(1, 4);
         if self.density == "comfortable" {
-            (108.0, 212.0 + (count - 1) as f64 * 72.0)
+            (108.0, 260.0 + (count - 1) as f64 * 72.0)
         } else {
-            (56.5, 170.0 + (count - 1) as f64 * 58.0)
+            (65.0, 212.0 + (count - 1) as f64 * 58.0)
         }
     }
     pub fn hidden(&self, now: i64) -> bool {
@@ -126,21 +144,89 @@ impl StripPreferences {
 
 #[derive(Default)]
 pub struct FoldState {
-    deadline: Option<f64>,
-    previous_delay: u64,
+    reveal_deadline: Option<f64>,
+    collapse_deadline: Option<f64>,
     pub folded: bool,
 }
 impl FoldState {
-    pub fn update(&mut self, now: f64, delay: u64, locked: bool) -> bool {
-        if locked || delay == 0 || delay != self.previous_delay {
+    pub fn update(
+        &mut self,
+        now: f64,
+        reveal_delay_milliseconds: u64,
+        collapse_delay_milliseconds: u64,
+        hovering: bool,
+        locked_open: bool,
+    ) -> bool {
+        if locked_open {
             self.folded = false;
-            self.deadline = None;
+            self.reveal_deadline = None;
+            self.collapse_deadline = None;
+            return false;
         }
-        self.previous_delay = delay;
-        if !locked && delay > 0 {
-            let deadline = self.deadline.get_or_insert(now + delay as f64);
-            self.folded = now >= *deadline;
+        if self.folded {
+            self.collapse_deadline = None;
+            if !hovering {
+                self.reveal_deadline = None;
+                return true;
+            }
+            let deadline = self
+                .reveal_deadline
+                .get_or_insert(now + reveal_delay_milliseconds as f64 / 1_000.0);
+            if now >= *deadline {
+                self.folded = false;
+                self.reveal_deadline = None;
+            }
+            return self.folded;
+        }
+        self.reveal_deadline = None;
+        if hovering {
+            self.collapse_deadline = None;
+            return false;
+        }
+        let deadline = self
+            .collapse_deadline
+            .get_or_insert(now + collapse_delay_milliseconds as f64 / 1_000.0);
+        if now >= *deadline {
+            self.folded = true;
+            self.collapse_deadline = None;
         }
         self.folded
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FoldState, StripPreferences};
+
+    #[test]
+    fn schema_three_has_independent_bounded_delays_and_new_dimensions() {
+        let defaults = StripPreferences::default();
+        assert_eq!(defaults.schema_version, 3);
+        assert_eq!(defaults.reveal_delay_milliseconds, 150);
+        assert_eq!(defaults.collapse_delay_milliseconds, 800);
+        assert_eq!(defaults.logical_size(false), (65.0, 386.0));
+        assert_eq!(defaults.logical_size(true), (16.0, 96.0));
+
+        let legacy: StripPreferences = serde_json::from_str(
+            r#"{"schemaVersion":2,"foldDelay":5,"orderedProviders":["claude"]}"#,
+        )
+        .unwrap();
+        assert_eq!(legacy.reveal_delay_milliseconds, 150);
+        assert_eq!(legacy.collapse_delay_milliseconds, 5_000);
+    }
+
+    #[test]
+    fn fold_state_cancels_stale_reveal_and_collapse_deadlines() {
+        let mut state = FoldState::default();
+        assert!(!state.update(0.0, 150, 800, false, false));
+        assert!(!state.update(0.79, 150, 800, true, false));
+        assert!(!state.update(0.80, 150, 800, false, false));
+        assert!(!state.update(1.59, 150, 800, false, false));
+        assert!(state.update(1.60, 150, 800, false, false));
+        assert!(state.update(1.61, 150, 800, true, false));
+        assert!(state.update(1.70, 150, 800, false, false));
+        assert!(state.update(2.00, 150, 800, true, false));
+        assert!(!state.update(2.15, 150, 800, true, false));
+        assert!(!state.update(30.0, 150, 800, false, true));
     }
 }

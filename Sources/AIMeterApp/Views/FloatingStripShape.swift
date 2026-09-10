@@ -8,7 +8,8 @@ struct FloatingStripShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         let compact = density == .compact
-        let removed = density.baseHeight - density.height(providerCount: providerCount)
+        let contentHeight = density.contentHeight(providerCount: providerCount)
+        let totalHeight = density.height(providerCount: providerCount)
         let widthScale = rect.width / density.width
         let heightScale = rect.height / density.height(providerCount: providerCount)
 
@@ -24,12 +25,18 @@ struct FloatingStripShape: Shape {
 
         var path = Path()
         if compact {
-            path.move(to: point(56.5, 12))
-            path.addCurve(to: point(35.75, 22), control1: point(50.5, 17), control2: point(48.75, 21))
-            path.addCurve(to: point(0, 70), control1: point(13.75, 23), control2: point(0, 42))
-            path.addLine(to: point(0, 216 - removed))
-            path.addCurve(to: point(35.75, 264 - removed), control1: point(0, 244 - removed), control2: point(13.75, 263 - removed))
-            path.addCurve(to: point(56.5, 274 - removed), control1: point(48.75, 265 - removed), control2: point(50.5, 269 - removed))
+            path.move(to: point(65, 8))
+            path.addCurve(to: point(42, 22), control1: point(59, 14), control2: point(53, 21))
+            path.addCurve(to: point(0, 70), control1: point(18, 23), control2: point(0, 42))
+            path.addLine(to: point(0, contentHeight - 70))
+            path.addCurve(to: point(18, contentHeight - 10),
+                          control1: point(0, contentHeight - 36), control2: point(6, contentHeight - 15))
+            path.addCurve(to: point(36, contentHeight + 8),
+                          control1: point(27, contentHeight - 8), control2: point(34, contentHeight + 1))
+            path.addCurve(to: point(48, totalHeight - 24),
+                          control1: point(40, contentHeight + 13), control2: point(45, totalHeight - 30))
+            path.addCurve(to: point(65, totalHeight - 6),
+                          control1: point(52, totalHeight - 15), control2: point(59, totalHeight - 9))
             path.closeSubpath()
             return path
         }
@@ -44,16 +51,21 @@ struct FloatingStripShape: Shape {
             control1: point(29, 29),
             control2: point(0, 54)
         )
-        path.addLine(to: point(0, 268 - removed))
+        path.addLine(to: point(0, contentHeight - 88))
         path.addCurve(
-            to: point(66, 328 - removed),
-            control1: point(0, 302 - removed),
-            control2: point(29, 327 - removed)
+            to: point(34, contentHeight - 10),
+            control1: point(0, contentHeight - 47),
+            control2: point(13, contentHeight - 12)
         )
         path.addCurve(
-            to: point(108, 340 - removed),
-            control1: point(88, 329 - removed),
-            control2: point(98, 333 - removed)
+            to: point(68, contentHeight + 12),
+            control1: point(50, contentHeight - 8),
+            control2: point(64, contentHeight + 3)
+        )
+        path.addCurve(
+            to: point(108, totalHeight - 8),
+            control1: point(78, contentHeight + 20),
+            control2: point(96, totalHeight - 14)
         )
         path.closeSubpath()
         return path

@@ -74,6 +74,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     private var detailInteraction = FloatingDetailInteractionState()
     private var foldState = FloatingStripFoldState()
     private var foldTimer: Timer?
+    private var visibilityTransitionTask: Task<Void, Never>?
+    private var pendingFoldedState: Bool?
     private var menuIsOpen = false
     private var temporarilyHidden = false
 
@@ -91,7 +93,10 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         stripPanel = Self.makePanel(nonactivating: true, role: .strip)
         detailPanel = Self.makePanel(nonactivating: false, role: .detail)
         super.init()
-        foldTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        foldTimer = Timer.scheduledTimer(
+            withTimeInterval: FloatingStripFoldState.pollingInterval,
+            repeats: true
+        ) { [weak self] _ in
             MainActor.assumeIsolated { self?.tickFold() }
         }
 
@@ -155,6 +160,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     isolated deinit {
         session.shutdown()
         foldTimer?.invalidate()
+        visibilityTransitionTask?.cancel()
         activeSpaceObserver?.invalidate()
         if let localMouseMonitor {
             NSEvent.removeMonitor(localMouseMonitor)
@@ -175,6 +181,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         hide()
         foldTimer?.invalidate()
         foldTimer = nil
+        visibilityTransitionTask?.cancel()
+        visibilityTransitionTask = nil
         activeSpaceObserver?.invalidate()
         activeSpaceObserver = nil
         voiceOverObservation?.invalidate()
@@ -198,8 +206,17 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         if let selected = session.selectedProvider,
            !model.stripPreferences.visibleProviders.contains(selected) { dismissDetail() }
         guard !displayState.isDragging else { return }
-        foldState.update(now: ProcessInfo.processInfo.systemUptime, delay: 0, locked: true)
+        foldState.update(
+            now: ProcessInfo.processInfo.systemUptime,
+            revealDelay: 0,
+            collapseDelay: 0,
+            hovering: true,
+            lockedOpen: true
+        )
+        visibilityTransitionTask?.cancel()
+        pendingFoldedState = nil
         displayState.isFolded = false
+        displayState.showsExpandedContent = true
         positionPanels()
         tickFold()
     }
@@ -602,7 +619,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     private var stripSize: CGSize {
-        if displayState.isFolded { return CGSize(width: 12, height: 96) }
+        if displayState.isFolded { return CGSize(width: 16, height: 96) }
         return expandedStripSize
     }
 
@@ -623,15 +640,66 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         }
         guard model.showFloatingStrip, stripPanel.isVisible else { return }
         let point = NSEvent.mouseLocation
-        let locked = forceExpanded || stripPanel.frame.contains(point)
+        let hovering = stripPanel.frame.contains(point)
+        let lockedOpen = forceExpanded || (pendingFoldedState == true && hovering)
             || session.selectedProvider != nil || displayState.isDragging || menuIsOpen
-            || stripPanel.isKeyWindow || NSWorkspace.shared.isVoiceOverEnabled
+            || stripPanel.isKeyWindow || settingsWindowIsVisible || NSWorkspace.shared.isVoiceOverEnabled
             || model.isRefreshing || model.isAuthenticating || model.serviceAccounts.values.contains { $0.connectionState == .checking }
-        foldState.update(now: ProcessInfo.processInfo.systemUptime,
-                         delay: Double(model.stripPreferences.foldDelay.rawValue), locked: locked)
-        if displayState.isFolded != foldState.isFolded {
-            displayState.isFolded = foldState.isFolded
-            positionPanels(foldingAnimation: true)
+        foldState.update(
+            now: ProcessInfo.processInfo.systemUptime,
+            revealDelay: Double(model.stripPreferences.revealDelayMilliseconds) / 1_000,
+            collapseDelay: Double(model.stripPreferences.collapseDelayMilliseconds) / 1_000,
+            hovering: hovering,
+            lockedOpen: lockedOpen
+        )
+        transitionStrip(toFolded: foldState.isFolded)
+    }
+
+    private var settingsWindowIsVisible: Bool {
+        NSApp.windows.contains {
+            $0.identifier?.rawValue == "com_apple_SwiftUI_Settings_window" && $0.isVisible
+        }
+    }
+
+    private func transitionStrip(toFolded folded: Bool) {
+        if pendingFoldedState == folded { return }
+        if displayState.isFolded == folded, pendingFoldedState == nil {
+            if !folded { displayState.showsExpandedContent = true }
+            return
+        }
+        visibilityTransitionTask?.cancel()
+        pendingFoldedState = folded
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if folded {
+            displayState.showsExpandedContent = false
+            if reduceMotion {
+                displayState.isFolded = true
+                pendingFoldedState = nil
+                positionPanels()
+                return
+            }
+            visibilityTransitionTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(140))
+                guard let self, !Task.isCancelled, self.pendingFoldedState == true else { return }
+                self.displayState.isFolded = true
+                self.pendingFoldedState = nil
+                self.positionPanels(foldingAnimation: true)
+            }
+        } else {
+            displayState.isFolded = false
+            displayState.showsExpandedContent = false
+            positionPanels(foldingAnimation: !reduceMotion)
+            if reduceMotion {
+                displayState.showsExpandedContent = true
+                pendingFoldedState = nil
+                return
+            }
+            visibilityTransitionTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(180))
+                guard let self, !Task.isCancelled, self.pendingFoldedState == false else { return }
+                self.displayState.showsExpandedContent = true
+                self.pendingFoldedState = nil
+            }
         }
     }
 

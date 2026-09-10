@@ -201,11 +201,17 @@ export function SettingsWindow({
                 <option value="compact">{t("Compact")}</option><option value="comfortable">{t("Comfortable")}</option>
               </select>
             </SettingRow>
-            <SettingRow label={t("Fold when idle")} hint={t("Interaction, open details and refreshes keep the meter expanded.")}>
-              <select aria-label={t("Fold when idle")} value={stripPreferences.foldDelay}
-                onChange={e => onStripPreferencesChange({...stripPreferences, foldDelay: Number(e.target.value)})}>
-                <option value={0}>{t("Never")}</option><option value={5}>{t("After 5 seconds")}</option><option value={15}>{t("After 15 seconds")}</option>
-              </select>
+            <SettingRow label={t("Show delay (ms)")} hint={t("Wait before expanding after the pointer enters; 0–2000 ms.")}>
+              <input aria-label={t("Show delay (ms)")} type="number" min={0} max={2000} step={50}
+                value={stripPreferences.revealDelayMilliseconds}
+                onChange={e => onStripPreferencesChange({...stripPreferences,
+                  revealDelayMilliseconds: Math.min(2000, Math.max(0, Number(e.target.value)))})} />
+            </SettingRow>
+            <SettingRow label={t("Hide delay (ms)")} hint={t("Wait before collapsing after interaction ends; 0–5000 ms.")}>
+              <input aria-label={t("Hide delay (ms)")} type="number" min={0} max={5000} step={50}
+                value={stripPreferences.collapseDelayMilliseconds}
+                onChange={e => onStripPreferencesChange({...stripPreferences,
+                  collapseDelayMilliseconds: Math.min(5000, Math.max(0, Number(e.target.value)))})} />
             </SettingRow>
             <SettingRow label={t("Floating strip services")} hint={t("Keep at least one visible. Hidden services continue monitoring.")}>
               <div>

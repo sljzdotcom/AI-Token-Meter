@@ -124,6 +124,7 @@ end
 
 readme_path = root + "README.md"
 plist_path = root + "Sources/AIMeterApp/Resources/Info.plist"
+appcast_path = root + "appcast.xml"
 testing_path = root + "docs/development/testing.md"
 
 if readme_path.file? && plist_path.file?
@@ -146,7 +147,6 @@ if readme_path.file? && plist_path.file?
     "Windows Authenticode boundary" => "Authenticode",
     "public author credit" => "Author: Miller",
     "MIT license notice" => "MIT License",
-    "v#{plist_version} download guidance" => "Download v#{plist_version}",
     "ad-hoc signing notice" => "ad-hoc signed",
     "notarization notice" => "not notarized",
     "floating strip screenshot" => "docs/assets/screenshots/floating-strip.png",
@@ -155,6 +155,14 @@ if readme_path.file? && plist_path.file?
   }
   public_readme_requirements.each do |label, text|
     errors << "README #{label} is missing" unless readme.include?(text)
+  end
+
+  published_version = if appcast_path.file?
+    appcast_path.read[/<sparkle:shortVersionString>([^<]+)<\/sparkle:shortVersionString>/, 1]
+  end
+  allowed_download_versions = [plist_version, published_version].compact.uniq
+  unless allowed_download_versions.any? { |version| readme.include?("Download v#{version}") }
+    errors << "README v#{plist_version} download guidance is missing"
   end
 end
 

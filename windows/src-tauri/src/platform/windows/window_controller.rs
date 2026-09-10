@@ -352,7 +352,7 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     let width = unsigned_to_i32(size.width);
     let scale = |x: i32, y: i32| PhysicalPoint {
         x: (f64::from(x) * f64::from(size.width) / 108.0).round() as i32,
-        y: (f64::from(y) * f64::from(size.height) / 356.0).round() as i32,
+        y: (f64::from(y) * f64::from(size.height) / 404.0).round() as i32,
     };
     let mut points = cubic_points(
         scale(108, 16),
@@ -370,9 +370,9 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     points.extend(
         cubic_points(
             scale(0, 268),
-            scale(0, 302),
-            scale(29, 327),
-            scale(66, 328),
+            scale(0, 309),
+            scale(13, 344),
+            scale(34, 346),
             64,
         )
         .into_iter()
@@ -380,10 +380,21 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     );
     points.extend(
         cubic_points(
-            scale(66, 328),
-            scale(88, 329),
-            scale(98, 333),
-            scale(108, 340),
+            scale(34, 346),
+            scale(50, 348),
+            scale(64, 359),
+            scale(68, 368),
+            64,
+        )
+        .into_iter()
+        .skip(1),
+    );
+    points.extend(
+        cubic_points(
+            scale(68, 368),
+            scale(78, 376),
+            scale(96, 390),
+            scale(108, 396),
             64,
         )
         .into_iter()
@@ -436,6 +447,14 @@ pub const METER_WINDOW_LABEL: &str = "meter";
 pub const DETAIL_WINDOW_LABEL: &str = "detail";
 pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 
+pub fn meter_accepts_keyboard_focus() -> bool {
+    true
+}
+
+pub fn meter_extended_style(existing: i32, tool_window: i32, no_activate: i32) -> i32 {
+    (existing | tool_window) & !no_activate
+}
+
 pub fn configure_initial_windows(
     app: &tauri::AppHandle,
     edge: Edge,
@@ -448,10 +467,10 @@ pub fn configure_initial_windows(
         .get_webview_window(METER_WINDOW_LABEL)
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
     meter.set_skip_taskbar(true)?;
-    meter.set_focusable(false)?;
+    meter.set_focusable(meter_accepts_keyboard_focus())?;
     meter.set_always_on_top(false)?;
     let migrated_identifier =
-        position_meter_on_preferred(&meter, edge, normalized_y, preferred_monitor_id)?;
+        position_meter_on_preferred(&meter, edge, normalized_y, preferred_monitor_id, None)?;
 
     if let Some(detail) = app.get_webview_window(DETAIL_WINDOW_LABEL) {
         detail.set_skip_taskbar(true)?;
@@ -470,7 +489,10 @@ pub fn place_meter(
         return Ok(());
     };
     let work = from_tauri_rect(monitor.work_area());
-    let meter_size = fitted_meter_size(work, desired_meter_size(meter, monitor.scale_factor()));
+    let meter_size = fitted_meter_size(
+        work,
+        desired_meter_size(meter, monitor.scale_factor(), None),
+    );
     meter.set_size(tauri::PhysicalSize::new(
         meter_size.width,
         meter_size.height,
@@ -509,7 +531,11 @@ fn apply_windows_meter_style(meter: &tauri::WebviewWindow, edge: Edge) -> tauri:
         SetWindowLongW(
             hwnd,
             GWL_EXSTYLE,
-            extended_style | WS_EX_TOOLWINDOW as i32 | WS_EX_NOACTIVATE as i32,
+            meter_extended_style(
+                extended_style,
+                WS_EX_TOOLWINDOW as i32,
+                WS_EX_NOACTIVATE as i32,
+            ),
         );
         let border_color = DWMWA_COLOR_NONE;
         let _ = DwmSetWindowAttribute(
@@ -663,8 +689,15 @@ pub fn restore_meter_position(
     edge: Edge,
     normalized_y: f64,
     preferred_monitor_id: Option<&str>,
+    folded: bool,
 ) -> tauri::Result<Option<String>> {
-    position_meter_on_preferred(meter, edge, normalized_y, preferred_monitor_id)
+    position_meter_on_preferred(
+        meter,
+        edge,
+        normalized_y,
+        preferred_monitor_id,
+        Some(folded),
+    )
 }
 
 fn position_meter_on_preferred(
@@ -672,6 +705,7 @@ fn position_meter_on_preferred(
     edge: Edge,
     normalized_y: f64,
     preferred_monitor_id: Option<&str>,
+    folded: Option<bool>,
 ) -> tauri::Result<Option<String>> {
     let monitors = meter.available_monitors()?;
     let primary_id = meter
@@ -698,7 +732,10 @@ fn position_meter_on_preferred(
         return Ok(None);
     };
     let work = from_tauri_rect(monitor.work_area());
-    let meter_size = fitted_meter_size(work, desired_meter_size(meter, monitor.scale_factor()));
+    let meter_size = fitted_meter_size(
+        work,
+        desired_meter_size(meter, monitor.scale_factor(), folded),
+    );
     meter.set_size(tauri::PhysicalSize::new(
         meter_size.width,
         meter_size.height,
@@ -862,15 +899,20 @@ fn from_tauri_rect(rect: &tauri::PhysicalRect<i32, u32>) -> PhysicalRect {
     )
 }
 
-fn desired_meter_size(meter: &tauri::WebviewWindow, scale_factor: f64) -> PhysicalSize {
+fn desired_meter_size(
+    meter: &tauri::WebviewWindow,
+    scale_factor: f64,
+    folded: Option<bool>,
+) -> PhysicalSize {
     use tauri::Manager;
     let state = meter.state::<crate::RuntimeState>();
     let prefs = state.app_settings_snapshot().strip_preferences;
-    let (width, height) = prefs.logical_size(
+    let folded = folded.unwrap_or_else(|| {
         state
             .strip_folded
-            .load(std::sync::atomic::Ordering::Acquire),
-    );
+            .load(std::sync::atomic::Ordering::Acquire)
+    });
+    let (width, height) = prefs.logical_size(folded);
     let desired: tauri::PhysicalSize<u32> =
         tauri::LogicalSize::new(width, height).to_physical(scale_factor);
     PhysicalSize::new(desired.width, desired.height)
@@ -898,15 +940,16 @@ mod tests {
 
     #[test]
     fn meter_shape_uses_the_approved_macos_bezier_landmarks() {
-        let points = meter_shape_points(PhysicalSize::new(108, 356), Edge::Right);
+        let points = meter_shape_points(PhysicalSize::new(108, 404), Edge::Right);
 
         for landmark in [
             PhysicalPoint { x: 108, y: 16 },
             PhysicalPoint { x: 66, y: 28 },
             PhysicalPoint { x: 0, y: 88 },
             PhysicalPoint { x: 0, y: 268 },
-            PhysicalPoint { x: 66, y: 328 },
-            PhysicalPoint { x: 108, y: 340 },
+            PhysicalPoint { x: 34, y: 346 },
+            PhysicalPoint { x: 68, y: 368 },
+            PhysicalPoint { x: 108, y: 396 },
         ] {
             assert!(points.contains(&landmark), "missing landmark {landmark:?}");
         }
@@ -914,8 +957,8 @@ mod tests {
 
     #[test]
     fn left_meter_shape_is_an_exact_horizontal_mirror() {
-        let right = meter_shape_points(PhysicalSize::new(216, 712), Edge::Right);
-        let left = meter_shape_points(PhysicalSize::new(216, 712), Edge::Left);
+        let right = meter_shape_points(PhysicalSize::new(216, 808), Edge::Right);
+        let left = meter_shape_points(PhysicalSize::new(216, 808), Edge::Left);
 
         assert_eq!(right.len(), left.len());
         for (right, left) in right.iter().zip(left) {

@@ -1267,8 +1267,6 @@ fn set_strip_preferences(
     state
         .strip_reset
         .store(true, std::sync::atomic::Ordering::Release);
-    app.emit("strip-folded", false)
-        .map_err(|_| "Window update failed")?;
     crate::platform::windows::strip_runtime::restore(&app).map_err(|_| "Window resize failed")?;
     app.emit("app-settings-changed", updated)
         .map_err(|_| "Settings update failed".to_owned())

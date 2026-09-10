@@ -58,6 +58,12 @@ struct FloatingStripRenderingTests {
                                     .frame(width: density.ringSize, height: density.ringSize)
                             }
                         }
+                        .frame(height: density.contentHeight(providerCount: count))
+                        .frame(
+                            width: density.width,
+                            height: density.height(providerCount: count),
+                            alignment: .top
+                        )
                     }, width: density.width, height: density.height(providerCount: count))
                     let rect = CGRect(x: 0, y: 0, width: density.width, height: density.height(providerCount: count))
                     let frames = FloatingStripContentLayout.providerFrames(in: rect, density: density, count: count)

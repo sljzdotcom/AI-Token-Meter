@@ -6,15 +6,15 @@ import Testing
 @Suite("Floating strip layout")
 struct FloatingStripLayoutTests {
     @Test func densitySwitchKeepsNoncentralAnchor() {
-        let small = FloatingStripLayout.anchoredFrame(in: visible, size: CGSize(width: 56.5, height: 286), edge: .left, normalizedCenterY: 0.1)
+        let small = FloatingStripLayout.anchoredFrame(in: visible, size: CGSize(width: 65, height: 328), edge: .left, normalizedCenterY: 0.1)
         let large = FloatingStripLayout.anchoredFrame(in: visible, size: stripSize, edge: .left, normalizedCenterY: 0.1)
         #expect(small.midY == large.midY)
         #expect(abs(FloatingStripLayout.anchorNormalizedY(for: small, in: visible) - 0.1) < 0.0001)
     }
     @Test func foldingKeepsCenterAndScreenEdge() {
-        let expanded = CGRect(x: 1243.5, y: 125, width: 56.5, height: 286)
+        let expanded = CGRect(x: 1235, y: 125, width: 65, height: 328)
         let folded = FloatingStripLayout.foldedFrame(from: expanded, edge: .right)
-        #expect(folded.size == CGSize(width: 12, height: 96))
+        #expect(folded.size == CGSize(width: 16, height: 96))
         #expect(folded.midY == expanded.midY)
         #expect(folded.maxX == expanded.maxX)
         #expect(FloatingStripLayout.foldedFrame(from: expanded, edge: .left).minX == expanded.minX)
