@@ -19,6 +19,7 @@ PR #23最终证据候选`a0b0349`的Windows workflow `34424587418`中，安装�
 - 通用原生夹具在本机终端实际完成`ready → hello → received:hello`往返；
 - Codex额度与账户定向测试继续通过；
 - 宿主完整Rust测试、Cargo格式与全部目标严格Clippy通过；
-- Windows专属ConPTY回归、完整runtime、NSIS、GUI subsystem和安装器上传等待PR及合并后`main` workflow复验。
+- 修复提交`3fa035e`的PR #23 macOS workflow `34426231120`用时2分12秒全绿；Windows workflow `34426231128`用时12分55秒，通过专属ConPTY回归、完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传；
+- 最终证据候选与合并后`main` workflow仍待复验。
 
 夹具只处理固定合成文本和虚构JSON响应，不读取真实账号、凭证或额度。版本保持0.6.3，本项不创建标签、Release或更新源。

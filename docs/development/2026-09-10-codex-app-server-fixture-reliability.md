@@ -28,4 +28,4 @@ Antigravity 迁移合入 `main` 后，Windows workflow `34422624107` 已通过�
 
 ## Git与后续
 
-实现提交为`fad1039`，[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)已通过首轮原生双平台门禁；合并和最终workflow证据在完成后回填。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。
+实现提交为`fad1039`，通用夹具补丁为`3fa035e`。[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)的修复候选`3fa035e`已通过macOS workflow `34426231120`和Windows workflow `34426231128`；Windows完整runtime、真实ConPTY、NSIS、GUI subsystem与上传均通过。合并和最终workflow证据在完成后回填。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。
