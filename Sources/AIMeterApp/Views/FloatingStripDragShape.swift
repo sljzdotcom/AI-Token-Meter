@@ -5,7 +5,9 @@ enum FloatingStripContentLayout {
     static let providerButtonSize: CGFloat = 60
     static let providerSpacing: CGFloat = 12
     static let verticalPadding: CGFloat = 17
-    static let horizontalPadding: CGFloat = 11
+    static func horizontalPadding(for density: FloatingStripDensity) -> CGFloat {
+        density == .compact ? 0 : 11
+    }
 
     static func providerFrames(in rect: CGRect, density: FloatingStripDensity = .comfortable, count: Int = 3) -> [CGRect] {
         let providerButtonSize = density.ringSize

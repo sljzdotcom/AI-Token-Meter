@@ -93,7 +93,7 @@ struct FloatingStripView: View {
                 }
             }
             .padding(.vertical, FloatingStripContentLayout.verticalPadding)
-            .padding(.horizontal, FloatingStripContentLayout.horizontalPadding)
+            .padding(.horizontal, FloatingStripContentLayout.horizontalPadding(for: density))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -2,7 +2,7 @@ import Foundation
 
 public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
     case compact, comfortable
-    public var width: Double { self == .compact ? 70 : 108 }
+    public var width: Double { self == .compact ? 65 : 108 }
     public var ringSize: Double { self == .compact ? 48 : 60 }
     public var spacing: Double { self == .compact ? 10 : 12 }
     public var baseHeight: Double { self == .compact ? 286 : 356 }

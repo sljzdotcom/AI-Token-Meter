@@ -24,12 +24,12 @@ struct FloatingStripShape: Shape {
 
         var path = Path()
         if compact {
-            path.move(to: point(70, 12))
-            path.addCurve(to: point(43, 22), control1: point(64, 17), control2: point(57, 21))
-            path.addCurve(to: point(0, 70), control1: point(19, 23), control2: point(0, 42))
+            path.move(to: point(65, 12))
+            path.addCurve(to: point(40, 22), control1: point(59, 17), control2: point(53, 21))
+            path.addCurve(to: point(0, 70), control1: point(18, 23), control2: point(0, 42))
             path.addLine(to: point(0, 216 - removed))
-            path.addCurve(to: point(43, 264 - removed), control1: point(0, 244 - removed), control2: point(19, 263 - removed))
-            path.addCurve(to: point(70, 274 - removed), control1: point(57, 265 - removed), control2: point(64, 269 - removed))
+            path.addCurve(to: point(40, 264 - removed), control1: point(0, 244 - removed), control2: point(18, 263 - removed))
+            path.addCurve(to: point(65, 274 - removed), control1: point(53, 265 - removed), control2: point(59, 269 - removed))
             path.closeSubpath()
             return path
         }
