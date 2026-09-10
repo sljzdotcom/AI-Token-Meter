@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前源码发布候选为`0.7.0`、macOS build`19`；当前公开稳定版仍为`0.6.3`、build`18`，tag为[`v0.6.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)。0.7.0发布事务完成后，macOS与Windows继续使用同一个`VERSION`、tag和GitHub Release，并同步稳定appcast、Windows stable latest.json与旧Windows Preview feed。进度记录在[0.7.0发布记录](2026-09-10-v0.7.0-release.md)。
+当前源码恢复候选为`0.7.1`、macOS build`20`；当前公开稳定版仍为`0.6.3`、build`18`，tag为[`v0.6.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)。0.7.0标签工作流在公开前停止且不移动该tag；0.7.1发布事务完成后，macOS与Windows继续使用同一个`VERSION`、tag和GitHub Release，并同步稳定appcast、Windows stable latest.json与旧Windows Preview feed。进度记录在[0.7.0 → 0.7.1发布记录](2026-09-10-v0.7.0-release.md)。
 
 ## 发布前检查清单
 
@@ -102,7 +102,7 @@ Sparkle 固定为 `2.9.4`。生产私钥只保存在维护者 macOS Keychain 的
 
 ```bash
 SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
-scripts/package-update-release.sh 0.7.0 19
+scripts/package-update-release.sh 0.7.1 20
 ```
 
 入口按固定顺序执行：完整测试与文档门禁 → 公开安全扫描 → Release 构建 → Sparkle Bundle 验证 → 最终 ZIP → SHA-256 → 官方工具生成 appcast → 独立 enclosure/EdDSA/篡改验证。ZIP 一旦用于生成 appcast 就不得重建；任何字节变化都必须重新生成 enclosure。

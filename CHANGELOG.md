@@ -4,9 +4,9 @@
 
 ## Unreleased
 
-## 0.7.0 - 2026-09-10
+## 0.7.1 - 2026-09-10
 
-稳定功能版；macOS build19。迁移Google Antigravity额度采集，并交付更紧凑的浮动条与菜单面板品牌调整。[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
+稳定功能版；macOS build20。迁移Google Antigravity额度采集，并交付更紧凑的浮动条与菜单面板品牌调整。[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
 
 ### Changed
 
@@ -22,6 +22,11 @@
 ### Fixed
 
 - Windows Codex与ConPTY协议测试改用Cargo构建的原生夹具，保留真实协议、进程回收和既有超时门禁，同时消除外部Node冷启动波动。
+- Windows前端测试文件改为串行调度，保留每项5秒防挂死上限，避免签名发布runner上的jsdom冷启动资源竞争阻断发行。
+
+## 0.7.0 - 2026-09-10
+
+未公开候选；macOS build19。标签工作流的macOS验证通过，Windows签名任务在前端测试文件并行资源竞争处停止；Release保持草稿，更新源没有切换。恢复版使用0.7.1/build20，不移动或重写该标签。[失败与恢复记录](docs/development/2026-09-10-v0.7.0-release.md)。
 
 ## 0.6.3 - 2026-09-09
 

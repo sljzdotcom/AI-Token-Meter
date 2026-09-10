@@ -44,4 +44,4 @@ PR #22 的实现候选 `5dc6be0` 已通过原生双平台门禁：macOS workflow
 
 合并后的macOS workflow `34422624080`通过；Windows workflow `34422624107`在Antigravity、真实Edge、严格Clippy与构建均通过后，被既有Codex测试专用Node夹具的10秒冷启动波动阻断。该独立问题由`REQ-20260910-002`修复并复验，不改变本迁移的生产实现或验收口径。
 
-可靠性修复[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)最终以`a5f7509`合入main。main macOS workflow `34433979440`用时2分56秒全绿；Windows workflow `34433979383`用时11分20秒，通过完整runtime、真实ConPTY、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传。至此迁移的合并后双平台门禁完整恢复，`REQ-20260909-007`结项。当前公开稳定版仍为0.6.3，本迁移已列入`REQ-20260910-004`的0.7.0/build19候选。
+可靠性修复[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)最终以`a5f7509`合入main。main macOS workflow `34433979440`用时2分56秒全绿；Windows workflow `34433979383`用时11分20秒，通过完整runtime、真实ConPTY、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传。至此迁移的合并后双平台门禁完整恢复，`REQ-20260909-007`结项。当前公开稳定版仍为0.6.3，本迁移已列入`REQ-20260910-004`的0.7.1/build20恢复候选。
