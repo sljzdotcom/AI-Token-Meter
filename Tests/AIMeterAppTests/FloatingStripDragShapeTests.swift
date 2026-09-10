@@ -5,6 +5,11 @@ import Testing
 
 @Suite("Floating strip drag region")
 struct FloatingStripDragShapeTests {
+    @Test func compactHorizontalPaddingMatchesTheNarrowWindow() {
+        #expect(FloatingStripContentLayout.horizontalPadding(for: .compact) == 0)
+        #expect(FloatingStripContentLayout.horizontalPadding(for: .comfortable) == 11)
+    }
+
     @Test func fourthProviderHasCompleteClickRegionOnBothEdges() {
         for (density, height, lastCenter) in [(FloatingStripDensity.compact, 344.0, 259.0), (.comfortable, 428.0, 322.0)] {
             let rect = CGRect(x: 0, y: 0, width: density.width, height: height)
@@ -39,13 +44,13 @@ struct FloatingStripDragShapeTests {
     }
     @Test("Compact hit testing excludes every visible ring after provider removal")
     func compactHitRegions() {
-        let rect = CGRect(x: 0, y: 0, width: 78, height: 228)
+        let rect = CGRect(x: 0, y: 0, width: 65, height: 228)
         let shape = FloatingStripDragShape(edge: .right, density: .compact, providerCount: 2)
         let path = shape.path(in: rect)
-        #expect(!path.contains(CGPoint(x: 39, y: 85), eoFill: true))
-        #expect(!path.contains(CGPoint(x: 39, y: 143), eoFill: true))
-        #expect(path.contains(CGPoint(x: 39, y: 114), eoFill: true))
-        #expect(path.contains(CGPoint(x: 70, y: 50), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 32.5, y: 85), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 32.5, y: 143), eoFill: true))
+        #expect(path.contains(CGPoint(x: 32.5, y: 114), eoFill: true))
+        #expect(path.contains(CGPoint(x: 58, y: 50), eoFill: true))
     }
 
     @Test("Glass background drags while provider buttons remain click-only")

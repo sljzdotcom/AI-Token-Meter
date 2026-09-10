@@ -23,7 +23,7 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
   const visible = preferences.orderedProviders.filter(id => !preferences.hiddenProviders.includes(id))
     .map(id => snapshots.find(s => s.providerId === id)).filter(s => s != null)
   const compact = preferences.density === "compact"
-  const width = compact ? 78 : 108
+  const width = compact ? 65 : 108
   const height = (compact ? 286 : 356) - (3 - Math.max(visible.length, 1)) * (compact ? 58 : 72)
   const style = { clipPath: `url("#${clipId}-right")`, "--strip-width": `${width}px`, "--strip-height": `${height}px`,
     "--strip-ring": compact ? "48px" : "60px", "--strip-gap": compact ? "10px" : "12px",
@@ -69,11 +69,11 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
 
 export function MeterClipPaths({ density = "comfortable", count = 3, idPrefix = "strip-clip" }: { density?: string, count?: number, idPrefix?: string }) {
   const compact = density === "compact"
-  const width = compact ? 78 : 108
+  const width = compact ? 65 : 108
   const removed = (3 - Math.max(count, 1)) * (compact ? 58 : 72)
   const height = (compact ? 286 : 356) - removed
   const path = compact
-    ? `M 78 12 C 71 17 63 21 48 22 C 21 23 0 42 0 70 L 0 ${216-removed} C 0 ${244-removed} 21 ${263-removed} 48 ${264-removed} C 63 ${265-removed} 71 ${269-removed} 78 ${274-removed} Z`
+    ? `M 65 12 C 59 17 53 21 40 22 C 18 23 0 42 0 70 L 0 ${216-removed} C 0 ${244-removed} 18 ${263-removed} 40 ${264-removed} C 53 ${265-removed} 59 ${269-removed} 65 ${274-removed} Z`
     : `M 108 16 C 98 23 88 27 66 28 C 29 29 0 54 0 88 L 0 ${268-removed} C 0 ${302-removed} 29 ${327-removed} 66 ${328-removed} C 88 ${329-removed} 98 ${333-removed} 108 ${340-removed} Z`
   return (
     <svg aria-hidden="true" className="meter-clip-paths" focusable="false">

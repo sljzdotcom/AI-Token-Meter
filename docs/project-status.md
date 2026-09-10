@@ -7,6 +7,8 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
+**菜单面板顶部Logo放大已合入main，尚未发布：** macOS菜单栏弹出面板的应用Logo由32pt放大至40pt，面板宽度、文字、间距、系统菜单栏图标及Windows界面保持。实现`7cadd72`经[PR #25](https://github.com/sljzdotcom/AI-Token-Meter/pull/25)合并为`0a086a2`，PR及main双平台门禁全部通过。当前公开稳定版仍为0.6.3，没有新tag、Release或更新源。[开发记录](development/2026-09-10-menu-panel-logo-enlargement.md)。
+
 **Google Antigravity 迁移已合入main，尚未发布：** 第四项保留内部 `gemini` 兼容标识，界面改名 Google Antigravity；采集切换为官方 `agy -p /usage`，展示 Gemini 与 Claude/GPT 的五小时和每周四个额度窗口。旧 Gemini CLI 0.58.0 交互式采集已从当前实现移除。[PR #22](https://github.com/sljzdotcom/AI-Token-Meter/pull/22)合并为`4892b09`，其后[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)以`a5f7509`消除Windows测试夹具冷启动波动；最终main双平台workflow `34433979440`/`34433979383`全绿。当前公开稳定版仍为0.6.3，没有新tag、Release或更新源。
 
 **0.6.2/build17 已公开发布：** 菜单面板Logo已随双平台稳定版交付。PR #19最终提交`39c3460`的macOS/Windows CI、合并提交`ac0ec30`的main双平台CI以及发布workflow `34336495454`全部通过；发布后稳定appcast提交为`416ed08`。七项公开资产与三条更新入口已通过无登录下载、SHA-256、Sparkle/Tauri签名和篡改拒绝验证。[发布记录](development/2026-09-09-v0.6.2-release.md)。

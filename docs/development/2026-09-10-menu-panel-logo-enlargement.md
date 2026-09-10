@@ -22,4 +22,6 @@ Logo继续直接使用应用自身图标并保持高质量缩放、透明融合�
 - 无Widget的macOS arm64 Release App完成资源、Sparkle嵌套组件及严格签名验证；
 - 差异复核确认生产代码只改变菜单面板顶部Logo的一组宽高常量。
 
-当前版本保持0.6.3。本项不创建tag、Release或更新源；PR与合并后main双平台门禁在完成后回填。
+候选提交为`7cadd72`，[PR #25](https://github.com/sljzdotcom/AI-Token-Meter/pull/25)的macOS/Windows workflow `34441068156`/`34441068194`全绿，合并提交为`0a086a2`。合并后main的macOS workflow `34441878539`约1分56秒通过；Windows workflow `34441878489`约11分28秒通过完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem及安装器上传。
+
+当前版本保持0.6.3。本项未创建tag、Release或更新源。

@@ -8,7 +8,7 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
   it.each([
-    ["compact", "left", 78, 286], ["compact", "right", 78, 286],
+    ["compact", "left", 65, 286], ["compact", "right", 65, 286],
     ["comfortable", "left", 108, 356], ["comfortable", "right", 108, 356],
   ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
     const activate = vi.fn()
