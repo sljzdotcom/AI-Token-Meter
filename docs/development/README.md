@@ -12,6 +12,8 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-10](2026-09-10-conpty-fixture-reliability.md) | Windows ConPTY测试夹具稳定性 | 保留真实ConPTY往返及3秒期限，用Cargo原生夹具消除外部Node冷启动波动 |
+| [2026-09-10](2026-09-10-codex-app-server-fixture-reliability.md) | Windows Codex app-server测试夹具稳定性 | 保留产品10秒期限和完整JSON-RPC断言，用Cargo原生夹具消除外部Node冷启动波动 |
 | [2026-09-10](2026-09-10-antigravity-cli-migration.md) | Google Antigravity CLI 迁移 | 第四项保留兼容 ID，双平台改用受限 `agy -p /usage` 和四窗口展示；完整门禁与合并证据见记录 |
 | [2026-09-09](2026-09-09-codex-timeout-pid-capture.md) | Codex 超时进程取证稳定性 | 父进程启动点直接记录 PID，保留超时与真实进程退出断言；完整门禁与发布恢复继续留证 |
 | [2026-09-09](2026-09-09-v0.6.3-release.md) | 0.6.3 macOS About 精简稳定发布 | 版本/build18、完整门禁、原生CI、签名资产与三个公开更新源按顺序留证 |

@@ -18,14 +18,6 @@ switch (mode) {
     process.stdout.write(Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]));
     break;
   }
-  case "stdin":
-    process.stdin.setEncoding("utf8");
-    process.stdout.write("ready\r\n");
-    process.stdin.once("data", (input) => {
-      process.stdout.write(`received:${input.trim()}\r\n`);
-      process.exit(0);
-    });
-    break;
   case "spawn-child": {
     const sentinel = process.argv[3];
     setTimeout(() => {

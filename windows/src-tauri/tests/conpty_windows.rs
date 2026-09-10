@@ -1,5 +1,8 @@
 use ai_token_meter_windows::platform::windows::conpty::{ConPty, ConPtyError, ConPtySize};
 
+#[cfg(windows)]
+mod support;
+
 #[test]
 fn invalid_terminal_dimensions_are_rejected_before_platform_access() {
     assert!(matches!(
@@ -32,24 +35,14 @@ fn conpty_can_be_created_at_the_fixed_terminal_size_and_resized() {
 #[test]
 fn conpty_attaches_a_process_sends_fixed_input_and_waits_for_a_pattern() {
     use std::ffi::OsString;
-    use std::path::{Path, PathBuf};
     use std::time::Duration;
 
-    use ai_token_meter_windows::platform::windows::process::CommandInvocation;
-
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("fixtures")
-        .join("process-fixture.js");
     let mut terminal = ConPty::open(ConPtySize {
         columns: 120,
         rows: 40,
     })
     .expect("ConPTY");
-    let command = CommandInvocation {
-        executable: find_node(),
-        arguments: vec![fixture.into_os_string(), OsString::from("stdin")],
-    };
+    let command = support::native_fixture_invocation(vec![OsString::from("conpty-stdin")]);
     let mut child = terminal
         .spawn(&command, None, &[])
         .expect("attached process");
@@ -64,13 +57,4 @@ fn conpty_attaches_a_process_sends_fixed_input_and_waits_for_a_pattern() {
         .expect("terminal pattern");
     assert!(output.contains("received:hello"));
     assert_eq!(child.wait(Duration::from_secs(3)).expect("child exit"), 0);
-
-    fn find_node() -> PathBuf {
-        std::env::var_os("PATH")
-            .into_iter()
-            .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-            .map(|directory| directory.join("node.exe"))
-            .find_map(|path| path.canonicalize().ok().filter(|path| path.is_file()))
-            .expect("Windows CI provides Node.js")
-    }
 }
