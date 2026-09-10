@@ -6,8 +6,9 @@ import Testing
 struct FloatingStripPreferencesTests {
     // Catch a fourth row being clipped by the previous three-provider size cap.
     @Test func fourthProviderHasFullHeightAndLegacySizesStayStable() {
-        #expect(FloatingStripDensity.compact.width == 65)
+        #expect(FloatingStripDensity.compact.width == 56.5)
         #expect(FloatingStripDensity.compact.ringSize == 48)
+        #expect((FloatingStripDensity.compact.width - FloatingStripDensity.compact.ringSize) / 2 == 4.25)
         #expect(FloatingStripDensity.comfortable.width == 108)
         for (density, heights) in [(FloatingStripDensity.compact, [170.0, 228, 286, 344]), (.comfortable, [212.0, 284, 356, 428])] {
             for (index, height) in heights.enumerated() {

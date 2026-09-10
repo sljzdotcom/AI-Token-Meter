@@ -40,7 +40,7 @@ flushSync(() => {
         <div style={{display: "flex", gap: 32}}>
           {(["compact", "comfortable"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 65 : 108, height: density === "compact" ? 344 : 428}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 56.5 : 108, height: density === "compact" ? 344 : 428}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -120,6 +120,35 @@ for (const locale of ["en", "zh-CN"] as const) {
         host.remove()
       }
     }
+  }
+}
+const detailSurfaceSamples: Array<{providerId: string; status: string; backgroundImage: string; accent: string}> = []
+for (const providerId of ["claude", "codex", "deepseek", "gemini"] as const) {
+  const statuses = providerId === "gemini" ? ["fresh", "cached", "unavailable"] as const : ["fresh", "unavailable"] as const
+  for (const status of statuses) {
+    const host = document.createElement("div")
+    host.className = "detail-surface"
+    host.style.cssText = "position:absolute;left:-10000px;width:440px;height:760px"
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    const hasQuota = status === "fresh" || status === "cached"
+    const value: UsageSnapshot = providerId === "gemini"
+      ? {...geminiFresh as UsageSnapshot, providerId, status,
+        primaryMetric:hasQuota ? geminiFresh.primaryMetric as UsageSnapshot["primaryMetric"] : null,
+        geminiQuotaMetrics:hasQuota ? geminiFresh.geminiQuotaMetrics as UsageSnapshot["geminiQuotaMetrics"] : []}
+      : {...snapshot, providerId, displayName:providerId, status,
+        usedRatio:hasQuota ? .23 : null, primaryMetric:hasQuota ? snapshot.primaryMetric : null}
+    flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={() => {}} onPointerLeave={() => {}} onInteractionStart={() => {}} onInteractionEnd={() => {}} />))
+    const detail = host.querySelector<HTMLElement>(".provider-detail")!
+    const style = getComputedStyle(detail)
+    detailSurfaceSamples.push({
+      providerId,
+      status,
+      backgroundImage: style.backgroundImage,
+      accent: style.getPropertyValue("--detail-accent").trim(),
+    })
+    flushSync(() => sampleRoot.unmount())
+    host.remove()
   }
 }
 const updateStates: UpdateState[] = [
@@ -204,7 +233,7 @@ flushSync(() => setLocale("en"))
 for (const density of ["compact", "comfortable"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
-      const width = density === "compact" ? 65 : 108
+      const width = density === "compact" ? 56.5 : 108
       const height = (density === "compact" ? [170,228,286,344] : [212,284,356,428])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`
@@ -232,7 +261,9 @@ for (const density of ["compact", "comfortable"] as const) {
         button.click()
       }
       window.removeEventListener("meter-drag-requested", drag)
+      const firstButtonWidth = buttons[0]?.getBoundingClientRect().width ?? 0
       stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
+        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "compact" ? 4.25 : 24,
         hitButtons,drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
         buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,
         mirroredLogo: buttons.some(button => getComputedStyle(button.querySelector("svg")!).transform !== "none")})
@@ -268,4 +299,4 @@ for (const width of [340, 440]) {
   }
 }
 
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, detailSurfaceSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})

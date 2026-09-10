@@ -8,7 +8,7 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
   it.each([
-    ["compact", "left", 65, 286], ["compact", "right", 65, 286],
+    ["compact", "left", 56.5, 286], ["compact", "right", 56.5, 286],
     ["comfortable", "left", 108, 356], ["comfortable", "right", 108, 356],
   ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
     const activate = vi.fn()
@@ -22,6 +22,7 @@ describe("compact floating strip interactions", () => {
       const strip = screen.getByRole("navigation")
       expect(strip.style.getPropertyValue("--strip-width")).toBe(`${width}px`)
       expect(strip.style.getPropertyValue("--strip-height")).toBe(`${height}px`)
+      if (density === "compact") expect((width - 48) / 2).toBe(4.25)
       // Dispatch pointerdown with a real button value; jsdom lacks PointerEvent.
       fireEvent(strip, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
       expect(drag).toHaveBeenCalledTimes(1)

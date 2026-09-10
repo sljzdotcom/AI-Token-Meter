@@ -22,10 +22,10 @@ fn malformed_strip_does_not_reset_monitor_or_edge() {
 
 #[test]
 fn folding_keeps_expanded_center_and_edge() {
-    let expanded = WindowPlacement::new(1235, 125, PhysicalSize::new(65, 286));
+    let expanded = WindowPlacement::new(1243, 125, PhysicalSize::new(57, 286));
     let folded = expanded.folded(PhysicalSize::new(12, 96), Edge::Right);
     assert_eq!(folded.origin.y + 48, expanded.origin.y + 143);
-    assert_eq!(folded.origin.x + 12, expanded.origin.x + 65);
+    assert_eq!(folded.origin.x + 12, expanded.origin.x + 57);
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn density_switch_keeps_noncentral_anchor_at_all_dpi_scales() {
         let reference = (POSITION_REFERENCE_HEIGHT * scale) as u32;
         let small = WindowPlacement::anchored_meter(
             work,
-            PhysicalSize::new((65.0 * scale) as u32, (286.0 * scale) as u32),
+            PhysicalSize::new((56.5_f64 * scale).round() as u32, (286.0 * scale) as u32),
             reference,
             Edge::Left,
             0.1,
@@ -61,6 +61,16 @@ fn density_switch_keeps_noncentral_anchor_at_all_dpi_scales() {
 }
 
 #[test]
+fn compact_half_point_width_rounds_to_the_expected_physical_pixels() {
+    for (scale, expected_width) in [(1.0, 57), (1.25, 71), (1.5, 85), (2.0, 113)] {
+        let physical: tauri::PhysicalSize<u32> =
+            tauri::LogicalSize::new(56.5, 286.0).to_physical(scale);
+        assert_eq!(physical.width, expected_width);
+        assert_eq!(physical.height, (286.0_f64 * scale).round() as u32);
+    }
+}
+
+#[test]
 fn upgrade_preserves_legacy_450_pixel_position() {
     use ai_token_meter_windows::platform::windows::window_controller::{
         POSITION_REFERENCE_HEIGHT, PhysicalRect,
@@ -69,7 +79,7 @@ fn upgrade_preserves_legacy_450_pixel_position() {
     let old = WindowPlacement::meter(work, PhysicalSize::new(116, 450), Edge::Left, 0.1);
     let new = WindowPlacement::anchored_meter(
         work,
-        PhysicalSize::new(65, 286),
+        PhysicalSize::new(57, 286),
         POSITION_REFERENCE_HEIGHT as u32,
         Edge::Left,
         0.1,
@@ -86,7 +96,7 @@ fn persisted_layout_is_normalized_and_cannot_hide_every_service() {
         vec!["codex", "claude", "deepseek", "gemini"]
     );
     assert_eq!(value.visible_providers(), vec!["codex"]);
-    assert_eq!(value.logical_size(false), (65.0, 170.0));
+    assert_eq!(value.logical_size(false), (56.5, 170.0));
     assert_eq!(value.logical_size(true), (12.0, 96.0));
     let restored: StripPreferences =
         serde_json::from_str(&serde_json::to_string(&value).unwrap()).unwrap();
@@ -111,7 +121,7 @@ fn gemini_defaults_migration_and_reload_preserve_user_choices() {
         fresh.visible_providers(),
         vec!["claude", "codex", "deepseek", "gemini"]
     );
-    assert_eq!(fresh.logical_size(false), (65.0, 344.0));
+    assert_eq!(fresh.logical_size(false), (56.5, 344.0));
     let mut legacy: StripPreferences = serde_json::from_str(r#"{"density":"comfortable","orderedProviders":["deepseek","claude","codex"],"hiddenProviders":["claude"],"hiddenUntil":123}"#).unwrap();
     legacy.normalize();
     assert_eq!(
@@ -170,7 +180,7 @@ fn every_four_provider_order_and_nonempty_subset_has_correct_native_size() {
                         let count = visible.len();
                         assert_eq!(
                             prefs.logical_size(false),
-                            (65.0, [170.0, 228.0, 286.0, 344.0][count - 1])
+                            (56.5, [170.0, 228.0, 286.0, 344.0][count - 1])
                         );
                         prefs.density = "comfortable".into();
                         assert_eq!(

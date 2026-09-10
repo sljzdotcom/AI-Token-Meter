@@ -44,13 +44,13 @@ struct FloatingStripDragShapeTests {
     }
     @Test("Compact hit testing excludes every visible ring after provider removal")
     func compactHitRegions() {
-        let rect = CGRect(x: 0, y: 0, width: 65, height: 228)
+        let rect = CGRect(x: 0, y: 0, width: 56.5, height: 228)
         let shape = FloatingStripDragShape(edge: .right, density: .compact, providerCount: 2)
         let path = shape.path(in: rect)
-        #expect(!path.contains(CGPoint(x: 32.5, y: 85), eoFill: true))
-        #expect(!path.contains(CGPoint(x: 32.5, y: 143), eoFill: true))
-        #expect(path.contains(CGPoint(x: 32.5, y: 114), eoFill: true))
-        #expect(path.contains(CGPoint(x: 58, y: 50), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 28.25, y: 85), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 28.25, y: 143), eoFill: true))
+        #expect(path.contains(CGPoint(x: 28.25, y: 114), eoFill: true))
+        #expect(path.contains(CGPoint(x: 50, y: 50), eoFill: true))
     }
 
     @Test("Glass background drags while provider buttons remain click-only")

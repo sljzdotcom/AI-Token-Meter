@@ -28,7 +28,8 @@ await runWithCleanup(async () => {
   assertDensity(report)
   if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
-    if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight || !sample.hitButtons
+    if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight
+      || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons
       || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
       || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
       throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
@@ -42,6 +43,15 @@ await runWithCleanup(async () => {
         || !sample.texts.some(text=>text.includes("Claude/GPT · Weekly") && text.includes("80% remaining"))
         : sample.texts.some(text=>text.includes("0% remaining")))) {
       throw new Error(`Antigravity detail state mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
+  if (report.detailSurfaceSamples?.length !== 9) throw new Error("Missing Provider detail surface scenarios")
+  for (const sample of report.detailSurfaceSamples) {
+    if (!sample.backgroundImage.includes("linear-gradient")
+      || !sample.backgroundImage.includes("rgb(17, 24, 38)")
+      || !sample.backgroundImage.includes("rgb(7, 12, 21)")
+      || (sample.providerId === "gemini" && sample.accent !== "#3ed6b2")) {
+      throw new Error(`Provider detail surface mismatch: ${JSON.stringify(sample)}`)
     }
   }
   console.log("Antigravity detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
