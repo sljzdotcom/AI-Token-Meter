@@ -4,8 +4,8 @@
 
 ## 当前版本边界
 
-- 当前源码恢复候选：双平台`0.7.1`（macOS build`20`）；当前公开稳定版仍为`0.6.3`（build`18`）。
-- Google Antigravity迁移、40pt菜单Logo和65pt Compact浮动条已合入main；最近功能合并为PR #26的`1c0a1ed`。0.7.0标签工作流在公开前停止，恢复发布节点见[记录](2026-09-10-v0.7.0-release.md)。
+- 当前源码与公开稳定版：双平台`0.7.1`（macOS build`20`）。
+- Google Antigravity迁移、40pt菜单Logo和65pt Compact浮动条已由[PR #28](https://github.com/sljzdotcom/AI-Token-Meter/pull/28)的恢复候选`c06ae71`、合并`c79a5f2`、标签`v0.7.1`与appcast`85b281d`公开交付；发布workflow为`34460178399`。[记录](2026-09-10-v0.7.0-release.md)。
 - macOS About精简经PR #20与测试可靠性修复PR #21合入`main`提交`dff54d8`；注解标签`v0.6.3`指向该提交，发布workflow为`34361767956`，稳定appcast提交为`fd737f0`，发布后证据提交为`22443c3`。
 - 菜单面板Logo经最终候选`39c3460`、PR #19合入`main`提交`ac0ec30`；注解标签`v0.6.2`指向该提交，发布workflow为`34336495454`，稳定appcast提交为`416ed08`，发布后证据提交为`9394106`。
 - 四服务接入修复经发布候选 `7437f63` 合入 `main` 提交 `6fc4e1e`，发布后稳定 appcast 提交为 `6945b15`。
@@ -14,13 +14,14 @@
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 当前公开 tag 为 `v0.6.3`（`dff54d8`），发布 workflow `34361767956`，appcast `fd737f0`；双平台签名资产、SHA-256、篡改拒绝及三个更新入口的匿名验证见[0.6.3 发布记录](2026-09-09-v0.6.3-release.md)。旧版历史继续保留。
+- 当前公开 tag 为 `v0.7.1`（`c79a5f2`），发布 workflow `34460178399`，appcast `85b281d`；双平台签名资产、SHA-256、篡改拒绝及三个更新入口的匿名验证见[0.7.1 发布记录](2026-09-10-v0.7.0-release.md)。旧版历史继续保留。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
+| 0.7.1 Google Antigravity与紧凑界面稳定发布 | `c06ae71`、`c79a5f2`、`85b281d` | Google Antigravity迁移、40pt菜单Logo、65pt Compact浮动条与Windows发布测试可靠性随双平台稳定版公开；484项Swift、241项Rust、PR/main/标签原生CI、七项资产、签名与三个更新源全部验证 |
 | 0.6.3 macOS About精简稳定发布 | `657068f`、`1015ea3`、`bf915c7`、`81a8338`、`60fe1eb`、`7e44440`、`dff54d8`、`fd737f0`、`22443c3` | macOS About移除独立作者行并保留版本、三条社交链接与开源归属；491项Swift、261项Rust，PR、main与发布后证据双平台CI、超时取证可靠性修复、签名发布、七项公开资产和三个更新入口验证完成 |
 | 0.6.2 菜单面板Logo稳定发布 | `2f52437`、`da50eb3`、`169f4a7`、`1efc8ed`、`39c3460`、`ac0ec30`、`416ed08`、`9394106` | macOS弹出面板和Windows原生托盘菜单复用现有应用Logo；491项Swift、261项Rust，PR、main与发布后证据双平台CI、签名发布、七项公开资产和三个更新入口验证完成 |
 | 双平台菜单面板应用 Logo | `2f52437`、`da50eb3`、`d4de77b` | macOS 在弹出面板标题前显示32pt现有应用图标；Windows原生托盘菜单增加禁用品牌首行和分隔线；合成渲染、真实Tauri菜单项、491项Swift、261项Rust及构建门禁通过，已随0.6.2公开发布 |

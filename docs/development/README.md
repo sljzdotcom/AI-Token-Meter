@@ -12,9 +12,9 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-10](2026-09-10-windows-frontend-test-reliability.md) | Windows发布前端测试文件调度可靠性 | v0.7.0首次签名workflow暴露两个jsdom文件首项并行资源竞争；保留5秒单项上限并串行文件调度，本机恢复门禁通过 |
-| [2026-09-10](2026-09-10-v0.7.0-release.md) | 0.7.0 → 0.7.1 Google Antigravity与紧凑界面稳定发布 | 0.7.0首次标签候选未公开；0.7.1/build20本机恢复门禁通过，等待原生CI与签名发布 |
-| [2026-09-10](2026-09-10-compact-strip-width.md) | Compact浮动条横向收窄 | 用户已选65宽；PR #26已合入`1c0a1ed`，PR及main双平台原生CI全绿，列入0.7.1恢复候选 |
+| [2026-09-10](2026-09-10-windows-frontend-test-reliability.md) | Windows发布前端测试文件调度可靠性 | 保留5秒单项上限并串行jsdom文件；PR/main/标签Windows原生门禁及0.7.1公开发布通过 |
+| [2026-09-10](2026-09-10-v0.7.0-release.md) | 0.7.0 → 0.7.1 Google Antigravity与紧凑界面稳定发布 | 0.7.0首次候选未公开；0.7.1/build20已公开，七项资产、签名与三个更新源验收通过 |
+| [2026-09-10](2026-09-10-compact-strip-width.md) | Compact浮动条横向收窄 | 用户已选65宽；PR #26已合入`1c0a1ed`并随0.7.1/build20公开交付 |
 | [2026-09-10](2026-09-10-menu-panel-logo-enlargement.md) | 菜单面板顶部 Logo 放大 | macOS标题区应用Logo由32pt放大25%至40pt，其他图标、字号、间距及Windows保持 |
 | [2026-09-10](2026-09-10-conpty-fixture-reliability.md) | Windows ConPTY测试夹具稳定性 | 保留真实ConPTY往返及3秒期限，用Cargo原生夹具消除外部Node冷启动波动；PR与main门禁全绿 |
 | [2026-09-10](2026-09-10-codex-app-server-fixture-reliability.md) | Windows Codex app-server测试夹具稳定性 | 保留产品10秒期限和完整JSON-RPC断言，用Cargo原生夹具消除外部Node冷启动波动；PR与main门禁全绿 |

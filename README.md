@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前源码候选为0.7.1（macOS build `20`），发布完成后由[0.7.1页面](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.1)提供双平台更新；当前公开稳定版仍为[0.6.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)。0.7.0标签工作流在公开前停止，未进入更新源；进度见[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
+> 当前公开稳定版为[0.7.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.1)（macOS build `20`），提供双平台安装包和应用内更新。0.7.0标签工作流在公开前停止，未进入更新源；完整证据见[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
 
 ## Screenshots
 
@@ -86,12 +86,12 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-0.7.1发布完成后的稳定版页面：**[Download v0.7.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.1)**：
+稳定版页面：**[Download v0.7.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.1)**：
 
 - macOS：下载 `AI-Token-Meter-0.7.1-macOS-arm64.zip` 与同名 `.sha256`；
 - Windows：下载 `AI-Token-Meter-0.7.1-windows-x64-setup.exe` 与同名 `.sha256`。
 
-发布完成后，已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.7.1`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
+已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.7.1`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
 Windows 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -242,7 +242,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码候选为`0.7.1`（macOS build `20`），当前公开稳定版为`0.6.3`；发布进度与签名资产验收见[0.7.0 → 0.7.1发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
+- 当前源码与公开稳定版均为`0.7.1`（macOS build `20`）；签名资产与更新源验收见[0.7.0 → 0.7.1发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
