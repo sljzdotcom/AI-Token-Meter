@@ -40,4 +40,6 @@ CLI 的剩余百分比统一换算为内部已用百分比，详情卡显示原�
 
 真实 Windows 11 GUI/DPI 与用户设备上的四窗口显示仍属于现场验收；本项不自动发布。
 
-PR #22 的实现候选 `5dc6be0` 已通过原生双平台门禁：macOS workflow `34420886177` 用时2分29秒；Windows workflow `34420886221` 用时11分42秒，包含真实 Microsoft Edge 密度、完整 Rust runtime、NSIS、GUI subsystem 与安装器上传。首轮 Windows workflow `34420661996` 曾准确发现340×760缓存详情越界，修复后同一门禁通过；最终证据提交与合并后 main CI 仍待完成。
+PR #22 的实现候选 `5dc6be0` 已通过原生双平台门禁：macOS workflow `34420886177` 用时2分29秒；Windows workflow `34420886221` 用时11分42秒，包含真实 Microsoft Edge 密度、完整 Rust runtime、NSIS、GUI subsystem 与安装器上传。首轮 Windows workflow `34420661996` 曾准确发现340×760缓存详情越界，修复后同一门禁通过。最终证据提交 `a81a490` 的macOS workflow `34421774200`与Windows workflow `34421774210`全绿，PR #22合并为`4892b09`。
+
+合并后的macOS workflow `34422624080`通过；Windows workflow `34422624107`在Antigravity、真实Edge、严格Clippy与构建均通过后，被既有Codex测试专用Node夹具的10秒冷启动波动阻断。该独立问题由`REQ-20260910-002`修复并复验，不改变本迁移的生产实现或验收口径。

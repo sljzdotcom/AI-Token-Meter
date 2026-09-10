@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use ai_token_meter_windows::collectors::CollectionError;
@@ -6,7 +6,8 @@ use ai_token_meter_windows::collectors::codex_app_server::{
     collect_rate_limits_from_invocation, parse_account_response, parse_rate_limits_response,
 };
 use ai_token_meter_windows::domain::{ProviderId, ResetCreditKind, UsageStatus};
-use ai_token_meter_windows::platform::windows::process::CommandInvocation;
+
+mod support;
 
 const FETCHED_AT: &str = "2026-09-03T00:00:00Z";
 
@@ -60,14 +61,7 @@ fn missing_or_malformed_expected_response_is_not_reported_as_zero() {
 
 #[test]
 fn performs_the_bounded_app_server_handshake_without_a_shell() {
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("fixtures")
-        .join("codex-app-server-fixture.js");
-    let invocation = CommandInvocation {
-        executable: find_node(),
-        arguments: vec![fixture.into_os_string()],
-    };
+    let invocation = support::codex_fixture_invocation();
 
     let started = Instant::now();
     let snapshot =
@@ -91,14 +85,4 @@ fn fixture() -> String {
         .join("fixtures")
         .join("codex-app-server-windows.jsonl");
     std::fs::read_to_string(path).expect("Codex app-server fixture")
-}
-
-fn find_node() -> PathBuf {
-    let name = if cfg!(windows) { "node.exe" } else { "node" };
-    std::env::var_os("PATH")
-        .into_iter()
-        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .map(|directory| directory.join(name))
-        .find_map(|path| path.canonicalize().ok().filter(|path| path.is_file()))
-        .expect("Node.js is required by the frontend toolchain")
 }

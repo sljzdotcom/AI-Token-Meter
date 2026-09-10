@@ -16,6 +16,12 @@ crate-type = ["lib", "cdylib", "staticlib"]
 name = "ai-token-meter-windows"
 path = "src/main.rs"
 
+[[bin]]
+name = "codex-app-server-test-fixture"
+path = "tests/fixtures/codex-app-server-test-fixture.rs"
+test = false
+bench = false
+
 [build-dependencies]
 tauri-build = { version = "=2.6.3", features = [] }
 

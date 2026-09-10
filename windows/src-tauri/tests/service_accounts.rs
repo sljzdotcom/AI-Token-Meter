@@ -5,9 +5,9 @@ use ai_token_meter_windows::accounts::service_status::{
 use ai_token_meter_windows::collectors::codex_app_server::collect_account_status_from_invocation;
 use ai_token_meter_windows::domain::ProviderId;
 use ai_token_meter_windows::platform::windows::executable_locator::RuntimeSource;
-use ai_token_meter_windows::platform::windows::process::CommandInvocation;
-use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+mod support;
 
 #[test]
 fn claude_status_preserves_the_account_identity_without_exposing_credentials() {
@@ -116,14 +116,7 @@ fn deepseek_and_runtime_labels_are_descriptive_but_never_reveal_paths_or_keys() 
 
 #[test]
 fn codex_account_status_uses_the_bounded_official_app_server_session() {
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("fixtures")
-        .join("codex-app-server-fixture.js");
-    let invocation = CommandInvocation {
-        executable: find_node(),
-        arguments: vec![fixture.into_os_string()],
-    };
+    let invocation = support::codex_fixture_invocation();
 
     let status = collect_account_status_from_invocation(
         &invocation,
@@ -138,14 +131,4 @@ fn codex_account_status_uses_the_bounded_official_app_server_session() {
     );
     assert_eq!(status.account_label.as_deref(), Some("private@example.com"));
     assert_eq!(status.account_detail.as_deref(), Some("ChatGPT · Pro"));
-}
-
-fn find_node() -> PathBuf {
-    let name = if cfg!(windows) { "node.exe" } else { "node" };
-    std::env::var_os("PATH")
-        .into_iter()
-        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .map(|directory| directory.join(name))
-        .find_map(|path| path.canonicalize().ok().filter(|path| path.is_file()))
-        .expect("Node.js is required by the frontend toolchain")
 }
