@@ -19,10 +19,11 @@ Antigravity 迁移合入 `main` 后，Windows workflow `34422624107` 已通过�
 - `codex_collector` 与 `service_accounts` 共8项定向测试通过；
 - Windows宿主完整241项 Rust 测试通过，原失败握手约0.29秒完成；
 - Cargo格式检查和全部目标严格 Clippy 通过；
-- 原生 Windows runtime、真实 Edge、NSIS、GUI subsystem与安装器上传等待PR及合并后 `main` workflow复验。
+- PR #23修复候选`fad1039`的macOS workflow `34423801532`用时2分55秒全绿；Windows workflow `34423801483`用时10分21秒，通过完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传；
+- 最终证据候选与合并后 `main` workflow仍待复验。
 
 测试响应仅含虚构邮箱、百分比和时间戳，不读取真实凭证、账户或额度。版本保持0.6.3，本项不创建标签、Release或更新源。
 
 ## Git与后续
 
-实现提交、PR、合并和最终workflow证据在完成后回填。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。
+实现提交为`fad1039`，[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)已通过首轮原生双平台门禁；合并和最终workflow证据在完成后回填。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。
