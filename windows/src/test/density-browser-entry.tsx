@@ -40,7 +40,7 @@ flushSync(() => {
         <div style={{display: "flex", gap: 32}}>
           {(["compact", "comfortable"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 78 : 108, height: density === "compact" ? 344 : 428}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 70 : 108, height: density === "compact" ? 344 : 428}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -204,7 +204,7 @@ flushSync(() => setLocale("en"))
 for (const density of ["compact", "comfortable"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
-      const width = density === "compact" ? 78 : 108
+      const width = density === "compact" ? 70 : 108
       const height = (density === "compact" ? [170,228,286,344] : [212,284,356,428])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`

@@ -116,7 +116,7 @@ impl StripPreferences {
         if self.density == "comfortable" {
             (108.0, 212.0 + (count - 1) as f64 * 72.0)
         } else {
-            (78.0, 170.0 + (count - 1) as f64 * 58.0)
+            (70.0, 170.0 + (count - 1) as f64 * 58.0)
         }
     }
     pub fn hidden(&self, now: i64) -> bool {
