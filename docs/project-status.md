@@ -7,7 +7,7 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**Google Antigravity 迁移正在开发：** 第四项保留内部 `gemini` 兼容标识，界面改名 Google Antigravity；采集切换为官方 `agy -p /usage`，展示 Gemini 与 Claude/GPT 的五小时和每周四个额度窗口。旧 Gemini CLI 0.58.0 交互式采集已从当前实现移除。本项尚未发布，不改变当前公开稳定版 0.6.3。
+**Google Antigravity 迁移已合入main，尚未发布：** 第四项保留内部 `gemini` 兼容标识，界面改名 Google Antigravity；采集切换为官方 `agy -p /usage`，展示 Gemini 与 Claude/GPT 的五小时和每周四个额度窗口。旧 Gemini CLI 0.58.0 交互式采集已从当前实现移除。[PR #22](https://github.com/sljzdotcom/AI-Token-Meter/pull/22)合并为`4892b09`，其后[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)以`a5f7509`消除Windows测试夹具冷启动波动；最终main双平台workflow `34433979440`/`34433979383`全绿。当前公开稳定版仍为0.6.3，没有新tag、Release或更新源。
 
 **0.6.2/build17 已公开发布：** 菜单面板Logo已随双平台稳定版交付。PR #19最终提交`39c3460`的macOS/Windows CI、合并提交`ac0ec30`的main双平台CI以及发布workflow `34336495454`全部通过；发布后稳定appcast提交为`416ed08`。七项公开资产与三条更新入口已通过无登录下载、SHA-256、Sparkle/Tauri签名和篡改拒绝验证。[发布记录](development/2026-09-09-v0.6.2-release.md)。
 
@@ -92,6 +92,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - 0.6.1最终本地基线：**463项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计490项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和259项宿主Rust，格式、严格Clippy与无Widget Release App验证通过。
 - 0.6.2菜单面板品牌基线：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；Windows为124项前端、5项终端协议、25项浏览器生命周期、8个Gemini详情场景、16组布局、608个文字角色和261项宿主Rust，production build、格式、严格Clippy、6份跨平台合同、219份Markdown、公开安全与无Widget Release App验证通过。
 - 0.6.3 macOS About 精简稳定版：**464项普通测试 + 3项独立刷新调度 + 18项PTY runner + 6项Gemini PTY，总计491项Swift**；无Widget Release App、6份跨平台合同、228份Markdown与公开安全检查通过，审查为Critical/Important/Minor `0/0/0`，发布workflow的macOS与Windows签名门禁均通过。
+- Antigravity迁移合入main后的基线：**461项普通测试 + 3项独立刷新调度 + 18项PTY runner，总计482项Swift**；Windows为124项前端、241项宿主Rust、25项浏览器生命周期、8个Antigravity详情状态、16组布局和608个文字角色。PR #22实现门禁、PR #23原生测试夹具门禁与main最终workflow `34433979440`/`34433979383`均通过；Windows包含完整runtime、真实ConPTY、真实Edge、严格Clippy、NSIS、GUI subsystem和安装器上传。
 - 四服务功能候选`8ad127e`及合并`99e018a`的双平台CI全绿；最终发布候选`7437f63`的PR CI `34314828597`/`34314828526`与合并提交`6fc4e1e`的main CI `34315740630`/`34315740626`再次通过，Windows包含严格Clippy、完整runtime、真实ConPTY、GUI subsystem、NSIS与上传。
 - 0.6.0 最终本地基线：**458 项普通测试 + 3 项独立刷新调度 + 18 项 PTY runner + 6 项 Gemini PTY，总计 485 项 Swift**，109 项前端、16 组浮动条密度布局、632 个浏览器文字角色、256 项宿主 Rust 与严格 Clippy；官方 Gemini CLI 隔离合成回归覆盖 2 项测试/4 种场景。
 - 0.6.0 最终候选 `26d207b` 的 PR macOS/Windows CI `34301410029`/`34301410049` 全绿；合并提交 `94bf320` 的 main CI `34302154141`/`34302154157` 再次通过，Windows 包含严格 Clippy、完整 runtime、真实 ConPTY、GUI subsystem、NSIS 与上传。

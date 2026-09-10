@@ -20,6 +20,9 @@ PR #23最终证据候选`a0b0349`的Windows workflow `34424587418`中，安装�
 - Codex额度与账户定向测试继续通过；
 - 宿主完整Rust测试、Cargo格式与全部目标严格Clippy通过；
 - 修复提交`3fa035e`的PR #23 macOS workflow `34426231120`用时2分12秒全绿；Windows workflow `34426231128`用时12分55秒，通过专属ConPTY回归、完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传；
-- 最终证据候选与合并后`main` workflow仍待复验。
+- 最终证据候选`da18207`的macOS workflow `34433244350`与Windows workflow `34433244356`全绿；PR #23合并为`a5f7509`；
+- 合并后main macOS workflow `34433979440`用时2分56秒全绿；Windows workflow `34433979383`用时11分20秒，真实ConPTY回归、完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传全部通过。
 
 夹具只处理固定合成文本和虚构JSON响应，不读取真实账号、凭证或额度。版本保持0.6.3，本项不创建标签、Release或更新源。
+
+实现提交为`3fa035e`，证据提交为`da18207`。[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)已合并为`a5f7509`。主分支完整Windows门禁证明原生夹具在负载下稳定完成3秒终端协议测试，本项结项。
