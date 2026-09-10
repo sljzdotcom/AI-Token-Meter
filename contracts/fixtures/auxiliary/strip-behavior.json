@@ -1,6 +1,6 @@
 {
   "densities": [
-    {"id": "compact", "width": 65, "height": 286, "ring": 48, "gap": 10},
+    {"id": "compact", "width": 56.5, "height": 286, "ring": 48, "gap": 10},
     {"id": "comfortable", "width": 108, "height": 356, "ring": 60, "gap": 12}
   ],
   "foldDelays": [0, 5, 15],

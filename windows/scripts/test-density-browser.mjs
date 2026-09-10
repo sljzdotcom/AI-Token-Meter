@@ -28,7 +28,8 @@ await runWithCleanup(async () => {
   assertDensity(report)
   if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
-    if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight || !sample.hitButtons
+    if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight
+      || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons
       || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
       || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
       throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
