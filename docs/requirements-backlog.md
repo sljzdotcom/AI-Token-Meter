@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260910-009 | Windows发布后证据CI可靠性 | 0.7.2发布后证据PR的Windows完整runtime中，既有后代进程Job Object用例在三秒父进程预算内返回`TimedOut`，阻断证据归档 | 高 | 进行中 | 2026-09-10 | 先对精确文档候选重跑失败作业，验证是否为已记录的runner调度波动；不修改产品代码、不放宽或跳过断言。若同一提交复现则继续根因修复，只有精确候选双平台门禁通过后才关闭 | [失败 Windows CI 34488969920](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34488969920)；失败用例`a_parent_exit_does_not_leave_a_descendant_running`，正常父进程完成断言得到`ProcessRunError(TimedOut)`；PR #31仅含文档，产品树与已通过PR/main/标签门禁的`6b781e0`一致；同形态曾记录于0.5.0 main CI `34089957031` |
 | REQ-20260910-008 | 双平台修复版发布 | 用户要求Compact留白减半和Antigravity详情背景修复完成后直接发布，不再询问是否发布 | 高 | 进行中 | 2026-09-10 | 0.7.2/build21已公开，七项资产、签名、篡改拒绝和三个更新源验收通过；提交发布后证据并等待双平台CI后关闭。本次授权不扩展到无关未来版本 | 用户原话“修复完毕后直接发布，不用询问我” · [Release v0.7.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.2) · [PR #30](https://github.com/sljzdotcom/AI-Token-Meter/pull/30) · 合并/tag`6b781e0` · appcast`de6fd20` · [workflow 34486558748](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34486558748) · [发布记录](development/2026-09-10-v0.7.2-release.md) |
 | REQ-20260910-007 | Antigravity详情背景缺陷 | 用户确认Google Antigravity已能连接，但点击浮动条后的详情页没有背景颜色，变成透明 | 高 | 已完成 | 2026-09-10 | 2026-09-10完成：macOS补回统一深色详情底板；三种状态位图和其他Provider回归通过。Windows现有表面保持，真实Chrome验证四Provider九种详情状态及Antigravity强调色；已随0.7.2/build21公开交付 | 用户原话“能够连上了，但是点击悬浮框显示的详情页，背景没有颜色，变成透明的了” · 实现`d8ae465` · [Release v0.7.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.2) · [开发记录](development/2026-09-10-antigravity-detail-surface-fix.md) |
 | REQ-20260910-006 | Compact留白二次收窄 | 用户反馈Compact仍太宽，明确要求圆环大小不变，圆环左右两侧留白各减少一半 | 中 | 已完成 | 2026-09-10 | 2026-09-10完成：双平台Compact逻辑宽65→56.5，每侧留白8.5→4.25；48圆环、Logo、纵向尺寸、Comfortable和折叠把手保持，原生与真实浏览器专项通过；已随0.7.2/build21公开交付 | 用户原话“圆环大小不变，圆环左右两边的宽度都减少一半” · 实现`76ac9e9` · [Release v0.7.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.2) · [同尺度对比](assets/screenshots/compact-strip-padding-before-after.png) · [开发记录](development/2026-09-10-compact-strip-padding-halving.md) |
@@ -215,6 +216,7 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-10 | REQ-20260910-009 | 新增 → 进行中 | PR #31 Windows CI `34488969920`仅在既有`a_parent_exit_does_not_leave_a_descendant_running`失败：父Node夹具三秒预算内未退出而返回`TimedOut`，尚未进入后代泄漏断言。PR仅改文档，同一产品树已在PR #30、main和正式发布三轮Windows门禁通过；先重跑精确提交验证已记录的runner调度波动，不降低测试。 |
 | 2026-09-10 | REQ-20260910-008 | 进行中 | 0.7.2/build21由workflow `34486558748`公开，appcast提交`de6fd20`。七项资产匿名重下、macOS/Windows SHA-256、Sparkle/Tauri签名、两端篡改拒绝与三个更新入口逐字节一致全部通过；进入发布后证据PR与双平台CI。 |
 | 2026-09-10 | REQ-20260910-006 / REQ-20260910-007 / REQ-20260910-008 | 进行中 | PR #30候选`d366053`及合并/tag`6b781e0`的macOS/Windows原生CI全绿；main CI `34484563560`/`34484563554`与正式workflow `34486558748`完成双平台门禁、签名资产和更新源发布。 |
 | 2026-09-10 | REQ-20260910-006 / REQ-20260910-007 / REQ-20260910-008 | 新增 → 进行中/待处理 | 开发入口接管协调入口未提交的三项记录。先修复Antigravity详情透明底板，再把Compact每侧留白8.5减半为4.25、逻辑总宽改为56.5；两项完整验证和独立审查后，按用户“修复完毕后直接发布，不用询问我”发布下一稳定修复版。 |
