@@ -12,7 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-10](2026-09-10-compact-strip-width.md) | Compact浮动条横向收窄 | 70宽候选`2d2a260`已通过完整门禁；65宽视觉迭代保持圆环及高度，待用户确认最终宽度 |
+| [2026-09-10](2026-09-10-compact-strip-width.md) | Compact浮动条横向收窄 | 用户已选65宽；实现`cc4114d`保持48圆环及全部高度，双平台完整本机门禁通过，待公开整合授权 |
 | [2026-09-10](2026-09-10-menu-panel-logo-enlargement.md) | 菜单面板顶部 Logo 放大 | macOS标题区应用Logo由32pt放大25%至40pt，其他图标、字号、间距及Windows保持 |
 | [2026-09-10](2026-09-10-conpty-fixture-reliability.md) | Windows ConPTY测试夹具稳定性 | 保留真实ConPTY往返及3秒期限，用Cargo原生夹具消除外部Node冷启动波动；PR与main门禁全绿 |
 | [2026-09-10](2026-09-10-codex-app-server-fixture-reliability.md) | Windows Codex app-server测试夹具稳定性 | 保留产品10秒期限和完整JSON-RPC断言，用Cargo原生夹具消除外部Node冷启动波动；PR与main门禁全绿 |
