@@ -275,7 +275,9 @@ button {
 .provider-detail--deepseek { --detail-accent: #7386ff; }
 .provider-detail--gemini {
   --detail-accent: #3ed6b2;
-  --provider-detail-gap: 14px;
+  --provider-card-min-height: 90px;
+  --provider-detail-gap: 10px;
+  --provider-detail-padding: 20px;
 }
 
 .provider-detail__header,
