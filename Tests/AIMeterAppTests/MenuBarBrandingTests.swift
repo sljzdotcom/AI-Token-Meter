@@ -7,8 +7,11 @@ import Testing
 @Suite("Menu bar panel branding")
 @MainActor
 struct MenuBarBrandingTests {
-    @Test("Application icon occupies a 32-point leading square in the real panel")
-    func applicationIconLeadsPanelTitle() async throws {
+    @Test(
+        "Application icon occupies a 40-point leading square in the real panel",
+        arguments: [DisplayFontChoice.system, .antonio, .dinCondensed]
+    )
+    func applicationIconLeadsPanelTitle(font: DisplayFontChoice) async throws {
         let suite = "MenuBarBranding-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -18,6 +21,7 @@ struct MenuBarBrandingTests {
             widgetSnapshotPublisher: nil,
             isDemoMode: true
         )
+        model.setDisplayFontChoice(font)
         let icon = solidIcon(color: .magenta)
 
         let bitmap = try await render(
@@ -25,7 +29,9 @@ struct MenuBarBrandingTests {
             width: 380,
             height: 320
         )
-        try save(bitmap)
+        if font == .system {
+            try save(bitmap)
+        }
 
         let magenta = try matchingPixelBounds(in: bitmap) { color in
             color.redComponent > 0.92
@@ -34,9 +40,9 @@ struct MenuBarBrandingTests {
                 && color.alphaComponent > 0.92
         }
         let bounds = try #require(magenta)
-        #expect((62...64).contains(Int(bounds.width)))
-        #expect((62...64).contains(Int(bounds.height)))
-        #expect(bounds.maxX < 120)
+        #expect((78...80).contains(Int(bounds.width)))
+        #expect((78...80).contains(Int(bounds.height)))
+        #expect(bounds.maxX < 130)
     }
 
     private func solidIcon(color: NSColor) -> NSImage {

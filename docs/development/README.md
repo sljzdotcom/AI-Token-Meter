@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-10](2026-09-10-menu-panel-logo-enlargement.md) | 菜单面板顶部 Logo 放大 | macOS标题区应用Logo由32pt放大25%至40pt，其他图标、字号、间距及Windows保持 |
 | [2026-09-10](2026-09-10-conpty-fixture-reliability.md) | Windows ConPTY测试夹具稳定性 | 保留真实ConPTY往返及3秒期限，用Cargo原生夹具消除外部Node冷启动波动；PR与main门禁全绿 |
 | [2026-09-10](2026-09-10-codex-app-server-fixture-reliability.md) | Windows Codex app-server测试夹具稳定性 | 保留产品10秒期限和完整JSON-RPC断言，用Cargo原生夹具消除外部Node冷启动波动；PR与main门禁全绿 |
 | [2026-09-10](2026-09-10-antigravity-cli-migration.md) | Google Antigravity CLI 迁移 | 第四项保留兼容 ID，双平台改用受限 `agy -p /usage` 和四窗口展示；已合入main，尚未发布 |

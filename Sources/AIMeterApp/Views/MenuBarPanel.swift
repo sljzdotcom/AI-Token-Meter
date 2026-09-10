@@ -70,7 +70,7 @@ struct MenuBarPanel: View {
             Image(nsImage: brandIcon)
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 32, height: 32)
+                .frame(width: 40, height: 40)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(AppBrand.displayName)
