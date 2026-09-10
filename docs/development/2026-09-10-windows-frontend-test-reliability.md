@@ -20,4 +20,6 @@ Swift合同先要求`windows/vite.config.ts`包含`fileParallelism: false`且不
 
 提交前复核确认生产代码与测试内容没有改变，只调整Windows前端测试文件调度并同步恢复版本元数据；版本单调性、默认5秒期限、发布范围、更新兼容和凭据边界均无遗留发现，Critical/Important/Minor为`0/0/0`。
 
-已经推送的v0.7.0标签不移动或重写；公开恢复使用0.7.1、macOS build20。双平台PR/main CI和新的标签发布workflow完成后再关闭本项。
+恢复候选`c06ae71`的PR #28 macOS/Windows CI `34457708387`/`34457708465`通过，合并`c79a5f2`后的main CI `34458853540`/`34458853613`再次通过；两轮Windows原生门禁都完成前端、真实Edge、Rust、NSIS、GUI subsystem和安装器上传。
+
+正式发布workflow [`34460178399`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34460178399)的Windows前端阶段通过，随后完成签名NSIS、内嵌公钥验签和公开事务，0.7.1/build20已公开。已经推送的v0.7.0标签没有移动或重写，未公开草稿已清理。本项完成。
