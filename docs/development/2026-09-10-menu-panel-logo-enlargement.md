@@ -24,4 +24,4 @@ Logo继续直接使用应用自身图标并保持高质量缩放、透明融合�
 
 候选提交为`7cadd72`，[PR #25](https://github.com/sljzdotcom/AI-Token-Meter/pull/25)的macOS/Windows workflow `34441068156`/`34441068194`全绿，合并提交为`0a086a2`。合并后main的macOS workflow `34441878539`约1分56秒通过；Windows workflow `34441878489`约11分28秒通过完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem及安装器上传。
 
-当前公开版本保持0.6.3，本项已列入0.7.0/build19发布候选；tag、Release与更新源由`REQ-20260910-004`的独立发布事务创建。
+当前公开版本保持0.6.3，本项已列入0.7.1/build20恢复候选；tag、Release与更新源由`REQ-20260910-004`的独立发布事务创建。

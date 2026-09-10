@@ -34,6 +34,21 @@ struct CIWorkflowTests {
         #expect(testScript.contains("--skip-build"))
     }
 
+    @Test("Windows jsdom test files run serially while preserving per-test timeouts")
+    func serializesWindowsJSDOMFiles() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let config = try String(
+            contentsOf: projectRoot.appending(path: "windows/vite.config.ts"),
+            encoding: .utf8
+        )
+
+        #expect(config.contains("fileParallelism: false"))
+        #expect(!config.contains("testTimeout:"))
+    }
+
     @Test("Cross-platform releases wait for macOS verification and a signed Windows updater")
     func crossPlatformReleaseGate() throws {
         let projectRoot = URL(fileURLWithPath: #filePath)
