@@ -4,7 +4,7 @@
 
 ## 当前版本边界
 
-- 当前源码候选：双平台`0.7.2`（macOS build`21`）；Antigravity详情底板`d8ae465`、Compact 56.5实现`76ac9e9`，发布事务由`REQ-20260910-008`继续。
+- 当前公开稳定版：双平台`0.7.2`（macOS build`21`）；Antigravity详情底板`d8ae465`、Compact 56.5实现`76ac9e9`，发布候选`d366053`经PR #30合并/tag为`6b781e0`，稳定appcast为`de6fd20`。
 - Google Antigravity迁移、40pt菜单Logo和65pt Compact浮动条已由[PR #28](https://github.com/sljzdotcom/AI-Token-Meter/pull/28)的恢复候选`c06ae71`、合并`c79a5f2`、标签`v0.7.1`与appcast`85b281d`公开交付；发布workflow为`34460178399`。[记录](2026-09-10-v0.7.0-release.md)。
 - macOS About精简经PR #20与测试可靠性修复PR #21合入`main`提交`dff54d8`；注解标签`v0.6.3`指向该提交，发布workflow为`34361767956`，稳定appcast提交为`fd737f0`，发布后证据提交为`22443c3`。
 - 菜单面板Logo经最终候选`39c3460`、PR #19合入`main`提交`ac0ec30`；注解标签`v0.6.2`指向该提交，发布workflow为`34336495454`，稳定appcast提交为`416ed08`，发布后证据提交为`9394106`。
