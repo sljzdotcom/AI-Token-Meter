@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-10 | 0.7.0 Google Antigravity与紧凑界面稳定发布 | 沿用已完成功能规格与既有双平台发布流程 | [计划](implementation-plans/2026-09-10-v0.7.0-release.md) |
 | 2026-09-10 | Compact浮动条横向收窄 | [规格](specifications/2026-09-10-compact-strip-width-design.md) | [计划](implementation-plans/2026-09-10-compact-strip-width.md) |
 | 2026-09-10 | 菜单面板顶部 Logo 放大 | [规格](specifications/2026-09-10-menu-panel-logo-enlargement-design.md) | [计划](implementation-plans/2026-09-10-menu-panel-logo-enlargement.md) |
 | 2026-09-09 | Codex 超时进程取证稳定性 | [规格](specifications/2026-09-09-codex-timeout-pid-capture-design.md) | [计划](implementation-plans/2026-09-09-codex-timeout-pid-capture.md) |

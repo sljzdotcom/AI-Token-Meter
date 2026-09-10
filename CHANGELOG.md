@@ -4,14 +4,24 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-09-10
+
+稳定功能版；macOS build19。迁移Google Antigravity额度采集，并交付更紧凑的浮动条与菜单面板品牌调整。[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
+
 ### Changed
 
 - 第四项服务迁移为 Google Antigravity，使用官方 `agy -p /usage` 展示 Gemini 与 Claude/GPT 的五小时和每周四个额度窗口；卡片显示剩余百分比，进度环继续表示已用比例。
 - macOS 与 Windows 的安装、登录、详情、缓存迁移和 Widget 可见名称同步更新；内部 `gemini` 兼容标识继续保留用户排序、隐藏和历史缓存。
+- Compact浮动条宽度由78收至65pt/px；48pt/px圆环、间距、全部高度、Comfortable与折叠把手保持。
+- macOS菜单面板标题区应用Logo由32pt放大至40pt；面板宽度、标题、副标题、间距和系统菜单栏图标保持。
 
 ### Removed
 
 - 当前采集不再发现旧 `gemini` CLI，也不再使用交互式 `/model`、PTY/ConPTY 按键注入或旧 npm Gemini 启动适配。
+
+### Fixed
+
+- Windows Codex与ConPTY协议测试改用Cargo构建的原生夹具，保留真实协议、进程回收和既有超时门禁，同时消除外部Node冷启动波动。
 
 ## 0.6.3 - 2026-09-09
 

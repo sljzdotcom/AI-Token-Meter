@@ -4,16 +4,16 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.6.3](https://img.shields.io/badge/version-0.6.3-3b82f6)
-![Tests 491](https://img.shields.io/badge/tests-491%20passed-2ea44f)
+![Version 0.7.0](https://img.shields.io/badge/version-0.7.0-3b82f6)
+![Tests 483](https://img.shields.io/badge/tests-483%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex、DeepSeek 和 Gemini 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
+AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex、DeepSeek 和 Google Antigravity 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
 
-> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Gemini. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
+> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为 [0.6.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)（macOS build `18`）。macOS About 作者行精简、双平台签名更新资产和三个应用内更新入口均已交付；公开验收见[发布记录](docs/development/2026-09-09-v0.6.3-release.md)。
+> 当前源码候选为0.7.0（macOS build `19`），发布完成后由[0.7.0页面](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.0)提供双平台更新；当前公开稳定版仍为[0.6.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)。进度见[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.6.3` / build `18`：macOS Settings → About 不再显示独立的 `Author: Miller` 行，版本、Twitter、GitHub、Telegram、更新功能和开源归属保持；Windows 本版仅同步版本。[Release Notes](docs/releases/v0.6.3.md)。
+> `0.7.0` / build `19`：第四项服务迁移为Google Antigravity，Compact浮动条收至65pt/px，macOS菜单面板Logo放大至40pt。[Release Notes](docs/releases/v0.7.0.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -86,12 +86,12 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-当前稳定版页面：**[Download v0.6.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)**：
+0.7.0发布完成后的稳定版页面：**[Download v0.7.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.0)**：
 
-- macOS：下载 `AI-Token-Meter-0.6.3-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.6.3-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.7.0-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.7.0-windows-x64-setup.exe` 与同名 `.sha256`。
 
-已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.6.3`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
+发布完成后，已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到 `0.7.0`；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
 Windows 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
@@ -242,7 +242,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码与公开稳定版均为 `0.6.3`（macOS build `18`）；签名资产与三个更新入口的验收见[0.6.3发布记录](docs/development/2026-09-09-v0.6.3-release.md)。
+- 当前源码候选为`0.7.0`（macOS build `19`），当前公开稳定版为`0.6.3`；发布进度与签名资产验收见[0.7.0发布记录](docs/development/2026-09-10-v0.7.0-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
