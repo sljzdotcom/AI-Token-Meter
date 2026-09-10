@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.7.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.2)（macOS build `21`），提供双平台安装包和应用内更新；源码已进入[0.7.3发布候选](docs/development/2026-09-11-v0.7.3-release.md)。
+> 当前公开稳定版为[0.7.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.3)（macOS build `22`），提供双平台安装包和应用内更新；完整发布证据见[0.7.3发布记录](docs/development/2026-09-11-v0.7.3-release.md)。
 
 ## Screenshots
 
@@ -86,10 +86,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-稳定版页面：**[Download v0.7.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.2)**：
+稳定版页面：**[Download v0.7.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.3)**：
 
-- macOS：下载 `AI-Token-Meter-0.7.2-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.7.2-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.7.3-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.7.3-windows-x64-setup.exe` 与同名 `.sha256`。
 
 已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到当前公开稳定版；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
@@ -242,7 +242,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码候选为`0.7.3`（macOS build `22`），公开稳定版仍为`0.7.2`；发布事务与签名资产验收见[0.7.3发布记录](docs/development/2026-09-11-v0.7.3-release.md)。
+- 当前源码和公开稳定版均为`0.7.3`（macOS build `22`）；发布事务、签名资产与公网验收见[0.7.3发布记录](docs/development/2026-09-11-v0.7.3-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
