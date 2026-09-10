@@ -1,8 +1,17 @@
-use std::io::{BufRead, Write};
+use std::io::{BufRead, Read, Write};
 
 use serde_json::Value;
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("conpty-stdin") {
+        run_conpty_stdin();
+        return;
+    }
+
+    run_codex_app_server();
+}
+
+fn run_codex_app_server() {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
@@ -55,6 +64,37 @@ fn main() {
             || output.write_all(b"\n").is_err()
             || output.flush().is_err()
         {
+            return;
+        }
+    }
+}
+
+fn run_conpty_stdin() {
+    let mut output = std::io::stdout().lock();
+    if output.write_all(b"ready\r\n").is_err() || output.flush().is_err() {
+        return;
+    }
+
+    let mut input = std::io::stdin().lock();
+    let mut received = Vec::new();
+    let mut chunk = [0_u8; 256];
+    loop {
+        let Ok(count) = input.read(&mut chunk) else {
+            return;
+        };
+        if count == 0 {
+            return;
+        }
+        received.extend_from_slice(&chunk[..count]);
+        let received_line = [b"hello\r".as_slice(), b"hello\n".as_slice()]
+            .iter()
+            .any(|line| received.windows(line.len()).any(|window| window == *line));
+        if received_line {
+            let _ = output.write_all(b"received:hello\r\n");
+            let _ = output.flush();
+            return;
+        }
+        if received.len() > 4096 {
             return;
         }
     }

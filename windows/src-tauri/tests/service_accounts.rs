@@ -116,7 +116,7 @@ fn deepseek_and_runtime_labels_are_descriptive_but_never_reveal_paths_or_keys() 
 
 #[test]
 fn codex_account_status_uses_the_bounded_official_app_server_session() {
-    let invocation = support::codex_fixture_invocation();
+    let invocation = support::native_fixture_invocation(Vec::new());
 
     let status = collect_account_status_from_invocation(
         &invocation,

@@ -17,8 +17,8 @@ name = "ai-token-meter-windows"
 path = "src/main.rs"
 
 [[bin]]
-name = "codex-app-server-test-fixture"
-path = "tests/fixtures/codex-app-server-test-fixture.rs"
+name = "native-test-fixture"
+path = "tests/fixtures/native-test-fixture.rs"
 test = false
 bench = false
 

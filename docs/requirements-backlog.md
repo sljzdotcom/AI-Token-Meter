@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260910-003 | Windows CI可靠性 | Codex原生夹具修复的最终候选中，既有ConPTY输入往返测试在高负载runner上又因外部Node冷启动耗尽3秒ready期限，阻断安装器门禁 | 高 | 进行中 | 2026-09-10 | 将Codex与ConPTY协议测试统一到Cargo构建的原生Rust夹具；保留ConPTY创建/缩放、光标查询回复、ready、固定输入、业务响应、退出码和3秒期限。本机可执行往返、完整宿主测试与严格Clippy已通过，等待PR/main原生Windows、NSIS、GUI subsystem与上传复验；本项不自动发布 | PR #23 Windows CI 34424587418于3.06秒在Node ready阶段TimedOut；原生夹具本机`ready → hello → received:hello`通过；[开发记录](development/2026-09-10-conpty-fixture-reliability.md) |
 | REQ-20260910-002 | Windows CI可靠性 | Antigravity迁移合并后，main Windows完整runtime中的Codex app-server合成握手在Node冷启动时恰好达到10秒测试上限，阻断安装器门禁 | 高 | 进行中 | 2026-09-10 | 保留产品10秒行为期限和完整JSON-RPC握手断言；把测试专用Node脚本替换为Cargo构建的轻量原生Rust夹具，额度与账户两条边界都不再依赖外部Node冷启动。PR双平台原生门禁已通过，等待最终证据候选和合并后main复验；本项不自动发布 | 修复`fad1039` · [PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23) · PR macOS CI 34423801532 / Windows CI 34423801483全绿 · [开发记录](development/2026-09-10-codex-app-server-fixture-reliability.md) |
 | REQ-20260910-001 | Compact浮动条宽度 | 用户希望Compact样式更窄，只收紧圆环左右留白，圆环尺寸及上下高度不变 | 中 | 待处理 | 2026-09-10 | 排在现有Antigravity与顶部Logo工作之后；只减少Compact横向内边距及对应窗口宽度，不缩放整体、不改圆环/Logo尺寸、垂直间距或总高度，标准样式不变。左右贴边镜像一致，保留黑蓝背景及上下反弧的连贯覆盖；双平台验证边缘、拖动/吸附、点击区域与不同DPI无裁切，回传前后对比及尺寸。具体缩减幅度由开发按现有尺寸合理选择，无需另作规格确认；本项不自动发布 | 用户截图及原话“圆环左右两边再缩进一点，圆环的大小不变，上下的高度不变”；协调登记，待开发接管提交 |
 | REQ-20260909-011 | 菜单面板品牌视觉 | 用户要求放大截图中软件名称左侧的应用Logo，与标题及副标题两行文字更协调 | 中 | 待处理 | 2026-09-09 | 排在现有工作之后；仅调整截图所示菜单面板顶部应用Logo，建议约放大25%并按实际两行文字高度微调、垂直居中，保留现有配色和透明融合效果；不改标题字号、产品图标、系统菜单栏图标或其他页面。开发验证窄宽度/字体选项下不裁切、不挤压，回传前后对比；本项不自动发布 | 用户截图与原话“这个地方，logo搞大点”；协调登记，待开发接管提交 |
@@ -209,6 +210,8 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-10 | REQ-20260910-003 | 进行中 | ConPTY综合测试改用Cargo原生夹具的固定`conpty-stdin`模式，外部`process-fixture.js`删除已无引用的stdin分支。原生夹具本机实际完成`ready → hello → received:hello`；宿主完整Rust、格式和全部目标严格Clippy通过，Windows专属ConPTY创建、光标回复与3秒退出仍交原生CI验证。 |
+| 2026-09-10 | REQ-20260910-003 | 新建 → 进行中 | PR #23最终证据候选`a0b0349`的Windows CI 34424587418中，101.38秒安装脚本测试后Codex原生夹具0.03秒通过，随后既有ConPTY综合测试仍通过外部Node脚本启动并在3.06秒ready阶段TimedOut。保留3秒期限及完整终端握手/输入/响应/退出断言，把该模式并入同一个Cargo原生夹具后复验，不原样重跑放行。 |
 | 2026-09-10 | REQ-20260910-002 | 进行中 | PR #23修复候选`fad1039`双平台原生门禁全绿：macOS workflow `34423801532`用时2分55秒；Windows workflow `34423801483`用时10分21秒，完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传全部通过。写入精确证据后等待最终候选和合并后main复验。 |
 | 2026-09-10 | REQ-20260910-002 | 进行中 | 保留生产10秒期限、无Shell启动和三阶段JSON-RPC断言，把额度与账户测试共用的外部Node脚本改为Cargo构建的轻量原生Rust夹具。第一次尝试复用libtest进程仍在10.006秒超时，证明其stdin边界不适合作为协议服务；独立fixture binary后定向8项、完整241项Rust、格式及严格Clippy通过，握手约0.29秒，进入PR原生Windows安装器门禁。 |
 | 2026-09-10 | REQ-20260910-002 | 新建 → 进行中 | Antigravity合并提交`4892b09`的main Windows CI 34422624107在既有Codex app-server Node夹具冷启动处精确耗尽10秒测试期限；同一提交PR Windows已全绿，Antigravity、Edge和严格Clippy均通过。登记独立可靠性修复，保留产品期限与协议断言，改用原生Rust测试夹具后再恢复main双平台和安装器门禁。 |

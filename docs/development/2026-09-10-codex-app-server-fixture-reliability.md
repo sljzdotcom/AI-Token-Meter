@@ -24,6 +24,8 @@ Antigravity 迁移合入 `main` 后，Windows workflow `34422624107` 已通过�
 
 测试响应仅含虚构邮箱、百分比和时间戳，不读取真实凭证、账户或额度。版本保持0.6.3，本项不创建标签、Release或更新源。
 
+最终证据候选的Windows runtime随后暴露同类的外部Node冷启动问题，但发生在独立ConPTY综合测试；该问题单独登记为`REQ-20260910-003`。通用原生夹具增加固定终端输入模式后，两类测试可共用同一Cargo产物，同时各自保留原协议和期限。
+
 ## Git与后续
 
 实现提交为`fad1039`，[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)已通过首轮原生双平台门禁；合并和最终workflow证据在完成后回填。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。

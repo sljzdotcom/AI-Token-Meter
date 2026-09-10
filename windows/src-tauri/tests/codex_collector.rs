@@ -61,7 +61,7 @@ fn missing_or_malformed_expected_response_is_not_reported_as_zero() {
 
 #[test]
 fn performs_the_bounded_app_server_handshake_without_a_shell() {
-    let invocation = support::codex_fixture_invocation();
+    let invocation = support::native_fixture_invocation(Vec::new());
 
     let started = Instant::now();
     let snapshot =
