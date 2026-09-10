@@ -21,12 +21,9 @@ run_swift_tests() {
 
 if [[ "$#" -eq 0 ]]; then
     # Keep main-actor scheduling and real terminal resource tests outside the parallel main run.
-    # GeminiOfficialPTYTests is an explicit, isolated-upstream opt-in check documented
-    # in docs/development/2026-09-08-gemini-collector.md; it needs probe dependencies.
-    run_swift_tests --skip 'PTYCommandRunnerTests|GeminiPTYTests|GeminiOfficialPTYTests|RefreshIntervalSchedulingTests'
+    run_swift_tests --skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests'
     run_swift_tests --skip-build --filter 'RefreshIntervalSchedulingTests'
     run_swift_tests --skip-build --filter 'PTYCommandRunnerTests'
-    run_swift_tests --skip-build --filter 'GeminiPTYTests'
 else
     run_swift_tests "$@"
 fi

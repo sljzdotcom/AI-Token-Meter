@@ -61,7 +61,7 @@ struct CrossPlatformContractTests {
         #expect(contract.providers.map(\.id) == ["claude", "codex", "deepseek", "gemini"])
         #expect(
             contract.providers.map(\.displayName)
-                == ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
+                == ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
         )
         #expect(
             contract.providers.map(\.progressSemantics)
@@ -95,9 +95,9 @@ struct CrossPlatformContractTests {
                 #expect(fixture.usedRatio == nil)
             }
             if fixture.providerId == "gemini", fixture.status == "fresh" {
-                #expect(fixture.usedRatio == 0.6)
-                #expect(fixture.geminiQuotaMetrics?.map(\.label) == ["Pro", "Flash"])
-                #expect(fixture.geminiQuotaMetrics?.map(\.current) == [25, 60])
+                #expect(fixture.usedRatio == 0.8)
+                #expect(fixture.geminiQuotaMetrics?.map(\.label) == ["Gemini · Five hour", "Gemini · Weekly", "Claude/GPT · Five hour", "Claude/GPT · Weekly"])
+                #expect(fixture.geminiQuotaMetrics?.map(\.current) == [60, 25, 80, 20])
                 #expect(fixture.geminiQuotaMetrics?.allSatisfy { $0.limit == 100 && $0.unit == "percent" && $0.kind == "officialLimit" } == true)
             }
             if let usedRatio = fixture.usedRatio {

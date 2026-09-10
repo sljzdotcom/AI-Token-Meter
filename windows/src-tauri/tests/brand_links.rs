@@ -34,6 +34,6 @@ fn resolves_identifiers_to_fixed_https_destinations() {
 fn gemini_help_opens_the_official_installation_page() {
     assert_eq!(
         gemini_installation_guide_url(),
-        "https://geminicli.com/docs/get-started/installation/"
+        "https://antigravity.google/docs/cli/install/"
     );
 }

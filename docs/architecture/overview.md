@@ -1,10 +1,10 @@
 # 架构概览
 
-## Gemini 集成（0.6.0 起）
+## Google Antigravity 集成
 
-两平台注册第四个 Provider，Swift `GeminiCollector` 与 Rust `gemini` collector 通过环境预检、受控版本发现和 PTY/ConPTY 会话读取额度。Windows Gemini 与旧通用 WSL/账号探测分离，首期只允许 native。
+两平台注册第四个 Provider，界面显示 **Google Antigravity**，内部保留 `gemini` ID 以兼容既有排序、隐藏设置、缓存与 Widget 数据。Swift `GeminiCollector` 与 Rust `gemini` collector 只发现原生 `agy`，在受控环境中先验证 1.1.28 起的 1.x 版本，再以普通有界进程执行固定的 `-p /usage`；不使用 PTY/ConPTY、按键注入或旧 `gemini` CLI 回退。Windows 首期只允许 native。
 
-快照新增可选 `geminiQuotaMetrics`，旧记录默认空；保留全部可见档位，主指标选择最高已用百分比，字段通过缓存、脱敏与 UI。Settings 从同次采集结果推导状态。连续终端流逐帧验证，停止发键后仍校验退出尾部，防止冲突或认证提示被旧成功帧覆盖。界面四项配置采用 schemaVersion 2 迁移；Widget 默认仍显示原三项。见[协议](../design/implementation-plans/2026-09-08-gemini-provider.md)及[合同](../../contracts/README.md)。
+快照中的 `geminiQuotaMetrics` 固定保存 Gemini 与 Claude/GPT 两组的 Five hour、Weekly 四个窗口。采集器把 CLI 的剩余百分比转换为领域模型的已用百分比，主指标选择最高已用窗口；详情仍明确展示剩余百分比与各自重置时间。Settings 从同次采集结果推导状态，旧缓存的可见名称在读取时迁移。界面四项配置继续使用既有兼容迁移；Widget 默认仍显示原三项。见[迁移规格](../design/specifications/2026-09-09-antigravity-cli-migration-design.md)及[合同](../../contracts/README.md)。
 
 ## 目标
 
@@ -79,7 +79,7 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 - `ExecutableLocator`：统一服务账户、登录和采集的 CLI 发现；除进程 PATH 与标准目录外，覆盖 nvm/常见 Node 管理器和 ChatGPT/Codex App 内置二进制。Codex 子进程将可执行文件同目录置于 PATH 首位，以配对 Node shebang 运行时。
 - `DeepSeekCollector`：从 `SecretStore` 取得 Keychain 密钥并调用余额 API。
 - `ClaudeUsageParser`、`CodexUsageParser`：把外部格式转换成统一指标。
-- `CommandRunner`、`PTYCommandRunner`：负责超时、进程终止和输出收集。
+- `CommandRunner`、`BoundedCommandRunner`、`PTYCommandRunner`：分别为普通与终端型 CLI 负责超时、进程终止和有界输出收集。
 
 ### Domain
 
@@ -92,6 +92,7 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 - OpenAI Codex 重置额度摘要；
 - OpenAI Codex 本机 30 天活动摘要；
 - Claude Code 本机 30 天每日 Token、会话、活跃日和模型摘要；
+- Google Antigravity 四个官方额度窗口；
 - DeepSeek 标准化历史用量。
 
 ### Coordination
@@ -134,9 +135,9 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 
 ### Brand and compatibility
 
-`AppBrand` 集中提供 **AI Token Meter**、**Private AI usage monitor** 和版本文案。`UsageProvider` 与 `WidgetProvider` 集中提供 **Claude Code**、**OpenAI Codex**、**DeepSeek** 正式名称。可见名称与构建产物已迁移，但 `com.millerpan.AIMeter`、`AIMeterApp`、Keychain 身份及 `Application Support/AI Meter` 兼容目录保持不变，以沿用现有偏好、缓存和 Claude Code 工作区批准。
+`AppBrand` 集中提供 **AI Token Meter**、**Private AI usage monitor** 和版本文案。`UsageProvider` 与 `WidgetProvider` 集中提供 **Claude Code**、**OpenAI Codex**、**DeepSeek**、**Google Antigravity** 正式名称。可见名称与构建产物已迁移，但 `com.millerpan.AIMeter`、`AIMeterApp`、Keychain 身份及 `Application Support/AI Meter` 兼容目录保持不变，以沿用现有偏好、缓存和 Claude Code 工作区批准。
 
-视图主题层由 `ProviderAccentPalette` 集中映射 Claude Code、OpenAI Codex 和 DeepSeek 的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
+视图主题层由 `ProviderAccentPalette` 集中映射四项服务的正常状态渐变；`UsageSemantic` 在 warning、critical、stale 和 unavailable 时覆盖品牌色，避免服务身份色削弱状态含义。
 
 ### FloatingPanelController
 
@@ -192,7 +193,7 @@ UI 必须展示状态含义和更新时间，不能用旧数据覆盖失败而�
 - 详情自动隐藏、全局点击监听和刷新循环都在退出时取消；
 - 更新检查与用量刷新是独立生命周期，重复点击由更新协调器去重；
 - 进程执行器在超时、取消和正常结束之间只完成一次 continuation。
-- Windows 采集子进程附加 Job Object，更新安装前统一取消；ConPTY 会处理终端握手、固定输入与超时，不能接受前端传入的任意命令。
+- Windows 采集子进程附加 Job Object，更新安装前统一取消；需要终端协议的服务由 ConPTY 处理固定握手与输入，Antigravity 使用普通有界进程；两类入口都不能接受前端传入的任意命令。
 
 ## 可测试性
 

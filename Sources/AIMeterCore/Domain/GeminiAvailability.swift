@@ -5,6 +5,6 @@ public extension UsageSnapshot {
     static var geminiUnavailable: UsageSnapshot {
         UsageSnapshot(provider: .gemini, availability: .unavailable,
                       fetchedAt: .distantPast, collectionStatus: .unavailable,
-                      statusMessage: "Gemini CLI quota is currently unavailable. Installation and account status have not been checked.")
+                      statusMessage: "Antigravity CLI quota is currently unavailable. Installation and account status have not been checked.")
     }
 }

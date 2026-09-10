@@ -41,10 +41,10 @@ git -C "$TEST_ROOT/repository" update-index --chmod=+x scripts/package-cross-pla
 
 snapshot_schema="$TEST_ROOT/repository/contracts/schemas/usage-snapshot.schema.json"
 cp "$snapshot_schema" "$TEST_ROOT/original-schema.json"
-ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["properties"]["displayName"]["enum"].delete("Gemini"); File.write(path, JSON.generate(value))' "$snapshot_schema"
+ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["properties"]["displayName"]["enum"].delete("Google Antigravity"); File.write(path, JSON.generate(value))' "$snapshot_schema"
 if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" \
     "$TEST_ROOT/repository" >"$TEST_ROOT/schema-missing-gemini.log" 2>&1; then
-    echo "Snapshot schema must accept the registered Gemini display name." >&2
+    echo "Snapshot schema must accept the registered Antigravity display name." >&2
     exit 1
 fi
 grep -Fq "Snapshot schema displayName enum is incomplete" "$TEST_ROOT/schema-missing-gemini.log"
@@ -57,7 +57,7 @@ for regression in nullable missing-limit; do
         echo "A nullable Gemini tier or missing required limit must be rejected by the schema contract." >&2
         exit 1
     fi
-    grep -Fq "Gemini metric schema must require a non-null object with limit and source fields" "$TEST_ROOT/gemini-schema-$regression.log"
+    grep -Fq "Antigravity metric schema must require a non-null object with limit and source fields" "$TEST_ROOT/gemini-schema-$regression.log"
     cp "$TEST_ROOT/original-schema.json" "$snapshot_schema"
 done
 
@@ -68,7 +68,7 @@ if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST
     echo "Gemini tier percentages above 100 must be rejected." >&2
     exit 1
 fi
-grep -Fq "invalid Gemini quota tier" "$TEST_ROOT/gemini-invalid-tier.log"
+grep -Fq "invalid Antigravity quota window" "$TEST_ROOT/gemini-invalid-tier.log"
 cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
 
 gemini_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-unavailable.json"

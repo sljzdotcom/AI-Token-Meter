@@ -1,5 +1,4 @@
-use ai_token_meter_windows::collectors::CollectionError;
-use ai_token_meter_windows::collectors::gemini_environment::GeminiEnvironment;
+use ai_token_meter_windows::collectors::{CollectionError, gemini_environment::GeminiEnvironment};
 use std::ffi::OsString;
 
 fn inputs(home: &std::path::Path) -> Vec<(OsString, OsString)> {
@@ -9,8 +8,9 @@ fn inputs(home: &std::path::Path) -> Vec<(OsString, OsString)> {
         ("PATH".into(), "synthetic-bin".into()),
     ]
 }
+
 #[test]
-fn normal_oauth_keeps_home_and_disables_startup_side_effects_for_version_too() {
+fn preserves_login_home_and_builds_exact_headless_commands() {
     let dir = tempfile::tempdir().unwrap();
     let environment = GeminiEnvironment::prepare(dir.path(), inputs(dir.path()), &[]).unwrap();
     let map: std::collections::HashMap<_, _> = environment.variables.iter().cloned().collect();
@@ -23,124 +23,77 @@ fn normal_oauth_keeps_home_and_disables_startup_side_effects_for_version_too() {
         Some(&OsString::from("true"))
     );
     assert_eq!(
-        map.get(&OsString::from("GEMINI_CLI_TRUST_WORKSPACE")),
-        Some(&OsString::from("false"))
-    );
-    let settings: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(
-            map.get(&OsString::from("GEMINI_CLI_SYSTEM_SETTINGS_PATH"))
-                .unwrap(),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(settings["hooksConfig"]["enabled"], false);
-    assert_eq!(settings["privacy"]["usageStatisticsEnabled"], false);
-    assert!(settings["security"]["folderTrust"].is_null());
-    assert_eq!(
         std::fs::read(environment.directory.join(".env")).unwrap(),
         b""
     );
-    let args = environment.arguments(true);
-    assert!(args.contains(&"--version".to_owned()));
-    assert!(args.windows(2).any(|a| a == ["-e", "none"]));
-    assert!(
-        args.windows(2)
-            .any(|a| a[0] == "--allowed-mcp-server-names" && a[1].starts_with("ai-meter-"))
+    assert_eq!(&environment.arguments(true)[..1], ["--version".to_owned()]);
+    assert_eq!(
+        &environment.arguments(false)[..4],
+        [
+            "-p".to_owned(),
+            "/usage".to_owned(),
+            "--print-timeout".to_owned(),
+            "20s".to_owned()
+        ]
     );
-    assert!(!args.iter().any(|a| a == "-p" || a == "--ignore-env"));
-    let other = GeminiEnvironment::prepare(dir.path(), inputs(dir.path()), &[]).unwrap();
-    assert_ne!(environment.arguments(false), other.arguments(false));
+    for arguments in [environment.arguments(true), environment.arguments(false)] {
+        assert!(arguments.windows(2).any(|pair| {
+            pair[0] == "--log-file"
+                && pair[1] == environment.directory.join("agy.log").to_string_lossy()
+        }));
+    }
     let path = environment.directory.clone();
     drop(environment);
     assert!(!path.exists());
 }
+
 #[test]
-fn unsupported_environment_or_existing_system_policy_is_never_overwritten() {
+fn inherited_code_execution_and_network_overrides_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
     for key in [
+        "AGY_DEBUG",
         "GEMINI_API_KEY",
         "GOOGLE_API_KEY",
-        "GOOGLE_GENAI_USE_VERTEXAI",
-        "GEMINI_FORCE_ENCRYPTED_FILE_STORAGE",
+        "GCLOUD_PROJECT",
+        "CLOUDSDK_CONFIG",
         "NODE_OPTIONS",
-        "NODE_PATH",
-        "GEMINI_CLI_SYSTEM_SETTINGS_PATH",
         "HTTP_PROXY",
-        "GEMINI_SANDBOX",
-        "SANDBOX",
-        "CLOUD_SHELL",
-        "BUILD_SANDBOX",
-        "GEMINI_CLI_TRUST_WORKSPACE",
+        "DYLD_INSERT_LIBRARIES",
+        "LD_PRELOAD",
+        "BASH_ENV",
     ] {
-        let mut env = inputs(dir.path());
-        env.push((key.into(), "synthetic".into()));
+        let mut environment = inputs(dir.path());
+        environment.push((key.into(), "synthetic".into()));
         assert!(
             matches!(
-                GeminiEnvironment::prepare(dir.path(), env, &[]),
+                GeminiEnvironment::prepare(dir.path(), environment, &[]),
                 Err(CollectionError::UnsupportedConfiguration)
             ),
             "{key}"
         );
     }
-    let system = dir.path().join("system.json");
-    std::fs::write(&system, "{}").unwrap();
-    assert!(
-        GeminiEnvironment::prepare(
-            dir.path(),
-            inputs(dir.path()),
-            std::slice::from_ref(&system)
-        )
-        .is_err()
-    );
-    assert_eq!(std::fs::read(system).unwrap(), b"{}");
-}
-#[test]
-fn unsupported_user_settings_stop_before_any_cli_execution() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir(dir.path().join(".gemini")).unwrap();
-    for settings in [
-        r#"{"security":{"auth":{"selectedType":"gemini-api-key"}}}"#,
-        r#"{"advanced":{"ignoreLocalEnv":true}}"#,
-        r#"{"tools":{"discoveryCommand":"echo sentinel"}}"#,
-        r#"{"tools":{"sandbox":true}}"#,
-        r#"{"security":{"toolSandboxing":true}}"#,
-        r#"{"security":{"auth":{"useExternal":true}}}"#,
-        r#"{"tools":{"callCommand":"synthetic-command"}}"#,
-        "{broken",
-    ] {
-        std::fs::write(dir.path().join(".gemini/settings.json"), settings).unwrap();
-        assert!(
-            matches!(
-                GeminiEnvironment::prepare(dir.path(), inputs(dir.path()), &[]),
-                Err(CollectionError::UnsupportedConfiguration)
-            ),
-            "{settings}"
-        );
-    }
-    std::fs::write(dir.path().join(".gemini/settings.json"), r#"{"security":{"auth":{"selectedType":"oauth-personal","enforcedType":"oauth-personal"}}}"#).unwrap();
-    assert!(GeminiEnvironment::prepare(dir.path(), inputs(dir.path()), &[]).is_ok());
 }
 
 #[test]
-fn malformed_or_template_parent_settings_are_rejected_before_launch() {
-    for value in [
-        serde_json::json!({"security":{"auth":[]}}),
-        serde_json::json!({"tools":"${TOOLS}"}),
-        serde_json::json!({"security":null}),
-        serde_json::json!({"advanced":42}),
-    ] {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir(dir.path().join(".gemini")).unwrap();
-        std::fs::write(dir.path().join(".gemini/settings.json"), value.to_string()).unwrap();
-        let result = GeminiEnvironment::prepare(
-            dir.path(),
-            vec![("USERPROFILE".into(), dir.path().into())],
-            &[],
-        );
-        assert!(
-            matches!(result, Err(CollectionError::UnsupportedConfiguration)),
-            "{value}"
-        );
-    }
+fn user_settings_and_legacy_policy_paths_are_never_read_or_modified() {
+    let dir = tempfile::tempdir().unwrap();
+    let settings_directory = dir.path().join(".gemini");
+    std::fs::create_dir(&settings_directory).unwrap();
+    let settings = settings_directory.join("settings.json");
+    std::fs::write(&settings, "{malformed-and-private").unwrap();
+    let legacy_policy = dir.path().join("system.json");
+    std::fs::write(&legacy_policy, "keep-me").unwrap();
+
+    let environment = GeminiEnvironment::prepare(
+        dir.path(),
+        inputs(dir.path()),
+        std::slice::from_ref(&legacy_policy),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(settings).unwrap(),
+        "{malformed-and-private"
+    );
+    assert_eq!(std::fs::read_to_string(legacy_policy).unwrap(), "keep-me");
+    drop(environment);
 }

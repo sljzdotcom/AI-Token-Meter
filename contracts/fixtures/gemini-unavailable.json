@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "providerId": "gemini",
-  "displayName": "Gemini",
+  "displayName": "Google Antigravity",
   "status": "unavailable",
   "usedRatio": null,
   "primaryMetric": null,
@@ -9,5 +9,5 @@
   "fetchedAt": "2026-09-03T00:00:00Z",
   "staleAfterSeconds": 300,
   "sourceVersion": "fixture",
-  "statusMessage": "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked."
+  "statusMessage": "Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked."
 }

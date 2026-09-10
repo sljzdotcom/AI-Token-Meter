@@ -12,17 +12,17 @@ it.each([['compact','left',78,344],['compact','right',78,344],['comfortable','le
   expect(nav.style.getPropertyValue('--strip-width')).toBe(`${width}px`)
   expect(nav.style.getPropertyValue('--strip-height')).toBe(`${height}px`)
   expect(screen.getAllByRole('button')).toHaveLength(4)
-  fireEvent.click(screen.getByRole('button',{name:'Gemini usage'}))
+  fireEvent.click(screen.getByRole('button',{name:'Google Antigravity usage'}))
   expect(selected).toBe('gemini')
-  expect(screen.getByRole('progressbar',{name:'Gemini usage'})).not.toHaveAttribute('aria-valuenow')
-  expect(screen.getByRole('button',{name:'Gemini usage'}).style.getPropertyValue('--provider-accent')).toBe('#3ED6B2')
+  expect(screen.getByRole('progressbar',{name:'Google Antigravity usage'})).not.toHaveAttribute('aria-valuenow')
+  expect(screen.getByRole('button',{name:'Google Antigravity usage'}).style.getPropertyValue('--provider-accent')).toBe('#3ED6B2')
   expect(container.querySelector('.floating-strip__drag-handle')).toBeNull()
 })
 
 it('Gemini detail identifies CLI scope and unavailable quota without Claude labels or percentages', () => {
   const snapshot = unavailableSnapshots.find(s => s.providerId === 'gemini')!
   render(<ProviderDetail snapshot={snapshot} onPointerEnter={()=>{}} onPointerLeave={()=>{}} onInteractionStart={()=>{}} onInteractionEnd={()=>{}} />)
-  expect(screen.getByText('Gemini CLI')).toBeVisible()
+  expect(screen.getByText('Google Antigravity')).toBeVisible()
   expect(screen.queryByText(/Local Claude/)).not.toBeInTheDocument()
   expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
   expect(screen.getByText(/Installation and sign-in status have not been checked/)).toBeVisible()

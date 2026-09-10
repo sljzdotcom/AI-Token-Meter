@@ -107,17 +107,15 @@ DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 �
 
 网页原始响应、Cookie、请求头、登录表单和 API Key 不会写入业务缓存。网站接口变化、未登录或网络失败时，AI Token Meter 会显示缓存或引导打开官方页面，而不会伪造数据。
 
-## Gemini
+## Google Antigravity
 
-当前仅支持官方 Gemini CLI **0.58.0** 的普通 Google OAuth 登录模式（`oauth-personal`），Windows 仅支持原生 CLI。Gemini 网页或桌面客户端不等于该 CLI；无需为本功能提供 API Key。已在官方 CLI 登录的用户由 CLI 自行恢复认证，应用不读取 OAuth 凭据。
+第四项服务在界面中显示为 **Google Antigravity**，内部继续使用 `gemini` 标识以兼容既有设置、排序、缓存和 Widget。支持官方 Antigravity CLI 1.x，最低验证版本为 **1.1.28**；Windows 仅支持原生 CLI。已登录用户由 `agy` 自行恢复 Google 认证，应用不读取 OAuth 凭据，也不需要 API Key。
 
-新用户先准备Node.js 20或更高版本，再在macOS Terminal或Windows PowerShell运行 `npm install -g @google/gemini-cli@0.58.0`。安装后运行 `gemini` 并选择 **Sign in with Google**，然后回到Settings → Services选择 **Retry / Check Status**。两端的安装指南按钮直达[Gemini CLI官方安装页](https://geminicli.com/docs/get-started/installation/)；应用不自动安装、登录、升级或批准目录。已检测到CLI但需要登录时不再提示重装，连接后也不显示安装命令。
+新用户按[官方安装页](https://antigravity.google/docs/cli/install/)安装 `agy`。macOS 可运行 `curl -fsSL https://antigravity.google/cli/install.sh | bash`，Windows PowerShell 可运行 `irm https://antigravity.google/cli/install.ps1 | iex`。安装后运行 `agy` 完成 Google 登录，然后回到 Settings → Services 选择 **Retry / Check Status**。
 
-应用在私有空目录的不信任模式等待 CLI 就绪，再打开 `/model`，从完整模型选择框读取 Pro、Flash、Flash Lite 等实际可见档位。每项是上游显示的**已用百分比**；圆环选择最高已用档位，不把档位相加。重置时间保留 CLI 原文，未知时不推算。未提供本机 Token 历史或 Gemini 网页、Vertex/API 的跨产品总量。
+应用在私有空目录执行固定的 `agy -p /usage`。该斜杠命令由 CLI 本地处理，不发送模型提示。输出中的“剩余百分比”转换为“已用百分比”，固定展示 Gemini 与 Claude/GPT 两组的 Five hour 和 Weekly 四个额度窗口及各自重置时间；圆环选择最高已用窗口，不把窗口相加。首期不展示 AI Credits，也不回退到旧 `gemini` 可执行文件。
 
-缺少 CLI、需要登录、版本不支持、配置不支持、无额度和解析失败分别保留可辨认状态。已有系统配置、API/Vertex/企业或加密认证、自定义启动工具等模式目前不支持；不建议为采集删除这些配置。已有缓存时保留原数据与采集时间，并显示本次失败。
-
-发布前验证包含合成账号的官方 CLI 隔离启动、本地代码回归和原生 Windows ConPTY 门禁；真实账号仍待现场验收。[完整范围与验证](../development/2026-09-08-gemini-collector.md)。
+缺少 CLI、需要登录、版本不支持、环境覆盖、超时和解析失败分别保留可辨认状态。已有缓存时保留上次成功数据与采集时间，并显示本次失败。[完整迁移范围](../design/specifications/2026-09-09-antigravity-cli-migration-design.md)。
 
 ## 刷新与缓存
 

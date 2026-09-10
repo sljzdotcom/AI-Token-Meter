@@ -1,193 +1,84 @@
 use ai_token_meter_windows::collectors::CollectionError;
-use ai_token_meter_windows::collectors::gemini::{
-    TerminalState, parse_terminal_quota, terminal_state,
-};
+use ai_token_meter_windows::collectors::gemini::parse_usage;
 use ai_token_meter_windows::domain::{MetricKind, MetricUnit};
-const OPEN: &str =
-    include_str!("../../../contracts/gemini-cli/0.58.0/authenticated-model-open.ansi.txt");
-const READY: &str = include_str!("../../../contracts/gemini-cli/0.58.0/ready.ansi.txt");
-const CONPTY_MODEL_OPEN_HEX: &str = include_str!("fixtures/gemini-conpty-model-open.hex.txt");
-const DATE: &str = "2026-09-08T09:00:00Z";
+
+const USAGE: &str = include_str!("../../../contracts/antigravity-cli/1.1.28/usage.txt");
+const DATE: &str = "2026-09-10T12:00:00Z";
 
 #[test]
-fn real_terminal_redraws_yield_visible_used_tiers_not_footer() {
-    let snapshot = parse_terminal_quota(OPEN, DATE).unwrap();
-    let value = serde_json::to_value(&snapshot).unwrap();
-    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
-    assert_eq!(snapshot.primary_metric.as_ref().unwrap().label, "Flash");
-    assert_eq!(value["geminiQuotaMetrics"].as_array().unwrap().len(), 2);
-    assert_eq!(value["geminiQuotaMetrics"][0]["current"], 25.0);
-    assert_eq!(value["geminiQuotaMetrics"][1]["current"], 60.0);
-    let metric = snapshot.primary_metric.unwrap();
-    assert_eq!(metric.unit, MetricUnit::Percent);
-    assert_eq!(metric.kind, MetricKind::OfficialLimit);
-    assert_eq!(metric.limit, Some(100.0));
-    assert_eq!(metric.reset_at, None);
+fn parses_all_official_windows_and_converts_remaining_to_used() {
+    let snapshot = parse_usage(USAGE, DATE, "1.1.28").unwrap();
+    assert_eq!(snapshot.display_name, "Google Antigravity");
+    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.8);
     assert_eq!(
-        metric.reset_description.as_deref(),
-        Some("Resets: 5:47 PM (1h)")
+        snapshot.primary_metric.as_ref().unwrap().label,
+        "Claude/GPT · Five hour"
     );
-}
-
-#[test]
-fn erase_character_clears_cells_without_moving_the_cursor() {
-    let raw = concat!(
-        "Select Model\r\n",
-        "Model usage\r\n",
-        "XXXX▬ 60%\r\x1b[4XPro\r\n",
-        "(Press Esc to close)\r\n",
-        "╰──╯\r\n"
-    );
-    let snapshot = parse_terminal_quota(raw, DATE).unwrap();
-    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
-    assert_eq!(snapshot.primary_metric.unwrap().label, "Pro");
-
-    for erase in ["\x1b[X", "\x1b[0X"] {
-        let raw = format!(
-            "Select Model\r\nModel usage\r\nXPro ▬ 60%\r{erase}\r\n(Press Esc to close)\r\n╰──╯\r\n"
-        );
-        assert_eq!(
-            parse_terminal_quota(&raw, DATE)
-                .unwrap()
-                .used_ratio
-                .unwrap()
-                .get(),
-            0.6
-        );
-    }
-}
-
-#[test]
-fn native_conpty_transcoded_model_frame_remains_parseable() {
-    let bytes = decode_hex(CONPTY_MODEL_OPEN_HEX);
-    let raw = String::from_utf8(bytes).unwrap();
-    assert_eq!(terminal_state(&raw), Ok(TerminalState::Model));
-    let snapshot = parse_terminal_quota(&raw, DATE).unwrap();
-    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
-    assert_eq!(snapshot.gemini_quota_metrics.len(), 2);
-}
-
-#[test]
-fn ready_requires_real_input_and_authentication_never_becomes_ready() {
-    assert_eq!(terminal_state(READY).unwrap(), TerminalState::Ready);
-    for text in [
-        include_str!("../../../contracts/gemini-cli/0.58.0/missing-auth.ansi.txt"),
-        include_str!("../../../contracts/gemini-cli/0.58.0/invalid-auth.ansi.txt"),
-    ] {
-        assert_eq!(
-            terminal_state(text),
-            Err(CollectionError::AuthenticationRequired)
-        );
-    }
-    assert_ne!(terminal_state("\x1b]0;Ready\x07"), Ok(TerminalState::Ready));
-    assert!(terminal_state("Select a theme\n> Type your message or @path/to/file").is_err());
-}
-
-#[test]
-fn latest_screen_cleared_or_failed_never_resurrects_old_quota() {
-    for text in [
-        include_str!("../../../contracts/gemini-cli/0.58.0/authenticated.ansi.txt"),
-        include_str!("../../../contracts/gemini-cli/0.58.0/quota-failure-model-open.ansi.txt"),
-        "",
-        "43% used",
-    ] {
-        assert!(parse_terminal_quota(text, DATE).is_err());
-    }
-    assert!(
-        parse_terminal_quota(
-            &format!("{OPEN}\x1b[2J\x1b[HSelect Model\nPress Esc to close\n╰──╯"),
-            DATE
-        )
-        .is_err()
-    );
-}
-
-fn dialog(rows: &str) -> String {
-    format!("╭──╮\n│ Select Model\n│ Model usage\n{rows}\n│ (Press Esc to close)\n╰──╯\n")
-}
-#[test]
-fn all_three_tiers_and_ties_keep_stable_order_without_invented_reset() {
-    let snapshot = parse_terminal_quota(
-        &dialog("│ Flash Lite ▬ 25%\n│ Flash ▬ 60%\n│ Pro ▬ 60%"),
-        DATE,
-    )
-    .unwrap();
-    assert_eq!(snapshot.primary_metric.unwrap().label, "Pro");
-    let value = serde_json::to_value(snapshot.secondary_metric).unwrap();
-    assert_eq!(value["label"], "Flash");
-}
-#[test]
-fn malformed_missing_conflicting_or_unknown_tiers_are_rejected() {
-    for rows in [
-        "│ Pro ▬ 101%",
-        "│ Pro ▬ -1%",
-        "│ Pro ▬ 2.5%",
-        "│ Pro ▬ 25%\n│ Pro ▬ 70%",
-        "│ Unknown ▬ 50%",
-        "│ Pro ▬ 25%\n│ Flash ▬",
-        "│ Pro ▬ 25% remaining",
-    ] {
-        assert!(parse_terminal_quota(&dialog(rows), DATE).is_err(), "{rows}");
-    }
-    assert!(parse_terminal_quota("Select Model\nModel usage\nPro ▬ 25%", DATE).is_err());
-}
-
-#[test]
-fn real_untrusted_ready_and_quota_are_supported_without_trust_approval() {
     assert_eq!(
-        terminal_state(include_str!(
-            "../../../contracts/gemini-cli/0.58.0/untrusted-ready.ansi.txt"
-        ))
-        .unwrap(),
-        TerminalState::Ready
+        snapshot.secondary_metric.as_ref().unwrap().label,
+        "Gemini · Five hour"
     );
-    let snapshot = parse_terminal_quota(
-        include_str!(
-            "../../../contracts/gemini-cli/0.58.0/authenticated-untrusted-model-open.ansi.txt"
-        ),
-        DATE,
-    )
-    .unwrap();
-    assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
-    assert!(
-        parse_terminal_quota(
-            include_str!("../../../contracts/gemini-cli/0.58.0/authenticated-untrusted.ansi.txt"),
-            DATE
-        )
-        .is_err()
-    );
-}
-
-#[test]
-fn real_model_frame_derives_the_shared_fresh_contract_and_bad_tiers_fail_decode() {
-    use ai_token_meter_windows::domain::UsageSnapshot;
-    let value: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/gemini-fresh.json"
-    ))
-    .unwrap();
-    let snapshot = UsageSnapshot::decode_compatible(&value).unwrap();
     assert_eq!(
-        parse_terminal_quota(OPEN, &snapshot.fetched_at).unwrap(),
         snapshot
+            .gemini_quota_metrics
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "Gemini · Five hour",
+            "Gemini · Weekly",
+            "Claude/GPT · Five hour",
+            "Claude/GPT · Weekly"
+        ]
     );
-    let mut invalid = value;
-    invalid["geminiQuotaMetrics"][0]["current"] = serde_json::json!(110);
-    assert!(UsageSnapshot::decode_compatible(&invalid).is_err());
+    assert_eq!(
+        snapshot
+            .gemini_quota_metrics
+            .iter()
+            .map(|metric| metric.current)
+            .collect::<Vec<_>>(),
+        vec![60.0, 25.0, 80.0, 20.0]
+    );
+    assert!(snapshot.gemini_quota_metrics.iter().all(|metric| {
+        metric.limit == Some(100.0)
+            && metric.unit == MetricUnit::Percent
+            && metric.kind == MetricKind::OfficialLimit
+            && metric.reset_at.is_some()
+    }));
 }
 
-fn decode_hex(value: &str) -> Vec<u8> {
-    let bytes = value.trim().as_bytes();
-    assert_eq!(bytes.len() % 2, 0);
-    bytes
-        .chunks(2)
-        .map(|pair| (hex_digit(pair[0]) << 4) | hex_digit(pair[1]))
-        .collect()
+#[test]
+fn row_order_does_not_change_presentation_order() {
+    let reversed = USAGE.lines().rev().collect::<Vec<_>>().join("\n");
+    let snapshot = parse_usage(&reversed, DATE, "1.1.28").unwrap();
+    assert_eq!(
+        snapshot
+            .gemini_quota_metrics
+            .iter()
+            .map(|metric| metric.current)
+            .collect::<Vec<_>>(),
+        vec![60.0, 25.0, 80.0, 20.0]
+    );
 }
 
-fn hex_digit(value: u8) -> u8 {
-    match value {
-        b'0'..=b'9' => value - b'0',
-        b'a'..=b'f' => value - b'a' + 10,
-        _ => panic!("invalid hexadecimal fixture"),
+#[test]
+fn incomplete_ambiguous_and_legacy_output_is_rejected() {
+    let cases = [
+        String::new(),
+        USAGE.lines().next().unwrap().into(),
+        USAGE.replacen("75%", "101%", 1),
+        USAGE.replacen("75%", "-1%", 1),
+        USAGE.replacen("75%", "seventy%", 1),
+        USAGE.replacen("2026-09-17T10:00:00Z", "tomorrow", 1),
+        USAGE.replacen("Gemini Models", "Unknown models", 1),
+        USAGE.replacen("Weekly Limit Remaining", "Daily Limit Remaining", 1),
+        format!("{USAGE}\n{}", USAGE.lines().next().unwrap()),
+        "Select Model\nModel usage\nPro 25%".into(),
+    ];
+    for value in cases {
+        assert_eq!(
+            parse_usage(&value, DATE, "1.1.28"),
+            Err(CollectionError::UnrecognizedOutput)
+        );
     }
 }

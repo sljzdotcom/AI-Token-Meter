@@ -253,16 +253,17 @@ for (const width of [340, 440]) {
     let retries = 0, guides = 0
     const value: UsageSnapshot = {...geminiFresh, status, providerId:"gemini", fetchedAt:new Date().toISOString(),
       usedRatio:hasQuota ? .6 : null, primaryMetric:hasQuota ? geminiFresh.primaryMetric as UsageSnapshot["primaryMetric"] : null,
-      secondaryMetric:null, geminiQuotaMetrics:hasQuota ? [...geminiFresh.geminiQuotaMetrics, {...geminiFresh.geminiQuotaMetrics[0],label:"Flash Lite",current:10}] as NonNullable<UsageSnapshot["geminiQuotaMetrics"]> : [],
-      statusMessage:status === "cached" ? "Cached · sign in required" : status === "unavailable" ? "Gemini CLI configuration is not supported" : null}
+      secondaryMetric:null, geminiQuotaMetrics:hasQuota ? geminiFresh.geminiQuotaMetrics as NonNullable<UsageSnapshot["geminiQuotaMetrics"]> : [],
+      statusMessage:status === "cached" ? "Cached · sign in required" : status === "unavailable" ? "Antigravity CLI configuration is not supported" : null}
     flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={()=>{}} onPointerLeave={()=>{}} onInteractionStart={()=>{}} onInteractionEnd={()=>{}} onCheckGeminiStatus={()=>{retries++}} onOpenGeminiInstallationGuide={()=>{guides++}} />))
     const cards = [...host.querySelectorAll<HTMLElement>(".metric-card")]
     const texts = cards.map(card=>card.textContent ?? "")
     const bounds = host.getBoundingClientRect()
     const nodes = [...host.querySelectorAll<HTMLElement>(".metric-card, .service-actions button, footer")]
     for (const button of host.querySelectorAll<HTMLButtonElement>("button")) button.click()
+    const clipped = nodes.flatMap(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]})
     geminiSamples.push({width,status,hasQuota,texts,retries,guides,reasonVisible:status !== "cached" || host.textContent!.includes("Cached · sign in required"),
-      unclipped:nodes.every(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom})})
+      unclipped:clipped.length===0,clipped})
     flushSync(()=>sampleRoot.unmount());host.remove()
   }
 }

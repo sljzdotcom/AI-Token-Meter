@@ -2,119 +2,146 @@ import Foundation
 import Testing
 @testable import AIMeterCore
 
-@Suite("Gemini collector safety")
+@Suite("Antigravity collector safety")
 struct GeminiCollectorTests {
-    @Test func collectsOnlyPinnedVersionAndPreservesQuotaAndPrivateEnvironment() async throws {
+    @Test func defaultRunnerUsesTheNoninteractiveHeadlessPath() async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
-        let runner = RecordingGeminiRunner(version: "0.58.0")
-        let collector = GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment)
+        let executable = context.root.appendingPathComponent("agy")
+        let script = """
+        #!/bin/sh
+        if [ -t 1 ]; then exit 9; fi
+        if [ "$1" = "--version" ]; then
+          printf '1.1.28\\n'
+        else
+          cat <<'OUTPUT'
+        \(GeminiUsageParserTests.fixture)
+        OUTPUT
+        fi
+        """
+        try Data(script.utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+
+        let snapshot = try await GeminiCollector(
+            locator: AntigravityTestLocator(discovery: .found(executable)),
+            environment: context.environment
+        ).collect()
+        #expect(snapshot.geminiQuotaMetrics?.count == 4)
+    }
+
+    @Test func usesOnlyOfficialHeadlessUsageCommandInPrivateDirectory() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: "1.1.28")
+        let collector = GeminiCollector(
+            runner: runner,
+            locator: AntigravityTestLocator(),
+            environment: context.environment
+        )
+
         let snapshot = try await collector.collect()
-        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [25, 60])
+        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25, 80, 20])
         let requests = await runner.requests
         #expect(requests.count == 2)
         #expect(requests[0].arguments.contains("--version"))
-        #expect(requests[1].geminiQuotaInteraction)
-        #expect(requests.allSatisfy { !$0.arguments.contains("-p") && $0.inputLines.isEmpty })
-        #expect(requests[1].arguments.prefix(2) == ["-e", "none"])
+        #expect(requests[1].arguments.prefix(2) == ["-p", "/usage"])
+        #expect(requests[1].arguments.contains("--print-timeout"))
+        #expect(requests.allSatisfy { $0.inputLines.isEmpty })
+        #expect(requests.allSatisfy { $0.maxOutputBytes == 64 * 1024 })
         #expect(requests[1].environment?["HOME"] == context.root.path)
         #expect(requests[1].environment?["NO_BROWSER"] == "true")
-        #expect(requests[1].environment?["GEMINI_CLI_TRUST_WORKSPACE"] == "false")
-        #expect(requests[1].environment?["NODE_OPTIONS"] == nil)
+        #expect(requests[1].environment?["GEMINI_API_KEY"] == nil)
         #expect(requests[0].currentDirectoryURL == requests[1].currentDirectoryURL)
         #expect(!FileManager.default.fileExists(atPath: requests[1].currentDirectoryURL!.path))
-        #expect(await runner.isolationObserved)
     }
-    @Test func versionMismatchNeverStartsQuota() async throws {
+
+    @Test(arguments: ["1.1.28", "1.1.29", "1.2.0", "1.99.1"])
+    func acceptsSupportedMajorWhenStrictUsageOutputMatches(_ version: String) async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
-        let runner = RecordingGeminiRunner(version: "0.57.0")
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Gemini CLI version is not supported (requires 0.58.0)")) {
-            try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect()
+        let snapshot = try await GeminiCollector(
+            runner: RecordingAntigravityRunner(version: version),
+            locator: AntigravityTestLocator(),
+            environment: context.environment
+        ).collect()
+        #expect(snapshot.sourceVersion == version)
+    }
+
+    @Test(arguments: ["1.1.27", "0.58.0", "2.0.0", "1.1", "1.1.28-beta", "1.1.28+build", "not-a-version"])
+    func unsupportedVersionNeverStartsUsage(_ version: String) async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: version)
+        await #expect(throws: UsageCollectionError.geminiUnavailable("Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)")) {
+            try await GeminiCollector(
+                runner: runner,
+                locator: AntigravityTestLocator(),
+                environment: context.environment
+            ).collect()
         }
         #expect(await runner.requests.count == 1)
     }
-    @Test func missingAndInaccessibleExecutablesAreDifferent() async throws {
+
+    @Test(arguments: ["authentication required", "sign in required", "please sign in", "not authenticated", "login required"])
+    func authenticationFailureIsDistinctFromTransportFailure(_ message: String) async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: "1.1.28", usageExitCode: 2, usageOutput: message)
+        await #expect(throws: UsageCollectionError.authenticationRequired) {
+            try await GeminiCollector(runner: runner, locator: AntigravityTestLocator(), environment: context.environment).collect()
+        }
+    }
+
+    @Test func missingAndInaccessibleExecutablesAreDifferentAndOnlyAgyIsDiscovered() async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
         await #expect(throws: UsageCollectionError.notInstalled) {
-            try await GeminiCollector(locator: GeminiTestLocator(discovery: .missing), environment: context.environment).collect()
+            try await GeminiCollector(locator: AntigravityTestLocator(discovery: .missing), environment: context.environment).collect()
         }
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Gemini CLI is not executable")) {
-            try await GeminiCollector(locator: GeminiTestLocator(discovery: .unavailable), environment: context.environment).collect()
+        await #expect(throws: UsageCollectionError.geminiUnavailable("Antigravity CLI is not executable")) {
+            try await GeminiCollector(locator: AntigravityTestLocator(discovery: .unavailable), environment: context.environment).collect()
         }
     }
-    @Test(arguments: [#"{"security":{"auth":{"selectedType":"gemini-api-key"}}}"#,
-                      #"{"security":{"auth":{"selectedType":"oauth-personal"}},"tools":{"discoveryCommand":"touch sentinel"}}"#,
-                      #"{"security":{"auth":{"selectedType":"oauth-personal"}},"tools":{"sandbox":true}}"#,
-                      #"{"security":{"auth":{"selectedType":"oauth-personal"}},"advanced":{"ignoreLocalEnv":true}}"#])
-    func unsupportedSettingsNeverStartAnyProcess(_ settings: String) async throws {
-        let context = try context(settings: settings); defer { try? FileManager.default.removeItem(at: context.root) }
-        let runner = RecordingGeminiRunner(version: "0.58.0")
-        await #expect(throws: (any Error).self) { try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect() }
-        #expect(await runner.requests.isEmpty)
-    }
-    @Test(arguments: ["NODE_OPTIONS", "GEMINI_FORCE_ENCRYPTED_FILE_STORAGE", "GOOGLE_APPLICATION_CREDENTIALS", "GEMINI_CLI_SYSTEM_SETTINGS_PATH", "GEMINI_SANDBOX"])
+
+    @Test(arguments: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "AGY_DEBUG", "HTTP_PROXY", "SSL_CERT_FILE", "DYLD_INSERT_LIBRARIES", "BASH_ENV"])
     func injectedEnvironmentNeverStartsAnyProcess(_ key: String) async throws {
-        let context = try context(extraEnvironment: [key: "unverified"]); defer { try? FileManager.default.removeItem(at: context.root) }
-        let runner = RecordingGeminiRunner(version: "0.58.0")
-        await #expect(throws: (any Error).self) { try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect() }
-        #expect(await runner.requests.isEmpty)
-    }
-    @Test(arguments: ["settings.json", "system-defaults.json"])
-    func enterpriseSettingsAreNeverReplaced(_ filename: String) async throws {
-        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
-        try Data("{}".utf8).write(to: context.root.appendingPathComponent("system/\(filename)"))
-        let runner = RecordingGeminiRunner(version: "0.58.0")
-        await #expect(throws: (any Error).self) { try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect() }
-        #expect(await runner.requests.isEmpty)
-    }
-    @Test(arguments: [#"{"security":{"auth":{"selectedType":"oauth-personal","useExternal":true}}}"#,
-                      #"{"security":{"auth":{"selectedType":"oauth-personal","enforcedType":"vertex-ai"}}}"#,
-                      #"{"security":{"auth":{"selectedType":"oauth-personal"},"toolSandboxing":true}}"#])
-    func refusesExternalAuthenticationAndToolSandbox(_ settings: String) async throws {
-        let context = try context(settings: settings); defer { try? FileManager.default.removeItem(at: context.root) }
-        let runner = RecordingGeminiRunner(version: "0.58.0")
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Gemini CLI security mode is not supported")) {
-            try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect()
+        let context = try context(extraEnvironment: [key: "unverified"])
+        defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: "1.1.28")
+        await #expect(throws: UsageCollectionError.geminiUnavailable("Antigravity CLI environment uses an unsupported override")) {
+            try await GeminiCollector(runner: runner, locator: AntigravityTestLocator(), environment: context.environment).collect()
         }
         #expect(await runner.requests.isEmpty)
     }
 
-    @Test(arguments: [#"{"security":{"auth":[]}}"#, #"{"security":{"auth":{"selectedType":42}}}"#])
-    func malformedAuthenticationIsUnavailableInsteadOfSignInRequired(_ settings: String) async throws {
-        let context = try context(settings: settings); defer { try? FileManager.default.removeItem(at: context.root) }
-        let runner = RecordingGeminiRunner(version: "0.58.0")
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Gemini CLI settings are not supported")) {
-            try await GeminiCollector(runner: runner, locator: GeminiTestLocator(), environment: context.environment).collect()
-        }
-        #expect(await runner.requests.isEmpty)
+    private func context(extraEnvironment: [String: String] = [:]) throws -> (root: URL, environment: GeminiCLIEnvironment) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("antigravity-home-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return (root, GeminiCLIEnvironment(home: root, source: extraEnvironment))
     }
+}
 
-    private func context(settings: String = #"{"security":{"auth":{"selectedType":"oauth-personal"}}}"#, extraEnvironment: [String: String] = [:]) throws -> (root: URL, environment: GeminiCLIEnvironment) {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("gemini-home-\(UUID())")
-        try FileManager.default.createDirectory(at: root.appendingPathComponent(".gemini"), withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: root.appendingPathComponent("system"), withIntermediateDirectories: true)
-        try Data(settings.utf8).write(to: root.appendingPathComponent(".gemini/settings.json"))
-        return (root, GeminiCLIEnvironment(home: root, source: extraEnvironment, systemDirectory: root.appendingPathComponent("system")))
+private struct AntigravityTestLocator: ExecutableLocating {
+    var discovery: ExecutableDiscovery = .found(URL(fileURLWithPath: "/synthetic/agy"))
+    func discover(named name: String) -> ExecutableDiscovery { name == "agy" ? discovery : .missing }
+    func locate(named name: String) -> URL? {
+        guard name == "agy", case .found(let url) = discovery else { return nil }
+        return url
     }
 }
-private struct GeminiTestLocator: ExecutableLocating {
-    var discovery: ExecutableDiscovery = .found(URL(fileURLWithPath: "/synthetic/gemini"))
-    func discover(named name: String) -> ExecutableDiscovery { discovery }
-    func locate(named name: String) -> URL? { if case .found(let url) = discovery { url } else { nil } }
-}
-private actor RecordingGeminiRunner: CommandRunning {
+
+private actor RecordingAntigravityRunner: CommandRunning {
     let version: String
+    let usageExitCode: Int32
+    let usageOutput: String
     var requests: [CommandRequest] = []
-    var isolationObserved = false
-    init(version: String) { self.version = version }
+
+    init(version: String, usageExitCode: Int32 = 0, usageOutput: String = GeminiUsageParserTests.fixture) {
+        self.version = version
+        self.usageExitCode = usageExitCode
+        self.usageOutput = usageOutput
+    }
+
     func run(_ request: CommandRequest) async throws -> CommandResult {
         requests.append(request)
-        if let cwd = request.currentDirectoryURL, let env = request.environment,
-           let settingsPath = env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"],
-           let settings = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: settingsPath))) as? [String: Any] {
-            isolationObserved = (try String(contentsOf: cwd.appendingPathComponent(".env"), encoding: .utf8)).isEmpty
-                && (settings["hooksConfig"] as? [String: Bool])?["enabled"] == false
-                && (settings["privacy"] as? [String: Bool])?["usageStatisticsEnabled"] == false
-        }
-        return CommandResult(output: request.arguments.contains("--version") ? version : GeminiUsageParserTests.frame("Pro 25%\nFlash 60%"), exitCode: 0, duration: 0.1)
+        return CommandResult(
+            output: request.arguments.contains("--version") ? version : usageOutput,
+            exitCode: request.arguments.contains("--version") ? 0 : usageExitCode,
+            duration: 0.1
+        )
     }
 }

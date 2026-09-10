@@ -16,8 +16,6 @@ struct PackageIdentity {
 struct PackageBin {
     #[serde(default)]
     codex: String,
-    #[serde(default)]
-    gemini: String,
 }
 
 pub(super) fn resolve_provider_npm_runtime<'a>(
@@ -28,18 +26,11 @@ pub(super) fn resolve_provider_npm_runtime<'a>(
     let npm_root = wrapper.parent()?;
     let (scope, package, entry_path) = match provider {
         crate::accounts::cli_account::CliProvider::Codex => ("@openai", "codex", "bin/codex.js"),
-        crate::accounts::cli_account::CliProvider::Gemini => {
-            ("@google", "gemini-cli", "bundle/gemini.js")
-        }
         _ => return None,
     };
     let package_root = npm_root.join("node_modules").join(scope).join(package);
     let identity = read_package_identity(&package_root.join("package.json"))?;
-    let bin = if provider == crate::accounts::cli_account::CliProvider::Gemini {
-        &identity.bin.gemini
-    } else {
-        &identity.bin.codex
-    };
+    let bin = &identity.bin.codex;
     if identity.name != format!("{scope}/{package}") || bin != entry_path {
         return None;
     }

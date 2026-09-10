@@ -369,7 +369,7 @@ fn gemini_is_present_without_fabricated_quota_or_login_diagnosis() {
         .iter()
         .find(|s| s.provider_id.as_str() == "gemini")
         .expect("fourth runtime provider");
-    assert_eq!(gemini.display_name, "Gemini");
+    assert_eq!(gemini.display_name, "Google Antigravity");
     assert_eq!(gemini.status, UsageStatus::Unavailable);
     assert!(gemini.used_ratio.is_none());
     assert!(gemini.primary_metric.is_none());

@@ -1,11 +1,13 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-09
+- **事实快照：** 2026-09-10
 - **产品：** AI Token Meter
 - **当前公开稳定版：** 双平台 [`0.6.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.6.3)（macOS build `18`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**Google Antigravity 迁移正在开发：** 第四项保留内部 `gemini` 兼容标识，界面改名 Google Antigravity；采集切换为官方 `agy -p /usage`，展示 Gemini 与 Claude/GPT 的五小时和每周四个额度窗口。旧 Gemini CLI 0.58.0 交互式采集已从当前实现移除。本项尚未发布，不改变当前公开稳定版 0.6.3。
 
 **0.6.2/build17 已公开发布：** 菜单面板Logo已随双平台稳定版交付。PR #19最终提交`39c3460`的macOS/Windows CI、合并提交`ac0ec30`的main双平台CI以及发布workflow `34336495454`全部通过；发布后稳定appcast提交为`416ed08`。七项公开资产与三条更新入口已通过无登录下载、SHA-256、Sparkle/Tauri签名和篡改拒绝验证。[发布记录](development/2026-09-09-v0.6.2-release.md)。
 
@@ -37,20 +39,20 @@ PR首轮Windows CI暴露的Tauri MockRuntime入口失败已由`REQ-20260909-005`
 
 **0.4.0 历史功能：** 已实现多显示器选择/跨屏拖动、Windows 中英文和中文字体、详情统一减小 1px。[PR #9](https://github.com/sljzdotcom/AI-Token-Meter/pull/9) 保留集成记录。macOS 本地 405+13 项及 Release 构建通过；Windows 本地 57 项前端、197 项 Rust、21 项密度生命周期及 632 项计算样式通过，实际 Windows CI 完成原生运行、NSIS 和 GUI subsystem 验证。独立复审全部阻断已关闭。这些功能继续包含在 0.5.1；物理双屏/DPI 与历史间歇性终端超时的确切原因仍有环境边界，详见[本轮记录](development/2026-09-07-multidisplay-and-windows-localization.md)。
 
-AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex、DeepSeek 和 Gemini 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
+AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌面浮岛应用，在本机汇总 Claude Code、OpenAI Codex、DeepSeek 和 Google Antigravity 的额度、余额、重置信息及受限的本机/官网历史聚合。两平台使用同版本稳定更新通道；Windows 真实登录、窗口聚焦和原生字体下拉仍需真机确认。
 
 ## 当前能力矩阵
 
-| 能力 | Claude Code | OpenAI Codex | DeepSeek | Gemini |
+| 能力 | Claude Code | OpenAI Codex | DeepSeek | Google Antigravity |
 | --- | --- | --- | --- | --- |
-| 主要来源 | CLI `/usage` | 自动发现的 CLI/桌面 App 内置 `app-server` JSON-RPC | 官方余额 API | 官方 Gemini CLI 0.58.0 交互式 `/model` |
-| 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 | CLI 普通 Google OAuth 会话状态 |
-| 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 | 各可见模型档位的官方剩余额度换算已用比例 |
-| 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 | 全部可见档位、重置说明、来源 CLI 版本与采集时间 |
+| 主要来源 | CLI `/usage` | 自动发现的 CLI/桌面 App 内置 `app-server` JSON-RPC | 官方余额 API | 官方 Antigravity CLI 1.1.28+ 的 `/usage` |
+| 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 | `agy` 的 Google 登录状态 |
+| 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 | 四个官方窗口的剩余额度换算已用比例 |
+| 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 | Gemini 与 Claude/GPT 的五小时、每周窗口，重置时间、CLI 版本与采集时间 |
 | 登录/换号 | Services 打开官方 CLI 登录 | Services 打开官方 CLI 登录 | 两阶段验证后替换 Key | 先在官方 CLI 登录；Services 提供官方指南与重新检查 |
 | 失败降级 | 最近成功快照或明确错误 | 最近成功快照或明确错误 | 余额与历史各自独立缓存/错误 | 最近成功快照或明确的安装、认证、版本、配置、解析状态 |
 
-“本机近 30 天”不是跨设备官方账户报表；“DeepSeek 余额基准”也不是预算或账单上限。Gemini 只读取 CLI 当前展示的普通 OAuth 模型档位，不覆盖 API Key、Vertex AI、企业账户或外部认证模式。完整口径见[服务与指标说明](user-guide/providers.md)。
+“本机近 30 天”不是跨设备官方账户报表；“DeepSeek 余额基准”也不是预算或账单上限。Google Antigravity 只读取 `agy /usage` 的四个额度窗口，首期不展示 AI Credits。完整口径见[服务与指标说明](user-guide/providers.md)。
 
 ## 当前界面
 
@@ -70,7 +72,7 @@ Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单�
 
 | 数据 | 位置/所有者 | 是否敏感 |
 | --- | --- | --- |
-| Claude Code/OpenAI Codex/Gemini 凭证 | 官方 CLI 自行管理 | 是；本应用不读取凭证文件 |
+| Claude Code/OpenAI Codex/Google Antigravity 凭证 | 官方 CLI 自行管理 | 是；本应用不读取凭证文件 |
 | DeepSeek API Key | Keychain 服务 `com.millerpan.AIMeter.deepseek` | 是；`AfterFirstUnlockThisDeviceOnly` |
 | 统一快照 | `~/Library/Application Support/AI Meter/usage-snapshots.json` | 脱敏聚合 |
 | DeepSeek 历史 | 同目录 `deepseek-usage-history.json` | 标准化逐日聚合 |
@@ -79,7 +81,7 @@ Windows 版保持同一视觉与交互口径：系统托盘取代 macOS 菜单�
 | DeepSeek 官网会话 | App 隔离 WebKit 数据存储 | 敏感，由 WebKit 管理 |
 | Widget 快照 | 签名 App Group 容器 | 最小脱敏展示数据 |
 
-Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDATA%\AI Token Meter\cache\` 和独立 WebView2 数据目录；DeepSeek Key 使用 Windows Credential Manager。两平台都不保存 Claude Code、OpenAI Codex 或 Gemini 凭证。
+Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDATA%\AI Token Meter\cache\` 和独立 WebView2 数据目录；DeepSeek Key 使用 Windows Credential Manager。两平台都不保存 Claude Code、OpenAI Codex 或 Google Antigravity 凭证。
 
 产品已改名，但 Bundle ID `com.millerpan.AIMeter`、可执行文件 `AIMeterApp`、Keychain 服务和 `Application Support/AI Meter` 保持不变，这是兼容策略，不是遗漏。
 
@@ -114,7 +116,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 待用户确认 | `0.3.0-preview.3` 已列入 `REQ-20260904-006` 修复；在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
-| Gemini 真实普通 OAuth 账号与实际额度 | 受环境限制 | 用户在已登录 Gemini CLI 0.58.0 的设备安装 0.6.2 后核对档位、重置说明和刷新；本轮不代用户登录或消耗额度 |
+| Google Antigravity 真实账号与实际额度 | 待用户确认 | 用户安装包含 REQ-007 的后续版本后，在已登录 `agy` 1.1.28+ 的设备核对四窗口、重置时间和刷新；本轮只做了脱敏只读 CLI 探测，不展示个人额度 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
 

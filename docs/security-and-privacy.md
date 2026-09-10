@@ -1,10 +1,10 @@
 # 隐私与安全
 
-## Gemini CLI 边界（0.6.0 起）
+## Google Antigravity CLI 边界
 
-应用只预读有界、非秘密的 CLI settings；OAuth 内容由官方 CLI 自行管理。版本检查与额度读取使用同一受控环境和私有空目录，明确不信任目录，不写 trustedFolders，不替用户批准提示。固定 0.58.0、普通 OAuth，已有系统策略及未支持认证/启动配置会拒绝采集。
+应用通过已安装并登录的官方 `agy` CLI 执行固定的 `-p /usage` 命令。该斜杠命令由 CLI 自身处理，不发送自然语言提示，也不触发模型生成。版本检查和额度读取使用同一受控环境与权限为 `0700` 的私有空目录；应用保留真实 HOME 让官方 CLI 恢复既有 Google 登录，但不读取、复制或修改账户配置、OAuth 凭据和旧 Gemini CLI 设置。
 
-禁用扩展、hooks、遥测、IDE、自动更新，并使用随机 MCP allowlist；仅在已识别就绪时输入 `/model` 与退出序列。遇认证或未知选择不作选择，不发送自然语言或直接调用私有后端。正常 CLI 仍会联系其官方认证和额度服务；应用缓存仅存解析后的额度和状态，原始转录不写业务缓存。测试使用合成 HOME 与网络夹具，不等于真实账号或原生 Windows 验收。[详细协议与边界](development/2026-09-08-gemini-collector.md)。
+采集只接受已验证的 1.x 版本（最低 1.1.28），限制运行时间与输出大小，拒绝 API Key、代理、动态库和启动脚本等环境覆盖，并把日志定向到随采集销毁的临时目录。正常 CLI 仍会连接官方认证和额度服务；业务缓存只保存四个额度窗口的已用百分比、重置时间和状态，不保存原始 CLI 输出或账户身份。旧 Gemini CLI 0.58.0 转录继续作为历史发布证据，不再参与生产采集。[迁移规格](design/specifications/2026-09-09-antigravity-cli-migration-design.md)。
 
 ## 安全目标
 
@@ -97,6 +97,7 @@ Windows 的非敏感设置与快照分别位于 `%APPDATA%\AI Token Meter`、`%L
 - DeepSeek 余额：直接访问官方 API；
 - DeepSeek 历史：App 内 WebKit 访问官方平台；
 - Windows DeepSeek 历史：独立 WebView2 访问同一官方平台；
+- Google Antigravity：由官方 `agy` CLI 的本地 `/usage` 命令连接其官方服务；
 - 更新：只有用户点击检查时访问固定 GitHub Release appcast/`latest.json`；
 - AI Token Meter 没有自建遥测、广告或分析服务。
 

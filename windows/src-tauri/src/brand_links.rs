@@ -53,5 +53,5 @@ pub fn open_gemini_installation_guide() -> Result<(), &'static str> {
 }
 
 pub fn gemini_installation_guide_url() -> &'static str {
-    "https://geminicli.com/docs/get-started/installation/"
+    "https://antigravity.google/docs/cli/install/"
 }

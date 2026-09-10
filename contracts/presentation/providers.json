@@ -24,7 +24,7 @@
     },
     {
       "id": "gemini",
-      "displayName": "Gemini",
+      "displayName": "Google Antigravity",
       "logoKey": "gemini",
       "accentColor": "#3ED6B2",
       "progressSemantics": "usedQuota"

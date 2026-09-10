@@ -1,10 +1,10 @@
 # 安装与首次使用
 
-## Gemini 接入范围
+## Google Antigravity 接入范围
 
-0.6.0 新增第四项 Gemini。新用户默认显示四项；从旧版本升级时 Gemini 默认隐藏并保留原布局，可在 Appearance 中启用并排序。
+第四项服务已从旧 Gemini CLI 迁移到 Google Antigravity。新用户默认显示四项；从旧版本升级时继续沿用原第四项的显示、排序和缓存设置。
 
-Gemini 需要另行安装并登录官方 CLI 0.58.0，首期支持普通 Google OAuth；Windows 仅原生 CLI。应用内按钮直达[官方安装指南](https://geminicli.com/docs/get-started/installation/)，并显示本程序验证过的固定版本命令与回流步骤；应用不自动执行安装或登录。不应把 Gemini 网页/桌面应用当作已安装 CLI，也不需要输入 Gemini API Key。真实账号仍待现场验收，见[支持范围](providers.md#gemini)。
+Antigravity 需要另行安装并登录官方 `agy` CLI 1.1.28 或更高的 1.x 版本，Windows 仅支持原生 CLI。应用内按钮直达[官方安装指南](https://antigravity.google/docs/cli/install/)；应用不自动执行安装或登录，也不需要输入 API Key。见[支持范围](providers.md#google-antigravity)。
 
 ## 1. 准备环境
 
@@ -15,7 +15,7 @@ AI Token Meter `0.6.3` 同时支持 Apple Silicon Mac（macOS 14 或更新版本
 - Git；
 - Claude Code CLI（可选）；
 - OpenAI Codex CLI（可选）；
-- Gemini CLI 0.58.0（可选）；
+- Google Antigravity CLI 1.1.28+（可选）；
 - DeepSeek API Key（可选）。
 
 Windows 还需要 Node.js 24、Rust 1.88、Microsoft C++ Build Tools 与 WebView2 Runtime；macOS 需要 Xcode Command Line Tools 与 Swift 6。四项 Provider 在两平台均为可选服务。
@@ -150,16 +150,16 @@ Windows 同样不依赖交互式 PowerShell 配置：会检查当前进程环境
 
 该登录会话只属于 AI Token Meter，不读取其他浏览器的 Cookie。网页结构或网络暂时不可用时，详情会退回最近一次标准化缓存。
 
-## 8. 配置 Gemini
+## 8. 配置 Google Antigravity
 
-1. 安装Node.js 20或更高版本；官方页面还列出当前推荐的操作系统与其他运行要求。
-2. 在macOS **Terminal**或Windows **PowerShell**运行 `npm install -g @google/gemini-cli@0.58.0`。应用固定支持这个已验证版本，不会把滚动最新版冒充为兼容版本。
-3. 在同一终端运行 `gemini`，选择 **Sign in with Google**，自行完成普通Google OAuth登录。
+1. 按[官方安装页](https://antigravity.google/docs/cli/install/)准备系统环境。
+2. macOS **Terminal** 运行 `curl -fsSL https://antigravity.google/cli/install.sh | bash`；Windows **PowerShell** 运行 `irm https://antigravity.google/cli/install.ps1 | iex`。
+3. 在同一终端运行 `agy`，自行完成 Google 登录。
 4. 返回Settings → Services，点击 **Retry / Check Status**。未安装状态显示完整安装命令；已安装但未登录时只显示登录与回流步骤；连接后不再提示重装。
-5. 如需核对Node.js、系统要求或其他安装方式，点击 **Gemini CLI 0.58.0 installation guide** 打开[官方安装页](https://geminicli.com/docs/get-started/installation/)；该按钮不会下载或执行安装器。
-6. 在Appearance中启用或调整Gemini的浮动条位置；从旧版本升级时它默认隐藏。
+5. 点击 **Antigravity CLI installation guide** 可重新打开官方安装页；该按钮不会下载或执行安装器。
+6. 在 Appearance 中启用或调整 Google Antigravity 的浮动条位置。
 
-AI Token Meter 在私有空目录中明确使用不信任工作区模式，只在识别到就绪界面后打开 `/model` 并退出。它不读取 OAuth 内容、不批准目录信任、不发送模型请求。Windows 首期只支持原生 CLI；WSL、API Key、Vertex、外部或企业认证模式会显示不支持。
+AI Token Meter 在私有空目录中运行固定的 `agy -p /usage`，限制版本、时间和输出大小。它不读取 OAuth 内容、不发送模型请求。Windows 首期只支持原生 CLI。
 
 ## 9. 检查与安装更新
 

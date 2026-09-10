@@ -10,7 +10,7 @@ impl CliProvider {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
-            Self::Gemini => "gemini",
+            Self::Gemini => "agy",
         }
     }
 
@@ -18,7 +18,7 @@ impl CliProvider {
         match self {
             Self::Claude => ["claude.exe", "claude.cmd", "claude"],
             Self::Codex => ["codex.exe", "codex.cmd", "codex"],
-            Self::Gemini => ["gemini.exe", "gemini.cmd", "gemini"],
+            Self::Gemini => ["agy.exe", "agy.cmd", "agy"],
         }
     }
 }

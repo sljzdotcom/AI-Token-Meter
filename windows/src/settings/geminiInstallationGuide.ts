@@ -1,16 +1,16 @@
 import type { UsageSnapshot } from "../state/usage"
 
-export const GEMINI_INSTALLATION_GUIDE_LABEL = "Gemini CLI 0.58.0 installation guide"
-export const GEMINI_INSTALL_COMMAND = "npm install -g @google/gemini-cli@0.58.0"
+export const GEMINI_INSTALLATION_GUIDE_LABEL = "Antigravity CLI installation guide"
+export const GEMINI_INSTALL_COMMAND = "irm https://antigravity.google/cli/install.ps1 | iex"
 
 export type GeminiSetupState = "connected" | "signInRequired" | "notInstalled" | "checking" | "unavailable"
 
 export function geminiInstallationInstructions(state: GeminiSetupState): string[] {
-  const signIn = "Run gemini and choose Sign in with Google."
+  const signIn = "Run agy and complete Google sign-in."
   const finish = "Return to AI Token Meter and choose Check Status."
   if (state === "connected") return []
   if (state === "signInRequired") return [signIn, finish]
-  return ["Requires Node.js 20 or later.", GEMINI_INSTALL_COMMAND, signIn, finish]
+  return [GEMINI_INSTALL_COMMAND, signIn, finish]
 }
 
 export function geminiSetupStateForSnapshot(snapshot: Pick<UsageSnapshot, "status" | "statusMessage">): GeminiSetupState {

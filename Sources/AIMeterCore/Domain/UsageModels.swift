@@ -11,7 +11,7 @@ public enum UsageProvider: String, Codable, CaseIterable, Hashable, Sendable {
         case .claude: "Claude Code"
         case .codex: "OpenAI Codex"
         case .deepSeek: "DeepSeek"
-        case .gemini: "Gemini"
+        case .gemini: "Google Antigravity"
         }
     }
 }
