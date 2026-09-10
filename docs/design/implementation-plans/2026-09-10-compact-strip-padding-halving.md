@@ -10,33 +10,33 @@
 
 ### 任务1：尺寸合同失败先行
 
-**文件：** `Tests/AIMeterAppTests/FloatingStripPreferencesTests.swift`、`Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`、`windows/src/components/FloatingStrip.test.tsx`、`windows/src-tauri/tests/strip_preferences.rs`、`contracts/fixtures/auxiliary/strip-behavior.json`
+**文件：** `Tests/AIMeterCoreTests/FloatingStripPreferencesTests.swift`、`Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift`、`windows/src/components/FloatingStrip.test.tsx`、`windows/src-tauri/tests/strip_preferences.rs`、`contracts/fixtures/auxiliary/strip-behavior.json`
 
-- [ ] 把预期宽度改为56.5、圆环范围改为4.25…52.25，并加入每侧留白4.25断言。
-- [ ] 加入Windows 1.0×/1.25×/1.5×/2.0×最近物理像素断言。
-- [ ] 运行Swift、Vitest、Rust及跨平台合同定向测试，确认旧65实现准确失败。
+- [x] 把预期宽度改为56.5、圆环范围改为4.25…52.25，并加入每侧留白4.25断言。
+- [x] 加入Windows 1.0×/1.25×/1.5×/2.0×最近物理像素断言。
+- [x] 运行Swift、Vitest、Rust及跨平台合同定向测试，确认旧65实现准确失败。
 
 ### 任务2：双平台最小实现
 
 **文件：** `Sources/AIMeterCore/Preferences/FloatingStripPreferences.swift`、`Sources/AIMeterApp/Views/FloatingStripShape.swift`、`windows/src/components/FloatingStrip.tsx`、`windows/src/styles.css`、`windows/src-tauri/src/platform/windows/strip_preferences.rs`
 
-- [ ] 将所有Compact逻辑宽统一为56.5，保持圆环48、高度和间距。
-- [ ] 按规格更新macOS与SVG轮廓控制点，左右侧仍由同一轮廓镜像。
-- [ ] 重跑任务1全部测试并确认通过。
+- [x] 将所有Compact逻辑宽统一为56.5，保持圆环48、高度和间距。
+- [x] 按规格更新macOS与SVG轮廓控制点，左右侧仍由同一轮廓镜像。
+- [x] 重跑任务1全部测试并确认通过。
 
 ### 任务3：渲染、点击和多DPI验证
 
 **文件：** `Tests/AIMeterAppTests/CompactStripRenderingTests.swift`、`Tests/AIMeterAppTests/FloatingStripRenderingTests.swift`、`Tests/AIMeterAppTests/FloatingStripLayoutTests.swift`、`windows/src/test/density-browser-entry.tsx`、`windows/scripts/test-density-browser.mjs`
 
-- [ ] 更新macOS 2×渲染和布局边界，确认四Provider、左右镜像、透明角与不透明主体。
-- [ ] 更新Windows真实浏览器1–4 Provider场景，断言56.5宽、48圆环、点击顺序、一次玻璃拖动和无裁切。
-- [ ] 生成65与56.5同倍率对比图并记录实际像素尺寸。
-- [ ] 验证Comfortable、折叠、拖动吸附和纵向高度没有变化。
+- [x] 更新macOS 2×渲染和布局边界，确认四Provider、左右镜像、透明角与不透明主体。
+- [x] 更新Windows真实浏览器1–4 Provider场景，断言56.5宽、48圆环、点击顺序、一次玻璃拖动和无裁切。
+- [x] 生成65与56.5同倍率对比图并记录实际像素尺寸。
+- [x] 验证Comfortable、折叠、拖动吸附和纵向高度没有变化。
 
 ### 任务4：记录、完整验证与发布准备
 
 **文件：** `docs/development/2026-09-10-compact-strip-padding-halving.md`、`docs/development/README.md`、`docs/requirements-backlog.md`
 
-- [ ] 记录红绿证据、截图、尺寸、完整门禁与现场边界。
+- [x] 记录红绿证据、截图、尺寸、专项门禁与现场边界。
 - [ ] 运行完整双平台本机门禁、文档、合同、公开安全、Release App和差异检查；完成独立审查。
 - [ ] 两项需求通过后按 `REQ-20260910-008` 制作下一稳定修复版并执行发布事务。

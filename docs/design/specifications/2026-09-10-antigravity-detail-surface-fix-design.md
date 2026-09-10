@@ -1,7 +1,7 @@
 # Antigravity 详情底板修复规格
 
 **需求：** `REQ-20260910-007`  
-**状态：** 已选定方案，按用户“无需再问普通技术选择”直接进入实现  
+**状态：** 已实现并通过双平台专项验证
 **范围：** macOS 修复，Windows 对等性验证；不改采集、账户或额度模型
 
 ## 问题与根因
@@ -23,7 +23,7 @@ Google Antigravity 已能连接并返回额度，但 macOS 点击浮动条后显
 
 ## 验收
 
-- macOS 新视觉测试在修复前准确得到透明背景，修复后 fresh、cached、unavailable 的窗口中心与边缘内侧均为深色不透明像素；圆角外侧保持透明。
+- macOS 新视觉测试在修复前准确得到透明背景，修复后 fresh、cached、unavailable 的正文底板 alpha 大于0.9；带阴影的圆角外侧采样 alpha 小于0.5，仍保持窗口外透明语义。
 - Windows 真实浏览器报告四个 Provider、fresh/unavailable 和 Antigravity cached 的计算后背景图不为 `none`，背景底色不透明，Antigravity 强调色为 `rgb(62, 214, 178)`。
 - Antigravity 四个额度、剩余百分比、重置时间、来源版本、Retry/安装入口和连接状态回归通过；Claude、Codex、DeepSeek 详情不变。
 

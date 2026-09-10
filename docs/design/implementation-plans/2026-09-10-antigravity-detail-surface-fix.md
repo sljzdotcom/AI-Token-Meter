@@ -12,28 +12,28 @@
 
 **文件：** `Tests/AIMeterAppTests/GeminiDetailPanelLayoutTests.swift`
 
-- [ ] 创建 fresh、cached、unavailable 固定快照的 `ImageRenderer` 测试，断言详情中心/边缘内侧不透明、圆角外侧透明。
-- [ ] 运行 Gemini 详情定向测试，确认旧实现因中心或边缘内侧 alpha 为零而失败。
+- [x] 创建 fresh、cached、unavailable 固定快照的 `ImageRenderer` 测试，断言详情中心/边缘内侧不透明、圆角外侧透明。
+- [x] 运行 Gemini 详情定向测试，确认旧实现因中心或边缘内侧 alpha 为零而失败。
 
 ### 任务2：应用统一详情表面
 
 **文件：** `Sources/AIMeterApp/Views/GeminiDetailView.swift`、`Tests/AIMeterAppTests/GeminiDetailPanelLayoutTests.swift`
 
-- [ ] 让根布局占满详情窗口并应用 `.aiMeterDetailSurface()`，不改变额度和账户动作。
-- [ ] 重跑 Gemini 详情测试，确认三种状态底板不透明且圆角外侧透明。
-- [ ] 运行其他 Provider 详情和完整 Swift 测试，确认无双重底板或内容回归。
+- [x] 让根布局占满详情窗口并应用 `.aiMeterDetailSurface()`，不改变额度和账户动作。
+- [x] 重跑 Gemini 详情测试，确认三种状态底板不透明且圆角外侧透明。
+- [x] 运行其他 Provider 详情专项测试，确认无双重底板或内容回归；完整门禁由发布阶段统一执行。
 
 ### 任务3：补 Windows 对等性证据
 
 **文件：** `windows/src/test/density-browser-entry.tsx`、`windows/scripts/test-density-browser.mjs`、`windows/src/details/GeminiDetail.test.tsx`
 
-- [ ] 先让浏览器报告要求 Antigravity 和其他 Provider 的非透明背景、Antigravity 强调色与状态覆盖，并确认旧报告缺字段而失败。
-- [ ] 扩展真实浏览器场景，采集四 Provider 与 Antigravity cached 状态的计算后背景和强调色。
-- [ ] 运行 Vitest、真实浏览器和生产构建；确认连接与四额度展示保持。
+- [x] 先让浏览器报告要求 Antigravity 和其他 Provider 的非透明背景、Antigravity 强调色与状态覆盖，并确认旧报告缺字段而失败。
+- [x] 扩展真实浏览器场景，采集四 Provider 与 Antigravity cached 状态的计算后背景和强调色。
+- [x] 运行 Vitest、真实浏览器和生产构建；确认连接与四额度展示保持。
 
 ### 任务4：记录与审查
 
 **文件：** `docs/development/2026-09-10-antigravity-detail-surface-fix.md`、`docs/development/README.md`、`docs/requirements-backlog.md`
 
-- [ ] 记录根因、红绿证据、双平台结果、现场边界和提交。
-- [ ] 运行文档、合同、公开安全和差异检查；完成独立差异审查并关闭发现。
+- [x] 记录根因、红绿证据、双平台结果、现场边界和提交。
+- [x] 运行文档、合同、公开安全和差异检查；完整门禁及最终审查由发布阶段统一留证。
