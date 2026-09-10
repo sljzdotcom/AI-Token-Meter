@@ -20,7 +20,8 @@ Antigravity 迁移合入 `main` 后，Windows workflow `34422624107` 已通过�
 - Windows宿主完整241项 Rust 测试通过，原失败握手约0.29秒完成；
 - Cargo格式检查和全部目标严格 Clippy 通过；
 - PR #23修复候选`fad1039`的macOS workflow `34423801532`用时2分55秒全绿；Windows workflow `34423801483`用时10分21秒，通过完整runtime、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传；
-- 最终证据候选与合并后 `main` workflow仍待复验。
+- 最终证据候选`da18207`的macOS workflow `34433244350`与Windows workflow `34433244356`全绿；PR #23合并为`a5f7509`；
+- 合并后main macOS workflow `34433979440`用时2分56秒全绿；Windows workflow `34433979383`用时11分20秒，通过完整runtime、真实ConPTY、真实Edge、严格Clippy、NSIS、GUI subsystem与安装器上传。
 
 测试响应仅含虚构邮箱、百分比和时间戳，不读取真实凭证、账户或额度。版本保持0.6.3，本项不创建标签、Release或更新源。
 
@@ -28,4 +29,4 @@ Antigravity 迁移合入 `main` 后，Windows workflow `34422624107` 已通过�
 
 ## Git与后续
 
-实现提交为`fad1039`，通用夹具补丁为`3fa035e`。[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)的修复候选`3fa035e`已通过macOS workflow `34426231120`和Windows workflow `34426231128`；Windows完整runtime、真实ConPTY、NSIS、GUI subsystem与上传均通过。合并和最终workflow证据在完成后回填。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。
+实现提交为`fad1039`，通用夹具补丁为`3fa035e`，证据提交为`da18207`。[PR #23](https://github.com/sljzdotcom/AI-Token-Meter/pull/23)已合并为`a5f7509`，最终候选与main双平台workflow全部通过。物理Windows桌面和真实账号不属于本项；它们继续按现有现场验收边界管理。
