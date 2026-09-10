@@ -44,6 +44,15 @@ await runWithCleanup(async () => {
       throw new Error(`Antigravity detail state mismatch: ${JSON.stringify(sample)}`)
     }
   }
+  if (report.detailSurfaceSamples?.length !== 9) throw new Error("Missing Provider detail surface scenarios")
+  for (const sample of report.detailSurfaceSamples) {
+    if (!sample.backgroundImage.includes("linear-gradient")
+      || !sample.backgroundImage.includes("rgb(17, 24, 38)")
+      || !sample.backgroundImage.includes("rgb(7, 12, 21)")
+      || (sample.providerId === "gemini" && sample.accent !== "#3ed6b2")) {
+      throw new Error(`Provider detail surface mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
   console.log("Antigravity detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
   console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
   console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)

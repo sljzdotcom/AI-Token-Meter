@@ -122,6 +122,35 @@ for (const locale of ["en", "zh-CN"] as const) {
     }
   }
 }
+const detailSurfaceSamples: Array<{providerId: string; status: string; backgroundImage: string; accent: string}> = []
+for (const providerId of ["claude", "codex", "deepseek", "gemini"] as const) {
+  const statuses = providerId === "gemini" ? ["fresh", "cached", "unavailable"] as const : ["fresh", "unavailable"] as const
+  for (const status of statuses) {
+    const host = document.createElement("div")
+    host.className = "detail-surface"
+    host.style.cssText = "position:absolute;left:-10000px;width:440px;height:760px"
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    const hasQuota = status === "fresh" || status === "cached"
+    const value: UsageSnapshot = providerId === "gemini"
+      ? {...geminiFresh as UsageSnapshot, providerId, status,
+        primaryMetric:hasQuota ? geminiFresh.primaryMetric as UsageSnapshot["primaryMetric"] : null,
+        geminiQuotaMetrics:hasQuota ? geminiFresh.geminiQuotaMetrics as UsageSnapshot["geminiQuotaMetrics"] : []}
+      : {...snapshot, providerId, displayName:providerId, status,
+        usedRatio:hasQuota ? .23 : null, primaryMetric:hasQuota ? snapshot.primaryMetric : null}
+    flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={() => {}} onPointerLeave={() => {}} onInteractionStart={() => {}} onInteractionEnd={() => {}} />))
+    const detail = host.querySelector<HTMLElement>(".provider-detail")!
+    const style = getComputedStyle(detail)
+    detailSurfaceSamples.push({
+      providerId,
+      status,
+      backgroundImage: style.backgroundImage,
+      accent: style.getPropertyValue("--detail-accent").trim(),
+    })
+    flushSync(() => sampleRoot.unmount())
+    host.remove()
+  }
+}
 const updateStates: UpdateState[] = [
   {phase: "idle", currentVersion: "0.5.0"},
   {phase: "checking", currentVersion: "0.5.0"},
@@ -268,4 +297,4 @@ for (const width of [340, 440]) {
   }
 }
 
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, detailSurfaceSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})
