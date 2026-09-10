@@ -187,21 +187,26 @@ impl UsageSnapshot {
             ));
         }
         let mut tier_names = std::collections::HashSet::new();
-        if snapshot.gemini_quota_metrics.len() > 3
+        if snapshot.gemini_quota_metrics.len() > 4
             || snapshot.gemini_quota_metrics.iter().any(|metric| {
                 snapshot.provider_id != ProviderId::Gemini
-                    || !["Pro", "Flash", "Flash Lite"].contains(&metric.label.as_str())
+                    || ![
+                        "Gemini · Five hour",
+                        "Gemini · Weekly",
+                        "Claude/GPT · Five hour",
+                        "Claude/GPT · Weekly",
+                    ]
+                    .contains(&metric.label.as_str())
                     || !tier_names.insert(&metric.label)
                     || !metric.current.is_finite()
                     || !(0.0..=100.0).contains(&metric.current)
-                    || metric.current.fract() != 0.0
                     || metric.limit != Some(100.0)
                     || metric.unit != MetricUnit::Percent
                     || metric.kind != MetricKind::OfficialLimit
-                    || metric.reset_at.is_some()
+                    || metric.reset_at.is_none()
             })
         {
-            return Err(UsageDecodeError::new("invalid Gemini quota tier"));
+            return Err(UsageDecodeError::new("invalid Antigravity quota window"));
         }
         Ok(snapshot)
     }

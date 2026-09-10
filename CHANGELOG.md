@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+### Changed
+
+- 第四项服务迁移为 Google Antigravity，使用官方 `agy -p /usage` 展示 Gemini 与 Claude/GPT 的五小时和每周四个额度窗口；卡片显示剩余百分比，进度环继续表示已用比例。
+- macOS 与 Windows 的安装、登录、详情、缓存迁移和 Widget 可见名称同步更新；内部 `gemini` 兼容标识继续保留用户排序、隐藏和历史缓存。
+
+### Removed
+
+- 当前采集不再发现旧 `gemini` CLI，也不再使用交互式 `/model`、PTY/ConPTY 按键注入或旧 npm Gemini 启动适配。
+
 ## 0.6.3 - 2026-09-09
 
 稳定界面补丁版；macOS build18。精简macOS关于页的作者展示，同时保持联系入口与开源归属。[发布记录](docs/development/2026-09-09-v0.6.3-release.md)。

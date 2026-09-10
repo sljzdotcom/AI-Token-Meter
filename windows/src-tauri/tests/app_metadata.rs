@@ -12,7 +12,7 @@ fn product_metadata_matches_the_shared_contract() {
             "Claude Code".to_owned(),
             "OpenAI Codex".to_owned(),
             "DeepSeek".to_owned(),
-            "Gemini".to_owned(),
+            "Google Antigravity".to_owned(),
         ]
     );
 }

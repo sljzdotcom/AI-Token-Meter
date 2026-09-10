@@ -56,7 +56,7 @@ export function ProviderDetail({
         <span className="provider-detail__identity">
           <span className="provider-detail__logo"><ProviderLogo provider={snapshot.providerId} /></span>
           <span>
-            <strong>{snapshot.providerId === "gemini" ? "Gemini CLI" : snapshot.displayName}</strong>
+            <strong>{snapshot.providerId === "gemini" ? "Google Antigravity" : snapshot.displayName}</strong>
             <small>{t(subtitle(snapshot.providerId))}</small>
           </span>
         </span>
@@ -67,7 +67,7 @@ export function ProviderDetail({
         <h2>{t("Official quota")}</h2>
         <div className="metric-grid">
           {snapshot.providerId === "gemini" && snapshot.geminiQuotaMetrics?.length
-            ? snapshot.geminiQuotaMetrics.map(metric => <MetricCard key={metric.label} metric={metric} />)
+            ? snapshot.geminiQuotaMetrics.map(metric => <MetricCard key={metric.label} metric={metric} showRemaining />)
             : <>{snapshot.primaryMetric ? <MetricCard metric={snapshot.primaryMetric} /> : <UnavailableCard status={snapshot.status} />}
               {snapshot.secondaryMetric ? <MetricCard metric={snapshot.secondaryMetric} /> : null}</>}
         </div>
@@ -114,15 +114,15 @@ export function ProviderDetail({
         </section>
       ) : null}
 
-      {snapshot.providerId === "gemini" && (snapshot.statusMessage || !snapshot.primaryMetric) && <p>{t(snapshot.statusMessage ?? "Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
-      {snapshot.providerId === "gemini" && snapshot.sourceVersion && <p>Gemini CLI {snapshot.sourceVersion} · /model · {t("Official quota")}</p>}
+      {snapshot.providerId === "gemini" && (snapshot.statusMessage || !snapshot.primaryMetric) && <p>{t(snapshot.statusMessage ?? "Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
+      {snapshot.providerId === "gemini" && snapshot.sourceVersion && <p>Antigravity CLI {snapshot.sourceVersion} · /usage · {t("Official quota")}</p>}
       {snapshot.providerId === "gemini" && geminiInstructions.length ? <div className="gemini-setup-guide">
         {geminiInstructions.map(instruction => instruction === GEMINI_INSTALL_COMMAND
           ? <code className="gemini-install-command" key={instruction}>{instruction}</code>
           : <small key={instruction}>{t(instruction)}</small>)}
       </div> : null}
       {snapshot.providerId === "gemini" && <div className="service-actions">
-        {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Gemini status")}</button>}
+        {onCheckGeminiStatus && <button type="button" onClick={onCheckGeminiStatus}>{t("Check Antigravity status")}</button>}
         {onOpenGeminiInstallationGuide && <button type="button" onClick={onOpenGeminiInstallationGuide}>{t(GEMINI_INSTALLATION_GUIDE_LABEL)}</button>}
       </div>}
       <footer>{t(freshness(snapshot))} · {t("Updated")} {formatTime(snapshot.fetchedAt)}</footer>
@@ -142,11 +142,11 @@ function freshness(snapshot: UsageSnapshot) {
   return "Unavailable"
 }
 
-function MetricCard({ metric }: { metric: UsageMetric }) {
+function MetricCard({ metric, showRemaining = false }: { metric: UsageMetric; showRemaining?: boolean }) {
   const fraction = metric.limit ? Math.min(metric.current / metric.limit, 1) : 0
   return (
     <article className="metric-card">
-      <span><small>{t(metric.label)}</small><strong>{formatMetric(metric)}</strong></span>
+      <span><small>{t(metric.label)}</small><strong>{showRemaining ? t("{percent}% remaining", {percent: Math.round(100 - metric.current)}) : formatMetric(metric)}</strong></span>
       {metric.limit ? <span aria-hidden="true" className="metric-bar"><i style={{ width: `${fraction * 100}%` }} /></span> : null}
       <small>{metric.resetAt ? t("Resets {date}", {date: formatDate(metric.resetAt)}) : t(metric.resetDescription ?? "Official value")}</small>
     </article>
@@ -162,7 +162,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function subtitle(provider: UsageSnapshot["providerId"]) {
-  if (provider === "gemini") return "Gemini CLI quota"
+  if (provider === "gemini") return "Antigravity CLI quota"
   if (provider === "deepseek") return "Official balance · API usage"
   if (provider === "codex") return "Official quota · Local OpenAI Codex activity"
   return "Official quota · Local Claude Code activity"

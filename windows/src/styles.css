@@ -273,7 +273,10 @@ button {
 .provider-detail--compact-density small { font-size: calc(14px * 5 / 6 - 1px); }
 .provider-detail--codex { --detail-accent: #b26bea; }
 .provider-detail--deepseek { --detail-accent: #7386ff; }
-.provider-detail--gemini { --detail-accent: #3ed6b2; }
+.provider-detail--gemini {
+  --detail-accent: #3ed6b2;
+  --provider-detail-gap: 14px;
+}
 
 .provider-detail__header,
 .provider-detail__identity,
@@ -727,6 +730,11 @@ button {
   gap: 4px;
   text-align: left;
   width: 100%;
+}
+
+.provider-detail > .gemini-setup-guide,
+.provider-detail > .service-actions {
+  flex: 0 0 auto;
 }
 
 .gemini-install-command {

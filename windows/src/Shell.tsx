@@ -300,7 +300,7 @@ export function DetailSurface() {
         onInteractionStart={() => setPaused(true)}
         onCheckGeminiStatus={() => {
           void invoke<ServiceAccountStatus>("service_account_status", {providerId: "gemini", retryUsage: true})
-            .catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "Gemini status could not be checked. Try again."} : current))
+            .catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "Antigravity status could not be checked. Try again."} : current))
         }}
         onOpenGeminiInstallationGuide={() => {
           void invoke("open_gemini_installation_guide").catch(() => setSnapshot(current => current?.providerId === "gemini" ? {...current, statusMessage: "The installation guide could not be opened."} : current))

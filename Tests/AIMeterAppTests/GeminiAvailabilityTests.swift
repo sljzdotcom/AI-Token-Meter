@@ -8,16 +8,15 @@ import Testing
 struct GeminiAvailabilityTests {
     @Test("Gemini setup help uses the supported release and an installation page")
     func setupHelpTargetsSupportedRelease() {
-        #expect(GeminiInstallationGuide.url.absoluteString == "https://geminicli.com/docs/get-started/installation/")
-        #expect(GeminiInstallationGuide.installCommand == "npm install -g @google/gemini-cli@0.58.0")
+        #expect(GeminiInstallationGuide.url.absoluteString == "https://antigravity.google/docs/cli/install/")
+        #expect(GeminiInstallationGuide.installCommand == "curl -fsSL https://antigravity.google/cli/install.sh | bash")
         #expect(GeminiInstallationGuide.instructions(for: .notInstalled) == [
-            "Requires Node.js 20 or later.",
-            "npm install -g @google/gemini-cli@0.58.0",
-            "Run gemini and choose Sign in with Google.",
+            "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+            "Run agy and complete Google sign-in.",
             "Return to AI Token Meter and choose Retry.",
         ])
         #expect(GeminiInstallationGuide.instructions(for: .signInRequired) == [
-            "Run gemini and choose Sign in with Google.",
+            "Run agy and complete Google sign-in.",
             "Return to AI Token Meter and choose Retry.",
         ])
         #expect(GeminiInstallationGuide.instructions(for: .connected).isEmpty)
@@ -28,7 +27,7 @@ struct GeminiAvailabilityTests {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let metrics = [UsageMetric(label: "Pro", current: 25, limit: 100, unit: .percent), UsageMetric(label: "Flash", current: 60, limit: 100, unit: .percent)]
-        let sample = UsageSnapshot(provider: .gemini, primaryMetric: metrics[1], secondaryMetric: metrics[0], sourceVersion: "0.58.0", geminiQuotaMetrics: metrics)
+        let sample = UsageSnapshot(provider: .gemini, primaryMetric: metrics[1], secondaryMetric: metrics[0], sourceVersion: "1.1.28", geminiQuotaMetrics: metrics)
         let model = AppModel(defaults: defaults, secretStore: GeminiTestSecretStore(), widgetSnapshotPublisher: nil,
                              isDemoMode: false, refreshOperation: { [sample] })
         await model.refresh()
@@ -82,7 +81,7 @@ struct GeminiAvailabilityTests {
         let state = ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState
         #expect(state == .signInRequired)
         #expect(GeminiInstallationGuide.instructions(for: state) == [
-            "Run gemini and choose Sign in with Google.",
+            "Run agy and complete Google sign-in.",
             "Return to AI Token Meter and choose Retry.",
         ])
     }

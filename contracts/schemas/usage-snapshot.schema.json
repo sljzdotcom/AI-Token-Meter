@@ -20,7 +20,7 @@
       "enum": ["claude", "codex", "deepseek", "gemini"]
     },
     "displayName": {
-      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
+      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
     },
     "status": {
       "enum": [
@@ -63,7 +63,7 @@
     },
     "geminiQuotaMetrics": {
       "type": "array",
-      "maxItems": 3,
+      "maxItems": 4,
       "items": { "$ref": "#/$defs/geminiQuotaMetric" }
     },
     "resetCredits": {
@@ -100,13 +100,14 @@
       "properties": {
         "label": {
           "enum": [
-            "Pro",
-            "Flash",
-            "Flash Lite"
+            "Gemini · Five hour",
+            "Gemini · Weekly",
+            "Claude/GPT · Five hour",
+            "Claude/GPT · Weekly"
           ]
         },
         "current": {
-          "type": "integer",
+          "type": "number",
           "minimum": 0,
           "maximum": 100
         },
@@ -120,7 +121,8 @@
           "const": "officialLimit"
         },
         "resetAt": {
-          "type": "null"
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

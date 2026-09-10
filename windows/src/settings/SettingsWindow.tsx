@@ -211,7 +211,7 @@ export function SettingsWindow({
               <div>
                 {stripPreferences.orderedProviders.map((id, index) => {
                   const visible = !stripPreferences.hiddenProviders.includes(id)
-                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Gemini" : "DeepSeek"
+                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Google Antigravity" : "DeepSeek"
                   const move = (offset: number) => {
                     const order = [...stripPreferences.orderedProviders]
                     ;[order[index], order[index+offset]] = [order[index+offset], order[index]]
@@ -364,14 +364,14 @@ export function SettingsWindow({
                 type="button"
               >{t("Check Status")}</button>
             </Service>
-            <Service name="Gemini CLI" status={geminiStatus}>
-              <small>{t("AI Token Meter supports Gemini CLI 0.58.0 on native Windows.")}</small>
+            <Service name="Google Antigravity" status={geminiStatus}>
+              <small>{t("AI Token Meter reads official quota through Antigravity CLI 1.1.28 or later on native Windows.")}</small>
               {geminiInstructions.length ? <div className="gemini-setup-guide">
                 {geminiInstructions.map(instruction => instruction === GEMINI_INSTALL_COMMAND
                   ? <code className="gemini-install-command" key={instruction}>{instruction}</code>
                   : <small key={instruction}>{t(instruction)}</small>)}
               </div> : null}
-              <button type="button" aria-label={t("Check Gemini status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
+              <button type="button" aria-label={t("Check Antigravity status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
               <button type="button" onClick={onOpenGeminiInstallationGuide}>{t(GEMINI_INSTALLATION_GUIDE_LABEL)}</button>
             </Service>
             {serviceMessage ? <p aria-live="polite" className="service-message">{t(serviceMessage)}</p> : null}

@@ -170,7 +170,7 @@ impl AppSettings {
             crate::domain::ProviderId::Codex => self.codex_cli = value,
             crate::domain::ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI"),
             crate::domain::ProviderId::Gemini => {
-                return Err("Gemini CLI integration is currently unavailable");
+                return Err("Antigravity CLI integration is currently unavailable");
             }
         }
         Ok(())

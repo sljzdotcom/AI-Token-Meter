@@ -19,7 +19,7 @@ public enum WidgetProvider: String, Codable, CaseIterable, Sendable {
         case .claude: "Claude Code"
         case .codex: "OpenAI Codex"
         case .deepSeek: "DeepSeek"
-        case .gemini: "Gemini"
+        case .gemini: "Google Antigravity"
         }
     }
 }

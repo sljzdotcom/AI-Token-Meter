@@ -1,38 +1,94 @@
 import Foundation
 
-/// Parses a visible, complete model dialog, never an accumulated terminal transcript.
+/// Parses the secret-free, tab-separated report produced by `agy -p /usage`.
+/// The CLI reports remaining quota; UsageMetric stores the consumed percentage.
 public struct GeminiUsageParser: Sendable {
     public init() {}
-    public func parse(_ text: String) throws -> UsageSnapshot {
-        let lines = text.components(separatedBy: .newlines).map {
-            $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "│")).trimmingCharacters(in: .whitespaces)
+
+    public func parse(_ text: String, sourceVersion: String = "1.1.28") throws -> UsageSnapshot {
+        let rows = text.components(separatedBy: .newlines)
+            .map { ANSITextSanitizer.sanitize($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard rows.count == QuotaKey.allCases.count else {
+            throw UsageCollectionError.unrecognizedOutput
         }
-        guard let title = lines.firstIndex(of: "Select Model"),
-              let end = lines[title...].firstIndex(of: "(Press Esc to close)"),
-              lines.dropFirst(end + 1).contains(where: { $0.hasPrefix("╰") && $0.hasSuffix("╯") }),
-              lines.filter({ $0 == "Select Model" }).count == 1 else { throw UsageCollectionError.unrecognizedOutput }
-        guard let start = lines[title..<end].firstIndex(of: "Model usage") else {
-            throw UsageCollectionError.geminiUnavailable("Gemini CLI did not provide quota")
+
+        var byKey: [QuotaKey: UsageMetric] = [:]
+        for row in rows {
+            let columns = row.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard columns.count == 4,
+                  let key = QuotaKey(group: columns[0], window: columns[1]),
+                  byKey[key] == nil,
+                  let remaining = Self.percent(columns[2]),
+                  let resetAt = Self.date(columns[3]) else {
+                throw UsageCollectionError.unrecognizedOutput
+            }
+            byKey[key] = UsageMetric(
+                label: key.label,
+                current: 100 - remaining,
+                limit: 100,
+                unit: .percent,
+                resetAt: resetAt
+            )
         }
-        let order = ["Pro", "Flash", "Flash Lite"]
-        let pattern = #"^(Flash Lite|Flash|Pro)\s+[▬━─\s]*([0-9]{1,3})%(?:\s+(Resets: .+))?$"#
-        let regex = try NSRegularExpression(pattern: pattern)
-        var metrics: [UsageMetric] = []
-        for line in lines[(start + 1)..<end] where !line.isEmpty {
-            let range = NSRange(line.startIndex..., in: line)
-            guard let match = regex.firstMatch(in: line, range: range),
-                  let labelRange = Range(match.range(at: 1), in: line),
-                  let valueRange = Range(match.range(at: 2), in: line),
-                  let value = Double(line[valueRange]), value <= 100 else { throw UsageCollectionError.unrecognizedOutput }
-            let label = String(line[labelRange])
-            guard !metrics.contains(where: { $0.label == label }) else { throw UsageCollectionError.unrecognizedOutput }
-            let reset = Range(match.range(at: 3), in: line).map { String(line[$0]) }
-            metrics.append(UsageMetric(label: label, current: value, limit: 100, unit: .percent, resetDescription: reset))
+
+        let metrics = try QuotaKey.allCases.map { key in
+            guard let metric = byKey[key] else { throw UsageCollectionError.unrecognizedOutput }
+            return metric
         }
-        guard !metrics.isEmpty else { throw UsageCollectionError.unrecognizedOutput }
-        metrics.sort { order.firstIndex(of: $0.label)! < order.firstIndex(of: $1.label)! }
-        let ranked = metrics.enumerated().sorted { a, b in a.element.current == b.element.current ? a.offset < b.offset : a.element.current > b.element.current }.map(\.element)
-        return UsageSnapshot(provider: .gemini, primaryMetric: ranked[0], secondaryMetric: ranked.dropFirst().first,
-                             sourceVersion: "0.58.0", geminiQuotaMetrics: metrics)
+        let ranked = metrics.enumerated().sorted { left, right in
+            left.element.current == right.element.current
+                ? left.offset < right.offset
+                : left.element.current > right.element.current
+        }.map(\.element)
+        return UsageSnapshot(
+            provider: .gemini,
+            primaryMetric: ranked[0],
+            secondaryMetric: ranked[1],
+            sourceVersion: sourceVersion,
+            geminiQuotaMetrics: metrics
+        )
+    }
+
+    private static func percent(_ value: String) -> Double? {
+        guard value.last == "%",
+              let number = Double(value.dropLast()),
+              number.isFinite,
+              (0...100).contains(number) else { return nil }
+        return number
+    }
+
+    private static func date(_ value: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
+    }
+}
+
+private enum QuotaKey: CaseIterable, Hashable {
+    case geminiFiveHour
+    case geminiWeekly
+    case otherFiveHour
+    case otherWeekly
+
+    init?(group: String, window: String) {
+        switch (group, window) {
+        case ("Gemini Models", "Five Hour Limit Remaining"): self = .geminiFiveHour
+        case ("Gemini Models", "Weekly Limit Remaining"): self = .geminiWeekly
+        case ("Claude and GPT models", "Five Hour Limit Remaining"): self = .otherFiveHour
+        case ("Claude and GPT models", "Weekly Limit Remaining"): self = .otherWeekly
+        default: return nil
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .geminiFiveHour: "Gemini · Five hour"
+        case .geminiWeekly: "Gemini · Weekly"
+        case .otherFiveHour: "Claude/GPT · Five hour"
+        case .otherWeekly: "Claude/GPT · Weekly"
+        }
     }
 }

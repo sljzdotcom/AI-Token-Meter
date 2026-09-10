@@ -58,9 +58,10 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let deepseek_summary = MenuItemBuilder::with_id("deepseek-summary", "DeepSeek · Unavailable")
         .enabled(false)
         .build(app)?;
-    let gemini_summary = MenuItemBuilder::with_id("gemini-summary", "Gemini · Unavailable")
-        .enabled(false)
-        .build(app)?;
+    let gemini_summary =
+        MenuItemBuilder::with_id("gemini-summary", "Google Antigravity · Unavailable")
+            .enabled(false)
+            .build(app)?;
     let labels = [
         ("refresh", "Refresh"),
         ("settings", "Settings"),

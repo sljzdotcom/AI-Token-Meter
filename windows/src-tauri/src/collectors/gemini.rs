@@ -1,142 +1,96 @@
-use super::{CollectionError, gemini_terminal::screen};
+use super::CollectionError;
 use crate::domain::{
     MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot, UsageStatus,
 };
-use regex::Regex;
-use std::sync::LazyLock;
+use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 
-pub const VERSION: &str = "0.58.0";
-#[derive(Debug, PartialEq, Eq)]
-pub enum TerminalState {
-    Ready,
-    Waiting,
-    Model,
-}
+pub const MINIMUM_VERSION: &str = "1.1.28";
 
-pub fn terminal_state(raw: &str) -> Result<TerminalState, CollectionError> {
-    let visible = screen(raw)?;
-    visible_state(&visible)
-}
-pub(super) fn visible_state(visible: &str) -> Result<TerminalState, CollectionError> {
-    let lower = visible.to_lowercase();
-    if [
-        "enter the authorization code",
-        "authorize the application",
-        "sign in with google",
-        "login with google",
-    ]
-    .iter()
-    .any(|p| lower.contains(p))
-    {
-        return Err(CollectionError::AuthenticationRequired);
-    }
-    if [
-        "trust this folder",
-        "trust this workspace",
-        "trust the files",
-        "do you trust",
-    ]
-    .iter()
-    .any(|p| lower.contains(p))
-    {
-        return Err(CollectionError::SetupRequired);
-    }
-    if [
-        "select a theme",
-        "select theme",
-        "choose an account",
-        "select an account",
-        "welcome to gemini",
-        "how would you like to get started",
-        "use gemini api key",
-        "use vertex ai",
-    ]
-    .iter()
-    .any(|p| lower.contains(p))
-    {
-        return Err(CollectionError::UnsupportedConfiguration);
-    }
-    if visible.contains("Select Model") {
-        return Ok(TerminalState::Model);
-    }
-    if visible.lines().any(|line| {
-        line.trim().starts_with('>') && line.contains("Type your message or @path/to/file")
-    }) {
-        return Ok(TerminalState::Ready);
-    }
-    Ok(TerminalState::Waiting)
-}
-
-pub fn parse_terminal_quota(raw: &str, fetched_at: &str) -> Result<UsageSnapshot, CollectionError> {
-    parse_visible_quota(&screen(raw)?, fetched_at)
-}
-pub(super) fn parse_visible_quota(
-    visible: &str,
+pub fn parse_usage(
+    raw: &str,
     fetched_at: &str,
+    source_version: &str,
 ) -> Result<UsageSnapshot, CollectionError> {
-    if visible_state(visible)? != TerminalState::Model {
-        return Err(CollectionError::UnrecognizedOutput);
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    enum Key {
+        GeminiFiveHour,
+        GeminiWeekly,
+        OtherFiveHour,
+        OtherWeekly,
     }
-    let start = visible
-        .rfind("Select Model")
-        .ok_or(CollectionError::UnrecognizedOutput)?;
-    let dialog = &visible[start..];
-    let end = dialog
-        .find("(Press Esc to close)")
-        .ok_or(CollectionError::UnrecognizedOutput)?;
-    if !dialog[end..].contains('╯') {
-        return Err(CollectionError::UnrecognizedOutput);
-    }
-    let body = &dialog[..end];
-    let (_, usage) = body
-        .split_once("Model usage")
-        .ok_or(CollectionError::QuotaUnavailable)?;
-    static ROW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r"^(Pro|Flash Lite|Flash)\s+[▬━─█░▓▒▏▎▍▌▋▊▉▐\s]+\s+(\d{1,3})%\s*(Resets: [^│]+)?$",
-        )
-        .unwrap()
-    });
-    let mut metrics = Vec::new();
-    for line in usage.lines() {
-        let text = line.trim().trim_matches('│').trim();
-        if text.is_empty() {
-            continue;
+    impl Key {
+        fn from_columns(group: &str, window: &str) -> Option<Self> {
+            match (group, window) {
+                ("Gemini Models", "Five Hour Limit Remaining") => Some(Self::GeminiFiveHour),
+                ("Gemini Models", "Weekly Limit Remaining") => Some(Self::GeminiWeekly),
+                ("Claude and GPT models", "Five Hour Limit Remaining") => Some(Self::OtherFiveHour),
+                ("Claude and GPT models", "Weekly Limit Remaining") => Some(Self::OtherWeekly),
+                _ => None,
+            }
         }
-        let captures = ROW
-            .captures(text)
-            .ok_or(CollectionError::UnrecognizedOutput)?;
-        let label = captures[1].to_owned();
-        let current = captures[2]
-            .parse::<u32>()
-            .map_err(|_| CollectionError::UnrecognizedOutput)?;
-        if current > 100 || metrics.iter().any(|m: &UsageMetric| m.label == label) {
+        fn label(self) -> &'static str {
+            match self {
+                Self::GeminiFiveHour => "Gemini · Five hour",
+                Self::GeminiWeekly => "Gemini · Weekly",
+                Self::OtherFiveHour => "Claude/GPT · Five hour",
+                Self::OtherWeekly => "Claude/GPT · Weekly",
+            }
+        }
+    }
+
+    let rows = raw
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if rows.len() != 4 {
+        return Err(CollectionError::UnrecognizedOutput);
+    }
+
+    let mut metrics = Vec::with_capacity(4);
+    for row in rows {
+        let columns = row.split('\t').collect::<Vec<_>>();
+        if columns.len() != 4 {
             return Err(CollectionError::UnrecognizedOutput);
         }
-        metrics.push(UsageMetric {
-            label,
-            current: f64::from(current),
-            limit: Some(100.0),
-            unit: MetricUnit::Percent,
-            kind: MetricKind::OfficialLimit,
-            reset_at: None,
-            reset_description: captures.get(3).map(|m| m.as_str().trim().to_owned()),
-        });
+        let key =
+            Key::from_columns(columns[0], columns[1]).ok_or(CollectionError::UnrecognizedOutput)?;
+        if metrics.iter().any(|(existing, _)| *existing == key) {
+            return Err(CollectionError::UnrecognizedOutput);
+        }
+        let remaining = columns[2]
+            .strip_suffix('%')
+            .and_then(|value| value.parse::<f64>().ok())
+            .filter(|value| value.is_finite() && (0.0..=100.0).contains(value))
+            .ok_or(CollectionError::UnrecognizedOutput)?;
+        OffsetDateTime::parse(columns[3], &Rfc3339)
+            .map_err(|_| CollectionError::UnrecognizedOutput)?;
+        metrics.push((
+            key,
+            UsageMetric {
+                label: key.label().into(),
+                current: 100.0 - remaining,
+                limit: Some(100.0),
+                unit: MetricUnit::Percent,
+                kind: MetricKind::OfficialLimit,
+                reset_at: Some(columns[3].into()),
+                reset_description: None,
+            },
+        ));
     }
-    if metrics.is_empty() {
-        return Err(CollectionError::QuotaUnavailable);
-    }
-    metrics.sort_by_key(|m| match m.label.as_str() {
-        "Pro" => 0,
-        "Flash" => 1,
-        _ => 2,
-    });
+    metrics.sort_by_key(|(key, _)| *key);
+    let metrics = metrics
+        .into_iter()
+        .map(|(_, metric)| metric)
+        .collect::<Vec<_>>();
     let mut ranked = metrics.clone();
     ranked.sort_by(|a, b| b.current.total_cmp(&a.current));
+
     Ok(UsageSnapshot {
         schema_version: 1,
         provider_id: ProviderId::Gemini,
-        display_name: "Gemini".into(),
+        display_name: "Google Antigravity".into(),
         status: UsageStatus::Fresh,
         used_ratio: Some(
             Ratio::new(ranked[0].current / 100.0).map_err(|_| CollectionError::InvalidResponse)?,
@@ -146,7 +100,7 @@ pub(super) fn parse_visible_quota(
         gemini_quota_metrics: metrics,
         fetched_at: fetched_at.into(),
         stale_after_seconds: 300,
-        source_version: Some(VERSION.into()),
+        source_version: Some(source_version.into()),
         status_message: None,
         reset_credits: Vec::new(),
         local_activity: None,
@@ -171,7 +125,7 @@ pub fn service_status(
             if snapshot
                 .status_message
                 .as_deref()
-                .is_some_and(|m| m.contains("sign in required")) =>
+                .is_some_and(|message| message.contains("sign in required")) =>
         {
             State::SignInRequired
         }
@@ -179,9 +133,9 @@ pub fn service_status(
     };
     status.account_detail = Some(snapshot.status_message.clone().unwrap_or_else(|| {
         if status.connection_state == State::Connected {
-            "Official CLI quota available; account identity is not exposed.".into()
+            "Official Antigravity quota available; account identity is not exposed.".into()
         } else {
-            "Account status has not been verified by a current Gemini CLI quota result.".into()
+            "Account status has not been verified by a current Antigravity CLI quota result.".into()
         }
     }));
     status.cli_version = snapshot.source_version.clone();

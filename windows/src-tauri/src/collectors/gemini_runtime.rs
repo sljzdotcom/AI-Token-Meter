@@ -1,64 +1,21 @@
-use super::{CollectionError, gemini::VERSION, gemini_environment::GeminiEnvironment};
+use super::{CollectionError, gemini::MINIMUM_VERSION, gemini_environment::GeminiEnvironment};
 use crate::{
     accounts::cli_account::CliProvider,
     platform::windows::{
         environment::DiscoveryInputs,
         executable_locator::{DiscoveryBudget, ExecutableCandidate, ExecutableLocator},
         process::{
-            BoundedProcessRunner, CancellationToken, ProcessErrorKind, ProcessRequest,
-            command_for_candidate,
+            BoundedProcessRunner, CancellationToken, ProcessErrorKind, ProcessOutput,
+            ProcessRequest, command_for_candidate,
         },
     },
 };
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
-const STOP_DRAIN_TIMEOUT: Duration = Duration::from_millis(750);
-const STOP_DRAIN_POLL: Duration = Duration::from_millis(5);
-const STOP_EXIT_QUIET: Duration = Duration::from_millis(100);
-const STOP_TAIL_LIMIT: usize = 256 * 1024;
+const VERSION_OUTPUT_LIMIT: usize = 16 * 1024;
+#[cfg(windows)]
+const USAGE_OUTPUT_LIMIT: usize = 64 * 1024;
 
-fn drain_until_process_exit<P, N, S>(
-    tail: &mut Vec<u8>,
-    deadline: Instant,
-    exit_quiet: Duration,
-    mut poll: P,
-    mut now: N,
-    mut sleep: S,
-) -> Result<(), CollectionError>
-where
-    P: FnMut() -> Result<(Vec<u8>, bool), CollectionError>,
-    N: FnMut() -> Instant,
-    S: FnMut(Duration),
-{
-    let mut empty_after_exit_since = None;
-    loop {
-        let (bytes, exited) = poll()?;
-        if tail.len() + bytes.len() > STOP_TAIL_LIMIT {
-            return Err(CollectionError::UnrecognizedOutput);
-        }
-        let empty = bytes.is_empty();
-        tail.extend(bytes);
-        let current = now();
-        if exited && empty {
-            let quiet_since = empty_after_exit_since.get_or_insert(current);
-            if current.saturating_duration_since(*quiet_since) >= exit_quiet {
-                break;
-            }
-        } else {
-            empty_after_exit_since = None;
-        }
-        if current >= deadline {
-            break;
-        }
-        sleep(STOP_DRAIN_POLL);
-    }
-    Ok(())
-}
-
-/// Native-only discovery: every probe is inside the same checked Gemini environment.
 pub fn discover(
     environment: &GeminiEnvironment,
     inputs: DiscoveryInputs,
@@ -72,36 +29,18 @@ pub fn discover(
     let mut budget = DiscoveryBudget::new(Duration::from_secs(8), 12);
     let found = locator.locate(CliProvider::Gemini, |candidate| {
         let outcome = (|| {
-            if cancellation.is_cancelled() {
-                return Err(CollectionError::Cancelled);
-            }
             let timeout = budget
                 .next_process_timeout(Duration::from_secs(4))
                 .ok_or(CollectionError::TimedOut)?;
-            let args = environment.arguments(true);
-            let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
-            let command = command_for_candidate(candidate, CliProvider::Gemini, &refs)
-                .map_err(|_| CollectionError::UnsupportedConfiguration)?;
-            let mut request = ProcessRequest::new(command.executable, command.arguments);
-            request.working_directory = Some(environment.directory.clone());
-            request.environment = environment.variables.clone();
-            request.timeout = timeout;
-            request.max_output_bytes = 16 * 1024;
-            request.cancellation = Arc::clone(&cancellation);
-            let output = BoundedProcessRunner
-                .run(request)
-                .map_err(|e| match e.kind() {
-                    ProcessErrorKind::Cancelled => CollectionError::Cancelled,
-                    ProcessErrorKind::TimedOut => CollectionError::TimedOut,
-                    _ => CollectionError::Transport,
-                })?;
-            if output.exit_code != Some(0) {
-                return Err(CollectionError::Transport);
-            }
-            if output.stdout.trim() != VERSION {
-                return Err(CollectionError::UnsupportedVersion);
-            }
-            Ok(())
+            let output = run(
+                candidate,
+                environment,
+                environment.arguments(true),
+                timeout,
+                VERSION_OUTPUT_LIMIT,
+                Arc::clone(&cancellation),
+            )?;
+            version_from_output(&output)
         })();
         if let Err(failure) = outcome {
             error = Some(failure);
@@ -125,117 +64,69 @@ pub fn discover(
     Ok(None)
 }
 
-pub struct NativeTerminal {
-    terminal: Option<crate::platform::windows::conpty::ConPty>,
-    child: Option<crate::platform::windows::conpty::ConPtyChild>,
-}
-impl NativeTerminal {
-    pub fn open(
-        candidate: &ExecutableCandidate,
-        environment: &GeminiEnvironment,
-    ) -> Result<Self, CollectionError> {
-        use crate::platform::windows::conpty::{ConPty, ConPtySize};
-        let args = environment.arguments(false);
-        let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
-        let command = command_for_candidate(candidate, CliProvider::Gemini, &refs)
-            .map_err(|_| CollectionError::UnsupportedConfiguration)?;
-        let mut terminal = ConPty::open(ConPtySize {
-            columns: 140,
-            rows: 50,
+fn run(
+    candidate: &ExecutableCandidate,
+    environment: &GeminiEnvironment,
+    arguments: Vec<String>,
+    timeout: Duration,
+    max_output_bytes: usize,
+    cancellation: Arc<CancellationToken>,
+) -> Result<ProcessOutput, CollectionError> {
+    if cancellation.is_cancelled() {
+        return Err(CollectionError::Cancelled);
+    }
+    let references = arguments.iter().map(String::as_str).collect::<Vec<_>>();
+    let command = command_for_candidate(candidate, CliProvider::Gemini, &references)
+        .map_err(|_| CollectionError::UnsupportedConfiguration)?;
+    let mut request = ProcessRequest::new(command.executable, command.arguments);
+    request.working_directory = Some(environment.directory.clone());
+    request.environment = environment.variables.clone();
+    request.timeout = timeout;
+    request.max_output_bytes = max_output_bytes;
+    request.cancellation = cancellation;
+    BoundedProcessRunner
+        .run(request)
+        .map_err(|error| match error.kind() {
+            ProcessErrorKind::Cancelled => CollectionError::Cancelled,
+            ProcessErrorKind::TimedOut => CollectionError::TimedOut,
+            ProcessErrorKind::OutputLimitExceeded => CollectionError::UnrecognizedOutput,
+            _ => CollectionError::Transport,
         })
-        .map_err(|_| CollectionError::Transport)?;
-        let child = terminal
-            .spawn(
-                &command,
-                Some(&environment.directory),
-                &environment.variables,
-            )
-            .map_err(|_| CollectionError::Transport)?;
-        Ok(Self {
-            terminal: Some(terminal),
-            child: Some(child),
-        })
-    }
-}
-impl super::gemini_session::GeminiTerminal for NativeTerminal {
-    fn read(&mut self) -> Result<Vec<u8>, CollectionError> {
-        self.terminal
-            .as_mut()
-            .ok_or(CollectionError::Transport)?
-            .read_available()
-            .map_err(|_| CollectionError::Transport)
-    }
-    fn send(&mut self, bytes: &[u8]) -> Result<(), CollectionError> {
-        self.terminal
-            .as_mut()
-            .ok_or(CollectionError::Transport)?
-            .send_fixed_input(bytes)
-            .map_err(|_| CollectionError::Transport)
-    }
-    fn stop(&mut self) -> Result<Vec<u8>, CollectionError> {
-        use crate::platform::windows::conpty::ConPtyError;
-        let mut tail = Vec::new();
-        let result = (|| {
-            let deadline = Instant::now() + STOP_DRAIN_TIMEOUT;
-            drain_until_process_exit(
-                &mut tail,
-                deadline,
-                STOP_EXIT_QUIET,
-                || {
-                    let bytes = self.read()?;
-                    let exited = self
-                        .child
-                        .as_ref()
-                        .ok_or(CollectionError::Transport)?
-                        .has_exited()
-                        .map_err(|_| CollectionError::Transport)?;
-                    Ok((bytes, exited))
-                },
-                Instant::now,
-                std::thread::sleep,
-            )?;
-            if let Some(child) = self.child.as_mut() {
-                match child.wait(Duration::from_millis(100)) {
-                    Ok(_) => {}
-                    Err(ConPtyError::TimedOut) => {
-                        child
-                            .wait(Duration::from_secs(2))
-                            .map_err(|_| CollectionError::Transport)?;
-                    }
-                    Err(_) => return Err(CollectionError::Transport),
-                }
-            }
-            // Process exit can precede the final pipe read. Drain before releasing the PTY.
-            loop {
-                let bytes = self.read()?;
-                if bytes.is_empty() {
-                    break;
-                }
-                if tail.len() + bytes.len() > STOP_TAIL_LIMIT {
-                    return Err(CollectionError::UnrecognizedOutput);
-                }
-                tail.extend(bytes);
-            }
-            Ok(tail)
-        })();
-        // Also observe termination if pipe validation failed before the normal wait.
-        if result.is_err()
-            && let Some(child) = self.child.as_mut()
-        {
-            let _ = child.wait(Duration::ZERO);
-            let _ = child.wait(Duration::from_secs(2));
-        }
-        self.child.take();
-        self.terminal.take();
-        result
-    }
 }
 
-impl Drop for NativeTerminal {
-    fn drop(&mut self) {
-        self.child.take();
-        self.terminal.take();
+fn version_from_output(output: &ProcessOutput) -> Result<String, CollectionError> {
+    if output.exit_code != Some(0) {
+        return Err(CollectionError::Transport);
     }
+    let version = output.stdout.trim();
+    let parts = version
+        .split('.')
+        .map(str::parse::<u64>)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| CollectionError::UnsupportedVersion)?;
+    let minimum = MINIMUM_VERSION
+        .split('.')
+        .map(str::parse::<u64>)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| CollectionError::UnsupportedVersion)?;
+    if parts.len() != 3 || parts[0] != 1 || parts < minimum {
+        return Err(CollectionError::UnsupportedVersion);
+    }
+    Ok(version.into())
+}
+
+#[cfg(windows)]
+fn authentication_required(output: &ProcessOutput) -> bool {
+    let message = format!("{}\n{}", output.stdout, output.stderr).to_ascii_lowercase();
+    [
+        "authentication required",
+        "sign in required",
+        "please sign in",
+        "not authenticated",
+        "login required",
+    ]
+    .iter()
+    .any(|phrase| message.contains(phrase))
 }
 
 #[cfg(windows)]
@@ -243,84 +134,87 @@ pub fn collect(
     fetched_at: &str,
     cancellation: Arc<CancellationToken>,
 ) -> Result<crate::domain::UsageSnapshot, CollectionError> {
-    let environment = GeminiEnvironment::prepare(
-        &std::env::temp_dir(),
-        std::env::vars_os().collect(),
-        &[
-            std::path::PathBuf::from(r"C:\ProgramData\gemini-cli\settings.json"),
-            std::path::PathBuf::from(r"C:\ProgramData\gemini-cli\system-defaults.json"),
-        ],
-    )?;
+    let environment =
+        GeminiEnvironment::prepare(&std::env::temp_dir(), std::env::vars_os().collect(), &[])?;
     let candidate = discover(
         &environment,
         DiscoveryInputs::capture(None),
         Arc::clone(&cancellation),
     )?;
     let Some(candidate) = candidate else {
-        let mut snapshot=crate::domain::UsageSnapshot::decode_compatible(&serde_json::json!({"schemaVersion":1,"providerId":"gemini","displayName":"Gemini","status":"notInstalled","fetchedAt":fetched_at,"staleAfterSeconds":300})).map_err(|_|CollectionError::InvalidResponse)?;
-        snapshot.status_message=Some("Gemini CLI was not found in the supported native Windows locations. WSL collection is not supported. See the official CLI guide.".into());
+        let mut snapshot = crate::domain::UsageSnapshot::decode_compatible(&serde_json::json!({
+            "schemaVersion": 1,
+            "providerId": "gemini",
+            "displayName": "Google Antigravity",
+            "status": "notInstalled",
+            "fetchedAt": fetched_at,
+            "staleAfterSeconds": 300
+        }))
+        .map_err(|_| CollectionError::InvalidResponse)?;
+        snapshot.status_message = Some(
+            "Antigravity CLI was not found in the supported native Windows locations. WSL collection is not supported. See the official CLI guide."
+                .into(),
+        );
         return Ok(snapshot);
     };
-    if cancellation.is_cancelled() {
-        return Err(CollectionError::Cancelled);
+
+    let version_output = run(
+        &candidate,
+        &environment,
+        environment.arguments(true),
+        Duration::from_secs(8),
+        VERSION_OUTPUT_LIMIT,
+        Arc::clone(&cancellation),
+    )?;
+    let version = version_from_output(&version_output)?;
+    let output = run(
+        &candidate,
+        &environment,
+        environment.arguments(false),
+        Duration::from_secs(30),
+        USAGE_OUTPUT_LIMIT,
+        cancellation,
+    )?;
+    if output.exit_code != Some(0) {
+        return Err(if authentication_required(&output) {
+            CollectionError::AuthenticationRequired
+        } else {
+            CollectionError::Transport
+        });
     }
-    let mut terminal = NativeTerminal::open(&candidate, &environment)?;
-    super::gemini_session::collect_session(
-        &mut terminal,
-        fetched_at,
-        &cancellation,
-        Default::default(),
-    )
+    super::gemini::parse_usage(&output.stdout, fetched_at, &version)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{cell::Cell, collections::VecDeque};
 
-    #[test]
-    fn stop_drain_collects_output_that_arrives_after_exit_is_observed() {
-        let origin = Instant::now();
-        let elapsed = Cell::new(Duration::ZERO);
-        let mut events = VecDeque::from([
-            (Vec::new(), true),
-            (Vec::new(), true),
-            (b"delayed conflict".to_vec(), true),
-            (Vec::new(), true),
-        ]);
-        let mut tail = Vec::new();
-
-        drain_until_process_exit(
-            &mut tail,
-            origin + STOP_DRAIN_TIMEOUT,
-            STOP_EXIT_QUIET,
-            || Ok(events.pop_front().unwrap_or((Vec::new(), true))),
-            || origin + elapsed.get(),
-            |duration| elapsed.set(elapsed.get() + duration),
-        )
-        .unwrap();
-
-        assert_eq!(tail, b"delayed conflict");
-        assert_eq!(elapsed.get(), Duration::from_millis(115));
+    fn output(version: &str) -> ProcessOutput {
+        ProcessOutput {
+            exit_code: Some(0),
+            stdout: version.into(),
+            stderr: String::new(),
+        }
     }
 
     #[test]
-    fn stop_drain_remains_bounded_while_process_is_running() {
-        let origin = Instant::now();
-        let elapsed = Cell::new(Duration::ZERO);
-        let mut tail = Vec::new();
-
-        drain_until_process_exit(
-            &mut tail,
-            origin + STOP_DRAIN_TIMEOUT,
-            STOP_EXIT_QUIET,
-            || Ok((Vec::new(), false)),
-            || origin + elapsed.get(),
-            |duration| elapsed.set(elapsed.get() + duration),
-        )
-        .unwrap();
-
-        assert!(tail.is_empty());
-        assert_eq!(elapsed.get(), STOP_DRAIN_TIMEOUT);
+    fn supported_versions_stay_within_major_one_and_start_at_the_verified_baseline() {
+        for version in ["1.1.28", "1.1.29", "1.2.0", "1.99.0"] {
+            assert_eq!(version_from_output(&output(version)).unwrap(), version);
+        }
+        for version in [
+            "1.1.27",
+            "0.58.0",
+            "2.0.0",
+            "1.1",
+            "1.1.28-beta",
+            "1.1.28+build",
+            "version 1.1.28",
+        ] {
+            assert!(matches!(
+                version_from_output(&output(version)),
+                Err(CollectionError::UnsupportedVersion)
+            ));
+        }
     }
 }

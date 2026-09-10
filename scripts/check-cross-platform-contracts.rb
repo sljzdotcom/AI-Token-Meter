@@ -166,7 +166,7 @@ end
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
 expected_providers = %w[claude codex deepseek gemini]
-expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Gemini"]
+expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
 expected_identity = expected_providers.zip(expected_names).to_h
 allowed_statuses = %w[
   fresh cached refreshing notInstalled authenticationRequired setupRequired unavailable unrecognizedOutput
@@ -176,7 +176,7 @@ if schema
   gemini_metric = schema.dig("$defs", "geminiQuotaMetric")
   unless gemini_metric.is_a?(Hash) && gemini_metric["type"] == "object" &&
       (%w[label current limit unit kind] - Array(gemini_metric["required"])).empty?
-    errors << "Gemini metric schema must require a non-null object with limit and source fields"
+    errors << "Antigravity metric schema must require a non-null object with limit and source fields"
   end
   schema_statuses = schema.dig("properties", "status", "enum")
   errors << "Snapshot schema status enum is incomplete" unless schema_statuses == allowed_statuses
@@ -224,20 +224,27 @@ fixture_paths.each do |path|
   end
   tiers = fixture["geminiQuotaMetrics"]
   if tiers
-    valid = fixture["providerId"] == "gemini" && tiers.is_a?(Array) && tiers.length <= 3 && tiers.all? { |item| item.is_a?(Hash) }
+    valid = fixture["providerId"] == "gemini" && tiers.is_a?(Array) && tiers.length == 4 && tiers.all? { |item| item.is_a?(Hash) }
     valid &&= tiers.map { |item| item["label"] }.uniq.length == tiers.length
     valid &&= tiers.all? do |item|
       current = item["current"]
       Array(schema&.dig("$defs", "geminiQuotaMetric", "properties", "label", "enum")).include?(item["label"]) &&
-        current.is_a?(Numeric) && current.finite? && current == current.to_i && current.between?(0, 100) &&
-        item["limit"] == 100 && item["unit"] == "percent" && item["kind"] == "officialLimit" && item["resetAt"].nil?
+        current.is_a?(Numeric) && current.finite? && current.between?(0, 100) &&
+        item["limit"] == 100 && item["unit"] == "percent" && item["kind"] == "officialLimit" &&
+        item["resetAt"].is_a?(String) && (Time.iso8601(item["resetAt"]) rescue false)
     end
-    errors << "#{path.basename}: invalid Gemini quota tier" unless valid
+    errors << "#{path.basename}: invalid Antigravity quota window" unless valid
   end
   if path.basename.to_s == "gemini-fresh.json"
-    unless tiers&.map { |item| [item["label"], item["current"]] } == [["Pro", 25], ["Flash", 60]] &&
-        fixture.dig("primaryMetric", "label") == "Flash" && fixture["usedRatio"] == 0.6
-      errors << "Gemini fresh fixture must preserve the official synthetic transcript tiers"
+    unless tiers&.map { |item| [item["label"], item["current"]] } == [
+        ["Gemini · Five hour", 60],
+        ["Gemini · Weekly", 25],
+        ["Claude/GPT · Five hour", 80],
+        ["Claude/GPT · Weekly", 20]
+      ] && fixture.dig("primaryMetric", "label") == "Claude/GPT · Five hour" &&
+        fixture.dig("secondaryMetric", "label") == "Gemini · Five hour" &&
+        fixture["usedRatio"] == 0.8
+      errors << "Antigravity fresh fixture must preserve the official synthetic quota windows"
     end
   end
   ratio = fixture["usedRatio"]

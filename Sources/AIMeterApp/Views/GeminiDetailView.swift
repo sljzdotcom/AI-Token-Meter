@@ -10,7 +10,7 @@ struct GeminiDetailView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 ProviderLogo(provider: .gemini)
-                Text("Gemini CLI").aiMeterFont(.title2, weight: .semibold)
+                Text("Google Antigravity").aiMeterFont(.title2, weight: .semibold)
             }
             if let metrics = snapshot.geminiQuotaMetrics, !metrics.isEmpty {
                 Text(snapshot.collectionStatus == .cached ? "Last available quota" : "Official quota").aiMeterFont(.headline)
@@ -19,13 +19,19 @@ struct GeminiDetailView: View {
                         HStack {
                             Text(metric.label)
                             Spacer()
-                            Text("\(Int(metric.current))% used").monospacedDigit()
+                            Text("\(Int(100 - metric.current))% remaining").monospacedDigit()
                         }
                         ProgressView(value: metric.current, total: 100)
-                        if let reset = metric.resetDescription { Text(reset).aiMeterFont(.caption).foregroundStyle(.secondary) }
+                        if let resetAt = metric.resetAt {
+                            Text("Resets \(resetAt.formatted(date: .abbreviated, time: .shortened))")
+                                .aiMeterFont(.caption)
+                                .foregroundStyle(.secondary)
+                        } else if let reset = metric.resetDescription {
+                            Text(reset).aiMeterFont(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
-                Text("Source: Gemini CLI \(snapshot.sourceVersion ?? "") · model tiers")
+                Text("Source: Antigravity CLI \(snapshot.sourceVersion ?? "") · /usage")
                     .aiMeterFont(.caption).foregroundStyle(.secondary)
                 Text("Updated \(snapshot.fetchedAt.formatted(date: .abbreviated, time: .shortened))")
                     .aiMeterFont(.caption).foregroundStyle(.secondary)
@@ -35,7 +41,7 @@ struct GeminiDetailView: View {
             if let message = snapshot.statusMessage { Text(message).foregroundStyle(.secondary) }
             GeminiInstallationHelp(state: ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState)
             HStack {
-                Link("Gemini CLI 0.58.0 installation guide", destination: GeminiInstallationGuide.url)
+                Link("Antigravity CLI installation guide", destination: GeminiInstallationGuide.url)
                 Spacer()
                 Button("Retry", action: onRetry)
             }

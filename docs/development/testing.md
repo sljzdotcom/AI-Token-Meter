@@ -1,8 +1,12 @@
 # 测试指南
 
-## Gemini 验证（0.6.0）
+## Google Antigravity 验证（当前开发）
 
-0.6.0 最终源码的 Windows 前端 109 项、macOS 宿主 Rust 256 项、严格 Clippy 和前端构建通过；PR、main 与正式发布流水线也已完成原生 Windows SDK/ConPTY 编译和运行验收。固定官方 CLI 合成账号测试需要独立 opt-in，准备依赖与护栏后执行 `AI_METER_GEMINI_OFFICIAL_PTY=1 bash scripts/test.sh --filter GeminiOfficialPTYTests`，见[采集日志](2026-09-08-gemini-collector.md)。普通测试不依赖该临时 CLI，不读取真实 Gemini 账号。
+当前第四服务使用官方 `agy -p /usage` 的非交互模式。普通测试通过四行无账号合成契约验证 Gemini 与 Claude/GPT 各自的 Five Hour 和 Weekly 窗口、剩余转已用、重置时间、顺序变化、缺行/重复/未知列、非法百分比和未来主版本失败关闭。macOS 另验证普通 Pipe 进程而非 PTY、超时、输出上限、认证分类和私有临时目录；Windows 验证有界隐藏进程、Job Object 清理、官方 Native 路径与旧 `gemini` 不回退。测试不读取真实 Google 账户或个人额度。
+
+## 旧 Gemini CLI 验证（0.6.0 历史）
+
+0.6.0 最终源码的 Windows 前端109项、macOS宿主Rust256项、严格Clippy和前端构建通过；PR、main与正式发布流水线也完成了原生Windows SDK/ConPTY编译和运行验收。当时的固定官方CLI合成账号与PTY回归见[采集日志](2026-09-08-gemini-collector.md)和历史契约；当前生产与测试树已迁移到Antigravity，不再提供旧CLI的opt-in执行入口。
 
 ## 普通测试
 
@@ -10,9 +14,9 @@
 bash scripts/test.sh
 ```
 
-0.6.3 稳定发布基线为 **491 个测试全部通过**。默认完整验证会先运行 464 项普通测试，再用独立测试进程运行 3 项主线程刷新调度测试、18 项 PTY runner 测试和 6 项 Gemini PTY 测试，避免 CI runner 的并行主线程负载干扰有界调度断言，也避免两个真实终端 Suite 争用系统资源；原行为断言和期限保持不变。新增品牌回归用2×位图渲染真实菜单面板并核对32pt前导图标。浮动条原生渲染回归继续使用明确的2×Retina位图，并把逻辑点坐标换算成像素后核对完整provider数量、密度和左右边缘矩阵。并发PTY fixture只使用Shell内建读取，不在32路命令之上额外派生管道进程。传入`--filter`等参数时仍只运行调用者指定的单次测试命令。Keychain隔离读写、已安装Claude Code auth状态、已安装Claude Code CLI额度快照和已安装OpenAI Codex CLI额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+0.6.3 稳定发布时的历史基线为 **491 个测试全部通过**。当前完整验证先运行普通测试，再用独立测试进程运行主线程刷新调度和 PTY runner 测试，避免 CI runner 的并行主线程负载干扰有界调度断言。Antigravity 已删除旧 Gemini PTY `/model` 会话测试，新增普通有界进程、严格四窗口解析与无损缓存迁移回归。品牌回归用2×位图渲染真实菜单面板并核对32pt前导图标。浮动条原生渲染回归继续使用明确的2×Retina位图，并把逻辑点坐标换算成像素后核对完整provider数量、密度和左右边缘矩阵。并发PTY fixture只使用Shell内建读取，不在32路命令之上额外派生管道进程。传入`--filter`等参数时仍只运行调用者指定的单次测试命令。Keychain隔离读写、已安装Claude Code auth状态、已安装Claude Code CLI额度快照和已安装OpenAI Codex CLI额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前macOS基线，不与Windows相加计算通过率。0.6.3本机另有前端124项和终端协议5项、密度浏览器25项生命周期/8个Gemini详情场景/16个布局/608个文字角色、macOS宿主Rust261项；新增2项Rust回归在不启动Tauri MockRuntime的情况下验证品牌行ID、文案、禁用状态、RGBA尺寸/字节保留及错误字节拒绝，生产路径再把同一已验证定义交给真实`IconMenuItemBuilder`。原生Windows编译、runtime、NSIS和GUI subsystem由Windows CI放行。三项既有终端回归继续覆盖Windows ConPTY模型页帧、标准ECH字符擦除与登录提示保护。40KB真实记录的137/4096字节分片回归保留两秒deadline并放在独立`gemini_fragmentation`集成测试程序中。0.6.3的原生CI、标签发布门禁和公网结果记录在[发布记录](2026-09-09-v0.6.3-release.md)。
+以上数字不与Windows相加计算通过率。当前前端保留124项组件测试；密度门禁覆盖25项进程生命周期、8个Antigravity详情状态、16个浮动条布局和608个文字角色。旧 Gemini ConPTY、分片和终端输入夹具已随生产交互路径移除；Claude/Codex仍使用的PTY与Windows原生进程门禁保持。0.6.3的历史原生CI、标签发布门禁和公网结果记录在[发布记录](2026-09-09-v0.6.3-release.md)。
 
 普通测试覆盖：
 
@@ -161,7 +165,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml
 npm --prefix windows run tauri build
 ```
 
-`npm --prefix windows test` 除 109 项前端测试外，还运行 5 项 Gemini 合成终端输入回归：通过一次原始字符串扫描只剥离原生 ConPTY 已证实的主设备属性回复和固定光标位置回复，并保留不完整、异常、未支持或被另一回复隔开的控制序列，避免测试夹具把终端握手误当作 `/model`、Escape 或 `/quit` 业务输入。
+`npm --prefix windows test` 运行 React 组件与状态回归。Antigravity 详情测试核对四个额度窗口、剩余百分比、重置时间、来源版本和认证缓存恢复；旧 Gemini 终端输入夹具已移除。
 
 `test:density` 先用独立配置构建 production fixture，再运行 21 项跨平台进程回收测试，最后由 Vite preview 与 Chrome/Edge headless 加载构建产物并核对详情、Settings、系统字体隔离和原生 select/option 的计算样式。Unix/macOS 先让整个进程组享有 TERM 宽限，再探测全组；leader 已退出但后代仍在时，只有宽限期结束后才 KILL。Windows 保留 `taskkill /T /F`，并使用一次性独立 Chrome profile，防止已有浏览器进程接管 `--dump-dom`；fixture 在 React 同步提交后立即读取计算样式，不依赖后台 `requestAnimationFrame`。门禁需要本机回环端口和可用浏览器。真实 `windows-latest` 覆盖 Credential Manager 隔离 target、ConPTY 输入输出/终端握手、Job Object 回收、Native/WSL 候选策略、Claude/Codex app-server fixture，并编译 DWM 无边框合成、鼠标释放监视、Win32 物理显示器接口、拓扑监听与 WebView2 托管历史窗口，运行其纯策略测试，再验证更新状态与完整 NSIS 生成。可见轮廓由 WebView2 SVG 抗锯齿路径负责，不再使用 GDI `HRGN`。CI runner 不冒充真实显示器拔插、官网真实登录、窗口前台焦点或原生下拉弹层；CI 上传的 debug NSIS 只用于构建回验，正式签名 NSIS 更新资产必须由 Release workflow 注入 Tauri signing secret。
 

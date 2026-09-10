@@ -266,7 +266,7 @@ impl ExecutableLocator {
                 }
                 Some(extension)
                     if extension.eq_ignore_ascii_case("cmd")
-                        && matches!(provider, CliProvider::Codex | CliProvider::Gemini) =>
+                        && matches!(provider, CliProvider::Codex) =>
                 {
                     let (entry, node) = resolve_provider_npm_runtime(
                         &selected_path,

@@ -114,15 +114,15 @@ struct ServicesSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Gemini CLI") {
+            Section("Google Antigravity") {
                 let geminiStatus = status(for: .gemini)
                 ServiceAccountStatusView(status: geminiStatus)
-                Text("Reads official quota through a supported Gemini CLI. Account identity is not provided by this view.")
+                Text("Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 GeminiInstallationHelp(state: geminiStatus.connectionState)
                 HStack {
-                    Link("Gemini CLI 0.58.0 installation guide", destination: GeminiInstallationGuide.url)
+                    Link("Antigravity CLI installation guide", destination: GeminiInstallationGuide.url)
                     Button("Retry") { Task { await model.checkServiceAccount(.gemini) } }
                 }
             }

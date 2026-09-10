@@ -37,7 +37,8 @@ AI-Meter/
 contracts/
 ├── schemas/                   # UsageSnapshot JSON Schema
 ├── fixtures/                  # Swift/Rust 共用脱敏快照与辅助 CLI fixture
-├── gemini-cli/                # 固定0.58.0合成账号ANSI转录、哈希与来源
+├── antigravity-cli/           # 1.1.28无账号合成/usage契约
+├── gemini-cli/                # 0.58.0历史发布转录、哈希与来源
 ├── presentation/              # Provider 顺序、正式名称、颜色与进度语义
 └── parity/                    # macOS/Windows 功能对等矩阵与证据
 ```

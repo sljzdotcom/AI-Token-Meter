@@ -31,7 +31,7 @@ public struct ServiceAccountStatus: Equatable, Sendable {
 
     public static var geminiUnavailable: Self {
         Self(provider: .gemini, connectionState: .unavailable,
-             accountDetail: "Gemini CLI account status is not available. Installation and sign-in have not been checked.", checkedAt: nil)
+             accountDetail: "Antigravity CLI account status is not available. Installation and sign-in have not been checked.", checkedAt: nil)
     }
 
     public static func checking(provider: UsageProvider) -> Self {
@@ -61,7 +61,7 @@ public extension ServiceAccountStatus {
         default: state = .unavailable
         }
         return Self(provider: .gemini, connectionState: state,
-                    accountDetail: snapshot.statusMessage ?? (state == .connected ? "Official Gemini CLI quota verified; account identity not provided" : "Gemini CLI quota unavailable"),
+                    accountDetail: snapshot.statusMessage ?? (state == .connected ? "Official Antigravity CLI quota verified; account identity not provided" : "Antigravity CLI quota unavailable"),
                     checkedAt: snapshot.fetchedAt)
     }
 }

@@ -3,11 +3,11 @@ import Foundation
 import SwiftUI
 
 enum GeminiInstallationGuide {
-    static let url = URL(string: "https://geminicli.com/docs/get-started/installation/")!
-    static let installCommand = "npm install -g @google/gemini-cli@0.58.0"
+    static let url = URL(string: "https://antigravity.google/docs/cli/install/")!
+    static let installCommand = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
 
     static func instructions(for state: ServiceAccountConnectionState) -> [String] {
-        let signIn = "Run gemini and choose Sign in with Google."
+        let signIn = "Run agy and complete Google sign-in."
         let finish = "Return to AI Token Meter and choose Retry."
         switch state {
         case .connected:
@@ -15,7 +15,7 @@ enum GeminiInstallationGuide {
         case .signInRequired:
             return [signIn, finish]
         case .notInstalled, .checking, .unavailable:
-            return ["Requires Node.js 20 or later.", installCommand, signIn, finish]
+            return [installCommand, signIn, finish]
         }
     }
 }

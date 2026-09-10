@@ -49,3 +49,32 @@ fn successful_tiers_roundtrip_and_failed_refresh_preserves_timestamp_and_account
     assert_eq!(loaded.gemini_quota_metrics, snapshot.gemini_quota_metrics);
     assert_eq!(loaded.fetched_at, snapshot.fetched_at);
 }
+
+#[test]
+fn legacy_gemini_cache_keeps_quota_but_migrates_the_visible_provider_name() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path()).unwrap();
+    std::fs::write(
+        dir.path().join("gemini.json"),
+        r#"{
+          "schemaVersion":1,
+          "providerId":"gemini",
+          "displayName":"Gemini",
+          "status":"fresh",
+          "usedRatio":0.6,
+          "primaryMetric":{"label":"Flash","current":60,"limit":100,"unit":"percent","kind":"officialLimit"},
+          "geminiQuotaMetrics":[{"label":"Flash","current":60,"limit":100,"unit":"percent","kind":"officialLimit"}],
+          "fetchedAt":"2026-09-08T08:47:00Z",
+          "staleAfterSeconds":300,
+          "sourceVersion":"0.58.0"
+        }"#,
+    )
+    .unwrap();
+
+    let snapshot = UsageRuntime::load(SnapshotCache::new(dir.path()), "2026-09-10T00:00:00Z")
+        .snapshot(ProviderId::Gemini);
+    assert_eq!(snapshot.display_name, "Google Antigravity");
+    assert_eq!(snapshot.status, UsageStatus::Cached);
+    assert_eq!(snapshot.primary_metric.unwrap().current, 60.0);
+    assert_eq!(snapshot.gemini_quota_metrics[0].label, "Flash");
+}

@@ -24,6 +24,9 @@ impl UsageRuntime {
                     .flatten()
                     .filter(|snapshot| snapshot.provider_id == provider)
                     .map(|mut snapshot| {
+                        if provider == ProviderId::Gemini {
+                            snapshot.display_name = "Google Antigravity".to_owned();
+                        }
                         snapshot.status = UsageStatus::Cached;
                         snapshot.status_message = Some("Cached · waiting for refresh".to_owned());
                         snapshot
@@ -304,12 +307,12 @@ fn error_message(error: CollectionError) -> &'static str {
         CollectionError::InvalidResponse => "invalid provider response",
         CollectionError::UnrecognizedOutput => "provider output changed",
         CollectionError::UnsupportedConfiguration => {
-            "Gemini CLI configuration is not supported for automatic quota collection"
+            "Antigravity CLI configuration is not supported for automatic quota collection"
         }
         CollectionError::UnsupportedVersion => {
-            "Automatic quota collection requires Gemini CLI 0.58.0"
+            "Automatic quota collection requires Antigravity CLI 1.1.28 or later in major version 1"
         }
-        CollectionError::QuotaUnavailable => "Gemini CLI did not provide account quota",
+        CollectionError::QuotaUnavailable => "Antigravity CLI did not provide account quota",
         CollectionError::TimedOut => "refresh timed out",
         CollectionError::Transport => "refresh unavailable",
         CollectionError::Cancelled => "refresh cancelled",
@@ -330,7 +333,7 @@ fn status_snapshot(
             ProviderId::Claude => "Claude Code",
             ProviderId::Codex => "OpenAI Codex",
             ProviderId::DeepSeek => "DeepSeek",
-            ProviderId::Gemini => "Gemini",
+            ProviderId::Gemini => "Google Antigravity",
         }
         .to_owned(),
         status,
@@ -340,7 +343,7 @@ fn status_snapshot(
         fetched_at: fetched_at.to_owned(),
         stale_after_seconds: 300,
         source_version: None,
-        status_message: message.or(if provider == ProviderId::Gemini { Some("Gemini CLI quota is currently unavailable. Installation and sign-in status have not been checked.") } else { None }).map(str::to_owned),
+        status_message: message.or(if provider == ProviderId::Gemini { Some("Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked.") } else { None }).map(str::to_owned),
         reset_credits: Vec::new(),
             gemini_quota_metrics: Vec::new(),
         local_activity: None,

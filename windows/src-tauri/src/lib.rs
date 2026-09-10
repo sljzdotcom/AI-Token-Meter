@@ -776,7 +776,7 @@ fn validated_provider_cli_settings(
             ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
             ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI".to_owned()),
             ProviderId::Gemini => {
-                return Err("Gemini CLI integration is currently unavailable".to_owned());
+                return Err("Antigravity CLI integration is currently unavailable".to_owned());
             }
         };
         value.custom_path = Some(
@@ -1026,7 +1026,7 @@ fn begin_service_sign_in(
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
         ProviderId::Gemini => {
-            return Err("Gemini CLI integration is currently unavailable".to_owned());
+            return Err("Antigravity CLI integration is currently unavailable".to_owned());
         }
     };
     #[cfg(windows)]
@@ -1052,7 +1052,7 @@ fn open_service_installation_guide(provider_id: ProviderId) -> Result<(), String
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("This service does not use a CLI".to_owned()),
         ProviderId::Gemini => {
-            return Err("Gemini CLI integration is currently unavailable".to_owned());
+            return Err("Antigravity CLI integration is currently unavailable".to_owned());
         }
     };
     #[cfg(windows)]
@@ -1076,7 +1076,7 @@ async fn begin_service_installation(
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
         ProviderId::Gemini => {
-            return Err("Gemini CLI integration is currently unavailable".to_owned());
+            return Err("Antigravity CLI integration is currently unavailable".to_owned());
         }
     };
     let configuration = state

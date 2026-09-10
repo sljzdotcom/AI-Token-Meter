@@ -97,7 +97,7 @@ pub fn powershell_script(provider: CliProvider) -> String {
         CliProvider::Claude => "https://claude.ai/install.ps1",
         CliProvider::Codex => "https://chatgpt.com/codex/install.ps1",
         CliProvider::Gemini => {
-            return "throw 'Gemini installation requires the official guide'".into();
+            return "throw 'Antigravity installation requires the official guide'".into();
         }
     };
     format!(

@@ -847,7 +847,7 @@ describe("Windows meter interface", () => {
 })
 
 it("Gemini detail requests quota retry and the fixed installation guide without automatic setup", async () => {
-  const gemini: UsageSnapshot = {schemaVersion:1,providerId:"gemini",displayName:"Gemini",status:"unavailable",usedRatio:null,primaryMetric:null,fetchedAt:"2026-09-08T00:00:00Z",staleAfterSeconds:300}
+  const gemini: UsageSnapshot = {schemaVersion:1,providerId:"gemini",displayName:"Google Antigravity",status:"unavailable",usedRatio:null,primaryMetric:null,fetchedAt:"2026-09-08T00:00:00Z",staleAfterSeconds:300}
   const calls: string[] = []
   tauri.invoke.mockImplementation(command => {
     calls.push(command)
@@ -859,11 +859,11 @@ it("Gemini detail requests quota retry and the fixed installation guide without 
   render(<DetailSurface />)
   await act(async () => { await Promise.resolve() })
   act(() => emitTauriEvent("active-detail-changed", gemini))
-  expect(screen.getByText("Gemini CLI")).toBeVisible()
-  fireEvent.click(screen.getByRole("button", {name:"Check Gemini status"}))
-  expect(await screen.findByText("Gemini status could not be checked. Try again.")).toBeVisible()
+  expect(screen.getByText("Google Antigravity")).toBeVisible()
+  fireEvent.click(screen.getByRole("button", {name:"Check Antigravity status"}))
+  expect(await screen.findByText("Antigravity status could not be checked. Try again.")).toBeVisible()
   expect(tauri.invoke).toHaveBeenCalledWith("service_account_status", {providerId:"gemini",retryUsage:true})
-  fireEvent.click(screen.getByRole("button", {name:"Gemini CLI 0.58.0 installation guide"}))
+  fireEvent.click(screen.getByRole("button", {name:"Antigravity CLI installation guide"}))
   expect(await screen.findByText("The installation guide could not be opened.")).toBeVisible()
   expect(calls).toContain("open_gemini_installation_guide")
   expect(calls).not.toContain("begin_service_sign_in")

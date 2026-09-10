@@ -48,22 +48,21 @@ it("puts DeepSeek credential recovery before retained official history", () => {
 })
 
 it("keeps Gemini on dedicated retry and supported-version installation controls", () => {
-  render(<ProviderDetail {...handlers} snapshot={{...snapshot("gemini", "notInstalled"), displayName: "Gemini"}} onOpenServicesSettings={() => {}} onCheckGeminiStatus={() => {}} onOpenGeminiInstallationGuide={() => {}} />)
+  render(<ProviderDetail {...handlers} snapshot={{...snapshot("gemini", "notInstalled"), displayName: "Google Antigravity"}} onOpenServicesSettings={() => {}} onCheckGeminiStatus={() => {}} onOpenGeminiInstallationGuide={() => {}} />)
   expect(screen.queryByRole("button", {name: "Open Services Settings"})).not.toBeInTheDocument()
-  expect(screen.getByRole("button", {name: "Check Gemini status"})).toBeVisible()
-  expect(screen.getByRole("button", {name: "Gemini CLI 0.58.0 installation guide"})).toBeVisible()
-  expect(screen.getByText("Requires Node.js 20 or later.")).toBeVisible()
-  expect(screen.getByText("npm install -g @google/gemini-cli@0.58.0")).toBeVisible()
-  expect(screen.getByText("Run gemini and choose Sign in with Google.")).toBeVisible()
+  expect(screen.getByRole("button", {name: "Check Antigravity status"})).toBeVisible()
+  expect(screen.getByRole("button", {name: "Antigravity CLI installation guide"})).toBeVisible()
+  expect(screen.getByText("irm https://antigravity.google/cli/install.ps1 | iex")).toBeVisible()
+  expect(screen.getByText("Run agy and complete Google sign-in.")).toBeVisible()
   expect(screen.getByText("Return to AI Token Meter and choose Check Status.")).toBeVisible()
 })
 
 it("routes cached Gemini authentication to sign-in while keeping network cache passive", () => {
   const base = {
     ...snapshot("gemini", "cached"),
-    displayName: "Gemini",
+    displayName: "Google Antigravity",
     usedRatio: 0.25,
-    geminiQuotaMetrics: [{label: "Pro", current: 25, limit: 100, unit: "percent" as const, kind: "officialLimit" as const}],
+    geminiQuotaMetrics: [{label: "Gemini · Weekly", current: 25, limit: 100, unit: "percent" as const, kind: "officialLimit" as const, resetAt: "2026-09-17T10:00:00Z"}],
   }
   const props = {
     ...handlers,
@@ -71,12 +70,12 @@ it("routes cached Gemini authentication to sign-in while keeping network cache p
     onOpenGeminiInstallationGuide: () => {},
   }
   const {rerender} = render(<ProviderDetail {...props} snapshot={{...base, statusMessage: "Cached · sign in required"}} />)
-  expect(screen.getByText("Run gemini and choose Sign in with Google.")).toBeVisible()
-  expect(screen.queryByText("npm install -g @google/gemini-cli@0.58.0")).not.toBeInTheDocument()
+  expect(screen.getByText("Run agy and complete Google sign-in.")).toBeVisible()
+  expect(screen.queryByText("irm https://antigravity.google/cli/install.ps1 | iex")).not.toBeInTheDocument()
 
   rerender(<ProviderDetail {...props} snapshot={{...base, statusMessage: "Cached · refresh timed out"}} />)
-  expect(screen.queryByText("Run gemini and choose Sign in with Google.")).not.toBeInTheDocument()
-  expect(screen.queryByText("npm install -g @google/gemini-cli@0.58.0")).not.toBeInTheDocument()
+  expect(screen.queryByText("Run agy and complete Google sign-in.")).not.toBeInTheDocument()
+  expect(screen.queryByText("irm https://antigravity.google/cli/install.ps1 | iex")).not.toBeInTheDocument()
 })
 
 it("keeps cached quota visible while exposing expired-login recovery", () => {

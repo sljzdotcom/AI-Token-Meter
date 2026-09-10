@@ -9,6 +9,7 @@ pub fn official_installation_paths(
         paths.push(profile.join(".local").join("bin"));
     }
     if let Some(local) = local_app_data {
+        paths.push(local.join("agy").join("bin"));
         paths.push(
             local
                 .join("Programs")

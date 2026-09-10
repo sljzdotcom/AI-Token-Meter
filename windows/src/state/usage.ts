@@ -53,7 +53,7 @@ export const unavailableSnapshots: UsageSnapshot[] = [
   ["claude", "Claude Code"],
   ["codex", "OpenAI Codex"],
   ["deepseek", "DeepSeek"],
-  ["gemini", "Gemini"],
+  ["gemini", "Google Antigravity"],
 ].map(([providerId, displayName]) => ({
   schemaVersion: 1,
   providerId: providerId as ProviderId,

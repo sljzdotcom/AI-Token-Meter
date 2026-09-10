@@ -92,7 +92,7 @@ pub fn launch_login(
     let invocation = match provider {
         CliProvider::Claude => claude_login_command(&candidate),
         CliProvider::Codex => codex_login_command(&candidate),
-        CliProvider::Gemini => return Err("Gemini sign-in requires the official CLI guide"),
+        CliProvider::Gemini => return Err("Antigravity sign-in requires the official CLI guide"),
     }
     .map_err(|_| "The sign-in command could not be prepared")?;
     let mut command = Command::new(&invocation.executable);
@@ -187,7 +187,7 @@ pub fn open_installation_guide(provider: CliProvider) -> Result<(), &'static str
     let url = match provider {
         CliProvider::Claude => "https://code.claude.com/docs/en/setup",
         CliProvider::Codex => "https://learn.chatgpt.com/docs/codex/cli",
-        CliProvider::Gemini => "https://geminicli.com/docs/get-started/authentication/",
+        CliProvider::Gemini => "https://antigravity.google/docs/cli/install/",
     };
     let root =
         std::env::var_os("SystemRoot").ok_or("The installation guide could not be opened")?;

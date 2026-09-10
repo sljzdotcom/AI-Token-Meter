@@ -16,8 +16,8 @@ fn version_preflight_runs_real_bounded_process_in_the_same_isolation() {
         &[],
     )
     .unwrap();
-    let exe = dir.path().join("gemini.exe");
-    std::fs::write(&exe,"#!/bin/sh\n[ -f .env ] && [ -n \"$GEMINI_CLI_SYSTEM_SETTINGS_PATH\" ] && [ \"$NO_BROWSER\" = true ] || exit 7\ncase \"$*\" in *'--version'*) printf '0.58.0\\n';; *) exit 9;; esac\n").unwrap();
+    let exe = dir.path().join("agy.exe");
+    std::fs::write(&exe,"#!/bin/sh\n[ -f .env ] && [ \"$NO_BROWSER\" = true ] && [ \"$TERM\" = dumb ] || exit 7\ncase \"$*\" in *'--version'*'--log-file'*) printf '1.1.28\\n';; *) exit 9;; esac\n").unwrap();
     std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o700)).unwrap();
     let inputs = DiscoveryInputs {
         conventional_paths: vec![dir.path().into()],
@@ -32,7 +32,16 @@ fn version_preflight_runs_real_bounded_process_in_the_same_isolation() {
         .unwrap()
         .is_some()
     );
-    std::fs::write(&exe, "#!/bin/sh\nprintf '0.59.0\\n'\n").unwrap();
+    std::fs::write(&exe, "#!/bin/sh\nprintf '1.1.27\\n'\n").unwrap();
+    assert!(matches!(
+        discover(
+            &environment,
+            inputs.clone(),
+            Arc::new(CancellationToken::new())
+        ),
+        Err(CollectionError::UnsupportedVersion)
+    ));
+    std::fs::write(&exe, "#!/bin/sh\nprintf '2.0.0\\n'\n").unwrap();
     assert!(matches!(
         discover(
             &environment,
