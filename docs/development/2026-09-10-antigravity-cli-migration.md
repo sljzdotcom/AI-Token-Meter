@@ -39,3 +39,5 @@ CLI 的剩余百分比统一换算为内部已用百分比，详情卡显示原�
 提交前范围、隐私、缓存兼容和平台差异复核发现并关闭四项缺口：macOS改用普通有界进程、详情明确显示剩余口径、Windows四窗口缓存状态避免底部裁切、架构概览移除旧PTY/ConPTY现状描述。最终自审无遗留的Critical、Important或Minor发现；PR原生双平台CI仍是合并前门禁。
 
 真实 Windows 11 GUI/DPI 与用户设备上的四窗口显示仍属于现场验收；本项不自动发布。
+
+PR #22 的实现候选 `5dc6be0` 已通过原生双平台门禁：macOS workflow `34420886177` 用时2分29秒；Windows workflow `34420886221` 用时11分42秒，包含真实 Microsoft Edge 密度、完整 Rust runtime、NSIS、GUI subsystem 与安装器上传。首轮 Windows workflow `34420661996` 曾准确发现340×760缓存详情越界，修复后同一门禁通过；最终证据提交与合并后 main CI 仍待完成。
