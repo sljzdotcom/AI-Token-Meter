@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+## 0.7.2 - 2026-09-10
+
+稳定修复版；macOS build21。恢复Google Antigravity详情深色底板，并把Compact圆环两侧留白精确减半。[发布记录](docs/development/2026-09-10-v0.7.2-release.md)。
+
+### Changed
+
+- Compact浮动条逻辑宽度由65收至56.5pt/px，每侧留白由8.5减至4.25；48pt/px圆环、Logo、间距、1至4项高度、Comfortable和折叠把手保持。
+
+### Fixed
+
+- macOS Google Antigravity详情恢复与其他Provider一致的深海黑蓝底板，连接、四个额度窗口、重试和安装入口保持；Windows同步增加真实浏览器表面对等性门禁。
+
 ## 0.7.1 - 2026-09-10
 
 稳定功能版；macOS build20。迁移Google Antigravity额度采集，并交付更紧凑的浮动条与菜单面板品牌调整。[发布记录](docs/development/2026-09-10-v0.7.0-release.md)。

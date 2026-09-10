@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-10](2026-09-10-v0.7.2-release.md) | 0.7.2 Antigravity详情与Compact稳定修复发布 | 版本、完整门禁、PR/main、签名资产和公开更新源按发布事务留证 |
 | [2026-09-10](2026-09-10-compact-strip-padding-halving.md) | Compact圆环两侧留白减半 | 双平台Compact宽度65→56.5，48圆环与纵向尺寸保持；专项原生、浏览器及同尺度截图通过 |
 | [2026-09-10](2026-09-10-antigravity-detail-surface-fix.md) | Antigravity详情底板修复 | macOS恢复统一深色底板；Windows四Provider真实浏览器对等性通过 |
 | [2026-09-10](2026-09-10-windows-frontend-test-reliability.md) | Windows发布前端测试文件调度可靠性 | 保留5秒单项上限并串行jsdom文件；PR/main/标签Windows原生门禁及0.7.1公开发布通过 |
