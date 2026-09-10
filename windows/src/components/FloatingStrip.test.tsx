@@ -8,8 +8,8 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
   it.each([
-    ["compact", "left", 56.5, 286], ["compact", "right", 56.5, 286],
-    ["comfortable", "left", 108, 356], ["comfortable", "right", 108, 356],
+    ["compact", "left", 65, 328], ["compact", "right", 65, 328],
+    ["comfortable", "left", 108, 404], ["comfortable", "right", 108, 404],
   ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
     const activate = vi.fn()
     const drag = vi.fn()
@@ -22,11 +22,11 @@ describe("compact floating strip interactions", () => {
       const strip = screen.getByRole("navigation")
       expect(strip.style.getPropertyValue("--strip-width")).toBe(`${width}px`)
       expect(strip.style.getPropertyValue("--strip-height")).toBe(`${height}px`)
-      if (density === "compact") expect((width - 48) / 2).toBe(4.25)
+      if (density === "compact") expect((width - 48) / 2).toBe(8.5)
       // Dispatch pointerdown with a real button value; jsdom lacks PointerEvent.
       fireEvent(strip, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
       expect(drag).toHaveBeenCalledTimes(1)
-      for (const [index, button] of screen.getAllByRole("button").entries()) {
+      for (const [index, button] of screen.getAllByRole("button", {name: /usage$/}).entries()) {
         fireEvent(button, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
         fireEvent.click(button)
         expect(activate).toHaveBeenNthCalledWith(index + 1, defaultStripPreferences.orderedProviders[index])
@@ -64,8 +64,8 @@ describe("compact floating strip interactions", () => {
   })
   it("renders only selected services in configured order", () => {
     render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
-      preferences={{ density: "compact", foldDelay: 0, orderedProviders: ["deepseek", "codex", "claude"], hiddenProviders: ["codex"], hiddenUntil: null }} />)
-    expect(screen.getAllByRole("button").map(b => b.getAttribute("aria-label"))).toEqual(["DeepSeek usage", "Claude Code usage"])
+      preferences={{...defaultStripPreferences, density: "compact", orderedProviders: ["deepseek", "codex", "claude"], hiddenProviders: ["codex"], hiddenUntil: null }} />)
+    expect(screen.getAllByRole("button", {name: /usage$/}).map(b => b.getAttribute("aria-label"))).toEqual(["DeepSeek usage", "Claude Code usage"])
   })
   it("right clicking never starts dragging", () => {
     const drag = vi.fn()
@@ -83,5 +83,18 @@ describe("compact floating strip interactions", () => {
     expect(expand.querySelector("span")).toBeInTheDocument()
     fireEvent.click(expand)
     expect(interaction).toHaveBeenCalledWith("pointer", true)
+  })
+
+  it("opens Settings from the bottom gear without starting a drag", () => {
+    const openSettings = vi.fn()
+    const drag = vi.fn()
+    window.addEventListener("meter-drag-requested", drag)
+    render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
+      onSettingsOpen={openSettings} />)
+    fireEvent.pointerDown(screen.getByRole("button", {name: "Settings"}), {button: 0})
+    fireEvent.click(screen.getByRole("button", {name: "Settings"}))
+    expect(openSettings).toHaveBeenCalledOnce()
+    expect(drag).not.toHaveBeenCalled()
+    window.removeEventListener("meter-drag-requested", drag)
   })
 })

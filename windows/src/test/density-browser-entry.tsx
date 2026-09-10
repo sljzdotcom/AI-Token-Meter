@@ -40,7 +40,7 @@ flushSync(() => {
         <div style={{display: "flex", gap: 32}}>
           {(["compact", "comfortable"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 56.5 : 108, height: density === "compact" ? 344 : 428}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 65 : 108, height: density === "compact" ? 386 : 476}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -233,8 +233,8 @@ flushSync(() => setLocale("en"))
 for (const density of ["compact", "comfortable"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
-      const width = density === "compact" ? 56.5 : 108
-      const height = (density === "compact" ? [170,228,286,344] : [212,284,356,428])[count-1]
+      const width = density === "compact" ? 65 : 108
+      const height = (density === "compact" ? [212,270,328,386] : [260,332,404,476])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`
       host.style.cssText = `position:fixed;left:20px;top:20px;width:${width}px;height:${height}px;z-index:2147483647`
@@ -244,13 +244,24 @@ for (const density of ["compact", "comfortable"] as const) {
       flushSync(() => sampleRoot.render(<FloatingStrip activeProvider={null} onProviderActivate={id => activated.push(id)}
         preferences={{...defaultStripPreferences, density, hiddenProviders: defaultStripPreferences.orderedProviders.slice(count)}} snapshots={unavailableSnapshots} />))
       const nav = host.querySelector<HTMLElement>("nav")!
-      const buttons = [...host.querySelectorAll<HTMLButtonElement>("button")]
+      const buttons = [...host.querySelectorAll<HTMLButtonElement>(".usage-ring")]
+      const settingsButton = host.querySelector<HTMLButtonElement>(".floating-strip__settings")!
       for (const button of buttons) button.style.animation = "none"
       const rect = nav.getBoundingClientRect()
       const hitButtons = buttons.every(button => {
         const bounds = button.getBoundingClientRect()
         const target = document.elementFromPoint(bounds.x + bounds.width/2, bounds.y + bounds.height/2)
         return target != null && button.contains(target) && bounds.top >= rect.top && bounds.bottom <= rect.bottom
+      })
+      const ringPerimetersVisible = buttons.every(button => {
+        const bounds = button.getBoundingClientRect()
+        return Array.from({length: 36}, (_, index) => index * Math.PI * 2 / 36).every(angle => {
+          const target = document.elementFromPoint(
+            bounds.x + bounds.width / 2 + Math.cos(angle) * (bounds.width / 2 - 1),
+            bounds.y + bounds.height / 2 + Math.sin(angle) * (bounds.height / 2 - 1),
+          )
+          return target != null && button.contains(target)
+        })
       })
       let drags = 0
       const drag = () => { drags += 1 }
@@ -260,11 +271,12 @@ for (const density of ["compact", "comfortable"] as const) {
         button.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true,button:0}))
         button.click()
       }
+      settingsButton.click()
       window.removeEventListener("meter-drag-requested", drag)
       const firstButtonWidth = buttons[0]?.getBoundingClientRect().width ?? 0
       stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
-        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "compact" ? 4.25 : 24,
-        hitButtons,drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
+        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "compact" ? 8.5 : 24,
+        hitButtons,ringPerimetersVisible,settingsVisible:getComputedStyle(settingsButton).display !== "none",drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
         buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,
         mirroredLogo: buttons.some(button => getComputedStyle(button.querySelector("svg")!).transform !== "none")})
       flushSync(() => sampleRoot.unmount())
@@ -289,11 +301,15 @@ for (const width of [340, 440]) {
     flushSync(() => sampleRoot.render(<ProviderDetail snapshot={value} onPointerEnter={()=>{}} onPointerLeave={()=>{}} onInteractionStart={()=>{}} onInteractionEnd={()=>{}} onCheckGeminiStatus={()=>{retries++}} onOpenGeminiInstallationGuide={()=>{guides++}} />))
     const cards = [...host.querySelectorAll<HTMLElement>(".metric-card")]
     const texts = cards.map(card=>card.textContent ?? "")
+    const identityTitle = host.querySelector<HTMLElement>(".provider-detail__identity strong")!
+    const metricValues = [...host.querySelectorAll<HTMLElement>(".metric-card strong")]
+    const metricBars = [...host.querySelectorAll<HTMLElement>(".metric-bar i")]
     const bounds = host.getBoundingClientRect()
     const nodes = [...host.querySelectorAll<HTMLElement>(".metric-card, .service-actions button, footer")]
     for (const button of host.querySelectorAll<HTMLButtonElement>("button")) button.click()
     const clipped = nodes.flatMap(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]})
     geminiSamples.push({width,status,hasQuota,texts,retries,guides,reasonVisible:status !== "cached" || host.textContent!.includes("Cached · sign in required"),
+      accentRoles:{title:getComputedStyle(identityTitle).color,values:metricValues.map(node=>getComputedStyle(node).color),bars:metricBars.map(node=>getComputedStyle(node).backgroundImage)},
       unclipped:clipped.length===0,clipped})
     flushSync(()=>sampleRoot.unmount());host.remove()
   }

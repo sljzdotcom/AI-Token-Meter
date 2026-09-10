@@ -1,12 +1,14 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-10
+- **事实快照：** 2026-09-11
 - **产品：** AI Token Meter
 - **当前公开稳定版：** 双平台 [`0.7.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.2)（macOS build `21`）
-- **当前源码版本：** 双平台 `0.7.2`
+- **当前源码版本：** 双平台 `0.7.3`（发布候选，macOS build `22`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**0.7.3发布候选：** Compact采用65pt/px新贴边轮廓，新增悬停展开/收起、150/800ms双延迟和底部Settings入口；Google Antigravity详情恢复青绿色强调。候选通过490项Swift、126项Windows前端、245项Rust、真实Chrome布局/命中和0.7.3/build22严格签名App验证；PR、main、正式资产与公网更新源证据正在按[发布计划](design/implementation-plans/2026-09-11-v0.7.3-release.md)推进。
 
 **0.7.2详情与Compact修复已公开：** macOS Google Antigravity详情补回统一深海黑蓝底板；Compact逻辑宽度由65收至56.5pt/px，每侧留白由8.5精确减至4.25，48pt/px圆环和全部纵向尺寸保持。PR #30、合并后main及发布workflow `34486558748`的双平台门禁全部通过；七项公网资产、两端签名与篡改拒绝、三个更新入口均已验收，[发布记录](development/2026-09-10-v0.7.2-release.md)。
 

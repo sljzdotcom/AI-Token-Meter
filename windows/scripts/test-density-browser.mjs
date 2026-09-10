@@ -29,7 +29,7 @@ await runWithCleanup(async () => {
   if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
     if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight
-      || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons
+      || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons || !sample.ringPerimetersVisible || !sample.settingsVisible
       || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
       || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
       throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
@@ -43,6 +43,17 @@ await runWithCleanup(async () => {
         || !sample.texts.some(text=>text.includes("Claude/GPT · Weekly") && text.includes("80% remaining"))
         : sample.texts.some(text=>text.includes("0% remaining")))) {
       throw new Error(`Antigravity detail state mismatch: ${JSON.stringify(sample)}`)
+    }
+    if (sample.accentRoles?.title !== "rgb(62, 214, 178)") {
+      throw new Error(`Antigravity title lost its approved accent: ${JSON.stringify(sample.accentRoles)}`)
+    }
+    if (sample.hasQuota && (
+      sample.accentRoles.values.length !== sample.texts.length
+      || sample.accentRoles.values.some(color => color !== "rgb(62, 214, 178)")
+      || sample.accentRoles.bars.length !== sample.texts.length
+      || sample.accentRoles.bars.some(background => !background.includes("linear-gradient"))
+    )) {
+      throw new Error(`Antigravity quota accents are incomplete: ${JSON.stringify(sample.accentRoles)}`)
     }
   }
   if (report.detailSurfaceSamples?.length !== 9) throw new Error("Missing Provider detail surface scenarios")

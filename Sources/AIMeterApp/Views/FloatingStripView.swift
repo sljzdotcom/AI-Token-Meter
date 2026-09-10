@@ -10,90 +10,113 @@ struct FloatingStripView: View {
     let onAccessibilityMove: (FloatingStripAccessibilityCommand) -> Void
     @Environment(\.openSettings) private var openSettings
     @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
+    @FocusState private var settingsButtonFocused: Bool
+    @State private var isHoveringExpandedStrip = false
 
     var body: some View {
         ZStack {
             if displayState.isFolded {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(red: 0.015, green: 0.04, blue: 0.085))
-                    .overlay {
-                        if let image = FloatingStripBackgroundAsset.defaultImage {
-                            Image(nsImage: image).resizable().scaledToFill()
-                                .scaleEffect(x: displayState.resolvedEdge == .left ? -1 : 1, y: 1)
-                                .overlay(Color.black.opacity(0.46))
+                ZStack(alignment: displayState.resolvedEdge == .left ? .leading : .trailing) {
+                    Color.clear
+                    RoundedRectangle(cornerRadius: 3.5)
+                        .fill(Color(red: 0.015, green: 0.04, blue: 0.085))
+                        .overlay {
+                            if let image = FloatingStripBackgroundAsset.defaultImage {
+                                Image(nsImage: image).resizable().scaledToFill()
+                                    .scaleEffect(x: displayState.resolvedEdge == .left ? -1 : 1, y: 1)
+                                    .overlay(Color.black.opacity(0.46))
+                            }
                         }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay { Capsule().fill(.white.opacity(0.3)).frame(width: 3, height: 40) }
-                    .accessibilityLabel("Expand floating meter")
+                        .clipShape(RoundedRectangle(cornerRadius: 3.5))
+                        .overlay { Capsule().fill(.white.opacity(0.34)).frame(width: 2, height: 38) }
+                        .frame(width: 7, height: 88)
+                }
+                .accessibilityLabel("Expand floating meter")
             } else {
-            FloatingStripSurface(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count)
-                .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count), eoFill: true)
-                .focusable()
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Move floating meter")
-                .accessibilityValue(accessibilityPositionValue)
-                .accessibilityHint("Use up or down to move. Left and right set the edge preference")
-                .onMoveCommand { direction in
-                    switch direction {
-                    case .up: onAccessibilityMove(.moveUp)
-                    case .down: onAccessibilityMove(.moveDown)
-                    case .left: onAccessibilityMove(.moveToLeftEdge)
-                    case .right: onAccessibilityMove(.moveToRightEdge)
-                    default: break
-                    }
-                }
-                .accessibilityAdjustableAction { direction in
-                    switch direction {
-                    case .increment: onAccessibilityMove(.moveUp)
-                    case .decrement: onAccessibilityMove(.moveDown)
-                    @unknown default: break
-                    }
-                }
-                .accessibilityAction(named: "Set edge preference to Left") {
-                    onAccessibilityMove(.moveToLeftEdge)
-                }
-                .accessibilityAction(named: "Set edge preference to Right") {
-                    onAccessibilityMove(.moveToRightEdge)
-                }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        if !displayState.isDragging {
-                            NSCursor.openHand.set()
-                        }
-                    case .ended:
-                        if !displayState.isDragging {
-                            NSCursor.arrow.set()
+                FloatingStripSurface(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count)
+                    .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count), eoFill: true)
+                    .focusable()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Move floating meter")
+                    .accessibilityValue(accessibilityPositionValue)
+                    .accessibilityHint("Use up or down to move. Left and right set the edge preference")
+                    .onMoveCommand { direction in
+                        switch direction {
+                        case .up: onAccessibilityMove(.moveUp)
+                        case .down: onAccessibilityMove(.moveDown)
+                        case .left: onAccessibilityMove(.moveToLeftEdge)
+                        case .right: onAccessibilityMove(.moveToRightEdge)
+                        default: break
                         }
                     }
-                }
-            VStack(spacing: density.spacing) {
-                ForEach(presentations, id: \.provider) { presentation in
-                    Button {
-                        onProviderTap(presentation.provider)
-                    } label: {
-                        UsageRing(
-                            presentation: presentation,
-                            size: density.ringSize,
-                            operation: model.operationState(for: presentation.provider)
-                        )
-                            .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
+                    .accessibilityAdjustableAction { direction in
+                        switch direction {
+                        case .increment: onAccessibilityMove(.moveUp)
+                        case .decrement: onAccessibilityMove(.moveDown)
+                        @unknown default: break
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityValue(session.accessibilityValue(for: presentation.provider))
-                    .accessibilityFocused(
-                        $accessibilityFocusedProvider,
-                        equals: presentation.provider
-                    )
-                    .animation(
-                        .spring(response: 0.28, dampingFraction: 0.8),
-                        value: session.selectedProvider
-                    )
+                    .accessibilityAction(named: "Set edge preference to Left") {
+                        onAccessibilityMove(.moveToLeftEdge)
+                    }
+                    .accessibilityAction(named: "Set edge preference to Right") {
+                        onAccessibilityMove(.moveToRightEdge)
+                    }
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active:
+                            if !displayState.isDragging { NSCursor.openHand.set() }
+                        case .ended:
+                            if !displayState.isDragging { NSCursor.arrow.set() }
+                        }
+                    }
+
+                VStack(spacing: 0) {
+                    VStack(spacing: density.spacing) {
+                        ForEach(presentations, id: \.provider) { presentation in
+                            Button {
+                                onProviderTap(presentation.provider)
+                            } label: {
+                                UsageRing(
+                                    presentation: presentation,
+                                    size: density.ringSize,
+                                    operation: model.operationState(for: presentation.provider)
+                                )
+                                    .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityValue(session.accessibilityValue(for: presentation.provider))
+                            .accessibilityFocused($accessibilityFocusedProvider, equals: presentation.provider)
+                            .animation(.spring(response: 0.28, dampingFraction: 0.8), value: session.selectedProvider)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(height: density.contentHeight(providerCount: presentations.count))
+
+                    ZStack(alignment: displayState.resolvedEdge == .left ? .leading : .trailing) {
+                        Color.clear
+                        Button {
+                            model.requestSettings(.appearance)
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: density == .compact ? 11 : 13, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.86))
+                                .frame(width: density == .compact ? 24 : 28, height: density == .compact ? 24 : 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .focused($settingsButtonFocused)
+                        .help("Settings")
+                        .accessibilityLabel("Settings")
+                        .padding(displayState.resolvedEdge == .left ? .leading : .trailing, density == .compact ? 2 : 4)
+                        .opacity(isHoveringExpandedStrip || settingsButtonFocused ? 1 : 0)
+                    }
+                    .frame(height: density.settingsZoneHeight)
                 }
-            }
-            .padding(.vertical, FloatingStripContentLayout.verticalPadding)
-            .padding(.horizontal, FloatingStripContentLayout.horizontalPadding(for: density))
+                .opacity(displayState.showsExpandedContent ? 1 : 0)
+                .allowsHitTesting(displayState.showsExpandedContent)
+                .animation(.easeOut(duration: 0.14), value: displayState.showsExpandedContent)
+                .onHover { isHoveringExpandedStrip = $0 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

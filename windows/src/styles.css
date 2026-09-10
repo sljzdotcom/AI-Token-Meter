@@ -85,11 +85,12 @@ button {
 .meter-edge--left .floating-strip { transform: scaleX(-1); }
 .meter-edge--left .floating-strip > * { transform: scaleX(-1); }
 .meter-stage--strip-only.meter-edge--left .floating-strip { clip-path: url("#strip-clip-right"); }
-.meter-folded { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #040b18 url("/floating-strip-deep-sea.png") center/cover; padding: 0; display: grid; place-items: center; }
+.meter-folded { width: 100%; height: 100%; border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: flex-end; position: relative; }
+.meter-folded::before { content: ""; width: 7px; height: 88px; border-radius: 3.5px; background: #040b18 url("/floating-strip-deep-sea.png") center/cover; position: absolute; inset-inline-end: 0; }
 .meter-folded span { width: 3px; height: 40px; border-radius: 3px; background: rgb(255 255 255 / 30%); }
 .meter-edge--left .meter-folded { transform: scaleX(-1); }
 @media (prefers-reduced-motion: no-preference) {
-  .floating-strip > .usage-ring { animation: strip-expand-in 180ms ease-out; }
+  .floating-strip__providers > .usage-ring { animation: strip-expand-in 180ms ease-out; }
   .meter-folded { animation: strip-expand-in 160ms ease-out; }
 }
 @keyframes strip-expand-in { from { opacity: 0; } to { opacity: 1; } }
@@ -131,15 +132,54 @@ button {
   background-size: cover;
   border-radius: 64px 0 0 64px;
   display: flex;
-  flex: 0 0 var(--strip-width, 56.5px);
-  flex-direction: column;
-  gap: var(--strip-gap, 10px);
+  flex: 0 0 var(--strip-width, 65px);
   isolation: isolate;
-  justify-content: center;
-  min-height: var(--strip-height, 286px);
+  min-height: var(--strip-height, 328px);
   padding: 0;
   clip-path: url("#strip-clip-right");
   position: relative;
+}
+
+.floating-strip__providers {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--strip-gap, 10px);
+  height: var(--strip-content-height, 286px);
+  justify-content: center;
+  width: 100%;
+}
+
+.floating-strip__settings {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  bottom: 12px;
+  display: flex;
+  font-family: "Segoe UI Symbol", sans-serif;
+  font-size: 13px;
+  height: 24px;
+  justify-content: center;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  right: 2px;
+  transition: opacity 120ms ease-out, background-color 120ms ease-out;
+  width: 24px;
+}
+
+.floating-strip:hover .floating-strip__settings,
+.floating-strip__settings:focus-visible {
+  background: rgb(255 255 255 / 10%);
+  opacity: 1;
+}
+
+@media (max-width: 32px) {
+  .floating-strip__providers,
+  .floating-strip__settings {
+    display: none;
+  }
 }
 
 .floating-strip::before,
@@ -278,6 +318,11 @@ button {
   --provider-card-min-height: 90px;
   --provider-detail-gap: 10px;
   --provider-detail-padding: 20px;
+}
+
+.provider-detail--gemini .provider-detail__identity strong,
+.provider-detail--gemini .metric-card strong {
+  color: var(--detail-accent);
 }
 
 .provider-detail__header,

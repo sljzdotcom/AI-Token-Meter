@@ -8,6 +8,7 @@ final class FloatingStripDisplayState {
     var normalizedCenterY: Double
     var isDragging = false
     var isFolded = false
+    var showsExpandedContent = true
 
     init(
         resolvedEdge: FloatingStripEdge = .right,

@@ -12,6 +12,9 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-11](2026-09-11-v0.7.3-release.md) | 0.7.3浮动条交互与Antigravity视觉发布 | 65pt贴边浮动条、悬停双延迟、Settings入口与强调色恢复；发布事务留证中 |
+| [2026-09-10](2026-09-10-floating-strip-hover-redesign.md) | 65pt贴边浮动条与悬停交互 | 双平台新轮廓、内容安全过渡、快捷Settings与双延迟偏好 |
+| [2026-09-10](2026-09-10-antigravity-accent-restoration.md) | Antigravity详情强调色恢复 | 青绿色标题、额度值与进度恢复，深海底板及数据语义保持 |
 | [2026-09-10](2026-09-10-v0.7.2-release.md) | 0.7.2 Antigravity详情与Compact稳定修复发布 | 版本、完整门禁、PR/main、签名资产和公开更新源按发布事务留证 |
 | [2026-09-10](2026-09-10-compact-strip-padding-halving.md) | Compact圆环两侧留白减半 | 双平台Compact宽度65→56.5，48圆环与纵向尺寸保持；专项原生、浏览器及同尺度截图通过 |
 | [2026-09-10](2026-09-10-antigravity-detail-surface-fix.md) | Antigravity详情底板修复 | macOS恢复统一深色底板；Windows四Provider真实浏览器对等性通过 |

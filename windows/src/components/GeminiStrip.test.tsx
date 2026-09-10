@@ -5,13 +5,13 @@ import { ProviderDetail } from "../details/ProviderDetail"
 import { defaultStripPreferences } from "../state/stripPreferences"
 import { unavailableSnapshots } from "../state/usage"
 
-it.each([['compact','left',56.5,344],['compact','right',56.5,344],['comfortable','left',108,428],['comfortable','right',108,428]] as const)("four %s/%s buttons fit the same native size and remain selectable", (density,edge,width,height) => {
+it.each([['compact','left',65,386],['compact','right',65,386],['comfortable','left',108,476],['comfortable','right',108,476]] as const)("four %s/%s buttons fit the same native size and remain selectable", (density,edge,width,height) => {
   let selected = ''
   const {container} = render(<div className={`meter-edge--${edge}`}><FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={id => {selected=id}} preferences={{...defaultStripPreferences,density}} /></div>)
   const nav = screen.getByRole('navigation')
   expect(nav.style.getPropertyValue('--strip-width')).toBe(`${width}px`)
   expect(nav.style.getPropertyValue('--strip-height')).toBe(`${height}px`)
-  expect(screen.getAllByRole('button')).toHaveLength(4)
+  expect(screen.getAllByRole('button', {name: /usage$/})).toHaveLength(4)
   fireEvent.click(screen.getByRole('button',{name:'Google Antigravity usage'}))
   expect(selected).toBe('gemini')
   expect(screen.getByRole('progressbar',{name:'Google Antigravity usage'})).not.toHaveAttribute('aria-valuenow')

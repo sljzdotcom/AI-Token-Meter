@@ -131,6 +131,25 @@ struct DocumentationCheckScriptTests {
         #expect(result.output.contains("v0.2.0 download guidance"))
     }
 
+    @Test("A release candidate may keep the last published appcast download")
+    func acceptsCandidateWithOlderPublishedDownload() throws {
+        let fixture = try makeFixture(
+            bundleVersion: "0.2.0",
+            readmeVersion: "0.2.0",
+            downloadVersion: "0.1.0"
+        )
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        try """
+        <rss><channel><item>
+        <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+        </item></channel></rss>
+        """.write(to: fixture.appendingPathComponent("appcast.xml"), atomically: true, encoding: .utf8)
+
+        let result = try runChecker(at: fixture)
+
+        #expect(result.status == 0)
+    }
+
     @Test("A missing public community file fails")
     func rejectsMissingPublicCommunityFile() throws {
         let fixture = try makeFixture()

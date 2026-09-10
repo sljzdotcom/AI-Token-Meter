@@ -29,6 +29,18 @@ it("fourth provider is named and can move while only the last visible provider i
   expect(screen.getByLabelText("Move Google Antigravity down")).toBeDisabled()
 })
 
+it("edits independent bounded show and hide delays", () => {
+  render(<StatefulSettings />)
+  const reveal = screen.getByLabelText("Show delay (ms)") as HTMLInputElement
+  const collapse = screen.getByLabelText("Hide delay (ms)") as HTMLInputElement
+  expect(reveal.value).toBe("150")
+  expect(collapse.value).toBe("800")
+  fireEvent.change(reveal, {target: {value: "2500"}})
+  fireEvent.change(collapse, {target: {value: "-1"}})
+  expect(reveal.value).toBe("2000")
+  expect(collapse.value).toBe("0")
+})
+
 it("unknown Gemini capability shows unavailable without implying missing installation or authentication", () => {
   render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Services" />)
   expect(screen.getByText("Google Antigravity")).toBeVisible()

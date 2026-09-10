@@ -42,6 +42,8 @@
 | [Windows DeepSeek 最终质量门禁修复计划](design/implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) | 三阶段 TDD、独立审查、全量门禁与 Windows runner 验证 |
 | [Google Antigravity CLI 接入迁移](design/specifications/2026-09-09-antigravity-cli-migration-design.md) | 官方`agy`身份、无推理额度结构、已确认数据范围、兼容迁移与安全边界 |
 | [Google Antigravity CLI 接入迁移计划](design/implementation-plans/2026-09-10-antigravity-cli-migration.md) | Swift/Rust额度解析、官方命令、双平台界面、兼容迁移与验证检查点 |
+| [65pt贴边浮动条与悬停交互](design/specifications/2026-09-10-floating-strip-hover-redesign.md) | 镜像S形轮廓、内容安全过渡、快捷Settings与双延迟语义 |
+| [Google Antigravity详情强调色恢复](design/specifications/2026-09-10-antigravity-accent-restoration-design.md) | 双平台青绿色强调角色、状态覆盖和保持边界 |
 
 ## 开发与维护
 
@@ -66,6 +68,7 @@
 | [v0.3.0-preview.2 Release notes](releases/v0.3.0-preview.2.md) | Windows 启动空白 Terminal 修复、PE 产物门禁及真机复验项 |
 | [v0.3.0-preview.3 Release notes](releases/v0.3.0-preview.3.md) | Windows DeepSeek 显式同步、可恢复窗口生命周期、紧凑界面与字体下拉可读性修复 |
 | [v0.7.2 Release notes](releases/v0.7.2.md) | Antigravity详情底板修复与56.5pt Compact浮动条 |
+| [v0.7.3 Release notes](releases/v0.7.3.md) | 65pt悬停浮动条、快捷Settings、双延迟与Antigravity强调色 |
 | [v0.7.1 Release notes](releases/v0.7.1.md) | Google Antigravity迁移、65pt Compact浮动条、40pt菜单Logo与发布测试可靠性 |
 | [v0.7.0 未公开候选说明](releases/v0.7.0.md) | 首次标签候选的功能范围；实际公开恢复版为0.7.1 |
 | [v0.6.3 Release notes](releases/v0.6.3.md) | macOS About独立作者行移除，保留社交链接与开源归属 |
@@ -73,6 +76,7 @@
 | [v0.6.1 Release notes](releases/v0.6.1.md) | 四服务首次接入、DeepSeek凭据恢复与Gemini官方安装引导修复 |
 | [v0.6.0 Release notes](releases/v0.6.0.md) | Gemini 四服务、刷新间隔、浮动条与关于页改进，以及双平台稳定更新边界 |
 | [v0.7.2 发布记录](development/2026-09-10-v0.7.2-release.md) | 双平台门禁、签名资产、更新源与匿名公网验收 |
+| [v0.7.3 发布记录](development/2026-09-11-v0.7.3-release.md) | 浮动条与强调色候选、双平台门禁、签名资产和更新源验收 |
 | [v0.7.0 → v0.7.1 发布记录](development/2026-09-10-v0.7.0-release.md) | 初次未公开候选、恢复版本、原生CI、签名资产与三个更新源证据 |
 | [v0.6.3 发布记录](development/2026-09-09-v0.6.3-release.md) | 版本/build18、原生CI、双平台签名资产、三个更新源与匿名验收证据 |
 | [v0.6.2 发布记录](development/2026-09-09-v0.6.2-release.md) | 版本候选、原生CI、双平台签名资产、更新源与匿名验收证据 |

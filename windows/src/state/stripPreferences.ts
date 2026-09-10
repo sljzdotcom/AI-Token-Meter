@@ -2,12 +2,13 @@ import type { ProviderId } from "./usage"
 export type StripPreferences = {
   schemaVersion?: number
   density: "compact" | "comfortable"
-  foldDelay: number
+  revealDelayMilliseconds: number
+  collapseDelayMilliseconds: number
   orderedProviders: ProviderId[]
   hiddenProviders: ProviderId[]
   hiddenUntil: number | null
 }
 export const defaultStripPreferences: StripPreferences = {
-  schemaVersion: 2, density: "compact", foldDelay: 0,
+  schemaVersion: 3, density: "compact", revealDelayMilliseconds: 150, collapseDelayMilliseconds: 800,
   orderedProviders: ["claude", "codex", "deepseek", "gemini"], hiddenProviders: [], hiddenUntil: null,
 }

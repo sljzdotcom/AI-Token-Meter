@@ -1,16 +1,28 @@
 import AIMeterCore
 import SwiftUI
 
+enum GeminiDetailPresentation {
+    static func remainingText(for metric: UsageMetric) -> String {
+        "\(Int(100 - metric.current))% remaining"
+    }
+}
+
 struct GeminiDetailView: View {
     let snapshot: UsageSnapshot
     let onRetry: () -> Void
+
+    private var accentStyle: AnyShapeStyle {
+        AnyShapeStyle(UsageProvider.gemini.accentPalette.gradient)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
                     ProviderLogo(provider: .gemini)
-                    Text("Google Antigravity").aiMeterFont(.title2, weight: .semibold)
+                    Text("Google Antigravity")
+                        .aiMeterFont(.title2, weight: .semibold)
+                        .foregroundStyle(accentStyle)
                 }
                 if let metrics = snapshot.geminiQuotaMetrics, !metrics.isEmpty {
                     Text(snapshot.collectionStatus == .cached ? "Last available quota" : "Official quota").aiMeterFont(.headline)
@@ -19,9 +31,15 @@ struct GeminiDetailView: View {
                             HStack {
                                 Text(metric.label)
                                 Spacer()
-                                Text("\(Int(100 - metric.current))% remaining").monospacedDigit()
+                                Text(GeminiDetailPresentation.remainingText(for: metric))
+                                    .monospacedDigit()
+                                    .foregroundStyle(accentStyle)
                             }
-                            ProgressView(value: metric.current, total: 100)
+                            AIMeterProgressBar(
+                                provider: .gemini,
+                                fraction: metric.usedFraction ?? 0,
+                                semantic: .normal
+                            )
                             if let resetAt = metric.resetAt {
                                 Text("Resets \(resetAt.formatted(date: .abbreviated, time: .shortened))")
                                     .aiMeterFont(.caption)
