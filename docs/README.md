@@ -70,6 +70,7 @@
 | [v0.7.2 Release notes](releases/v0.7.2.md) | Antigravity详情底板修复与56.5pt Compact浮动条 |
 | [v0.7.3 Release notes](releases/v0.7.3.md) | 65pt悬停浮动条、快捷Settings、双延迟与Antigravity强调色 |
 | [v0.8.0 Release notes](releases/v0.8.0.md) | 65pt Mini、78pt Compact、独立自动收起与Settings底弧修正 |
+| [v0.8.1 Release notes](releases/v0.8.1.md) | 14pt内凹收起把手、镜像轮廓、底部Settings入口移除与独立悬浮条设置页签 |
 | [v0.7.1 Release notes](releases/v0.7.1.md) | Google Antigravity迁移、65pt Compact浮动条、40pt菜单Logo与发布测试可靠性 |
 | [v0.7.0 未公开候选说明](releases/v0.7.0.md) | 首次标签候选的功能范围；实际公开恢复版为0.7.1 |
 | [v0.6.3 Release notes](releases/v0.6.3.md) | macOS About独立作者行移除，保留社交链接与开源归属 |
@@ -79,6 +80,7 @@
 | [v0.7.2 发布记录](development/2026-09-10-v0.7.2-release.md) | 双平台门禁、签名资产、更新源与匿名公网验收 |
 | [v0.7.3 发布记录](development/2026-09-11-v0.7.3-release.md) | 浮动条与强调色候选、双平台门禁、签名资产和更新源验收 |
 | [v0.8.0 发布记录](development/2026-09-11-v0.8.0-release.md) | 三档浮动条候选、双平台门禁、签名资产和更新源验收 |
+| [v0.8.1 发布记录](development/2026-09-11-v0.8.1-release.md) | 浮动条轮廓与设置分类候选、双平台门禁、签名资产和更新源验收 |
 | [v0.7.0 → v0.7.1 发布记录](development/2026-09-10-v0.7.0-release.md) | 初次未公开候选、恢复版本、原生CI、签名资产与三个更新源证据 |
 | [v0.6.3 发布记录](development/2026-09-09-v0.6.3-release.md) | 版本/build18、原生CI、双平台签名资产、三个更新源与匿名验收证据 |
 | [v0.6.2 发布记录](development/2026-09-09-v0.6.2-release.md) | 版本候选、原生CI、双平台签名资产、更新源与匿名验收证据 |

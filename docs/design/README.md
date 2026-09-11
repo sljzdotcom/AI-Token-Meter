@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-11 | 0.8.1 浮动条轮廓与设置分类稳定发布 | 沿用本轮轮廓及设置分类规格与双平台发布流程 | [计划](implementation-plans/2026-09-11-v0.8.1-release.md) |
 | 2026-09-11 | 悬浮条独立设置页签与Appearance精简 | [规格](specifications/2026-09-11-floating-strip-settings-tab-design.md) | [计划](implementation-plans/2026-09-11-floating-strip-settings-tab.md) |
 | 2026-09-11 | 浮动条14pt内凹收起把手、镜像轮廓与底部Settings入口移除 | [规格](specifications/2026-09-11-floating-strip-contour-simplification-design.md) | [计划](implementation-plans/2026-09-11-floating-strip-contour-simplification.md) |
 | 2026-09-11 | 0.8.0 Mini浮动条稳定发布 | 沿用本轮修正规格与双平台发布流程 | [计划](implementation-plans/2026-09-11-v0.8.0-release.md) |
