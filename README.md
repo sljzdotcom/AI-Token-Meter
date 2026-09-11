@@ -13,9 +13,9 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版仍为[0.8.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.1)（macOS build `24`）。源码已进入`0.8.2` / build `25`发布候选；发布进度见[0.8.2发布记录](docs/development/2026-09-11-v0.8.2-release.md)。
+> 当前公开稳定版为[0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)（macOS build `25`）。现有macOS与Windows安装均可通过应用内更新入口升级；完整证据见[0.8.2发布记录](docs/development/2026-09-11-v0.8.2-release.md)。
 
-> `0.8.2` / build `25`候选：Settings密度立即调整已展开悬浮条，左右贴边时保留圆角并加强反向肩弧。[Release Notes](docs/releases/v0.8.2.md)。
+> `0.8.2` / build `25`：Settings密度立即调整已展开悬浮条，左右贴边时保留圆角并加强反向肩弧。[Release Notes](docs/releases/v0.8.2.md)。
 
 ## Screenshots
 
@@ -25,7 +25,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.8.2` / build `25`候选：三档密度设置对已展开悬浮条立即生效，左右贴边轮廓保持圆角和清晰反向肩弧。[Release Notes](docs/releases/v0.8.2.md)。
+> `0.8.2` / build `25`：三档密度设置对已展开悬浮条立即生效，左右贴边轮廓保持圆角和清晰反向肩弧。[Release Notes](docs/releases/v0.8.2.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -89,7 +89,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-0.8.2公开后下载页面：**[Download v0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)**：
+当前下载页面：**[Download v0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)**：
 
 - macOS：下载 `AI-Token-Meter-0.8.2-macOS-arm64.zip` 与同名 `.sha256`；
 - Windows：下载 `AI-Token-Meter-0.8.2-windows-x64-setup.exe` 与同名 `.sha256`。
@@ -245,7 +245,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码候选为`0.8.2`（macOS build `25`），当前公开稳定版为`0.8.1`；发布进度见[0.8.2发布记录](docs/development/2026-09-11-v0.8.2-release.md)。
+- 当前源码与公开稳定版均为`0.8.2`（macOS build `25`）；发布证据见[0.8.2发布记录](docs/development/2026-09-11-v0.8.2-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
