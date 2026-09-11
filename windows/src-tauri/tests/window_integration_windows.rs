@@ -14,7 +14,7 @@ mod windows_integration {
     #[test]
     fn s_curve_builds_a_valid_win32_region_on_both_edges() {
         for edge in [Edge::Left, Edge::Right] {
-            let points = meter_shape_points(PhysicalSize::new(116, 450), edge)
+            let points = meter_shape_points(PhysicalSize::new(116, 450), 95, edge)
                 .into_iter()
                 .map(|point| POINT {
                     x: point.x,

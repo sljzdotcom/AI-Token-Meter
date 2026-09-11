@@ -307,7 +307,7 @@ fn a_disconnected_monitor_falls_back_to_primary_without_losing_side() {
 
 #[test]
 fn meter_shape_tapers_to_the_screen_edge_without_square_shoulders() {
-    let points = meter_shape_points(PhysicalSize::new(65, 344), Edge::Right);
+    let points = meter_shape_points(PhysicalSize::new(65, 344), 70, Edge::Right);
     assert_eq!(
         points.first().map(|point| (point.x, point.y)),
         Some((65, 4))
@@ -320,7 +320,7 @@ fn meter_shape_tapers_to_the_screen_edge_without_square_shoulders() {
     assert!(points.iter().any(|point| point.x == 0 && point.y == 274));
     assert!(points.iter().all(|point| (0..=65).contains(&point.x)));
 
-    let left_points = meter_shape_points(PhysicalSize::new(65, 344), Edge::Left);
+    let left_points = meter_shape_points(PhysicalSize::new(65, 344), 70, Edge::Left);
     assert_eq!(
         left_points.first().map(|point| (point.x, point.y)),
         Some((0, 4))

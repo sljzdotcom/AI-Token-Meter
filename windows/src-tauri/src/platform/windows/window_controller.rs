@@ -348,36 +348,41 @@ pub enum DetailCommand {
     Noop,
 }
 
-pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> {
+pub fn meter_shape_points(
+    size: PhysicalSize,
+    shoulder_depth: u32,
+    edge: Edge,
+) -> Vec<PhysicalPoint> {
     let width = unsigned_to_i32(size.width);
-    let scale = |x: i32, y: i32| PhysicalPoint {
+    let top = |x: i32, y: i32| PhysicalPoint {
         x: (f64::from(x) * f64::from(size.width) / 65.0).round() as i32,
-        y: (f64::from(y) * f64::from(size.height) / 344.0).round() as i32,
+        y: (f64::from(y) * f64::from(shoulder_depth) / 70.0).round() as i32,
     };
-    let mut points = cubic_points(
-        scale(65, 4),
-        scale(63, 18),
-        scale(54, 29),
-        scale(37, 30),
-        64,
-    );
+    let bottom = |x: i32, y: i32| {
+        let top_point = top(x, y);
+        PhysicalPoint {
+            x: top_point.x,
+            y: unsigned_to_i32(size.height).saturating_sub(top_point.y),
+        }
+    };
+    let mut points = cubic_points(top(65, 4), top(63, 18), top(54, 29), top(37, 30), 64);
     points.extend(
-        cubic_points(scale(37, 30), scale(18, 31), scale(5, 42), scale(1, 58), 64)
+        cubic_points(top(37, 30), top(18, 31), top(5, 42), top(1, 58), 64)
             .into_iter()
             .skip(1),
     );
     points.extend(
-        cubic_points(scale(1, 58), scale(0, 62), scale(0, 66), scale(0, 70), 64)
+        cubic_points(top(1, 58), top(0, 62), top(0, 66), top(0, 70), 64)
             .into_iter()
             .skip(1),
     );
-    points.push(scale(0, 274));
+    points.push(bottom(0, 70));
     points.extend(
         cubic_points(
-            scale(0, 274),
-            scale(0, 278),
-            scale(0, 282),
-            scale(1, 286),
+            bottom(0, 70),
+            bottom(0, 66),
+            bottom(0, 62),
+            bottom(1, 58),
             64,
         )
         .into_iter()
@@ -385,10 +390,10 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     );
     points.extend(
         cubic_points(
-            scale(1, 286),
-            scale(5, 302),
-            scale(18, 313),
-            scale(37, 314),
+            bottom(1, 58),
+            bottom(5, 42),
+            bottom(18, 31),
+            bottom(37, 30),
             64,
         )
         .into_iter()
@@ -396,10 +401,10 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     );
     points.extend(
         cubic_points(
-            scale(37, 314),
-            scale(54, 315),
-            scale(63, 326),
-            scale(65, 340),
+            bottom(37, 30),
+            bottom(54, 29),
+            bottom(63, 18),
+            bottom(65, 4),
             64,
         )
         .into_iter()
@@ -945,7 +950,7 @@ mod tests {
 
     #[test]
     fn meter_shape_uses_the_approved_macos_bezier_landmarks() {
-        let points = meter_shape_points(PhysicalSize::new(65, 344), Edge::Right);
+        let points = meter_shape_points(PhysicalSize::new(65, 344), 70, Edge::Right);
 
         for landmark in [
             PhysicalPoint { x: 65, y: 4 },
@@ -961,13 +966,22 @@ mod tests {
 
     #[test]
     fn left_meter_shape_is_an_exact_horizontal_mirror() {
-        let right = meter_shape_points(PhysicalSize::new(130, 688), Edge::Right);
-        let left = meter_shape_points(PhysicalSize::new(130, 688), Edge::Left);
+        let right = meter_shape_points(PhysicalSize::new(130, 688), 140, Edge::Right);
+        let left = meter_shape_points(PhysicalSize::new(130, 688), 140, Edge::Left);
 
         assert_eq!(right.len(), left.len());
         for (right, left) in right.iter().zip(left) {
             assert_eq!(left.x, 130 - right.x);
             assert_eq!(left.y, right.y);
         }
+    }
+
+    #[test]
+    fn provider_count_does_not_shrink_the_fixed_shoulder_depth() {
+        let points = meter_shape_points(PhysicalSize::new(65, 170), 70, Edge::Right);
+
+        assert!(points.contains(&PhysicalPoint { x: 0, y: 70 }));
+        assert!(points.contains(&PhysicalPoint { x: 0, y: 100 }));
+        assert_eq!(points.last(), Some(&PhysicalPoint { x: 65, y: 166 }));
     }
 }

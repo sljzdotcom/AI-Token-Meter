@@ -195,7 +195,9 @@ fn reconcile_requests_during_native_work_are_nonblocking_and_coalesce_to_latest_
 
 #[test]
 fn reconcile_receipt_waits_for_the_native_pass_that_owns_the_request() {
-    use ai_token_meter_windows::platform::windows::display_coordinator::ReconcileQueue;
+    use ai_token_meter_windows::platform::windows::display_coordinator::{
+        ReconcilePassOutcome, ReconcileQueue,
+    };
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -211,7 +213,7 @@ fn reconcile_receipt_waits_for_the_native_pass_that_owns_the_request() {
             pass += 1;
             started.send(pass).unwrap();
             wait_release.recv().unwrap();
-            Ok(())
+            ReconcilePassOutcome::Completed(Ok(()))
         });
     });
 
@@ -249,6 +251,49 @@ fn reconcile_receipt_waits_for_the_native_pass_that_owns_the_request() {
         Ok(())
     );
     worker.join().unwrap();
+}
+
+#[test]
+fn reconcile_receipt_remains_pending_when_drag_defers_the_native_pass() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::{
+        ReconcilePassOutcome, ReconcileQueue,
+    };
+    use std::time::Duration;
+
+    let queue = ReconcileQueue::default();
+    let (start_worker, receipt) = queue.request_with_receipt();
+    assert!(start_worker);
+    queue.run_with_outcome(|| ReconcilePassOutcome::Deferred);
+
+    assert!(!queue.is_active());
+    assert!(receipt.recv_timeout(Duration::from_millis(20)).is_err());
+
+    assert!(queue.request());
+    queue.run_with_outcome(|| ReconcilePassOutcome::Completed(Ok(())));
+    assert_eq!(
+        receipt.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Ok(())
+    );
+}
+
+#[test]
+fn reconcile_failure_reaches_only_receipts_owned_by_that_pass() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::{
+        ReconcilePassOutcome, ReconcileQueue,
+    };
+
+    let queue = ReconcileQueue::default();
+    let (start_worker, receipt) = queue.request_with_receipt();
+    assert!(start_worker);
+    queue.run_with_outcome(|| {
+        ReconcilePassOutcome::Completed(Err("native resize failed".to_owned()))
+    });
+
+    assert_eq!(
+        receipt.recv().unwrap(),
+        Err("native resize failed".to_owned())
+    );
+    assert!(!queue.is_active());
 }
 
 #[test]
