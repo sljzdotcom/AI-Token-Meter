@@ -13,9 +13,9 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.8.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.0)（macOS build `23`），提供双平台安装包和应用内更新；完整发布证据见[0.8.0发布记录](docs/development/2026-09-11-v0.8.0-release.md)。
+> 当前公开稳定版为[0.8.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.1)（macOS build `24`），提供双平台安装包和应用内更新；完整发布证据见[0.8.1发布记录](docs/development/2026-09-11-v0.8.1-release.md)。
 
-> 当前源码候选为`0.8.1` / build `24`：收起态采用14pt/px内凹把手，展开轮廓上下镜像，取消底部Settings入口，并新增Floating Strip/悬浮条设置页签。[Release Notes](docs/releases/v0.8.1.md)。
+> 当前公开稳定版为`0.8.1` / build `24`：收起态采用14pt/px内凹把手，展开轮廓上下镜像，取消底部Settings入口，并新增Floating Strip/悬浮条设置页签。[Release Notes](docs/releases/v0.8.1.md)。
 
 ## Screenshots
 
@@ -25,7 +25,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.8.1` / build `24`候选：浮动条收起把手更易发现，上下轮廓恢复镜像，底部不再显示Settings图标；Settings新增独立悬浮条页签。[Release Notes](docs/releases/v0.8.1.md)。
+> `0.8.1` / build `24`稳定版：浮动条收起把手更易发现，上下轮廓恢复镜像，底部不再显示Settings图标；Settings新增独立悬浮条页签。[Release Notes](docs/releases/v0.8.1.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -89,10 +89,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-稳定版页面：**[Download v0.8.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.0)**：
+稳定版页面：**[Download v0.8.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.1)**：
 
-- macOS：下载 `AI-Token-Meter-0.8.0-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.8.0-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.8.1-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.8.1-windows-x64-setup.exe` 与同名 `.sha256`。
 
 已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到当前公开稳定版；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
@@ -245,7 +245,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码候选为`0.8.1`（macOS build `24`），公开稳定版为`0.8.0`（build `23`）；发布事务见[0.8.1发布记录](docs/development/2026-09-11-v0.8.1-release.md)。
+- 当前源码与公开稳定版均为`0.8.1`（macOS build `24`）；发布证据见[0.8.1发布记录](docs/development/2026-09-11-v0.8.1-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
