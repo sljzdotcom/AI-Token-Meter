@@ -63,6 +63,7 @@ final class AppModel {
     private(set) var settingsMessage: String?
     private(set) var settingsMessageKind: SettingsMessageKind?
     private(set) var requestedSettingsTab = SettingsTab.appearance
+    private(set) var settingsRequestSequence = 0
     private(set) var displayFontChoice: DisplayFontChoice
     private(set) var floatingStripPosition: FloatingStripPosition
     private(set) var floatingStripDisplays: FloatingStripDisplays
@@ -475,6 +476,7 @@ final class AppModel {
 
     func requestSettings(_ tab: SettingsTab) {
         requestedSettingsTab = tab
+        settingsRequestSequence &+= 1
         NotificationCenter.default.post(name: .aiMeterOpenSettings, object: nil)
     }
 

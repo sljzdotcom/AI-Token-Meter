@@ -87,8 +87,8 @@ button {
 .meter-edge--left .floating-strip > * { transform: scaleX(-1); }
 .meter-stage--strip-only.meter-edge--left .floating-strip { clip-path: url("#strip-clip-right"); }
 .meter-folded { width: 100%; height: 100%; border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: flex-end; position: relative; }
-.meter-folded::before { content: ""; width: 7px; height: 88px; border-radius: 3.5px; background: #040b18 url("/floating-strip-deep-sea.png") center/cover; position: absolute; inset-inline-end: 0; }
-.meter-folded span { width: 3px; height: 40px; border-radius: 3px; background: rgb(255 255 255 / 30%); }
+.meter-folded::before { content: ""; width: 14px; height: 88px; background: #040b18 url("/floating-strip-deep-sea.png") center/cover; clip-path: path("M 14 0 C 14 8 12 14 6.3 18 C 3.3 20 0 24 0 30 L 0 58 C 0 64 3.3 68 6.3 70 C 12 74 14 80 14 88 Z"); position: absolute; inset-inline-end: 0; }
+.meter-folded span { width: 2px; height: 28px; border-radius: 2px; background: rgb(255 255 255 / 30%); position: absolute; inset-inline-end: 9px; }
 .meter-edge--left .meter-folded { transform: scaleX(-1); }
 @media (prefers-reduced-motion: no-preference) {
   .floating-strip__providers > .usage-ring { animation: strip-expand-in 180ms ease-out; }
@@ -135,7 +135,7 @@ button {
   display: flex;
   flex: 0 0 var(--strip-width, 78px);
   isolation: isolate;
-  min-height: var(--strip-height, 328px);
+  min-height: var(--strip-height, 286px);
   padding: 0;
   clip-path: url("#strip-clip-right");
   position: relative;
@@ -151,63 +151,8 @@ button {
   width: 100%;
 }
 
-.floating-strip__settings {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
-  display: flex;
-  font-family: "Segoe UI Symbol", sans-serif;
-  font-size: 13px;
-  height: 24px;
-  justify-content: center;
-  opacity: 0;
-  padding: 0;
-  position: relative;
-  transition: opacity 120ms ease-out, background-color 120ms ease-out;
-  width: 24px;
-}
-
-.floating-strip__settings-zone {
-  align-items: center;
-  bottom: 0;
-  display: flex;
-  height: 48px;
-  justify-content: flex-end;
-  position: absolute;
-  right: 0;
-  width: 39px;
-}
-
-.floating-strip__settings-arc {
-  border-radius: 0 30px 0 0;
-  border-right: 4px solid #07111f;
-  border-top: 4px solid #07111f;
-  bottom: 4px;
-  filter: drop-shadow(0 0 1px rgb(85 125 170 / 30%));
-  height: 34px;
-  pointer-events: none;
-  position: absolute;
-  right: -5px;
-  transform: rotate(17deg);
-  width: 33px;
-}
-
-.floating-strip__settings-zone:hover .floating-strip__settings,
-.floating-strip__settings-zone:focus-within .floating-strip__settings,
-.floating-strip__settings:focus-visible {
-  background: #17304a;
-  opacity: 1;
-}
-
-.floating-strip__settings-zone:hover .floating-strip__settings-arc,
-.floating-strip__settings-zone:focus-within .floating-strip__settings-arc {
-  opacity: .18;
-}
-
 @media (max-width: 32px) {
-  .floating-strip__providers,
-  .floating-strip__settings-zone {
+  .floating-strip__providers {
     display: none;
   }
 }
@@ -677,7 +622,9 @@ button {
   background: #fff;
   display: flex;
   gap: var(--settings-nav-gap, 6px);
+  overflow-x: auto;
   padding: 0 var(--settings-content-padding, 20px);
+  scrollbar-width: thin;
   flex-shrink: 0;
 }
 
@@ -686,6 +633,7 @@ button {
   border: 0;
   border-bottom: 3px solid transparent;
   cursor: pointer;
+  flex: 0 0 auto;
   font-size: var(--settings-control-font-size, inherit);
   padding: var(--settings-nav-top-padding, 13px) var(--settings-nav-horizontal-padding, 12px) var(--settings-nav-bottom-padding, 10px);
 }
@@ -703,6 +651,19 @@ button {
   min-height: 0;
   overflow-y: auto;
   padding: var(--settings-content-padding, 24px);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-content-gap, 12px);
+}
+
+.settings-group h2 {
+  color: #596173;
+  font-size: 13px;
+  letter-spacing: .02em;
+  margin: 4px 2px -3px;
 }
 
 .settings-window [role="tab"] {
@@ -927,6 +888,8 @@ button {
   .provider-detail { padding: 20px; width: min(420px, calc(100vw - 136px)); }
   .metric-grid { grid-template-columns: 1fr; }
   .activity-grid { grid-template-columns: 1fr; }
+  .setting-row { align-items: stretch; flex-direction: column; }
+  .setting-row > div:last-child { flex-wrap: wrap; justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

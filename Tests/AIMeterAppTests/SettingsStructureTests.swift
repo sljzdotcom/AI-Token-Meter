@@ -5,18 +5,19 @@ import Testing
 
 @Suite("Settings information architecture")
 struct SettingsStructureTests {
-    @Test("Defines four ordered top tabs")
+    @Test("Defines five ordered top tabs")
     func orderedTabs() {
-        #expect(SettingsTab.allCases == [.appearance, .monitoring, .services, .about])
+        #expect(SettingsTab.allCases == [.appearance, .floatingStrip, .monitoring, .services, .about])
         #expect(
             SettingsTab.allCases.map(\.title) == [
                 "Appearance",
+                "Floating Strip",
                 "Monitoring",
                 "Services",
                 "About",
             ]
         )
-        #expect(Set(SettingsTab.allCases.map(\.systemImage)).count == 4)
+        #expect(Set(SettingsTab.allCases.map(\.systemImage)).count == 5)
     }
 
     @Test("Routes settings messages to their owning tab")
@@ -28,6 +29,20 @@ struct SettingsStructureTests {
         #expect(SettingsTab.services.accepts(.deepSeekCredential))
         #expect(!SettingsTab.appearance.accepts(.deepSeekCredential))
         #expect(!SettingsTab.about.accepts(.launchAtLogin))
+    }
+
+    @Test("Floating strip context menu opens its owning tab")
+    func floatingStripContextMenuRouting() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/System/FloatingPanelController.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("settingsFromMenu() { model.requestSettings(.floatingStrip) }"))
     }
 
     @Test("A detail recovery request keeps Services selected while Settings opens")
@@ -51,6 +66,21 @@ struct SettingsStructureTests {
 
         #expect(model.requestedSettingsTab == .services)
         #expect(recorder.count == 1)
+    }
+
+    @Test("Repeated requests for the same tab remain observable")
+    @MainActor
+    func repeatedTabRequest() {
+        let suiteName = "SettingsStructureTests.Repeated.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let model = AppModel(defaults: defaults, secretStore: InMemorySecretStore())
+
+        model.requestSettings(.floatingStrip)
+        let firstRequest = model.settingsRequestSequence
+        model.requestSettings(.floatingStrip)
+
+        #expect(model.settingsRequestSequence == firstRequest + 1)
     }
 
     @Test("DeepSeek credential feedback targets the Services tab")
@@ -121,14 +151,18 @@ struct SettingsStructureTests {
         #expect(delegateSource.contains("softwareUpdateCoordinator.stop()"))
     }
 
-    @Test("Appearance exposes the fixed three strip sizes and auto collapse controls")
+    @Test("Floating Strip owns strip controls while Appearance keeps display font")
     func floatingStripControls() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let source = try String(
+        let appearanceSource = try String(
             contentsOf: root.appending(path: "Sources/AIMeterApp/Views/AppearanceSettingsView.swift"),
+            encoding: .utf8
+        )
+        let source = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/Views/FloatingStripSettingsView.swift"),
             encoding: .utf8
         )
 
@@ -139,6 +173,9 @@ struct SettingsStructureTests {
         #expect(compact.lowerBound < mini.lowerBound)
         #expect(source.contains("Toggle(\"Automatically collapse floating strip\""))
         #expect(source.components(separatedBy: ".disabled(!model.stripPreferences.automaticallyCollapses)").count == 3)
+        #expect(source.contains("FloatingStripDisplaySettings(model: model)"))
+        #expect(appearanceSource.contains("Display font"))
+        #expect(!appearanceSource.contains("Floating strip size"))
     }
 }
 

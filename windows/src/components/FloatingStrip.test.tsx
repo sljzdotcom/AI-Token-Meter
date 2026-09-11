@@ -8,9 +8,9 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
   it.each([
-    ["mini", "left", 65, 328], ["mini", "right", 65, 328],
-    ["compact", "left", 78, 328], ["compact", "right", 78, 328],
-    ["comfortable", "left", 108, 404], ["comfortable", "right", 108, 404],
+    ["mini", "left", 65, 286], ["mini", "right", 65, 286],
+    ["compact", "left", 78, 286], ["compact", "right", 78, 286],
+    ["comfortable", "left", 108, 356], ["comfortable", "right", 108, 356],
   ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
     const activate = vi.fn()
     const drag = vi.fn()
@@ -87,29 +87,13 @@ describe("compact floating strip interactions", () => {
     expect(interaction).toHaveBeenCalledWith("pointer", true)
   })
 
-  it("opens Settings from the bottom gear without starting a drag", () => {
-    const openSettings = vi.fn()
-    const drag = vi.fn()
-    window.addEventListener("meter-drag-requested", drag)
-    render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
-      onSettingsOpen={openSettings} />)
-    fireEvent.pointerDown(screen.getByRole("button", {name: "Settings"}), {button: 0})
-    fireEvent.click(screen.getByRole("button", {name: "Settings"}))
-    expect(openSettings).toHaveBeenCalledOnce()
-    expect(drag).not.toHaveBeenCalled()
-    window.removeEventListener("meter-drag-requested", drag)
-  })
-
-  it("shows the Settings gear only while its bottom zone is active", () => {
+  it("does not render a bottom Settings entry at rest, hover, or focus", () => {
     render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}} />)
     const strip = screen.getByRole("navigation")
-    const gear = screen.getByRole("button", {name: "Settings"})
-    expect(strip).not.toHaveAttribute("data-settings-hovered", "true")
+    expect(screen.queryByRole("button", {name: "Settings"})).not.toBeInTheDocument()
+    expect(strip.querySelector(".floating-strip__settings-zone")).toBeNull()
     fireEvent.pointerEnter(strip)
-    expect(strip).not.toHaveAttribute("data-settings-hovered", "true")
-    fireEvent.pointerEnter(gear.parentElement!)
-    expect(strip).toHaveAttribute("data-settings-hovered", "true")
-    fireEvent.pointerLeave(gear.parentElement!)
-    expect(strip).not.toHaveAttribute("data-settings-hovered", "true")
+    fireEvent.focus(strip)
+    expect(screen.queryByRole("button", {name: "Settings"})).not.toBeInTheDocument()
   })
 })

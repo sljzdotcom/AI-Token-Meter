@@ -10,15 +10,13 @@ struct FloatingStripView: View {
     let onAccessibilityMove: (FloatingStripAccessibilityCommand) -> Void
     @Environment(\.openSettings) private var openSettings
     @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
-    @FocusState private var settingsButtonFocused: Bool
-    @State private var isHoveringSettingsZone = false
 
     var body: some View {
         ZStack {
             if displayState.isFolded {
                 ZStack(alignment: displayState.resolvedEdge == .left ? .leading : .trailing) {
                     Color.clear
-                    RoundedRectangle(cornerRadius: 3.5)
+                    FloatingStripFoldedShape(edge: displayState.resolvedEdge)
                         .fill(Color(red: 0.015, green: 0.04, blue: 0.085))
                         .overlay {
                             if let image = FloatingStripBackgroundAsset.defaultImage {
@@ -27,9 +25,12 @@ struct FloatingStripView: View {
                                     .overlay(Color.black.opacity(0.46))
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 3.5))
-                        .overlay { Capsule().fill(.white.opacity(0.34)).frame(width: 2, height: 38) }
-                        .frame(width: 7, height: 88)
+                        .clipShape(FloatingStripFoldedShape(edge: displayState.resolvedEdge))
+                        .overlay(alignment: displayState.resolvedEdge == .left ? .trailing : .leading) {
+                            Capsule().fill(.white.opacity(0.30)).frame(width: 2, height: 28)
+                                .padding(displayState.resolvedEdge == .left ? .trailing : .leading, 3)
+                        }
+                        .frame(width: 14, height: 88)
                 }
                 .accessibilityLabel("Expand floating meter")
             } else {
@@ -71,53 +72,26 @@ struct FloatingStripView: View {
                         }
                     }
 
-                VStack(spacing: 0) {
-                    VStack(spacing: density.spacing) {
-                        ForEach(presentations, id: \.provider) { presentation in
-                            Button {
-                                onProviderTap(presentation.provider)
-                            } label: {
-                                UsageRing(
-                                    presentation: presentation,
-                                    size: density.ringSize,
-                                    operation: model.operationState(for: presentation.provider)
-                                )
-                                    .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityValue(session.accessibilityValue(for: presentation.provider))
-                            .accessibilityFocused($accessibilityFocusedProvider, equals: presentation.provider)
-                            .animation(.spring(response: 0.28, dampingFraction: 0.8), value: session.selectedProvider)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(height: density.contentHeight(providerCount: presentations.count))
-
-                    ZStack(alignment: displayState.resolvedEdge == .left ? .leading : .trailing) {
-                        Color.clear
-                        FloatingStripSettingsArc(edge: displayState.resolvedEdge)
-                            .stroke(Color(red: 0.025, green: 0.067, blue: 0.12), lineWidth: 3)
-                            .opacity(isHoveringSettingsZone || settingsButtonFocused ? 0.18 : 1)
+                VStack(spacing: density.spacing) {
+                    ForEach(presentations, id: \.provider) { presentation in
                         Button {
-                            model.requestSettings(.appearance)
+                            onProviderTap(presentation.provider)
                         } label: {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: density == .comfortable ? 13 : 11, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.86))
-                                .frame(width: density == .comfortable ? 28 : 24, height: density == .comfortable ? 28 : 24)
-                                .contentShape(Rectangle())
+                            UsageRing(
+                                presentation: presentation,
+                                size: density.ringSize,
+                                operation: model.operationState(for: presentation.provider)
+                            )
+                                .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                         }
                         .buttonStyle(.plain)
-                        .focused($settingsButtonFocused)
-                        .help("Settings")
-                        .accessibilityLabel("Settings")
-                        .padding(displayState.resolvedEdge == .left ? .leading : .trailing, density == .mini ? 2 : 4)
-                        .opacity(isHoveringSettingsZone || settingsButtonFocused ? 1 : 0)
+                        .accessibilityValue(session.accessibilityValue(for: presentation.provider))
+                        .accessibilityFocused($accessibilityFocusedProvider, equals: presentation.provider)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.8), value: session.selectedProvider)
                     }
-                    .frame(height: density.settingsZoneHeight)
-                    .contentShape(FloatingStripSettingsHitShape(edge: displayState.resolvedEdge))
-                    .onHover { isHoveringSettingsZone = $0 }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(height: density.contentHeight(providerCount: presentations.count))
                 .opacity(displayState.showsExpandedContent ? 1 : 0)
                 .allowsHitTesting(displayState.showsExpandedContent)
                 .animation(.easeOut(duration: 0.14), value: displayState.showsExpandedContent)
@@ -155,33 +129,6 @@ struct FloatingStripView: View {
                 collectionStatus: .refreshing
             ))
         }
-    }
-}
-
-struct FloatingStripSettingsArc: Shape {
-    let edge: FloatingStripEdge
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let startX = edge == .right ? rect.maxX - 31 : rect.minX + 31
-        let endX = edge == .right ? rect.maxX + 2 : rect.minX - 2
-        path.move(to: CGPoint(x: startX, y: rect.minY + 7))
-        path.addCurve(
-            to: CGPoint(x: endX, y: rect.maxY - 5),
-            control1: CGPoint(x: edge == .right ? rect.maxX - 12 : rect.minX + 12, y: rect.minY + 7),
-            control2: CGPoint(x: edge == .right ? rect.maxX - 8 : rect.minX + 8, y: rect.maxY - 12)
-        )
-        return path
-    }
-}
-
-struct FloatingStripSettingsHitShape: Shape {
-    let edge: FloatingStripEdge
-
-    func path(in rect: CGRect) -> Path {
-        FloatingStripSettingsArc(edge: edge)
-            .path(in: rect)
-            .strokedPath(StrokeStyle(lineWidth: 18, lineCap: .round, lineJoin: .round))
     }
 }
 

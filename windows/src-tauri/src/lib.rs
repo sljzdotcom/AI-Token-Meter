@@ -864,6 +864,7 @@ fn validated_settings_tab(tab: Option<&str>) -> Result<Option<&'static str>, Str
     match tab {
         None => Ok(None),
         Some("Appearance") => Ok(Some("Appearance")),
+        Some("Floating Strip") => Ok(Some("Floating Strip")),
         Some("Monitoring") => Ok(Some("Monitoring")),
         Some("Services") => Ok(Some("Services")),
         Some("About") => Ok(Some("About")),
@@ -1356,7 +1357,7 @@ pub fn run() {
             }
             "strip-settings" => {
                 let _ = show_settings_window(app);
-                let _ = app.emit("settings-tab-requested", "Appearance");
+                let _ = app.emit("settings-tab-requested", "Floating Strip");
             }
             "strip-quit" => app.exit(0),
             _ => {}
@@ -1480,7 +1481,13 @@ mod threshold_tests {
     #[test]
     fn settings_tab_requests_accept_only_fixed_application_tabs() {
         assert_eq!(validated_settings_tab(None), Ok(None));
-        for tab in ["Appearance", "Monitoring", "Services", "About"] {
+        for tab in [
+            "Appearance",
+            "Floating Strip",
+            "Monitoring",
+            "Services",
+            "About",
+        ] {
             assert_eq!(validated_settings_tab(Some(tab)), Ok(Some(tab)));
         }
         assert_eq!(

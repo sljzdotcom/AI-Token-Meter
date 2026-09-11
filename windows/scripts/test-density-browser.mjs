@@ -29,12 +29,21 @@ await runWithCleanup(async () => {
   if (report.stripSamples?.length !== 24) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
     if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight
-      || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons || !sample.ringPerimetersVisible || !sample.settingsVisible
-      || sample.settingsOpacityAtRest !== "0" || sample.settingsOpacityAtFocus !== "1"
-      || sample.settingsHoveredAfterBodyEntry !== "false" || sample.settingsHoveredAfterZoneEntry !== "true"
+      || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons || !sample.ringPerimetersVisible || sample.settingsVisible
       || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
       || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
       throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
+    }
+  }
+  if (report.foldedStripSamples?.length !== 2) throw new Error("Missing folded strip scenarios")
+  for (const sample of report.foldedStripSamples) {
+    if (sample.buttonWidth !== 20 || sample.buttonHeight !== 96
+      || sample.handleWidth !== "14px" || sample.handleHeight !== "88px"
+      || sample.highlightWidth !== 2 || sample.highlightHeight !== 28
+      || !sample.clipPath.includes("path(") || !sample.clipPath.includes("6.3 18")
+      || !sample.hitTarget || sample.settingsVisible
+      || (sample.edge === "left") !== sample.transform.startsWith("matrix(-1")) {
+      throw new Error(`Folded strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
     }
   }
   if (report.geminiSamples?.length !== 8) throw new Error("Missing Antigravity detail states")
@@ -69,6 +78,7 @@ await runWithCleanup(async () => {
   }
   console.log("Antigravity detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
   console.log("Four-provider strip geometry verified: 24 real CSS clipping/hit-test scenarios")
+  console.log("Folded strip geometry verified: 2 real CSS hit-window and concave-handle scenarios")
   console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {
   await stopVite(vite.process)
@@ -187,6 +197,16 @@ function assertDensity(report) {
     throw new Error("Settings system font leaked into the meter or Provider detail")
   }
   if (!report.settingsFont.startsWith('"Segoe UI Variable"')) throw new Error("Settings did not retain its system font")
+  if (report.settingsLayoutSamples.length !== 4
+    || report.settingsLayoutSamples.some(sample =>
+      sample.tabCount !== 5
+      || sample.overflowX !== "auto"
+      || !sample.lastTabReachable
+      || !sample.contentScrollable
+      || !sample.lastControlReachable
+    )) {
+    throw new Error(`Settings narrow-window navigation or scrolling failed: ${JSON.stringify(report.settingsLayoutSamples)}`)
+  }
   if (report.updateSamples.length !== 14) throw new Error("Missing bilingual update status samples")
   for (const locale of ["en", "zh-CN"]) {
     const samples = report.updateSamples.filter(sample => sample.locale === locale)

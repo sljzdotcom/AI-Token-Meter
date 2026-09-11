@@ -12,6 +12,7 @@ const renderSettings = () => render(
 describe("Windows Settings tab icons", () => {
   it.each([
     ["Appearance", "appearance"],
+    ["Floating Strip", "floating-strip"],
     ["Monitoring", "monitoring"],
     ["Services", "services"],
     ["About", "about"],
@@ -27,7 +28,7 @@ describe("Windows Settings tab icons", () => {
     expect(svg).toHaveAttribute("stroke", "currentColor")
   })
 
-  it.each(["外观", "监测", "服务", "关于"])(
+  it.each(["外观", "悬浮条", "监测", "服务", "关于"])(
     "keeps the Chinese %s tab name without exposing the icon to assistive technology",
     (name) => {
       act(() => setLocale("zh-CN"))
@@ -49,5 +50,30 @@ describe("Windows Settings tab icons", () => {
     fireEvent.keyDown(monitoringTab, { key: "ArrowRight" })
     expect(screen.getByRole("tab", { name: "Services" })).toHaveAttribute("aria-selected", "true")
     expect(screen.getByRole("button", { name: "Save DeepSeek API Key" })).toBeVisible()
+  })
+
+  it("keeps Appearance concise and groups floating strip controls", () => {
+    renderSettings()
+
+    expect(screen.getByLabelText("Display font")).toBeVisible()
+    expect(screen.queryByLabelText("Floating strip size")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("tab", { name: "Floating Strip" }))
+    expect(screen.getByRole("heading", { name: "Content and Size" })).toBeVisible()
+    expect(screen.getByRole("heading", { name: "Screen and Position" })).toBeVisible()
+    expect(screen.getByRole("heading", { name: "Behavior" })).toBeVisible()
+    expect(screen.getByLabelText("Floating strip size")).toBeVisible()
+    expect(screen.queryByLabelText("Display font")).not.toBeInTheDocument()
+  })
+
+  it("reselects a tab when the same external request is repeated", () => {
+    const {rerender} = render(
+      <SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Floating Strip" requestedTabGeneration={1} />,
+    )
+    fireEvent.click(screen.getByRole("tab", { name: "Appearance" }))
+    expect(screen.getByRole("tab", { name: "Appearance" })).toHaveAttribute("aria-selected", "true")
+
+    rerender(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Floating Strip" requestedTabGeneration={2} />)
+
+    expect(screen.getByRole("tab", { name: "Floating Strip" })).toHaveAttribute("aria-selected", "true")
   })
 })

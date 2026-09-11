@@ -14,9 +14,9 @@
 bash scripts/test.sh
 ```
 
-当前候选的基线为 **493 个测试全部通过**：472项普通测试、3项独立刷新调度和18项PTY runner。当前完整验证先运行普通测试，再用独立测试进程运行主线程刷新调度和PTY runner测试，避免CI runner的并行主线程负载干扰有界调度断言。Antigravity使用普通有界进程、严格四窗口解析与无损缓存迁移回归，并覆盖fresh/cached/unavailable详情底板与青绿色强调。品牌回归用2×位图渲染真实菜单面板并核对40pt前导图标。浮动条原生渲染回归使用明确的2×Retina位图，核对Mini 65pt、Compact 78pt、Comfortable 108pt、48/60pt圆环、Settings弧区、左右边缘、1至4项圆周包含、自动收起关闭和内容安全过渡；调度合同要求25ms轮询上限可兑现50ms设置步进。Windows前端测试文件串行调度，继续使用Vitest默认5秒单项上限，避免发布runner上多个jsdom环境并行冷启动造成资源竞争。并发PTY fixture只使用Shell内建读取，不在32路命令之上额外派生管道进程。传入`--filter`等参数时仍只运行调用者指定的单次测试命令。Keychain隔离读写、已安装Claude Code auth状态、已安装Claude Code CLI额度快照和已安装OpenAI Codex CLI额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前候选的基线为 **496 个测试全部通过**：475项普通测试、3项独立刷新调度和18项PTY runner。当前完整验证先运行普通测试，再用独立测试进程运行主线程刷新调度和PTY runner测试，避免CI runner的并行主线程负载干扰有界调度断言。Antigravity使用普通有界进程、严格四窗口解析与无损缓存迁移回归，并覆盖fresh/cached/unavailable详情底板与青绿色强调。品牌回归用2×位图渲染真实菜单面板并核对40pt前导图标。浮动条原生渲染回归使用明确的2×Retina位图，核对Mini 65pt、Compact 78pt、Comfortable 108pt、48/60pt圆环、14pt内凹收起把手、上下镜像肩部、底部无Settings入口、左右边缘、1至4项圆周包含、自动收起关闭和内容安全过渡；调度合同要求25ms轮询上限可兑现50ms设置步进。Windows前端测试文件串行调度，继续使用Vitest默认5秒单项上限，避免发布runner上多个jsdom环境并行冷启动造成资源竞争。并发PTY fixture只使用Shell内建读取，不在32路命令之上额外派生管道进程。传入`--filter`等参数时仍只运行调用者指定的单次测试命令。Keychain隔离读写、已安装Claude Code auth状态、已安装Claude Code CLI额度快照和已安装OpenAI Codex CLI额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字不与Windows相加计算通过率。当前前端为133项组件测试；宿主Rust为246项；密度门禁覆盖25项进程生命周期、8个Antigravity详情状态、9种Provider详情表面、24个浮动条布局和608个文字角色，并核对三档固定顺序、自动收起关闭后延迟控件禁用且值不变、主体与底弧显隐隔离和键盘焦点。旧 Gemini ConPTY、分片和终端输入夹具已随生产交互路径移除；Claude/Codex仍使用的PTY与Windows原生进程门禁保持。
+以上数字不与Windows相加计算通过率。当前前端为136项组件测试；宿主Rust为246项；密度门禁覆盖25项进程生命周期、8个Antigravity详情状态、9种Provider详情表面、24个浮动条布局、2个收起态和608个文字角色，并核对五页签窄窗可达、三档固定顺序、自动收起关闭后延迟控件禁用且值不变、底部无Settings入口和键盘焦点。旧 Gemini ConPTY、分片和终端输入夹具已随生产交互路径移除；Claude/Codex仍使用的PTY与Windows原生进程门禁保持。
 
 普通测试覆盖：
 

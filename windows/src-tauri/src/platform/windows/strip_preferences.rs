@@ -137,13 +137,13 @@ impl StripPreferences {
     }
     pub fn logical_size(&self, folded: bool) -> (f64, f64) {
         if folded {
-            return (16.0, 96.0);
+            return (20.0, 96.0);
         }
         let count = self.visible_providers().len().clamp(1, 4);
         match self.density.as_str() {
-            "comfortable" => (108.0, 260.0 + (count - 1) as f64 * 72.0),
-            "mini" => (65.0, 212.0 + (count - 1) as f64 * 58.0),
-            _ => (78.0, 212.0 + (count - 1) as f64 * 58.0),
+            "comfortable" => (108.0, 212.0 + (count - 1) as f64 * 72.0),
+            "mini" => (65.0, 170.0 + (count - 1) as f64 * 58.0),
+            _ => (78.0, 170.0 + (count - 1) as f64 * 58.0),
         }
     }
     pub fn hidden(&self, now: i64) -> bool {
@@ -215,8 +215,8 @@ mod tests {
         assert!(defaults.automatically_collapses);
         assert_eq!(defaults.reveal_delay_milliseconds, 150);
         assert_eq!(defaults.collapse_delay_milliseconds, 800);
-        assert_eq!(defaults.logical_size(false), (78.0, 386.0));
-        assert_eq!(defaults.logical_size(true), (16.0, 96.0));
+        assert_eq!(defaults.logical_size(false), (78.0, 344.0));
+        assert_eq!(defaults.logical_size(true), (20.0, 96.0));
 
         let legacy: StripPreferences = serde_json::from_str(
             r#"{"schemaVersion":2,"foldDelay":5,"orderedProviders":["claude"]}"#,
@@ -234,7 +234,7 @@ mod tests {
 
         let mut mini = defaults.clone();
         mini.density = "mini".into();
-        assert_eq!(mini.logical_size(false), (65.0, 386.0));
+        assert_eq!(mini.logical_size(false), (65.0, 344.0));
     }
 
     #[test]

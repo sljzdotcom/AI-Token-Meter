@@ -4,6 +4,19 @@
 
 ## Unreleased
 
+## 0.8.1 - 2026-09-11
+
+稳定界面更新；macOS build24。简化贴边悬浮条轮廓，移除底部Settings入口，并新增独立Floating Strip/悬浮条设置页签。[发布记录](docs/development/2026-09-11-v0.8.1-release.md)。
+
+### Changed
+
+- 浮动条展开高度只保留圆环内容区，上下肩恢复严格镜像；收起态改为14pt/px可见内凹把手，并使用20pt/px宽的透明命中窗口提升可发现性。
+- Settings新增Floating Strip/悬浮条页签，按内容与尺寸、屏幕与位置、行为归整悬浮条选项；Appearance只保留通用字体与Windows语言，悬浮条右键设置入口直接打开新页签。
+
+### Removed
+
+- 移除悬浮条底部的Settings弧区、齿轮和悬停入口；设置仍可从应用现有菜单进入。
+
 ## 0.8.0 - 2026-09-11
 
 稳定功能版；macOS build23。新增65pt/px Mini浮动条密度，恢复78pt/px Compact，并加入可关闭的自动收起设置。[发布记录](docs/development/2026-09-11-v0.8.0-release.md)。

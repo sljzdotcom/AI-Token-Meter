@@ -4,6 +4,7 @@
 
 ## 当前版本边界
 
+- 当前源码候选：双平台`0.8.1`（macOS build`24`）；14pt内凹把手、镜像展开轮廓、底部Settings入口移除与第五个设置页签等待候选PR/main及签名发布证据。
 - 当前源码与公开稳定版：双平台`0.8.0`（macOS build`23`）；65pt Mini、78pt Compact、自动收起开关和Settings底弧修正已随PR #34合并/tag `0eec432`公开，稳定appcast为`bd153ca`。
 - 上一公开稳定版：双平台`0.7.3`（macOS build`22`）；浮动条与强调色更新经PR #32合并/tag为`05d5090`，稳定appcast为`704ae4c`，发布后证据经PR #33合并。
 - Google Antigravity迁移、40pt菜单Logo和65pt Compact浮动条已由[PR #28](https://github.com/sljzdotcom/AI-Token-Meter/pull/28)的恢复候选`c06ae71`、合并`c79a5f2`、标签`v0.7.1`与appcast`85b281d`公开交付；发布workflow为`34460178399`。[记录](2026-09-10-v0.7.0-release.md)。
@@ -22,6 +23,7 @@
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
+| 0.8.1 浮动条轮廓与设置分类稳定发布候选 | `a3119cc`、`31f9c67`、`2d7d276`、`532e159`，发布节点待补 | 14pt内凹把手、镜像展开轮廓、底部Settings入口移除与第五个设置页签已完成本机门禁和独立复核，进入发布事务 |
 | 0.8.0 Mini浮动条稳定发布 | `6ef9459`、`c7fdeb8`、`26e6b61`、`0052b0e`、`0eec432`、`bd153ca` | 新增65pt Mini、恢复78pt Compact，加入独立自动收起开关并限制Settings齿轮为底弧触发；本机、PR/main与标签双平台门禁、七项资产、签名和三个更新源全部验证 |
 | 0.7.3浮动条与强调色稳定发布 | `38137cf`、`05d5090`、`704ae4c`、`224988c` | 65pt贴边浮动条、悬停双延迟、Settings入口与Antigravity强调色恢复公开；PR/main/标签/发布后证据CI、七项资产、签名和三个更新源全部验证 |
 | 0.7.1 Google Antigravity与紧凑界面稳定发布 | `c06ae71`、`c79a5f2`、`85b281d` | Google Antigravity迁移、40pt菜单Logo、65pt Compact浮动条与Windows发布测试可靠性随双平台稳定版公开；484项Swift、241项Rust、PR/main/标签原生CI、七项资产、签名与三个更新源全部验证 |

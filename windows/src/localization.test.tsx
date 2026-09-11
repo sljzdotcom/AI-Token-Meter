@@ -12,6 +12,7 @@ it("updates already open Settings and detail text immediately without changing t
     <ProviderDetail snapshot={{schemaVersion: 1, providerId: "claude", displayName: "Claude Code", status: "unavailable", fetchedAt: "2026-09-07T00:00:00Z", staleAfterSeconds: 300}}
       onPointerEnter={() => {}} onPointerLeave={() => {}} onInteractionStart={() => {}} onInteractionEnd={() => {}} /></>)
   expect(screen.getByRole("tab", { name: "Appearance" })).toBeInTheDocument()
+  expect(screen.getByRole("tab", { name: "Floating Strip" })).toBeInTheDocument()
   act(() => setLocale("zh-CN"))
   expect(screen.getByRole("tab", { name: "外观" })).toBeInTheDocument()
   expect(screen.getByRole("combobox", { name: "显示字体" })).toHaveValue("Antonio")
@@ -57,7 +58,7 @@ it("compares actual glyph metrics against both generic fallbacks to detect missi
 it("shows the borrowed primary display's edge while preserving the offline selection", () => {
   render(<SettingsWindow displayFont="Menlo" onDisplayFontChange={() => {}}
     displays={{version:1,mode:"selected",selectedId:"offline",placements:{primary:{edge:"left",verticalPerMille:200},offline:{edge:"right",verticalPerMille:700}}}}
-    availableDisplays={[{id:"primary",name:"Built-in",isPrimary:true}]} />)
+    availableDisplays={[{id:"primary",name:"Built-in",isPrimary:true}]} requestedTab="Floating Strip" />)
   expect(screen.getByRole("combobox", {name:"Display"})).toHaveValue("offline")
   expect(screen.getByRole("combobox", {name:"Screen edge"})).toHaveValue("left")
 })

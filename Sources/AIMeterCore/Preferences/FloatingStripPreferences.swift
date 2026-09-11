@@ -7,15 +7,14 @@ public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
     }
     public var ringSize: Double { self == .comfortable ? 60 : 48 }
     public var spacing: Double { self == .comfortable ? 12 : 10 }
-    public var settingsZoneHeight: Double { self == .comfortable ? 48 : 42 }
     public var baseContentHeight: Double { self == .comfortable ? 356 : 286 }
-    public var baseHeight: Double { baseContentHeight + settingsZoneHeight }
+    public var baseHeight: Double { baseContentHeight }
     public func contentHeight(providerCount: Int) -> Double {
         let firstHeight = self == .comfortable ? 212.0 : 170.0
         return firstHeight + Double(min(max(providerCount, 1), 4) - 1) * (ringSize + spacing)
     }
     public func height(providerCount: Int) -> Double {
-        contentHeight(providerCount: providerCount) + settingsZoneHeight
+        contentHeight(providerCount: providerCount)
     }
 }
 

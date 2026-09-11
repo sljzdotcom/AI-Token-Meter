@@ -14,6 +14,12 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.appearance)
 
+            FloatingStripSettingsView(model: model)
+                .tabItem {
+                    Label(SettingsTab.floatingStrip.title, systemImage: SettingsTab.floatingStrip.systemImage)
+                }
+                .tag(SettingsTab.floatingStrip)
+
             MonitoringSettingsView(model: model)
                 .tabItem {
                     Label(SettingsTab.monitoring.title, systemImage: SettingsTab.monitoring.systemImage)
@@ -38,6 +44,9 @@ struct SettingsView: View {
         }
         .onChange(of: model.requestedSettingsTab) { _, tab in
             selectedTab = tab
+        }
+        .onChange(of: model.settingsRequestSequence) { _, _ in
+            selectedTab = model.requestedSettingsTab
         }
         .task {
             await model.refreshServiceAccounts()

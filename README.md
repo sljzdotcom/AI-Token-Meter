@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-3b82f6)
-![Tests 493](https://img.shields.io/badge/tests-493%20passed-2ea44f)
+![Version 0.8.1](https://img.shields.io/badge/version-0.8.1-3b82f6)
+![Tests 496](https://img.shields.io/badge/tests-496%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -15,6 +15,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > 当前公开稳定版为[0.8.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.0)（macOS build `23`），提供双平台安装包和应用内更新；完整发布证据见[0.8.0发布记录](docs/development/2026-09-11-v0.8.0-release.md)。
 
+> 当前源码候选为`0.8.1` / build `24`：收起态采用14pt/px内凹把手，展开轮廓上下镜像，取消底部Settings入口，并新增Floating Strip/悬浮条设置页签。[Release Notes](docs/releases/v0.8.1.md)。
+
 ## Screenshots
 
 | 贴边浮岛 | OpenAI Codex 详情（Demo 数据） | Appearance Settings |
@@ -23,7 +25,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.8.0` / build `23`：Appearance新增65pt/px Mini，Compact恢复78pt/px；自动收起可独立关闭，底部深色弧区单独控制Settings齿轮。[Release Notes](docs/releases/v0.8.0.md)。
+> `0.8.1` / build `24`候选：浮动条收起把手更易发现，上下轮廓恢复镜像，底部不再显示Settings图标；Settings新增独立悬浮条页签。[Release Notes](docs/releases/v0.8.1.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -36,11 +38,11 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - 点击菜单栏后的弹出面板在 AI Token Meter 标题左侧显示现有应用 Logo；Windows 原生托盘菜单顶部提供等价的 Logo 与软件名品牌行。
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 OpenAI Codex 重置券摘要。
 - 贴边浮岛按设置显示一至四个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
-- Appearance提供Comfortable、Compact、Mini三档浮岛尺寸；Mini为65pt/px，Compact为78pt/px。自动收起可关闭，关闭后保留原延迟值并让浮岛持续展开。
+- Floating Strip提供Comfortable、Compact、Mini三档浮岛尺寸；Mini为65pt/px，Compact为78pt/px。自动收起可关闭，关闭后保留原延迟值并让浮岛持续展开。
 - Claude Code、OpenAI Codex、DeepSeek、Gemini 分别使用黄橙、玫红紫、薄荷紫、青绿强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会按物理显示器稳定标识记住目标屏、侧边和垂直位置；目标屏暂时断开时只临时回到当前主屏，重新接入后自动恢复，详情始终朝桌面内部展开。
 - 浮岛保持 macOS 桌面层，普通应用和全屏应用可自然覆盖；用户点击 Provider 后，临时详情会显示在普通应用窗口上方，关闭或自动隐藏后立即退出窗口栈。
-- Settings 按 Appearance、Monitoring、Services、About 四个顶部 Tab 分类；新增设置按职责归类，不再堆进单一长页面。
+- Settings 按 Appearance、Floating Strip、Monitoring、Services、About 五个顶部 Tab 分类；Appearance只保留通用字体与Windows语言，悬浮条的内容、尺寸、屏幕、位置和行为集中到Floating Strip。
 - Services 始终显示四项服务的当前连接状态；Claude Code/OpenAI Codex 可一键打开官方 CLI 登录或重新登录，Google Antigravity 提供官方安装步骤、安装指南与重新检查。
 - OpenAI Codex 可从 Shell PATH、`~/.local/bin`、nvm/常见 Node 管理器或已安装 ChatGPT/Codex App 中自动发现；Finder 启动时也会为 Node 脚本补齐运行 PATH，确实缺失时提供官方安装指南。
 - 统一的深色玻璃详情页和无文字仪表指针 App Icon，兼顾浅色、深色与高对比度桌面。
@@ -142,13 +144,13 @@ npm run tauri build
 
 ## 第一次使用
 
-1. 启动 AI Token Meter。全新配置会在屏幕右侧显示四个用量环；从旧版本升级时保留原三项布局，可在 Appearance 中启用并排序 Gemini。macOS 使用菜单栏图标，Windows 使用系统托盘图标。
+1. 启动 AI Token Meter。全新配置会在屏幕右侧显示四个用量环；从旧版本升级时保留原三项布局，可在 Floating Strip 中启用并排序 Google Antigravity。macOS 使用菜单栏图标，Windows 使用系统托盘图标。
 2. 从菜单栏或系统托盘打开 Settings；macOS 也可以按 `⌘,`。
 3. 在 Services 查看 Claude Code 与 OpenAI Codex 当前账户；需要登录或换账号时点击 **Sign in** / **Sign in again**，在打开的官方终端流程中完成登录。如 Claude Code 提示工作区设置，再点击 **Authorize Usage Workspace** 并批准。
 4. 如需 DeepSeek，首次在 Services 选择 **Save API Key**，已有Key时才选择 **Replace API Key**。macOS 使用受保护输入，Windows 打开系统 Credential UI；应用验证成功后才写入 Keychain/Credential Manager，Key 不进入 Windows WebView。把“Balance baseline”设为希望参考的余额（默认 ¥100）。
 5. 点击 DeepSeek 圆环，在详情页登录官方平台以启用近 30 天用量图表。
 6. 如需 Google Antigravity，按[官方安装页](https://antigravity.google/docs/cli/install/)安装 `agy`；macOS 可运行 `curl -fsSL https://antigravity.google/cli/install.sh | bash`，Windows PowerShell 可运行 `irm https://antigravity.google/cli/install.ps1 | iex`。随后运行 `agy` 完成 Google 登录，再回到 Services 点击 **Check Status**。应用不会自动安装、读取 OAuth 内容或代为登录。
-7. 按需开启 70% / 90% 提醒、登录时启动，选择详情自动隐藏时间、浮岛侧边模式和显示字体。Windows 还可分别为 Claude Code/OpenAI Codex 选择 Automatic、Native Windows、WSL 发行版或自定义 CLI 路径。
+7. 在 Monitoring 按需开启 70% / 90% 提醒和登录时启动；在 Floating Strip 选择详情自动隐藏时间、浮岛侧边与显示器；在 Appearance 选择显示字体。Windows 还可分别为 Claude Code/OpenAI Codex 选择 Automatic、Native Windows、WSL 发行版或自定义 CLI 路径。
 8. 若构建产物包含 Widget：在桌面空白处右键选择“编辑小组件”，搜索 **AI Token Meter**，添加 Small、Medium 或 Large；点击任意尺寸只会唤醒主应用。
 
 Antonio 与 DIN Condensed 必须先安装到 macOS 才能选择；AI Token Meter 不下载、内置或分发字体文件。缺失字体的选项会禁用，已保存字体临时不可用时会安全回退到 System Default。详见[设置参考](docs/user-guide/settings.md#display-font)。
@@ -243,7 +245,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码与公开稳定版均为`0.8.0`（macOS build `23`）；发布事务见[发布记录](docs/development/2026-09-11-v0.8.0-release.md)。
+- 当前源码候选为`0.8.1`（macOS build `24`），公开稳定版为`0.8.0`（build `23`）；发布事务见[0.8.1发布记录](docs/development/2026-09-11-v0.8.1-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

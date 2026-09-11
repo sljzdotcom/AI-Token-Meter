@@ -28,14 +28,10 @@ struct FloatingStripShape: Shape {
             path.addCurve(to: point(42, 22), control1: point(59, 14), control2: point(53, 21))
             path.addCurve(to: point(0, 70), control1: point(18, 23), control2: point(0, 42))
             path.addLine(to: point(0, contentHeight - 70))
-            path.addCurve(to: point(18, contentHeight - 10),
-                          control1: point(0, contentHeight - 36), control2: point(6, contentHeight - 15))
-            path.addCurve(to: point(36, contentHeight + 8),
-                          control1: point(27, contentHeight - 8), control2: point(34, contentHeight + 1))
-            path.addCurve(to: point(48, totalHeight - 24),
-                          control1: point(40, contentHeight + 13), control2: point(45, totalHeight - 30))
-            path.addCurve(to: point(65, totalHeight - 6),
-                          control1: point(52, totalHeight - 15), control2: point(59, totalHeight - 9))
+            path.addCurve(to: point(42, totalHeight - 22),
+                          control1: point(0, totalHeight - 42), control2: point(18, totalHeight - 23))
+            path.addCurve(to: point(65, totalHeight - 8),
+                          control1: point(53, totalHeight - 21), control2: point(59, totalHeight - 14))
             path.closeSubpath()
             return path
         }
@@ -44,14 +40,10 @@ struct FloatingStripShape: Shape {
             path.addCurve(to: point(48, 22), control1: point(71, 14), control2: point(63, 21))
             path.addCurve(to: point(0, 70), control1: point(21, 23), control2: point(0, 42))
             path.addLine(to: point(0, contentHeight - 70))
-            path.addCurve(to: point(22, contentHeight - 10),
-                          control1: point(0, contentHeight - 36), control2: point(8, contentHeight - 15))
-            path.addCurve(to: point(45, contentHeight + 8),
-                          control1: point(34, contentHeight - 8), control2: point(42, contentHeight + 1))
-            path.addCurve(to: point(62, totalHeight - 24),
-                          control1: point(50, contentHeight + 13), control2: point(58, totalHeight - 30))
-            path.addCurve(to: point(78, totalHeight - 6),
-                          control1: point(67, totalHeight - 15), control2: point(73, totalHeight - 9))
+            path.addCurve(to: point(48, totalHeight - 22),
+                          control1: point(0, totalHeight - 42), control2: point(21, totalHeight - 23))
+            path.addCurve(to: point(78, totalHeight - 8),
+                          control1: point(63, totalHeight - 21), control2: point(71, totalHeight - 14))
             path.closeSubpath()
             return path
         }
@@ -68,20 +60,37 @@ struct FloatingStripShape: Shape {
         )
         path.addLine(to: point(0, contentHeight - 88))
         path.addCurve(
-            to: point(34, contentHeight - 10),
-            control1: point(0, contentHeight - 47),
-            control2: point(13, contentHeight - 12)
+            to: point(66, totalHeight - 28),
+            control1: point(0, totalHeight - 54),
+            control2: point(29, totalHeight - 29)
         )
         path.addCurve(
-            to: point(68, contentHeight + 12),
-            control1: point(50, contentHeight - 8),
-            control2: point(64, contentHeight + 3)
+            to: point(108, totalHeight - 16),
+            control1: point(88, totalHeight - 27),
+            control2: point(98, totalHeight - 23)
         )
-        path.addCurve(
-            to: point(108, totalHeight - 8),
-            control1: point(78, contentHeight + 20),
-            control2: point(96, totalHeight - 14)
-        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct FloatingStripFoldedShape: Shape {
+    let edge: FloatingStripEdge
+
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            let scaledX = x * rect.width / 14
+            let resolvedX = edge == .right ? rect.minX + scaledX : rect.maxX - scaledX
+            return CGPoint(x: resolvedX, y: rect.minY + y * rect.height / 88)
+        }
+
+        var path = Path()
+        path.move(to: point(14, 0))
+        path.addCurve(to: point(6.3, 18), control1: point(14, 8), control2: point(12, 14))
+        path.addCurve(to: point(0, 30), control1: point(3.3, 20), control2: point(0, 24))
+        path.addLine(to: point(0, 58))
+        path.addCurve(to: point(6.3, 70), control1: point(0, 64), control2: point(3.3, 68))
+        path.addCurve(to: point(14, 88), control1: point(12, 74), control2: point(14, 80))
         path.closeSubpath()
         return path
     }

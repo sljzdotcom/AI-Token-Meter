@@ -48,7 +48,7 @@ flushSync(() => {
         <div style={{display: "flex", gap: 32}}>
           {(["comfortable", "compact", "mini"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : density === "compact" ? 78 : 65, height: density === "comfortable" ? 476 : 386}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : density === "compact" ? 78 : 65, height: density === "comfortable" ? 428 : 344}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -79,12 +79,58 @@ function styleFor<T extends Element>(selector: string): CSSStyleDeclaration {
   return getComputedStyle(element)
 }
 
+const settingsControlStyle = styleFor<HTMLSelectElement>("select[aria-label='Display font']")
+const settingsControlMetrics = {
+  fontSize: settingsControlStyle.fontSize,
+  minHeight: settingsControlStyle.minHeight,
+  color: settingsControlStyle.color,
+  backgroundColor: settingsControlStyle.backgroundColor,
+}
+const settingsOptionStyle = styleFor<HTMLOptionElement>("select[aria-label='Display font'] option")
+const settingsOptionColors = {color: settingsOptionStyle.color, backgroundColor: settingsOptionStyle.backgroundColor}
+flushSync(() => document.querySelector<HTMLButtonElement>("[role='tab']:nth-of-type(2)")!.click())
 const densitySelect = document.querySelector<HTMLSelectElement>("select[aria-label='Floating strip size']")!
 const automaticCollapseInput = document.querySelector<HTMLInputElement>("input[aria-label='Automatically collapse floating strip']")!
 const collapseDelayInputs = [...document.querySelectorAll<HTMLInputElement>("input[aria-label$='delay (ms)']")]
 const initialAutomaticCollapse = automaticCollapseInput.checked
 const initialCollapseDelayValues = collapseDelayInputs.map(input => input.value)
 flushSync(() => automaticCollapseInput.click())
+
+const settingsLayoutSamples: Array<{locale: string; width: number; overflowX: string; tabCount: number; lastTabReachable: boolean; contentScrollable: boolean; lastControlReachable: boolean}> = []
+for (const locale of ["en", "zh-CN"] as const) {
+  flushSync(() => setLocale(locale))
+  for (const width of [360, 760]) {
+    const host = document.createElement("div")
+    host.style.cssText = `position:absolute;left:-10000px;width:${width}px;height:320px;overflow:hidden`
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    flushSync(() => sampleRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Floating Strip" />))
+    const settingsWindow = host.querySelector<HTMLElement>(".settings-window")!
+    settingsWindow.style.width = `${width}px`
+    settingsWindow.style.height = "320px"
+    const tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    flushSync(() => tabs[1].click())
+    const nav = host.querySelector<HTMLElement>("nav")!
+    nav.scrollLeft = nav.scrollWidth
+    const navRect = nav.getBoundingClientRect()
+    const lastTabRect = tabs.at(-1)!.getBoundingClientRect()
+    const content = host.querySelector<HTMLElement>(".settings-content")!
+    content.scrollTop = content.scrollHeight
+    const contentRect = content.getBoundingClientRect()
+    const lastControlRect = host.querySelector<HTMLElement>('input[aria-label$="auto-hide seconds"], input[aria-label$="自动隐藏（秒）"]')!.getBoundingClientRect()
+    settingsLayoutSamples.push({
+      locale,
+      width,
+      overflowX: getComputedStyle(nav).overflowX,
+      tabCount: tabs.length,
+      lastTabReachable: lastTabRect.left >= navRect.left && lastTabRect.right <= navRect.right,
+      contentScrollable: content.scrollHeight > content.clientHeight && getComputedStyle(content).overflowY === "auto",
+      lastControlReachable: lastControlRect.top >= contentRect.top && lastControlRect.bottom <= contentRect.bottom,
+    })
+    flushSync(() => sampleRoot.unmount())
+    host.remove()
+  }
+}
 
 const report = {
   meterFont: styleFor(".meter-stage").fontFamily,
@@ -97,13 +143,13 @@ const report = {
   settingsFont: styleFor(".settings-window").fontFamily,
   settingsBase: styleFor(".settings-window").fontSize,
   settingsTitle: styleFor(".settings-window > header strong").fontSize,
-  controlFont: styleFor<HTMLSelectElement>("select[aria-label='Display font']").fontSize,
-  controlMinHeight: styleFor<HTMLSelectElement>("select[aria-label='Display font']").minHeight,
+  controlFont: settingsControlMetrics.fontSize,
+  controlMinHeight: settingsControlMetrics.minHeight,
   colorScheme: styleFor(".settings-window").colorScheme,
-  selectColor: styleFor<HTMLSelectElement>("select[aria-label='Display font']").color,
-  selectBackground: styleFor<HTMLSelectElement>("select[aria-label='Display font']").backgroundColor,
-  optionColor: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").color,
-  optionBackground: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").backgroundColor,
+  selectColor: settingsControlMetrics.color,
+  selectBackground: settingsControlMetrics.backgroundColor,
+  optionColor: settingsOptionColors.color,
+  optionBackground: settingsOptionColors.backgroundColor,
   stripDensityOptions: [...densitySelect.options].map(option => option.value),
   selectedStripDensity: densitySelect.value,
   initialAutomaticCollapse,
@@ -111,6 +157,7 @@ const report = {
   collapseDelayControlsDisabled: collapseDelayInputs.every(input => input.disabled),
   initialCollapseDelayValues,
   collapseDelayValuesAfterClick: collapseDelayInputs.map(input => input.value),
+  settingsLayoutSamples,
 }
 const detailSamples: Array<{scenario: string; text: string; size: number; baseline: number}> = []
 for (const locale of ["en", "zh-CN"] as const) {
@@ -192,7 +239,7 @@ for (const locale of ["en", "zh-CN"] as const) {
     document.body.append(host)
     const sampleRoot = createRoot(host)
     flushSync(() => sampleRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" updateState={updateState} />))
-    flushSync(() => (host.querySelectorAll<HTMLElement>('[role="tab"]')[3]).click())
+    flushSync(() => (host.querySelectorAll<HTMLElement>('[role="tab"]')[4]).click())
     const style = getComputedStyle(host.querySelector<HTMLElement>(".update-status")!)
     updateSamples.push({locale, phase: updateState.phase, color: style.color, fontFamily: style.fontFamily, fontWeight: style.fontWeight, fontSize: style.fontSize})
     flushSync(() => sampleRoot.unmount())
@@ -203,7 +250,7 @@ for (const locale of ["en", "zh-CN"] as const) {
   document.body.append(settingsHost)
   const settingsRoot = createRoot(settingsHost)
   flushSync(() => settingsRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" />))
-  flushSync(() => settingsHost.querySelectorAll<HTMLElement>('[role="tab"]')[3].click())
+  flushSync(() => settingsHost.querySelectorAll<HTMLElement>('[role="tab"]')[4].click())
   const settingsGroup = settingsHost.querySelector<HTMLElement>(".author-links")!
   const settingsLinks = [...settingsGroup.querySelectorAll<HTMLAnchorElement>("a")]
   aboutCopySamples.push({
@@ -255,7 +302,7 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
       const width = density === "comfortable" ? 108 : density === "compact" ? 78 : 65
-      const height = (density === "comfortable" ? [260,332,404,476] : [212,270,328,386])[count-1]
+      const height = (density === "comfortable" ? [212,284,356,428] : [170,228,286,344])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`
       host.style.cssText = `position:fixed;left:20px;top:20px;width:${width}px;height:${height}px;z-index:2147483647`
@@ -266,9 +313,6 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
         preferences={{...defaultStripPreferences, density, hiddenProviders: defaultStripPreferences.orderedProviders.slice(count)}} snapshots={unavailableSnapshots} />))
       const nav = host.querySelector<HTMLElement>("nav")!
       const buttons = [...host.querySelectorAll<HTMLButtonElement>(".usage-ring")]
-      const settingsButton = host.querySelector<HTMLButtonElement>(".floating-strip__settings")!
-      const settingsZone = host.querySelector<HTMLElement>(".floating-strip__settings-zone")!
-      settingsButton.style.transition = "none"
       for (const button of buttons) button.style.animation = "none"
       const rect = nav.getBoundingClientRect()
       const hitButtons = buttons.every(button => {
@@ -294,21 +338,11 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
         button.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true,button:0}))
         button.click()
       }
-      const settingsOpacityAtRest = getComputedStyle(settingsButton).opacity
-      const settingsHoveredAfterBodyEntry = nav.dataset.settingsHovered
-      settingsButton.focus()
-      const settingsOpacityAtFocus = getComputedStyle(settingsButton).opacity
-      settingsButton.blur()
-      flushSync(() => settingsZone.dispatchEvent(new PointerEvent("pointerover", {bubbles:true})))
-      const settingsHoveredAfterZoneEntry = nav.dataset.settingsHovered
-      flushSync(() => settingsZone.dispatchEvent(new PointerEvent("pointerout", {bubbles:true,relatedTarget:nav})))
-      settingsButton.click()
       window.removeEventListener("meter-drag-requested", drag)
       const firstButtonWidth = buttons[0]?.getBoundingClientRect().width ?? 0
       stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
         sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "comfortable" ? 24 : density === "compact" ? 15 : 8.5,
-        hitButtons,ringPerimetersVisible,settingsVisible:getComputedStyle(settingsButton).display !== "none",
-        settingsOpacityAtRest,settingsOpacityAtFocus,settingsHoveredAfterBodyEntry,settingsHoveredAfterZoneEntry,
+        hitButtons,ringPerimetersVisible,settingsVisible:host.querySelector(".floating-strip__settings") !== null,
         drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
         buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,
         mirroredLogo: buttons.some(button => getComputedStyle(button.querySelector("svg")!).transform !== "none")})
@@ -316,6 +350,36 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
       host.remove()
     }
   }
+}
+const foldedStripSamples = []
+for (const edge of ["left", "right"] as const) {
+  const host = document.createElement("div")
+  host.className = `meter-stage--strip-only meter-edge--${edge}`
+  host.style.cssText = "position:fixed;left:20px;top:20px;width:20px;height:96px;z-index:2147483647"
+  document.body.appendChild(host)
+  const sampleRoot = createRoot(host)
+  flushSync(() => sampleRoot.render(<FloatingStrip folded activeProvider={null} onProviderActivate={() => {}}
+    preferences={defaultStripPreferences} snapshots={unavailableSnapshots} />))
+  const button = host.querySelector<HTMLButtonElement>(".meter-folded")!
+  const buttonRect = button.getBoundingClientRect()
+  const handle = getComputedStyle(button, "::before")
+  const highlightRect = button.querySelector("span")!.getBoundingClientRect()
+  const hitTarget = document.elementFromPoint(buttonRect.x + buttonRect.width / 2, buttonRect.y + buttonRect.height / 2)
+  foldedStripSamples.push({
+    edge,
+    buttonWidth: buttonRect.width,
+    buttonHeight: buttonRect.height,
+    handleWidth: handle.width,
+    handleHeight: handle.height,
+    clipPath: handle.clipPath,
+    highlightWidth: highlightRect.width,
+    highlightHeight: highlightRect.height,
+    hitTarget: hitTarget != null && (hitTarget === button || button.contains(hitTarget)),
+    transform: getComputedStyle(button).transform,
+    settingsVisible: host.querySelector(".floating-strip__settings") !== null,
+  })
+  flushSync(() => sampleRoot.unmount())
+  host.remove()
 }
 const geminiSamples = []
 for (const width of [340, 440]) {
@@ -348,4 +412,4 @@ for (const width of [340, 440]) {
   }
 }
 
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, detailSurfaceSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, detailSurfaceSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, foldedStripSamples, geminiSamples})

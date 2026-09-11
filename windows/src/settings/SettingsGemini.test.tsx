@@ -6,7 +6,7 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 function StatefulSettings() {
   const [preferences, setPreferences] = useState(defaultStripPreferences)
-  return <SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} stripPreferences={preferences} onStripPreferencesChange={setPreferences} />
+  return <SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Floating Strip" stripPreferences={preferences} onStripPreferencesChange={setPreferences} />
 }
 
 it("fourth provider is named and can move while only the last visible provider is protected", () => {
@@ -15,7 +15,7 @@ it("fourth provider is named and can move while only the last visible provider i
   expect(screen.getByLabelText("Move Google Antigravity down")).toBeDisabled()
   expect(screen.getByLabelText("Move DeepSeek down")).toBeEnabled()
   fireEvent.click(screen.getByLabelText("Move Google Antigravity up"))
-  expect(screen.getAllByRole("checkbox").slice(1).map(input => input.parentElement?.textContent)).toEqual(["Claude Code", "OpenAI Codex", "Google Antigravity", "DeepSeek"])
+  expect(screen.getAllByRole("checkbox", {name: /Claude Code|OpenAI Codex|DeepSeek|Google Antigravity/}).map(input => input.parentElement?.textContent)).toEqual(["Claude Code", "OpenAI Codex", "Google Antigravity", "DeepSeek"])
   fireEvent.click(screen.getByLabelText("Claude Code"))
   fireEvent.click(screen.getByLabelText("OpenAI Codex"))
   expect(screen.getByLabelText("DeepSeek")).toBeEnabled()

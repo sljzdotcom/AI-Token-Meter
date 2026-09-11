@@ -18,7 +18,7 @@ struct FloatingStripPreferencesTests {
         #expect(FloatingStripDensity.compact.ringSize == 48)
         #expect((FloatingStripDensity.compact.width - FloatingStripDensity.compact.ringSize) / 2 == 15)
         #expect(FloatingStripDensity.comfortable.width == 108)
-        for (density, heights) in [(FloatingStripDensity.mini, [212.0, 270, 328, 386]), (.compact, [212.0, 270, 328, 386]), (.comfortable, [260.0, 332, 404, 476])] {
+        for (density, heights) in [(FloatingStripDensity.mini, [170.0, 228, 286, 344]), (.compact, [170.0, 228, 286, 344]), (.comfortable, [212.0, 284, 356, 428])] {
             for (index, height) in heights.enumerated() {
                 #expect(density.height(providerCount: index + 1) == height)
             }
@@ -105,10 +105,10 @@ struct FloatingStripPreferencesTests {
     }
 
     @Test func providerRemovalShrinksOnlyTheMiddle() {
-        #expect(FloatingStripDensity.mini.height(providerCount: 2) == 270)
-        #expect(FloatingStripDensity.compact.height(providerCount: 2) == 270)
-        #expect(FloatingStripDensity.compact.height(providerCount: 1) == 212)
-        #expect(FloatingStripDensity.comfortable.height(providerCount: 2) == 332)
+        #expect(FloatingStripDensity.mini.height(providerCount: 2) == 228)
+        #expect(FloatingStripDensity.compact.height(providerCount: 2) == 228)
+        #expect(FloatingStripDensity.compact.height(providerCount: 1) == 170)
+        #expect(FloatingStripDensity.comfortable.height(providerCount: 2) == 284)
     }
 
     @Test func hiddenDeadlineExpiresWithoutChangingPreference() {
