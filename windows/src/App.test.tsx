@@ -622,6 +622,7 @@ describe("Windows meter interface", () => {
     fireEvent.change(screen.getByLabelText("Display font"), { target: { value: "Menlo" } })
     expect(changed).toHaveBeenCalledWith("Menlo")
     expect(screen.getByRole("tab", { name: "Appearance" })).toBeVisible()
+    expect(screen.getByRole("tab", { name: "Floating Strip" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "Monitoring" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "Services" })).toBeVisible()
     expect(screen.getByRole("tab", { name: "About" })).toBeVisible()

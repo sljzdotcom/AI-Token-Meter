@@ -79,12 +79,58 @@ function styleFor<T extends Element>(selector: string): CSSStyleDeclaration {
   return getComputedStyle(element)
 }
 
+const settingsControlStyle = styleFor<HTMLSelectElement>("select[aria-label='Display font']")
+const settingsControlMetrics = {
+  fontSize: settingsControlStyle.fontSize,
+  minHeight: settingsControlStyle.minHeight,
+  color: settingsControlStyle.color,
+  backgroundColor: settingsControlStyle.backgroundColor,
+}
+const settingsOptionStyle = styleFor<HTMLOptionElement>("select[aria-label='Display font'] option")
+const settingsOptionColors = {color: settingsOptionStyle.color, backgroundColor: settingsOptionStyle.backgroundColor}
+flushSync(() => document.querySelector<HTMLButtonElement>("[role='tab']:nth-of-type(2)")!.click())
 const densitySelect = document.querySelector<HTMLSelectElement>("select[aria-label='Floating strip size']")!
 const automaticCollapseInput = document.querySelector<HTMLInputElement>("input[aria-label='Automatically collapse floating strip']")!
 const collapseDelayInputs = [...document.querySelectorAll<HTMLInputElement>("input[aria-label$='delay (ms)']")]
 const initialAutomaticCollapse = automaticCollapseInput.checked
 const initialCollapseDelayValues = collapseDelayInputs.map(input => input.value)
 flushSync(() => automaticCollapseInput.click())
+
+const settingsLayoutSamples: Array<{locale: string; width: number; overflowX: string; tabCount: number; lastTabReachable: boolean; contentScrollable: boolean; lastControlReachable: boolean}> = []
+for (const locale of ["en", "zh-CN"] as const) {
+  flushSync(() => setLocale(locale))
+  for (const width of [360, 760]) {
+    const host = document.createElement("div")
+    host.style.cssText = `position:absolute;left:-10000px;width:${width}px;height:320px;overflow:hidden`
+    document.body.append(host)
+    const sampleRoot = createRoot(host)
+    flushSync(() => sampleRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Floating Strip" />))
+    const settingsWindow = host.querySelector<HTMLElement>(".settings-window")!
+    settingsWindow.style.width = `${width}px`
+    settingsWindow.style.height = "320px"
+    const tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    flushSync(() => tabs[1].click())
+    const nav = host.querySelector<HTMLElement>("nav")!
+    nav.scrollLeft = nav.scrollWidth
+    const navRect = nav.getBoundingClientRect()
+    const lastTabRect = tabs.at(-1)!.getBoundingClientRect()
+    const content = host.querySelector<HTMLElement>(".settings-content")!
+    content.scrollTop = content.scrollHeight
+    const contentRect = content.getBoundingClientRect()
+    const lastControlRect = host.querySelector<HTMLElement>('input[aria-label$="auto-hide seconds"], input[aria-label$="自动隐藏（秒）"]')!.getBoundingClientRect()
+    settingsLayoutSamples.push({
+      locale,
+      width,
+      overflowX: getComputedStyle(nav).overflowX,
+      tabCount: tabs.length,
+      lastTabReachable: lastTabRect.left >= navRect.left && lastTabRect.right <= navRect.right,
+      contentScrollable: content.scrollHeight > content.clientHeight && getComputedStyle(content).overflowY === "auto",
+      lastControlReachable: lastControlRect.top >= contentRect.top && lastControlRect.bottom <= contentRect.bottom,
+    })
+    flushSync(() => sampleRoot.unmount())
+    host.remove()
+  }
+}
 
 const report = {
   meterFont: styleFor(".meter-stage").fontFamily,
@@ -97,13 +143,13 @@ const report = {
   settingsFont: styleFor(".settings-window").fontFamily,
   settingsBase: styleFor(".settings-window").fontSize,
   settingsTitle: styleFor(".settings-window > header strong").fontSize,
-  controlFont: styleFor<HTMLSelectElement>("select[aria-label='Display font']").fontSize,
-  controlMinHeight: styleFor<HTMLSelectElement>("select[aria-label='Display font']").minHeight,
+  controlFont: settingsControlMetrics.fontSize,
+  controlMinHeight: settingsControlMetrics.minHeight,
   colorScheme: styleFor(".settings-window").colorScheme,
-  selectColor: styleFor<HTMLSelectElement>("select[aria-label='Display font']").color,
-  selectBackground: styleFor<HTMLSelectElement>("select[aria-label='Display font']").backgroundColor,
-  optionColor: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").color,
-  optionBackground: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").backgroundColor,
+  selectColor: settingsControlMetrics.color,
+  selectBackground: settingsControlMetrics.backgroundColor,
+  optionColor: settingsOptionColors.color,
+  optionBackground: settingsOptionColors.backgroundColor,
   stripDensityOptions: [...densitySelect.options].map(option => option.value),
   selectedStripDensity: densitySelect.value,
   initialAutomaticCollapse,
@@ -111,6 +157,7 @@ const report = {
   collapseDelayControlsDisabled: collapseDelayInputs.every(input => input.disabled),
   initialCollapseDelayValues,
   collapseDelayValuesAfterClick: collapseDelayInputs.map(input => input.value),
+  settingsLayoutSamples,
 }
 const detailSamples: Array<{scenario: string; text: string; size: number; baseline: number}> = []
 for (const locale of ["en", "zh-CN"] as const) {
@@ -192,7 +239,7 @@ for (const locale of ["en", "zh-CN"] as const) {
     document.body.append(host)
     const sampleRoot = createRoot(host)
     flushSync(() => sampleRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" updateState={updateState} />))
-    flushSync(() => (host.querySelectorAll<HTMLElement>('[role="tab"]')[3]).click())
+    flushSync(() => (host.querySelectorAll<HTMLElement>('[role="tab"]')[4]).click())
     const style = getComputedStyle(host.querySelector<HTMLElement>(".update-status")!)
     updateSamples.push({locale, phase: updateState.phase, color: style.color, fontFamily: style.fontFamily, fontWeight: style.fontWeight, fontSize: style.fontSize})
     flushSync(() => sampleRoot.unmount())
@@ -203,7 +250,7 @@ for (const locale of ["en", "zh-CN"] as const) {
   document.body.append(settingsHost)
   const settingsRoot = createRoot(settingsHost)
   flushSync(() => settingsRoot.render(<SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="About" />))
-  flushSync(() => settingsHost.querySelectorAll<HTMLElement>('[role="tab"]')[3].click())
+  flushSync(() => settingsHost.querySelectorAll<HTMLElement>('[role="tab"]')[4].click())
   const settingsGroup = settingsHost.querySelector<HTMLElement>(".author-links")!
   const settingsLinks = [...settingsGroup.querySelectorAll<HTMLAnchorElement>("a")]
   aboutCopySamples.push({

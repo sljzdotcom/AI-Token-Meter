@@ -39,6 +39,7 @@
         "title": "AI Token Meter Settings",
         "width": 760,
         "height": 560,
+        "minWidth": 360,
         "center": true,
         "visible": false
       }

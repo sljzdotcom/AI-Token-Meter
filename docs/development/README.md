@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-11](2026-09-11-floating-strip-settings-tab.md) | Settings新增Floating Strip/悬浮条页签并精简Appearance | 双平台五页签、三组悬浮条设置、右键路由和中英文已实现；偏好语义保持，完整门禁与独立复核见日志 |
 | [2026-09-11](2026-09-11-floating-strip-contour-simplification.md) | 浮动条镜像轮廓与底部Settings入口移除 | 双平台14pt内凹收起把手、镜像肩部与内容区高度；底部弧、齿轮及命中区完全移除，完整门禁与独立复核0/0/0通过 |
 | [2026-09-11](2026-09-11-v0.8.0-release.md) | 0.8.0 Mini浮动条稳定发布 | 三档浮动条、独立自动收起与Settings底弧修正；PR/main、双平台签名资产和公网更新源已验收 |
 | [2026-09-11](2026-09-11-mini-floating-strip-followup.md) | Mini浮动条、自动收起与Settings底弧修正 | 新增65pt Mini、恢复78pt Compact、三档固定顺序并隔离底弧齿轮触发；双平台门禁、独立审查与0.8.0发布完成 |

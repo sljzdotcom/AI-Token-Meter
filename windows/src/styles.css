@@ -622,7 +622,9 @@ button {
   background: #fff;
   display: flex;
   gap: var(--settings-nav-gap, 6px);
+  overflow-x: auto;
   padding: 0 var(--settings-content-padding, 20px);
+  scrollbar-width: thin;
   flex-shrink: 0;
 }
 
@@ -631,6 +633,7 @@ button {
   border: 0;
   border-bottom: 3px solid transparent;
   cursor: pointer;
+  flex: 0 0 auto;
   font-size: var(--settings-control-font-size, inherit);
   padding: var(--settings-nav-top-padding, 13px) var(--settings-nav-horizontal-padding, 12px) var(--settings-nav-bottom-padding, 10px);
 }
@@ -648,6 +651,19 @@ button {
   min-height: 0;
   overflow-y: auto;
   padding: var(--settings-content-padding, 24px);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-content-gap, 12px);
+}
+
+.settings-group h2 {
+  color: #596173;
+  font-size: 13px;
+  letter-spacing: .02em;
+  margin: 4px 2px -3px;
 }
 
 .settings-window [role="tab"] {
@@ -872,6 +888,8 @@ button {
   .provider-detail { padding: 20px; width: min(420px, calc(100vw - 136px)); }
   .metric-grid { grid-template-columns: 1fr; }
   .activity-grid { grid-template-columns: 1fr; }
+  .setting-row { align-items: stretch; flex-direction: column; }
+  .setting-row > div:last-child { flex-wrap: wrap; justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

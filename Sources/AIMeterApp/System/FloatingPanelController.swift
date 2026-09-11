@@ -724,7 +724,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     func menuDidClose(_ menu: NSMenu) { menuIsOpen = false; applyDetailInteractionState(); tickFold() }
     @objc private func refreshFromMenu() { Task { await model.refresh() } }
     @objc private func hideFromMenu() { model.hideStripForOneHour() }
-    @objc private func settingsFromMenu() { model.requestSettings(.appearance) }
+    @objc private func settingsFromMenu() { model.requestSettings(.floatingStrip) }
     @objc private func quitFromMenu() { NSApp.terminate(nil) }
 
     private static func makePanel(

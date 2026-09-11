@@ -387,12 +387,16 @@ export function SettingsSurface() {
     void invoke<DisplayInfo[]>("available_displays").then(value => { if (!disposed && !changed) setAvailableDisplays(value ?? []) }).catch(() => {})
     return () => { disposed = true; stop?.() }
   }, [])
-  const [requestedTab, setRequestedTab] = useState<"Appearance" | "Monitoring" | "Services" | "About">()
+  const [requestedTab, setRequestedTab] = useState<"Appearance" | "Floating Strip" | "Monitoring" | "Services" | "About">()
+  const [requestedTabGeneration, setRequestedTabGeneration] = useState(0)
   useEffect(() => {
     let disposed = false
     let stop: (() => void) | undefined
-    listen<"Appearance" | "Monitoring" | "Services" | "About">("settings-tab-requested", (event) => {
-      if (!disposed) setRequestedTab(event.payload)
+    listen<"Appearance" | "Floating Strip" | "Monitoring" | "Services" | "About">("settings-tab-requested", (event) => {
+      if (!disposed) {
+        setRequestedTab(event.payload)
+        setRequestedTabGeneration(value => value + 1)
+      }
     }).then((unlisten) => {
       if (disposed) unlisten()
       else stop = unlisten
@@ -497,6 +501,7 @@ export function SettingsSurface() {
         void invoke("set_meter_edge", { edge: nextEdge })
       }}
       requestedTab={requestedTab}
+      requestedTabGeneration={requestedTabGeneration}
       updateState={updateState}
       onCheckForUpdates={() => void invoke<UpdateState>("check_for_updates").then(setUpdateState).catch(() => {})}
       onInstallUpdate={() => void invoke("install_update").catch(() => {})}

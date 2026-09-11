@@ -10,6 +10,7 @@ enum SettingsMessageKind: Equatable {
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case appearance
+    case floatingStrip
     case monitoring
     case services
     case about
@@ -19,6 +20,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .appearance: "Appearance"
+        case .floatingStrip: "Floating Strip"
         case .monitoring: "Monitoring"
         case .services: "Services"
         case .about: "About"
@@ -28,6 +30,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .appearance: "paintbrush"
+        case .floatingStrip: "sidebar.right"
         case .monitoring: "waveform.path.ecg"
         case .services: "server.rack"
         case .about: "info.circle"

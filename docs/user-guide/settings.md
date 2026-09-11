@@ -8,61 +8,11 @@
 
 Google Antigravity 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡按状态显示官方 `agy` 安装或登录步骤，安装按钮直达官方页面，并提供检查状态；当前不执行安装、登录或重新登录。版本与 Windows 原生限制见[Antigravity 指标说明](providers.md#google-antigravity)。
 
-使用 macOS 菜单栏或 Windows 系统托盘的齿轮打开设置；macOS 也可按 `⌘,`。设置窗口固定分为 **Appearance、Monitoring、Services、About** 四个顶部 Tab；Settings 自身始终使用平台系统字体，不受显示字体偏好影响。
+使用 macOS 菜单栏或 Windows 系统托盘的齿轮打开设置；macOS 也可按 `⌘,`。设置窗口固定分为 **Appearance、Floating Strip、Monitoring、Services、About** 五个顶部 Tab；Windows 简体中文把第二项显示为 **悬浮条**。Settings 自身始终使用平台系统字体，不受显示字体偏好影响。
 
 ## Appearance
 
-### 紧凑浮动条（0.3.0 起）
-
-0.6.0 起两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
-
-- **Floating strip size**：固定按Comfortable、Compact、Mini排列，默认Compact。四项全显示分别为108×428、78×344、65×344；每隐藏一项高度自动缩短，三项尺寸分别为108×356、78×286、65×286。切换不改变保存的显示器与位置中心；升级时旧Compact保持Compact，不会自动变为Mini。
-- **Automatically collapse floating strip**：默认开启。关闭后立即取消待执行计时并保持展开；Show/Hide delay保留原值但暂时禁用，重新开启后继续使用。
-- **Show delay**：指针进入20pt/px命中区域后等待0–2000ms展开，默认150ms；期限内离开会取消展开。
-- **Hide delay**：离开整个浮动条交互区后等待0–5000ms收起，默认800ms。操作详情、Settings、菜单、拖动、刷新和读屏期间保持展开。
-- 悬浮条底部不显示Settings弧区或齿轮；Settings仍可从应用菜单与右键菜单进入。收起态使用14pt/px可见内凹把手和20pt/px透明命中宽。
-- **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order 恢复四项和默认顺序。隐藏只影响浮动条，菜单、采集与 Widget 不受影响。
-- 右键浮动条可 **Refresh now**、**Hide for 1 hour**、打开Appearance或退出。临时隐藏可跨重启恢复剩余时长；菜单栏/托盘的 **Show Floating Strip Now** 可立即取消隐藏。
-- 外环仍表示额度，内环仅提示刷新或需登录/设置；失败时保留成功数据，并显示Cached及距上次成功更新时间。限流时反复点击刷新不会绕过等待。
-
-以上源码改动的发布状态与实机验证见[开发记录](../development/2026-09-06-compact-progressive-strip.md)。
-
-### Desktop Widget
-
-Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Settings 不重复提供尺寸或刷新频率选项。Widget 始终使用系统字体和深海背景，不继承浮动条的 Antonio/DIN 选择；主应用刷新或 DeepSeek 余额基准变化后会发布脱敏快照并请求系统更新时间线。
-
-Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。`0.3.0-preview.1` 起，Windows 浮岛使用与 macOS 相同的平滑 Bezier 轮廓，深海背景连续覆盖上下肩部；`0.3.0-preview.2` 起，Windows 主程序使用 GUI subsystem，启动时不再额外打开终端窗口；`0.3.0-preview.3` 起，Windows Settings 使用紧凑系统字体并保证字体下拉白底深字可读。这些都不是可单独切换的外观选项。
-
-Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续使用 Segoe UI 系统字体，Display font 的原生下拉明确采用白底深色文字。该变化不修改 macOS 的字号、间距或控件配色。
-
-### Show floating meter
-
-- 默认：开启。
-- 作用：显示或隐藏贴边浮岛。
-- 关闭后：菜单栏入口仍然可用。
-
-### Screen edge
-
-0.4.0 的多显示器设置位于 Appearance：
-
-- **Show on → Primary display**：跟随系统主屏，新安装默认；仅修改边缘不改变此模式。
-- **Selected display**：指定屏幕，断开时临时回主屏，重连恢复；升级保留旧目标。
-- **All displays**：每个在线屏一个浮动条，各自记住位置，采集不重复。只会同时打开一个详情；点击另一屏会转移详情。
-- **Move to primary display**：切回跟随主屏，无需清除配置或重装。
-- 单屏模式从玻璃空白处跨屏拖动，松手后选择该屏；所有屏模式每个实例留在所属屏。
-
-- **Automatic（默认）**：可从服务 Logo 以外的任意玻璃空白处上下移动，也可横向拖到另一侧；松手后吸附最近边缘。
-- **Left**：松手后固定在目标屏左侧，不再阻止单屏模式跨屏拖动。
-- **Right**：松手后固定在目标屏右侧，不再阻止单屏模式跨屏拖动。
-- macOS 的 Left/Right 是共享约束，不擦除记住的边缘，切回 Automatic 可恢复；Windows 的 Left/Right 是摆放选择，拖动仍沿用最近边缘吸附。
-- 设置变更立即生效，不需要重启应用。
-- AI Token Meter 会保存具体物理显示器、最后侧边和相对垂直位置；重启、休眠或主副屏角色变化不会改变目标屏。已保存显示器断开时，浮岛仅临时回到当前主屏并保留原侧边和相对高度，不会用回退位置覆盖配置；原显示器重新接入后自动恢复。此时如果用户主动拖动浮岛，或在 Settings 改变 Left/Right，当前显示器会成为新的保存目标。可见区域改变时只在当前屏幕内安全夹紧。
-
-macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 使用无任务栏 Win32 工具窗口，并在同显示器出现全屏前台应用时隐藏。点击 Provider 后的临时详情都会在普通应用窗口上方显示，关闭或自动隐藏后立即撤销临时置前。两平台都会保存显示器、Left/Right 侧边与归一化垂直位置；显示器断开时无损回退主屏，不会把临时位置写回配置。
-
-服务圆环只负责打开详情。移动浮岛可从顶部、圆环之间或底部的玻璃空白处开始；Logo 命中区和透明肩部不会触发拖动，因此不会与服务点击互相冲突。
-
-键盘或 VoiceOver 用户可聚焦浮岛玻璃表面：上/下方向键按 10% 步进移动，左/右方向键会明确把侧边偏好设为 Left/Right；VoiceOver 也提供同名自定义动作并朗读当前侧边与垂直位置。
+Appearance只保留通用显示选项：macOS为Display font；Windows为Language和Display font。修改会立即生效，Settings窗口本身继续使用系统字体。
 
 ### Display font
 
@@ -91,12 +41,69 @@ Appearance → Language 可选 English（默认）或简体中文，保存后立
 
 Windows 三个详情页全部文字在 0.3.0 基础上减小 1 CSS px，保留自适应滚动；Settings、浮动条和 macOS 字号不变。缺失字体标记不可用，内容回退微软雅黑/系统字体，不下载或打包字体文件。
 
+## Floating Strip
+
+Floating Strip集中悬浮条的内容与尺寸、屏幕与位置、行为设置。macOS与Windows从悬浮条右键菜单打开Settings时会直接进入此页。
+
+### 紧凑浮动条（0.3.0 起）
+
+0.6.0 起两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
+
+- **Floating strip size**：固定按Comfortable、Compact、Mini排列，默认Compact。四项全显示分别为108×428、78×344、65×344；每隐藏一项高度自动缩短，三项尺寸分别为108×356、78×286、65×286。切换不改变保存的显示器与位置中心；升级时旧Compact保持Compact，不会自动变为Mini。
+- **Automatically collapse floating strip**：默认开启。关闭后立即取消待执行计时并保持展开；Show/Hide delay保留原值但暂时禁用，重新开启后继续使用。
+- **Show delay**：指针进入20pt/px命中区域后等待0–2000ms展开，默认150ms；期限内离开会取消展开。
+- **Hide delay**：离开整个浮动条交互区后等待0–5000ms收起，默认800ms。操作详情、Settings、菜单、拖动、刷新和读屏期间保持展开。
+- 悬浮条底部不显示Settings弧区或齿轮；Settings仍可从应用菜单与右键菜单进入。收起态使用14pt/px可见内凹把手和20pt/px透明命中宽。
+- **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order 恢复四项和默认顺序。隐藏只影响浮动条，菜单、采集与 Widget 不受影响。
+- 右键浮动条可 **Refresh now**、**Hide for 1 hour**、打开Floating Strip或退出。临时隐藏可跨重启恢复剩余时长；菜单栏/托盘的 **Show Floating Strip Now** 可立即取消隐藏。
+- 外环仍表示额度，内环仅提示刷新或需登录/设置；失败时保留成功数据，并显示Cached及距上次成功更新时间。限流时反复点击刷新不会绕过等待。
+
+以上源码改动的发布状态与实机验证见[开发记录](../development/2026-09-06-compact-progressive-strip.md)。
+
+### Show floating meter
+
+- 默认：开启。
+- 作用：显示或隐藏贴边浮岛。
+- 关闭后：菜单栏入口仍然可用。
+
+### Screen edge
+
+0.4.0 的多显示器设置位于 Floating Strip：
+
+- **Show on → Primary display**：跟随系统主屏，新安装默认；仅修改边缘不改变此模式。
+- **Selected display**：指定屏幕，断开时临时回主屏，重连恢复；升级保留旧目标。
+- **All displays**：每个在线屏一个浮动条，各自记住位置，采集不重复。只会同时打开一个详情；点击另一屏会转移详情。
+- **Move to primary display**：切回跟随主屏，无需清除配置或重装。
+- 单屏模式从玻璃空白处跨屏拖动，松手后选择该屏；所有屏模式每个实例留在所属屏。
+
+- **Automatic（默认）**：可从服务 Logo 以外的任意玻璃空白处上下移动，也可横向拖到另一侧；松手后吸附最近边缘。
+- **Left**：松手后固定在目标屏左侧，不再阻止单屏模式跨屏拖动。
+- **Right**：松手后固定在目标屏右侧，不再阻止单屏模式跨屏拖动。
+- macOS 的 Left/Right 是共享约束，不擦除记住的边缘，切回 Automatic 可恢复；Windows 的 Left/Right 是摆放选择，拖动仍沿用最近边缘吸附。
+- 设置变更立即生效，不需要重启应用。
+- AI Token Meter 会保存具体物理显示器、最后侧边和相对垂直位置；重启、休眠或主副屏角色变化不会改变目标屏。已保存显示器断开时，浮岛仅临时回到当前主屏并保留原侧边和相对高度，不会用回退位置覆盖配置；原显示器重新接入后自动恢复。此时如果用户主动拖动浮岛，或在 Settings 改变 Left/Right，当前显示器会成为新的保存目标。可见区域改变时只在当前屏幕内安全夹紧。
+
+macOS 浮岛使用桌面层，普通应用和全屏应用可覆盖它；Windows 使用无任务栏 Win32 工具窗口，并在同显示器出现全屏前台应用时隐藏。点击 Provider 后的临时详情都会在普通应用窗口上方显示，关闭或自动隐藏后立即撤销临时置前。两平台都会保存显示器、Left/Right 侧边与归一化垂直位置；显示器断开时无损回退主屏，不会把临时位置写回配置。
+
+服务圆环只负责打开详情。移动浮岛可从顶部、圆环之间或底部的玻璃空白处开始；Logo 命中区和透明肩部不会触发拖动，因此不会与服务点击互相冲突。
+
+键盘或 VoiceOver 用户可聚焦浮岛玻璃表面：上/下方向键按 10% 步进移动，左/右方向键会明确把侧边偏好设为 Left/Right；VoiceOver 也提供同名自定义动作并朗读当前侧边与垂直位置。
+
 ### Detail auto-hide
 
 - 可选：3、5、8、15、30 秒。
 - 默认：8 秒。
 - 作用：点击某个圆环后，详情面板在无交互时自动收起。
 - 例外：鼠标悬停、详情内键盘焦点、VoiceOver 运行，以及 Windows DeepSeek 官网同步处于 opening/active 时暂停倒计时；点击悬浮条和详情以外的区域会立即关闭。官网同步完成、取消或失败后恢复正常倒计时。
+
+## Desktop Widget
+
+
+Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Settings 不重复提供尺寸或刷新频率选项。Widget 始终使用系统字体和深海背景，不继承浮动条的 Antonio/DIN 选择；主应用刷新或 DeepSeek 余额基准变化后会发布脱敏快照并请求系统更新时间线。
+
+Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。`0.3.0-preview.1` 起，Windows 浮岛使用与 macOS 相同的平滑 Bezier 轮廓，深海背景连续覆盖上下肩部；`0.3.0-preview.2` 起，Windows 主程序使用 GUI subsystem，启动时不再额外打开终端窗口；`0.3.0-preview.3` 起，Windows Settings 使用紧凑系统字体并保证字体下拉白底深字可读。这些都不是可单独切换的外观选项。
+
+Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续使用 Segoe UI 系统字体，Display font 的原生下拉明确采用白底深色文字。该变化不修改 macOS 的字号、间距或控件配色。
 
 ## Monitoring
 

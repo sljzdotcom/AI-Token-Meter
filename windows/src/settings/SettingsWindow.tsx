@@ -11,7 +11,7 @@ import { GEMINI_INSTALL_COMMAND, GEMINI_INSTALLATION_GUIDE_LABEL, geminiInstalla
 import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
 import appLogo from "../../src-tauri/icons/128x128.png"
 
-const tabs = ["Appearance", "Monitoring", "Services", "About"] as const
+const tabs = ["Appearance", "Floating Strip", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
 export type DisplayInfo = { id: string; name: string; isPrimary: boolean }
 export type DisplayPreferences = { version: number; mode: "primary" | "selected" | "all"; selectedId: string | null; placements: Record<string, {edge: "left" | "right"; verticalPerMille: number}> }
@@ -30,6 +30,7 @@ type SettingsWindowProps = {
   detailAutoHideSeconds?: number
   onDetailAutoHideSecondsChange?: (seconds: number) => void
   requestedTab?: (typeof tabs)[number]
+  requestedTabGeneration?: number
   updateState?: UpdateState
   onCheckForUpdates?: () => void
   onInstallUpdate?: () => void
@@ -107,6 +108,7 @@ export function SettingsWindow({
   detailAutoHideSeconds = 8,
   onDetailAutoHideSecondsChange = () => {},
   requestedTab,
+  requestedTabGeneration = 0,
   updateState = defaultUpdateState,
   onCheckForUpdates = () => {},
   onInstallUpdate = () => {},
@@ -144,7 +146,7 @@ export function SettingsWindow({
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Appearance")
   useEffect(() => {
     if (requestedTab) setActiveTab(requestedTab)
-  }, [requestedTab])
+  }, [requestedTab, requestedTabGeneration])
   const deepSeekStatus = statusFor(serviceStatuses, "deepseek")
   const deepSeekCredential = deepSeekCredentialPresentation(deepSeekStatus.connectionState === "connected")
   const deepSeekBusy = busyServices.includes("deepseek") || deepSeekStatus.connectionState === "checking"
@@ -182,44 +184,18 @@ export function SettingsWindow({
                 <option value="en">English</option><option value="zh-CN">简体中文</option>
               </select>
             </SettingRow>
-            <SettingRow label={t("Display mode")} hint={t("Choose where the floating strip appears.")}>
-              <select aria-label={t("Display mode")} value={displays.mode} onChange={event => onDisplayModeChange(event.target.value as DisplayPreferences["mode"], displays.selectedId)}>
-                <option value="primary">{t("Primary display")}</option><option value="selected">{t("Selected display")}</option><option value="all">{t("All displays")}</option>
+            <SettingRow label={t("Display font")} hint={t("Applies to the meter, menu and detail panels. Settings always uses the system font.")}>
+              <select aria-label={t("Display font")} onChange={(event) => onDisplayFontChange(event.target.value)} value={displayFont}>
+                {fonts.map((font) => <option key={font} value={font}>{t(font)}{availableFonts[font] === false ? ` · ${t("Not installed")}` : ""}</option>)}
               </select>
-              <button type="button" onClick={() => onDisplayModeChange("primary", null)}>{t("Move to primary display")}</button>
+              <button onClick={() => onDisplayFontChange("Microsoft YaHei")} type="button">{t("Restore default font")}</button>
             </SettingRow>
-            {displays.mode === "selected" && <SettingRow label={t("Display")} hint={t("An offline selection temporarily uses the primary display.")}>
-              <select aria-label={t("Display")} value={displays.selectedId ?? ""} onChange={event => onDisplayModeChange("selected", event.target.value || null)}>
-                <option value="">{t("Primary display")}</option>
-                {displays.selectedId && !availableDisplays.some(display => display.id === displays.selectedId) && <option value={displays.selectedId}>{t("Offline display")}</option>}
-                {availableDisplays.map(display => <option key={display.id} value={display.id}>{display.name}{display.isPrimary ? ` · ${t("Primary")}` : ""}</option>)}
-              </select>
-            </SettingRow>}
-            <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable, Compact, or Mini.")}>
-              <select aria-label={t("Floating strip size")} value={stripPreferences.density}
-                onChange={e => onStripPreferencesChange({...stripPreferences, density: e.target.value as StripPreferences["density"]})}>
-                <option value="comfortable">{t("Comfortable")}</option><option value="compact">{t("Compact")}</option><option value="mini">{t("Mini")}</option>
-              </select>
-            </SettingRow>
-            <SettingRow label={t("Automatically collapse floating strip")} hint={t("Turn off to keep the floating strip expanded.")}>
-              <input aria-label={t("Automatically collapse floating strip")} type="checkbox"
-                checked={stripPreferences.automaticallyCollapses}
-                onChange={e => onStripPreferencesChange({...stripPreferences, automaticallyCollapses: e.target.checked})} />
-            </SettingRow>
-            <SettingRow label={t("Show delay (ms)")} hint={t("Wait before expanding after the pointer enters; 0–2000 ms.")}>
-              <input aria-label={t("Show delay (ms)")} type="number" min={0} max={2000} step={50}
-                value={stripPreferences.revealDelayMilliseconds}
-                disabled={!stripPreferences.automaticallyCollapses}
-                onChange={e => onStripPreferencesChange({...stripPreferences,
-                  revealDelayMilliseconds: Math.min(2000, Math.max(0, Number(e.target.value)))})} />
-            </SettingRow>
-            <SettingRow label={t("Hide delay (ms)")} hint={t("Wait before collapsing after interaction ends; 0–5000 ms.")}>
-              <input aria-label={t("Hide delay (ms)")} type="number" min={0} max={5000} step={50}
-                value={stripPreferences.collapseDelayMilliseconds}
-                disabled={!stripPreferences.automaticallyCollapses}
-                onChange={e => onStripPreferencesChange({...stripPreferences,
-                  collapseDelayMilliseconds: Math.min(5000, Math.max(0, Number(e.target.value)))})} />
-            </SettingRow>
+          </>
+        ) : null}
+        {activeTab === "Floating Strip" ? (
+          <>
+            <section className="settings-group">
+              <h2>{t("Content and Size")}</h2>
             <SettingRow label={t("Floating strip services")} hint={t("Keep at least one visible. Hidden services continue monitoring.")}>
               <div>
                 {stripPreferences.orderedProviders.map((id, index) => {
@@ -253,12 +229,28 @@ export function SettingsWindow({
                   orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: []})}>{t("Restore default order")}</button>
               </div>
             </SettingRow>
-            <SettingRow label={t("Display font")} hint={t("Applies to the meter, menu and detail panels. Settings always uses the system font.")}>
-              <select aria-label={t("Display font")} onChange={(event) => onDisplayFontChange(event.target.value)} value={displayFont}>
-                {fonts.map((font) => <option key={font} value={font}>{t(font)}{availableFonts[font] === false ? ` · ${t("Not installed")}` : ""}</option>)}
+            <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable, Compact, or Mini.")}>
+              <select aria-label={t("Floating strip size")} value={stripPreferences.density}
+                onChange={e => onStripPreferencesChange({...stripPreferences, density: e.target.value as StripPreferences["density"]})}>
+                <option value="comfortable">{t("Comfortable")}</option><option value="compact">{t("Compact")}</option><option value="mini">{t("Mini")}</option>
               </select>
-              <button onClick={() => onDisplayFontChange("Microsoft YaHei")} type="button">{t("Restore default font")}</button>
             </SettingRow>
+            </section>
+            <section className="settings-group">
+              <h2>{t("Screen and Position")}</h2>
+            <SettingRow label={t("Display mode")} hint={t("Choose where the floating strip appears.")}>
+              <select aria-label={t("Display mode")} value={displays.mode} onChange={event => onDisplayModeChange(event.target.value as DisplayPreferences["mode"], displays.selectedId)}>
+                <option value="primary">{t("Primary display")}</option><option value="selected">{t("Selected display")}</option><option value="all">{t("All displays")}</option>
+              </select>
+              <button type="button" onClick={() => onDisplayModeChange("primary", null)}>{t("Move to primary display")}</button>
+            </SettingRow>
+            {displays.mode === "selected" && <SettingRow label={t("Display")} hint={t("An offline selection temporarily uses the primary display.")}>
+              <select aria-label={t("Display")} value={displays.selectedId ?? ""} onChange={event => onDisplayModeChange("selected", event.target.value || null)}>
+                <option value="">{t("Primary display")}</option>
+                {displays.selectedId && !availableDisplays.some(display => display.id === displays.selectedId) && <option value={displays.selectedId}>{t("Offline display")}</option>}
+                {availableDisplays.map(display => <option key={display.id} value={display.id}>{display.name}{display.isPrimary ? ` · ${t("Primary")}` : ""}</option>)}
+              </select>
+            </SettingRow>}
             <SettingRow label={t("Screen edge")} hint={t("The meter follows the selected display and stays outside the taskbar.")}>
               <select
                 aria-label={t("Screen edge")}
@@ -266,6 +258,38 @@ export function SettingsWindow({
                 value={effectiveEdge}
               ><option value="right">{t("Right")}</option><option value="left">{t("Left")}</option></select>
             </SettingRow>
+            </section>
+            <section className="settings-group">
+              <h2>{t("Behavior")}</h2>
+            <SettingRow label={t("Automatically collapse floating strip")} hint={t("Turn off to keep the floating strip expanded.")}>
+              <input aria-label={t("Automatically collapse floating strip")} type="checkbox"
+                checked={stripPreferences.automaticallyCollapses}
+                onChange={e => onStripPreferencesChange({...stripPreferences, automaticallyCollapses: e.target.checked})} />
+            </SettingRow>
+            <SettingRow label={t("Show delay (ms)")} hint={t("Wait before expanding after the pointer enters; 0–2000 ms.")}>
+              <input aria-label={t("Show delay (ms)")} type="number" min={0} max={2000} step={50}
+                value={stripPreferences.revealDelayMilliseconds}
+                disabled={!stripPreferences.automaticallyCollapses}
+                onChange={e => onStripPreferencesChange({...stripPreferences,
+                  revealDelayMilliseconds: Math.min(2000, Math.max(0, Number(e.target.value)))})} />
+            </SettingRow>
+            <SettingRow label={t("Hide delay (ms)")} hint={t("Wait before collapsing after interaction ends; 0–5000 ms.")}>
+              <input aria-label={t("Hide delay (ms)")} type="number" min={0} max={5000} step={50}
+                value={stripPreferences.collapseDelayMilliseconds}
+                disabled={!stripPreferences.automaticallyCollapses}
+                onChange={e => onStripPreferencesChange({...stripPreferences,
+                  collapseDelayMilliseconds: Math.min(5000, Math.max(0, Number(e.target.value)))})} />
+            </SettingRow>
+            <SettingRow label={t("Detail auto-hide")} hint={t("Interaction pauses the countdown.")}>
+              <DraftNumberInput
+                ariaLabel={t("Detail auto-hide seconds")}
+                max={300}
+                min={1}
+                onCommit={onDetailAutoHideSecondsChange}
+                value={detailAutoHideSeconds}
+              /> {t("seconds")}
+            </SettingRow>
+            </section>
           </>
         ) : null}
         {activeTab === "Monitoring" ? (
@@ -305,15 +329,6 @@ export function SettingsWindow({
                 onChange={(event) => onLaunchAtLoginChange(event.target.checked)}
                 type="checkbox"
               />
-            </SettingRow>
-            <SettingRow label={t("Detail auto-hide")} hint={t("Interaction pauses the countdown.")}>
-              <DraftNumberInput
-                ariaLabel={t("Detail auto-hide seconds")}
-                max={300}
-                min={1}
-                onCommit={onDetailAutoHideSecondsChange}
-                value={detailAutoHideSeconds}
-              /> {t("seconds")}
             </SettingRow>
           </>
         ) : null}

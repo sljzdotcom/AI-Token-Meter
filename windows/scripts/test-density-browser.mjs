@@ -197,6 +197,16 @@ function assertDensity(report) {
     throw new Error("Settings system font leaked into the meter or Provider detail")
   }
   if (!report.settingsFont.startsWith('"Segoe UI Variable"')) throw new Error("Settings did not retain its system font")
+  if (report.settingsLayoutSamples.length !== 4
+    || report.settingsLayoutSamples.some(sample =>
+      sample.tabCount !== 5
+      || sample.overflowX !== "auto"
+      || !sample.lastTabReachable
+      || !sample.contentScrollable
+      || !sample.lastControlReachable
+    )) {
+    throw new Error(`Settings narrow-window navigation or scrolling failed: ${JSON.stringify(report.settingsLayoutSamples)}`)
+  }
   if (report.updateSamples.length !== 14) throw new Error("Missing bilingual update status samples")
   for (const locale of ["en", "zh-CN"]) {
     const samples = report.updateSamples.filter(sample => sample.locale === locale)
