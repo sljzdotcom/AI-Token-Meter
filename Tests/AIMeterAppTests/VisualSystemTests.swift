@@ -97,8 +97,8 @@ struct VisualSystemTests {
         let image = try renderSurface(edge: .right, backgroundImage: nil)
 
         #expect(try alpha(atX: 0, y: 202, in: image) > 0)
-        #expect(try alpha(atX: 107, y: 8, in: image) == 0)
-        #expect(try alpha(atX: 107, y: 352, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 2, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 354, in: image) == 0)
     }
 
     @Test("Provider logos use one optical calibration table")
@@ -111,10 +111,35 @@ struct VisualSystemTests {
     @Test("Comfortable contour ends with equal top and bottom insets")
     func floatingStripBounds() {
         let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
-        let expected = CGRect(x: 0, y: 16, width: 108, height: 324)
+        let inset = CGFloat(88) * 4 / 70
 
-        #expect(FloatingStripShape(edge: .right).path(in: rect).boundingRect == expected)
-        #expect(FloatingStripShape(edge: .left).path(in: rect).boundingRect == expected)
+        for edge in [FloatingStripEdge.left, .right] {
+            let bounds = FloatingStripShape(edge: edge).path(in: rect).boundingRect
+            #expect(abs(bounds.minY - inset) < 0.001)
+            #expect(abs(bounds.maxY - (rect.maxY - inset)) < 0.001)
+            #expect(bounds.minX == 0)
+            #expect(bounds.maxX == 108)
+        }
+    }
+
+    @Test("Expanded contour uses the approved rounded shoulder landmarks")
+    func approvedRoundedShoulderLandmarks() {
+        let mini = FloatingStripContour.geometry(for: .mini)
+        #expect(mini.start == CGPoint(x: 65, y: 4))
+        #expect(mini.shoulderDepth == 70)
+        #expect(mini.curves == [
+            .init(control1: CGPoint(x: 63, y: 18), control2: CGPoint(x: 54, y: 29), end: CGPoint(x: 37, y: 30)),
+            .init(control1: CGPoint(x: 18, y: 31), control2: CGPoint(x: 5, y: 42), end: CGPoint(x: 1, y: 58)),
+            .init(control1: CGPoint(x: 0, y: 62), control2: CGPoint(x: 0, y: 66), end: CGPoint(x: 0, y: 70)),
+        ])
+        let compact = FloatingStripContour.geometry(for: .compact)
+        #expect(compact.start == CGPoint(x: 78, y: 4))
+        #expect(compact.shoulderDepth == 70)
+        let comfortable = FloatingStripContour.geometry(for: .comfortable)
+        #expect(comfortable.start == CGPoint(x: 108, y: CGFloat(88) * 4 / 70))
+        #expect(comfortable.shoulderDepth == 88)
+        #expect(comfortable.curves.last?.control2.x == 0)
+        #expect(comfortable.curves.last?.end.x == 0)
     }
 
     @Test("Every expanded lower shoulder is the vertical mirror of its upper shoulder")
@@ -188,8 +213,8 @@ struct VisualSystemTests {
         renderer.scale = 1
         let image = try #require(renderer.cgImage)
 
-        #expect(try alpha(atX: 107, y: 8, in: image) == 0)
-        #expect(try alpha(atX: 107, y: 352, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 2, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 354, in: image) == 0)
     }
 
     @Test("Every non-normal usage state has a non-color symbol")

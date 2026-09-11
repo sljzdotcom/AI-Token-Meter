@@ -1,16 +1,48 @@
 import AIMeterCore
 import SwiftUI
 
+struct FloatingStripContourGeometry {
+    struct Cubic: Equatable {
+        let control1: CGPoint
+        let control2: CGPoint
+        let end: CGPoint
+    }
+
+    let start: CGPoint
+    let shoulderDepth: CGFloat
+    let curves: [Cubic]
+}
+
+enum FloatingStripContour {
+    static func geometry(for density: FloatingStripDensity) -> FloatingStripContourGeometry {
+        let widthScale = density.width / 65
+        let shoulderDepth: CGFloat = density == .comfortable ? 88 : 70
+        let depthScale = shoulderDepth / 70
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: x * widthScale, y: y * depthScale)
+        }
+        return FloatingStripContourGeometry(
+            start: point(65, 4),
+            shoulderDepth: shoulderDepth,
+            curves: [
+                .init(control1: point(63, 18), control2: point(54, 29), end: point(37, 30)),
+                .init(control1: point(18, 31), control2: point(5, 42), end: point(1, 58)),
+                .init(control1: point(0, 62), control2: point(0, 66), end: point(0, 70)),
+            ]
+        )
+    }
+}
+
 struct FloatingStripShape: Shape {
     let edge: FloatingStripEdge
     var density: FloatingStripDensity = .comfortable
     var providerCount = 3
 
     func path(in rect: CGRect) -> Path {
-        let contentHeight = density.contentHeight(providerCount: providerCount)
         let totalHeight = density.height(providerCount: providerCount)
         let widthScale = rect.width / density.width
         let heightScale = rect.height / density.height(providerCount: providerCount)
+        let contour = FloatingStripContour.geometry(for: density)
 
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             let scaledX = x * widthScale
@@ -23,52 +55,22 @@ struct FloatingStripShape: Shape {
         }
 
         var path = Path()
-        if density == .mini {
-            path.move(to: point(65, 8))
-            path.addCurve(to: point(42, 22), control1: point(59, 14), control2: point(53, 21))
-            path.addCurve(to: point(0, 70), control1: point(18, 23), control2: point(0, 42))
-            path.addLine(to: point(0, contentHeight - 70))
-            path.addCurve(to: point(42, totalHeight - 22),
-                          control1: point(0, totalHeight - 42), control2: point(18, totalHeight - 23))
-            path.addCurve(to: point(65, totalHeight - 8),
-                          control1: point(53, totalHeight - 21), control2: point(59, totalHeight - 14))
-            path.closeSubpath()
-            return path
+        path.move(to: point(contour.start.x, contour.start.y))
+        for curve in contour.curves {
+            path.addCurve(
+                to: point(curve.end.x, curve.end.y),
+                control1: point(curve.control1.x, curve.control1.y),
+                control2: point(curve.control2.x, curve.control2.y)
+            )
         }
-        if density == .compact {
-            path.move(to: point(78, 8))
-            path.addCurve(to: point(48, 22), control1: point(71, 14), control2: point(63, 21))
-            path.addCurve(to: point(0, 70), control1: point(21, 23), control2: point(0, 42))
-            path.addLine(to: point(0, contentHeight - 70))
-            path.addCurve(to: point(48, totalHeight - 22),
-                          control1: point(0, totalHeight - 42), control2: point(21, totalHeight - 23))
-            path.addCurve(to: point(78, totalHeight - 8),
-                          control1: point(63, totalHeight - 21), control2: point(71, totalHeight - 14))
-            path.closeSubpath()
-            return path
+        path.addLine(to: point(0, totalHeight - contour.shoulderDepth))
+        for (start, curve) in zip([contour.start] + contour.curves.map(\.end), contour.curves).reversed() {
+            path.addCurve(
+                to: point(start.x, totalHeight - start.y),
+                control1: point(curve.control2.x, totalHeight - curve.control2.y),
+                control2: point(curve.control1.x, totalHeight - curve.control1.y)
+            )
         }
-        path.move(to: point(108, 16))
-        path.addCurve(
-            to: point(66, 28),
-            control1: point(98, 23),
-            control2: point(88, 27)
-        )
-        path.addCurve(
-            to: point(0, 88),
-            control1: point(29, 29),
-            control2: point(0, 54)
-        )
-        path.addLine(to: point(0, contentHeight - 88))
-        path.addCurve(
-            to: point(66, totalHeight - 28),
-            control1: point(0, totalHeight - 54),
-            control2: point(29, totalHeight - 29)
-        )
-        path.addCurve(
-            to: point(108, totalHeight - 16),
-            control1: point(88, totalHeight - 27),
-            control2: point(98, totalHeight - 23)
-        )
         path.closeSubpath()
         return path
     }

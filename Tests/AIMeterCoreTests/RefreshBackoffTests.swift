@@ -14,6 +14,12 @@ struct RefreshBackoffTests {
             #expect(density.width == (row["width"] as? NSNumber)?.doubleValue)
             #expect(density.baseHeight == (row["height"] as? NSNumber)?.doubleValue)
         }
+        let contour = try #require(json["expandedContour"] as? [String: Any])
+        #expect((contour["referenceWidth"] as? NSNumber)?.doubleValue == 65)
+        #expect((contour["compactShoulderDepth"] as? NSNumber)?.doubleValue == 70)
+        #expect((contour["comfortableShoulderDepth"] as? NSNumber)?.doubleValue == 88)
+        #expect((contour["topStart"] as? [NSNumber])?.map(\.doubleValue) == [65, 4])
+        #expect((contour["topCurves"] as? [[String: Any]])?.count == 3)
         let waits = try #require(json["backoff"] as? [[String: Any]])
         for row in waits {
             let id = try #require(row["kind"] as? String)

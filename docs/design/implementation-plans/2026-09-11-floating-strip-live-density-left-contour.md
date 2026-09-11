@@ -30,11 +30,11 @@
 
 ### 任务 1：方案 B 轮廓合同和双平台路径
 
-- [ ] **步骤 1：编写失败的 Swift 几何测试**
+- [x] **步骤 1：编写失败的 Swift 几何测试**
 
 在 `VisualSystemTests.swift` 增加方案 B 断言：Mini 右贴边路径的边界包围盒为 `(0, 4, 65, H-8)`；左贴边在 `(63, 60)` 处有背景、旧路径没有；上肩与下肩采样严格镜像。让测试直接调用生产 `FloatingStripShape`。
 
-- [ ] **步骤 2：运行 Swift 红灯**
+- [x] **步骤 2：运行 Swift 红灯**
 
 运行：
 
@@ -44,7 +44,7 @@ swift test --filter VisualSystemTests
 
 预期：新圆角/肩弧断言失败，旧轮廓仍以 `8/22` 起始且缺少第三段竖直接入曲线。
 
-- [ ] **步骤 3：编写失败的 TypeScript 与 Rust 几何测试**
+- [x] **步骤 3：编写失败的 TypeScript 与 Rust 几何测试**
 
 在 `FloatingStrip.test.tsx` 断言 `meterContourPath("mini", 4)` 包含：
 
@@ -56,7 +56,7 @@ C 0 62 0 66 0 70
 
 并断言 Compact 横向等比、Comfortable 肩深为 88、左侧 clip-path 只用镜像变换。更新 `window_policy.rs` 的关键点为方案 B 端点和竖直接入点。
 
-- [ ] **步骤 4：运行前端与 Rust 红灯**
+- [x] **步骤 4：运行前端与 Rust 红灯**
 
 运行：
 
@@ -67,7 +67,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml --test window_p
 
 预期：路径字符串和原生采样关键点均因仍使用旧轮廓而失败。
 
-- [ ] **步骤 5：实现最小方案 B 路径**
+- [x] **步骤 5：实现最小方案 B 路径**
 
 Swift 和 TypeScript 都以 Mini 参考坐标定义上肩三段曲线：
 
@@ -80,11 +80,11 @@ C (0,62) (0,66) (0,70)
 
 下肩按 `H-y` 反射，左贴边按 `W-x` 反射。Compact 使用 `W=78,S=70`，Comfortable 使用 `W=108,S=88`。Rust 采样函数应用相同标准坐标并保留 64 段采样。
 
-- [ ] **步骤 6：更新共享合同并验证两端读取**
+- [x] **步骤 6：更新共享合同并验证两端读取**
 
 在 `strip-behavior.json` 增加 `expandedContour`：`referenceWidth=65`、`compactShoulderDepth=70`、`comfortableShoulderDepth=88` 和上肩四个端点/六个控制点。Swift 与前端合同测试断言生产常量等于该合同。
 
-- [ ] **步骤 7：运行几何绿灯与包含回归**
+- [x] **步骤 7：运行几何绿灯与包含回归**
 
 运行：
 
@@ -96,7 +96,7 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml --test window_p
 
 预期：全部通过，三密度 × 1–4 服务 × 左右贴边圆环周界仍完整位于背景内。
 
-- [ ] **步骤 8：提交轮廓任务**
+- [x] **步骤 8：提交轮廓任务**
 
 ```bash
 git add contracts/fixtures/auxiliary/strip-behavior.json Sources/AIMeterApp/Views/FloatingStripShape.swift Tests/AIMeterAppTests/VisualSystemTests.swift Tests/AIMeterAppTests/FloatingStripDragShapeTests.swift Tests/AIMeterCoreTests/RefreshBackoffTests.swift windows/src/components/FloatingStrip.tsx windows/src/components/FloatingStrip.test.tsx windows/src-tauri/src/platform/windows/window_controller.rs windows/src-tauri/tests/window_policy.rs
