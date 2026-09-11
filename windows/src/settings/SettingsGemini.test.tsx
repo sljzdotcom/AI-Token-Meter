@@ -11,11 +11,11 @@ function StatefulSettings() {
 
 it("fourth provider is named and can move while only the last visible provider is protected", () => {
   render(<StatefulSettings />)
-  expect(screen.getAllByRole("checkbox")).toHaveLength(4)
+  expect(screen.getAllByRole("checkbox")).toHaveLength(5)
   expect(screen.getByLabelText("Move Google Antigravity down")).toBeDisabled()
   expect(screen.getByLabelText("Move DeepSeek down")).toBeEnabled()
   fireEvent.click(screen.getByLabelText("Move Google Antigravity up"))
-  expect(screen.getAllByRole("checkbox").map(input => input.parentElement?.textContent)).toEqual(["Claude Code", "OpenAI Codex", "Google Antigravity", "DeepSeek"])
+  expect(screen.getAllByRole("checkbox").slice(1).map(input => input.parentElement?.textContent)).toEqual(["Claude Code", "OpenAI Codex", "Google Antigravity", "DeepSeek"])
   fireEvent.click(screen.getByLabelText("Claude Code"))
   fireEvent.click(screen.getByLabelText("OpenAI Codex"))
   expect(screen.getByLabelText("DeepSeek")).toBeEnabled()
@@ -25,7 +25,7 @@ it("fourth provider is named and can move while only the last visible provider i
   fireEvent.click(screen.getByLabelText("Claude Code"))
   expect(screen.getByLabelText("Google Antigravity")).toBeEnabled()
   fireEvent.click(screen.getByRole("button", {name:"Restore default order"}))
-  expect(screen.getAllByRole("checkbox").every(input => (input as HTMLInputElement).checked)).toBe(true)
+  expect(screen.getAllByRole("checkbox", {name: /usage$|Claude Code|OpenAI Codex|DeepSeek|Google Antigravity/}).every(input => (input as HTMLInputElement).checked)).toBe(true)
   expect(screen.getByLabelText("Move Google Antigravity down")).toBeDisabled()
 })
 
@@ -39,6 +39,21 @@ it("edits independent bounded show and hide delays", () => {
   fireEvent.change(collapse, {target: {value: "-1"}})
   expect(reveal.value).toBe("2000")
   expect(collapse.value).toBe("0")
+})
+
+it("offers Mini without migrating Compact and disables delays when automatic collapse is off", () => {
+  render(<StatefulSettings />)
+  const density = screen.getByLabelText("Floating strip size") as HTMLSelectElement
+  expect([...density.options].map(option => [option.value, option.textContent])).toEqual([
+    ["comfortable", "Comfortable"], ["compact", "Compact"], ["mini", "Mini"],
+  ])
+  expect(density.value).toBe("compact")
+  const automatic = screen.getByLabelText("Automatically collapse floating strip") as HTMLInputElement
+  fireEvent.click(automatic)
+  expect(screen.getByLabelText("Show delay (ms)")).toBeDisabled()
+  expect(screen.getByLabelText("Hide delay (ms)")).toBeDisabled()
+  expect((screen.getByLabelText("Show delay (ms)") as HTMLInputElement).value).toBe("150")
+  expect((screen.getByLabelText("Hide delay (ms)") as HTMLInputElement).value).toBe("800")
 })
 
 it("unknown Gemini capability shows unavailable without implying missing installation or authentication", () => {

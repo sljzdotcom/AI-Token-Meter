@@ -8,7 +8,8 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
   it.each([
-    ["compact", "left", 65, 328], ["compact", "right", 65, 328],
+    ["mini", "left", 65, 328], ["mini", "right", 65, 328],
+    ["compact", "left", 78, 328], ["compact", "right", 78, 328],
     ["comfortable", "left", 108, 404], ["comfortable", "right", 108, 404],
   ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
     const activate = vi.fn()
@@ -22,7 +23,8 @@ describe("compact floating strip interactions", () => {
       const strip = screen.getByRole("navigation")
       expect(strip.style.getPropertyValue("--strip-width")).toBe(`${width}px`)
       expect(strip.style.getPropertyValue("--strip-height")).toBe(`${height}px`)
-      if (density === "compact") expect((width - 48) / 2).toBe(8.5)
+      if (density === "mini") expect((width - 48) / 2).toBe(8.5)
+      if (density === "compact") expect((width - 48) / 2).toBe(15)
       // Dispatch pointerdown with a real button value; jsdom lacks PointerEvent.
       fireEvent(strip, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
       expect(drag).toHaveBeenCalledTimes(1)
@@ -40,7 +42,7 @@ describe("compact floating strip interactions", () => {
   })
   it.each(behavior.densities)("matches shared $id dimensions", density => {
     render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
-      preferences={{...defaultStripPreferences, density: density.id as "compact" | "comfortable", hiddenProviders: ["gemini"]}} />)
+      preferences={{...defaultStripPreferences, density: density.id as "mini" | "compact" | "comfortable", hiddenProviders: ["gemini"]}} />)
     const style = screen.getByRole("navigation").style
     expect(style.getPropertyValue("--strip-width")).toBe(`${density.width}px`)
     expect(style.getPropertyValue("--strip-height")).toBe(`${density.height}px`)
@@ -96,5 +98,18 @@ describe("compact floating strip interactions", () => {
     expect(openSettings).toHaveBeenCalledOnce()
     expect(drag).not.toHaveBeenCalled()
     window.removeEventListener("meter-drag-requested", drag)
+  })
+
+  it("shows the Settings gear only while its bottom zone is active", () => {
+    render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}} />)
+    const strip = screen.getByRole("navigation")
+    const gear = screen.getByRole("button", {name: "Settings"})
+    expect(strip).not.toHaveAttribute("data-settings-hovered", "true")
+    fireEvent.pointerEnter(strip)
+    expect(strip).not.toHaveAttribute("data-settings-hovered", "true")
+    fireEvent.pointerEnter(gear.parentElement!)
+    expect(strip).toHaveAttribute("data-settings-hovered", "true")
+    fireEvent.pointerLeave(gear.parentElement!)
+    expect(strip).not.toHaveAttribute("data-settings-hovered", "true")
   })
 })

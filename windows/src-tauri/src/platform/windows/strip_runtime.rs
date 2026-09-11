@@ -52,6 +52,7 @@ pub fn start(app: tauri::AppHandle) {
                 prefs.collapse_delay_milliseconds,
                 hovering,
                 locked_open,
+                prefs.automatically_collapses,
             );
             let previous = state.strip_folded.swap(next, Ordering::AcqRel);
             if needs_restore(previous, next, reset) && restore(&app).is_err() {

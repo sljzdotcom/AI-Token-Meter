@@ -35,7 +35,7 @@ struct FloatingStripRenderingTests {
                     // Compare a clear top band, above all Provider buttons, with the real glass.
                     // A reintroduced horizontal decoration changes these pixels; logos cannot.
                     var changedPixels = 0
-                    let top = density == .compact ? 32 : 40
+                    let top = density == .comfortable ? 40 : 32
                     let centerX = pixel(density.width / 2)
                     let sampleHalfWidth = pixel(12)
                     for y in pixel(Double(top))..<pixel(Double(top + 10)) {

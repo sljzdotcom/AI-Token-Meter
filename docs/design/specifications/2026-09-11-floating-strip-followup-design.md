@@ -12,7 +12,7 @@
 | Compact | 78pt/px | 48pt/px | 恢复收窄前的原 Compact 宽度，保留现有交互能力 |
 | Comfortable | 108pt/px | 60pt/px | 保持现状 |
 
-升级时已有 `compact` 原值继续解码为 Compact，因此会显示 78pt/px；不会静默迁移到 Mini。默认值也继续为 Compact。用户只有在 Settings 主动选择 Mini 后才切换到 65pt/px，并立即保存。三档共享自动收起偏好，但 Mini 使用用户刚确认的完整轮廓与 Settings 入口视觉。
+升级时已有 `compact` 原值继续解码为 Compact，因此会显示 78pt/px；不会静默迁移到 Mini。默认值也继续为 Compact。Settings 固定且只按 Comfortable、Compact、Mini 的顺序显示三项；用户只有主动选择 Mini 后才切换到 65pt/px，并立即保存。三档共享自动收起偏好，但 Mini 使用用户刚确认的完整轮廓与 Settings 入口视觉。
 
 ## 现象与根因
 

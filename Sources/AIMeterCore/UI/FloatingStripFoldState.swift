@@ -16,9 +16,10 @@ public struct FloatingStripFoldState: Sendable {
         revealDelay: TimeInterval,
         collapseDelay: TimeInterval,
         hovering: Bool,
-        lockedOpen: Bool
+        lockedOpen: Bool,
+        automaticallyCollapses: Bool = true
     ) {
-        if lockedOpen {
+        if lockedOpen || !automaticallyCollapses {
             isFolded = false
             revealDeadline = nil
             collapseDeadline = nil

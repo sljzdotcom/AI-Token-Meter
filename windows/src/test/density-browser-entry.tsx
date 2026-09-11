@@ -2,6 +2,7 @@ import geminiFresh from "../../../contracts/fixtures/gemini-fresh.json"
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
 import type { CSSProperties } from "react"
+import { useState } from "react"
 
 import { FloatingStrip } from "../components/FloatingStrip"
 import { ProviderDetail } from "../details/ProviderDetail"
@@ -31,16 +32,23 @@ const snapshot: UsageSnapshot = {
 const root = document.getElementById("root")!
 root.style.fontFamily = "Antonio, 'Segoe UI Variable', sans-serif"
 
+function StatefulSettings() {
+  const [preferences, setPreferences] = useState(defaultStripPreferences)
+  return <SettingsWindow displayFont="Antonio" onDisplayFontChange={() => {}}
+    stripPreferences={preferences} onStripPreferencesChange={setPreferences}
+    onOpenAuthorLink={target => { document.getElementById("about-activation")!.textContent = target }} />
+}
+
 flushSync(() => {
   createRoot(root).render(
     <>
       {new URLSearchParams(location.search).has("comparison") && <aside style={{background: "#172131", padding: 24, height: 590, color: "#fff", fontFamily: "sans-serif"}}>
-        <h2 style={{fontSize: 20}}>AI Token Meter · Compact / Comfortable</h2>
+        <h2 style={{fontSize: 20}}>AI Token Meter · Comfortable / Compact / Mini</h2>
         <p style={{fontSize: 12, opacity: 0.6}}>Browser render · demo data · both screen edges</p>
         <div style={{display: "flex", gap: 32}}>
-          {(["compact", "comfortable"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
+          {(["comfortable", "compact", "mini"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 65 : 108, height: density === "compact" ? 386 : 476}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : density === "compact" ? 78 : 65, height: density === "comfortable" ? 476 : 386}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -60,8 +68,7 @@ flushSync(() => {
           snapshot={snapshot}
         />
       </main>
-      <SettingsWindow displayFont="Antonio" onDisplayFontChange={() => {}}
-        onOpenAuthorLink={target => { document.getElementById("about-activation")!.textContent = target }} />
+      <StatefulSettings />
     </>,
   )
 })
@@ -71,6 +78,13 @@ function styleFor<T extends Element>(selector: string): CSSStyleDeclaration {
   if (!element) throw new Error(`Missing ${selector}`)
   return getComputedStyle(element)
 }
+
+const densitySelect = document.querySelector<HTMLSelectElement>("select[aria-label='Floating strip size']")!
+const automaticCollapseInput = document.querySelector<HTMLInputElement>("input[aria-label='Automatically collapse floating strip']")!
+const collapseDelayInputs = [...document.querySelectorAll<HTMLInputElement>("input[aria-label$='delay (ms)']")]
+const initialAutomaticCollapse = automaticCollapseInput.checked
+const initialCollapseDelayValues = collapseDelayInputs.map(input => input.value)
+flushSync(() => automaticCollapseInput.click())
 
 const report = {
   meterFont: styleFor(".meter-stage").fontFamily,
@@ -90,6 +104,13 @@ const report = {
   selectBackground: styleFor<HTMLSelectElement>("select[aria-label='Display font']").backgroundColor,
   optionColor: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").color,
   optionBackground: styleFor<HTMLOptionElement>("select[aria-label='Display font'] option").backgroundColor,
+  stripDensityOptions: [...densitySelect.options].map(option => option.value),
+  selectedStripDensity: densitySelect.value,
+  initialAutomaticCollapse,
+  automaticCollapseAfterClick: automaticCollapseInput.checked,
+  collapseDelayControlsDisabled: collapseDelayInputs.every(input => input.disabled),
+  initialCollapseDelayValues,
+  collapseDelayValuesAfterClick: collapseDelayInputs.map(input => input.value),
 }
 const detailSamples: Array<{scenario: string; text: string; size: number; baseline: number}> = []
 for (const locale of ["en", "zh-CN"] as const) {
@@ -230,11 +251,11 @@ for (const locale of ["en", "zh-CN"] as const) {
 // 1–4-row specification, independent of FloatingStrip's size calculation.
 const stripSamples = []
 flushSync(() => setLocale("en"))
-for (const density of ["compact", "comfortable"] as const) {
+for (const density of ["comfortable", "compact", "mini"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
-      const width = density === "compact" ? 65 : 108
-      const height = (density === "compact" ? [212,270,328,386] : [260,332,404,476])[count-1]
+      const width = density === "comfortable" ? 108 : density === "compact" ? 78 : 65
+      const height = (density === "comfortable" ? [260,332,404,476] : [212,270,328,386])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`
       host.style.cssText = `position:fixed;left:20px;top:20px;width:${width}px;height:${height}px;z-index:2147483647`
@@ -246,6 +267,8 @@ for (const density of ["compact", "comfortable"] as const) {
       const nav = host.querySelector<HTMLElement>("nav")!
       const buttons = [...host.querySelectorAll<HTMLButtonElement>(".usage-ring")]
       const settingsButton = host.querySelector<HTMLButtonElement>(".floating-strip__settings")!
+      const settingsZone = host.querySelector<HTMLElement>(".floating-strip__settings-zone")!
+      settingsButton.style.transition = "none"
       for (const button of buttons) button.style.animation = "none"
       const rect = nav.getBoundingClientRect()
       const hitButtons = buttons.every(button => {
@@ -271,12 +294,22 @@ for (const density of ["compact", "comfortable"] as const) {
         button.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true,button:0}))
         button.click()
       }
+      const settingsOpacityAtRest = getComputedStyle(settingsButton).opacity
+      const settingsHoveredAfterBodyEntry = nav.dataset.settingsHovered
+      settingsButton.focus()
+      const settingsOpacityAtFocus = getComputedStyle(settingsButton).opacity
+      settingsButton.blur()
+      flushSync(() => settingsZone.dispatchEvent(new PointerEvent("pointerover", {bubbles:true})))
+      const settingsHoveredAfterZoneEntry = nav.dataset.settingsHovered
+      flushSync(() => settingsZone.dispatchEvent(new PointerEvent("pointerout", {bubbles:true,relatedTarget:nav})))
       settingsButton.click()
       window.removeEventListener("meter-drag-requested", drag)
       const firstButtonWidth = buttons[0]?.getBoundingClientRect().width ?? 0
       stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
-        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "compact" ? 8.5 : 24,
-        hitButtons,ringPerimetersVisible,settingsVisible:getComputedStyle(settingsButton).display !== "none",drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
+        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "comfortable" ? 24 : density === "compact" ? 15 : 8.5,
+        hitButtons,ringPerimetersVisible,settingsVisible:getComputedStyle(settingsButton).display !== "none",
+        settingsOpacityAtRest,settingsOpacityAtFocus,settingsHoveredAfterBodyEntry,settingsHoveredAfterZoneEntry,
+        drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
         buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,
         mirroredLogo: buttons.some(button => getComputedStyle(button.querySelector("svg")!).transform !== "none")})
       flushSync(() => sampleRoot.unmount())

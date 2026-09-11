@@ -80,7 +80,8 @@ button {
   width: 0;
 }
 
-.floating-strip[data-density="compact"] { background-image: linear-gradient(rgb(0 0 0 / 46%), rgb(0 0 0 / 46%)), url("/floating-strip-deep-sea.png"); }
+.floating-strip[data-density="compact"],
+.floating-strip[data-density="mini"] { background-image: linear-gradient(rgb(0 0 0 / 46%), rgb(0 0 0 / 46%)), url("/floating-strip-deep-sea.png"); }
 .floating-strip .provider-logo--uniform { width: var(--strip-logo, 21px); height: var(--strip-logo, 21px); }
 .meter-edge--left .floating-strip { transform: scaleX(-1); }
 .meter-edge--left .floating-strip > * { transform: scaleX(-1); }
@@ -132,7 +133,7 @@ button {
   background-size: cover;
   border-radius: 64px 0 0 64px;
   display: flex;
-  flex: 0 0 var(--strip-width, 65px);
+  flex: 0 0 var(--strip-width, 78px);
   isolation: isolate;
   min-height: var(--strip-height, 328px);
   padding: 0;
@@ -155,7 +156,6 @@ button {
   background: transparent;
   border: 0;
   border-radius: 50%;
-  bottom: 12px;
   display: flex;
   font-family: "Segoe UI Symbol", sans-serif;
   font-size: 13px;
@@ -163,21 +163,51 @@ button {
   justify-content: center;
   opacity: 0;
   padding: 0;
-  position: absolute;
-  right: 2px;
+  position: relative;
   transition: opacity 120ms ease-out, background-color 120ms ease-out;
   width: 24px;
 }
 
-.floating-strip:hover .floating-strip__settings,
+.floating-strip__settings-zone {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  height: 48px;
+  justify-content: flex-end;
+  position: absolute;
+  right: 0;
+  width: 39px;
+}
+
+.floating-strip__settings-arc {
+  border-radius: 0 30px 0 0;
+  border-right: 4px solid #07111f;
+  border-top: 4px solid #07111f;
+  bottom: 4px;
+  filter: drop-shadow(0 0 1px rgb(85 125 170 / 30%));
+  height: 34px;
+  pointer-events: none;
+  position: absolute;
+  right: -5px;
+  transform: rotate(17deg);
+  width: 33px;
+}
+
+.floating-strip__settings-zone:hover .floating-strip__settings,
+.floating-strip__settings-zone:focus-within .floating-strip__settings,
 .floating-strip__settings:focus-visible {
-  background: rgb(255 255 255 / 10%);
+  background: #17304a;
   opacity: 1;
+}
+
+.floating-strip__settings-zone:hover .floating-strip__settings-arc,
+.floating-strip__settings-zone:focus-within .floating-strip__settings-arc {
+  opacity: .18;
 }
 
 @media (max-width: 32px) {
   .floating-strip__providers,
-  .floating-strip__settings {
+  .floating-strip__settings-zone {
     display: none;
   }
 }

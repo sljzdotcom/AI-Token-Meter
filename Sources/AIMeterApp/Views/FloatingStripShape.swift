@@ -7,7 +7,6 @@ struct FloatingStripShape: Shape {
     var providerCount = 3
 
     func path(in rect: CGRect) -> Path {
-        let compact = density == .compact
         let contentHeight = density.contentHeight(providerCount: providerCount)
         let totalHeight = density.height(providerCount: providerCount)
         let widthScale = rect.width / density.width
@@ -24,7 +23,7 @@ struct FloatingStripShape: Shape {
         }
 
         var path = Path()
-        if compact {
+        if density == .mini {
             path.move(to: point(65, 8))
             path.addCurve(to: point(42, 22), control1: point(59, 14), control2: point(53, 21))
             path.addCurve(to: point(0, 70), control1: point(18, 23), control2: point(0, 42))
@@ -37,6 +36,22 @@ struct FloatingStripShape: Shape {
                           control1: point(40, contentHeight + 13), control2: point(45, totalHeight - 30))
             path.addCurve(to: point(65, totalHeight - 6),
                           control1: point(52, totalHeight - 15), control2: point(59, totalHeight - 9))
+            path.closeSubpath()
+            return path
+        }
+        if density == .compact {
+            path.move(to: point(78, 8))
+            path.addCurve(to: point(48, 22), control1: point(71, 14), control2: point(63, 21))
+            path.addCurve(to: point(0, 70), control1: point(21, 23), control2: point(0, 42))
+            path.addLine(to: point(0, contentHeight - 70))
+            path.addCurve(to: point(22, contentHeight - 10),
+                          control1: point(0, contentHeight - 36), control2: point(8, contentHeight - 15))
+            path.addCurve(to: point(45, contentHeight + 8),
+                          control1: point(34, contentHeight - 8), control2: point(42, contentHeight + 1))
+            path.addCurve(to: point(62, totalHeight - 24),
+                          control1: point(50, contentHeight + 13), control2: point(58, totalHeight - 30))
+            path.addCurve(to: point(78, totalHeight - 6),
+                          control1: point(67, totalHeight - 15), control2: point(73, totalHeight - 9))
             path.closeSubpath()
             return path
         }

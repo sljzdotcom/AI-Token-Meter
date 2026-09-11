@@ -12,6 +12,8 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-11](2026-09-11-v0.8.0-release.md) | 0.8.0 Mini浮动条稳定发布 | 三档浮动条、独立自动收起与Settings底弧修正；候选已复审，等待PR/main、签名资产和公网更新源验收 |
+| [2026-09-11](2026-09-11-mini-floating-strip-followup.md) | Mini浮动条、自动收起与Settings底弧修正 | 新增65pt Mini、恢复78pt Compact、三档固定顺序并隔离底弧齿轮触发；双平台本机门禁通过，等待独立审查与整合 |
 | [2026-09-11](2026-09-11-v0.7.3-release.md) | 0.7.3浮动条交互与Antigravity视觉发布 | 65pt贴边浮动条、悬停双延迟、Settings入口与强调色恢复；双平台签名资产和公网更新源已验收 |
 | [2026-09-10](2026-09-10-floating-strip-hover-redesign.md) | 65pt贴边浮动条与悬停交互 | 双平台新轮廓、内容安全过渡、快捷Settings与双延迟偏好 |
 | [2026-09-10](2026-09-10-antigravity-accent-restoration.md) | Antigravity详情强调色恢复 | 青绿色标题、额度值与进度恢复，深海底板及数据语义保持 |

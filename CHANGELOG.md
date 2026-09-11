@@ -4,6 +4,23 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-09-11
+
+稳定功能版；macOS build23。新增65pt/px Mini浮动条密度，恢复78pt/px Compact，并加入可关闭的自动收起设置。[发布记录](docs/development/2026-09-11-v0.8.0-release.md)。
+
+### Added
+
+- Appearance新增Mini浮动条密度，使用65pt/px宽度与48pt/px圆环；尺寸选择固定为Comfortable、Compact、Mini。
+- 新增“自动收起浮动条”开关；关闭后浮动条立即保持展开，显示/收起延迟值保留并暂时禁用编辑。
+
+### Changed
+
+- Compact恢复为原有78pt/px宽度；升级时已有Compact设置继续保持Compact，不会自动迁移为Mini。
+
+### Fixed
+
+- 底部Settings提示弧改为深色，并把齿轮显隐限制在底部弧区悬停或键盘焦点，浮动条主体悬停不再显示齿轮。
+
 ## 0.7.3 - 2026-09-11
 
 稳定界面更新；macOS build22。重新设计65pt贴边浮动条的悬停交互与Settings入口，并恢复Google Antigravity详情强调色。[发布记录](docs/development/2026-09-11-v0.7.3-release.md)。

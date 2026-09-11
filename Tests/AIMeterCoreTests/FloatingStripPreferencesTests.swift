@@ -10,11 +10,15 @@ struct FloatingStripPreferencesTests {
 
     // Catch a fourth row being clipped by the previous three-provider size cap.
     @Test func fourthProviderHasFullHeightAndLegacySizesStayStable() {
-        #expect(FloatingStripDensity.compact.width == 65)
+        #expect(FloatingStripDensity.allCases == [.comfortable, .compact, .mini])
+        #expect(FloatingStripDensity.mini.width == 65)
+        #expect(FloatingStripDensity.mini.ringSize == 48)
+        #expect((FloatingStripDensity.mini.width - FloatingStripDensity.mini.ringSize) / 2 == 8.5)
+        #expect(FloatingStripDensity.compact.width == 78)
         #expect(FloatingStripDensity.compact.ringSize == 48)
-        #expect((FloatingStripDensity.compact.width - FloatingStripDensity.compact.ringSize) / 2 == 8.5)
+        #expect((FloatingStripDensity.compact.width - FloatingStripDensity.compact.ringSize) / 2 == 15)
         #expect(FloatingStripDensity.comfortable.width == 108)
-        for (density, heights) in [(FloatingStripDensity.compact, [212.0, 270, 328, 386]), (.comfortable, [260.0, 332, 404, 476])] {
+        for (density, heights) in [(FloatingStripDensity.mini, [212.0, 270, 328, 386]), (.compact, [212.0, 270, 328, 386]), (.comfortable, [260.0, 332, 404, 476])] {
             for (index, height) in heights.enumerated() {
                 #expect(density.height(providerCount: index + 1) == height)
             }
@@ -35,7 +39,8 @@ struct FloatingStripPreferencesTests {
         let changed = value.settingVisible(gemini, visible: true)
         let encoded = try JSONEncoder().encode(changed)
         let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 3)
+        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["automaticallyCollapses"] as? Bool == true)
         #expect(try JSONDecoder().decode(FloatingStripPreferences.self, from: encoded) == changed)
     }
 
@@ -75,6 +80,7 @@ struct FloatingStripPreferencesTests {
         let data = Data(#"{"density":"future","foldDelay":5,"orderedProviders":["codex","future","claude"],"hiddenProviders":["claude"]}"#.utf8)
         let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
         #expect(value.density == .compact)
+        #expect(value.automaticallyCollapses)
         #expect(value.revealDelayMilliseconds == 150)
         #expect(value.collapseDelayMilliseconds == 5_000)
         #expect(value.visibleProviders == [.codex, .deepSeek])
@@ -86,6 +92,7 @@ struct FloatingStripPreferencesTests {
         let store = FloatingStripPreferencesStore(defaults: defaults)
         var value = store.load()
         #expect(value.density == .compact)
+        #expect(value.automaticallyCollapses)
         #expect(value.revealDelayMilliseconds == 150)
         #expect(value.collapseDelayMilliseconds == 800)
         value.orderedProviders = [.codex, .codex]
@@ -98,6 +105,7 @@ struct FloatingStripPreferencesTests {
     }
 
     @Test func providerRemovalShrinksOnlyTheMiddle() {
+        #expect(FloatingStripDensity.mini.height(providerCount: 2) == 270)
         #expect(FloatingStripDensity.compact.height(providerCount: 2) == 270)
         #expect(FloatingStripDensity.compact.height(providerCount: 1) == 212)
         #expect(FloatingStripDensity.comfortable.height(providerCount: 2) == 332)
@@ -129,11 +137,13 @@ struct FloatingStripPreferencesTests {
         #expect(!state.isFolded)
     }
 
-    @Test func schemaThreePersistsIndependentBoundedDelays() throws {
+    @Test func schemaFourPersistsAutomaticCollapseAndIndependentBoundedDelays() throws {
         var value = FloatingStripPreferences(revealDelayMilliseconds: 2_000, collapseDelayMilliseconds: 5_000)
+        value.automaticallyCollapses = false
         value.normalize()
         let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 3)
+        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["automaticallyCollapses"] as? Bool == false)
         #expect(json["revealDelayMilliseconds"] as? Int == 2_000)
         #expect(json["collapseDelayMilliseconds"] as? Int == 5_000)
 
@@ -141,5 +151,18 @@ struct FloatingStripPreferencesTests {
         let restored = try JSONDecoder().decode(FloatingStripPreferences.self, from: invalid)
         #expect(restored.revealDelayMilliseconds == 150)
         #expect(restored.collapseDelayMilliseconds == 800)
+    }
+
+    @Test func disablingAutomaticCollapseClearsDeadlinesAndKeepsTheStripExpanded() {
+        var state = FloatingStripFoldState()
+        state.update(now: 0, revealDelay: 0.15, collapseDelay: 0.8, hovering: false, lockedOpen: false)
+        state.update(now: 1, revealDelay: 0.15, collapseDelay: 0.8, hovering: false, lockedOpen: false)
+        #expect(state.isFolded)
+        state.update(now: 1.01, revealDelay: 0.15, collapseDelay: 0.8, hovering: false,
+                     lockedOpen: false, automaticallyCollapses: false)
+        #expect(!state.isFolded)
+        state.update(now: 30, revealDelay: 0.15, collapseDelay: 0.8, hovering: false,
+                     lockedOpen: false, automaticallyCollapses: false)
+        #expect(!state.isFolded)
     }
 }

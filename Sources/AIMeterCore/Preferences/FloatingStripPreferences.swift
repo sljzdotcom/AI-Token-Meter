@@ -1,15 +1,17 @@
 import Foundation
 
 public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
-    case compact, comfortable
-    public var width: Double { self == .compact ? 65 : 108 }
-    public var ringSize: Double { self == .compact ? 48 : 60 }
-    public var spacing: Double { self == .compact ? 10 : 12 }
-    public var settingsZoneHeight: Double { self == .compact ? 42 : 48 }
-    public var baseContentHeight: Double { self == .compact ? 286 : 356 }
+    case comfortable, compact, mini
+    public var width: Double {
+        switch self { case .mini: 65; case .compact: 78; case .comfortable: 108 }
+    }
+    public var ringSize: Double { self == .comfortable ? 60 : 48 }
+    public var spacing: Double { self == .comfortable ? 12 : 10 }
+    public var settingsZoneHeight: Double { self == .comfortable ? 48 : 42 }
+    public var baseContentHeight: Double { self == .comfortable ? 356 : 286 }
     public var baseHeight: Double { baseContentHeight + settingsZoneHeight }
     public func contentHeight(providerCount: Int) -> Double {
-        let firstHeight = self == .compact ? 170.0 : 212.0
+        let firstHeight = self == .comfortable ? 212.0 : 170.0
         return firstHeight + Double(min(max(providerCount, 1), 4) - 1) * (ringSize + spacing)
     }
     public func height(providerCount: Int) -> Double {
@@ -23,8 +25,9 @@ public enum FloatingStripFoldDelay: Int, Codable, CaseIterable, Sendable {
 }
 
 public struct FloatingStripPreferences: Codable, Equatable, Sendable {
-    public private(set) var schemaVersion = 3
+    public private(set) var schemaVersion = 4
     public var density: FloatingStripDensity = .compact
+    public var automaticallyCollapses = true
     public var revealDelayMilliseconds = 150
     public var collapseDelayMilliseconds = 800
     public var orderedProviders: [UsageProvider] = UsageProvider.allCases
@@ -34,16 +37,18 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
     public init(
         hiddenUntil: TimeInterval? = nil,
         revealDelayMilliseconds: Int = 150,
-        collapseDelayMilliseconds: Int = 800
+        collapseDelayMilliseconds: Int = 800,
+        automaticallyCollapses: Bool = true
     ) {
         self.hiddenUntil = hiddenUntil
         self.revealDelayMilliseconds = revealDelayMilliseconds
         self.collapseDelayMilliseconds = collapseDelayMilliseconds
+        self.automaticallyCollapses = automaticallyCollapses
         normalize()
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, density, revealDelayMilliseconds,
+        case schemaVersion, density, automaticallyCollapses, revealDelayMilliseconds,
              collapseDelayMilliseconds, orderedProviders, hiddenProviders, hiddenUntil
     }
     private enum LegacyCodingKeys: String, CodingKey { case foldDelay }
@@ -51,6 +56,9 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         density = (try? values.decode(FloatingStripDensity.self, forKey: .density)) ?? .compact
         let version = (try? values.decode(Int.self, forKey: .schemaVersion)) ?? 1
+        automaticallyCollapses = version >= 4
+            ? ((try? values.decode(Bool.self, forKey: .automaticallyCollapses)) ?? true)
+            : true
         if version >= 3 {
             revealDelayMilliseconds = (try? values.decode(Int.self, forKey: .revealDelayMilliseconds)) ?? 150
             collapseDelayMilliseconds = (try? values.decode(Int.self, forKey: .collapseDelayMilliseconds)) ?? 800
@@ -74,7 +82,7 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
     }
 
     public mutating func normalize() {
-        schemaVersion = 3
+        schemaVersion = 4
         if !(0...2_000).contains(revealDelayMilliseconds) { revealDelayMilliseconds = 150 }
         if !(0...5_000).contains(collapseDelayMilliseconds) { collapseDelayMilliseconds = 800 }
         var seen = Set<UsageProvider>()

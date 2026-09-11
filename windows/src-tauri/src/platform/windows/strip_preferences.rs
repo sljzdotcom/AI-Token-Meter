@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct StripPreferences {
     pub schema_version: u64,
     pub density: String,
+    pub automatically_collapses: bool,
     pub reveal_delay_milliseconds: u64,
     pub collapse_delay_milliseconds: u64,
     pub ordered_providers: Vec<String>,
@@ -19,6 +20,7 @@ impl<'de> Deserialize<'de> for StripPreferences {
         struct Stored {
             schema_version: Option<u64>,
             density: Option<String>,
+            automatically_collapses: Option<bool>,
             fold_delay: Option<u64>,
             reveal_delay_milliseconds: Option<u64>,
             collapse_delay_milliseconds: Option<u64>,
@@ -34,10 +36,16 @@ impl<'de> Deserialize<'de> for StripPreferences {
             .flatten()
             .any(|id| id == "gemini");
         let mut value = Self::default();
+        let version = stored.schema_version.unwrap_or(0);
         if let Some(density) = stored.density {
             value.density = density;
         }
-        if stored.schema_version.unwrap_or(0) >= 3 {
+        if version >= 4
+            && let Some(automatically_collapses) = stored.automatically_collapses
+        {
+            value.automatically_collapses = automatically_collapses;
+        }
+        if version >= 3 {
             if let Some(delay) = stored.reveal_delay_milliseconds {
                 value.reveal_delay_milliseconds = delay;
             }
@@ -58,7 +66,7 @@ impl<'de> Deserialize<'de> for StripPreferences {
             value.hidden_providers = hidden;
         }
         value.hidden_until = stored.hidden_until;
-        if stored.schema_version.unwrap_or(0) < 2 && !already_has_gemini {
+        if version < 2 && !already_has_gemini {
             value.hidden_providers.push("gemini".into());
         }
         value.normalize();
@@ -69,8 +77,9 @@ impl<'de> Deserialize<'de> for StripPreferences {
 impl Default for StripPreferences {
     fn default() -> Self {
         Self {
-            schema_version: 3,
+            schema_version: 4,
             density: "compact".into(),
+            automatically_collapses: true,
             reveal_delay_milliseconds: 150,
             collapse_delay_milliseconds: 800,
             ordered_providers: vec![
@@ -87,7 +96,7 @@ impl Default for StripPreferences {
 
 impl StripPreferences {
     pub fn normalize(&mut self) {
-        if self.density != "comfortable" {
+        if !["comfortable", "compact", "mini"].contains(&self.density.as_str()) {
             self.density = "compact".into();
         }
         if self.reveal_delay_milliseconds > 2_000 {
@@ -97,7 +106,7 @@ impl StripPreferences {
             self.collapse_delay_milliseconds = 800;
         }
         let known = ["claude", "codex", "deepseek", "gemini"];
-        self.schema_version = 3;
+        self.schema_version = 4;
         let mut order = Vec::new();
         for id in self
             .ordered_providers
@@ -131,10 +140,10 @@ impl StripPreferences {
             return (16.0, 96.0);
         }
         let count = self.visible_providers().len().clamp(1, 4);
-        if self.density == "comfortable" {
-            (108.0, 260.0 + (count - 1) as f64 * 72.0)
-        } else {
-            (65.0, 212.0 + (count - 1) as f64 * 58.0)
+        match self.density.as_str() {
+            "comfortable" => (108.0, 260.0 + (count - 1) as f64 * 72.0),
+            "mini" => (65.0, 212.0 + (count - 1) as f64 * 58.0),
+            _ => (78.0, 212.0 + (count - 1) as f64 * 58.0),
         }
     }
     pub fn hidden(&self, now: i64) -> bool {
@@ -156,8 +165,9 @@ impl FoldState {
         collapse_delay_milliseconds: u64,
         hovering: bool,
         locked_open: bool,
+        automatically_collapses: bool,
     ) -> bool {
-        if locked_open {
+        if locked_open || !automatically_collapses {
             self.folded = false;
             self.reveal_deadline = None;
             self.collapse_deadline = None;
@@ -199,12 +209,13 @@ mod tests {
     use super::{FoldState, StripPreferences};
 
     #[test]
-    fn schema_three_has_independent_bounded_delays_and_new_dimensions() {
+    fn schema_four_has_independent_bounded_delays_and_new_dimensions() {
         let defaults = StripPreferences::default();
-        assert_eq!(defaults.schema_version, 3);
+        assert_eq!(defaults.schema_version, 4);
+        assert!(defaults.automatically_collapses);
         assert_eq!(defaults.reveal_delay_milliseconds, 150);
         assert_eq!(defaults.collapse_delay_milliseconds, 800);
-        assert_eq!(defaults.logical_size(false), (65.0, 386.0));
+        assert_eq!(defaults.logical_size(false), (78.0, 386.0));
         assert_eq!(defaults.logical_size(true), (16.0, 96.0));
 
         let legacy: StripPreferences = serde_json::from_str(
@@ -213,20 +224,40 @@ mod tests {
         .unwrap();
         assert_eq!(legacy.reveal_delay_milliseconds, 150);
         assert_eq!(legacy.collapse_delay_milliseconds, 5_000);
+        assert!(legacy.automatically_collapses);
+
+        let schema_three_with_unknown_new_field: StripPreferences = serde_json::from_str(
+            r#"{"schemaVersion":3,"automaticallyCollapses":false,"orderedProviders":["claude"]}"#,
+        )
+        .unwrap();
+        assert!(schema_three_with_unknown_new_field.automatically_collapses);
+
+        let mut mini = defaults.clone();
+        mini.density = "mini".into();
+        assert_eq!(mini.logical_size(false), (65.0, 386.0));
+    }
+
+    #[test]
+    fn disabling_automatic_collapse_immediately_expands_and_clears_deadlines() {
+        let mut state = FoldState::default();
+        assert!(!state.update(0.0, 150, 800, false, false, true));
+        assert!(state.update(0.8, 150, 800, false, false, true));
+        assert!(!state.update(0.81, 150, 800, false, false, false));
+        assert!(!state.update(30.0, 150, 800, false, false, false));
     }
 
     #[test]
     fn fold_state_cancels_stale_reveal_and_collapse_deadlines() {
         let mut state = FoldState::default();
-        assert!(!state.update(0.0, 150, 800, false, false));
-        assert!(!state.update(0.79, 150, 800, true, false));
-        assert!(!state.update(0.80, 150, 800, false, false));
-        assert!(!state.update(1.59, 150, 800, false, false));
-        assert!(state.update(1.60, 150, 800, false, false));
-        assert!(state.update(1.61, 150, 800, true, false));
-        assert!(state.update(1.70, 150, 800, false, false));
-        assert!(state.update(2.00, 150, 800, true, false));
-        assert!(!state.update(2.15, 150, 800, true, false));
-        assert!(!state.update(30.0, 150, 800, false, true));
+        assert!(!state.update(0.0, 150, 800, false, false, true));
+        assert!(!state.update(0.79, 150, 800, true, false, true));
+        assert!(!state.update(0.80, 150, 800, false, false, true));
+        assert!(!state.update(1.59, 150, 800, false, false, true));
+        assert!(state.update(1.60, 150, 800, false, false, true));
+        assert!(state.update(1.61, 150, 800, true, false, true));
+        assert!(state.update(1.70, 150, 800, false, false, true));
+        assert!(state.update(2.00, 150, 800, true, false, true));
+        assert!(!state.update(2.15, 150, 800, true, false, true));
+        assert!(!state.update(30.0, 150, 800, false, true, true));
     }
 }
