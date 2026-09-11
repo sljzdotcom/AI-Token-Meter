@@ -13,7 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
-| 2026-09-11 | 65pt浮动条自动收起、圆环包含与底部Settings入口修正 | [规格](specifications/2026-09-11-floating-strip-followup-design.md) | 待视觉确认后编写 |
+| 2026-09-11 | Mini浮动条、自动收起、圆环包含与底部Settings入口修正 | [规格](specifications/2026-09-11-floating-strip-followup-design.md) | [计划](implementation-plans/2026-09-11-mini-floating-strip-followup.md) |
 | 2026-09-10 | 65pt贴边浮动条、悬停展开与快捷设置 | [规格](specifications/2026-09-10-floating-strip-hover-redesign.md) | [计划](implementation-plans/2026-09-10-floating-strip-hover-redesign.md) |
 | 2026-09-10 | Google Antigravity详情强调色恢复 | [规格](specifications/2026-09-10-antigravity-accent-restoration-design.md) | [计划](implementation-plans/2026-09-10-antigravity-accent-restoration.md) |
 | 2026-09-11 | 0.7.3浮动条交互与Antigravity视觉发布 | — | [计划](implementation-plans/2026-09-11-v0.7.3-release.md) |
