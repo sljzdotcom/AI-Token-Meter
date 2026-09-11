@@ -4,35 +4,55 @@ use std::collections::BTreeMap;
 use std::sync::{
     Mutex,
     atomic::{AtomicU64, Ordering},
+    mpsc::{Receiver, Sender},
 };
 use tauri::{Emitter, Manager};
 
 #[derive(Default)]
-pub struct ReconcileQueue(Mutex<(bool, bool)>);
+struct ReconcileQueueState {
+    active: bool,
+    rerun: bool,
+    pending_receipts: Vec<Sender<Result<(), String>>>,
+}
+
+#[derive(Default)]
+pub struct ReconcileQueue(Mutex<ReconcileQueueState>);
 
 impl ReconcileQueue {
     // Only the first requester starts a worker. Requests during native calls never
     // wait for that worker: they ask it to read current state in another pass.
     pub fn request(&self) -> bool {
+        self.enqueue(None)
+    }
+
+    pub fn request_with_receipt(&self) -> (bool, Receiver<Result<(), String>>) {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        (self.enqueue(Some(sender)), receiver)
+    }
+
+    fn enqueue(&self, receipt: Option<Sender<Result<(), String>>>) -> bool {
         let mut state = self.0.lock().unwrap();
-        if state.0 {
-            state.1 = true;
+        if let Some(receipt) = receipt {
+            state.pending_receipts.push(receipt);
+        }
+        if state.active {
+            state.rerun = true;
             false
         } else {
-            state.0 = true;
+            state.active = true;
             true
         }
     }
 
     pub fn is_active(&self) -> bool {
-        self.0.lock().unwrap().0
+        self.0.lock().unwrap().active
     }
 
     /// Reserve interaction against a new reconciliation request. The callback
     /// only touches in-memory state and must not perform native UI operations.
     pub fn run_if_idle<T>(&self, action: impl FnOnce() -> T) -> Option<T> {
         let state = self.0.lock().unwrap();
-        if state.0 { None } else { Some(action()) }
+        if state.active { None } else { Some(action()) }
     }
 
     pub fn reserve_drag(
@@ -45,13 +65,27 @@ impl ReconcileQueue {
     }
 
     pub fn run(&self, mut pass: impl FnMut()) {
+        self.run_with_outcome(|| {
+            pass();
+            Ok(())
+        });
+    }
+
+    pub fn run_with_outcome(&self, mut pass: impl FnMut() -> Result<(), String>) {
         loop {
-            pass(); // no queue or instance lock across native/main-thread calls
+            let receipts = {
+                let mut state = self.0.lock().unwrap();
+                std::mem::take(&mut state.pending_receipts)
+            };
+            let outcome = pass(); // no queue or instance lock across native/main-thread calls
+            for receipt in receipts {
+                let _ = receipt.send(outcome.clone());
+            }
             let mut state = self.0.lock().unwrap();
-            if state.1 {
-                state.1 = false;
+            if state.rerun {
+                state.rerun = false;
             } else {
-                state.0 = false;
+                state.active = false;
                 return;
             }
         }
@@ -162,32 +196,48 @@ pub fn meter_windows(app: &tauri::AppHandle) -> Vec<tauri::WebviewWindow> {
 pub fn reconcile(app: &tauri::AppHandle) -> tauri::Result<()> {
     let state = app.state::<crate::RuntimeState>();
     if state.display_reconcile.request() {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            let state = app.state::<crate::RuntimeState>();
-            state.display_reconcile.run(|| {
-                let pending = state.pending_meter_drag.lock().unwrap().take();
-                if let Some((label, session)) = pending {
-                    if state.meter_drag.owns(session) {
-                        let _ = crate::finish_meter_drag(&app, &label, session);
-                    }
-                    state.meter_drag.finish(session);
-                    let _ = crate::publish_settings(&app);
-                }
-                match reconcile_once(&app) {
-                    Ok(Some(applied_folded)) => {
-                        let _ = app.emit("strip-folded", applied_folded);
-                    }
-                    Ok(None) => {}
-                    Err(error) => {
-                        eprintln!("Meter reconciliation failed: {error}");
-                        state.strip_reset.store(true, Ordering::Release);
-                    }
-                }
-            });
-        });
+        start_reconcile_worker(app.clone());
     }
     Ok(())
+}
+
+pub fn reconcile_with_receipt(
+    app: &tauri::AppHandle,
+) -> tauri::Result<Receiver<Result<(), String>>> {
+    let state = app.state::<crate::RuntimeState>();
+    let (start_worker, receipt) = state.display_reconcile.request_with_receipt();
+    if start_worker {
+        start_reconcile_worker(app.clone());
+    }
+    Ok(receipt)
+}
+
+fn start_reconcile_worker(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let state = app.state::<crate::RuntimeState>();
+        state.display_reconcile.run_with_outcome(|| {
+            let pending = state.pending_meter_drag.lock().unwrap().take();
+            if let Some((label, session)) = pending {
+                if state.meter_drag.owns(session) {
+                    let _ = crate::finish_meter_drag(&app, &label, session);
+                }
+                state.meter_drag.finish(session);
+                let _ = crate::publish_settings(&app);
+            }
+            match reconcile_once(&app) {
+                Ok(Some(applied_folded)) => {
+                    let _ = app.emit("strip-folded", applied_folded);
+                    Ok(())
+                }
+                Ok(None) => Ok(()),
+                Err(error) => {
+                    eprintln!("Meter reconciliation failed: {error}");
+                    state.strip_reset.store(true, Ordering::Release);
+                    Err(error.to_string())
+                }
+            }
+        });
+    });
 }
 
 fn reconcile_once(app: &tauri::AppHandle) -> tauri::Result<Option<bool>> {

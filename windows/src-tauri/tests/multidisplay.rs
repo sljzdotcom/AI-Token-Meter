@@ -194,6 +194,64 @@ fn reconcile_requests_during_native_work_are_nonblocking_and_coalesce_to_latest_
 }
 
 #[test]
+fn reconcile_receipt_waits_for_the_native_pass_that_owns_the_request() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::ReconcileQueue;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    let queue = Arc::new(ReconcileQueue::default());
+    let (start_worker, first_receipt) = queue.request_with_receipt();
+    assert!(start_worker);
+    let (started, wait_started) = std::sync::mpsc::channel();
+    let (release, wait_release) = std::sync::mpsc::channel();
+    let worker_queue = queue.clone();
+    let worker = std::thread::spawn(move || {
+        let mut pass = 0;
+        worker_queue.run_with_outcome(|| {
+            pass += 1;
+            started.send(pass).unwrap();
+            wait_release.recv().unwrap();
+            Ok(())
+        });
+    });
+
+    assert_eq!(wait_started.recv().unwrap(), 1);
+    let (start_second_worker, second_receipt) = queue.request_with_receipt();
+    assert!(!start_second_worker);
+    assert!(
+        first_receipt
+            .recv_timeout(Duration::from_millis(20))
+            .is_err()
+    );
+    assert!(
+        second_receipt
+            .recv_timeout(Duration::from_millis(20))
+            .is_err()
+    );
+
+    release.send(()).unwrap();
+    assert_eq!(
+        first_receipt.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Ok(())
+    );
+    assert_eq!(
+        wait_started.recv_timeout(Duration::from_secs(1)).unwrap(),
+        2
+    );
+    assert!(
+        second_receipt
+            .recv_timeout(Duration::from_millis(20))
+            .is_err()
+    );
+    release.send(()).unwrap();
+    assert_eq!(
+        second_receipt.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Ok(())
+    );
+    worker.join().unwrap();
+}
+
+#[test]
 fn recreated_secondary_never_reuses_a_pending_destroy_window_label() {
     use ai_token_meter_windows::platform::windows::display_coordinator::WindowPlan;
     let empty = std::collections::BTreeMap::new();

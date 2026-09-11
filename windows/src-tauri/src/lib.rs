@@ -1227,7 +1227,7 @@ fn current_timestamp() -> String {
 }
 
 #[tauri::command]
-fn set_strip_preferences(
+async fn set_strip_preferences(
     app: tauri::AppHandle,
     state: State<'_, RuntimeState>,
     mut value: crate::platform::windows::strip_preferences::StripPreferences,
@@ -1268,8 +1268,21 @@ fn set_strip_preferences(
     state
         .strip_reset
         .store(true, std::sync::atomic::Ordering::Release);
-    crate::platform::windows::strip_runtime::restore(&app).map_err(|_| "Window resize failed")?;
-    app.emit("app-settings-changed", updated)
+    let expected = updated.strip_preferences.clone();
+    let receipt = crate::platform::windows::display_coordinator::reconcile_with_receipt(&app)
+        .map_err(|_| "Window resize failed")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        receipt.recv_timeout(std::time::Duration::from_secs(10))
+    })
+    .await
+    .map_err(|_| "Window resize failed".to_owned())?
+    .map_err(|_| "Window resize failed".to_owned())?
+    .map_err(|_| "Window resize failed".to_owned())?;
+    let latest = state.app_settings_snapshot();
+    if latest.strip_preferences != expected {
+        return Ok(());
+    }
+    app.emit("app-settings-changed", latest)
         .map_err(|_| "Settings update failed".to_owned())
 }
 
@@ -1349,7 +1362,11 @@ pub fn run() {
                 let state = app.state::<RuntimeState>();
                 let mut value = state.app_settings_snapshot().strip_preferences;
                 value.hidden_until = Some(time::OffsetDateTime::now_utc().unix_timestamp() + 3600);
-                let _ = set_strip_preferences(app.clone(), state, value);
+                let owned_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = owned_app.state::<RuntimeState>();
+                    let _ = set_strip_preferences(owned_app.clone(), state, value).await;
+                });
                 let _ = hide_detail_window(app);
                 for meter in crate::platform::windows::display_coordinator::meter_windows(app) {
                     let _ = meter.hide();

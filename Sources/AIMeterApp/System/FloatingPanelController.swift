@@ -623,6 +623,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         return expandedStripSize
     }
 
+    var stripFrameForTesting: CGRect { stripPanel.frame }
+
     private var expandedStripSize: CGSize {
         let value = model.stripPreferences
         return CGSize(width: value.density.width, height: value.density.height(providerCount: value.visibleProviders.count))

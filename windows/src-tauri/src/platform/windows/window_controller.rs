@@ -367,15 +367,9 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
             .skip(1),
     );
     points.extend(
-        cubic_points(
-            scale(1, 58),
-            scale(0, 62),
-            scale(0, 66),
-            scale(0, 70),
-            64,
-        )
-        .into_iter()
-        .skip(1),
+        cubic_points(scale(1, 58), scale(0, 62), scale(0, 66), scale(0, 70), 64)
+            .into_iter()
+            .skip(1),
     );
     points.push(scale(0, 274));
     points.extend(

@@ -34,7 +34,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 }))
 
 import { App } from "./App"
-import { MeterClipPaths } from "./components/FloatingStrip"
+import { MeterClipPaths, meterContourPath } from "./components/FloatingStrip"
 import { UsageRing } from "./components/UsageRing"
 import { ProviderDetail } from "./details/ProviderDetail"
 import { DetailSurface, SettingsSurface } from "./Shell"
@@ -151,7 +151,7 @@ describe("Windows meter interface", () => {
 
     expect(container.querySelector("#strip-clip-right path")).toHaveAttribute(
       "d",
-      "M 108 16 C 98 23 88 27 66 28 C 29 29 0 54 0 88 L 0 268 C 0 302 29 327 66 328 C 88 329 98 333 108 340 Z",
+      meterContourPath("comfortable", 3),
     )
     expect(container.querySelector("#strip-clip-left path")).toHaveAttribute(
       "transform", `translate(1 0) scale(${-1/108} ${1/356})`,

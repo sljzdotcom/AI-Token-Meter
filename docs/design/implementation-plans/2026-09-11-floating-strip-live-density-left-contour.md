@@ -20,7 +20,9 @@
 - 修改 `windows/src-tauri/src/platform/windows/window_controller.rs`：让原生轮廓采样辅助函数使用方案 B 坐标。
 - 修改 `windows/src-tauri/src/platform/windows/display_coordinator.rs`：为合并式 reconcile 请求增加按轮次完成回执。
 - 修改 `windows/src-tauri/src/lib.rs`：密度设置等待对应原生协调完成，只发布仍为最新的设置状态。
+- 修改 `windows/src-tauri/src/platform/windows/tray.rs`：从原生菜单调用异步密度设置入口时保持既有行为。
 - 修改 `windows/src-tauri/tests/multidisplay.rs`：验证回执不会在原生工作完成前触发，且连续请求按最后状态完成。
+- 修改 `windows/src/App.test.tsx`：让完整界面轮廓断言引用方案 B 路径生成器。
 - 修改 `windows/src-tauri/tests/window_policy.rs`：验证方案 B 原生采样、圆角和水平镜像。
 - 修改 `Tests/AIMeterAppTests/AppModelDisplaySettingsTests.swift`：验证 macOS 密度变更触发外观更新；屏幕测试直接验证既有 NSPanel frame 即时变化。
 - 修改 `contracts/fixtures/auxiliary/strip-behavior.json`：登记方案 B 标准坐标和肩深，作为双平台测试合同。
@@ -105,11 +107,11 @@ git commit -m "fix: round floating strip contour"
 
 ### 任务 2：Windows 原生尺寸完成顺序与 macOS 即时 frame 回归
 
-- [ ] **步骤 1：编写失败的 reconcile 完成回执测试**
+- [x] **步骤 1：编写失败的 reconcile 完成回执测试**
 
 在 `multidisplay.rs` 建立一个阻塞的第一轮原生工作，申请带回执的 reconcile；断言工作释放前 `recv_timeout` 超时，释放后收到成功。再在第一轮执行中申请第二个回执，断言它只在第二轮完成后返回。
 
-- [ ] **步骤 2：运行 Rust 红灯**
+- [x] **步骤 2：运行 Rust 红灯**
 
 运行：
 
@@ -119,15 +121,15 @@ cargo test --locked --manifest-path windows/src-tauri/Cargo.toml --test multidis
 
 预期：因 `ReconcileQueue` 尚无带回执请求接口而编译失败。
 
-- [ ] **步骤 3：实现合并式完成回执**
+- [x] **步骤 3：实现合并式完成回执**
 
 把 `ReconcileQueue` 的布尔二元组替换为明确状态：`active`、`rerun`、`pending_receipts`。每轮开始时取走当时等待的发送端；`reconcile_once` 完成后只通知该轮回执。执行中到达的请求设置 `rerun` 并留给下一轮，不能提前完成。
 
-- [ ] **步骤 4：让设置命令等待原生应用再发布事件**
+- [x] **步骤 4：让设置命令等待原生应用再发布事件**
 
 将 `set_strip_preferences` 改为异步命令：完成持久化和详情关闭后取得 reconcile 回执，通过 `tauri::async_runtime::spawn_blocking` 有界等待。成功后重新读取当前设置；若当前密度已不同，旧命令不发布过期事件，最后一次命令在其回执完成后发布 `app-settings-changed`。失败返回既有“Window resize failed”。
 
-- [ ] **步骤 5：运行 Rust 绿灯和前端设置集成测试**
+- [x] **步骤 5：运行 Rust 绿灯和前端设置集成测试**
 
 运行：
 
@@ -138,11 +140,11 @@ cd windows && npm test -- --run src/App.test.tsx src/settings/SettingsGemini.tes
 
 预期：回执时序、快速连续请求和 Settings 调用全部通过。
 
-- [ ] **步骤 6：补 macOS 现有同步链的回归证据**
+- [x] **步骤 6：补 macOS 现有同步链的回归证据**
 
 先在 `AppModelDisplaySettingsTests.swift` 增加普通测试，确认 `setStripPreferences` 保存 Mini 后同步调用 `floatingAppearanceHandler` 且处理器观察到 65pt。再增加受 `AI_METER_SCREEN_TESTS=1` 控制的原生窗口测试：创建 controller、记录 Compact frame、调用 `setStripPreferences` 与 `applyAppearance` 链，断言 frame 立即为 Mini 宽度并保持贴边和中心。
 
-- [ ] **步骤 7：运行 macOS 回归**
+- [x] **步骤 7：运行 macOS 回归**
 
 运行：
 
@@ -153,7 +155,7 @@ AI_METER_SCREEN_TESTS=1 swift test --filter AppModelDisplaySettingsTests.density
 
 预期：普通同步通知和本机原生 frame 测试通过；若红灯定位到现有 handler/controller 链，再只修复该断点并重新运行。
 
-- [ ] **步骤 8：提交即时生效任务**
+- [x] **步骤 8：提交即时生效任务**
 
 ```bash
 git add windows/src-tauri/src/platform/windows/display_coordinator.rs windows/src-tauri/src/lib.rs windows/src-tauri/tests/multidisplay.rs Tests/AIMeterAppTests/AppModelDisplaySettingsTests.swift

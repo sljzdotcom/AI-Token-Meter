@@ -112,7 +112,11 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
                 let state = app.state::<crate::RuntimeState>();
                 let mut value = state.app_settings_snapshot().strip_preferences;
                 value.hidden_until = None;
-                let _ = crate::set_strip_preferences(app.clone(), app.state(), value);
+                let owned_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = owned_app.state::<crate::RuntimeState>();
+                    let _ = crate::set_strip_preferences(owned_app.clone(), state, value).await;
+                });
                 state
                     .meter_enabled
                     .store(true, std::sync::atomic::Ordering::Release);
