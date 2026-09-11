@@ -195,21 +195,28 @@ export function SettingsWindow({
                 {availableDisplays.map(display => <option key={display.id} value={display.id}>{display.name}{display.isPrimary ? ` · ${t("Primary")}` : ""}</option>)}
               </select>
             </SettingRow>}
-            <SettingRow label={t("Floating strip size")} hint={t("Compact saves space; Comfortable keeps larger rings.")}>
+            <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable, Compact, or Mini.")}>
               <select aria-label={t("Floating strip size")} value={stripPreferences.density}
                 onChange={e => onStripPreferencesChange({...stripPreferences, density: e.target.value as StripPreferences["density"]})}>
-                <option value="compact">{t("Compact")}</option><option value="comfortable">{t("Comfortable")}</option>
+                <option value="comfortable">{t("Comfortable")}</option><option value="compact">{t("Compact")}</option><option value="mini">{t("Mini")}</option>
               </select>
+            </SettingRow>
+            <SettingRow label={t("Automatically collapse floating strip")} hint={t("Turn off to keep the floating strip expanded.")}>
+              <input aria-label={t("Automatically collapse floating strip")} type="checkbox"
+                checked={stripPreferences.automaticallyCollapses}
+                onChange={e => onStripPreferencesChange({...stripPreferences, automaticallyCollapses: e.target.checked})} />
             </SettingRow>
             <SettingRow label={t("Show delay (ms)")} hint={t("Wait before expanding after the pointer enters; 0–2000 ms.")}>
               <input aria-label={t("Show delay (ms)")} type="number" min={0} max={2000} step={50}
                 value={stripPreferences.revealDelayMilliseconds}
+                disabled={!stripPreferences.automaticallyCollapses}
                 onChange={e => onStripPreferencesChange({...stripPreferences,
                   revealDelayMilliseconds: Math.min(2000, Math.max(0, Number(e.target.value)))})} />
             </SettingRow>
             <SettingRow label={t("Hide delay (ms)")} hint={t("Wait before collapsing after interaction ends; 0–5000 ms.")}>
               <input aria-label={t("Hide delay (ms)")} type="number" min={0} max={5000} step={50}
                 value={stripPreferences.collapseDelayMilliseconds}
+                disabled={!stripPreferences.automaticallyCollapses}
                 onChange={e => onStripPreferencesChange({...stripPreferences,
                   collapseDelayMilliseconds: Math.min(5000, Math.max(0, Number(e.target.value)))})} />
             </SettingRow>

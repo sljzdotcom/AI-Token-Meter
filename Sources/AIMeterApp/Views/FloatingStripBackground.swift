@@ -62,7 +62,7 @@ struct FloatingStripSurface: View {
                     .scaledToFill()
                     .scaleEffect(x: scale.width, y: scale.height, anchor: .center)
                     .overlay {
-                        Color.black.opacity(density == .compact ? 0.46 : FloatingStripBackgroundPresentation.scrimOpacity)
+                        Color.black.opacity(density == .comfortable ? FloatingStripBackgroundPresentation.scrimOpacity : 0.46)
                     }
                     .accessibilityHidden(true)
             }

@@ -8,22 +8,26 @@ struct AppearanceSettingsView: View {
         Form {
             Section("Floating meter") {
                 Picker("Floating strip size", selection: stripBinding(\.density)) {
-                    Text("Compact").tag(FloatingStripDensity.compact)
                     Text("Comfortable").tag(FloatingStripDensity.comfortable)
+                    Text("Compact").tag(FloatingStripDensity.compact)
+                    Text("Mini").tag(FloatingStripDensity.mini)
                 }
+                Toggle("Automatically collapse floating strip", isOn: stripBinding(\.automaticallyCollapses))
                 Stepper(
                     "Show delay: \(model.stripPreferences.revealDelayMilliseconds) ms",
                     value: stripBinding(\.revealDelayMilliseconds),
                     in: 0...2_000,
                     step: 50
                 )
+                .disabled(!model.stripPreferences.automaticallyCollapses)
                 Stepper(
                     "Hide delay: \(model.stripPreferences.collapseDelayMilliseconds) ms",
                     value: stripBinding(\.collapseDelayMilliseconds),
                     in: 0...5_000,
                     step: 50
                 )
-                Text("The show and hide delays apply immediately. Open details, menus, dragging and refreshes keep the meter expanded.")
+                .disabled(!model.stripPreferences.automaticallyCollapses)
+                Text("Turn off automatic collapse to keep the meter expanded. Delay values are retained; open details, menus, dragging and refreshes also keep it expanded.")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 Toggle(

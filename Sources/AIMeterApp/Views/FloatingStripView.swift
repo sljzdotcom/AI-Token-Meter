@@ -11,7 +11,7 @@ struct FloatingStripView: View {
     @Environment(\.openSettings) private var openSettings
     @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
     @FocusState private var settingsButtonFocused: Bool
-    @State private var isHoveringExpandedStrip = false
+    @State private var isHoveringSettingsZone = false
 
     var body: some View {
         ZStack {
@@ -95,28 +95,32 @@ struct FloatingStripView: View {
 
                     ZStack(alignment: displayState.resolvedEdge == .left ? .leading : .trailing) {
                         Color.clear
+                        FloatingStripSettingsArc(edge: displayState.resolvedEdge)
+                            .stroke(Color(red: 0.025, green: 0.067, blue: 0.12), lineWidth: 3)
+                            .opacity(isHoveringSettingsZone || settingsButtonFocused ? 0.18 : 1)
                         Button {
                             model.requestSettings(.appearance)
                         } label: {
                             Image(systemName: "gearshape.fill")
-                                .font(.system(size: density == .compact ? 11 : 13, weight: .medium))
+                                .font(.system(size: density == .comfortable ? 13 : 11, weight: .medium))
                                 .foregroundStyle(.white.opacity(0.86))
-                                .frame(width: density == .compact ? 24 : 28, height: density == .compact ? 24 : 28)
+                                .frame(width: density == .comfortable ? 28 : 24, height: density == .comfortable ? 28 : 24)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .focused($settingsButtonFocused)
                         .help("Settings")
                         .accessibilityLabel("Settings")
-                        .padding(displayState.resolvedEdge == .left ? .leading : .trailing, density == .compact ? 2 : 4)
-                        .opacity(isHoveringExpandedStrip || settingsButtonFocused ? 1 : 0)
+                        .padding(displayState.resolvedEdge == .left ? .leading : .trailing, density == .mini ? 2 : 4)
+                        .opacity(isHoveringSettingsZone || settingsButtonFocused ? 1 : 0)
                     }
                     .frame(height: density.settingsZoneHeight)
+                    .contentShape(FloatingStripSettingsHitShape(edge: displayState.resolvedEdge))
+                    .onHover { isHoveringSettingsZone = $0 }
                 }
                 .opacity(displayState.showsExpandedContent ? 1 : 0)
                 .allowsHitTesting(displayState.showsExpandedContent)
                 .animation(.easeOut(duration: 0.14), value: displayState.showsExpandedContent)
-                .onHover { isHoveringExpandedStrip = $0 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -151,6 +155,33 @@ struct FloatingStripView: View {
                 collectionStatus: .refreshing
             ))
         }
+    }
+}
+
+struct FloatingStripSettingsArc: Shape {
+    let edge: FloatingStripEdge
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let startX = edge == .right ? rect.maxX - 31 : rect.minX + 31
+        let endX = edge == .right ? rect.maxX + 2 : rect.minX - 2
+        path.move(to: CGPoint(x: startX, y: rect.minY + 7))
+        path.addCurve(
+            to: CGPoint(x: endX, y: rect.maxY - 5),
+            control1: CGPoint(x: edge == .right ? rect.maxX - 12 : rect.minX + 12, y: rect.minY + 7),
+            control2: CGPoint(x: edge == .right ? rect.maxX - 8 : rect.minX + 8, y: rect.maxY - 12)
+        )
+        return path
+    }
+}
+
+struct FloatingStripSettingsHitShape: Shape {
+    let edge: FloatingStripEdge
+
+    func path(in rect: CGRect) -> Path {
+        FloatingStripSettingsArc(edge: edge)
+            .path(in: rect)
+            .strokedPath(StrokeStyle(lineWidth: 18, lineCap: .round, lineJoin: .round))
     }
 }
 

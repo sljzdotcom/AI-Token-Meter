@@ -650,7 +650,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             revealDelay: Double(model.stripPreferences.revealDelayMilliseconds) / 1_000,
             collapseDelay: Double(model.stripPreferences.collapseDelayMilliseconds) / 1_000,
             hovering: hovering,
-            lockedOpen: lockedOpen
+            lockedOpen: lockedOpen,
+            automaticallyCollapses: model.stripPreferences.automaticallyCollapses
         )
         transitionStrip(toFolded: foldState.isFolded)
     }

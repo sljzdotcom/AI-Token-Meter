@@ -120,6 +120,26 @@ struct SettingsStructureTests {
         #expect(appSource.contains("updateCoordinator: appDelegate.softwareUpdateCoordinator"))
         #expect(delegateSource.contains("softwareUpdateCoordinator.stop()"))
     }
+
+    @Test("Appearance exposes the fixed three strip sizes and auto collapse controls")
+    func floatingStripControls() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/Views/AppearanceSettingsView.swift"),
+            encoding: .utf8
+        )
+
+        let comfortable = try #require(source.range(of: "Text(\"Comfortable\").tag(FloatingStripDensity.comfortable)"))
+        let compact = try #require(source.range(of: "Text(\"Compact\").tag(FloatingStripDensity.compact)"))
+        let mini = try #require(source.range(of: "Text(\"Mini\").tag(FloatingStripDensity.mini)"))
+        #expect(comfortable.lowerBound < compact.lowerBound)
+        #expect(compact.lowerBound < mini.lowerBound)
+        #expect(source.contains("Toggle(\"Automatically collapse floating strip\""))
+        #expect(source.components(separatedBy: ".disabled(!model.stripPreferences.automaticallyCollapses)").count == 3)
+    }
 }
 
 private final class InMemorySecretStore: SecretStore, @unchecked Sendable {

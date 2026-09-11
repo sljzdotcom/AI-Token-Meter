@@ -6,7 +6,7 @@ enum FloatingStripContentLayout {
     static let providerSpacing: CGFloat = 12
     static let verticalPadding: CGFloat = 17
     static func horizontalPadding(for density: FloatingStripDensity) -> CGFloat {
-        density == .compact ? 0 : 11
+        density == .mini ? 0 : 11
     }
 
     static func providerFrames(in rect: CGRect, density: FloatingStripDensity = .comfortable, count: Int = 3) -> [CGRect] {
@@ -35,8 +35,8 @@ enum FloatingStripContentLayout {
     ) -> CGRect {
         let scaleX = rect.width / density.width
         let scaleY = rect.height / density.height(providerCount: count)
-        let size = (density == .compact ? 24.0 : 28.0) * min(scaleX, scaleY)
-        let trailingInset = (density == .compact ? 2.0 : 4.0) * scaleX
+        let size = (density == .comfortable ? 28.0 : 24.0) * min(scaleX, scaleY)
+        let trailingInset = (density == .mini ? 2.0 : 4.0) * scaleX
         let contentHeight = density.contentHeight(providerCount: count) * scaleY
         let x = edge == .right ? rect.maxX - trailingInset - size : rect.minX + trailingInset
         return CGRect(x: x, y: rect.minY + contentHeight + 2 * scaleY, width: size, height: size)

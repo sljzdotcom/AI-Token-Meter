@@ -5,8 +5,9 @@ import Testing
 
 @Suite("Floating strip drag region")
 struct FloatingStripDragShapeTests {
-    @Test func compactHorizontalPaddingMatchesTheNarrowWindow() {
-        #expect(FloatingStripContentLayout.horizontalPadding(for: .compact) == 0)
+    @Test func allDensitiesUseExpectedHorizontalPadding() {
+        #expect(FloatingStripContentLayout.horizontalPadding(for: .mini) == 0)
+        #expect(FloatingStripContentLayout.horizontalPadding(for: .compact) == 11)
         #expect(FloatingStripContentLayout.horizontalPadding(for: .comfortable) == 11)
     }
 
@@ -57,24 +58,38 @@ struct FloatingStripDragShapeTests {
             for edge in [FloatingStripEdge.left, .right] {
                 let path = FloatingStripDragShape(edge: edge, density: density).path(in: rect)
                 let centerX = density.width / 2
-                #expect(path.contains(CGPoint(x: centerX, y: density == .compact ? 36 : 44), eoFill: true))
-                let centers = density == .compact ? [85.0, 143.0, 201.0] : [106.0, 178.0, 250.0]
+                #expect(path.contains(CGPoint(x: centerX, y: density == .comfortable ? 44 : 36), eoFill: true))
+                let centers = density == .comfortable ? [106.0, 178.0, 250.0] : [85.0, 143.0, 201.0]
                 for y in centers {
                     #expect(!path.contains(CGPoint(x: centerX, y: y), eoFill: true))
                 }
-                #expect(path.contains(CGPoint(x: centerX, y: density == .compact ? 114 : 142), eoFill: true))
+                #expect(path.contains(CGPoint(x: centerX, y: density == .comfortable ? 142 : 114), eoFill: true))
             }
         }
     }
     @Test("Compact hit testing excludes every visible ring after provider removal")
     func compactHitRegions() {
-        let rect = CGRect(x: 0, y: 0, width: 65, height: 270)
+        let rect = CGRect(x: 0, y: 0, width: 78, height: 270)
         let shape = FloatingStripDragShape(edge: .right, density: .compact, providerCount: 2)
         let path = shape.path(in: rect)
-        #expect(!path.contains(CGPoint(x: 32.5, y: 85), eoFill: true))
-        #expect(!path.contains(CGPoint(x: 32.5, y: 143), eoFill: true))
-        #expect(path.contains(CGPoint(x: 32.5, y: 114), eoFill: true))
-        #expect(path.contains(CGPoint(x: 58, y: 50), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 39, y: 85), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 39, y: 143), eoFill: true))
+        #expect(path.contains(CGPoint(x: 39, y: 114), eoFill: true))
+        #expect(path.contains(CGPoint(x: 71, y: 50), eoFill: true))
+    }
+
+    @Test("Settings hover follows the visible arc instead of the transparent bottom row")
+    func settingsHoverRegion() {
+        for density in FloatingStripDensity.allCases {
+            let rect = CGRect(x: 0, y: 0, width: density.width, height: density.settingsZoneHeight)
+            let right = FloatingStripSettingsHitShape(edge: .right).path(in: rect)
+            let left = FloatingStripSettingsHitShape(edge: .left).path(in: rect)
+
+            #expect(right.contains(CGPoint(x: rect.maxX - 6, y: rect.midY)))
+            #expect(!right.contains(CGPoint(x: rect.minX + 5, y: rect.midY)))
+            #expect(left.contains(CGPoint(x: rect.minX + 6, y: rect.midY)))
+            #expect(!left.contains(CGPoint(x: rect.maxX - 5, y: rect.midY)))
+        }
     }
 
     @Test("Glass background drags while provider buttons remain click-only")

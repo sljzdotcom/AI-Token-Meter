@@ -26,10 +26,12 @@ await runWithCleanup(async () => {
   })
   const report = densityReport(result.output)
   assertDensity(report)
-  if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
+  if (report.stripSamples?.length !== 24) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
     if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight
       || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons || !sample.ringPerimetersVisible || !sample.settingsVisible
+      || sample.settingsOpacityAtRest !== "0" || sample.settingsOpacityAtFocus !== "1"
+      || sample.settingsHoveredAfterBodyEntry !== "false" || sample.settingsHoveredAfterZoneEntry !== "true"
       || sample.buttonCount !== sample.count || sample.drags !== 1 || sample.mirroredLogo
       || JSON.stringify(sample.activated) !== JSON.stringify(sample.expectedOrder) || sample.geminiProgress !== null) {
       throw new Error(`Strip geometry/interaction mismatch: ${JSON.stringify(sample)}`)
@@ -66,7 +68,7 @@ await runWithCleanup(async () => {
     }
   }
   console.log("Antigravity detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
-  console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
+  console.log("Four-provider strip geometry verified: 24 real CSS clipping/hit-test scenarios")
   console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {
   await stopVite(vite.process)
@@ -163,6 +165,23 @@ function assertDensity(report) {
   }
   for (const [property, value] of Object.entries(expected)) {
     if (report[property] !== value) throw new Error(`${property}: expected ${value}, received ${report[property]}`)
+  }
+  if (JSON.stringify(report.stripDensityOptions) !== JSON.stringify(["comfortable", "compact", "mini"])
+    || report.selectedStripDensity !== "compact"
+    || report.initialAutomaticCollapse !== true
+    || report.automaticCollapseAfterClick !== false
+    || report.collapseDelayControlsDisabled !== true
+    || JSON.stringify(report.initialCollapseDelayValues) !== JSON.stringify(["150", "800"])
+    || JSON.stringify(report.collapseDelayValuesAfterClick) !== JSON.stringify(["150", "800"])) {
+    throw new Error(`Floating strip settings contract changed: ${JSON.stringify({
+      options: report.stripDensityOptions,
+      selected: report.selectedStripDensity,
+      initialAutomaticCollapse: report.initialAutomaticCollapse,
+      automaticCollapseAfterClick: report.automaticCollapseAfterClick,
+      collapseDelayControlsDisabled: report.collapseDelayControlsDisabled,
+      initialCollapseDelayValues: report.initialCollapseDelayValues,
+      collapseDelayValuesAfterClick: report.collapseDelayValuesAfterClick,
+    })}`)
   }
   if (!report.meterFont.includes("Antonio") || !report.detailFont.includes("Antonio")) {
     throw new Error("Settings system font leaked into the meter or Provider detail")
