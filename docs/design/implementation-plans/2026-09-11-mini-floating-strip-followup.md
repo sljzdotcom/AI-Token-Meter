@@ -18,7 +18,7 @@
 - [x] 运行 Swift、Vitest 与 Rust 偏好测试，确认旧实现因缺少 Mini、Compact 仍为 65 以及 schema 字段缺失而失败。
 - [x] 将三端密度扩为三档；`automaticallyCollapses` 默认 `true`，旧 schema 补 `true` 并保留延迟值。
 - [x] 重跑定向测试，覆盖 Mini 往返、旧 Compact 不迁移、窗口逻辑宽度和 1×/1.25×/1.5×/2×换算。
-- [ ] 提交偏好和尺寸检查点。
+- [x] 提交偏好和尺寸检查点。
 
 ### 任务 2：自动收起状态机与窗口生命周期
 
@@ -28,7 +28,7 @@
 - [x] 运行 Swift/Rust 状态机测试并记录旧逻辑仍排程收起的失败。
 - [x] 两端控制器在偏好变更时取消计时并立即展开；仅在开关为真时接受折叠排程。
 - [x] 重跑状态机、窗口位置、多显示器与桌面可见性专项。
-- [ ] 提交状态机检查点。
+- [x] 提交状态机检查点。
 
 ### 任务 3：macOS Mini、Settings 与独立底弧命中区
 
@@ -38,7 +38,7 @@
 - [x] 运行 macOS 视图、渲染和 Settings 专项，确认准确失败。
 - [x] 以密度属性决定路径和内容尺寸；将齿轮状态拆为 Settings 区 hover 与焦点，弧线改为深色，按钮与弧区共享连续命中容器。
 - [x] Settings 增加 Mini 和自动收起 Toggle，并以 `.disabled(!automaticallyCollapses)` 控制两个 Stepper。
-- [ ] 重跑 1–4 Provider、镜像、2×渲染、拖动排除、键盘和系统字体测试后提交。
+- [x] 重跑 1–4 Provider、镜像、2×渲染、拖动排除、键盘和系统字体测试后提交。
 
 ### 任务 4：Windows Mini、Settings 与独立底弧命中区
 
@@ -48,7 +48,7 @@
 - [x] 运行 Vitest，确认现有两档和整条 hover 选择器不满足合同。
 - [x] 实现三档映射、独立 Settings zone、深色弧线，并删除 `.floating-strip:hover` 对齿轮可见性的控制。
 - [x] 更新 Settings 三档、自动收起复选框、禁用延迟输入和中英文文本。
-- [ ] 重跑组件、Settings、本地化和 production build 后提交。
+- [x] 重跑组件、Settings、本地化和 production build 后提交。
 
 ### 任务 5：跨平台合同、真实浏览器和文档收尾
 
