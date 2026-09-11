@@ -44,4 +44,4 @@
 - [x] 运行完整Swift、Vitest/build、Rust test/fmt/严格Clippy、真实Chromium、合同、文档和公开安全检查。
 - [x] 更新设计索引、开发日志、用户可见说明和需求证据；运行`scripts/check-docs.sh`。
 - [x] 独立审查差异并修复Critical/Important问题；复验受影响门禁。
-- [ ] 提交可评审候选并回传测试与提交证据；不创建新tag或Release。
+- [x] 提交可评审候选并回传测试与提交证据；不创建新tag或Release。
