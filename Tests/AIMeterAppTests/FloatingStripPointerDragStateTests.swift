@@ -8,10 +8,10 @@ struct FloatingStripPointerDragStateTests {
     @Test("Background pointer drag reports SwiftUI-style screen translation")
     func backgroundDragTranslation() {
         var state = FloatingStripPointerDragState()
-        let size = CGSize(width: 108, height: 404)
+        let size = CGSize(width: 108, height: 356)
 
         let began = state.begin(
-            windowPoint: CGPoint(x: 95, y: 344),
+            windowPoint: CGPoint(x: 95, y: 296),
             screenPoint: CGPoint(x: 1900, y: 700),
             panelSize: size,
             edge: .right

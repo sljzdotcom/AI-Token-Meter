@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+### Changed
+
+- 浮动条展开高度只保留圆环内容区，上下肩恢复严格镜像；收起态改为14pt/px可见内凹把手，并使用20pt/px宽的透明命中窗口提升可发现性。
+
+### Removed
+
+- 移除悬浮条底部的Settings弧区、齿轮和悬停入口；设置仍可从应用现有菜单进入。
+
 ## 0.8.0 - 2026-09-11
 
 稳定功能版；macOS build23。新增65pt/px Mini浮动条密度，恢复78pt/px Compact，并加入可关闭的自动收起设置。[发布记录](docs/development/2026-09-11-v0.8.0-release.md)。

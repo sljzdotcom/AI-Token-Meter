@@ -83,7 +83,7 @@ struct VisualSystemTests {
         for edge in [FloatingStripEdge.left, .right] {
             let rendered = try renderSurface(edge: edge, backgroundImage: background)
             let attachedX = edge == .right ? 107 : 0
-            for y in [20, 380] {
+            for y in [20, 336] {
                 let color = try rgb(atX: attachedX, y: y, in: rendered)
                 #expect(color.blue > 100)
                 #expect(color.blue > color.red)
@@ -98,7 +98,7 @@ struct VisualSystemTests {
 
         #expect(try alpha(atX: 0, y: 202, in: image) > 0)
         #expect(try alpha(atX: 107, y: 8, in: image) == 0)
-        #expect(try alpha(atX: 107, y: 400, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 352, in: image) == 0)
     }
 
     @Test("Provider logos use one optical calibration table")
@@ -108,42 +108,33 @@ struct VisualSystemTests {
         #expect(ProviderLogoStyle.opticalScale(for: .deepSeek) < 1)
     }
 
-    @Test("Comfortable contour uses the approved inset bounds and Settings lobe")
+    @Test("Comfortable contour ends with equal top and bottom insets")
     func floatingStripBounds() {
-        let rect = CGRect(x: 0, y: 0, width: 108, height: 404)
-        let expected = CGRect(x: 0, y: 16, width: 108, height: 380)
+        let rect = CGRect(x: 0, y: 0, width: 108, height: 356)
+        let expected = CGRect(x: 0, y: 16, width: 108, height: 324)
 
         #expect(FloatingStripShape(edge: .right).path(in: rect).boundingRect == expected)
         #expect(FloatingStripShape(edge: .left).path(in: rect).boundingRect == expected)
     }
 
-    @Test("Comfortable top shoulder and lower Settings lobe mirror horizontally")
-    func floatingStripCompactShoulders() {
-        let rect = CGRect(x: 0, y: 0, width: 108, height: 404)
-        let right = FloatingStripShape(edge: .right).path(in: rect)
-        let left = FloatingStripShape(edge: .left).path(in: rect)
-
-        for point in [
-            CGPoint(x: 40, y: 50),
-            CGPoint(x: 8, y: 82),
-            CGPoint(x: 1, y: 94),
-            CGPoint(x: 8, y: 300),
-            CGPoint(x: 50, y: 350),
-            CGPoint(x: 95, y: 380),
-        ] {
-            #expect(right.contains(point))
-            #expect(left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
-        }
-        for point in [
-            CGPoint(x: 107, y: 8),
-            CGPoint(x: 40, y: 20),
-            CGPoint(x: 0, y: 82),
-            CGPoint(x: 0, y: 350),
-            CGPoint(x: 40, y: 380),
-            CGPoint(x: 107, y: 400),
-        ] {
-            #expect(!right.contains(point))
-            #expect(!left.contains(CGPoint(x: rect.maxX - point.x, y: point.y)))
+    @Test("Every expanded lower shoulder is the vertical mirror of its upper shoulder")
+    func floatingStripShouldersMirrorVertically() {
+        for density in FloatingStripDensity.allCases {
+            let rect = CGRect(x: 0, y: 0, width: density.width,
+                              height: density.height(providerCount: 4))
+            let path = FloatingStripShape(edge: .right, density: density, providerCount: 4)
+                .path(in: rect)
+            var asymmetricSamples = 0
+            for x in stride(from: 0.5, to: density.width, by: 2) {
+                for y in stride(from: 0.5, to: rect.midY, by: 2) {
+                    if path.contains(CGPoint(x: x, y: y))
+                        != path.contains(CGPoint(x: x, y: rect.maxY - y)) {
+                        asymmetricSamples += 1
+                    }
+                }
+            }
+            #expect(asymmetricSamples == 0,
+                    "\(density.rawValue) has \(asymmetricSamples) asymmetric samples")
         }
     }
 
@@ -177,12 +168,12 @@ struct VisualSystemTests {
     func floatingSurfacePaintsAttachedEdgeAndBody() throws {
         let renderer = ImageRenderer(content:
             FloatingStripSurface(edge: .right)
-                .frame(width: 108, height: 404)
+                .frame(width: 108, height: 356)
         )
         renderer.scale = 1
         let image = try #require(renderer.cgImage)
 
-        for point in [(0, 202), (107, 20), (107, 202), (107, 390)] {
+        for point in [(0, 178), (107, 20), (107, 178), (107, 330)] {
             #expect(try alpha(atX: point.0, y: point.1, in: image) > 0)
         }
     }
@@ -192,13 +183,13 @@ struct VisualSystemTests {
     func floatingSurfaceHasNoExteriorShadow() throws {
         let renderer = ImageRenderer(content:
             FloatingStripSurface(edge: .right)
-                .frame(width: 108, height: 404)
+                .frame(width: 108, height: 356)
         )
         renderer.scale = 1
         let image = try #require(renderer.cgImage)
 
         #expect(try alpha(atX: 107, y: 8, in: image) == 0)
-        #expect(try alpha(atX: 107, y: 400, in: image) == 0)
+        #expect(try alpha(atX: 107, y: 352, in: image) == 0)
     }
 
     @Test("Every non-normal usage state has a non-color symbol")
@@ -304,7 +295,7 @@ struct VisualSystemTests {
     ) throws -> CGImage {
         let renderer = ImageRenderer(content:
             FloatingStripSurface(edge: edge, backgroundImage: backgroundImage)
-                .frame(width: 108, height: 404)
+                .frame(width: 108, height: 356)
         )
         renderer.scale = 1
         return try #require(renderer.cgImage)

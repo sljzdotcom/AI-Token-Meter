@@ -4,7 +4,7 @@
 
 青绿 `#3ED6B2` Gemini 是第四项服务。全新配置默认四项可见；旧记录缺少 Gemini 时将其追加末尾并隐藏，保留既有顺序与显示选择；已有 Gemini 的记录保留其选择。保存采用偏好 schemaVersion 4，以记录三档尺寸、自动收起开关及独立的显示与收起延迟；旧 schema 自动迁移并默认开启自动收起。Restore default order 恢复四项默认顺序与显示，至少保留一项可见；隐藏不停止采集。
 
-四项全显示时Mini为65×386、Compact为78×386、Comfortable为108×476；显示三项时分别为65×328、78×328、108×404。总高包含底部Settings弧区，并随实际可见数量变化。
+四项全显示时Mini为65×344、Compact为78×344、Comfortable为108×428；显示三项时分别为65×286、78×286、108×356。总高随实际可见数量变化，悬浮条下方不显示Settings图标；设置仍可从应用菜单进入。
 
 Google Antigravity 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡按状态显示官方 `agy` 安装或登录步骤，安装按钮直达官方页面，并提供检查状态；当前不执行安装、登录或重新登录。版本与 Windows 原生限制见[Antigravity 指标说明](providers.md#google-antigravity)。
 
@@ -16,11 +16,11 @@ Google Antigravity 的账户状态来自同次额度采集，不另启一次认�
 
 0.6.0 起两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
 
-- **Floating strip size**：固定按Comfortable、Compact、Mini排列，默认Compact。四项全显示分别为108×476、78×386、65×386；每隐藏一项高度自动缩短，三项尺寸分别为108×404、78×328、65×328。切换不改变保存的显示器与位置中心；升级时旧Compact保持Compact，不会自动变为Mini。
+- **Floating strip size**：固定按Comfortable、Compact、Mini排列，默认Compact。四项全显示分别为108×428、78×344、65×344；每隐藏一项高度自动缩短，三项尺寸分别为108×356、78×286、65×286。切换不改变保存的显示器与位置中心；升级时旧Compact保持Compact，不会自动变为Mini。
 - **Automatically collapse floating strip**：默认开启。关闭后立即取消待执行计时并保持展开；Show/Hide delay保留原值但暂时禁用，重新开启后继续使用。
-- **Show delay**：指针进入16pt/px命中区域后等待0–2000ms展开，默认150ms；期限内离开会取消展开。
+- **Show delay**：指针进入20pt/px命中区域后等待0–2000ms展开，默认150ms；期限内离开会取消展开。
 - **Hide delay**：离开整个浮动条交互区后等待0–5000ms收起，默认800ms。操作详情、Settings、菜单、拖动、刷新和读屏期间保持展开。
-- 底部深色Settings弧区或齿轮获得键盘焦点时才显示齿轮并直接打开Appearance；悬停浮动条主体不会显示。收起态保留7pt/px可见细条和16pt/px透明命中宽。
+- 悬浮条底部不显示Settings弧区或齿轮；Settings仍可从应用菜单与右键菜单进入。收起态使用14pt/px可见内凹把手和20pt/px透明命中宽。
 - **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order 恢复四项和默认顺序。隐藏只影响浮动条，菜单、采集与 Widget 不受影响。
 - 右键浮动条可 **Refresh now**、**Hide for 1 hour**、打开Appearance或退出。临时隐藏可跨重启恢复剩余时长；菜单栏/托盘的 **Show Floating Strip Now** 可立即取消隐藏。
 - 外环仍表示额度，内环仅提示刷新或需登录/设置；失败时保留成功数据，并显示Cached及距上次成功更新时间。限流时反复点击刷新不会绕过等待。

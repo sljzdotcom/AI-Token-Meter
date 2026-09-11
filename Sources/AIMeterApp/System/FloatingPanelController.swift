@@ -619,7 +619,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     private var stripSize: CGSize {
-        if displayState.isFolded { return CGSize(width: 16, height: 96) }
+        if displayState.isFolded { return FloatingStripLayout.foldedSize }
         return expandedStripSize
     }
 

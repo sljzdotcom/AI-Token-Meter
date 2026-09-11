@@ -352,7 +352,7 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     let width = unsigned_to_i32(size.width);
     let scale = |x: i32, y: i32| PhysicalPoint {
         x: (f64::from(x) * f64::from(size.width) / 108.0).round() as i32,
-        y: (f64::from(y) * f64::from(size.height) / 404.0).round() as i32,
+        y: (f64::from(y) * f64::from(size.height) / 356.0).round() as i32,
     };
     let mut points = cubic_points(
         scale(108, 16),
@@ -370,9 +370,9 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     points.extend(
         cubic_points(
             scale(0, 268),
-            scale(0, 309),
-            scale(13, 344),
-            scale(34, 346),
+            scale(0, 302),
+            scale(29, 327),
+            scale(66, 328),
             64,
         )
         .into_iter()
@@ -380,21 +380,10 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     );
     points.extend(
         cubic_points(
-            scale(34, 346),
-            scale(50, 348),
-            scale(64, 359),
-            scale(68, 368),
-            64,
-        )
-        .into_iter()
-        .skip(1),
-    );
-    points.extend(
-        cubic_points(
-            scale(68, 368),
-            scale(78, 376),
-            scale(96, 390),
-            scale(108, 396),
+            scale(66, 328),
+            scale(88, 329),
+            scale(98, 333),
+            scale(108, 340),
             64,
         )
         .into_iter()
@@ -940,16 +929,15 @@ mod tests {
 
     #[test]
     fn meter_shape_uses_the_approved_macos_bezier_landmarks() {
-        let points = meter_shape_points(PhysicalSize::new(108, 404), Edge::Right);
+        let points = meter_shape_points(PhysicalSize::new(108, 356), Edge::Right);
 
         for landmark in [
             PhysicalPoint { x: 108, y: 16 },
             PhysicalPoint { x: 66, y: 28 },
             PhysicalPoint { x: 0, y: 88 },
             PhysicalPoint { x: 0, y: 268 },
-            PhysicalPoint { x: 34, y: 346 },
-            PhysicalPoint { x: 68, y: 368 },
-            PhysicalPoint { x: 108, y: 396 },
+            PhysicalPoint { x: 66, y: 328 },
+            PhysicalPoint { x: 108, y: 340 },
         ] {
             assert!(points.contains(&landmark), "missing landmark {landmark:?}");
         }
@@ -957,8 +945,8 @@ mod tests {
 
     #[test]
     fn left_meter_shape_is_an_exact_horizontal_mirror() {
-        let right = meter_shape_points(PhysicalSize::new(216, 808), Edge::Right);
-        let left = meter_shape_points(PhysicalSize::new(216, 808), Edge::Left);
+        let right = meter_shape_points(PhysicalSize::new(216, 712), Edge::Right);
+        let left = meter_shape_points(PhysicalSize::new(216, 712), Edge::Left);
 
         assert_eq!(right.len(), left.len());
         for (right, left) in right.iter().zip(left) {

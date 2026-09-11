@@ -48,7 +48,7 @@ flushSync(() => {
         <div style={{display: "flex", gap: 32}}>
           {(["comfortable", "compact", "mini"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : density === "compact" ? 78 : 65, height: density === "comfortable" ? 476 : 386}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : density === "compact" ? 78 : 65, height: density === "comfortable" ? 428 : 344}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -255,7 +255,7 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
       const width = density === "comfortable" ? 108 : density === "compact" ? 78 : 65
-      const height = (density === "comfortable" ? [260,332,404,476] : [212,270,328,386])[count-1]
+      const height = (density === "comfortable" ? [212,284,356,428] : [170,228,286,344])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`
       host.style.cssText = `position:fixed;left:20px;top:20px;width:${width}px;height:${height}px;z-index:2147483647`
@@ -266,9 +266,6 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
         preferences={{...defaultStripPreferences, density, hiddenProviders: defaultStripPreferences.orderedProviders.slice(count)}} snapshots={unavailableSnapshots} />))
       const nav = host.querySelector<HTMLElement>("nav")!
       const buttons = [...host.querySelectorAll<HTMLButtonElement>(".usage-ring")]
-      const settingsButton = host.querySelector<HTMLButtonElement>(".floating-strip__settings")!
-      const settingsZone = host.querySelector<HTMLElement>(".floating-strip__settings-zone")!
-      settingsButton.style.transition = "none"
       for (const button of buttons) button.style.animation = "none"
       const rect = nav.getBoundingClientRect()
       const hitButtons = buttons.every(button => {
@@ -294,21 +291,11 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
         button.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true,button:0}))
         button.click()
       }
-      const settingsOpacityAtRest = getComputedStyle(settingsButton).opacity
-      const settingsHoveredAfterBodyEntry = nav.dataset.settingsHovered
-      settingsButton.focus()
-      const settingsOpacityAtFocus = getComputedStyle(settingsButton).opacity
-      settingsButton.blur()
-      flushSync(() => settingsZone.dispatchEvent(new PointerEvent("pointerover", {bubbles:true})))
-      const settingsHoveredAfterZoneEntry = nav.dataset.settingsHovered
-      flushSync(() => settingsZone.dispatchEvent(new PointerEvent("pointerout", {bubbles:true,relatedTarget:nav})))
-      settingsButton.click()
       window.removeEventListener("meter-drag-requested", drag)
       const firstButtonWidth = buttons[0]?.getBoundingClientRect().width ?? 0
       stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
         sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "comfortable" ? 24 : density === "compact" ? 15 : 8.5,
-        hitButtons,ringPerimetersVisible,settingsVisible:getComputedStyle(settingsButton).display !== "none",
-        settingsOpacityAtRest,settingsOpacityAtFocus,settingsHoveredAfterBodyEntry,settingsHoveredAfterZoneEntry,
+        hitButtons,ringPerimetersVisible,settingsVisible:host.querySelector(".floating-strip__settings") !== null,
         drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
         buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,
         mirroredLogo: buttons.some(button => getComputedStyle(button.querySelector("svg")!).transform !== "none")})
@@ -316,6 +303,36 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
       host.remove()
     }
   }
+}
+const foldedStripSamples = []
+for (const edge of ["left", "right"] as const) {
+  const host = document.createElement("div")
+  host.className = `meter-stage--strip-only meter-edge--${edge}`
+  host.style.cssText = "position:fixed;left:20px;top:20px;width:20px;height:96px;z-index:2147483647"
+  document.body.appendChild(host)
+  const sampleRoot = createRoot(host)
+  flushSync(() => sampleRoot.render(<FloatingStrip folded activeProvider={null} onProviderActivate={() => {}}
+    preferences={defaultStripPreferences} snapshots={unavailableSnapshots} />))
+  const button = host.querySelector<HTMLButtonElement>(".meter-folded")!
+  const buttonRect = button.getBoundingClientRect()
+  const handle = getComputedStyle(button, "::before")
+  const highlightRect = button.querySelector("span")!.getBoundingClientRect()
+  const hitTarget = document.elementFromPoint(buttonRect.x + buttonRect.width / 2, buttonRect.y + buttonRect.height / 2)
+  foldedStripSamples.push({
+    edge,
+    buttonWidth: buttonRect.width,
+    buttonHeight: buttonRect.height,
+    handleWidth: handle.width,
+    handleHeight: handle.height,
+    clipPath: handle.clipPath,
+    highlightWidth: highlightRect.width,
+    highlightHeight: highlightRect.height,
+    hitTarget: hitTarget != null && (hitTarget === button || button.contains(hitTarget)),
+    transform: getComputedStyle(button).transform,
+    settingsVisible: host.querySelector(".floating-strip__settings") !== null,
+  })
+  flushSync(() => sampleRoot.unmount())
+  host.remove()
 }
 const geminiSamples = []
 for (const width of [340, 440]) {
@@ -348,4 +365,4 @@ for (const width of [340, 440]) {
   }
 }
 
-document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, detailSurfaceSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, geminiSamples})
+document.getElementById("density-report")!.textContent = JSON.stringify({...report, detailSamples, detailSurfaceSamples, updateSamples, aboutSamples, aboutCopySamples, stripSamples, foldedStripSamples, geminiSamples})

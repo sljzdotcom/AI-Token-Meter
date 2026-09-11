@@ -141,7 +141,6 @@ function MeterSurface() {
         historyNeedsAction={historyNeedsAction}
         onInteraction={(kind, active) => { void invoke("strip_interaction", {kind, active}) }}
         onContextMenu={() => { void invoke("strip_context_menu") }}
-        onSettingsOpen={() => { void invoke("open_settings", {tab: "Appearance"}) }}
         activeProvider={activeProvider}
         onProviderActivate={(providerId) => {
           if (providerId === activeProvider) {

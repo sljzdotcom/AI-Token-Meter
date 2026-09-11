@@ -5,7 +5,7 @@ import { ProviderDetail } from "../details/ProviderDetail"
 import { defaultStripPreferences } from "../state/stripPreferences"
 import { unavailableSnapshots } from "../state/usage"
 
-it.each([['mini','left',65,386],['mini','right',65,386],['compact','left',78,386],['compact','right',78,386],['comfortable','left',108,476],['comfortable','right',108,476]] as const)("four %s/%s buttons fit the same native size and remain selectable", (density,edge,width,height) => {
+it.each([['mini','left',65,344],['mini','right',65,344],['compact','left',78,344],['compact','right',78,344],['comfortable','left',108,428],['comfortable','right',108,428]] as const)("four %s/%s buttons fit the same native size and remain selectable", (density,edge,width,height) => {
   let selected = ''
   const {container} = render(<div className={`meter-edge--${edge}`}><FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={id => {selected=id}} preferences={{...defaultStripPreferences,density}} /></div>)
   const nav = screen.getByRole('navigation')

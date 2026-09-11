@@ -7,6 +7,32 @@ import Testing
 @Suite("Floating strip rendered background")
 @MainActor
 struct FloatingStripRenderingTests {
+    @Test("Folded handle uses the approved 14pt concave silhouette inside the 20pt hit window")
+    func foldedHandleSilhouette() async throws {
+        let suite = "FloatingStripRendering.Folded-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(defaults: defaults, secretStore: RenderingSecretStore(),
+                             widgetSnapshotPublisher: nil, isDemoMode: true)
+        for edge in [FloatingStripEdge.left, .right] {
+            let state = FloatingStripDisplayState(resolvedEdge: edge)
+            state.isFolded = true
+            let view = FloatingStripView(model: model, session: FloatingDetailSession(),
+                displayState: state, onProviderTap: { _ in }, onAccessibilityMove: { _ in })
+            let bitmap = try await render(view, width: 20, height: 96)
+            let interiorX = edge == .right ? 7.0 : 13.0
+            #expect(try alpha(atX: interiorX, y: 48, in: bitmap) > 0.2)
+            #expect(try alpha(atX: interiorX, y: 8, in: bitmap) < 0.05)
+        }
+        let rect = CGRect(x: 0, y: 0, width: 14, height: 88)
+        let right = FloatingStripFoldedShape(edge: .right).path(in: rect)
+        let left = FloatingStripFoldedShape(edge: .left).path(in: rect)
+        #expect(right.contains(CGPoint(x: 13, y: 8)))
+        #expect(!right.contains(CGPoint(x: 7, y: 8)))
+        #expect(left.contains(CGPoint(x: 1, y: 8)))
+        #expect(!left.contains(CGPoint(x: 7, y: 8)))
+    }
+
     @Test("Expanded top remains uninterrupted glass on both edges and densities")
     func expandedTopHasNoDecoration() async throws {
         let suite = "FloatingStripRendering-\(UUID())"
@@ -108,6 +134,24 @@ struct FloatingStripRenderingTests {
         }
     }
 
+    @Test("Floating strip view defines providers but no Settings view or accessibility node")
+    func floatingStripSourceHasNoSettingsNode() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appending(path: "Sources/AIMeterApp/Views/FloatingStripView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("UsageRing("))
+        #expect(!source.contains("FloatingStripSettings"))
+        #expect(!source.contains("gearshape"))
+        #expect(!source.contains("accessibilityLabel(\"Settings\")"))
+        #expect(!source.contains("model.requestSettings"))
+    }
+
     private func render<V: View>(_ view: V, width: Double, height: Double) async throws -> NSBitmapImageRep {
         let host = NSHostingView(rootView: view.frame(width: width, height: height)
             .environment(\.colorScheme, .dark))
@@ -136,6 +180,10 @@ struct FloatingStripRenderingTests {
         Int(points * renderScale)
     }
 
+    private func alpha(atX x: Double, y: Double, in bitmap: NSBitmapImageRep) throws -> CGFloat {
+        try #require(bitmap.colorAt(x: pixel(x), y: pixel(y))?.usingColorSpace(.deviceRGB)).alphaComponent
+    }
+
     private func save(_ bitmap: NSBitmapImageRep, name: String) throws {
         guard let path = ProcessInfo.processInfo.environment["AI_METER_DOC_SCREENSHOT_DIR"] else { return }
         let directory = URL(fileURLWithPath: path, isDirectory: true)
@@ -143,6 +191,7 @@ struct FloatingStripRenderingTests {
         let png = try #require(bitmap.representation(using: .png, properties: [:]))
         try png.write(to: directory.appendingPathComponent("\(name).png"))
     }
+
 }
 
 private struct RenderingSecretStore: SecretStore {
