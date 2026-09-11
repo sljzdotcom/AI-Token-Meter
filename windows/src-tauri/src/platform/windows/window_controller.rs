@@ -348,31 +348,41 @@ pub enum DetailCommand {
     Noop,
 }
 
-pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> {
+pub fn meter_shape_points(
+    size: PhysicalSize,
+    shoulder_depth: u32,
+    edge: Edge,
+) -> Vec<PhysicalPoint> {
     let width = unsigned_to_i32(size.width);
-    let scale = |x: i32, y: i32| PhysicalPoint {
-        x: (f64::from(x) * f64::from(size.width) / 108.0).round() as i32,
-        y: (f64::from(y) * f64::from(size.height) / 356.0).round() as i32,
+    let top = |x: i32, y: i32| PhysicalPoint {
+        x: (f64::from(x) * f64::from(size.width) / 65.0).round() as i32,
+        y: (f64::from(y) * f64::from(shoulder_depth) / 70.0).round() as i32,
     };
-    let mut points = cubic_points(
-        scale(108, 16),
-        scale(98, 23),
-        scale(88, 27),
-        scale(66, 28),
-        64,
-    );
+    let bottom = |x: i32, y: i32| {
+        let top_point = top(x, y);
+        PhysicalPoint {
+            x: top_point.x,
+            y: unsigned_to_i32(size.height).saturating_sub(top_point.y),
+        }
+    };
+    let mut points = cubic_points(top(65, 4), top(63, 18), top(54, 29), top(37, 30), 64);
     points.extend(
-        cubic_points(scale(66, 28), scale(29, 29), scale(0, 54), scale(0, 88), 64)
+        cubic_points(top(37, 30), top(18, 31), top(5, 42), top(1, 58), 64)
             .into_iter()
             .skip(1),
     );
-    points.push(scale(0, 268));
+    points.extend(
+        cubic_points(top(1, 58), top(0, 62), top(0, 66), top(0, 70), 64)
+            .into_iter()
+            .skip(1),
+    );
+    points.push(bottom(0, 70));
     points.extend(
         cubic_points(
-            scale(0, 268),
-            scale(0, 302),
-            scale(29, 327),
-            scale(66, 328),
+            bottom(0, 70),
+            bottom(0, 66),
+            bottom(0, 62),
+            bottom(1, 58),
             64,
         )
         .into_iter()
@@ -380,10 +390,21 @@ pub fn meter_shape_points(size: PhysicalSize, edge: Edge) -> Vec<PhysicalPoint> 
     );
     points.extend(
         cubic_points(
-            scale(66, 328),
-            scale(88, 329),
-            scale(98, 333),
-            scale(108, 340),
+            bottom(1, 58),
+            bottom(5, 42),
+            bottom(18, 31),
+            bottom(37, 30),
+            64,
+        )
+        .into_iter()
+        .skip(1),
+    );
+    points.extend(
+        cubic_points(
+            bottom(37, 30),
+            bottom(54, 29),
+            bottom(63, 18),
+            bottom(65, 4),
             64,
         )
         .into_iter()
@@ -929,15 +950,15 @@ mod tests {
 
     #[test]
     fn meter_shape_uses_the_approved_macos_bezier_landmarks() {
-        let points = meter_shape_points(PhysicalSize::new(108, 356), Edge::Right);
+        let points = meter_shape_points(PhysicalSize::new(65, 344), 70, Edge::Right);
 
         for landmark in [
-            PhysicalPoint { x: 108, y: 16 },
-            PhysicalPoint { x: 66, y: 28 },
-            PhysicalPoint { x: 0, y: 88 },
-            PhysicalPoint { x: 0, y: 268 },
-            PhysicalPoint { x: 66, y: 328 },
-            PhysicalPoint { x: 108, y: 340 },
+            PhysicalPoint { x: 65, y: 4 },
+            PhysicalPoint { x: 37, y: 30 },
+            PhysicalPoint { x: 0, y: 70 },
+            PhysicalPoint { x: 0, y: 274 },
+            PhysicalPoint { x: 37, y: 314 },
+            PhysicalPoint { x: 65, y: 340 },
         ] {
             assert!(points.contains(&landmark), "missing landmark {landmark:?}");
         }
@@ -945,13 +966,22 @@ mod tests {
 
     #[test]
     fn left_meter_shape_is_an_exact_horizontal_mirror() {
-        let right = meter_shape_points(PhysicalSize::new(216, 712), Edge::Right);
-        let left = meter_shape_points(PhysicalSize::new(216, 712), Edge::Left);
+        let right = meter_shape_points(PhysicalSize::new(130, 688), 140, Edge::Right);
+        let left = meter_shape_points(PhysicalSize::new(130, 688), 140, Edge::Left);
 
         assert_eq!(right.len(), left.len());
         for (right, left) in right.iter().zip(left) {
-            assert_eq!(left.x, 216 - right.x);
+            assert_eq!(left.x, 130 - right.x);
             assert_eq!(left.y, right.y);
         }
+    }
+
+    #[test]
+    fn provider_count_does_not_shrink_the_fixed_shoulder_depth() {
+        let points = meter_shape_points(PhysicalSize::new(65, 170), 70, Edge::Right);
+
+        assert!(points.contains(&PhysicalPoint { x: 0, y: 70 }));
+        assert!(points.contains(&PhysicalPoint { x: 0, y: 100 }));
+        assert_eq!(points.last(), Some(&PhysicalPoint { x: 65, y: 166 }));
     }
 }

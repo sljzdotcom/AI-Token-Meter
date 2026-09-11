@@ -1,12 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, it, expect, vi } from "vitest"
-import { FloatingStrip } from "./FloatingStrip"
+import { FloatingStrip, meterContourPath } from "./FloatingStrip"
 import { unavailableSnapshots } from "../state/usage"
 import { UsageRing } from "./UsageRing"
 import behavior from "../../../contracts/fixtures/auxiliary/strip-behavior.json"
 import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
+  it("uses the approved rounded shoulder path at every density", () => {
+    expect(behavior.expandedContour).toMatchObject({referenceWidth: 65, compactShoulderDepth: 70, comfortableShoulderDepth: 88})
+    expect(meterContourPath("mini", 4)).toContain("M 65 4 C 63 18 54 29 37 30 C 18 31 5 42 1 58 C 0 62 0 66 0 70")
+    expect(meterContourPath("compact", 4)).toContain("M 78 4")
+    expect(meterContourPath("comfortable", 4)).toContain("M 108 5.0285714285714285")
+    expect(meterContourPath("comfortable", 4)).toContain("0 88")
+  })
   it.each([
     ["mini", "left", 65, 286], ["mini", "right", 65, 286],
     ["compact", "left", 78, 286], ["compact", "right", 78, 286],

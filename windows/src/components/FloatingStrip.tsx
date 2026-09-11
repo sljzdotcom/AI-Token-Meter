@@ -77,11 +77,7 @@ export function MeterClipPaths({ density = "comfortable", count = 3, idPrefix = 
   const removed = (3 - Math.max(count, 1)) * (comfortable ? 72 : 58)
   const contentHeight = (comfortable ? 356 : 286) - removed
   const height = contentHeight
-  const path = density === "mini"
-    ? `M 65 8 C 59 14 53 21 42 22 C 18 23 0 42 0 70 L 0 ${height-70} C 0 ${height-42} 18 ${height-23} 42 ${height-22} C 53 ${height-21} 59 ${height-14} 65 ${height-8} Z`
-    : density === "compact"
-      ? `M 78 8 C 71 14 63 21 48 22 C 21 23 0 42 0 70 L 0 ${height-70} C 0 ${height-42} 21 ${height-23} 48 ${height-22} C 63 ${height-21} 71 ${height-14} 78 ${height-8} Z`
-      : `M 108 16 C 98 23 88 27 66 28 C 29 29 0 54 0 88 L 0 ${height-88} C 0 ${height-54} 29 ${height-29} 66 ${height-28} C 88 ${height-27} 98 ${height-23} 108 ${height-16} Z`
+  const path = meterContourPath(density, count)
   return (
     <svg aria-hidden="true" className="meter-clip-paths" focusable="false">
       <defs>
@@ -94,4 +90,16 @@ export function MeterClipPaths({ density = "comfortable", count = 3, idPrefix = 
       </defs>
     </svg>
   )
+}
+
+export function meterContourPath(density: string, count: number) {
+  const comfortable = density === "comfortable"
+  const width = density === "mini" ? 65 : density === "compact" ? 78 : 108
+  const height = (comfortable ? 356 : 286) - (3 - Math.max(count, 1)) * (comfortable ? 72 : 58)
+  const shoulderDepth = comfortable ? 88 : 70
+  const widthScale = width / 65
+  const depthScale = shoulderDepth / 70
+  const x = (value: number) => value * widthScale
+  const y = (value: number) => value * depthScale
+  return `M ${x(65)} ${y(4)} C ${x(63)} ${y(18)} ${x(54)} ${y(29)} ${x(37)} ${y(30)} C ${x(18)} ${y(31)} ${x(5)} ${y(42)} ${x(1)} ${y(58)} C ${x(0)} ${y(62)} ${x(0)} ${y(66)} ${x(0)} ${y(70)} L 0 ${height-shoulderDepth} C ${x(0)} ${height-y(66)} ${x(0)} ${height-y(62)} ${x(1)} ${height-y(58)} C ${x(5)} ${height-y(42)} ${x(18)} ${height-y(31)} ${x(37)} ${height-y(30)} C ${x(54)} ${height-y(29)} ${x(63)} ${height-y(18)} ${x(65)} ${height-y(4)} Z`
 }

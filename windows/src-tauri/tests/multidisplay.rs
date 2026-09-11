@@ -194,6 +194,109 @@ fn reconcile_requests_during_native_work_are_nonblocking_and_coalesce_to_latest_
 }
 
 #[test]
+fn reconcile_receipt_waits_for_the_native_pass_that_owns_the_request() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::{
+        ReconcilePassOutcome, ReconcileQueue,
+    };
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    let queue = Arc::new(ReconcileQueue::default());
+    let (start_worker, first_receipt) = queue.request_with_receipt();
+    assert!(start_worker);
+    let (started, wait_started) = std::sync::mpsc::channel();
+    let (release, wait_release) = std::sync::mpsc::channel();
+    let worker_queue = queue.clone();
+    let worker = std::thread::spawn(move || {
+        let mut pass = 0;
+        worker_queue.run_with_outcome(|| {
+            pass += 1;
+            started.send(pass).unwrap();
+            wait_release.recv().unwrap();
+            ReconcilePassOutcome::Completed(Ok(()))
+        });
+    });
+
+    assert_eq!(wait_started.recv().unwrap(), 1);
+    let (start_second_worker, second_receipt) = queue.request_with_receipt();
+    assert!(!start_second_worker);
+    assert!(
+        first_receipt
+            .recv_timeout(Duration::from_millis(20))
+            .is_err()
+    );
+    assert!(
+        second_receipt
+            .recv_timeout(Duration::from_millis(20))
+            .is_err()
+    );
+
+    release.send(()).unwrap();
+    assert_eq!(
+        first_receipt.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Ok(())
+    );
+    assert_eq!(
+        wait_started.recv_timeout(Duration::from_secs(1)).unwrap(),
+        2
+    );
+    assert!(
+        second_receipt
+            .recv_timeout(Duration::from_millis(20))
+            .is_err()
+    );
+    release.send(()).unwrap();
+    assert_eq!(
+        second_receipt.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Ok(())
+    );
+    worker.join().unwrap();
+}
+
+#[test]
+fn reconcile_receipt_remains_pending_when_drag_defers_the_native_pass() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::{
+        ReconcilePassOutcome, ReconcileQueue,
+    };
+    use std::time::Duration;
+
+    let queue = ReconcileQueue::default();
+    let (start_worker, receipt) = queue.request_with_receipt();
+    assert!(start_worker);
+    queue.run_with_outcome(|| ReconcilePassOutcome::Deferred);
+
+    assert!(!queue.is_active());
+    assert!(receipt.recv_timeout(Duration::from_millis(20)).is_err());
+
+    assert!(queue.request());
+    queue.run_with_outcome(|| ReconcilePassOutcome::Completed(Ok(())));
+    assert_eq!(
+        receipt.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Ok(())
+    );
+}
+
+#[test]
+fn reconcile_failure_reaches_only_receipts_owned_by_that_pass() {
+    use ai_token_meter_windows::platform::windows::display_coordinator::{
+        ReconcilePassOutcome, ReconcileQueue,
+    };
+
+    let queue = ReconcileQueue::default();
+    let (start_worker, receipt) = queue.request_with_receipt();
+    assert!(start_worker);
+    queue.run_with_outcome(|| {
+        ReconcilePassOutcome::Completed(Err("native resize failed".to_owned()))
+    });
+
+    assert_eq!(
+        receipt.recv().unwrap(),
+        Err("native resize failed".to_owned())
+    );
+    assert!(!queue.is_active());
+}
+
+#[test]
 fn recreated_secondary_never_reuses_a_pending_destroy_window_label() {
     use ai_token_meter_windows::platform::windows::display_coordinator::WindowPlan;
     let empty = std::collections::BTreeMap::new();

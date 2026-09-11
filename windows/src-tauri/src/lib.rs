@@ -1226,8 +1226,51 @@ fn current_timestamp() -> String {
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
 }
 
+fn publish_strip_settings_if_current(
+    settings: &std::sync::Mutex<AppSettings>,
+    expected: &crate::platform::windows::strip_preferences::StripPreferences,
+    publish: impl FnOnce(AppSettings) -> Result<(), String>,
+) -> Result<bool, String> {
+    let latest = settings.lock().map_err(|_| "Settings unavailable")?;
+    if latest.strip_preferences != *expected {
+        return Ok(false);
+    }
+    publish(latest.clone())?;
+    Ok(true)
+}
+
+fn finish_strip_settings_update(
+    settings: &std::sync::Mutex<AppSettings>,
+    expected: &crate::platform::windows::strip_preferences::StripPreferences,
+    reconciliation: Result<(), String>,
+    request_retry: impl FnOnce(),
+    publish: impl FnOnce(AppSettings) -> Result<(), String>,
+) -> Result<(), String> {
+    let reconciliation_error = reconciliation.err();
+    if reconciliation_error.is_some() {
+        request_retry();
+    }
+    let publication = publish_strip_settings_if_current(settings, expected, publish).map(|_| ());
+    if let Some(error) = reconciliation_error {
+        let _ = publication;
+        Err(error)
+    } else {
+        publication
+    }
+}
+
+async fn wait_for_strip_reconciliation(
+    receipt: std::sync::mpsc::Receiver<Result<(), String>>,
+    timeout: std::time::Duration,
+) -> Result<(), String> {
+    match tauri::async_runtime::spawn_blocking(move || receipt.recv_timeout(timeout)).await {
+        Ok(Ok(outcome)) => outcome.map_err(|_| "Window resize failed".to_owned()),
+        Ok(Err(_)) | Err(_) => Err("Window resize failed".to_owned()),
+    }
+}
+
 #[tauri::command]
-fn set_strip_preferences(
+async fn set_strip_preferences(
     app: tauri::AppHandle,
     state: State<'_, RuntimeState>,
     mut value: crate::platform::windows::strip_preferences::StripPreferences,
@@ -1268,9 +1311,26 @@ fn set_strip_preferences(
     state
         .strip_reset
         .store(true, std::sync::atomic::Ordering::Release);
-    crate::platform::windows::strip_runtime::restore(&app).map_err(|_| "Window resize failed")?;
-    app.emit("app-settings-changed", updated)
-        .map_err(|_| "Settings update failed".to_owned())
+    let expected = updated.strip_preferences.clone();
+    let receipt = crate::platform::windows::display_coordinator::reconcile_with_receipt(&app)
+        .map_err(|_| "Window resize failed")?;
+    let reconciliation =
+        wait_for_strip_reconciliation(receipt, std::time::Duration::from_secs(10)).await;
+    finish_strip_settings_update(
+        &state.settings,
+        &expected,
+        reconciliation,
+        || {
+            state
+                .strip_reset
+                .store(true, std::sync::atomic::Ordering::Release);
+            let _ = crate::platform::windows::display_coordinator::reconcile(&app);
+        },
+        |latest| {
+            app.emit("app-settings-changed", latest)
+                .map_err(|_| "Settings update failed".to_owned())
+        },
+    )
 }
 
 #[tauri::command]
@@ -1349,7 +1409,11 @@ pub fn run() {
                 let state = app.state::<RuntimeState>();
                 let mut value = state.app_settings_snapshot().strip_preferences;
                 value.hidden_until = Some(time::OffsetDateTime::now_utc().unix_timestamp() + 3600);
-                let _ = set_strip_preferences(app.clone(), state, value);
+                let owned_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = owned_app.state::<RuntimeState>();
+                    let _ = set_strip_preferences(owned_app.clone(), state, value).await;
+                });
                 let _ = hide_detail_window(app);
                 for meter in crate::platform::windows::display_coordinator::meter_windows(app) {
                     let _ = meter.hide();
@@ -1494,6 +1558,149 @@ mod threshold_tests {
             validated_settings_tab(Some("../../credentials")),
             Err("Unknown Settings tab".to_owned())
         );
+    }
+
+    #[test]
+    fn strip_settings_publication_is_atomic_with_respect_to_newer_writes() {
+        use std::sync::{Arc, Mutex};
+        use std::time::Duration;
+
+        let settings = Arc::new(Mutex::new(AppSettings::default()));
+        let expected = settings.lock().unwrap().strip_preferences.clone();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let (publishing, wait_publishing) = std::sync::mpsc::channel();
+        let (release, wait_release) = std::sync::mpsc::channel();
+
+        let old_settings = settings.clone();
+        let old_events = events.clone();
+        let old_expected = expected.clone();
+        let old = std::thread::spawn(move || {
+            publish_strip_settings_if_current(&old_settings, &old_expected, |snapshot| {
+                publishing.send(()).unwrap();
+                wait_release.recv().unwrap();
+                old_events
+                    .lock()
+                    .unwrap()
+                    .push(snapshot.strip_preferences.density);
+                Ok(())
+            })
+            .unwrap();
+        });
+        wait_publishing.recv().unwrap();
+
+        let new_settings = settings.clone();
+        let new_events = events.clone();
+        let (updated, wait_updated) = std::sync::mpsc::channel();
+        let newer = std::thread::spawn(move || {
+            let next = {
+                let mut settings = new_settings.lock().unwrap();
+                settings.strip_preferences.density = "mini".to_owned();
+                updated.send(()).unwrap();
+                settings.strip_preferences.clone()
+            };
+            publish_strip_settings_if_current(&new_settings, &next, |snapshot| {
+                new_events
+                    .lock()
+                    .unwrap()
+                    .push(snapshot.strip_preferences.density);
+                Ok(())
+            })
+            .unwrap();
+        });
+
+        assert!(
+            wait_updated
+                .recv_timeout(Duration::from_millis(20))
+                .is_err()
+        );
+        release.send(()).unwrap();
+        old.join().unwrap();
+        newer.join().unwrap();
+        assert_eq!(&*events.lock().unwrap(), &["compact", "mini"]);
+    }
+
+    #[test]
+    fn stale_strip_settings_never_publish_after_a_newer_write() {
+        let settings = std::sync::Mutex::new(AppSettings::default());
+        let stale = settings.lock().unwrap().strip_preferences.clone();
+        settings.lock().unwrap().strip_preferences.density = "mini".to_owned();
+        let mut published = false;
+
+        let did_publish = publish_strip_settings_if_current(&settings, &stale, |_| {
+            published = true;
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(!did_publish);
+        assert!(!published);
+    }
+
+    #[test]
+    fn failed_native_resize_still_publishes_persisted_settings_and_requests_retry() {
+        use std::sync::{Arc, Mutex};
+
+        let settings = Mutex::new(AppSettings::default());
+        settings.lock().unwrap().strip_preferences.density = "mini".to_owned();
+        let expected = settings.lock().unwrap().strip_preferences.clone();
+        let retried = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let retry_flag = retried.clone();
+        let published = Arc::new(Mutex::new(Vec::new()));
+        let published_values = published.clone();
+
+        let result = finish_strip_settings_update(
+            &settings,
+            &expected,
+            Err("Window resize failed".to_owned()),
+            move || retry_flag.store(true, std::sync::atomic::Ordering::Release),
+            move |snapshot| {
+                published_values
+                    .lock()
+                    .unwrap()
+                    .push(snapshot.strip_preferences.density);
+                Ok(())
+            },
+        );
+
+        assert_eq!(result, Err("Window resize failed".to_owned()));
+        assert!(retried.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(&*published.lock().unwrap(), &["mini"]);
+    }
+
+    #[tokio::test]
+    async fn timed_out_native_resize_uses_the_same_publication_and_retry_path() {
+        use std::sync::{Arc, Mutex};
+
+        let (_sender, receipt) = std::sync::mpsc::channel();
+        let reconciliation =
+            wait_for_strip_reconciliation(receipt, std::time::Duration::from_millis(1)).await;
+        assert_eq!(reconciliation, Err("Window resize failed".to_owned()));
+
+        let settings = Mutex::new(AppSettings::default());
+        settings.lock().unwrap().strip_preferences.density = "mini".to_owned();
+        let expected = settings.lock().unwrap().strip_preferences.clone();
+        let retried = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let retry_flag = retried.clone();
+        let published = Arc::new(Mutex::new(Vec::new()));
+        let published_values = published.clone();
+
+        let result = finish_strip_settings_update(
+            &settings,
+            &expected,
+            reconciliation,
+            move || retry_flag.store(true, std::sync::atomic::Ordering::Release),
+            move |snapshot| {
+                published_values
+                    .lock()
+                    .unwrap()
+                    .push(snapshot.strip_preferences.density);
+                Ok(())
+            },
+        );
+
+        assert_eq!(result, Err("Window resize failed".to_owned()));
+        assert!(retried.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(&*published.lock().unwrap(), &["mini"]);
     }
 
     #[test]

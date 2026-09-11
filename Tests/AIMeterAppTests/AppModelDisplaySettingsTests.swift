@@ -7,6 +7,46 @@ import AIMeterCore
 @Suite("Display settings integration")
 @MainActor
 struct AppModelDisplaySettingsTests {
+    @Test func changingDensityPublishesTheSavedWidthSynchronously() throws {
+        let suite = "DensityAppearance-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(defaults: defaults, secretStore: DisplaySettingsSecretStore(), widgetSnapshotPublisher: nil, isDemoMode: true)
+        var observedWidth: CGFloat?
+        model.floatingAppearanceHandler = { observedWidth = model.stripPreferences.density.width }
+        var preferences = model.stripPreferences
+        preferences.density = .mini
+
+        model.setStripPreferences(preferences)
+
+        #expect(observedWidth == 65)
+        #expect(FloatingStripPreferencesStore(defaults: defaults).load().density == .mini)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
+    func densitySettingImmediatelyResizesExpandedPanel() throws {
+        let suite = "DensityPanel-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let screen = try #require(NSScreen.screens.first)
+        let identifier = try #require(FloatingStripScreenIdentifier.identity(for: screen, mainScreen: screen)).stableIdentifier
+        let model = AppModel(defaults: defaults, secretStore: DisplaySettingsSecretStore(), widgetSnapshotPublisher: nil, isDemoMode: true)
+        let controller = FloatingPanelController(model: model, screenIdentifier: identifier)
+        defer { controller.close() }
+        model.floatingAppearanceHandler = { controller.applyAppearance() }
+        let before = controller.stripFrameForTesting
+        var preferences = model.stripPreferences
+        preferences.density = .mini
+
+        model.setStripPreferences(preferences)
+
+        let after = controller.stripFrameForTesting
+        #expect(before.width == 78)
+        #expect(after.width == 65)
+        #expect(abs(before.midY - after.midY) < 0.001)
+        #expect(after.minX == screen.visibleFrame.minX || after.maxX == screen.visibleFrame.maxX)
+    }
+
     @Test func migratingSelectedIdentityDoesNotDependOnLastEditedDisplay() throws {
         let suite = "IndependentMigration-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))

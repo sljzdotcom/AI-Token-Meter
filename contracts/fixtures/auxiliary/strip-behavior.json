@@ -8,6 +8,17 @@
   "revealDelay": {"defaultMilliseconds": 150, "minimum": 0, "maximum": 2000},
   "collapseDelay": {"defaultMilliseconds": 800, "minimum": 0, "maximum": 5000},
   "foldedSize": [20, 96],
+  "expandedContour": {
+    "referenceWidth": 65,
+    "compactShoulderDepth": 70,
+    "comfortableShoulderDepth": 88,
+    "topStart": [65, 4],
+    "topCurves": [
+      {"control1": [63, 18], "control2": [54, 29], "end": [37, 30]},
+      {"control1": [18, 31], "control2": [5, 42], "end": [1, 58]},
+      {"control1": [0, 62], "control2": [0, 66], "end": [0, 70]}
+    ]
+  },
   "operationStates": ["idle", "refreshing", "waiting"],
   "backoff": [
     {"kind": "rateLimited", "first": 60, "cap": 900},

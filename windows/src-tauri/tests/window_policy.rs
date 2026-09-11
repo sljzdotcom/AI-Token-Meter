@@ -307,43 +307,43 @@ fn a_disconnected_monitor_falls_back_to_primary_without_losing_side() {
 
 #[test]
 fn meter_shape_tapers_to_the_screen_edge_without_square_shoulders() {
-    let points = meter_shape_points(PhysicalSize::new(116, 450), Edge::Right);
+    let points = meter_shape_points(PhysicalSize::new(65, 344), 70, Edge::Right);
     assert_eq!(
         points.first().map(|point| (point.x, point.y)),
-        Some((116, 20))
+        Some((65, 4))
     );
     assert_eq!(
         points.last().map(|point| (point.x, point.y)),
-        Some((116, 430))
+        Some((65, 340))
     );
-    assert!(points.iter().any(|point| point.x == 0 && point.y == 111));
-    assert!(points.iter().any(|point| point.x == 0 && point.y == 339));
-    assert!(points.iter().all(|point| (0..=116).contains(&point.x)));
+    assert!(points.iter().any(|point| point.x == 0 && point.y == 70));
+    assert!(points.iter().any(|point| point.x == 0 && point.y == 274));
+    assert!(points.iter().all(|point| (0..=65).contains(&point.x)));
 
-    let left_points = meter_shape_points(PhysicalSize::new(116, 450), Edge::Left);
+    let left_points = meter_shape_points(PhysicalSize::new(65, 344), 70, Edge::Left);
     assert_eq!(
         left_points.first().map(|point| (point.x, point.y)),
-        Some((0, 20))
+        Some((0, 4))
     );
     assert_eq!(
         left_points.last().map(|point| (point.x, point.y)),
-        Some((0, 430))
+        Some((0, 340))
     );
     assert!(
         left_points
             .iter()
-            .any(|point| point.x == 116 && point.y == 111)
+            .any(|point| point.x == 65 && point.y == 70)
     );
     assert!(
         left_points
             .iter()
-            .any(|point| point.x == 116 && point.y == 339)
+            .any(|point| point.x == 65 && point.y == 274)
     );
     assert_eq!(points.len(), left_points.len());
     assert!(
         points
             .iter()
             .zip(left_points.iter())
-            .all(|(right, left)| { right.x.saturating_add(left.x) == 116 && right.y == left.y })
+            .all(|(right, left)| { right.x.saturating_add(left.x) == 65 && right.y == left.y })
     );
 }
