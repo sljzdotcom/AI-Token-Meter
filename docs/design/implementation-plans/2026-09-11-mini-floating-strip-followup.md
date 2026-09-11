@@ -58,4 +58,4 @@
 - [x] Chromium 覆盖三档、左右边、1–4 Provider；逐环采样周界；验证过渡帧、主体/底弧 hover、键盘焦点和关闭自动收起后的稳定展开。
 - [x] 运行完整 Swift、Vitest/build、Rust test/fmt/严格 Clippy、文档、公开安全与无 Widget Release App 签名门禁。
 - [x] 独立差异审查并修复 Critical/Important；记录并关闭测试命名 Minor、开发日志、台账和证据。
-- [ ] 提交最终候选并完成 PR/main 双平台 CI 与合并；按REQ-20260911-005的明确授权继续创建tag、Release与更新源。
+- [x] 提交最终候选并完成 PR/main 双平台 CI 与合并；按REQ-20260911-005的明确授权继续创建tag、Release与更新源。
