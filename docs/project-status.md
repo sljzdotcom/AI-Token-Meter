@@ -2,13 +2,13 @@
 
 - **事实快照：** 2026-09-11
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.8.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.0)（macOS build `23`）
+- **当前公开稳定版：** 双平台 [`0.8.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.1)（macOS build `24`）
 - **当前源码版本：** 双平台 `0.8.1`（macOS build `24`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.8.1 浮动条轮廓与设置分类候选正在发布：** 收起态采用14pt/px内凹把手，展开上下肩严格镜像，底部Settings入口完全移除；Settings新增Floating Strip/悬浮条页签并精简Appearance。版本候选、双平台门禁、签名资产和公网更新源结果见[发布记录](development/2026-09-11-v0.8.1-release.md)。
+**0.8.1 浮动条轮廓与设置分类更新已公开：** 收起态采用14pt/px内凹把手，展开上下肩严格镜像，底部Settings入口完全移除；Settings新增Floating Strip/悬浮条页签并精简Appearance。PR、main和正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.1-release.md)。
 
 **0.8.0 Mini浮动条更新已公开：** Appearance固定提供Comfortable 108、Compact 78、Mini 65pt/px；旧Compact不会迁移为Mini。自动收起可独立关闭，Settings齿轮仅由底部深色弧区悬停或键盘焦点显示。PR #34、main与正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.0-release.md)。
 
@@ -72,7 +72,7 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 - 菜单栏：18×18pt Quantum Dial 模板图像显示四项服务中最高有效已用比例和精确百分比；点击后的面板标题左侧显示现有应用 Logo；
 - 桌面浮岛：默认右侧贴边，可 Automatic/Left/Right，按稳定物理显示器身份记录目标屏、侧边和纵向位置；目标屏断开时仅临时回当前主屏，重新接入后自动恢复；只在桌面层显示；
 - 详情：用户点击后临时位于普通应用窗口上方，空白点击或 3/5/8/15/30 秒无交互后关闭；
-- Settings：Appearance、Monitoring、Services、About 四个 Tab，始终使用系统字体；
+- Settings：Appearance、Floating Strip、Monitoring、Services、About 五个 Tab，Windows简中把Floating Strip显示为“悬浮条”，始终使用系统字体；
 - About：显示当前版本与手动更新状态；仅在用户点击检查时访问 GitHub，发现新版后可明确启动签名更新；
 - 显示字体：System、Antonio、DIN Condensed、Alimama FangYuanTi VF、Fira Code、Leigo、Menlo、Alimama DaoLiTi；未安装项禁用并安全回退；
 - Widget 源码：Small、Medium、Large 三种布局已实现，但只有带有效 Apple Development 身份和 App Group 的构建才能安装到桌面。
