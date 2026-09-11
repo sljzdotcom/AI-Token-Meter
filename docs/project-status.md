@@ -2,13 +2,13 @@
 
 - **事实快照：** 2026-09-11
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.7.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.3)（macOS build `22`）
+- **当前公开稳定版：** 双平台 [`0.8.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.0)（macOS build `23`）
 - **当前源码版本：** 双平台 `0.8.0`（macOS build `23`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.8.0 Mini浮动条候选正在发布：** Appearance固定提供Comfortable 108、Compact 78、Mini 65pt/px；旧Compact不会迁移为Mini。自动收起可独立关闭，Settings齿轮仅由底部深色弧区悬停或键盘焦点显示。候选已完成本机实现与独立复审，PR/main、签名资产和公网更新源结果见[发布记录](development/2026-09-11-v0.8.0-release.md)。
+**0.8.0 Mini浮动条更新已公开：** Appearance固定提供Comfortable 108、Compact 78、Mini 65pt/px；旧Compact不会迁移为Mini。自动收起可独立关闭，Settings齿轮仅由底部深色弧区悬停或键盘焦点显示。PR #34、main与正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.0-release.md)。
 
 **0.7.3浮动条与强调色更新已公开：** Compact采用65pt/px新贴边轮廓，新增悬停展开/收起、150/800ms双延迟和底部Settings入口；Google Antigravity详情恢复青绿色强调。候选、PR、main和正式发布双平台门禁均通过；七项公开资产、两端更新签名、篡改拒绝与三个更新入口已完成公网验收，[发布记录](development/2026-09-11-v0.7.3-release.md)。
 
@@ -113,7 +113,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - `scripts/test.sh` 同时运行 Swift 测试与文档一致性检查；
 - `scripts/build-app.sh` 默认在没有开发证书时输出无 Widget、ad-hoc 签名的主应用，并验证便携资源、Sparkle framework、helper、`@rpath` 和嵌套签名；
 - 0.8.0/build23候选基线为493项Swift、133项Windows前端、246项宿主Rust、24组真实浏览器布局；完整门禁与正式发布证据见[0.8.0发布记录](development/2026-09-11-v0.8.0-release.md)。
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.7.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.7.3) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-11-v0.7.3-release.md)。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.8.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.0) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-11-v0.8.0-release.md)。
 - `v0.6.3` 标签指向 `dff54d8`，appcast `fd737f0` 首项为0.6.3/build18，Windows stable/旧 Preview同步为0.6.3；发布 workflow `34361767956`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
