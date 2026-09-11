@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Settings切换Comfortable、Compact或Mini后，已展开的悬浮条立即调整为对应尺寸，无需等待自动收起或再次悬停。
+- 左贴边悬浮条的暴露侧上下角恢复连续圆角，贴屏侧上下反向肩弧加强，并与右贴边轮廓严格镜像。
+
 ## 0.8.1 - 2026-09-11
 
 稳定界面更新；macOS build24。简化贴边悬浮条轮廓，移除底部Settings入口，并新增独立Floating Strip/悬浮条设置页签。[发布记录](docs/development/2026-09-11-v0.8.1-release.md)。

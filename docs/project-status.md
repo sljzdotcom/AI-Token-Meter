@@ -8,6 +8,8 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
+**悬浮条即时密度与方案 B 轮廓已形成未发布候选：** Settings 切换 Comfortable、Compact、Mini 时，已展开的原生窗口会先完成尺寸调整再显示最新设置；左贴边暴露侧上下角恢复圆润，贴屏侧上下反向肩弧加强到30pt/px，并与右贴边严格镜像。双平台专项、完整门禁和真实 Chrome 密度验证通过；当前公开稳定版仍为0.8.1，本轮没有创建新版本或修改更新源。[开发记录](development/2026-09-11-floating-strip-live-density-left-contour.md)。
+
 **0.8.1 浮动条轮廓与设置分类更新已公开：** 收起态采用14pt/px内凹把手，展开上下肩严格镜像，底部Settings入口完全移除；Settings新增Floating Strip/悬浮条页签并精简Appearance。PR、main和正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.1-release.md)。
 
 **0.8.0 Mini浮动条更新已公开：** Appearance固定提供Comfortable 108、Compact 78、Mini 65pt/px；旧Compact不会迁移为Mini。自动收起可独立关闭，Settings齿轮仅由底部深色弧区悬停或键盘焦点显示。PR #34、main与正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.0-release.md)。

@@ -164,7 +164,7 @@ git commit -m "fix: apply strip density before settings update"
 
 ### 任务 3：真实渲染、完整门禁、文档与独立复核
 
-- [ ] **步骤 1：运行双平台专项渲染**
+- [x] **步骤 1：运行双平台专项渲染**
 
 ```bash
 swift test --filter 'FloatingStripRenderingTests|CompactStripRenderingTests|FloatingStripDragShapeTests|VisualSystemTests'
@@ -173,7 +173,7 @@ cd windows && npm run test:density
 
 确认 24 组展开场景、收起态、真实浏览器圆环周界和方案 B 左右镜像全部通过。
 
-- [ ] **步骤 2：运行完整门禁**
+- [x] **步骤 2：运行完整门禁**
 
 ```bash
 scripts/test.sh
@@ -187,21 +187,21 @@ git diff --check
 
 所有命令必须通过；不可删除、跳过或放宽既有断言。
 
-- [ ] **步骤 3：更新长期文档**
+- [x] **步骤 3：更新长期文档**
 
 开发记录写明：Windows 根因为设置事件早于异步原生 reconcile 完成；macOS 同步链经原生 frame 回归确认；方案 B 的标准路径和镜像采样证据。把 REQ-013/014/015 标记为已完成并记录提交、测试与审查证据；`CHANGELOG.md` 只写未发布修复，不增加版本号或发布声明。
 
-- [ ] **步骤 4：运行独立审查并修复发现**
+- [x] **步骤 4：运行独立审查并修复发现**
 
 审查范围为本计划相对基线 `8580464` 的全部代码和文档。审查者分别报告 Critical、Important、Minor；任何发现先补失败测试再修复并重跑相关门禁。
 
-- [ ] **步骤 5：提交文档与审查收尾**
+- [x] **步骤 5：提交文档与审查收尾**
 
 ```bash
 git add docs/development/2026-09-11-floating-strip-live-density-left-contour.md docs/development/README.md docs/requirements-backlog.md docs/project-status.md CHANGELOG.md docs/design/README.md
 git commit -m "docs: record floating strip density and contour fix"
 ```
 
-- [ ] **步骤 6：回传候选证据**
+- [x] **步骤 6：回传候选证据**
 
 向需求协调任务回传最终提交范围、Swift/前端/Rust/真实浏览器/文档门禁数量、独立审查结果与未发布边界。不得创建 tag、GitHub Release 或修改更新源。
