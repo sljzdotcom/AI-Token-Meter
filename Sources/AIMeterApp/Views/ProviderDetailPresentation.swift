@@ -146,8 +146,22 @@ enum ProviderDetailText {
         guard let reference = calendar.date(from: DateComponents(year: 2000, month: month, day: day, hour: hour, minute: minute)) else { return nil }
         let checked = calendar.dateComponents([.month, .day, .hour, .minute], from: reference)
         guard checked.month == month, checked.day == day, checked.hour == hour, checked.minute == minute else { return nil }
-        let formatted = localizer.date(reference, template: template, calendar: calendar)
+        let formatted = normalizeResetDateSpacing(
+            localizer.date(reference, template: template, calendar: calendar),
+            language: localizer.language
+        )
         return zone.map { "\(formatted) (\($0))" } ?? formatted
+    }
+
+    /// ICU changed the Traditional Chinese weekday/period separator between macOS
+    /// releases. Keep the app's compact reset-time copy stable on every supported OS.
+    static func normalizeResetDateSpacing(_ formatted: String, language: AppLanguage) -> String {
+        guard language == .traditionalChinese else { return formatted }
+        return formatted.replacingOccurrences(
+            of: #"(週[日一二三四五六])\s+([上下]午)"#,
+            with: "$1$2",
+            options: .regularExpression
+        )
     }
 
     static func freshness(_ snapshot: UsageSnapshot, now: Date = Date(), localizer: AppLocalizer) -> String {

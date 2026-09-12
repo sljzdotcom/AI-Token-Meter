@@ -42,9 +42,19 @@ struct MenuBarMeterIconTests {
             (.traditionalChinese, "AI Token Meter，最高用量百分之 73", "OpenAI Codex，73%，每週限額，警告", "左側邊緣，垂直位置百分之 37", "詳細資料已開啟", "詳細資料已關閉"),
         ] {
             model.setAppLanguage(language)
-            host.layoutSubtreeIfNeeded()
-            try await Task.sleep(for: .milliseconds(100))
-            let output = accessibilityOutput(host)
+            var output: [String] = []
+            for _ in 0..<40 {
+                window.layoutIfNeeded()
+                host.layoutSubtreeIfNeeded()
+                await Task.yield()
+                output = accessibilityOutput(host)
+                if output.contains(menu), output.contains(ring),
+                   output.contains(where: { $0.hasSuffix(position) }),
+                   output.contains(opened), output.contains(closed) {
+                    break
+                }
+                try await Task.sleep(for: .milliseconds(25))
+            }
             #expect(output.contains(menu), "Missing menu output in \(output)")
             #expect(output.contains(ring), "Missing ring output in \(output)")
             #expect(output.contains(where: { $0.hasSuffix(position) }), "Missing position output in \(output)")
