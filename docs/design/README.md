@@ -13,7 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
-| 2026-09-12 | macOS三语言即时切换 | [规格](specifications/2026-09-12-macos-app-language-selection-design.md) | 用户审阅规格后编写 |
+| 2026-09-12 | macOS三语言即时切换 | [规格](specifications/2026-09-12-macos-app-language-selection-design.md) | [计划](implementation-plans/2026-09-12-macos-app-language-selection.md) |
 | 2026-09-12 | 悬浮条自动隐藏展开终态与Mini即时切换统一 | [规格](specifications/2026-09-12-floating-strip-expanded-state-unification-design.md) | [计划](implementation-plans/2026-09-12-floating-strip-expanded-state-unification.md) |
 | 2026-09-11 | 0.8.2 悬浮条即时密度与轮廓修复稳定发布 | 沿用本轮即时密度与方案B轮廓规格及双平台发布流程 | [计划](implementation-plans/2026-09-11-v0.8.2-release.md) |
 | 2026-09-11 | 悬浮条密度即时生效与方案B圆角/反向肩弧修正 | [规格](specifications/2026-09-11-floating-strip-live-density-left-contour-design.md) | [计划](implementation-plans/2026-09-11-floating-strip-live-density-left-contour.md) |
