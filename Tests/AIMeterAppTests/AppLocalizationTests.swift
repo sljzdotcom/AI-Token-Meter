@@ -95,6 +95,15 @@ struct AppLocalizationTests {
     @Test("Every shipped dynamic template renders its arguments and literal percent signs")
     func allDynamicTemplatesRender() throws {
         let examples: [String: [String]] = [
+            "Usage reached %@": ["Usage reached Claude Code", "用量已达到 Claude Code", "用量已達到 Claude Code"],
+            "%@ · %@ is at %@.": ["Claude Code · Weekly is at 70.", "Claude Code · Weekly已用 70。", "Claude Code · Weekly已用 70。"],
+            "%@%%": ["Claude Code%", "Claude Code%", "Claude Code%"],
+            "%@, highest usage %@ percent": ["Claude Code, highest usage Weekly percent", "Claude Code，最高用量百分之 Weekly", "Claude Code，最高用量百分之 Weekly"],
+            "%@, usage unavailable": ["Claude Code, usage unavailable", "Claude Code，用量不可用", "Claude Code，無法取得用量"],
+            "Move floating meter, %@": ["Move floating meter, Claude Code", "移动悬浮用量表，Claude Code", "移動懸浮用量表，Claude Code"],
+            "%@, %@, %@": ["Claude Code, Weekly, 70", "Claude Code，Weekly，70", "Claude Code，Weekly，70"],
+            "%@, %@, %@, %@": ["Claude Code, Weekly, 70, State", "Claude Code，Weekly，70，State", "Claude Code，Weekly，70，State"],
+            "%@, %@, %@, %@, %@": ["Claude Code, Weekly, 70, State, Detail", "Claude Code，Weekly，70，State，Detail", "Claude Code，Weekly，70，State，Detail"],
             "%lldm limit": ["70m limit", "70 分钟限额", "70 分鐘限額"],
             "Cached · %lld min ago": ["Cached · 70 min ago", "缓存 · 70 分钟前", "快取 · 70 分鐘前"],
             "%lld%% remaining": ["70% remaining", "剩余 70%", "剩餘 70%"],
@@ -152,6 +161,9 @@ struct AppLocalizationTests {
                 let signature = sourceSignature.filter { $0 != "literal:%" }
                 let rendered: String
                 switch signature {
+                case ["1:@", "2:@", "3:@"]: rendered = localizer.text(key, "Claude Code", "Weekly", "70")
+                case ["1:@", "2:@", "3:@", "4:@"]: rendered = localizer.text(key, "Claude Code", "Weekly", "70", "State")
+                case ["1:@", "2:@", "3:@", "4:@", "5:@"]: rendered = localizer.text(key, "Claude Code", "Weekly", "70", "State", "Detail")
                 case ["1:@"]: rendered = localizer.text(key, "Claude Code")
                 case ["1:lld"]: rendered = localizer.text(key, Int64(70))
                 case ["1:@", "2:lld"]: rendered = localizer.text(key, "Claude Code", Int64(70))
@@ -317,6 +329,38 @@ struct AppLocalizationTests {
 
 
 extension AppLocalizationTests {
+    @Test("Fixed presentation counts are grouped and percentage rounding is preserved in each app locale")
+    func presentationNumericFormatting() {
+        for (language, tokens, requests) in [
+            (AppLanguage.english, "12,345 tokens", "12,345 requests"),
+            (.simplifiedChinese, "12,345 个 Token", "12,345 次请求"),
+            (.traditionalChinese, "12,345 個 Token", "12,345 次請求"),
+        ] {
+            let localizer = AppLocalizer(language: language)
+            #expect(ProviderDetailText.value("12345 tokens", localizer: localizer) == tokens)
+            #expect(ProviderDetailText.value("12345 requests", localizer: localizer) == requests)
+            #expect(ProviderDetailText.value("74%", localizer: localizer) == "74%")
+            #expect(localizer.percentage(0.735) == "74%")
+            #expect(localizer.decimal(12345.678, fractionDigits: 2) == "12,345.68")
+        }
+    }
+
+    @Test("Unavailable menu summaries and cached rings preserve translated accessibility states")
+    func unavailableAndCachedAccessibility() {
+        let cached = ProviderPresentation(snapshot: .init(provider: .codex,
+            primaryMetric: .init(label: "Weekly limit", current: 73, limit: 100, unit: .percent),
+            collectionStatus: .cached, statusMessage: "Showing cached usage"))
+        for (language, unavailable, ring) in [
+            (AppLanguage.english, "AI Token Meter, usage unavailable", "OpenAI Codex, 73%, Weekly limit, Cached data, Showing cached usage"),
+            (.simplifiedChinese, "AI Token Meter，用量不可用", "OpenAI Codex，73%，每周限额，缓存数据，显示缓存用量"),
+            (.traditionalChinese, "AI Token Meter，無法取得用量", "OpenAI Codex，73%，每週限額，快取資料，顯示快取用量"),
+        ] {
+            let localizer = AppLocalizer(language: language)
+            #expect(ProviderDetailText.menuBarAccessibility(.init(snapshots: []), localizer: localizer) == unavailable)
+            #expect(ProviderDetailText.ringAccessibility(cached, localizer: localizer) == ring)
+        }
+    }
+
     @Test("Provider detail vocabulary translates four quota windows and local history without changing brands")
     func providerDetailVocabulary() {
         let cases: [(String, String, String)] = [

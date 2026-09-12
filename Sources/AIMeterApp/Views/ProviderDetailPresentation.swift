@@ -69,7 +69,14 @@ enum ProviderDetailText {
 
     static func value(_ value: String, localizer: AppLocalizer) -> String {
         for suffix in [" tokens", " requests"] where value.hasSuffix(suffix) {
-            return localizer.text("%@" + suffix, String(value.dropLast(suffix.count)))
+            let raw = String(value.dropLast(suffix.count))
+            return localizer.text("%@" + suffix, Int64(raw).map { localizer.number($0) } ?? raw)
+        }
+        if value.hasSuffix("%"), let percent = Double(value.dropLast()) {
+            return localizer.percentage(percent / 100)
+        }
+        if let symbol = value.first, ["¥", "$"].contains(symbol), let amount = Double(value.dropFirst()) {
+            return "\(symbol)" + localizer.decimal(amount, fractionDigits: 2)
         }
         return localizer.text(value)
     }
@@ -139,12 +146,7 @@ enum ProviderDetailText {
         guard let reference = calendar.date(from: DateComponents(year: 2000, month: month, day: day, hour: hour, minute: minute)) else { return nil }
         let checked = calendar.dateComponents([.month, .day, .hour, .minute], from: reference)
         guard checked.month == month, checked.day == day, checked.hour == hour, checked.minute == minute else { return nil }
-        let formatter = DateFormatter()
-        formatter.locale = localizer.language.locale
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate(template)
-        let formatted = formatter.string(from: reference)
+        let formatted = localizer.date(reference, template: template, calendar: calendar)
         return zone.map { "\(formatted) (\($0))" } ?? formatted
     }
 
@@ -204,7 +206,7 @@ enum ProviderDetailText {
         guard let unit = units.first(where: { value >= $0.0 }) else { return localizer.number(count) }
         let scaled = value / unit.0
         let digits = scaled >= 100 ? 0 : 1
-        return String(format: "%.*f", locale: localizer.language.locale, digits, scaled)
+        return localizer.decimal(scaled, fractionDigits: digits, grouped: false)
             .replacingOccurrences(of: ".0", with: "") + unit.1
     }
 
@@ -251,9 +253,23 @@ enum ProviderDetailText {
         case .stale: "Cached data"
         case .unavailable: "Unavailable"
         }
-        return [presentation.title, value(presentation.valueText, localizer: localizer),
-                metricLabel(presentation.detailText, localizer: localizer),
-                semantic.map { localizer.text($0) }, presentation.statusText.map { diagnostic($0, localizer: localizer) }]
-            .compactMap { $0 }.joined(separator: ", ")
+        let title = presentation.title
+        let amount = value(presentation.valueText, localizer: localizer)
+        let metric = metricLabel(presentation.detailText, localizer: localizer)
+        let status = presentation.statusText.map { diagnostic($0, localizer: localizer) }
+        switch (semantic.map { localizer.text($0) }, status) {
+        case let (semantic?, status?): return localizer.text("%@, %@, %@, %@, %@", title, amount, metric, semantic, status)
+        case let (semantic?, nil): return localizer.text("%@, %@, %@, %@", title, amount, metric, semantic)
+        case let (nil, status?): return localizer.text("%@, %@, %@, %@", title, amount, metric, status)
+        case (nil, nil): return localizer.text("%@, %@, %@", title, amount, metric)
+        }
+    }
+
+    static func menuBarAccessibility(_ summary: MenuBarSummary, localizer: AppLocalizer) -> String {
+        guard let fraction = summary.usageFraction else {
+            return localizer.text("%@, usage unavailable", AppBrand.displayName)
+        }
+        return localizer.text("%@, highest usage %@ percent", AppBrand.displayName,
+                              localizer.decimal((fraction * 100).rounded()))
     }
 }

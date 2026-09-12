@@ -48,6 +48,31 @@ struct AppLocalizer {
         return formatter.string(from: value)
     }
 
+    func decimal(_ value: Double, fractionDigits: Int = 0, grouped: Bool = true) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = language.locale
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = grouped
+        formatter.minimumFractionDigits = fractionDigits
+        formatter.maximumFractionDigits = fractionDigits
+        return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    }
+
+    func date(_ value: Date, template: String, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = language.locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        return formatter.string(from: value)
+    }
+
+    /// Preserve the existing whole-percentage rounding used by the meters.
+    func percentage(_ fraction: Double) -> String {
+        guard fraction.isFinite else { return "—" }
+        return text("%@%%", decimal((fraction * 100).rounded()))
+    }
+
     private static func bundle(for language: AppLanguage, resourceBundle: Bundle?) -> Bundle? {
         let resourceRoot: URL?
         if let resourceBundle {

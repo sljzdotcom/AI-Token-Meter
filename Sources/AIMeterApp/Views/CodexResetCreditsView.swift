@@ -184,6 +184,7 @@ struct CodexResetCreditsView: View {
     }
 
     private func accessibilityLabel(_ row: CodexResetCreditRowPresentation) -> String {
-        [ProviderDetailText.creditTitle(row.title, localizer: localizer), expirationDateText(row.expiresAt), ProviderDetailText.creditStatus(row.expirationState, localizer: localizer)].joined(separator: ", ")
+        localizer.text("%@, %@, %@", ProviderDetailText.creditTitle(row.title, localizer: localizer),
+                       expirationDateText(row.expiresAt), ProviderDetailText.creditStatus(row.expirationState, localizer: localizer))
     }
 }

@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panelController?.applyUserPositionPreference()
         }
         if !model.isRunningDemoMode {
-            let notificationService = NotificationService()
+            let notificationService = NotificationService(language: { [weak model] in model?.appLanguage ?? .english })
             self.notificationService = notificationService
             notificationService.onOpenProvider = { [weak panelController] provider in
                 panelController?.showDetail(for: provider)

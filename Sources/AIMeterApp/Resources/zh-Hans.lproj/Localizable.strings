@@ -284,3 +284,17 @@
 "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)" = "不支持此 Antigravity CLI 版本（需要主版本 1 中的 1.1.28 或更高版本）";
 "OAuth account" = "OAuth 账户";
 "Claude Code account" = "Claude Code 账户";
+
+/* Notifications and accessibility */
+"Usage reached %@" = "用量已达到 %@";
+"%@ · %@ is at %@." = "%@ · %@已用 %@。";
+"%@%%" = "%@%%";
+"%@, highest usage %@ percent" = "%@，最高用量百分之 %@";
+"%@, usage unavailable" = "%@，用量不可用";
+"Detail open" = "详情已打开";
+"Detail closed" = "详情已关闭";
+"Move floating meter, %@" = "移动悬浮用量表，%@";
+"%@, %@, %@" = "%@，%@，%@";
+"%@, %@, %@, %@" = "%@，%@，%@，%@";
+"%@, %@, %@, %@, %@" = "%@，%@，%@，%@，%@";
+"—" = "—";

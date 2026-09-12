@@ -146,7 +146,7 @@ struct DeepSeekAnalyticsView: View {
     private func analytics(_ history: DeepSeekUsageHistory) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                statCard(title: "Cost", value: String(format: "¥%.2f", locale: localizer.language.locale, history.totalCostCNY))
+                statCard(title: "Cost", value: "¥" + localizer.decimal(history.totalCostCNY, fractionDigits: 2))
                 statCard(title: "API requests", value: localizer.number(Int64(history.totalRequests)))
                 statCard(title: "Tokens", value: localizer.number(Int64(history.totalTokens)))
             }

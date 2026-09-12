@@ -284,3 +284,17 @@
 "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)" = "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)";
 "OAuth account" = "OAuth account";
 "Claude Code account" = "Claude Code account";
+
+/* Notifications and accessibility */
+"Usage reached %@" = "Usage reached %@";
+"%@ · %@ is at %@." = "%@ · %@ is at %@.";
+"%@%%" = "%@%%";
+"%@, highest usage %@ percent" = "%@, highest usage %@ percent";
+"%@, usage unavailable" = "%@, usage unavailable";
+"Detail open" = "Detail open";
+"Detail closed" = "Detail closed";
+"Move floating meter, %@" = "Move floating meter, %@";
+"%@, %@, %@" = "%@, %@, %@";
+"%@, %@, %@, %@" = "%@, %@, %@, %@";
+"%@, %@, %@, %@, %@" = "%@, %@, %@, %@, %@";
+"—" = "—";

@@ -4,14 +4,15 @@ import SwiftUI
 
 struct MenuBarLabel: View {
     @Bindable var model: AppModel
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
 
     var body: some View {
         Label {
-            Text(model.menuBarSummary.valueText)
+            Text(model.menuBarSummary.usageFraction.map(localizer.percentage) ?? "—")
         } icon: {
             MenuBarMeterIcon(fraction: model.menuBarSummary.usageFraction)
         }
-            .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
+            .accessibilityLabel(ProviderDetailText.menuBarAccessibility(model.menuBarSummary, localizer: localizer))
             .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))
     }
 }

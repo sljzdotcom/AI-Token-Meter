@@ -80,7 +80,7 @@ struct ProviderCard: View {
             Text(ProviderDetailText.metricLabel(metric.label, localizer: localizer))
             Spacer()
             if let fraction = metric.usedFraction {
-                Text("\(Int((fraction * 100).rounded()))%")
+                Text(localizer.percentage(fraction))
             }
         }
         .aiMeterFont(.caption2)

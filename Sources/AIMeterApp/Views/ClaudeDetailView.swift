@@ -291,7 +291,7 @@ struct ClaudeDetailView: View {
 
     private func percentText(_ metric: UsageMetric) -> String {
         guard let fraction = metric.usedFraction else { return "—" }
-        return "\(Int((fraction * 100).rounded()))%"
+        return localizer.percentage(fraction)
     }
 
     private func compactCount(_ count: Int64) -> String {

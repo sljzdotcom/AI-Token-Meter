@@ -40,8 +40,7 @@ struct FloatingStripView: View {
                     .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count), eoFill: true)
                     .focusable()
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(localizer.text("Move floating meter"))
-                    .accessibilityValue(accessibilityPositionValue)
+                    .accessibilityLabel(localizer.text("Move floating meter, %@", accessibilityPositionValue))
                     .accessibilityHint(localizer.text("Use up or down to move. Left and right set the edge preference"))
                     .onMoveCommand { direction in
                         switch direction {
@@ -87,7 +86,7 @@ struct FloatingStripView: View {
                                 .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityValue(session.accessibilityValue(for: presentation.provider))
+                        .accessibilityValue(localizer.text(session.accessibilityValue(for: presentation.provider)))
                         .accessibilityFocused($accessibilityFocusedProvider, equals: presentation.provider)
                         .animation(.spring(response: 0.28, dampingFraction: 0.8), value: session.selectedProvider)
                     }
