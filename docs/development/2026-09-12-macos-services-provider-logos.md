@@ -4,7 +4,7 @@
 
 ## 结果
 
-候选实现`eeaf215`在macOS Settings → Services的Claude Code、OpenAI Codex、DeepSeek和Google Antigravity四个分组标题前显示对应Logo。四组标题复用同一组件，Logo使用18pt布局框、6pt名称间距和系统`.primary`前景色；浅色与深色外观自动适配。装饰Logo继续隐藏于辅助功能树，产品名称只朗读一次。
+最终实现`eeaf215`在macOS Settings → Services的Claude Code、OpenAI Codex、DeepSeek和Google Antigravity四个分组标题前显示对应Logo。四组标题复用同一组件，Logo使用18pt布局框、6pt名称间距和系统`.primary`前景色；浅色与深色外观自动适配。装饰Logo继续隐藏于辅助功能树，产品名称只朗读一次。
 
 现有ProviderLogo默认白色外观、资源映射和光学校正保持兼容，浮动条与详情调用无需修改。账户状态、安装登录、DeepSeek Key、按钮、导航、额度采集和数据展示逻辑均未改变；Core与Windows代码没有差异。
 
@@ -12,7 +12,7 @@
 
 - `912f130`为ProviderLogo增加默认`.white`的可选tint；`6303279`补齐四产品精确资源、默认白色、18pt布局和`1.28 / 1.0 / 0.92 / 1.0`光学校正的可判别回归。
 - `eeaf215`把四个Services分组标题迁移到共享`ServiceSectionHeader`，统一使用`.primary`、18pt和6pt，并加入真实`NSWindow`/`NSHostingView`像素与辅助功能测试。
-- 任务1和任务2独立审查最终均为Critical/Important/Minor `0/0/0`。本阶段再次核对四产品映射、尺寸、浅深色、辅助功能与差异范围，未发现需修改产品或测试的问题；最终完整分支审查与本地main整合仍由后续任务完成。
+- 任务1和任务2独立审查最终均为Critical/Important/Minor `0/0/0`。完整分支初审仅发现设计文档空白，`dc031f3`修正后复审为`0/0/0`；四产品映射、尺寸、浅深色、辅助功能与非目标行为均通过。本地`main`合并提交为`28ec9f62c081cd50d16cd6dc76c4bcf0bb00a919`。
 
 ## 验证
 
@@ -26,4 +26,4 @@
 
 ## 交付边界
 
-需求保持`进行中`，等待最终完整分支审查及本地`main`整合。本阶段没有合并`main`、推送、创建版本、修改更新源或发布；用户未授权本需求发布。
+需求已完成并合入本地`main`。合并结果重新通过559项Swift完整门禁、正式App构建、签名、四份Logo资源和293份Markdown检查。本阶段没有推送、创建版本、修改更新源或发布；用户未授权本需求发布。

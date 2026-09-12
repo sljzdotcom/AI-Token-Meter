@@ -35,5 +35,5 @@
 - 修改：本计划复选框。
 
 - [x] 运行 Services/Logo/真实窗口专项、`scripts/test.sh`、`scripts/build-app.sh`、`scripts/check-docs.sh`和`git diff --check`。
-- [ ] 独立审查四产品映射、光学尺寸、浅深色、辅助功能与非目标行为；发现先补失败回归再修复。
-- [ ] 记录测试、Release资源和审查证据，标记需求完成并合入本地`main`；没有单独发布授权时不创建版本或更新源。
+- [x] 独立审查四产品映射、光学尺寸、浅深色、辅助功能与非目标行为；最终Critical/Important/Minor为`0/0/0`。
+- [x] 记录测试、Release资源和审查证据，标记需求完成并合入本地`main`（`28ec9f62c081cd50d16cd6dc76c4bcf0bb00a919`）；没有单独发布授权时不创建版本或更新源。
