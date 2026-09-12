@@ -26,12 +26,16 @@ struct ProviderLogo: View {
         .accessibilityHidden(true)
     }
 
-    private static func image(for provider: UsageProvider) -> NSImage? {
-        guard let url = AppResourceLocator.url(
+    static func resourceURL(for provider: UsageProvider) -> URL? {
+        AppResourceLocator.url(
             forResource: provider.logoResourceName,
             withExtension: provider.logoResourceExtension,
             subdirectory: "Logos"
-        ) else {
+        )
+    }
+
+    private static func image(for provider: UsageProvider) -> NSImage? {
+        guard let url = Self.resourceURL(for: provider) else {
             return nil
         }
         return NSImage(contentsOf: url)

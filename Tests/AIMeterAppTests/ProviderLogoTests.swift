@@ -24,6 +24,73 @@ struct ProviderLogoTests {
         }
     }
 
+    @Test("Default logos remain white in light appearance")
+    func defaultLogosRemainWhiteInLightAppearance() throws {
+        for provider in UsageProvider.allCases {
+            let bitmap = try render(ProviderLogo(provider: provider, size: 18), colorScheme: .light)
+
+            let opaquePixels = try opaquePixels(in: bitmap)
+            #expect(!opaquePixels.isEmpty, "\(provider.rawValue) did not render")
+            #expect(
+                opaquePixels.allSatisfy { luminance(of: $0) > 0.8 },
+                "\(provider.rawValue) defaulted to an adaptive instead of fixed white foreground"
+            )
+        }
+    }
+
+    @Test("Settings primary tint remains visible in dark appearance")
+    func settingsTintRemainsVisibleInDarkAppearance() throws {
+        for provider in UsageProvider.allCases {
+            let bitmap = try render(
+                ProviderLogo(provider: provider, size: 18, tint: .primary),
+                colorScheme: .dark
+            )
+
+            let opaquePixels = try opaquePixels(in: bitmap)
+            #expect(!opaquePixels.isEmpty, "\(provider.rawValue) did not render")
+            #expect(
+                opaquePixels.allSatisfy { luminance(of: $0) > 0.8 },
+                "\(provider.rawValue) did not resolve .primary to a visible dark-mode foreground"
+            )
+        }
+    }
+
+    @Test("Each provider resolves its bundled brand asset without symbol fallback")
+    func providersResolveBundledBrandAssets() throws {
+        let expectedAssets: [(UsageProvider, String, String)] = [
+            (.claude, "claude.png", "png"),
+            (.codex, "codex.svg", "svg"),
+            (.deepSeek, "deepseek.svg", "svg"),
+            (.gemini, "gemini.svg", "svg"),
+        ]
+
+        for (provider, expectedFilename, expectedExtension) in expectedAssets {
+            let url = try #require(ProviderLogo.resourceURL(for: provider))
+            #expect(url.lastPathComponent == expectedFilename)
+            #expect(url.pathExtension == expectedExtension)
+            #expect(FileManager.default.fileExists(atPath: url.path))
+            #expect(NSImage(contentsOf: url) != nil, "\(provider.rawValue) brand asset cannot load")
+        }
+    }
+
+    @Test("Provider logos retain their 18pt layout and exact optical calibration")
+    func providerLogoLayoutAndOpticalCalibration() {
+        let expectedScales: [(UsageProvider, CGFloat)] = [
+            (.claude, 1.28),
+            (.codex, 1.0),
+            (.deepSeek, 0.92),
+            (.gemini, 1.0),
+        ]
+
+        for (provider, expectedScale) in expectedScales {
+            let host = NSHostingView(rootView: ProviderLogo(provider: provider, size: 18))
+            host.layoutSubtreeIfNeeded()
+            #expect(host.fittingSize.width == 18)
+            #expect(host.fittingSize.height == 18)
+            #expect(ProviderLogoStyle.opticalScale(for: provider) == expectedScale)
+        }
+    }
+
     @Test("Tint leaves the existing 18pt logo alpha masks unchanged")
     func tintKeepsExistingLogoGeometry() throws {
         for provider in UsageProvider.allCases {
