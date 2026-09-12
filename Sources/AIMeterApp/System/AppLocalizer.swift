@@ -49,19 +49,26 @@ struct AppLocalizer {
     }
 
     private static func bundle(for language: AppLanguage, resourceBundle: Bundle?) -> Bundle? {
-        let tableURL: URL?
+        let resourceRoot: URL?
         if let resourceBundle {
-            // Exact directories avoid Foundation silently selecting another preferred language.
-            tableURL = resourceBundle.resourceURL?
-                .appending(path: "\(language.rawValue).lproj/Localizable.strings")
+            resourceRoot = resourceBundle.resourceURL
         } else {
-            // Packaged apps use their own Resources; SwiftPM runs fall back to Bundle.module.
-            tableURL = AppResourceLocator.url(
-                forResource: "Localizable", withExtension: "strings",
-                subdirectory: "\(language.rawValue).lproj"
-            )
+            // English is mandatory. Resolve its root through the portable app locator
+            // so distributed apps never evaluate SwiftPM's build-machine fallback.
+            resourceRoot = AppResourceLocator.url(
+                forResource: "Localizable", withExtension: "strings", subdirectory: "en.lproj"
+            )?.deletingLastPathComponent().deletingLastPathComponent()
         }
-        guard let tableURL, FileManager.default.fileExists(atPath: tableURL.path) else { return nil }
-        return Bundle(url: tableURL.deletingLastPathComponent())
+        guard let resourceRoot,
+              let directories = try? FileManager.default.contentsOfDirectory(
+                at: resourceRoot, includingPropertiesForKeys: nil
+              ),
+              let directory = directories.first(where: {
+                $0.lastPathComponent.caseInsensitiveCompare("\(language.rawValue).lproj") == .orderedSame
+              }),
+              FileManager.default.fileExists(atPath: directory.appending(path: "Localizable.strings").path)
+        else { return nil }
+        // Keep the actual directory spelling: SwiftPM lowercases language identifiers.
+        return Bundle(url: directory)
     }
 }
