@@ -10,8 +10,8 @@
   "foldedSize": [20, 96],
   "expandedTransition": {
     "windowFrameAnimation": false,
-    "contentFadeOutMilliseconds": 140,
-    "contentFadeInMilliseconds": 180
+    "contentHideDelayMilliseconds": 140,
+    "contentRevealDelayMilliseconds": 180
   },
   "expandedContour": {
     "referenceWidth": 65,

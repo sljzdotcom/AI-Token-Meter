@@ -76,6 +76,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     private var foldTimer: Timer?
     private var visibilityTransitionTask: Task<Void, Never>?
     private var pendingFoldedState: Bool?
+    private var appearanceUpdatePendingDuringDrag = false
     private var menuIsOpen = false
     private var temporarilyHidden = false
 
@@ -205,7 +206,13 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     func applyAppearance() {
         if let selected = session.selectedProvider,
            !model.stripPreferences.visibleProviders.contains(selected) { dismissDetail() }
-        guard !displayState.isDragging else { return }
+        guard !displayState.isDragging else {
+            appearanceUpdatePendingDuringDrag = true
+            visibilityTransitionTask?.cancel()
+            visibilityTransitionTask = nil
+            pendingFoldedState = nil
+            return
+        }
         foldState.update(
             now: ProcessInfo.processInfo.systemUptime,
             revealDelay: 0,
@@ -444,7 +451,10 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
 
     private func endStripDrag(translation: CGSize, pointer: CGPoint) {
         updateStripDrag(translation: translation, pointer: pointer)
-        defer { dragStartFrame = nil }
+        defer {
+            dragStartFrame = nil
+            applyAppearancePendingAfterDrag()
+        }
 
         let proposedFrame = stripPanel.frame
         guard let screen = dragTarget(at: pointer)
@@ -464,7 +474,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             edge: placement.edge,
             normalizedCenterY: anchor
         )
-        stripPanel.setFrame(finalFrame, display: true, animate: true)
+        // The strip uses a nonlinear transparent mask, so even drag snapping must
+        // commit the exact endpoint without scaling the window contents.
+        stripPanel.setFrame(finalFrame, display: true, animate: false)
         model.saveFloatingStripPlacement(
             edge: placement.edge,
             normalizedCenterY: anchor,
@@ -623,6 +635,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     var stripFrameForTesting: CGRect { stripPanel.frame }
     var stripContentBoundsForTesting: CGRect { stripPanel.contentView?.bounds ?? .zero }
     var stripIsFoldedForTesting: Bool { displayState.isFolded }
+    var stripShowsExpandedContentForTesting: Bool { displayState.showsExpandedContent }
+
+    func setStripDraggingForTesting(_ dragging: Bool) {
+        displayState.isDragging = dragging
+        if !dragging { applyAppearancePendingAfterDrag() }
+    }
 
     func transitionStripForTesting(toFolded folded: Bool) {
         transitionStrip(toFolded: folded)
@@ -631,6 +649,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     func suspendFoldPollingForTesting() {
         foldTimer?.invalidate()
         foldTimer = nil
+    }
+
+    private func applyAppearancePendingAfterDrag() {
+        guard appearanceUpdatePendingDuringDrag else { return }
+        appearanceUpdatePendingDuringDrag = false
+        applyAppearance()
     }
 
     private var expandedStripSize: CGSize {
