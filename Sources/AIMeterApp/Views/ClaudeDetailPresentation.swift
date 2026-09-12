@@ -10,17 +10,18 @@ enum ClaudeDetailPresentation {
 
     static func officialQuotaAccessibilityLabel(
         _ metric: UsageMetric,
-        resetText: String?
+        resetText: String?,
+        localizer: AppLocalizer = AppLocalizer(language: .english)
     ) -> String {
         let percentage = Int(((metric.usedFraction ?? 0) * 100).rounded())
-        return "Official quota, \(metric.label), \(percentage) percent used, \(resetText ?? "Reset time unavailable")"
+        return localizer.text("Official quota, %@, %lld percent used, %@", ProviderDetailText.metricLabel(metric.label, localizer: localizer), Int64(percentage), resetText ?? localizer.text("Reset time unavailable"))
     }
 
-    static func localStatAccessibilityLabel(title: String, value: String) -> String {
-        "Local estimate, \(title), \(value)"
+    static func localStatAccessibilityLabel(title: String, value: String, localizer: AppLocalizer = AppLocalizer(language: .english)) -> String {
+        localizer.text("Local estimate, %@, %@", localizer.text(title), value)
     }
 
-    static func localActivityAccessibilityLabel(title: String, detail: String) -> String {
-        "Local estimate, \(title), \(detail)"
+    static func localActivityAccessibilityLabel(title: String, detail: String, localizer: AppLocalizer = AppLocalizer(language: .english)) -> String {
+        localizer.text("Local estimate, %@, %@", localizer.text(title), localizer.text(detail))
     }
 }

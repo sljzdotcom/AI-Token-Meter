@@ -2,6 +2,8 @@ import AIMeterCore
 import SwiftUI
 
 struct UsageRing: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let presentation: ProviderPresentation
     var size: CGFloat = 60
     var operation: ProviderOperationState = .idle
@@ -59,18 +61,11 @@ struct UsageRing: View {
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(operation == .refreshing ? "Refreshing" : operation == .waiting ? "Action required" : "")
+        .accessibilityHint(localizer.text(operation == .refreshing ? "Refreshing" : operation == .waiting ? "Action required" : ""))
     }
 
     private var accessibilityLabel: String {
-        [
-            presentation.title,
-            presentation.valueText,
-            presentation.detailText,
-            presentation.accessibilityStatusText,
-        ]
-        .compactMap { $0 }
-        .joined(separator: ", ")
+        ProviderDetailText.ringAccessibility(presentation, localizer: localizer)
     }
 
     private var ringStyle: AnyShapeStyle {

@@ -1,9 +1,14 @@
+import AIMeterCore
 import SwiftUI
 
 struct AppearanceSettingsView: View {
     @Bindable var model: AppModel
 
     private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
+
+    static func fontOptionTitle(_ choice: DisplayFontChoice, localizer: AppLocalizer) -> String {
+        choice == .system ? localizer.text("System Default") : choice.displayName
+    }
 
     var body: some View {
         Form {
@@ -28,7 +33,7 @@ struct AppearanceSettingsView: View {
                 ) {
                     ForEach(DisplayFontSettingsPresentation.liveOptions()) { option in
                         HStack {
-                            Text(option.choice.displayName)
+                            Text(Self.fontOptionTitle(option.choice, localizer: localizer))
                             if let status = option.statusText {
                                 Text(localizer.text(status)).foregroundStyle(.secondary)
                             }

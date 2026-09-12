@@ -7,6 +7,8 @@ enum CodexResetCreditsDisplayMode {
 }
 
 struct CodexResetCreditsView: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let summary: CodexResetCreditsSummary
     let mode: CodexResetCreditsDisplayMode
 
@@ -38,10 +40,10 @@ struct CodexResetCreditsView: View {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(accentStart)
-                Text("Reset credits")
+                Text(localizer.text("Reset credits"))
                     .aiMeterFont(.subheadline, weight: .semibold)
                 Spacer()
-                Text(presentation.availableText)
+                Text(localizer.text("%lld available", Int64(summary.availableCount)))
                     .aiMeterFont(.caption2, weight: .bold)
                     .foregroundStyle(accentStart)
                     .padding(.horizontal, 9)
@@ -59,7 +61,7 @@ struct CodexResetCreditsView: View {
 
             if presentation.showsIncompleteDetails {
                 Label {
-                    Text("Some expiration details are unavailable")
+                    Text(localizer.text("Some expiration details are unavailable"))
                 } icon: {
                     Image(systemName: "info.circle")
                         .aiMeterSymbolFont(.caption2)
@@ -86,7 +88,7 @@ struct CodexResetCreditsView: View {
                     )
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(row.title)
+                    Text(ProviderDetailText.creditTitle(row.title, localizer: localizer))
                         .aiMeterFont(.caption, weight: .semibold)
                         .lineLimit(1)
                     Text(expirationDateText(row.expiresAt))
@@ -98,10 +100,10 @@ struct CodexResetCreditsView: View {
             }
 
             HStack {
-                Text("Expiration")
+                Text(localizer.text("Expiration"))
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 Spacer()
-                Text(row.statusText)
+                Text(ProviderDetailText.creditStatus(row.expirationState, localizer: localizer))
                     .fontWeight(.semibold)
                     .foregroundStyle(statusColor(row.expirationState))
             }
@@ -133,20 +135,20 @@ struct CodexResetCreditsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Label {
-                    Text("Reset credits")
+                    Text(localizer.text("Reset credits"))
                 } icon: {
                     Image(systemName: "arrow.counterclockwise.circle")
                         .aiMeterSymbolFont(.caption2)
                 }
                     .fontWeight(.semibold)
                 Spacer()
-                Text(presentation.availableText)
+                Text(localizer.text("%lld available", Int64(summary.availableCount)))
                     .fontWeight(.semibold)
             }
 
             ForEach(Array(presentation.rows.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(row.title)
+                    Text(ProviderDetailText.creditTitle(row.title, localizer: localizer))
                         .lineLimit(1)
                     Spacer()
                     Text(expirationDateText(row.expiresAt))
@@ -159,7 +161,7 @@ struct CodexResetCreditsView: View {
             }
 
             if presentation.showsIncompleteDetails {
-                Text("Some expiration details are unavailable")
+                Text(localizer.text("Some expiration details are unavailable"))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -168,8 +170,8 @@ struct CodexResetCreditsView: View {
     }
 
     private func expirationDateText(_ expiresAt: Date?) -> String {
-        guard let expiresAt else { return "Date unavailable" }
-        return expiresAt.formatted(date: .abbreviated, time: .shortened)
+        guard let expiresAt else { return localizer.text("Date unavailable") }
+        return localizer.date(expiresAt)
     }
 
     private func statusColor(_ state: CodexResetCreditExpirationState) -> Color {
@@ -182,6 +184,6 @@ struct CodexResetCreditsView: View {
     }
 
     private func accessibilityLabel(_ row: CodexResetCreditRowPresentation) -> String {
-        "\(row.title), \(expirationDateText(row.expiresAt)), \(row.statusText)"
+        [ProviderDetailText.creditTitle(row.title, localizer: localizer), expirationDateText(row.expiresAt), ProviderDetailText.creditStatus(row.expirationState, localizer: localizer)].joined(separator: ", ")
     }
 }
