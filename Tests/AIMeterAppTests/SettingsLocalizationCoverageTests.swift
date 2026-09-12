@@ -9,6 +9,101 @@ import Testing
        .enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
 @MainActor
 struct SettingsLocalizationCoverageTests {
+    // Removing a Section logo, swapping its provider, using white in light mode,
+    // or clipping its calibrated silhouette must fail against the real form pixels.
+    @Test("Services renders all four matching decorative logos in light and dark appearances")
+    func serviceHeaderLogosRenderInBothAppearances() async throws {
+        let name = "ServiceHeaderLogos.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = AppModel(defaults: defaults, secretStore: LocalizationSecretStore(), widgetSnapshotPublisher: nil)
+        defer { model.stop() }
+        let providers: [(UsageProvider, String)] = [
+            (.claude, "Claude Code"), (.codex, "OpenAI Codex"),
+            (.deepSeek, "DeepSeek"), (.gemini, "Google Antigravity"),
+        ]
+        for scheme in [ColorScheme.light, .dark] {
+            let host = NSHostingView(rootView: AppLanguageRoot(model: model) {
+                ServicesSettingsView(model: model, pendingAPIKey: .constant(""))
+            }.environment(\.colorScheme, scheme))
+            let window = localizationTestWindow(host)
+            window.appearance = NSAppearance(named: scheme == .light ? .aqua : .darkAqua)
+            defer { window.close() }
+            for language in AppLanguage.allCases {
+                model.setAppLanguage(language)
+                try await settleLocalizationHost(host)
+                if let output = ProcessInfo.processInfo.environment["AI_METER_SERVICES_LOGO_ARTIFACTS"], language == .english {
+                    let directory = URL(fileURLWithPath: output)
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    try headerBitmap(host, rect: host.bounds).representation(using: .png, properties: [:])?
+                        .write(to: directory.appending(path: "services-\(scheme).png"))
+                }
+                for (provider, title) in providers {
+                    let titleNodes = hostedAccessibilityObjects(host).filter { object in
+                        ["accessibilityLabel", "accessibilityValue"].contains {
+                            hostedAccessibilityAttribute(object, $0) as? String == title
+                        }
+                    }
+                    #expect(titleNodes.count == 1, "\(title) must be announced exactly once")
+                    let node = try #require(titleNodes.first)
+                    let screenFrame = try #require(
+                        hostedAccessibilityAttribute(node, "accessibilityFrame") as? NSValue).rectValue
+                    let titleFrame = host.convert(window.convertFromScreen(screenFrame), from: nil)
+                    // 18pt logo + 6pt gap, centered vertically on the title; the
+                    // 32pt crop includes optical overshoot and proves no clipping.
+                    let crop = NSRect(x: titleFrame.minX - 31, y: titleFrame.midY - 16, width: 32, height: 32)
+                    #expect(host.bounds.contains(crop))
+                    let actual = try headerBitmap(host, rect: crop)
+                    let referenceHost = NSHostingView(rootView: ProviderLogo(provider: provider, size: 18, tint: .primary)
+                        .frame(width: 32, height: 32).environment(\.colorScheme, scheme))
+                    let referenceWindow = localizationTestWindow(referenceHost, width: 32, height: 32)
+                    defer { referenceWindow.close() }
+                    try await settleLocalizationHost(referenceHost)
+                    let reference = try headerBitmap(referenceHost, rect: referenceHost.bounds)
+                    if let output = ProcessInfo.processInfo.environment["AI_METER_SERVICES_LOGO_ARTIFACTS"], language == .english {
+                        let directory = URL(fileURLWithPath: output)
+                        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                        try actual.representation(using: .png, properties: [:])?.write(to: directory.appending(path: "\(provider.rawValue)-\(scheme)-actual.png"))
+                        try reference.representation(using: .png, properties: [:])?.write(to: directory.appending(path: "\(provider.rawValue)-\(scheme)-reference.png"))
+                    }
+                    let expectedMask = try headerInkMask(reference, transparent: true, scheme: scheme)
+                    let actualMask = try headerInkMask(actual, transparent: false, scheme: scheme)
+                    let expectedCount = expectedMask.filter { $0 }.count
+                    let actualCount = actualMask.filter { $0 }.count
+                    let intersection = zip(expectedMask, actualMask).filter { $0 && $1 }.count
+                    let union = zip(expectedMask, actualMask).filter { $0 || $1 }.count
+                    #expect(expectedCount > 20)
+                    #expect(actualCount > 20, "Missing visible \(title) logo in \(scheme)")
+                    #expect(Double(intersection) / Double(expectedCount) > 0.88,
+                        "\(title) logo must retain its full silhouette in \(scheme): \(intersection)/\(expectedCount)")
+                    #expect(Double(intersection) / Double(max(union, 1)) > 0.78,
+                        "\(title) must use its matching 18pt logo with a 6pt gap in \(scheme)")
+                }
+                #expect(window.contentView === host)
+            }
+        }
+    }
+
+    private func headerBitmap(_ host: NSView, rect: NSRect) throws -> NSBitmapImageRep {
+        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil,
+            pixelsWide: Int(rect.width * 2), pixelsHigh: Int(rect.height * 2), bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        bitmap.size = rect.size
+        host.cacheDisplay(in: rect, to: bitmap)
+        return bitmap
+    }
+
+    private func headerInkMask(_ bitmap: NSBitmapImageRep, transparent: Bool, scheme: ColorScheme) throws -> [Bool] {
+        let background = try #require(bitmap.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        return try (0..<64).flatMap { y in
+            try (0..<64).map { x in
+                let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+                if transparent { return color.alphaComponent > 0.5 }
+                return abs(color.redComponent - background.redComponent) > abs((scheme == .light ? 0 : 1) - background.redComponent) * 0.5
+            }
+        }
+    }
+
     // Bypassing localization for a coordinator status or interpolated version
     // must fail on the exact value consumed by the existing hosted controls.
     @Test("Update events and installed version translate in the same existing host")

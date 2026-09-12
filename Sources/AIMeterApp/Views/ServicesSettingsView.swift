@@ -9,7 +9,7 @@ struct ServicesSettingsView: View {
 
     var body: some View {
         Form {
-            Section(UsageProvider.claude.displayName) {
+            Section {
                 ServiceAccountStatusView(status: status(for: .claude))
                 Text(localizer.text("Authentication is handled by the official Claude Code CLI. AI Token Meter never receives your password or verification code."))
                     .aiMeterFont(.caption)
@@ -32,9 +32,11 @@ struct ServicesSettingsView: View {
                     .help(localizer.text("Only needed when Claude Code asks for workspace approval before /usage can run."))
                 }
                 installationNotice(.claude)
+            } header: {
+                ServiceSectionHeader(provider: .claude)
             }
 
-            Section(UsageProvider.codex.displayName) {
+            Section {
                 ServiceAccountStatusView(status: status(for: .codex))
                 Text(localizer.text("Authentication is handled by the official OpenAI Codex CLI. AI Token Meter only reads the account identity that OpenAI Codex reports locally."))
                     .aiMeterFont(.caption)
@@ -50,9 +52,11 @@ struct ServicesSettingsView: View {
                     }
                 }
                 installationNotice(.codex)
+            } header: {
+                ServiceSectionHeader(provider: .codex)
             }
 
-            Section("DeepSeek") {
+            Section {
                 ServiceAccountStatusView(status: status(for: .deepSeek))
 
                 HStack {
@@ -114,9 +118,11 @@ struct ServicesSettingsView: View {
                     : "The API Key is saved only after DeepSeek verifies it. If verification fails, the new Key is not saved."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                ServiceSectionHeader(provider: .deepSeek)
             }
 
-            Section("Google Antigravity") {
+            Section {
                 let geminiStatus = status(for: .gemini)
                 ServiceAccountStatusView(status: geminiStatus)
                 Text(localizer.text("Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view."))
@@ -127,6 +133,8 @@ struct ServicesSettingsView: View {
                     Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
                     Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }
                 }
+            } header: {
+                ServiceSectionHeader(provider: .gemini)
             }
 
             if model.settingsMessageKind.map(SettingsTab.services.accepts) == true,
@@ -161,6 +169,17 @@ struct ServicesSettingsView: View {
             Text(localizer.text("Downloads and runs the official installer in Terminal."))
                 .font(.caption).foregroundStyle(.secondary)
             Link(localizer.text("Official installation instructions"), destination: URL(string: provider == .claude ? "https://code.claude.com/docs/en/setup" : "https://learn.chatgpt.com/docs/codex/cli")!)
+        }
+    }
+}
+
+private struct ServiceSectionHeader: View {
+    let provider: UsageProvider
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ProviderLogo(provider: provider, size: 18, tint: .primary)
+            Text(provider.displayName)
         }
     }
 }
