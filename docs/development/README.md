@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-12](2026-09-12-macos-services-provider-logos.md) | macOS Services四产品Logo | 四个分组标题复用18pt Logo与6pt间距，浅深色和辅助功能真实窗口专项、559项Swift及Release资源/签名门禁通过；待最终分支审查与本地main整合，未发布 |
 | [2026-09-12](2026-09-12-macos-app-language-selection.md) | macOS默认English及简繁中文即时切换 | Appearance新增三语言选择；菜单栏、Settings、悬浮条、Provider详情、通知与辅助功能同步切换，完整本地门禁通过，待最终独立审查与本地main整合，未发布 |
 | [2026-09-12](2026-09-12-floating-strip-expanded-state-unification.md) | 自动隐藏展开与常驻展开终态统一 | macOS移除异形窗口frame拉伸，三密度直接提交同一圆润终态并保留内容显示时序；双平台完整门禁与独立复核0/0/0通过，已合入本地main，未发布 |
 | [2026-09-11](2026-09-11-v0.8.2-release.md) | 0.8.2 悬浮条即时密度与轮廓修复稳定发布 | Settings密度立即调整已展开原生窗口，左右镜像圆角与反向肩弧；双平台签名资产和公网更新源已验收 |

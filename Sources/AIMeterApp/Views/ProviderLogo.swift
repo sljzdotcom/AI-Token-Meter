@@ -5,6 +5,7 @@ import SwiftUI
 struct ProviderLogo: View {
     let provider: UsageProvider
     var size: CGFloat = 28
+    var tint: Color = .white
 
     var body: some View {
         Group {
@@ -21,16 +22,20 @@ struct ProviderLogo: View {
         }
         .frame(width: size, height: size)
         .scaleEffect(ProviderLogoStyle.opticalScale(for: provider))
-        .foregroundStyle(.white)
+        .foregroundStyle(tint)
         .accessibilityHidden(true)
     }
 
-    private static func image(for provider: UsageProvider) -> NSImage? {
-        guard let url = AppResourceLocator.url(
+    static func resourceURL(for provider: UsageProvider) -> URL? {
+        AppResourceLocator.url(
             forResource: provider.logoResourceName,
             withExtension: provider.logoResourceExtension,
             subdirectory: "Logos"
-        ) else {
+        )
+    }
+
+    private static func image(for provider: UsageProvider) -> NSImage? {
+        guard let url = Self.resourceURL(for: provider) else {
             return nil
         }
         return NSImage(contentsOf: url)
