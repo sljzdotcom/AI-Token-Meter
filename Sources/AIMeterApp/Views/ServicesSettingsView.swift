@@ -149,7 +149,7 @@ struct ServicesSettingsView: View {
 
     private func serviceActionButton(_ provider: UsageProvider) -> some View {
         let action = model.serviceAction(for: provider)
-        return Button(action.title) { model.performServiceAction(provider) }
+        return Button(localizer.text(action.title)) { model.performServiceAction(provider) }
             .tint(action.needsAttention ? .orange : .accentColor)
             .buttonStyle(.bordered)
             .disabled(!action.isEnabled)

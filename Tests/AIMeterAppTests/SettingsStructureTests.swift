@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import Vision
 import AIMeterCore
 import Foundation
 import Testing
@@ -107,6 +106,7 @@ struct SettingsStructureTests {
           .enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
     @MainActor
     func hostedSurfacesTranslateInPlace() async throws {
+        NSApplication.shared.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         let suite = "SettingsStructureTests.Hosted.\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -134,32 +134,17 @@ struct SettingsStructureTests {
                 host.layoutSubtreeIfNeeded()
                 try await Task.sleep(for: .milliseconds(80))
                 host.layoutSubtreeIfNeeded()
-                let labels = try renderedText(in: host, language: language)
+                try assertHostedRendering(host)
+                let labels = hostedAccessibilityStrings(host).joined(separator: "\n")
                 for expected in expectations[index] {
-                    #expect(labels.contains(expected.filter { !$0.isWhitespace }), "Missing \(language.rawValue) label: \(expected). Got: \(labels)")
+                    #expect(labels.contains(expected), "Missing \(language.rawValue) label: \(expected). Got: \(labels)")
+                    try assertHostedLabelFits(expected, in: host)
                 }
+                #expect(host.bounds.size == window.contentLayoutRect.size)
                 #expect(window.contentView === host)
             }
             window.close()
         }
-    }
-
-    @MainActor
-    private func renderedText(in host: NSView, language: AppLanguage) throws -> String {
-        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil,
-            pixelsWide: Int(host.bounds.width * 2), pixelsHigh: Int(host.bounds.height * 2),
-            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
-        bitmap.size = host.bounds.size
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        let cgImage = try #require(bitmap.cgImage)
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.recognitionLanguages = language == .english ? ["en-US"] : [language.rawValue, "en-US"]
-        request.usesLanguageCorrection = false
-        try VNImageRequestHandler(cgImage: cgImage).perform([request])
-        return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
-            .joined(separator: " ").filter { !$0.isWhitespace }
     }
 
     @Test("Routes settings messages to their owning tab")

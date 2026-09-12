@@ -95,6 +95,11 @@ struct AppLocalizationTests {
     @Test("Every shipped dynamic template renders its arguments and literal percent signs")
     func allDynamicTemplatesRender() throws {
         let examples: [String: [String]] = [
+            "Version %@ (%@)": ["Version Claude Code (Weekly)", "版本 Claude Code（Weekly）", "版本 Claude Code（Weekly）"],
+            "Version %@ is available": ["Version Claude Code is available", "版本 Claude Code 可用", "版本 Claude Code 可用"],
+            "Preparing version %@…": ["Preparing version Claude Code…", "正在准备版本 Claude Code…", "正在準備版本 Claude Code…"],
+            "%@ · %@ · Primary": ["Claude Code · Weekly · Primary", "Claude Code · Weekly · 主显示器", "Claude Code · Weekly · 主顯示器"],
+            "%@ · %@": ["Claude Code · Weekly", "Claude Code · Weekly", "Claude Code · Weekly"],
             "Usage reached %@": ["Usage reached Claude Code", "用量已达到 Claude Code", "用量已達到 Claude Code"],
             "%@ · %@ is at %@.": ["Claude Code · Weekly is at 70.", "Claude Code · Weekly已用 70。", "Claude Code · Weekly已用 70。"],
             "%@%%": ["Claude Code%", "Claude Code%", "Claude Code%"],
@@ -215,8 +220,9 @@ struct AppLocalizationTests {
                      "SoftwareUpdateSettingsView", "MenuBarPanel", "FloatingStripView", "RefreshIntervalEditor"]
         let english = try table(.english)
         let pattern = try NSRegularExpression(pattern: #""([^"\n]*)""#)
-        // Product names and currency identifiers retain their spelling; the other entries are SF Symbols/URLs.
+        // Product names/currency retain spelling; SF Symbols, URLs and Info.plist keys are not UI copy.
         let preserved = Set(["", "CNY", "DeepSeek", "Google Antigravity", "arrow.up", "arrow.down",
+                             "CFBundleShortVersionString", "CFBundleVersion",
                              "checkmark.shield", "gauge.with.dots.needle.50percent", "arrow.clockwise", "gearshape", "power",
                              "https://code.claude.com/docs/en/setup", "https://learn.chatgpt.com/docs/codex/cli"])
         for file in files {

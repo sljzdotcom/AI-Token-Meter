@@ -19,7 +19,7 @@ struct FloatingStripDisplaySettings: View {
                 set: { model.selectFloatingStripDisplay($0) }
             )) {
                 ForEach(model.availableStripDisplays) { choice in
-                    Text(choice.title).tag(choice.id)
+                    Text(choice.title(localizer: localizer)).tag(choice.id)
                 }
                 if let identifier = model.floatingStripDisplays.selectedIdentifier,
                    !model.availableStripDisplays.contains(where: { $0.id == identifier }) {

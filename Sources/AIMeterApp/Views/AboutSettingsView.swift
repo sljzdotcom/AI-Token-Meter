@@ -4,12 +4,19 @@ import SwiftUI
 
 struct AboutSettingsView: View {
     let updateCoordinator: SoftwareUpdateCoordinator
+    let versionInfo: [String: Any]
     @Environment(\.locale) private var locale
+
+    init(updateCoordinator: SoftwareUpdateCoordinator, versionInfo: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
+        self.updateCoordinator = updateCoordinator
+        self.versionInfo = versionInfo
+    }
 
     private var localizer: AppLocalizer { AppLocalizer(language: AppLanguage(rawValue: locale.identifier) ?? .english) }
 
     private var versionText: String {
-        AppBrand.versionText(info: Bundle.main.infoDictionary ?? [:])
+        SoftwareUpdateSettingsCopy.versionText(version: versionInfo["CFBundleShortVersionString"] as? String,
+            build: versionInfo["CFBundleVersion"] as? String, localizer: localizer)
     }
 
     var body: some View {

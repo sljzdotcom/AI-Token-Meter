@@ -8,7 +8,14 @@ struct FloatingStripDisplayChoice: Identifiable, Equatable {
     let isBuiltIn: Bool
 
     var title: String {
-        name + (isBuiltIn ? " · Built-in" : " · External") + (isPrimary ? " · Primary" : "")
+        title(localizer: AppLocalizer(language: .english))
+    }
+
+    func title(localizer: AppLocalizer) -> String {
+        let kind = localizer.text(isBuiltIn ? "Built-in" : "External")
+        return isPrimary
+            ? localizer.text("%@ · %@ · Primary", name, kind)
+            : localizer.text("%@ · %@", name, kind)
     }
 }
 
