@@ -55,10 +55,16 @@ enum ProviderDetailText {
     }
 
     static func metricLabel(_ label: String, localizer: AppLocalizer) -> String {
+        guard localizer.language != .english else { return label }
+        // TerminalUsageParser trims trailing parentheses from its supported CLI labels.
+        let canonicalLabel = [
+            "Current week (all models": "Current week (all models)",
+            "Current week (Sonnet only": "Current week (Sonnet only)",
+        ][label] ?? label
         if label.hasSuffix("m limit"), let minutes = Int64(label.dropLast(7)) {
             return localizer.text("%lldm limit", minutes)
         }
-        return metricLabels.contains(label) ? localizer.text(label) : label
+        return metricLabels.contains(canonicalLabel) ? localizer.text(canonicalLabel) : label
     }
 
     static func value(_ value: String, localizer: AppLocalizer) -> String {
@@ -81,12 +87,65 @@ enum ProviderDetailText {
                 let duration = String(description.dropFirst(10))
                 return localizer.text("Resets in %@", localizedDuration(duration, localizer: localizer))
             }
-            if description.hasPrefix("Resets ") {
-                return localizer.text("Resets %@", String(description.dropFirst(7)))
+            if description.hasPrefix("Resets "), localizer.language != .english,
+               let date = localizedResetDate(String(description.dropFirst(7)), localizer: localizer) {
+                return localizer.text("Resets %@", date)
             }
             return description
         }
         return metric.resetAt.map { localizer.text("Resets %@", localizer.date($0)) }
+    }
+
+    private static let resetDatePattern = try! NSRegularExpression(
+        pattern: #"^(?:(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+([0-9]{1,2})(?:\s+at\s+|\s*·\s*|\s+))?([0-9]{1,2}):([0-9]{2})(?:\s*(AM|PM))?(?:\s+\(([^()]+)\))?\z"#,
+        options: .caseInsensitive
+    )
+
+    private static func localizedResetDate(_ payload: String, localizer: AppLocalizer) -> String? {
+        let range = NSRange(payload.startIndex..., in: payload)
+        guard let match = resetDatePattern.firstMatch(in: payload, range: range) else { return nil }
+        func capture(_ index: Int) -> String? {
+            Range(match.range(at: index), in: payload).map { String(payload[$0]) }
+        }
+        guard let hourText = capture(4), var hour = Int(hourText),
+              let minuteText = capture(5), let minute = Int(minuteText), (0..<60).contains(minute) else { return nil }
+        if let period = capture(6) {
+            guard (1...12).contains(hour) else { return nil }
+            hour = hour % 12 + (period.lowercased() == "pm" ? 12 : 0)
+        } else if !(0..<24).contains(hour) {
+            return nil
+        }
+        let zone = capture(7)
+        if let zone, TimeZone(identifier: zone) == nil { return nil }
+
+        // CLI descriptions omit the year or calendar date. Format only their stated
+        // wall-clock components on a fixed reference calendar, never infer an occurrence
+        // or convert to this Mac's timezone. The original timezone suffix stays visible.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var month = 1
+        var day = 1
+        var template = "jmm"
+        if let name = capture(2)?.lowercased(), let dayText = capture(3), let parsedDay = Int(dayText),
+           let index = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].firstIndex(of: name) {
+            month = index + 1
+            day = parsedDay
+            template = "MMMdjmm"
+        } else if let weekday = capture(1)?.lowercased(),
+                  let index = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].firstIndex(of: weekday) {
+            day = 2 + index // 2000-01-02 is Sunday; the rendered format omits this reference date.
+            template = "EEEjmm"
+        }
+        guard let reference = calendar.date(from: DateComponents(year: 2000, month: month, day: day, hour: hour, minute: minute)) else { return nil }
+        let checked = calendar.dateComponents([.month, .day, .hour, .minute], from: reference)
+        guard checked.month == month, checked.day == day, checked.hour == hour, checked.minute == minute else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = localizer.language.locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        let formatted = formatter.string(from: reference)
+        return zone.map { "\(formatted) (\($0))" } ?? formatted
     }
 
     static func freshness(_ snapshot: UsageSnapshot, now: Date = Date(), localizer: AppLocalizer) -> String {
@@ -160,7 +219,7 @@ enum ProviderDetailText {
 
     static func accountText(_ status: ServiceAccountStatus, localizer: AppLocalizer) -> String {
         if let label = status.accountLabel, !label.isEmpty {
-            let owned = ["Connected account", "API Key account", "ChatGPT account", "Demo Claude Code account"]
+            let owned = ["Connected account", "API Key account", "ChatGPT account", "Demo Claude Code account", "OAuth account", "Claude Code account"]
             return owned.contains(label) ? localizer.text(label) : label
         }
         let key = switch status.connectionState {

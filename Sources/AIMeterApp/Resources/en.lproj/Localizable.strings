@@ -282,3 +282,5 @@
 "Antigravity CLI is not executable" = "Antigravity CLI is not executable";
 "Antigravity CLI environment uses an unsupported override" = "Antigravity CLI environment uses an unsupported override";
 "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)" = "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)";
+"OAuth account" = "OAuth account";
+"Claude Code account" = "Claude Code account";

@@ -282,3 +282,5 @@
 "Antigravity CLI is not executable" = "Antigravity CLI 無法執行";
 "Antigravity CLI environment uses an unsupported override" = "Antigravity CLI 環境使用了不支援的覆寫設定";
 "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)" = "不支援此 Antigravity CLI 版本（需要主版本 1 中的 1.1.28 或更新版本）";
+"OAuth account" = "OAuth 帳戶";
+"Claude Code account" = "Claude Code 帳戶";
