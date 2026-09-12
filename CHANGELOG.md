@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-09-12
+
+稳定功能版；macOS build26。新增macOS三语言即时切换与Services产品Logo，并修复自动隐藏展开时的悬浮条轮廓和Mini即时切换。[发布记录](docs/development/2026-09-12-v0.9.0-release.md)。
+
 ### Added
 
 - macOS Settings → Services在Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题前显示对应Logo；四项统一使用18pt图标、6pt间距和浅深色自适应前景色，装饰Logo不重复朗读产品名称。

@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.8.2](https://img.shields.io/badge/version-0.8.2-3b82f6)
-![Tests 499](https://img.shields.io/badge/tests-499%20passed-2ea44f)
+![Version 0.9.0](https://img.shields.io/badge/version-0.9.0-3b82f6)
+![Tests 559](https://img.shields.io/badge/tests-559%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -15,7 +15,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > 当前公开稳定版为[0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)（macOS build `25`）。现有macOS与Windows安装均可通过应用内更新入口升级；完整证据见[0.8.2发布记录](docs/development/2026-09-11-v0.8.2-release.md)。
 
-> `0.8.2` / build `25`：Settings密度立即调整已展开悬浮条，左右贴边时保留圆角并加强反向肩弧。[Release Notes](docs/releases/v0.8.2.md)。
+> 当前源码候选为`0.9.0` / build `26`：macOS新增English、简体中文和繁體中文即时切换及Services产品Logo，并修复自动隐藏展开轮廓。[Release Notes](docs/releases/v0.9.0.md)。公开稳定版在发布事务完成前仍为0.8.2。
 
 ## Screenshots
 
@@ -25,7 +25,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.8.2` / build `25`：三档密度设置对已展开悬浮条立即生效，左右贴边轮廓保持圆角和清晰反向肩弧。[Release Notes](docs/releases/v0.8.2.md)。
+> `0.9.0` / build `26`候选：macOS可在Appearance即时切换三种界面语言，Services标题显示四个产品Logo；自动隐藏展开使用与常驻状态相同的圆润轮廓。[Release Notes](docs/releases/v0.9.0.md)。
 
 > 品牌改进：双平台 About 的作者社交链接，以及 Windows 设置顶部的软件 Logo；见[设计与验证](docs/development/2026-09-07-about-branding.md)。CLI 本体不内嵌软件包，安装按钮按需在线获取官方安装器。
 
@@ -245,7 +245,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码与公开稳定版均为`0.8.2`（macOS build `25`）；发布证据见[0.8.2发布记录](docs/development/2026-09-11-v0.8.2-release.md)。
+- 当前源码候选为`0.9.0`（macOS build `26`），当前公开稳定版仍为`0.8.2`；候选事务见[0.9.0发布记录](docs/development/2026-09-12-v0.9.0-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
