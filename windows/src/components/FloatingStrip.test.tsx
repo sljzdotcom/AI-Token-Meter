@@ -8,6 +8,11 @@ import { defaultStripPreferences } from "../state/stripPreferences"
 
 describe("compact floating strip interactions", () => {
   it("uses the approved rounded shoulder path at every density", () => {
+    expect(behavior.expandedTransition).toEqual({
+      windowFrameAnimation: false,
+      contentFadeOutMilliseconds: 140,
+      contentFadeInMilliseconds: 180,
+    })
     expect(behavior.expandedContour).toMatchObject({referenceWidth: 65, compactShoulderDepth: 70, comfortableShoulderDepth: 88})
     expect(meterContourPath("mini", 4)).toContain("M 65 4 C 63 18 54 29 37 30 C 18 31 5 42 1 58 C 0 62 0 66 0 70")
     expect(meterContourPath("compact", 4)).toContain("M 78 4")

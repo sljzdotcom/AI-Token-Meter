@@ -1,12 +1,14 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-11
+- **事实快照：** 2026-09-12
 - **产品：** AI Token Meter
 - **当前公开稳定版：** 双平台 [`0.8.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)（macOS build `25`）
 - **当前源码版本：** 双平台 `0.8.2`（macOS build `25`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**自动隐藏展开轮廓修复候选：** macOS自动隐藏不再拉伸20×96pt收起窗口来形成展开态，而是直接提交与关闭自动隐藏时相同的三档精确尺寸和方案B圆润轮廓，只保留内容淡入淡出。真实`NSPanel`回归覆盖Comfortable、Compact、Mini的收起→展开终态及Settings即时切换；Windows合同与原生门禁证明现有路径一致，无需修改产品实现。[开发记录](development/2026-09-12-floating-strip-expanded-state-unification.md)。本项尚未发布新版本。
 
 **0.8.2 悬浮条即时密度与方案 B 轮廓已公开：** Settings 切换 Comfortable、Compact、Mini 时，已展开的原生窗口会先完成尺寸调整再显示最新设置；左贴边暴露侧上下角恢复圆润，贴屏侧上下反向肩弧加强到30pt/px，并与右贴边严格镜像。PR、main和正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.2-release.md)。
 

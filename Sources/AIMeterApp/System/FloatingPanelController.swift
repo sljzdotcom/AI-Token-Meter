@@ -379,7 +379,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         return window.convertPoint(toScreen: event.locationInWindow)
     }
 
-    private func positionPanels(userInitiated: Bool = false, foldingAnimation: Bool = false) {
+    private func positionPanels(userInitiated: Bool = false) {
         guard !displayState.isDragging else { return }
         guard let context = placementContext(userInitiated: userInitiated) else { return }
         let screen = context.screen
@@ -393,12 +393,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             normalizedCenterY: context.normalizedCenterY
         )
         let stripFrame = displayState.isFolded ? FloatingStripLayout.foldedFrame(from: expandedFrame, edge: edge) : expandedFrame
-        if foldingAnimation && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = displayState.isFolded ? 0.16 : 0.18
-                stripPanel.animator().setFrame(stripFrame, display: true)
-            }
-        } else { stripPanel.setFrame(stripFrame, display: true, animate: false) }
+        // The transparent window and its nonlinear mask must always be committed at an
+        // exact endpoint. Scaling the NSPanel frame produces a different, pointed contour.
+        stripPanel.setFrame(stripFrame, display: true, animate: false)
         positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
         switch context.persistenceAction {
         case .preserve:
@@ -624,6 +621,17 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     var stripFrameForTesting: CGRect { stripPanel.frame }
+    var stripContentBoundsForTesting: CGRect { stripPanel.contentView?.bounds ?? .zero }
+    var stripIsFoldedForTesting: Bool { displayState.isFolded }
+
+    func transitionStripForTesting(toFolded folded: Bool) {
+        transitionStrip(toFolded: folded)
+    }
+
+    func suspendFoldPollingForTesting() {
+        foldTimer?.invalidate()
+        foldTimer = nil
+    }
 
     private var expandedStripSize: CGSize {
         let value = model.stripPreferences
@@ -673,6 +681,10 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         visibilityTransitionTask?.cancel()
         pendingFoldedState = folded
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let transition = FloatingStripVisibilityTransitionPlan.make(
+            destination: folded ? .folded : .expanded,
+            reduceMotion: reduceMotion
+        )
         if folded {
             displayState.showsExpandedContent = false
             if reduceMotion {
@@ -682,24 +694,27 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                 return
             }
             visibilityTransitionTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(140))
+                try? await Task.sleep(for: transition.contentDelay)
                 guard let self, !Task.isCancelled, self.pendingFoldedState == true else { return }
                 self.displayState.isFolded = true
                 self.pendingFoldedState = nil
-                self.positionPanels(foldingAnimation: true)
+                self.positionPanels()
             }
         } else {
             displayState.isFolded = false
             displayState.showsExpandedContent = false
-            positionPanels(foldingAnimation: !reduceMotion)
+            positionPanels()
             if reduceMotion {
                 displayState.showsExpandedContent = true
                 pendingFoldedState = nil
                 return
             }
             visibilityTransitionTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(180))
+                try? await Task.sleep(for: transition.contentDelay)
                 guard let self, !Task.isCancelled, self.pendingFoldedState == false else { return }
+                // Re-read the latest density before revealing content. This also settles
+                // any Settings change that arrived while the opacity transition was active.
+                self.positionPanels()
                 self.displayState.showsExpandedContent = true
                 self.pendingFoldedState = nil
             }

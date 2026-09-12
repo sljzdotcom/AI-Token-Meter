@@ -8,6 +8,11 @@
   "revealDelay": {"defaultMilliseconds": 150, "minimum": 0, "maximum": 2000},
   "collapseDelay": {"defaultMilliseconds": 800, "minimum": 0, "maximum": 5000},
   "foldedSize": [20, 96],
+  "expandedTransition": {
+    "windowFrameAnimation": false,
+    "contentFadeOutMilliseconds": 140,
+    "contentFadeInMilliseconds": 180
+  },
   "expandedContour": {
     "referenceWidth": 65,
     "compactShoulderDepth": 70,
