@@ -7,6 +7,20 @@ import AIMeterCore
 @Suite("Display settings integration")
 @MainActor
 struct AppModelDisplaySettingsTests {
+    @Test func automaticCollapseKeepsContentTimingWithoutASecondGeometryPath() {
+        let expanding = FloatingStripVisibilityTransitionPlan.make(
+            destination: .expanded,
+            reduceMotion: false
+        )
+        let folding = FloatingStripVisibilityTransitionPlan.make(
+            destination: .folded,
+            reduceMotion: false
+        )
+
+        #expect(expanding.contentDelay == .milliseconds(180))
+        #expect(folding.contentDelay == .milliseconds(140))
+    }
+
     @Test func changingDensityPublishesTheSavedWidthSynchronously() throws {
         let suite = "DensityAppearance-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -45,6 +59,160 @@ struct AppModelDisplaySettingsTests {
         #expect(after.width == 65)
         #expect(abs(before.midY - after.midY) < 0.001)
         #expect(after.minX == screen.visibleFrame.minX || after.maxX == screen.visibleFrame.maxX)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
+    func everyDensityImmediatelyResizesTheVisibleExpandedPanel() throws {
+        let suite = "VisibleDensityPanel-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let screen = try #require(NSScreen.screens.first)
+        let identifier = try #require(
+            FloatingStripScreenIdentifier.identity(for: screen, mainScreen: screen)
+        ).stableIdentifier
+        let model = AppModel(
+            defaults: defaults,
+            secretStore: DisplaySettingsSecretStore(),
+            widgetSnapshotPublisher: nil,
+            isDemoMode: true
+        )
+        var preferences = model.stripPreferences
+        preferences.automaticallyCollapses = false
+        model.setStripPreferences(preferences)
+        let controller = FloatingPanelController(model: model, screenIdentifier: identifier)
+        defer { controller.close() }
+        model.floatingAppearanceHandler = { controller.applyAppearance() }
+        controller.show()
+
+        for density in [FloatingStripDensity.comfortable, .compact, .mini] {
+            var next = model.stripPreferences
+            next.density = density
+            model.setStripPreferences(next)
+
+            let frame = controller.stripFrameForTesting
+            #expect(abs(frame.width - density.width) < 0.001)
+            #expect(controller.stripContentBoundsForTesting.size == frame.size)
+            #expect(frame.minX == screen.visibleFrame.minX || frame.maxX == screen.visibleFrame.maxX)
+        }
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
+    func automaticCollapseExpansionSettlesToTheSameFrameForEveryDensity() async throws {
+        let suite = "AutomaticCollapseFrame-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let screen = try #require(NSScreen.screens.first)
+        let identifier = try #require(
+            FloatingStripScreenIdentifier.identity(for: screen, mainScreen: screen)
+        ).stableIdentifier
+        let model = AppModel(
+            defaults: defaults,
+            secretStore: DisplaySettingsSecretStore(),
+            widgetSnapshotPublisher: nil,
+            isDemoMode: true
+        )
+        let controller = FloatingPanelController(model: model, screenIdentifier: identifier)
+        defer { controller.close() }
+        model.floatingAppearanceHandler = { controller.applyAppearance() }
+        controller.show()
+        controller.suspendFoldPollingForTesting()
+
+        for density in FloatingStripDensity.allCases {
+            var next = model.stripPreferences
+            next.density = density
+            next.automaticallyCollapses = true
+            model.setStripPreferences(next)
+
+            controller.transitionStripForTesting(toFolded: true)
+            try await Task.sleep(for: .milliseconds(300))
+            #expect(controller.stripIsFoldedForTesting)
+            #expect(controller.stripFrameForTesting.size == FloatingStripLayout.foldedSize)
+
+            controller.transitionStripForTesting(toFolded: false)
+            let immediateFrame = controller.stripFrameForTesting
+            #expect(abs(immediateFrame.width - density.width) < 0.001)
+            #expect(controller.stripContentBoundsForTesting.size == immediateFrame.size)
+            try await Task.sleep(for: .milliseconds(300))
+
+            let settledFrame = controller.stripFrameForTesting
+            #expect(abs(settledFrame.width - density.width) < 0.001)
+            #expect(settledFrame == immediateFrame)
+            #expect(controller.stripContentBoundsForTesting.size == settledFrame.size)
+            #expect(!controller.stripIsFoldedForTesting)
+        }
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
+    func densityChangedDuringDragCommitsWhenDraggingEnds() throws {
+        let suite = "DraggedDensityPanel-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let screen = try #require(NSScreen.screens.first)
+        let identifier = try #require(
+            FloatingStripScreenIdentifier.identity(for: screen, mainScreen: screen)
+        ).stableIdentifier
+        let model = AppModel(
+            defaults: defaults,
+            secretStore: DisplaySettingsSecretStore(),
+            widgetSnapshotPublisher: nil,
+            isDemoMode: true
+        )
+        let controller = FloatingPanelController(model: model, screenIdentifier: identifier)
+        defer { controller.close() }
+        model.floatingAppearanceHandler = { controller.applyAppearance() }
+        controller.show()
+        controller.suspendFoldPollingForTesting()
+        controller.setStripDraggingForTesting(true)
+
+        var preferences = model.stripPreferences
+        preferences.density = .mini
+        model.setStripPreferences(preferences)
+        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.compact.width) < 0.001)
+
+        controller.setStripDraggingForTesting(false)
+
+        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.mini.width) < 0.001)
+        #expect(controller.stripContentBoundsForTesting.size == controller.stripFrameForTesting.size)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
+    func transitionReversalCannotRestoreStaleExpandedContent() async throws {
+        let suite = "ReversedCollapseTransition-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let screen = try #require(NSScreen.screens.first)
+        let identifier = try #require(
+            FloatingStripScreenIdentifier.identity(for: screen, mainScreen: screen)
+        ).stableIdentifier
+        let model = AppModel(
+            defaults: defaults,
+            secretStore: DisplaySettingsSecretStore(),
+            widgetSnapshotPublisher: nil,
+            isDemoMode: true
+        )
+        let controller = FloatingPanelController(model: model, screenIdentifier: identifier)
+        defer { controller.close() }
+        model.floatingAppearanceHandler = { controller.applyAppearance() }
+        controller.show()
+        controller.suspendFoldPollingForTesting()
+
+        controller.transitionStripForTesting(toFolded: true)
+        try await Task.sleep(for: .milliseconds(320))
+        #expect(controller.stripIsFoldedForTesting)
+
+        controller.transitionStripForTesting(toFolded: false)
+        try await Task.sleep(for: .milliseconds(30))
+        var preferences = model.stripPreferences
+        preferences.density = .mini
+        model.setStripPreferences(preferences)
+        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.mini.width) < 0.001)
+        #expect(controller.stripShowsExpandedContentForTesting)
+        controller.transitionStripForTesting(toFolded: true)
+        try await Task.sleep(for: .milliseconds(320))
+
+        #expect(controller.stripIsFoldedForTesting)
+        #expect(!controller.stripShowsExpandedContentForTesting)
+        #expect(controller.stripFrameForTesting.size == FloatingStripLayout.foldedSize)
     }
 
     @Test func migratingSelectedIdentityDoesNotDependOnLastEditedDisplay() throws {
