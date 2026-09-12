@@ -3,6 +3,16 @@
     <channel>
         <title>AI Token Meter</title>
         <item>
+            <title>0.9.0</title>
+            <pubDate>Sun, 13 Sep 2026 00:25:49 +0800</pubDate>
+            <link>https://github.com/sljzdotcom/AI-Token-Meter</link>
+            <sparkle:version>26</sparkle:version>
+            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v0.9.0/AI-Token-Meter-0.9.0-macOS-arm64.zip" length="3886261" type="application/octet-stream" sparkle:edSignature="V1jN6NUL5Eo0gQ4wjCEMkGHfiWJVKUUQqmO/ps9QICjGIjYlsy1YFBiaVSb/kiCxm3ThxTEZaw4nKV7Lke95DQ=="/>
+        </item>
+        <item>
             <title>0.8.2</title>
             <pubDate>Fri, 11 Sep 2026 22:57:08 +0800</pubDate>
             <link>https://github.com/sljzdotcom/AI-Token-Meter</link>
@@ -21,16 +31,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v0.8.1/AI-Token-Meter-0.8.1-macOS-arm64.zip" length="3777177" type="application/octet-stream" sparkle:edSignature="ZmESV+PTmb/dhSuH4KXOjsRHWo3n9VQQv6zX4xTbJblwnmRWP5Yg4Bnv1bmzx6wriHHOGADUA2k+lWwzBBv6Bg=="/>
-        </item>
-        <item>
-            <title>0.8.0</title>
-            <pubDate>Fri, 11 Sep 2026 11:21:55 +0800</pubDate>
-            <link>https://github.com/sljzdotcom/AI-Token-Meter</link>
-            <sparkle:version>23</sparkle:version>
-            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/sljzdotcom/AI-Token-Meter/releases/download/v0.8.0/AI-Token-Meter-0.8.0-macOS-arm64.zip" length="3785322" type="application/octet-stream" sparkle:edSignature="Z+Zs0zPU4XmncTRVwkR8GJOiHfbyD/TIGMDYJdMgb9+geRsilgNsxUF/NNOHxwbYfAu//G8B8YN5H+mxTHPkBA=="/>
         </item>
     </channel>
 </rss>
