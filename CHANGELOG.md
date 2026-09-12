@@ -6,7 +6,7 @@
 
 ### Added
 
-- macOS Settings → Appearance新增Language选择，默认English，可选简体中文和繁體中文；选择后菜单栏、Settings、悬浮条、Provider详情、通知及辅助功能文案即时切换并持久保存。
+- macOS Settings → Appearance新增Language选择，默认English，可选简体中文和繁體中文；选择后菜单栏、五个Settings页签、悬浮条、Provider详情、账户与更新状态、官方帮助链接、通知及辅助功能文案即时切换并持久保存。
 
 ### Fixed
 

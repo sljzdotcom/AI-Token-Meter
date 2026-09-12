@@ -8,7 +8,7 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**macOS三语言即时切换候选已通过本地完整门禁：** Settings → Appearance固定提供English、简体中文和繁體中文，缺失或未知偏好默认English；菜单栏、Settings、悬浮条、四Provider详情、通知、日期数字和辅助功能文案使用共享状态即时切换并持久保存。实现头`5b230aa`通过546项Swift、51项资源与界面专项及Release App三语言资源验证，仍待最终独立审查与本地main整合。[开发记录](development/2026-09-12-macos-app-language-selection.md)。本项未推送或发布。
+**macOS三语言即时切换候选已通过最终本地门禁：** Settings → Appearance固定提供English、简体中文和繁體中文，缺失或未知偏好默认English；菜单栏、Settings、悬浮条、四Provider详情、通知、日期数字和辅助功能文案使用共享状态即时切换并持久保存。最终修复头`7417628`通过552项Swift、51项资源与界面专项及Release App三份各321键的语言资源验证，完整分支复审Critical/Important/Minor为`0/0/0`，仍待本地main整合。[开发记录](development/2026-09-12-macos-app-language-selection.md)。本项未推送或发布。
 
 **自动隐藏展开轮廓修复已合入本地main：** macOS自动隐藏不再拉伸20×96pt收起窗口来形成展开态，而是直接提交与关闭自动隐藏时相同的三档精确尺寸和方案B圆润轮廓，只保留内容显示时序。真实`NSPanel`回归覆盖Comfortable、Compact、Mini的收起→展开终态、Settings即时切换、转换快速反向与拖拽期间更新；Windows合同与原生门禁证明现有路径一致，无需修改产品实现。[开发记录](development/2026-09-12-floating-strip-expanded-state-unification.md)。本项尚未推送远程或发布新版本。
 
