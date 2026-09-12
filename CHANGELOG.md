@@ -6,6 +6,7 @@
 
 ### Added
 
+- macOS Settings → Services在Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题前显示对应Logo；四项统一使用18pt图标、6pt间距和浅深色自适应前景色，装饰Logo不重复朗读产品名称。
 - macOS Settings → Appearance新增Language选择，默认English，可选简体中文和繁體中文；选择后菜单栏、五个Settings页签、悬浮条、Provider详情、账户与更新状态、官方帮助链接、通知及辅助功能文案即时切换并持久保存。
 
 ### Fixed
