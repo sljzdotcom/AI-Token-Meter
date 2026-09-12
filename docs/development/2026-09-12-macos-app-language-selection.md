@@ -38,7 +38,7 @@ macOS Settings → Appearance新增Language选择，固定提供English、简体
 - `scripts/test.sh`通过：主测试525项、独立刷新调度3项、PTY runner 18项，共546项Swift测试；6份跨平台合同fixture、合同可移植性、Windows资产规范化、更新源探针、289份Markdown与公开发布安全检查同时通过。
 - `scripts/build-app.sh`通过，生成并验证`dist/AI Token Meter.app`；主App、Sparkle framework及嵌套helper签名有效。当前机器没有Apple Development身份与Team ID，按既有规则跳过Widget。
 - Release App包含`en.lproj`、`zh-hans.lproj`、`zh-hant.lproj`三份`Localizable.strings`，各298项；三份均通过`plutil -lint`。资源bundle的`CFBundleDevelopmentRegion`为`en`，Package默认本地化与缺失偏好回退也都是English。
-- 公共发布安全检查通过；对Release App全文件的高置信凭据、常见真实邮箱、本机用户路径扫描均无命中。测试使用隔离偏好、fixture和合成状态，没有读取真实服务账号。
+- 公共发布安全检查通过。独立复核直接读取Release可执行文件原始字节，确认包含126处`/Users/millerpan`，内容为Swift编译写入的本机源码路径；这与凭据或Provider账号数据是不同检查项，本轮不扩大范围清除编译路径。对Release App全部文件的高置信API token、私钥、Bearer凭据和常见私人邮箱模式扫描无命中；有限模式扫描不构成任意秘密绝不存在的保证。测试使用隔离偏好、fixture和合成状态，没有读取真实服务账号。
 - 从计划前产品基线`029c15b`到实现头的新增行没有`URLSession`、`URLRequest`、任务或Network API；出现的URL仅是原有官方帮助链接的本地化迁移。Core、Windows与跨平台合同无差异。
 - 文档改动前`check-docs`为289份Markdown通过；新增本记录后最终复验为290份Markdown通过。`git diff --check`在产品门禁阶段和文档完成后都通过。
 
@@ -53,7 +53,9 @@ macOS Settings → Appearance新增Language选择，固定提供English、简体
 - `5a9723e5ad1f1bb5943915ec8546de80b118451f`：真实解析器输出的本地化审查修正。
 - `5b230aa4e3be0348ab3a142738b6d7c9266cf3b1`：通知、日期数字与辅助功能。
 
-任务7文档提交的精确SHA记录在同目录实现者报告中；最终独立审查与本地`main`合并SHA将在后续步骤完成后补记，当前不编造整合证据。
+任务7首个文档检查点提交为`de6ef107024271300b20dd0e76c6fc6567921cde`（`docs: record macOS language selection implementation`）。最终独立审查与本地`main`合并SHA将在后续步骤完成后补记，当前不编造整合证据。
+
+任务7文档初审为Critical/Important/Minor `0/1/1`：上述Release二进制编译路径证据与公开Git证据描述已按实际产物修正，等待复审。
 
 ## 验收边界
 
