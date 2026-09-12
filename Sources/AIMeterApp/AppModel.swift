@@ -21,6 +21,7 @@ final class AppModel {
     private let defaults: UserDefaults
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
     private let displayFontPreferenceStore: DisplayFontPreferenceStore
+    private let appLanguagePreferenceStore: AppLanguagePreferenceStore
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
@@ -65,6 +66,7 @@ final class AppModel {
     private(set) var requestedSettingsTab = SettingsTab.appearance
     private(set) var settingsRequestSequence = 0
     private(set) var displayFontChoice: DisplayFontChoice
+    private(set) var appLanguage: AppLanguage
     private(set) var floatingStripPosition: FloatingStripPosition
     private(set) var floatingStripDisplays: FloatingStripDisplays
     private(set) var availableStripDisplays: [FloatingStripDisplayChoice] = []
@@ -115,6 +117,8 @@ final class AppModel {
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
         self.displayFontPreferenceStore = DisplayFontPreferenceStore(defaults: defaults)
         self.displayFontChoice = self.displayFontPreferenceStore.load()
+        self.appLanguagePreferenceStore = AppLanguagePreferenceStore(defaults: defaults)
+        self.appLanguage = self.appLanguagePreferenceStore.load()
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
         self.floatingStripDisplays = FloatingStripDisplaysStore(defaults: defaults).load()
@@ -444,6 +448,12 @@ final class AppModel {
     func setDisplayFontChoice(_ choice: DisplayFontChoice) {
         displayFontChoice = choice
         displayFontPreferenceStore.save(choice)
+    }
+
+    func setAppLanguage(_ language: AppLanguage) {
+        guard language != appLanguage else { return }
+        appLanguage = language
+        appLanguagePreferenceStore.save(language)
     }
 
     func restoreDefaultDisplayFont() {
