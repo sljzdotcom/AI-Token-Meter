@@ -1,18 +1,18 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-12
+- **事实快照：** 2026-09-13
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.8.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)（macOS build `25`）
-- **当前源码版本：** 双平台 `0.9.0`（macOS build `26`）发布候选
+- **当前公开稳定版：** 双平台 [`0.9.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.0)（macOS build `26`）
+- **当前源码版本：** 双平台 `0.9.0`（macOS build `26`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**macOS Services四产品Logo已进入0.9.0发布候选（本地main `28ec9f6`）：** Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题复用同一18pt Logo组件与6pt名称间距，使用系统主前景色适配浅深外观，装饰Logo不进入辅助功能树。实现`eeaf215`通过147项串行真实窗口专项、559项完整Swift门禁及Release App四Logo、三语言资源和签名验证，最终独立审查`0/0/0`；合并结果再次通过完整测试和正式App构建。Core、Windows与数据逻辑无变化。[开发记录](development/2026-09-12-macos-services-provider-logos.md)。未推送或发布。
+**macOS Services四产品Logo已随0.9.0公开：** Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题复用同一18pt Logo组件与6pt名称间距，使用系统主前景色适配浅深外观，装饰Logo不进入辅助功能树。实现通过147项串行真实窗口专项、完整Swift门禁及Release App四Logo、三语言资源和签名验证，最终独立审查`0/0/0`。Core、Windows与数据逻辑无变化。[开发记录](development/2026-09-12-macos-services-provider-logos.md)。
 
-**macOS三语言即时切换已进入0.9.0发布候选（本地main `207ad63`）：** Settings → Appearance固定提供English、简体中文和繁體中文，缺失或未知偏好默认English；菜单栏、Settings、悬浮条、四Provider详情、通知、日期数字和辅助功能文案使用共享状态即时切换并持久保存。最终修复头`7417628`通过552项Swift、51项资源与界面专项及Release App三份各321键的语言资源验证，完整分支复审Critical/Important/Minor为`0/0/0`；合并结果再次通过完整测试与正式App构建。[开发记录](development/2026-09-12-macos-app-language-selection.md)。本项未推送或发布。
+**macOS三语言即时切换已随0.9.0公开：** Settings → Appearance固定提供English、简体中文和繁體中文，缺失或未知偏好默认English；菜单栏、Settings、悬浮条、四Provider详情、通知、日期数字和辅助功能文案使用共享状态即时切换并持久保存。实现通过语言资源、界面专项、完整Swift门禁与正式App签名验证，完整分支复审Critical/Important/Minor为`0/0/0`。[开发记录](development/2026-09-12-macos-app-language-selection.md)。
 
-**自动隐藏展开轮廓修复已进入0.9.0发布候选：** macOS自动隐藏不再拉伸20×96pt收起窗口来形成展开态，而是直接提交与关闭自动隐藏时相同的三档精确尺寸和方案B圆润轮廓，只保留内容显示时序。真实`NSPanel`回归覆盖Comfortable、Compact、Mini的收起→展开终态、Settings即时切换、转换快速反向与拖拽期间更新；Windows合同与原生门禁证明现有路径一致，无需修改产品实现。[开发记录](development/2026-09-12-floating-strip-expanded-state-unification.md)。本项尚未推送远程或发布新版本。
+**自动隐藏展开轮廓修复已随0.9.0公开：** macOS自动隐藏不再拉伸20×96pt收起窗口来形成展开态，而是直接提交与关闭自动隐藏时相同的三档精确尺寸和方案B圆润轮廓，只保留内容显示时序。真实`NSPanel`回归覆盖Comfortable、Compact、Mini的收起→展开终态、Settings即时切换、转换快速反向与拖拽期间更新；Windows合同与原生门禁确认现有路径一致。[开发记录](development/2026-09-12-floating-strip-expanded-state-unification.md)。
 
 **0.8.2 悬浮条即时密度与方案 B 轮廓已公开：** Settings 切换 Comfortable、Compact、Mini 时，已展开的原生窗口会先完成尺寸调整再显示最新设置；左贴边暴露侧上下角恢复圆润，贴屏侧上下反向肩弧加强到30pt/px，并与右贴边严格镜像。PR、main和正式发布门禁全绿；七项公开资产、两端更新签名、篡改拒绝和三个更新入口均完成公网验收，[发布记录](development/2026-09-11-v0.8.2-release.md)。
 
@@ -127,8 +127,8 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - 0.8.2/build25稳定版基线为499项Swift、137项Windows前端、254项宿主Rust、24组展开和2组收起真实浏览器布局，并覆盖真实`NSPanel`密度即时调整；完整发布证据见[0.8.2发布记录](development/2026-09-11-v0.8.2-release.md)。
 - macOS三语言最终实现`7417628`及本地main合并`207ad63`通过**531项主测试 + 3项独立刷新调度 + 18项PTY runner，共552项Swift**；另有51项资源与真实界面专项。无Widget Release App签名与便携资源验证通过，内含三份各321项的语言表；6份跨平台合同、290份Markdown、公开安全检查及最终独立审查`0/0/0`通过。
 - macOS Services产品Logo实现`eeaf215`及本地main合并`28ec9f6`通过**538项主测试 + 3项独立刷新调度 + 18项PTY runner，共559项Swift**；另有147项、18个suite的串行真实窗口专项。无Widget Release App包含四份Provider Logo与三份语言资源，主App及Sparkle嵌套签名有效；6份跨平台合同、293份Markdown、公开安全检查和最终独立审查`0/0/0`通过。
-- 0.9.0/build26发布候选通过**538项主测试 + 3项独立刷新调度 + 18项PTY runner，共559项Swift**，以及147项真实WindowServer专项；Windows通过137项前端、254项宿主Rust、25项浏览器进程生命周期、24组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、296份Markdown、公开安全和无Widget Release App签名门禁通过。
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-11-v0.8.2-release.md)。
+- 0.9.0/build26通过**539项主测试 + 3项独立刷新调度 + 18项PTY runner，共560项Swift**，以及147项真实WindowServer专项；Windows通过137项前端、254项宿主Rust、25项浏览器进程生命周期、24组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、296份Markdown、公开安全和无Widget Release App签名门禁通过。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.9.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.0) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-12-v0.9.0-release.md)。
 - `v0.6.3` 标签指向 `dff54d8`，appcast `fd737f0` 首项为0.6.3/build18，Windows stable/旧 Preview同步为0.6.3；发布 workflow `34361767956`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。
