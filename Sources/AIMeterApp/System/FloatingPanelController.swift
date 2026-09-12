@@ -748,6 +748,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     private func openContextMenu(_ event: NSEvent) {
+        let menu = makeContextMenu()
+        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+    }
+
+    func makeContextMenu() -> NSMenu {
+        let localizer = AppLocalizer(language: model.appLanguage)
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
@@ -756,12 +762,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                                 ("Settings…", #selector(settingsFromMenu)),
                                 ("Quit AI Token Meter", #selector(quitFromMenu))] {
             if title == "Settings…" { menu.addItem(.separator()) }
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            let item = NSMenuItem(title: localizer.text(title), action: action, keyEquivalent: "")
             item.target = self
             item.isEnabled = title != "Refresh now" || !model.isRefreshing
             menu.addItem(item)
         }
-        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+        return menu
     }
     func menuWillOpen(_ menu: NSMenu) { menuIsOpen = true; applyDetailInteractionState(); tickFold(forceExpanded: true) }
     func menuDidClose(_ menu: NSMenu) { menuIsOpen = false; applyDetailInteractionState(); tickFold() }

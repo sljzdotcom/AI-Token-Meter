@@ -30,7 +30,7 @@ struct AppearanceSettingsView: View {
                         HStack {
                             Text(option.choice.displayName)
                             if let status = option.statusText {
-                                Text(status).foregroundStyle(.secondary)
+                                Text(localizer.text(status)).foregroundStyle(.secondary)
                             }
                         }
                         .tag(option.choice)

@@ -11,22 +11,25 @@ enum SoftwareUpdateSettingsCopy {
 
 struct SoftwareUpdateSettingsView: View {
     let coordinator: SoftwareUpdateCoordinator
+    @Environment(\.locale) private var locale
+
+    private var localizer: AppLocalizer { AppLocalizer(language: AppLanguage(rawValue: locale.identifier) ?? .english) }
 
     var body: some View {
-        Section(SoftwareUpdateSettingsCopy.sectionTitle) {
+        Section(localizer.text(SoftwareUpdateSettingsCopy.sectionTitle)) {
             LabeledContent(
-                SoftwareUpdateSettingsCopy.currentVersion,
+                localizer.text(SoftwareUpdateSettingsCopy.currentVersion),
                 value: coordinator.currentVersionText
             )
             LabeledContent(
-                SoftwareUpdateSettingsCopy.status,
+                localizer.text(SoftwareUpdateSettingsCopy.status),
                 value: coordinator.state.statusText
             )
 
             if let lastCheckedAt = coordinator.lastCheckedAt {
                 LabeledContent(
-                    SoftwareUpdateSettingsCopy.lastChecked,
-                    value: lastCheckedAt.formatted(date: .abbreviated, time: .shortened)
+                    localizer.text(SoftwareUpdateSettingsCopy.lastChecked),
+                    value: localizer.date(lastCheckedAt)
                 )
             }
 
@@ -37,12 +40,12 @@ struct SoftwareUpdateSettingsView: View {
             }
 
             HStack {
-                Button(SoftwareUpdateSettingsCopy.checkButton) {
+                Button(localizer.text(SoftwareUpdateSettingsCopy.checkButton)) {
                     coordinator.checkForUpdates()
                 }
                 .disabled(!coordinator.canCheck)
 
-                Button(SoftwareUpdateSettingsCopy.installButton) {
+                Button(localizer.text(SoftwareUpdateSettingsCopy.installButton)) {
                     coordinator.installAvailableUpdate()
                 }
                 .buttonStyle(.borderedProminent)

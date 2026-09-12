@@ -94,6 +94,9 @@ struct AppLocalizationTests {
     @Test("Every shipped dynamic template renders its arguments and literal percent signs")
     func allDynamicTemplatesRender() throws {
         let examples: [String: [String]] = [
+            "Updated %@": ["Updated Claude Code", "更新于 Claude Code", "更新於 Claude Code"],
+            "Quit %@": ["Quit Claude Code", "退出 Claude Code", "結束 Claude Code"],
+            "%@, vertical position %lld percent": ["Claude Code, vertical position 70 percent", "Claude Code，垂直位置百分之 70", "Claude Code，垂直位置百分之 70"],
             "Move %@ up": ["Move Claude Code up", "上移 Claude Code", "將 Claude Code 上移"],
             "Move %@ down": ["Move Claude Code down", "下移 Claude Code", "將 Claude Code 下移"],
             "Show delay: %lld ms": ["Show delay: 70 ms", "显示延迟：70 毫秒", "顯示延遲：70 毫秒"],
@@ -130,6 +133,55 @@ struct AppLocalizationTests {
                     continue
                 }
                 #expect(rendered == expected, "\(language.rawValue): \(key)")
+            }
+        }
+    }
+
+    @Test("Settings and meter controls translate every app-owned label and accessibility instruction")
+    func settingsAndMeterTranslations() throws {
+        // Removing a resource or falling back to English in either Chinese language is a regression.
+        let keys = [
+            "Display", "Content and Size", "Screen and Position", "Behavior", "Privacy", "Software Update",
+            "Refresh now", "Hide for 1 hour", "Settings…", "Quit AI Token Meter", "Show Floating Strip Now",
+            "Checking usage", "Waiting for first refresh", "Not installed", "Expand floating meter",
+            "Move floating meter", "Use up or down to move. Left and right set the edge preference",
+            "Set edge preference to Left", "Set edge preference to Right", "Left edge", "Right edge",
+            "Private AI usage monitor", "Apply", "Refresh interval in seconds", "Check Status",
+            "Authorize Usage Workspace", "Save API Key", "Replace API Key", "Check for Updates", "Update Now",
+        ]
+        for language in AppLanguage.allCases {
+            let localizer = AppLocalizer(language: language)
+            let values = try table(language)
+            for key in keys {
+                let value = try #require(values[key], "Missing resource: \(language.rawValue), \(key)")
+                #expect(localizer.text(key) == value)
+                if language != .english { #expect(value != key, "Untranslated: \(key)") }
+            }
+        }
+        #expect(AppLocalizer(language: .simplifiedChinese).text("Expand floating meter") == "展开悬浮用量表")
+        #expect(AppLocalizer(language: .traditionalChinese).text("Expand floating meter") == "展開懸浮用量表")
+    }
+
+    @Test("Settings and meter source literals have registered resources")
+    func settingsSourceResourceInventory() throws {
+        // Supplemental inventory gate: runtime tests below verify that registered keys are actually resolved.
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let files = ["AppearanceSettingsView", "FloatingStripSettingsView", "FloatingStripDisplaySettings",
+                     "MonitoringSettingsView", "ServicesSettingsView", "AboutSettingsView",
+                     "SoftwareUpdateSettingsView", "MenuBarPanel", "FloatingStripView", "RefreshIntervalEditor"]
+        let english = try table(.english)
+        let pattern = try NSRegularExpression(pattern: #""([^"\n]*)""#)
+        // Product names and currency identifiers retain their spelling; the other entries are SF Symbols/URLs.
+        let preserved = Set(["", "CNY", "DeepSeek", "Google Antigravity", "arrow.up", "arrow.down",
+                             "checkmark.shield", "gauge.with.dots.needle.50percent", "arrow.clockwise", "gearshape", "power",
+                             "https://code.claude.com/docs/en/setup", "https://learn.chatgpt.com/docs/codex/cli"])
+        for file in files {
+            let source = try String(contentsOf: root.appending(path: "Sources/AIMeterApp/Views/\(file).swift"), encoding: .utf8)
+            let text = source as NSString
+            for match in pattern.matches(in: source, range: NSRange(location: 0, length: text.length)) {
+                let key = text.substring(with: match.range(at: 1))
+                #expect(preserved.contains(key) || english[key] != nil, "Unregistered user-facing text: \(file): \(key)")
             }
         }
     }

@@ -4,6 +4,9 @@ import SwiftUI
 
 struct AboutSettingsView: View {
     let updateCoordinator: SoftwareUpdateCoordinator
+    @Environment(\.locale) private var locale
+
+    private var localizer: AppLocalizer { AppLocalizer(language: AppLanguage(rawValue: locale.identifier) ?? .english) }
 
     private var versionText: String {
         AppBrand.versionText(info: Bundle.main.infoDictionary ?? [:])
@@ -20,7 +23,7 @@ struct AboutSettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(AppBrand.displayName)
                             .font(.title2.weight(.semibold))
-                        Text(AppBrand.subtitle)
+                        Text(localizer.text(AppBrand.subtitle))
                             .foregroundStyle(.secondary)
                         Text(versionText)
                             .font(.caption)
@@ -31,8 +34,8 @@ struct AboutSettingsView: View {
                 .padding(.vertical, 8)
             }
 
-            Section("Privacy") {
-                Text("Claude Code and OpenAI Codex credentials stay with their official CLIs. The DeepSeek API Key is stored in Keychain, and local history contains only normalized aggregate usage.")
+            Section(localizer.text("Privacy")) {
+                Text(localizer.text("Claude Code and OpenAI Codex credentials stay with their official CLIs. The DeepSeek API Key is stored in Keychain, and local history contains only normalized aggregate usage."))
                     .foregroundStyle(.secondary)
             }
 
