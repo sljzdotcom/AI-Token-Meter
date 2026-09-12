@@ -43,18 +43,41 @@ struct BoundedCommandRunnerTests {
     }
 
     @Test func cancellationTerminatesTheCommand() async {
-        let startedAt = Date()
+        let clock = ContinuousClock()
+        let startedSignal = FileManager.default.temporaryDirectory
+            .appending(path: "bounded-command-started-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: startedSignal) }
         let task = Task {
             try await BoundedCommandRunner().run(CommandRequest(
-                executableURL: URL(fileURLWithPath: "/bin/sleep"),
-                arguments: ["2"],
+                executableURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: [
+                    "-c", "printf started > \"$1\"; exec /bin/sleep 30",
+                    "bounded-command-cancellation", startedSignal.path,
+                ],
                 inputLines: [],
-                timeout: 5
+                timeout: 10
             ))
         }
-        try? await Task.sleep(for: .milliseconds(50))
+        var didStart = false
+        for _ in 0..<500 {
+            if FileManager.default.fileExists(atPath: startedSignal.path) {
+                didStart = true
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        guard didStart else {
+            task.cancel()
+            _ = try? await task.value
+            Issue.record("The controlled child process did not start")
+            return
+        }
+        // A long pre-cancel delay proves the one-second assertion measures cleanup,
+        // while the 30-second child cannot naturally exit inside that threshold.
+        try? await Task.sleep(for: .milliseconds(1_100))
+        let cancelledAt = clock.now
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
-        #expect(Date().timeIntervalSince(startedAt) < 1)
+        #expect(cancelledAt.duration(to: clock.now) < .seconds(1))
     }
 }
