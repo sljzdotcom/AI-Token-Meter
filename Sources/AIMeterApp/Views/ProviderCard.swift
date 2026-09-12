@@ -2,6 +2,8 @@ import AIMeterCore
 import SwiftUI
 
 struct ProviderCard: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let snapshot: UsageSnapshot
     let onClaudeSetup: (() -> Void)?
 
@@ -10,13 +12,13 @@ struct ProviderCard: View {
         self.onClaudeSetup = onClaudeSetup
     }
 
-    private var presentation: ProviderPresentation {
-        ProviderPresentation(snapshot: snapshot)
+    private var presentation: AppProviderPresentation {
+        AppProviderPresentation(snapshot: snapshot, localizer: localizer)
     }
 
     var body: some View {
         HStack(spacing: 14) {
-            UsageRing(presentation: presentation, size: 54)
+            UsageRing(presentation: presentation.core, size: 54)
                 .padding(5)
                 .background(AIMeterVisualTheme.glassBase.opacity(0.88), in: Circle())
 
@@ -56,14 +58,14 @@ struct ProviderCard: View {
                         Text(status)
                     }
                     Spacer()
-                    Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                    Text(localizer.text("Updated %@", localizer.date(snapshot.fetchedAt, dateStyle: .none, timeStyle: .short)))
                 }
                 .aiMeterFont(.caption2)
                 .foregroundStyle(.secondary)
                 if snapshot.provider == .claude,
                    snapshot.collectionStatus == .setupRequired,
                    let onClaudeSetup {
-                    Button("Open one-time setup", action: onClaudeSetup)
+                    Button(localizer.text("Open one-time setup"), action: onClaudeSetup)
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                 }
@@ -75,10 +77,10 @@ struct ProviderCard: View {
 
     private func metricLine(_ metric: UsageMetric) -> some View {
         HStack(spacing: 4) {
-            Text(metric.label)
+            Text(ProviderDetailText.metricLabel(metric.label, localizer: localizer))
             Spacer()
             if let fraction = metric.usedFraction {
-                Text("\(Int((fraction * 100).rounded()))%")
+                Text(localizer.percentage(fraction))
             }
         }
         .aiMeterFont(.caption2)

@@ -5,18 +5,20 @@ struct ServicesSettingsView: View {
     @Bindable var model: AppModel
     @Binding var pendingAPIKey: String
 
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
+
     var body: some View {
         Form {
             Section(UsageProvider.claude.displayName) {
                 ServiceAccountStatusView(status: status(for: .claude))
-                Text("Authentication is handled by the official Claude Code CLI. AI Token Meter never receives your password or verification code.")
+                Text(localizer.text("Authentication is handled by the official Claude Code CLI. AI Token Meter never receives your password or verification code."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
                     serviceActionButton(.claude)
 
                     if model.serviceAction(for: .claude).showsSeparateStatusCheck {
-                        Button("Check Status") {
+                        Button(localizer.text("Check Status")) {
                             Task { await model.checkServiceAccount(.claude) }
                         }
                         .disabled(!model.serviceAction(for: .claude).isEnabled)
@@ -24,24 +26,24 @@ struct ServicesSettingsView: View {
 
                     Spacer()
 
-                    Button("Authorize Usage Workspace") {
+                    Button(localizer.text("Authorize Usage Workspace")) {
                         model.openClaudeWorkspaceSetup()
                     }
-                    .help("Only needed when Claude Code asks for workspace approval before /usage can run.")
+                    .help(localizer.text("Only needed when Claude Code asks for workspace approval before /usage can run."))
                 }
                 installationNotice(.claude)
             }
 
             Section(UsageProvider.codex.displayName) {
                 ServiceAccountStatusView(status: status(for: .codex))
-                Text("Authentication is handled by the official OpenAI Codex CLI. AI Token Meter only reads the account identity that OpenAI Codex reports locally.")
+                Text(localizer.text("Authentication is handled by the official OpenAI Codex CLI. AI Token Meter only reads the account identity that OpenAI Codex reports locally."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
                     serviceActionButton(.codex)
 
                     if model.serviceAction(for: .codex).showsSeparateStatusCheck {
-                        Button("Check Status") {
+                        Button(localizer.text("Check Status")) {
                             Task { await model.checkServiceAccount(.codex) }
                         }
                         .disabled(!model.serviceAction(for: .codex).isEnabled)
@@ -54,7 +56,7 @@ struct ServicesSettingsView: View {
                 ServiceAccountStatusView(status: status(for: .deepSeek))
 
                 HStack {
-                    Text("Balance baseline")
+                    Text(localizer.text("Balance baseline"))
                     Spacer()
                     TextField(
                         "CNY",
@@ -68,26 +70,26 @@ struct ServicesSettingsView: View {
                     Text("CNY")
                         .foregroundStyle(.secondary)
                 }
-                Text("The ring shows how much of this reference balance has been depleted. The default is ¥100.")
+                Text(localizer.text("The ring shows how much of this reference balance has been depleted. The default is ¥100."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
 
                 SecureField(
-                    model.apiKeyConfigured ? "Enter a replacement API Key" : "DeepSeek API Key",
+                    localizer.text(model.apiKeyConfigured ? "Enter a replacement API Key" : "DeepSeek API Key"),
                     text: $pendingAPIKey
                 )
                 .disabled(model.isReplacingDeepSeekAPIKey)
                 HStack {
-                    Label("Stored only in macOS Keychain", systemImage: "checkmark.shield")
+                    Label(localizer.text("Stored only in macOS Keychain"), systemImage: "checkmark.shield")
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                     Spacer()
                     if model.apiKeyConfigured {
-                        Button("Remove", role: .destructive) {
+                        Button(localizer.text("Remove"), role: .destructive) {
                             model.removeDeepSeekAPIKey()
                         }
                     }
-                    Button(model.apiKeyConfigured ? "Replace API Key" : "Save API Key") {
+                    Button(localizer.text(model.apiKeyConfigured ? "Replace API Key" : "Save API Key")) {
                         Task {
                             if await model.replaceDeepSeekAPIKey(pendingAPIKey) {
                                 pendingAPIKey = ""
@@ -102,14 +104,14 @@ struct ServicesSettingsView: View {
                     if model.isReplacingDeepSeekAPIKey {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Verifying…")
+                        Text(localizer.text("Verifying…"))
                             .aiMeterFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                Text(model.apiKeyConfigured
+                Text(localizer.text(model.apiKeyConfigured
                     ? "A replacement is saved only after DeepSeek verifies it. If verification fails, the existing Key remains active."
-                    : "The API Key is saved only after DeepSeek verifies it. If verification fails, the new Key is not saved.")
+                    : "The API Key is saved only after DeepSeek verifies it. If verification fails, the new Key is not saved."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -117,13 +119,13 @@ struct ServicesSettingsView: View {
             Section("Google Antigravity") {
                 let geminiStatus = status(for: .gemini)
                 ServiceAccountStatusView(status: geminiStatus)
-                Text("Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view.")
+                Text(localizer.text("Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 GeminiInstallationHelp(state: geminiStatus.connectionState)
                 HStack {
-                    Link("Antigravity CLI installation guide", destination: GeminiInstallationGuide.url)
-                    Button("Retry") { Task { await model.checkServiceAccount(.gemini) } }
+                    Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
+                    Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }
                 }
             }
 
@@ -147,7 +149,7 @@ struct ServicesSettingsView: View {
 
     private func serviceActionButton(_ provider: UsageProvider) -> some View {
         let action = model.serviceAction(for: provider)
-        return Button(action.title) { model.performServiceAction(provider) }
+        return Button(localizer.text(action.title)) { model.performServiceAction(provider) }
             .tint(action.needsAttention ? .orange : .accentColor)
             .buttonStyle(.bordered)
             .disabled(!action.isEnabled)
@@ -156,9 +158,9 @@ struct ServicesSettingsView: View {
     @ViewBuilder
     private func installationNotice(_ provider: UsageProvider) -> some View {
         if status(for: provider).connectionState == .notInstalled {
-            Text("Downloads and runs the official installer in Terminal.")
+            Text(localizer.text("Downloads and runs the official installer in Terminal."))
                 .font(.caption).foregroundStyle(.secondary)
-            Link("Official installation instructions", destination: URL(string: provider == .claude ? "https://code.claude.com/docs/en/setup" : "https://learn.chatgpt.com/docs/codex/cli")!)
+            Link(localizer.text("Official installation instructions"), destination: URL(string: provider == .claude ? "https://code.claude.com/docs/en/setup" : "https://learn.chatgpt.com/docs/codex/cli")!)
         }
     }
 }

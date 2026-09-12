@@ -3,25 +3,38 @@ import AIMeterCore
 
 @MainActor
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
-    private let center = UNUserNotificationCenter.current()
+    private let center: UNUserNotificationCenter?
+    private let language: () -> AppLanguage
+    private let enqueue: (UNNotificationRequest) -> Void
     var onOpenProvider: ((UsageProvider) -> Void)?
 
-    override init() {
+    init(language: @escaping () -> AppLanguage = { .english }, enqueue: ((UNNotificationRequest) -> Void)? = nil) {
+        self.language = language
+        if let enqueue {
+            self.center = nil
+            self.enqueue = enqueue
+        } else {
+            let center = UNUserNotificationCenter.current()
+            self.center = center
+            self.enqueue = { request in Task { try? await center.add(request) } }
+        }
         super.init()
-        center.delegate = self
+        center?.delegate = self
     }
 
     func requestAuthorization() {
+        guard let center else { return }
         Task {
             _ = try? await center.requestAuthorization(options: [.alert, .sound])
         }
     }
 
     func send(_ events: [ThresholdEvent]) {
+        let localizer = AppLocalizer(language: language())
         for event in events {
             let content = UNMutableNotificationContent()
-            content.title = event.level == .critical ? "Usage reached 90%" : "Usage reached 70%"
-            content.body = Self.notificationBody(for: event)
+            content.title = localizer.text("Usage reached %@", localizer.percentage(event.level == .critical ? 0.9 : 0.7))
+            content.body = Self.notificationBody(for: event, localizer: localizer)
             content.sound = .default
             content.userInfo = ["provider": event.provider.rawValue]
             let request = UNNotificationRequest(
@@ -29,12 +42,14 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
                 content: content,
                 trigger: nil
             )
-            Task { try? await center.add(request) }
+            enqueue(request)
         }
     }
 
-    static func notificationBody(for event: ThresholdEvent) -> String {
-        "\(event.provider.displayName) · \(event.metricLabel) is at \(Int((event.usedFraction * 100).rounded()))%."
+    static func notificationBody(for event: ThresholdEvent, localizer: AppLocalizer = AppLocalizer(language: .english)) -> String {
+        localizer.text("%@ · %@ is at %@.", event.provider.displayName,
+                       ProviderDetailText.metricLabel(event.metricLabel, localizer: localizer),
+                       localizer.percentage(event.usedFraction))
     }
 
     nonisolated func userNotificationCenter(

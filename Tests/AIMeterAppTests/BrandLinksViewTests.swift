@@ -8,6 +8,45 @@ import Testing
 @Suite("About brand links")
 struct BrandLinksViewTests {
     @MainActor
+    @Test("Existing failed links refresh visible feedback, tooltips and accessibility help with the language")
+    func existingFailureFollowsLanguage() async throws {
+        var opened: URL?
+        let model = BrandLinksModel(action: BrandLinkOpenAction { opened = $0; return false })
+        let host = NSHostingView(rootView: BrandLinksView(model: model).environment(\.locale, AppLanguage.english.locale))
+        let window = hostInWindow(host, width: 400, height: 120)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let buttons = try #require(await renderedViews(in: host) { views in
+            let buttons = views.compactMap { $0 as? NSButton }
+            return buttons.count == 3 ? buttons : nil
+        })
+        try #require(buttons.first { $0.title == "GitHub" }).performClick(nil)
+        let feedback = try #require(await renderedViews(in: host) { views in
+            views.compactMap { $0 as? NSTextField }.first { $0.stringValue == "The author link could not be opened." }
+        })
+        for (language, failure, help) in [
+            (AppLanguage.simplifiedChinese, "无法打开作者链接。", "在默认浏览器中打开"),
+            (.traditionalChinese, "無法開啟作者連結。", "在預設瀏覽器中開啟"),
+            (.english, "The author link could not be opened.", "Opens in your default browser"),
+        ] {
+            host.rootView = BrandLinksView(model: model).environment(\.locale, language.locale)
+            try await settleLocalizationHost(host)
+            #expect(feedback.stringValue == failure)
+            #expect(feedback.accessibilityLabel() == failure)
+            #expect(buttons.map(\.title) == ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"])
+            #expect(buttons.map { $0.accessibilityLabel() } == ["@MillerPanYue", "GitHub", "Telegram @sljzdotcom"])
+            #expect(buttons.allSatisfy { $0.toolTip == help && $0.accessibilityHelp() == help })
+            #expect(buttons.allSatisfy { button in viewDescendants(of: host).contains { $0 === button } })
+            #expect(viewDescendants(of: host).contains { $0 === feedback })
+            #expect(window.contentView === host)
+            for (index, button) in buttons.enumerated() {
+                button.performClick(nil)
+                #expect(opened == AppBrand.authorLinks[index].url)
+            }
+        }
+    }
+
+    @MainActor
     @Test("The rendered author buttons preserve labels and dispatch their fixed targets")
     func renderedButtonsOpenTheirTargets() async throws {
         var opened: URL?

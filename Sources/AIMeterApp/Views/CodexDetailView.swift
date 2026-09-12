@@ -2,11 +2,13 @@ import AIMeterCore
 import SwiftUI
 
 struct CodexDetailView: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let snapshot: UsageSnapshot
     var onOpenServicesSettings: () -> Void = {}
 
-    private var presentation: ProviderPresentation {
-        ProviderPresentation(snapshot: snapshot)
+    private var presentation: AppProviderPresentation {
+        AppProviderPresentation(snapshot: snapshot, localizer: localizer)
     }
 
     var body: some View {
@@ -32,7 +34,7 @@ struct CodexDetailView: View {
                 Text(snapshot.provider.displayName)
                     .aiMeterFont(.headline)
                     .foregroundStyle(valueStyle)
-                Text("Official quota · Local OpenAI Codex activity")
+                Text(localizer.text("Official quota · Local OpenAI Codex activity"))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
@@ -45,7 +47,7 @@ struct CodexDetailView: View {
 
     private var quotaSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Official quota")
+            Text(localizer.text("Official quota"))
                 .aiMeterFont(.caption, weight: .semibold)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             if snapshot.primaryMetric != nil || snapshot.secondaryMetric != nil {
@@ -83,7 +85,7 @@ struct CodexDetailView: View {
             status: snapshot.collectionStatus,
             statusMessage: snapshot.statusMessage
         ) == .openServicesSettings {
-            Button("Open Services Settings", action: onOpenServicesSettings)
+            Button(localizer.text("Open Services Settings"), action: onOpenServicesSettings)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
         }
@@ -92,7 +94,7 @@ struct CodexDetailView: View {
     private func quotaCard(_ metric: UsageMetric, resetText: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(metric.label)
+                Text(ProviderDetailText.metricLabel(metric.label, localizer: localizer))
                     .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .lineLimit(1)
@@ -106,7 +108,7 @@ struct CodexDetailView: View {
                 fraction: metric.usedFraction ?? 0,
                 semantic: presentation.semantic
             )
-            Text(resetText ?? "Reset time unavailable")
+            Text(resetText ?? localizer.text("Reset time unavailable"))
                 .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 .lineLimit(1)
@@ -122,25 +124,24 @@ struct CodexDetailView: View {
     private var localSection: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
-                Text("Last 30 days · This Mac")
+                Text(localizer.text("Last 30 days · This Mac"))
                     .aiMeterFont(.caption, weight: .semibold)
                 Spacer()
-                Text("Local estimate")
+                Text(localizer.text("Local estimate"))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             if let summary = snapshot.codexLocalActivity {
-                let values = CodexLocalActivityPresentation(summary: summary)
                 HStack(spacing: 8) {
-                    localStat(title: "Token", value: values.tokenText, symbol: "number")
-                    localStat(title: "Current streak", value: values.streakText, symbol: "flame")
-                    localStat(title: "Longest session", value: values.longestSessionText, symbol: "clock")
+                    localStat(title: "Token", value: ProviderDetailText.compactCount(summary.tokenCount, localizer: localizer), symbol: "number")
+                    localStat(title: "Current streak", value: ProviderDetailText.localStreak(summary, localizer: localizer), symbol: "flame")
+                    localStat(title: "Longest session", value: ProviderDetailText.localDuration(summary, localizer: localizer), symbol: "clock")
                 }
-                Text("Counts only aggregate OpenAI Codex thread activity readable on this Mac.")
+                Text(localizer.text("Counts only aggregate OpenAI Codex thread activity readable on this Mac."))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             } else {
-                Text("Local OpenAI Codex activity is unavailable; official quota data is unaffected.")
+                Text(localizer.text("Local OpenAI Codex activity is unavailable; official quota data is unaffected."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .padding(11)
@@ -160,7 +161,7 @@ struct CodexDetailView: View {
                 .foregroundStyle(valueStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
-            Text(title)
+            Text(localizer.text(title))
                 .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 .lineLimit(1)
@@ -170,7 +171,7 @@ struct CodexDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(value), local estimate")
+        .accessibilityLabel(localizer.text("Local estimate, %@, %@", localizer.text(title), value))
     }
 
     private var footer: some View {
@@ -180,7 +181,7 @@ struct CodexDetailView: View {
                     .lineLimit(1)
             }
             Spacer()
-            Text("\(ProviderDataState.freshness(snapshot)) · Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
+            Text(ProviderDetailText.freshness(snapshot, localizer: localizer) + " · " + localizer.text("Updated %@", localizer.date(snapshot.fetchedAt, dateStyle: .none, timeStyle: .short)))
         }
         .aiMeterFont(.caption2)
         .foregroundStyle(AIMeterVisualTheme.tertiaryText)
@@ -192,6 +193,6 @@ struct CodexDetailView: View {
 
     private func percentText(_ metric: UsageMetric) -> String {
         guard let fraction = metric.usedFraction else { return "—" }
-        return "\(Int((fraction * 100).rounded()))%"
+        return localizer.percentage(fraction)
     }
 }

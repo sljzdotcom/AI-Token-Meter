@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "AI-Meter",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "AIMeterCore", targets: ["AIMeterCore"]),
@@ -30,6 +31,9 @@ let package = Package(
             resources: [
                 .copy("Resources/Logos"),
                 .copy("Resources/Backgrounds"),
+                .process("Resources/en.lproj"),
+                .process("Resources/zh-Hans.lproj"),
+                .process("Resources/zh-Hant.lproj"),
             ]
         ),
         .executableTarget(

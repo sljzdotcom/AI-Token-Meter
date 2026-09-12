@@ -1,5 +1,6 @@
 import AIMeterCore
 import Foundation
+import Observation
 import Testing
 @testable import AIMeterApp
 
@@ -342,6 +343,43 @@ struct ServiceAccountSettingsTests {
 
         #expect(secretStore.readCount == 0)
         #expect(accountRefreshes.value == 0)
+    }
+
+    @Test("An existing settings notice rerenders in each selected language")
+    func existingNoticeFollowsLanguage() {
+        let model = makeModel()
+        model.openCodexInstallGuide()
+        let notice = model.settingsNotice
+        let changes = ServiceAccountCounter()
+        withObservationTracking { _ = model.settingsMessage } onChange: { changes.increment() }
+        #expect(model.settingsMessage == "Opened the official OpenAI Codex CLI installation guide.")
+        model.setAppLanguage(.simplifiedChinese)
+        #expect(changes.value == 1)
+        #expect(model.settingsNotice == notice)
+        #expect(model.settingsMessage == "已打开 OpenAI Codex CLI 官方安装指南。")
+        #expect(model.settingsMessageKind == .codexAuthentication)
+        model.setAppLanguage(.traditionalChinese)
+        #expect(model.settingsMessage == "已開啟 OpenAI Codex CLI 官方安裝指南。")
+        model.setAppLanguage(.english)
+        #expect(model.settingsMessage == "Opened the official OpenAI Codex CLI installation guide.")
+    }
+
+    @Test("Account and installation completion notices retain meaning through language changes")
+    func resultNoticesFollowLanguage() async {
+        let account = makeModel(accountRefresh: { _ in [.init(provider: .claude, connectionState: .connected)] })
+        await account.beginSignIn(.claude)?.value
+        account.setAppLanguage(.simplifiedChinese)
+        #expect(account.settingsMessage == "Claude Code 账户已连接。")
+        account.setAppLanguage(.traditionalChinese)
+        #expect(account.settingsMessage == "Claude Code 帳戶已連線。")
+        let install = makeModel(accountRefresh: { _ in [.init(provider: .codex, connectionState: .notInstalled)] })
+        await install.beginCLIInstallation(.codex)?.value
+        install.setAppLanguage(.simplifiedChinese)
+        #expect(install.settingsMessage == "尚未确认安装完成。请在 Terminal 中完成安装，然后选择“检查状态”或重试。")
+        let credential = makeModel()
+        credential.saveDeepSeekAPIKey("")
+        credential.setAppLanguage(.traditionalChinese)
+        #expect(credential.settingsMessage == "請先輸入 DeepSeek API Key。")
     }
 
     private func makeModel(

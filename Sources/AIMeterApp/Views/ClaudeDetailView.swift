@@ -3,12 +3,14 @@ import Charts
 import SwiftUI
 
 struct ClaudeDetailView: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let snapshot: UsageSnapshot
     let onSetup: () -> Void
     let onOpenServicesSettings: () -> Void
 
-    private var presentation: ProviderPresentation {
-        ProviderPresentation(snapshot: snapshot)
+    private var presentation: AppProviderPresentation {
+        AppProviderPresentation(snapshot: snapshot, localizer: localizer)
     }
 
     var body: some View {
@@ -36,7 +38,7 @@ struct ClaudeDetailView: View {
                 Text(snapshot.provider.displayName)
                     .aiMeterFont(.headline)
                     .foregroundStyle(valueStyle)
-                Text("Official quota · Local Claude Code activity")
+                Text(localizer.text("Official quota · Local Claude Code activity"))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
             }
@@ -50,7 +52,7 @@ struct ClaudeDetailView: View {
     private var officialQuotaSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Official quota")
+                Text(localizer.text("Official quota"))
                     .aiMeterFont(.caption, weight: .semibold)
                 Spacer()
                 Text("Claude Code CLI")
@@ -96,8 +98,8 @@ struct ClaudeDetailView: View {
         ) {
             Button(
                 recovery == .openClaudeWorkspace
-                    ? "Open one-time setup"
-                    : "Open Services Settings",
+                    ? localizer.text("Open one-time setup")
+                    : localizer.text("Open Services Settings"),
                 action: recovery == .openClaudeWorkspace
                     ? onSetup
                     : onOpenServicesSettings
@@ -110,7 +112,7 @@ struct ClaudeDetailView: View {
     private func quotaCard(_ metric: UsageMetric, resetText: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(metric.label)
+                Text(ProviderDetailText.metricLabel(metric.label, localizer: localizer))
                     .aiMeterFont(.caption)
                     .foregroundStyle(AIMeterVisualTheme.secondaryText)
                     .lineLimit(1)
@@ -124,7 +126,7 @@ struct ClaudeDetailView: View {
                 fraction: metric.usedFraction ?? 0,
                 semantic: presentation.semantic
             )
-            Text(resetText ?? "Reset time unavailable")
+            Text(resetText ?? localizer.text("Reset time unavailable"))
                 .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.tertiaryText)
                 .lineLimit(1)
@@ -135,7 +137,7 @@ struct ClaudeDetailView: View {
         .aiMeterGlassCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(metric, resetText: resetText)
+            ClaudeDetailPresentation.officialQuotaAccessibilityLabel(metric, resetText: resetText, localizer: localizer)
         )
     }
 
@@ -143,17 +145,17 @@ struct ClaudeDetailView: View {
     private var localActivitySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Last 30 days · This Mac")
+                Text(localizer.text("Last 30 days · This Mac"))
                     .aiMeterFont(.caption, weight: .semibold)
                 Spacer()
-                Text("Local estimate")
+                Text(localizer.text("Local estimate"))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
 
             if let summary = snapshot.claudeLocalActivity {
                 HStack(spacing: 8) {
-                    localStat(title: "Sessions", value: summary.sessionCount.formatted(), symbol: "bubble.left.and.bubble.right")
+                    localStat(title: "Sessions", value: localizer.number(Int64(summary.sessionCount)), symbol: "bubble.left.and.bubble.right")
                     localStat(title: "Active days", value: "\(summary.activeDayCount)/\(summary.dayCount)", symbol: "calendar")
                     localStat(title: "Tokens", value: compactCount(summary.totalTokens), symbol: "number")
                 }
@@ -164,9 +166,9 @@ struct ClaudeDetailView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 7) {
-                    Label("Local activity unavailable", systemImage: "chart.bar.xaxis")
+                    Label(localizer.text("Local activity unavailable"), systemImage: "chart.bar.xaxis")
                         .aiMeterFont(.subheadline, weight: .semibold)
-                    Text("Official quota data above is unaffected. Local activity appears when Claude Code history is readable on this Mac.")
+                    Text(localizer.text("Official quota data above is unaffected. Local activity appears when Claude Code history is readable on this Mac."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 }
@@ -177,7 +179,8 @@ struct ClaudeDetailView: View {
                 .accessibilityLabel(
                     ClaudeDetailPresentation.localActivityAccessibilityLabel(
                         title: "Status",
-                        detail: "Local activity unavailable"
+                        detail: "Local activity unavailable",
+                        localizer: localizer
                     )
                 )
             }
@@ -194,7 +197,7 @@ struct ClaudeDetailView: View {
                 .foregroundStyle(valueStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
-            Text(title)
+            Text(localizer.text(title))
                 .aiMeterFont(.caption2)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
                 .lineLimit(1)
@@ -206,7 +209,8 @@ struct ClaudeDetailView: View {
         .accessibilityLabel(
             ClaudeDetailPresentation.localStatAccessibilityLabel(
                 title: title,
-                value: value
+                value: value,
+                localizer: localizer
             )
         )
     }
@@ -214,11 +218,11 @@ struct ClaudeDetailView: View {
     private var localActivityEmptyState: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(
-                ClaudeDetailPresentation.localActivityEmptyTitle,
+                localizer.text(ClaudeDetailPresentation.localActivityEmptyTitle),
                 systemImage: "chart.bar.xaxis"
             )
             .aiMeterFont(.subheadline, weight: .semibold)
-            Text("No token activity was found in the current 30-day window on this Mac.")
+            Text(localizer.text("No token activity was found in the current 30-day window on this Mac."))
                 .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
         }
@@ -226,14 +230,14 @@ struct ClaudeDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .aiMeterGlassCard()
         .accessibilityLabel(
-            "Local estimate, \(ClaudeDetailPresentation.localActivityEmptyTitle)"
+            localizer.text("Local estimate, %@", localizer.text(ClaudeDetailPresentation.localActivityEmptyTitle))
         )
     }
 
     private func activityChart(_ summary: ClaudeLocalActivitySummary) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Daily token activity")
+                Text(localizer.text("Daily token activity"))
                     .aiMeterFont(.subheadline, weight: .semibold)
                 Spacer()
                 Text(compactCount(summary.totalTokens))
@@ -242,8 +246,8 @@ struct ClaudeDetailView: View {
             }
             Chart(summary.days) { day in
                 BarMark(
-                    x: .value("Day", day.date, unit: .day),
-                    y: .value("Tokens", day.totalTokens)
+                    x: .value(localizer.text("Day"), day.date, unit: .day),
+                    y: .value(localizer.text("Tokens"), day.totalTokens)
                 )
                 .foregroundStyle(valueStyle)
                 .cornerRadius(2)
@@ -251,7 +255,7 @@ struct ClaudeDetailView: View {
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: 7)) {
                     AxisGridLine().foregroundStyle(Color.white.opacity(0.06))
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(localizer.language.locale))
                 }
             }
             .chartYAxis(.hidden)
@@ -263,7 +267,8 @@ struct ClaudeDetailView: View {
         .accessibilityLabel(
             ClaudeDetailPresentation.localActivityAccessibilityLabel(
                 title: "Daily token activity",
-                detail: "\(summary.totalTokens.formatted()) total tokens"
+                detail: localizer.text("%@ total tokens", localizer.number(summary.totalTokens)),
+                localizer: localizer
             )
         )
     }
@@ -274,7 +279,7 @@ struct ClaudeDetailView: View {
                 Text(status).lineLimit(1)
             }
             Spacer()
-            Text("\(ProviderDataState.freshness(snapshot)) · Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
+            Text(ProviderDetailText.freshness(snapshot, localizer: localizer) + " · " + localizer.text("Updated %@", localizer.date(snapshot.fetchedAt, dateStyle: .none, timeStyle: .short)))
         }
         .aiMeterFont(.caption2)
         .foregroundStyle(AIMeterVisualTheme.tertiaryText)
@@ -286,22 +291,10 @@ struct ClaudeDetailView: View {
 
     private func percentText(_ metric: UsageMetric) -> String {
         guard let fraction = metric.usedFraction else { return "—" }
-        return "\(Int((fraction * 100).rounded()))%"
+        return localizer.percentage(fraction)
     }
 
     private func compactCount(_ count: Int64) -> String {
-        let value = Double(max(count, 0))
-        let units: [(Double, String)] = [
-            (1_000_000_000, "B"),
-            (1_000_000, "M"),
-            (1_000, "K"),
-        ]
-        guard let unit = units.first(where: { value >= $0.0 }) else {
-            return count.formatted()
-        }
-        let scaled = value / unit.0
-        let digits = scaled >= 100 ? 0 : 1
-        return String(format: "%.*f", digits, scaled)
-            .replacingOccurrences(of: ".0", with: "") + unit.1
+        ProviderDetailText.compactCount(count, localizer: localizer)
     }
 }

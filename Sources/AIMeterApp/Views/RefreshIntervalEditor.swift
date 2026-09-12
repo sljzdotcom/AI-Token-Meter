@@ -5,12 +5,16 @@ import SwiftUI
 struct RefreshIntervalEditor: NSViewRepresentable {
     let seconds: Int
     let save: (String) -> Bool
+    @Environment(\.locale) private var locale
+
+    private var localizer: AppLocalizer { AppLocalizer(language: AppLanguage(rawValue: locale.identifier) ?? .english) }
 
     func makeNSView(context: Context) -> RefreshIntervalEditorView {
-        RefreshIntervalEditorView(seconds: seconds, save: save)
+        RefreshIntervalEditorView(seconds: seconds, save: save, localizer: localizer)
     }
 
     func updateNSView(_ view: RefreshIntervalEditorView, context: Context) {
+        view.updateLocalization(localizer)
         view.save = save
         if view.savedSeconds != seconds {
             view.savedSeconds = seconds
@@ -26,11 +30,14 @@ struct RefreshIntervalEditor: NSViewRepresentable {
 
 final class RefreshIntervalEditorView: NSStackView {
     let input = NSTextField(string: "")
-    let error = NSTextField(wrappingLabelWithString: "Enter a whole number from 30 to 86400 seconds.")
+    let error = NSTextField(wrappingLabelWithString: "")
+    private let button = NSButton()
+    private let unit = NSTextField(labelWithString: "")
+    private let help = NSTextField(wrappingLabelWithString: "")
     var savedSeconds: Int
     var save: (String) -> Bool
 
-    init(seconds: Int, save: @escaping (String) -> Bool) {
+    init(seconds: Int, save: @escaping (String) -> Bool, localizer: AppLocalizer = AppLocalizer(language: .english)) {
         self.savedSeconds = seconds
         self.save = save
         super.init(frame: .zero)
@@ -39,19 +46,17 @@ final class RefreshIntervalEditorView: NSStackView {
         spacing = 6
         input.stringValue = String(seconds)
         input.font = .systemFont(ofSize: NSFont.systemFontSize)
-        input.setAccessibilityLabel("Refresh interval in seconds")
-        input.setAccessibilityHelp("30 to 86400 seconds. Press Return or Apply to save.")
         input.target = self
         input.action = #selector(submit)
         // Losing focus keeps the draft; only Return or Apply commits it.
         (input.cell as? NSTextFieldCell)?.sendsActionOnEndEditing = false
         input.widthAnchor.constraint(equalToConstant: 90).isActive = true
-        let button = NSButton(title: "Apply", target: self, action: #selector(submit))
+        button.target = self
+        button.action = #selector(submit)
         button.bezelStyle = .rounded
-        let row = NSStackView(views: [input, NSTextField(labelWithString: "seconds"), button])
+        let row = NSStackView(views: [input, unit, button])
         row.spacing = 8
         addArrangedSubview(row)
-        let help = NSTextField(wrappingLabelWithString: "30–86400 seconds. Default: 300 seconds (5 minutes).")
         help.font = .preferredFont(forTextStyle: .caption1)
         help.textColor = .secondaryLabelColor
         addArrangedSubview(help)
@@ -59,6 +64,16 @@ final class RefreshIntervalEditorView: NSStackView {
         error.textColor = .systemRed
         error.isHidden = true
         addArrangedSubview(error)
+        updateLocalization(localizer)
+    }
+
+    func updateLocalization(_ localizer: AppLocalizer) {
+        input.setAccessibilityLabel(localizer.text("Refresh interval in seconds"))
+        input.setAccessibilityHelp(localizer.text("30 to 86400 seconds. Press Return or Apply to save."))
+        button.title = localizer.text("Apply")
+        unit.stringValue = localizer.text("seconds")
+        help.stringValue = localizer.text("30–86400 seconds. Default: 300 seconds (5 minutes).")
+        error.stringValue = localizer.text("Enter a whole number from 30 to 86400 seconds.")
     }
 
     required init?(coder: NSCoder) { nil }

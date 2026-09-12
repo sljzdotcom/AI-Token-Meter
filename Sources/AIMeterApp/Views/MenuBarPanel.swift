@@ -4,14 +4,15 @@ import SwiftUI
 
 struct MenuBarLabel: View {
     @Bindable var model: AppModel
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
 
     var body: some View {
         Label {
-            Text(model.menuBarSummary.valueText)
+            Text(model.menuBarSummary.usageFraction.map(localizer.percentage) ?? "—")
         } icon: {
             MenuBarMeterIcon(fraction: model.menuBarSummary.usageFraction)
         }
-            .accessibilityLabel(model.menuBarSummary.accessibilityLabel)
+            .accessibilityLabel(ProviderDetailText.menuBarAccessibility(model.menuBarSummary, localizer: localizer))
             .aiMeterFontScope(.menuBarLabel(model.displayFontChoice))
     }
 }
@@ -19,6 +20,8 @@ struct MenuBarLabel: View {
 struct MenuBarPanel: View {
     @Bindable var model: AppModel
     let brandIcon: NSImage
+
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
     @Environment(\.openSettings) private var openSettings
 
     init(
@@ -36,12 +39,12 @@ struct MenuBarPanel: View {
             if model.snapshots.isEmpty {
                 ContentUnavailableView {
                     Label {
-                        Text("Checking usage")
+                        Text(localizer.text("Checking usage"))
                     } icon: {
                         Image(systemName: "gauge.with.dots.needle.50percent")
                     }
                 } description: {
-                    Text("Claude Code, OpenAI Codex, and DeepSeek are being checked locally.")
+                    Text(localizer.text("Claude Code, OpenAI Codex, and DeepSeek are being checked locally."))
                 }
                 .frame(height: 190)
             } else {
@@ -75,7 +78,7 @@ struct MenuBarPanel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(AppBrand.displayName)
                     .aiMeterFont(.title2, weight: .bold)
-                Text(AppBrand.subtitle)
+                Text(localizer.text(AppBrand.subtitle))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -92,22 +95,22 @@ struct MenuBarPanel: View {
             }
             .buttonStyle(.borderless)
             .disabled(model.isRefreshing)
-            .help("Refresh now")
+            .help(localizer.text("Refresh now"))
         }
     }
 
     private var footer: some View {
         HStack {
             if model.stripPreferences.hiddenUntil != nil || !model.showFloatingStrip {
-                Button("Show Floating Strip Now") { model.setFloatingStripVisible(true) }
+                Button(localizer.text("Show Floating Strip Now")) { model.setFloatingStripVisible(true) }
                     .buttonStyle(.borderless)
             }
             if let date = model.lastUpdatedAt {
-                Text("Updated \(date.formatted(date: .omitted, time: .shortened))")
+                Text(localizer.text("Updated %@", localizer.date(date, dateStyle: .none, timeStyle: .short)))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Waiting for first refresh")
+                Text(localizer.text("Waiting for first refresh"))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -124,7 +127,7 @@ struct MenuBarPanel: View {
                     .aiMeterSymbolFont(.body)
             }
             .buttonStyle(.borderless)
-            .help("Settings")
+            .help(localizer.text("Settings"))
             Button {
                 NSApplication.shared.terminate(nil)
             } label: {
@@ -132,7 +135,7 @@ struct MenuBarPanel: View {
                     .aiMeterSymbolFont(.body)
             }
             .buttonStyle(.borderless)
-            .help("Quit \(AppBrand.displayName)")
+            .help(localizer.text("Quit %@", AppBrand.displayName))
         }
     }
 }

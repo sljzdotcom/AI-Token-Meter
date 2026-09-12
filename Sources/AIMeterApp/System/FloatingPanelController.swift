@@ -101,7 +101,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             MainActor.assumeIsolated { self?.tickFold() }
         }
 
-        let stripHost = NSHostingView(rootView: FloatingStripView(
+        let stripView = FloatingStripView(
             model: model,
             session: session,
             displayState: displayState,
@@ -114,7 +114,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             onAccessibilityMove: { [weak self] command in
                 self?.moveStripForAccessibility(command)
             }
-        ))
+        )
+        let stripHost = NSHostingView(rootView: AppLanguageRoot(model: model) { stripView })
         stripHost.sizingOptions = []
         stripPanel.contentView = stripHost
         (detailPanel as? InteractivePanel)?.onFocusedControlChange = { [weak self] focused in
@@ -274,7 +275,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         }
         let renderedSelectionID = session.selectionID
         let interactionPolicy = FloatingDetailInteractionPolicy(provider: provider)
-        let detailHost = NSHostingView(rootView: FloatingDetailView(
+        let detailView = FloatingDetailView(
             model: model,
             provider: provider,
             onClaudeSetup: model.openClaudeWorkspaceSetup,
@@ -290,7 +291,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                 detailInteraction.hasInteractiveContent = isInteracting
                 applyDetailInteractionState()
             }
-        ))
+        )
+        let detailHost = NSHostingView(rootView: AppLanguageRoot(model: model) { detailView })
         detailHost.sizingOptions = []
         detailPanel.contentView = detailHost
         positionPanels()
@@ -746,6 +748,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     private func openContextMenu(_ event: NSEvent) {
+        let menu = makeContextMenu()
+        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+    }
+
+    func makeContextMenu() -> NSMenu {
+        let localizer = AppLocalizer(language: model.appLanguage)
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
@@ -754,12 +762,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                                 ("Settings…", #selector(settingsFromMenu)),
                                 ("Quit AI Token Meter", #selector(quitFromMenu))] {
             if title == "Settings…" { menu.addItem(.separator()) }
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            let item = NSMenuItem(title: localizer.text(title), action: action, keyEquivalent: "")
             item.target = self
             item.isEnabled = title != "Refresh now" || !model.isRefreshing
             menu.addItem(item)
         }
-        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+        return menu
     }
     func menuWillOpen(_ menu: NSMenu) { menuIsOpen = true; applyDetailInteractionState(); tickFold(forceExpanded: true) }
     func menuDidClose(_ menu: NSMenu) { menuIsOpen = false; applyDetailInteractionState(); tickFold() }

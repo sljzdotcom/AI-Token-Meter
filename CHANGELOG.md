@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Added
+
+- macOS Settings → Appearance新增Language选择，默认English，可选简体中文和繁體中文；选择后菜单栏、五个Settings页签、悬浮条、Provider详情、账户与更新状态、官方帮助链接、通知及辅助功能文案即时切换并持久保存。
+
 ### Fixed
 
 - macOS开启自动隐藏后，悬停展开现在直接使用与常驻展开相同的精确窗口尺寸和圆润轮廓；异形窗口不再从收起尺寸拉伸成尖角。

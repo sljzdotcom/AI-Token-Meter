@@ -21,6 +21,7 @@ final class AppModel {
     private let defaults: UserDefaults
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
     private let displayFontPreferenceStore: DisplayFontPreferenceStore
+    private let appLanguagePreferenceStore: AppLanguagePreferenceStore
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
@@ -60,11 +61,15 @@ final class AppModel {
     ]
     private(set) var isReplacingDeepSeekAPIKey = false
     private(set) var launchAtLoginEnabled = false
-    private(set) var settingsMessage: String?
+    private(set) var settingsNotice: SettingsNotice?
+    var settingsMessage: String? {
+        settingsNotice?.text(using: AppLocalizer(language: appLanguage))
+    }
     private(set) var settingsMessageKind: SettingsMessageKind?
     private(set) var requestedSettingsTab = SettingsTab.appearance
     private(set) var settingsRequestSequence = 0
     private(set) var displayFontChoice: DisplayFontChoice
+    private(set) var appLanguage: AppLanguage
     private(set) var floatingStripPosition: FloatingStripPosition
     private(set) var floatingStripDisplays: FloatingStripDisplays
     private(set) var availableStripDisplays: [FloatingStripDisplayChoice] = []
@@ -115,6 +120,8 @@ final class AppModel {
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
         self.displayFontPreferenceStore = DisplayFontPreferenceStore(defaults: defaults)
         self.displayFontChoice = self.displayFontPreferenceStore.load()
+        self.appLanguagePreferenceStore = AppLanguagePreferenceStore(defaults: defaults)
+        self.appLanguage = self.appLanguagePreferenceStore.load()
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
         self.floatingStripDisplays = FloatingStripDisplaysStore(defaults: defaults).load()
@@ -446,6 +453,12 @@ final class AppModel {
         displayFontPreferenceStore.save(choice)
     }
 
+    func setAppLanguage(_ language: AppLanguage) {
+        guard language != appLanguage else { return }
+        appLanguage = language
+        appLanguagePreferenceStore.save(language)
+    }
+
     func restoreDefaultDisplayFont() {
         setDisplayFontChoice(.system)
     }
@@ -454,11 +467,11 @@ final class AppModel {
         do {
             try launchAtLoginService.setEnabled(isEnabled)
             launchAtLoginEnabled = launchAtLoginService.isEnabled
-            settingsMessage = nil
+            settingsNotice = nil
             settingsMessageKind = nil
         } catch {
             launchAtLoginEnabled = launchAtLoginService.isEnabled
-            settingsMessage = "macOS could not update Login Items."
+            settingsNotice = .launchAtLoginFailed
             settingsMessageKind = .launchAtLogin
         }
     }
@@ -466,10 +479,10 @@ final class AppModel {
     func openClaudeWorkspaceSetup() {
         do {
             try claudeWorkspaceSetupLauncher.open()
-            settingsMessage = "Approve the private \(AppBrand.displayName) workspace in Terminal, then refresh."
+            settingsNotice = .workspaceApproval
             settingsMessageKind = .claudeWorkspace
         } catch {
-            settingsMessage = "Claude Code workspace setup could not be opened."
+            settingsNotice = .workspaceSetupFailed
             settingsMessageKind = .claudeWorkspace
         }
     }
@@ -565,7 +578,7 @@ final class AppModel {
             guard current.connectionState == .notInstalled else { return }
             do {
                 let launched = try installationOpenOperation(provider)
-                settingsMessage = launched ? "Complete the official installation in Terminal. Status will update automatically." : "An existing CLI was found. Checking its account…"
+                settingsNotice = launched ? .installationStarted : .existingCLI
                 for _ in 0..<signInPollAttempts {
                     try await signInSleep(signInPollInterval)
                     guard !Task.isCancelled else { return }
@@ -573,13 +586,13 @@ final class AppModel {
                     guard !Task.isCancelled else { return }
                     serviceAccounts[provider] = status
                     if [.connected, .signInRequired].contains(status.connectionState) {
-                        settingsMessage = "CLI detected. You can now check the account or sign in."
+                        settingsNotice = .cliDetected
                         return
                     }
                 }
-                settingsMessage = "Installation is not confirmed. Finish in Terminal, then choose Check Status or retry."
+                settingsNotice = .installationPending
             } catch {
-                if !Task.isCancelled { settingsMessage = "The installation could not be opened or checked. Choose Check Status or retry." }
+                if !Task.isCancelled { settingsNotice = .installationFailed }
             }
         }
         signInTasks[provider] = task
@@ -592,9 +605,9 @@ final class AppModel {
 
     func openCodexInstallGuide() {
         if codexInstallGuideOpenOperation() {
-            settingsMessage = "Opened the official OpenAI Codex CLI installation guide."
+            settingsNotice = .codexGuideOpened
         } else {
-            settingsMessage = "The OpenAI Codex CLI installation guide could not be opened."
+            settingsNotice = .codexGuideFailed
         }
         settingsMessageKind = .codexAuthentication
     }
@@ -607,7 +620,7 @@ final class AppModel {
         do {
             try authenticationOpenOperation(provider)
         } catch {
-            settingsMessage = "\(provider.displayName) sign-in could not be opened."
+            settingsNotice = .signInFailed(provider)
             settingsMessageKind = authenticationMessageKind(for: provider)
             return nil
         }
@@ -615,7 +628,7 @@ final class AppModel {
         signInTasks[provider]?.cancel()
         let signInToken = UUID()
         signInTokens[provider] = signInToken
-        settingsMessage = "Complete \(provider.displayName) sign-in in Terminal. Status will update automatically."
+        settingsNotice = .signInStarted(provider)
         settingsMessageKind = authenticationMessageKind(for: provider)
         let task = Task { [weak self] in
             guard let self else { return }
@@ -642,7 +655,7 @@ final class AppModel {
                     || status.accountDetail != originalStatus?.accountDetail
                 if status.connectionState == .connected,
                    sawNonConnectedStatus || identityChanged {
-                    settingsMessage = "\(provider.displayName) account connected."
+                    settingsNotice = .accountConnected(provider)
                     settingsMessageKind = authenticationMessageKind(for: provider)
                     await coordinator.clearAuthenticationBackoff(for: provider)
                     await refresh()
@@ -658,7 +671,7 @@ final class AppModel {
             }
             guard !Task.isCancelled,
                   signInTokens[provider] == signInToken else { return }
-            settingsMessage = "Sign-in is still pending. Finish in Terminal, then choose Check Status."
+            settingsNotice = .signInPending
             settingsMessageKind = authenticationMessageKind(for: provider)
             signInTasks[provider] = nil
             signInTokens[provider] = nil
@@ -677,7 +690,7 @@ final class AppModel {
             let status = try await deepSeekReplaceOperation(apiKey)
             serviceAccounts[.deepSeek] = status
             apiKeyConfigured = status.connectionState == .connected
-            settingsMessage = "DeepSeek API Key verified and saved in Keychain."
+            settingsNotice = .deepSeekSaved
             settingsMessageKind = .deepSeekCredential
             await coordinator.clearAuthenticationBackoff(for: .deepSeek)
             await refresh()
@@ -685,26 +698,26 @@ final class AppModel {
         } catch let error as DeepSeekCredentialReplacementError {
             switch error {
             case .emptyCandidate:
-                settingsMessage = "Enter a DeepSeek API Key first."
+                settingsNotice = .deepSeekEmpty
             case .invalidKey:
-                settingsMessage = hadExistingKey
-                    ? "DeepSeek rejected this API Key. The existing Key was kept."
-                    : "DeepSeek rejected this API Key. The new API Key was not saved."
+                settingsNotice = hadExistingKey
+                    ? .deepSeekRejectedExisting
+                    : .deepSeekRejectedNew
             case .verificationUnavailable:
-                settingsMessage = hadExistingKey
-                    ? "DeepSeek could not verify this Key. The existing Key was kept."
-                    : "DeepSeek could not verify this Key. The new API Key was not saved."
+                settingsNotice = hadExistingKey
+                    ? .deepSeekUnverifiedExisting
+                    : .deepSeekUnverifiedNew
             case .keychainFailure:
-                settingsMessage = hadExistingKey
-                    ? "The existing DeepSeek Key was kept because Keychain could not be updated."
-                    : "The DeepSeek API Key was not saved because Keychain could not be updated."
+                settingsNotice = hadExistingKey
+                    ? .deepSeekKeychainExisting
+                    : .deepSeekKeychainNew
             }
             settingsMessageKind = .deepSeekCredential
             return false
         } catch {
-            settingsMessage = hadExistingKey
-                ? "DeepSeek could not verify this Key. The existing Key was kept."
-                : "DeepSeek could not verify this Key. The new API Key was not saved."
+            settingsNotice = hadExistingKey
+                ? .deepSeekUnverifiedExisting
+                : .deepSeekUnverifiedNew
             settingsMessageKind = .deepSeekCredential
             return false
         }
@@ -712,7 +725,7 @@ final class AppModel {
 
     func saveDeepSeekAPIKey(_ apiKey: String) {
         guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            settingsMessage = "Enter a DeepSeek API Key first."
+            settingsNotice = .deepSeekEmpty
             settingsMessageKind = .deepSeekCredential
             return
         }
@@ -727,11 +740,11 @@ final class AppModel {
                 provider: .deepSeek,
                 connectionState: .signInRequired
             )
-            settingsMessage = "DeepSeek API Key removed."
+            settingsNotice = .deepSeekRemoved
             settingsMessageKind = .deepSeekCredential
             Task { await refresh() }
         } catch {
-            settingsMessage = "The API Key could not be removed from Keychain."
+            settingsNotice = .deepSeekRemovalFailed
             settingsMessageKind = .deepSeekCredential
         }
     }

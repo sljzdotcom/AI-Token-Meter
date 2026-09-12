@@ -1,13 +1,28 @@
+import AIMeterCore
 import SwiftUI
 
 struct AppearanceSettingsView: View {
     @Bindable var model: AppModel
 
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
+
+    static func fontOptionTitle(_ choice: DisplayFontChoice, localizer: AppLocalizer) -> String {
+        choice == .system ? localizer.text("System Default") : choice.displayName
+    }
+
     var body: some View {
         Form {
-            Section("Display") {
+            Section(localizer.text("Display")) {
                 Picker(
-                    "Display font",
+                    localizer.text("Language"),
+                    selection: Binding(get: { model.appLanguage }, set: { model.setAppLanguage($0) })
+                ) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                Picker(
+                    localizer.text("Display font"),
                     selection: Binding(
                         get: { model.displayFontChoice },
                         set: { choice in
@@ -18,20 +33,20 @@ struct AppearanceSettingsView: View {
                 ) {
                     ForEach(DisplayFontSettingsPresentation.liveOptions()) { option in
                         HStack {
-                            Text(option.choice.displayName)
+                            Text(Self.fontOptionTitle(option.choice, localizer: localizer))
                             if let status = option.statusText {
-                                Text(status).foregroundStyle(.secondary)
+                                Text(localizer.text(status)).foregroundStyle(.secondary)
                             }
                         }
                         .tag(option.choice)
                         .disabled(!option.isEnabled)
                     }
                 }
-                Button("Restore Default Font") {
+                Button(localizer.text("Restore Default Font")) {
                     model.restoreDefaultDisplayFont()
                 }
                 .disabled(!DisplayFontSettingsPresentation.canRestore(model.displayFontChoice))
-                Text("Changes apply immediately. Install missing fonts in macOS to use them.")
+                Text(localizer.text("Changes apply immediately. Install missing fonts in macOS to use them."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }

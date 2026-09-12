@@ -1,3 +1,4 @@
+import AIMeterCore
 import AppKit
 import SwiftUI
 import Testing
@@ -5,6 +6,101 @@ import Testing
 
 @Suite("Menu bar Quantum Dial")
 struct MenuBarMeterIconTests {
+    // These read the real hosted accessibility tree: untranslated Core labels or
+    // a missing locale injection must fail at the output VoiceOver consumes.
+    @Test("Existing menu and floating meter accessibility follow language changes")
+    @MainActor
+    func hostedAccessibilityFollowsLanguage() async throws {
+        NSApplication.shared.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+        let name = "MenuBarAX.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = AppModel(defaults: defaults, widgetSnapshotPublisher: nil, isDemoMode: false,
+            refreshOperation: { [.init(provider: .codex, primaryMetric: .init(label: "Weekly limit", current: 73, limit: 100, unit: .percent))] })
+        await model.refresh()
+        let session = FloatingDetailSession()
+        defer { session.shutdown() }
+        session.present(.codex, autoHideAfter: .seconds(300))
+        let display = FloatingStripDisplayState(resolvedEdge: .left, normalizedCenterY: 0.37)
+        let host = NSHostingView(rootView: AppLanguageRoot(model: model) {
+            VStack {
+                MenuBarLabel(model: model)
+                FloatingStripView(model: model, session: session, displayState: display,
+                                  onProviderTap: { _ in }, onAccessibilityMove: { _ in })
+                    .frame(width: 108, height: 356)
+            }
+        })
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 450),
+                              styleMask: .borderless, backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        window.orderFrontRegardless()
+        defer { window.close() }
+        for (language, menu, ring, position, opened, closed) in [
+            (AppLanguage.english, "AI Token Meter, highest usage 73 percent", "OpenAI Codex, 73%, Weekly limit, Warning", "Left edge, vertical position 37 percent", "Detail open", "Detail closed"),
+            (.simplifiedChinese, "AI Token Meter，最高用量百分之 73", "OpenAI Codex，73%，每周限额，警告", "左侧边缘，垂直位置百分之 37", "详情已打开", "详情已关闭"),
+            (.traditionalChinese, "AI Token Meter，最高用量百分之 73", "OpenAI Codex，73%，每週限額，警告", "左側邊緣，垂直位置百分之 37", "詳細資料已開啟", "詳細資料已關閉"),
+        ] {
+            model.setAppLanguage(language)
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(100))
+            let output = accessibilityOutput(host)
+            #expect(output.contains(menu), "Missing menu output in \(output)")
+            #expect(output.contains(ring), "Missing ring output in \(output)")
+            #expect(output.contains(where: { $0.hasSuffix(position) }), "Missing position output in \(output)")
+            #expect(output.contains(opened), "Missing open state in \(output)")
+            #expect(output.contains(closed), "Missing closed state in \(output)")
+        }
+    }
+
+    @MainActor
+    private func accessibilityOutput(_ root: NSObject) -> [String] {
+        var visited: Set<ObjectIdentifier> = []
+        func walk(_ object: NSObject) -> [String] {
+            guard visited.insert(ObjectIdentifier(object)).inserted else { return [] }
+            func attribute(_ name: String) -> Any? {
+                let selector = NSSelectorFromString(name)
+                guard object.responds(to: selector) else { return nil }
+                return object.perform(selector)?.takeUnretainedValue()
+            }
+            let own = ["accessibilityLabel", "accessibilityTitle", "accessibilityValue", "accessibilityHelp"]
+                .compactMap { attribute($0) as? String }
+            let children = (attribute("accessibilityChildren") as? [NSObject] ?? []) + ((object as? NSView)?.subviews ?? [])
+            return own + children.flatMap(walk)
+        }
+        return walk(root)
+    }
+
+    @Test("Hosted quota detail and reset credit accessibility use complete translated phrases")
+    @MainActor
+    func hostedDetailAccessibility() async throws {
+        NSApplication.shared.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+        let snapshot = UsageSnapshot(provider: .claude,
+            primaryMetric: .init(label: "Current session", current: 23, limit: 100, unit: .percent))
+        let credits = CodexResetCreditsSummary(availableCount: 1,
+            credits: [.init(title: "Usage reset", expiresAt: nil)], hasCompleteDetails: true)
+        for (language, quota, credit) in [
+            (AppLanguage.english, "Official quota, Current session, 23 percent used, Reset time unavailable", "Usage reset, Date unavailable, Expiration unavailable"),
+            (.simplifiedChinese, "官方额度，当前会话，已用百分之 23，重置时间不可用", "用量重置，日期不可用，到期时间不可用"),
+            (.traditionalChinese, "官方額度，目前工作階段，已用百分之 23，無法取得重設時間", "用量重設，無法取得日期，無法取得到期時間"),
+        ] {
+            let host = NSHostingView(rootView: VStack {
+                ClaudeDetailView(snapshot: snapshot, onSetup: {}, onOpenServicesSettings: {})
+                CodexResetCreditsView(summary: credits, mode: .detail)
+            }.environment(\.locale, language.locale))
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 650),
+                                  styleMask: .borderless, backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.contentView = host
+            defer { window.close() }
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(100))
+            let output = accessibilityOutput(host)
+            #expect(output.contains(quota), "Missing quota label in \(output)")
+            #expect(output.contains(credit), "Missing credit label in \(output)")
+        }
+    }
+
     @Test("Geometry maps usage to the approved 270 degree sweep")
     func mapsUsageToGeometry() throws {
         let zero = MenuBarMeterGeometry(fraction: 0)

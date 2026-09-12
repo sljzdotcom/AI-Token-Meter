@@ -59,7 +59,7 @@ struct ClaudeDetailPresentationTests {
         #expect(header.lowerBound < scroll.lowerBound)
         #expect(official.lowerBound < scroll.lowerBound)
         #expect(local.lowerBound > scroll.lowerBound)
-        #expect(source.contains("officialQuotaAccessibilityLabel(metric, resetText: resetText)"))
+        #expect(source.contains("officialQuotaAccessibilityLabel(metric, resetText: resetText, localizer: localizer)"))
         #expect(source.contains("localActivityAccessibilityLabel("))
     }
 
@@ -82,8 +82,8 @@ struct ClaudeDetailPresentationTests {
         #expect(source.contains("localStat(title: \"Tokens\""))
         #expect(source.contains("activityChart(summary)"))
         #expect(source.contains("localActivityEmptyState"))
-        #expect(source.contains("ProviderDataState.freshness(snapshot)"))
-        #expect(source.contains("snapshot.fetchedAt.formatted"))
+        #expect(source.contains("ProviderDetailText.freshness(snapshot, localizer: localizer)"))
+        #expect(source.contains("localizer.date(snapshot.fetchedAt"))
     }
 
     @Test("Claude detail omits the local privacy note")
@@ -99,8 +99,8 @@ struct ClaudeDetailPresentationTests {
         #expect(!source.contains("Only aggregate timestamps, token counts, session IDs and model IDs are read."))
         #expect(!source.contains("systemImage: \"lock.shield\""))
         #expect(source.contains("activityChart(summary)"))
-        #expect(source.contains("ProviderDataState.freshness(snapshot)"))
-        #expect(source.contains("snapshot.fetchedAt.formatted"))
+        #expect(source.contains("ProviderDetailText.freshness(snapshot, localizer: localizer)"))
+        #expect(source.contains("localizer.date(snapshot.fetchedAt"))
     }
 
     private func makeSummary(

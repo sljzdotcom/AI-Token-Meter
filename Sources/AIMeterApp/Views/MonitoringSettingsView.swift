@@ -4,23 +4,25 @@ import SwiftUI
 struct MonitoringSettingsView: View {
     @Bindable var model: AppModel
 
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
+
     var body: some View {
         Form {
-            Section("Monitoring") {
-                LabeledContent("Refresh interval") {
+            Section(localizer.text("Monitoring")) {
+                LabeledContent(localizer.text("Refresh interval")) {
                     RefreshIntervalEditor(seconds: model.refreshIntervalSeconds) {
                         model.setRefreshInterval($0)
                     }
                 }
                 Toggle(
-                    "Usage alerts at 70% and 90%",
+                    localizer.text("Usage alerts at 70% and 90%"),
                     isOn: Binding(
                         get: { model.notificationsEnabled },
                         set: { model.setNotificationsEnabled($0) }
                     )
                 )
                 Toggle(
-                    "Open \(AppBrand.displayName) at login",
+                    localizer.text("Open %@ at login", AppBrand.displayName),
                     isOn: Binding(
                         get: { model.launchAtLoginEnabled },
                         set: { model.setLaunchAtLogin($0) }

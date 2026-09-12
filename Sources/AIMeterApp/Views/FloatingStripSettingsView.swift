@@ -4,23 +4,25 @@ import SwiftUI
 struct FloatingStripSettingsView: View {
     @Bindable var model: AppModel
 
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
+
     var body: some View {
         Form {
-            Section("Content and Size") {
+            Section(localizer.text("Content and Size")) {
                 Toggle(
-                    "Show floating meter",
+                    localizer.text("Show floating meter"),
                     isOn: Binding(
                         get: { model.showFloatingStrip },
                         set: { model.setFloatingStripVisible($0) }
                     )
                 )
-                Text("The menu bar meter remains available when the floating meter is hidden.")
+                Text(localizer.text("The menu bar meter remains available when the floating meter is hidden."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
-                Picker("Floating strip size", selection: stripBinding(\.density)) {
-                    Text("Comfortable").tag(FloatingStripDensity.comfortable)
-                    Text("Compact").tag(FloatingStripDensity.compact)
-                    Text("Mini").tag(FloatingStripDensity.mini)
+                Picker(localizer.text("Floating strip size"), selection: stripBinding(\.density)) {
+                    Text(localizer.text("Comfortable")).tag(FloatingStripDensity.comfortable)
+                    Text(localizer.text("Compact")).tag(FloatingStripDensity.compact)
+                    Text(localizer.text("Mini")).tag(FloatingStripDensity.mini)
                 }
                 ForEach(model.stripPreferences.orderedProviders, id: \.self) { provider in
                     HStack {
@@ -31,10 +33,10 @@ struct FloatingStripSettingsView: View {
                         .disabled(model.stripPreferences.visibleProviders == [provider])
                         Button { move(provider, by: -1) } label: { Image(systemName: "arrow.up") }
                             .disabled(model.stripPreferences.orderedProviders.first == provider)
-                            .accessibilityLabel("Move \(provider.displayName) up")
+                            .accessibilityLabel(localizer.text("Move %@ up", provider.displayName))
                         Button { move(provider, by: 1) } label: { Image(systemName: "arrow.down") }
                             .disabled(model.stripPreferences.orderedProviders.last == provider)
-                            .accessibilityLabel("Move \(provider.displayName) down")
+                            .accessibilityLabel(localizer.text("Move %@ down", provider.displayName))
                     }
                     .draggable(provider.rawValue)
                     .dropDestination(for: String.self) { items, _ in
@@ -48,9 +50,9 @@ struct FloatingStripSettingsView: View {
                         return true
                     }
                 }
-                Text("Keep at least one service visible. Hidden services continue monitoring.")
+                Text(localizer.text("Keep at least one service visible. Hidden services continue monitoring."))
                     .font(.caption).foregroundStyle(.secondary)
-                Button("Restore default order") {
+                Button(localizer.text("Restore default order")) {
                     var value = model.stripPreferences
                     value.orderedProviders = UsageProvider.allCases
                     value.hiddenProviders = []
@@ -58,50 +60,50 @@ struct FloatingStripSettingsView: View {
                 }
             }
 
-            Section("Screen and Position") {
+            Section(localizer.text("Screen and Position")) {
                 FloatingStripDisplaySettings(model: model)
                 Picker(
-                    "Screen edge",
+                    localizer.text("Screen edge"),
                     selection: Binding(
                         get: { model.floatingStripPosition.preference },
                         set: { model.setFloatingStripEdgePreference($0) }
                     )
                 ) {
                     ForEach(FloatingStripEdgePreference.allCases, id: \.self) { preference in
-                        Text(preference.displayName).tag(preference)
+                        Text(localizer.text(preference.displayName)).tag(preference)
                     }
                 }
                 .pickerStyle(.segmented)
             }
 
-            Section("Behavior") {
-                Toggle("Automatically collapse floating strip", isOn: stripBinding(\.automaticallyCollapses))
+            Section(localizer.text("Behavior")) {
+                Toggle(localizer.text("Automatically collapse floating strip"), isOn: stripBinding(\.automaticallyCollapses))
                 Stepper(
-                    "Show delay: \(model.stripPreferences.revealDelayMilliseconds) ms",
+                    localizer.text("Show delay: %lld ms", Int64(model.stripPreferences.revealDelayMilliseconds)),
                     value: stripBinding(\.revealDelayMilliseconds),
                     in: 0...2_000,
                     step: 50
                 )
                 .disabled(!model.stripPreferences.automaticallyCollapses)
                 Stepper(
-                    "Hide delay: \(model.stripPreferences.collapseDelayMilliseconds) ms",
+                    localizer.text("Hide delay: %lld ms", Int64(model.stripPreferences.collapseDelayMilliseconds)),
                     value: stripBinding(\.collapseDelayMilliseconds),
                     in: 0...5_000,
                     step: 50
                 )
                 .disabled(!model.stripPreferences.automaticallyCollapses)
-                Text("Turn off automatic collapse to keep the meter expanded. Delay values are retained; open details, menus, dragging and refreshes also keep it expanded.")
+                Text(localizer.text("Turn off automatic collapse to keep the meter expanded. Delay values are retained; open details, menus, dragging and refreshes also keep it expanded."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 Picker(
-                    "Detail auto-hide",
+                    localizer.text("Detail auto-hide"),
                     selection: Binding(
                         get: { model.detailAutoHideSeconds },
                         set: { model.setDetailAutoHideSeconds($0) }
                     )
                 ) {
                     ForEach(DetailAutoHideInterval.allCases) { interval in
-                        Text("\(interval.rawValue) seconds").tag(interval.rawValue)
+                        Text(localizer.text("%lld seconds", Int64(interval.rawValue))).tag(interval.rawValue)
                     }
                 }
             }

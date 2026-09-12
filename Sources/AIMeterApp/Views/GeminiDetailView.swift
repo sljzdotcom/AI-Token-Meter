@@ -2,12 +2,14 @@ import AIMeterCore
 import SwiftUI
 
 enum GeminiDetailPresentation {
-    static func remainingText(for metric: UsageMetric) -> String {
-        "\(Int(100 - metric.current))% remaining"
+    static func remainingText(for metric: UsageMetric, localizer: AppLocalizer = AppLocalizer(language: .english)) -> String {
+        localizer.text("%lld%% remaining", Int64(100 - metric.current))
     }
 }
 
 struct GeminiDetailView: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let snapshot: UsageSnapshot
     let onRetry: () -> Void
 
@@ -25,13 +27,13 @@ struct GeminiDetailView: View {
                         .foregroundStyle(accentStyle)
                 }
                 if let metrics = snapshot.geminiQuotaMetrics, !metrics.isEmpty {
-                    Text(snapshot.collectionStatus == .cached ? "Last available quota" : "Official quota").aiMeterFont(.headline)
+                    Text(localizer.text(snapshot.collectionStatus == .cached ? "Last available quota" : "Official quota")).aiMeterFont(.headline)
                     ForEach(metrics) { metric in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(metric.label)
+                                Text(ProviderDetailText.metricLabel(metric.label, localizer: localizer))
                                 Spacer()
-                                Text(GeminiDetailPresentation.remainingText(for: metric))
+                                Text(GeminiDetailPresentation.remainingText(for: metric, localizer: localizer))
                                     .monospacedDigit()
                                     .foregroundStyle(accentStyle)
                             }
@@ -40,28 +42,24 @@ struct GeminiDetailView: View {
                                 fraction: metric.usedFraction ?? 0,
                                 semantic: .normal
                             )
-                            if let resetAt = metric.resetAt {
-                                Text("Resets \(resetAt.formatted(date: .abbreviated, time: .shortened))")
-                                    .aiMeterFont(.caption)
-                                    .foregroundStyle(.secondary)
-                            } else if let reset = metric.resetDescription {
+                            if let reset = ProviderDetailText.reset(metric, localizer: localizer, prefersTimestamp: true) {
                                 Text(reset).aiMeterFont(.caption).foregroundStyle(.secondary)
                             }
                         }
                     }
-                    Text("Source: Antigravity CLI \(snapshot.sourceVersion ?? "") · /usage")
+                    Text(localizer.text("Source: Antigravity CLI %@ · /usage", snapshot.sourceVersion ?? ""))
                         .aiMeterFont(.caption).foregroundStyle(.secondary)
-                    Text("Updated \(snapshot.fetchedAt.formatted(date: .abbreviated, time: .shortened))")
+                    Text(localizer.text("Updated %@", localizer.date(snapshot.fetchedAt)))
                         .aiMeterFont(.caption).foregroundStyle(.secondary)
                 } else {
-                    Text("Quota unavailable").aiMeterFont(.headline)
+                    Text(localizer.text("Quota unavailable")).aiMeterFont(.headline)
                 }
-                if let message = snapshot.statusMessage { Text(message).foregroundStyle(.secondary) }
+                if let message = snapshot.statusMessage { Text(ProviderDetailText.diagnostic(message, localizer: localizer)).foregroundStyle(.secondary) }
                 GeminiInstallationHelp(state: ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState)
                 HStack {
-                    Link("Antigravity CLI installation guide", destination: GeminiInstallationGuide.url)
+                    Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
                     Spacer()
-                    Button("Retry", action: onRetry)
+                    Button(localizer.text("Retry"), action: onRetry)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
