@@ -27,6 +27,10 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         }
     }
 
+    func title(language: AppLanguage) -> String {
+        AppLocalizer(language: language).text(title)
+    }
+
     var systemImage: String {
         switch self {
         case .appearance: "paintbrush"

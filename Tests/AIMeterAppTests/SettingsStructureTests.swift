@@ -20,6 +20,31 @@ struct SettingsStructureTests {
         #expect(Set(SettingsTab.allCases.map(\.systemImage)).count == 5)
     }
 
+    @Test("Appearance offers language before font with fixed native-language choices")
+    func languagePickerPlacement() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let source = try String(contentsOf: root.appending(path:
+            "Sources/AIMeterApp/Views/AppearanceSettingsView.swift"), encoding: .utf8)
+        let language = try #require(source.range(of: "\"Language\""))
+        let font = try #require(source.range(of: "\"Display font\""))
+        #expect(language.lowerBound < font.lowerBound)
+        #expect(source.contains("model.setAppLanguage"))
+        #expect(source.contains("AppLanguage.allCases"))
+        #expect(source.contains("language.displayName"))
+        #expect(AppLanguage.allCases.map(\.displayName) == ["English", "简体中文", "繁體中文"])
+    }
+
+    @Test("Settings tabs resolve their title in the selected language")
+    func localizedTabTitles() {
+        #expect(SettingsTab.allCases.map { $0.title(language: .simplifiedChinese) }
+                == ["外观", "悬浮条", "监测", "服务", "关于"])
+        #expect(SettingsTab.allCases.map { $0.title(language: .traditionalChinese) }
+                == ["外觀", "懸浮條", "監測", "服務", "關於"])
+        #expect(SettingsTab.allCases.map { $0.title(language: .english) }
+                == ["Appearance", "Floating Strip", "Monitoring", "Services", "About"])
+    }
+
     @Test("Routes settings messages to their owning tab")
     func messageRouting() {
         #expect(SettingsTab.monitoring.accepts(.launchAtLogin))

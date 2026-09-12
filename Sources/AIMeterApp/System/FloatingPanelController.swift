@@ -101,7 +101,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             MainActor.assumeIsolated { self?.tickFold() }
         }
 
-        let stripHost = NSHostingView(rootView: FloatingStripView(
+        let stripView = FloatingStripView(
             model: model,
             session: session,
             displayState: displayState,
@@ -114,7 +114,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             onAccessibilityMove: { [weak self] command in
                 self?.moveStripForAccessibility(command)
             }
-        ))
+        )
+        let stripHost = NSHostingView(rootView: AppLanguageRoot(model: model) { stripView })
         stripHost.sizingOptions = []
         stripPanel.contentView = stripHost
         (detailPanel as? InteractivePanel)?.onFocusedControlChange = { [weak self] focused in
@@ -274,7 +275,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         }
         let renderedSelectionID = session.selectionID
         let interactionPolicy = FloatingDetailInteractionPolicy(provider: provider)
-        let detailHost = NSHostingView(rootView: FloatingDetailView(
+        let detailView = FloatingDetailView(
             model: model,
             provider: provider,
             onClaudeSetup: model.openClaudeWorkspaceSetup,
@@ -290,7 +291,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                 detailInteraction.hasInteractiveContent = isInteracting
                 applyDetailInteractionState()
             }
-        ))
+        )
+        let detailHost = NSHostingView(rootView: AppLanguageRoot(model: model) { detailView })
         detailHost.sizingOptions = []
         detailPanel.contentView = detailHost
         positionPanels()
