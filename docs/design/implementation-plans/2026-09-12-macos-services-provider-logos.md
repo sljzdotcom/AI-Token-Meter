@@ -1,6 +1,6 @@
 # macOS Services 产品 Logo 实施计划
 
-关联规格：`docs/design/specifications/2026-09-12-macos-services-provider-logos-design.md`  
+关联规格：`docs/design/specifications/2026-09-12-macos-services-provider-logos-design.md`
 关联需求：REQ-20260912-003。
 
 ### 任务1：可复用的 Settings Logo 样式

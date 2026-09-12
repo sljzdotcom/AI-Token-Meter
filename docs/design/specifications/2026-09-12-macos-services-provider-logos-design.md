@@ -27,4 +27,3 @@ macOS Settings → Services 的四个服务分组在产品名称前显示对应 
 - VoiceOver/辅助功能只得到一个产品名称，不重复朗读装饰 Logo。
 - ProviderLogo 现有浮动条与详情用法的默认白色外观不变。
 - Release App继续只使用现有 Logo 资源，不新增网络、账户或数据行为。
-
