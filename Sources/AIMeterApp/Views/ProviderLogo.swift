@@ -5,6 +5,7 @@ import SwiftUI
 struct ProviderLogo: View {
     let provider: UsageProvider
     var size: CGFloat = 28
+    var tint: Color = .white
 
     var body: some View {
         Group {
@@ -21,7 +22,7 @@ struct ProviderLogo: View {
         }
         .frame(width: size, height: size)
         .scaleEffect(ProviderLogoStyle.opticalScale(for: provider))
-        .foregroundStyle(.white)
+        .foregroundStyle(tint)
         .accessibilityHidden(true)
     }
 
