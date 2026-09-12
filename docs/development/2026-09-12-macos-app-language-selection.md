@@ -8,7 +8,7 @@ macOS Settings → Appearance新增Language选择，固定提供English、简体
 
 语言状态由`AppModel`统一发布。菜单栏内容与标签、Settings、悬浮条及其详情窗口使用同一可观察语言根，因此现存窗口无需重建即可切换Locale。Settings页签、菜单动作、五个设置页面、四个Provider详情、账户与安装状态、瞬时消息、通知、日期数字和辅助功能文案都按当前语言解析。Provider品牌、具体字体名、CLI命令、外部身份和未知诊断保持原文。
 
-本地实现候选位于`codex/macos-language-selection`，最终修复头为`7417628800b94689f7188ac2d514d5f26c7b9be1`。完整分支复审为Critical/Important/Minor `0/0/0`；该精确提交的专项、完整测试、Release构建、资源、安全和文档门禁已经通过。需求仍为进行中，只等待本地`main`整合。本轮没有推送、创建版本、修改更新源或发布。
+最终修复头为`7417628800b94689f7188ac2d514d5f26c7b9be1`，已通过Critical/Important/Minor `0/0/0`的完整分支复审，并以`207ad631675cb373af0a18c1065a64eb36a2a22a`合入本地`main`。合并结果重新通过完整测试、Release构建、三份各321键语言资源、签名和文档门禁。需求已完成；本轮没有推送、创建版本、修改更新源或发布。
 
 ## 实现
 
@@ -54,7 +54,7 @@ macOS Settings → Appearance新增Language选择，固定提供English、简体
 - `5b230aa4e3be0348ab3a142738b6d7c9266cf3b1`：通知、日期数字与辅助功能。
 - `7417628800b94689f7188ac2d514d5f26c7b9be1`：补齐Settings、链接状态与浮动条协调器的最终语言覆盖。
 
-任务7文档检查点包括`de6ef107024271300b20dd0e76c6fc6567921cde`（`docs: record macOS language selection implementation`）和`89de5b493bf66f2eec662e89aeacc90f74cf4d79`（`docs: correct macOS language verification evidence`）。本地`main`合并SHA将在后续整合完成后补记，当前不编造整合证据。
+任务7文档检查点包括`de6ef107024271300b20dd0e76c6fc6567921cde`（`docs: record macOS language selection implementation`）、`89de5b493bf66f2eec662e89aeacc90f74cf4d79`（`docs: correct macOS language verification evidence`）和`141519193e913ee4707b03495a7da894ae432d30`（`docs: finalize macOS language verification`）。最终本地`main`合并提交为`207ad631675cb373af0a18c1065a64eb36a2a22a`。
 
 任务7文档初审为Critical/Important/Minor `0/1/1`：上述Release二进制编译路径证据与公开Git证据描述已按实际产物修正并复审关闭。最终修复头的完整分支复审为`0/0/0`。
 
@@ -62,4 +62,4 @@ macOS Settings → Appearance新增Language选择，固定提供English、简体
 
 自动化覆盖真实`NSHostingView`/`NSPanel`、实际菜单、Apple Vision OCR、AppKit辅助功能树、真实通知请求对象和打包资源；没有触发真实Notification Center权限/展示、人工VoiceOver朗读或真实Provider账号访问。它们不阻断本次代码与资源门禁，也不被表述为已完成的现场验收。
 
-当前产物为本地未发布候选。用户没有单独授权发布，因此不创建标签、GitHub Release或改动appcast/Windows更新源。
+当前实现已合入本地`main`，仍未发布。用户没有单独授权本需求发布，因此不创建标签、GitHub Release或改动appcast/Windows更新源。
