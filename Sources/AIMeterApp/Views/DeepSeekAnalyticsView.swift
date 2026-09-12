@@ -4,6 +4,8 @@ import SwiftUI
 import WebKit
 
 struct DeepSeekAnalyticsView: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let snapshot: UsageSnapshot
     @Bindable var webSession: DeepSeekWebSession
     let isDemoMode: Bool
@@ -11,8 +13,8 @@ struct DeepSeekAnalyticsView: View {
     let onOpenServicesSettings: () -> Void
     @State private var isHovering = false
 
-    private var presentation: ProviderPresentation {
-        ProviderPresentation(snapshot: snapshot)
+    private var presentation: AppProviderPresentation {
+        AppProviderPresentation(snapshot: snapshot, localizer: localizer)
     }
 
     private var history: DeepSeekUsageHistory? {
@@ -59,7 +61,7 @@ struct DeepSeekAnalyticsView: View {
         HStack(spacing: 12) {
             ProviderLogo(provider: .deepSeek, size: 28)
             VStack(alignment: .leading, spacing: 2) {
-                Text("DeepSeek · Last 30 days")
+                Text(localizer.text("DeepSeek · Last 30 days"))
                     .aiMeterFont(.headline)
                     .foregroundStyle(accentStyle)
                 Text(syncText)
@@ -71,10 +73,10 @@ struct DeepSeekAnalyticsView: View {
                 Text(presentation.valueText)
                     .aiMeterFont(.title2, design: .rounded, weight: .bold)
                     .foregroundStyle(accentStyle)
-                Text("current balance")
+                Text(localizer.text("current balance"))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
-                Text(ProviderDataState.freshness(snapshot))
+                Text(ProviderDetailText.freshness(snapshot, localizer: localizer))
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
@@ -85,7 +87,7 @@ struct DeepSeekAnalyticsView: View {
                     .aiMeterSymbolFont(.body)
             }
             .buttonStyle(.borderless)
-            .help("Refresh from DeepSeek")
+            .help(localizer.text("Refresh from DeepSeek"))
         }
     }
 
@@ -106,7 +108,7 @@ struct DeepSeekAnalyticsView: View {
     private var serviceRecoveryPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(snapshot.collectionStatus == .authenticationRequired
-                ? "Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history."
+                ? localizer.text("Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history.")
                 : presentation.detailText)
                 .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
@@ -115,7 +117,7 @@ struct DeepSeekAnalyticsView: View {
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
-            Button("Open Services Settings", action: onOpenServicesSettings)
+            Button(localizer.text("Open Services Settings"), action: onOpenServicesSettings)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
         }
@@ -126,7 +128,7 @@ struct DeepSeekAnalyticsView: View {
 
     private var loginPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sign in on the official DeepSeek page once. \(AppBrand.displayName) keeps the web session on this Mac and stores only daily totals.")
+            Text(localizer.text("Sign in on the official DeepSeek page once. %@ keeps the web session on this Mac and stores only daily totals.", AppBrand.displayName))
                 .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             DeepSeekWebView(webView: webSession.webView)
@@ -144,17 +146,17 @@ struct DeepSeekAnalyticsView: View {
     private func analytics(_ history: DeepSeekUsageHistory) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                statCard(title: "Cost", value: String(format: "¥%.2f", history.totalCostCNY))
-                statCard(title: "API requests", value: history.totalRequests.formatted())
-                statCard(title: "Tokens", value: history.totalTokens.formatted())
+                statCard(title: "Cost", value: "¥" + localizer.decimal(history.totalCostCNY, fractionDigits: 2))
+                statCard(title: "API requests", value: localizer.number(Int64(history.totalRequests)))
+                statCard(title: "Tokens", value: localizer.number(Int64(history.totalTokens)))
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Daily cost (CNY)")
+                Text(localizer.text("Daily cost (CNY)"))
                     .aiMeterFont(.subheadline, weight: .semibold)
                 Chart(history.days) { day in
                     BarMark(
-                        x: .value("Day", day.date, unit: .day),
-                        y: .value("Cost", day.costCNY)
+                        x: .value(localizer.text("Day"), day.date, unit: .day),
+                        y: .value(localizer.text("Cost"), day.costCNY)
                     )
                     .foregroundStyle(accentStyle)
                     .cornerRadius(3)
@@ -162,7 +164,7 @@ struct DeepSeekAnalyticsView: View {
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .day, count: 7)) { value in
                         AxisGridLine().foregroundStyle(Color.white.opacity(0.08))
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(localizer.language.locale))
                     }
                 }
                 .chartYAxis {
@@ -176,9 +178,9 @@ struct DeepSeekAnalyticsView: View {
             .padding(14)
             .aiMeterGlassCard()
             HStack {
-                Text("Updated \(history.updatedAt.formatted(date: .abbreviated, time: .shortened))")
+                Text(localizer.text("Updated %@", localizer.date(history.updatedAt)))
                 Spacer()
-                Link("Open official usage page", destination: DeepSeekWebSession.usageURL)
+                Link(localizer.text("Open official usage page"), destination: DeepSeekWebSession.usageURL)
             }
             .aiMeterFont(.caption2)
             .foregroundStyle(AIMeterVisualTheme.secondaryText)
@@ -190,7 +192,7 @@ struct DeepSeekAnalyticsView: View {
             Image(systemName: "chart.bar.xaxis")
                 .font(.largeTitle)
             Text(syncText)
-            Link("Open official usage page", destination: DeepSeekWebSession.usageURL)
+            Link(localizer.text("Open official usage page"), destination: DeepSeekWebSession.usageURL)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundStyle(AIMeterVisualTheme.secondaryText)
@@ -198,7 +200,7 @@ struct DeepSeekAnalyticsView: View {
 
     private func statCard(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title)
+            Text(localizer.text(title))
                 .aiMeterFont(.caption)
                 .foregroundStyle(AIMeterVisualTheme.secondaryText)
             Text(value)
@@ -213,13 +215,7 @@ struct DeepSeekAnalyticsView: View {
     }
 
     private var syncText: String {
-        if isDemoMode { return "Preview data" }
-        return switch webSession.state {
-        case .signedOut: "Official sign-in required"
-        case .loading: "Syncing official usage…"
-        case .ready: "Official usage synced"
-        case .stale(let message): message
-        }
+        ProviderDetailText.deepSeekSync(webSession.state, isDemo: isDemoMode, localizer: localizer)
     }
 
     private var accentStyle: AnyShapeStyle {

@@ -76,6 +76,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     private var foldTimer: Timer?
     private var visibilityTransitionTask: Task<Void, Never>?
     private var pendingFoldedState: Bool?
+    private var appearanceUpdatePendingDuringDrag = false
     private var menuIsOpen = false
     private var temporarilyHidden = false
 
@@ -100,7 +101,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             MainActor.assumeIsolated { self?.tickFold() }
         }
 
-        let stripHost = NSHostingView(rootView: FloatingStripView(
+        let stripView = FloatingStripView(
             model: model,
             session: session,
             displayState: displayState,
@@ -113,7 +114,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             onAccessibilityMove: { [weak self] command in
                 self?.moveStripForAccessibility(command)
             }
-        ))
+        )
+        let stripHost = NSHostingView(rootView: AppLanguageRoot(model: model) { stripView })
         stripHost.sizingOptions = []
         stripPanel.contentView = stripHost
         (detailPanel as? InteractivePanel)?.onFocusedControlChange = { [weak self] focused in
@@ -205,7 +207,13 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     func applyAppearance() {
         if let selected = session.selectedProvider,
            !model.stripPreferences.visibleProviders.contains(selected) { dismissDetail() }
-        guard !displayState.isDragging else { return }
+        guard !displayState.isDragging else {
+            appearanceUpdatePendingDuringDrag = true
+            visibilityTransitionTask?.cancel()
+            visibilityTransitionTask = nil
+            pendingFoldedState = nil
+            return
+        }
         foldState.update(
             now: ProcessInfo.processInfo.systemUptime,
             revealDelay: 0,
@@ -267,7 +275,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         }
         let renderedSelectionID = session.selectionID
         let interactionPolicy = FloatingDetailInteractionPolicy(provider: provider)
-        let detailHost = NSHostingView(rootView: FloatingDetailView(
+        let detailView = FloatingDetailView(
             model: model,
             provider: provider,
             onClaudeSetup: model.openClaudeWorkspaceSetup,
@@ -283,7 +291,8 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                 detailInteraction.hasInteractiveContent = isInteracting
                 applyDetailInteractionState()
             }
-        ))
+        )
+        let detailHost = NSHostingView(rootView: AppLanguageRoot(model: model) { detailView })
         detailHost.sizingOptions = []
         detailPanel.contentView = detailHost
         positionPanels()
@@ -379,7 +388,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         return window.convertPoint(toScreen: event.locationInWindow)
     }
 
-    private func positionPanels(userInitiated: Bool = false, foldingAnimation: Bool = false) {
+    private func positionPanels(userInitiated: Bool = false) {
         guard !displayState.isDragging else { return }
         guard let context = placementContext(userInitiated: userInitiated) else { return }
         let screen = context.screen
@@ -393,12 +402,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             normalizedCenterY: context.normalizedCenterY
         )
         let stripFrame = displayState.isFolded ? FloatingStripLayout.foldedFrame(from: expandedFrame, edge: edge) : expandedFrame
-        if foldingAnimation && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = displayState.isFolded ? 0.16 : 0.18
-                stripPanel.animator().setFrame(stripFrame, display: true)
-            }
-        } else { stripPanel.setFrame(stripFrame, display: true, animate: false) }
+        // The transparent window and its nonlinear mask must always be committed at an
+        // exact endpoint. Scaling the NSPanel frame produces a different, pointed contour.
+        stripPanel.setFrame(stripFrame, display: true, animate: false)
         positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
         switch context.persistenceAction {
         case .preserve:
@@ -447,7 +453,10 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
 
     private func endStripDrag(translation: CGSize, pointer: CGPoint) {
         updateStripDrag(translation: translation, pointer: pointer)
-        defer { dragStartFrame = nil }
+        defer {
+            dragStartFrame = nil
+            applyAppearancePendingAfterDrag()
+        }
 
         let proposedFrame = stripPanel.frame
         guard let screen = dragTarget(at: pointer)
@@ -467,7 +476,9 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
             edge: placement.edge,
             normalizedCenterY: anchor
         )
-        stripPanel.setFrame(finalFrame, display: true, animate: true)
+        // The strip uses a nonlinear transparent mask, so even drag snapping must
+        // commit the exact endpoint without scaling the window contents.
+        stripPanel.setFrame(finalFrame, display: true, animate: false)
         model.saveFloatingStripPlacement(
             edge: placement.edge,
             normalizedCenterY: anchor,
@@ -624,6 +635,29 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     var stripFrameForTesting: CGRect { stripPanel.frame }
+    var stripContentBoundsForTesting: CGRect { stripPanel.contentView?.bounds ?? .zero }
+    var stripIsFoldedForTesting: Bool { displayState.isFolded }
+    var stripShowsExpandedContentForTesting: Bool { displayState.showsExpandedContent }
+
+    func setStripDraggingForTesting(_ dragging: Bool) {
+        displayState.isDragging = dragging
+        if !dragging { applyAppearancePendingAfterDrag() }
+    }
+
+    func transitionStripForTesting(toFolded folded: Bool) {
+        transitionStrip(toFolded: folded)
+    }
+
+    func suspendFoldPollingForTesting() {
+        foldTimer?.invalidate()
+        foldTimer = nil
+    }
+
+    private func applyAppearancePendingAfterDrag() {
+        guard appearanceUpdatePendingDuringDrag else { return }
+        appearanceUpdatePendingDuringDrag = false
+        applyAppearance()
+    }
 
     private var expandedStripSize: CGSize {
         let value = model.stripPreferences
@@ -673,6 +707,10 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         visibilityTransitionTask?.cancel()
         pendingFoldedState = folded
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let transition = FloatingStripVisibilityTransitionPlan.make(
+            destination: folded ? .folded : .expanded,
+            reduceMotion: reduceMotion
+        )
         if folded {
             displayState.showsExpandedContent = false
             if reduceMotion {
@@ -682,24 +720,27 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                 return
             }
             visibilityTransitionTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(140))
+                try? await Task.sleep(for: transition.contentDelay)
                 guard let self, !Task.isCancelled, self.pendingFoldedState == true else { return }
                 self.displayState.isFolded = true
                 self.pendingFoldedState = nil
-                self.positionPanels(foldingAnimation: true)
+                self.positionPanels()
             }
         } else {
             displayState.isFolded = false
             displayState.showsExpandedContent = false
-            positionPanels(foldingAnimation: !reduceMotion)
+            positionPanels()
             if reduceMotion {
                 displayState.showsExpandedContent = true
                 pendingFoldedState = nil
                 return
             }
             visibilityTransitionTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(180))
+                try? await Task.sleep(for: transition.contentDelay)
                 guard let self, !Task.isCancelled, self.pendingFoldedState == false else { return }
+                // Re-read the latest density before revealing content. This also settles
+                // any Settings change that arrived while the opacity transition was active.
+                self.positionPanels()
                 self.displayState.showsExpandedContent = true
                 self.pendingFoldedState = nil
             }
@@ -707,6 +748,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
     }
 
     private func openContextMenu(_ event: NSEvent) {
+        let menu = makeContextMenu()
+        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+    }
+
+    func makeContextMenu() -> NSMenu {
+        let localizer = AppLocalizer(language: model.appLanguage)
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
@@ -715,12 +762,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
                                 ("Settings…", #selector(settingsFromMenu)),
                                 ("Quit AI Token Meter", #selector(quitFromMenu))] {
             if title == "Settings…" { menu.addItem(.separator()) }
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            let item = NSMenuItem(title: localizer.text(title), action: action, keyEquivalent: "")
             item.target = self
             item.isEnabled = title != "Refresh now" || !model.isRefreshing
             menu.addItem(item)
         }
-        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+        return menu
     }
     func menuWillOpen(_ menu: NSMenu) { menuIsOpen = true; applyDetailInteractionState(); tickFold(forceExpanded: true) }
     func menuDidClose(_ menu: NSMenu) { menuIsOpen = false; applyDetailInteractionState(); tickFold() }

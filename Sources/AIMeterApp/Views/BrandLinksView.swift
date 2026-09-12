@@ -30,6 +30,9 @@ final class BrandLinksModel: ObservableObject {
 
 struct BrandLinksView: View {
     @StateObject private var model: BrandLinksModel
+    @Environment(\.locale) private var locale
+
+    private var localizer: AppLocalizer { AppLocalizer(language: AppLanguage(rawValue: locale.identifier) ?? .english) }
 
     init(action: BrandLinkOpenAction = BrandLinkOpenAction()) {
         self._model = StateObject(wrappedValue: BrandLinksModel(action: action))
@@ -47,7 +50,7 @@ struct BrandLinksView: View {
                 VStack(alignment: .leading, spacing: 6) { linkButtons }
             }
             if model.openingFailed {
-                BrandLinkFailureLabel()
+                BrandLinkFailureLabel(message: localizer.text("The author link could not be opened."))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -57,28 +60,34 @@ struct BrandLinksView: View {
     @ViewBuilder
     private var linkButtons: some View {
         ForEach(AppBrand.authorLinks, id: \.url) { link in
-            BrandLinkButton(link: link) { model.activate(link) }
+            BrandLinkButton(link: link, help: localizer.text("Opens in your default browser")) { model.activate(link) }
                 .fixedSize()
         }
     }
 }
 
 private struct BrandLinkFailureLabel: NSViewRepresentable {
+    let message: String
+
     func makeNSView(context: Context) -> NSTextField {
-        let label = NSTextField(labelWithString: "The author link could not be opened.")
+        let label = NSTextField(labelWithString: message)
         label.font = .preferredFont(forTextStyle: .caption1)
         label.textColor = .secondaryLabelColor
         label.lineBreakMode = .byWordWrapping
         label.maximumNumberOfLines = 0
-        label.setAccessibilityLabel("The author link could not be opened.")
+        label.setAccessibilityLabel(message)
         return label
     }
 
-    func updateNSView(_ label: NSTextField, context: Context) {}
+    func updateNSView(_ label: NSTextField, context: Context) {
+        label.stringValue = message
+        label.setAccessibilityLabel(message)
+    }
 }
 
 private struct BrandLinkButton: NSViewRepresentable {
     let link: AppBrand.Link
+    let help: String
     let activate: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(activate: activate) }
@@ -91,13 +100,15 @@ private struct BrandLinkButton: NSViewRepresentable {
         button.image = BrandIcon.image(for: icon)
         button.imagePosition = .imageLeading
         button.imageHugsTitle = true
-        button.toolTip = "Opens in your default browser"
+        button.toolTip = help
         button.setAccessibilityLabel(link.label)
-        button.setAccessibilityHelp("Opens in your default browser")
+        button.setAccessibilityHelp(help)
         return button
     }
 
     func updateNSView(_ button: NSButton, context: Context) {
+        button.toolTip = help
+        button.setAccessibilityHelp(help)
         context.coordinator.activateHandler = activate
     }
 

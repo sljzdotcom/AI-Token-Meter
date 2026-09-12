@@ -2,6 +2,8 @@ import AIMeterCore
 import SwiftUI
 
 struct ServiceAccountStatusView: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let status: ServiceAccountStatus
 
     var body: some View {
@@ -14,7 +16,7 @@ struct ServiceAccountStatusView: View {
                 Text(primaryText)
                     .fontWeight(.medium)
                 if let detail = status.accountDetail, !detail.isEmpty {
-                    Text(detail)
+                    Text(ProviderDetailText.diagnostic(detail, localizer: localizer))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -31,14 +33,7 @@ struct ServiceAccountStatusView: View {
     }
 
     private var primaryText: String {
-        if let label = status.accountLabel, !label.isEmpty { return label }
-        return switch status.connectionState {
-        case .connected: "Connected"
-        case .signInRequired: status.provider == .deepSeek ? "No API Key stored" : "Sign-in required"
-        case .notInstalled: "CLI not installed"
-        case .checking: "Checking account…"
-        case .unavailable: "Account status unavailable"
-        }
+        ProviderDetailText.accountText(status, localizer: localizer)
     }
 
     private var symbolName: String {

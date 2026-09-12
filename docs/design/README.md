@@ -13,6 +13,10 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-12 | 0.9.0三语言、Services Logo与悬浮条修复稳定发布 | 沿用三项已完成规格及双平台稳定发布流程 | [计划](implementation-plans/2026-09-12-v0.9.0-release.md) |
+| 2026-09-12 | macOS Services产品Logo | [规格](specifications/2026-09-12-macos-services-provider-logos-design.md) | [计划](implementation-plans/2026-09-12-macos-services-provider-logos.md) |
+| 2026-09-12 | macOS三语言即时切换 | [规格](specifications/2026-09-12-macos-app-language-selection-design.md) | [计划](implementation-plans/2026-09-12-macos-app-language-selection.md) |
+| 2026-09-12 | 悬浮条自动隐藏展开终态与Mini即时切换统一 | [规格](specifications/2026-09-12-floating-strip-expanded-state-unification-design.md) | [计划](implementation-plans/2026-09-12-floating-strip-expanded-state-unification.md) |
 | 2026-09-11 | 0.8.2 悬浮条即时密度与轮廓修复稳定发布 | 沿用本轮即时密度与方案B轮廓规格及双平台发布流程 | [计划](implementation-plans/2026-09-11-v0.8.2-release.md) |
 | 2026-09-11 | 悬浮条密度即时生效与方案B圆角/反向肩弧修正 | [规格](specifications/2026-09-11-floating-strip-live-density-left-contour-design.md) | [计划](implementation-plans/2026-09-11-floating-strip-live-density-left-contour.md) |
 | 2026-09-11 | 0.8.1 浮动条轮廓与设置分类稳定发布 | 沿用本轮轮廓及设置分类规格与双平台发布流程 | [计划](implementation-plans/2026-09-11-v0.8.1-release.md) |

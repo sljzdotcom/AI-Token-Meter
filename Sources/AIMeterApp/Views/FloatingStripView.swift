@@ -11,6 +11,8 @@ struct FloatingStripView: View {
     @Environment(\.openSettings) private var openSettings
     @AccessibilityFocusState private var accessibilityFocusedProvider: UsageProvider?
 
+    private var localizer: AppLocalizer { AppLocalizer(language: model.appLanguage) }
+
     var body: some View {
         ZStack {
             if displayState.isFolded {
@@ -32,15 +34,14 @@ struct FloatingStripView: View {
                         }
                         .frame(width: 14, height: 88)
                 }
-                .accessibilityLabel("Expand floating meter")
+                .accessibilityLabel(localizer.text("Expand floating meter"))
             } else {
                 FloatingStripSurface(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count)
                     .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count), eoFill: true)
                     .focusable()
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Move floating meter")
-                    .accessibilityValue(accessibilityPositionValue)
-                    .accessibilityHint("Use up or down to move. Left and right set the edge preference")
+                    .accessibilityLabel(localizer.text("Move floating meter, %@", accessibilityPositionValue))
+                    .accessibilityHint(localizer.text("Use up or down to move. Left and right set the edge preference"))
                     .onMoveCommand { direction in
                         switch direction {
                         case .up: onAccessibilityMove(.moveUp)
@@ -57,10 +58,10 @@ struct FloatingStripView: View {
                         @unknown default: break
                         }
                     }
-                    .accessibilityAction(named: "Set edge preference to Left") {
+                    .accessibilityAction(named: Text(localizer.text("Set edge preference to Left"))) {
                         onAccessibilityMove(.moveToLeftEdge)
                     }
-                    .accessibilityAction(named: "Set edge preference to Right") {
+                    .accessibilityAction(named: Text(localizer.text("Set edge preference to Right"))) {
                         onAccessibilityMove(.moveToRightEdge)
                     }
                     .onContinuousHover { phase in
@@ -85,7 +86,7 @@ struct FloatingStripView: View {
                                 .scaleEffect(session.selectedProvider == presentation.provider ? 1.06 : 1)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityValue(session.accessibilityValue(for: presentation.provider))
+                        .accessibilityValue(localizer.text(session.accessibilityValue(for: presentation.provider)))
                         .accessibilityFocused($accessibilityFocusedProvider, equals: presentation.provider)
                         .animation(.spring(response: 0.28, dampingFraction: 0.8), value: session.selectedProvider)
                     }
@@ -113,9 +114,9 @@ struct FloatingStripView: View {
     private var density: FloatingStripDensity { model.stripPreferences.density }
 
     private var accessibilityPositionValue: String {
-        let edge = displayState.resolvedEdge == .left ? "Left edge" : "Right edge"
+        let edge = localizer.text(displayState.resolvedEdge == .left ? "Left edge" : "Right edge")
         let verticalPercent = Int((displayState.normalizedCenterY * 100).rounded())
-        return "\(edge), vertical position \(verticalPercent) percent"
+        return localizer.text("%@, vertical position %lld percent", edge, Int64(verticalPercent))
     }
 
     private var presentations: [ProviderPresentation] {

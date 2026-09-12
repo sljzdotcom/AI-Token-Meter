@@ -4,6 +4,20 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-09-12
+
+稳定功能版；macOS build26。新增macOS三语言即时切换与Services产品Logo，并修复自动隐藏展开时的悬浮条轮廓和Mini即时切换。[发布记录](docs/development/2026-09-12-v0.9.0-release.md)。
+
+### Added
+
+- macOS Settings → Services在Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题前显示对应Logo；四项统一使用18pt图标、6pt间距和浅深色自适应前景色，装饰Logo不重复朗读产品名称。
+- macOS Settings → Appearance新增Language选择，默认English，可选简体中文和繁體中文；选择后菜单栏、五个Settings页签、悬浮条、Provider详情、账户与更新状态、官方帮助链接、通知及辅助功能文案即时切换并持久保存。
+
+### Fixed
+
+- macOS开启自动隐藏后，悬停展开现在直接使用与常驻展开相同的精确窗口尺寸和圆润轮廓；异形窗口不再从收起尺寸拉伸成尖角。
+- 自动隐藏转换期间切换Comfortable、Compact或Mini会读取并应用最后一次设置，Mini无需等待再次收起或悬停即可显示。
+
 ## 0.8.2 - 2026-09-11
 
 稳定修复版；macOS build25。密度设置对已展开悬浮条立即生效，并修正左右贴边轮廓的外侧圆角和反向肩弧。[发布记录](docs/development/2026-09-11-v0.8.2-release.md)。

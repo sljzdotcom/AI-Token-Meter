@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-11
+**最后更新：** 2026-09-12
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,6 +15,11 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260912-005 | 双平台稳定版发布 | 用户要求把当前本地main已完成但尚未公开的自动隐藏展开轮廓修复、macOS三语言即时切换和Services四产品Logo直接发布为可更新的新版本 | 高 | 进行中 | 2026-09-12 | 0.9.0/build26已进入[PR #40](https://github.com/sljzdotcom/AI-Token-Meter/pull/40)；首次macOS CI发现繁体日期格式器版本差异及真实辅助功能语言切换等待竞态，已补失败回归并修复，本机560项Swift与6份合同通过，等待修复候选独立审查、推送及PR/main双平台CI后继续标签、Release、签名资产、三个更新源和公网复验 | 用户原话“请直接发布”（2026-09-12） · 用户在收到具体仓库、分支、完整源码载荷与发布事务说明后回复“授权通过”（2026-09-12） · [首次失败CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34701981555) |
+| REQ-20260912-004 | Antigravity详情数据与颜色核对 | 用户询问Google Antigravity详情是否显示正确、为何包含Claude/GPT信息，以及强调颜色是否曾调整 | 中 | 已完成 | 2026-09-12 | 官方Models与/usage资料确认Antigravity同时提供Gemini、Claude与GPT模型，并把额度分为Gemini Models及Claude and GPT models两组；当前采集严格解析两组各五小时/每周四行，缺失或歧义则拒绝。标题、剩余比例和进度已从全白恢复为青绿色`#3ED6B2`，数据逻辑未改 | [Google Models](https://www.antigravity.google/docs/models/) · [Model Quotas /usage](https://antigravity.google/docs/cli/commands/usage) · `GeminiUsageParser.swift` · `GeminiDetailView.swift` · [强调色恢复记录](development/2026-09-10-antigravity-accent-restoration.md) |
+| REQ-20260912-003 | macOS Services产品Logo | macOS版Settings的Services页在每个产品名称前显示对应Logo，方便快速区分Claude Code、OpenAI Codex、DeepSeek与Google Antigravity | 中 | 已完成 | 2026-09-12 | 2026-09-12完成：四个Services分组统一显示18pt Logo与6pt名称间距，浅深色及三语言可见，装饰Logo不重复朗读；最终审查`0/0/0`，559项Swift与正式App构建通过，本地main合并`28ec9f6`；未发布新版本 | 用户直接需求及开发授权（2026-09-12） · [规格](design/specifications/2026-09-12-macos-services-provider-logos-design.md) · [计划](design/implementation-plans/2026-09-12-macos-services-provider-logos.md) · [开发记录](development/2026-09-12-macos-services-provider-logos.md) · 实现`912f130`/`6303279`/`eeaf215` · 本地main`28ec9f6` |
+| REQ-20260912-002 | macOS界面语言选择 | macOS版Settings的Appearance新增语言选择；默认英文，可选简体中文和繁体中文 | 高 | 已完成 | 2026-09-12 | 2026-09-12完成：默认English及简/繁中文即时切换、重启持久化、五页Settings、菜单/浮动条、四Provider详情、通知和辅助功能全部落地；最终复审`0/0/0`，552项Swift、正式App三份各321键资源与签名门禁通过，本地main合并`207ad63`；未发布新版本 | 用户直接需求及开发授权（2026-09-12） · [规格](design/specifications/2026-09-12-macos-app-language-selection-design.md) · [计划](design/implementation-plans/2026-09-12-macos-app-language-selection.md) · [开发记录](development/2026-09-12-macos-app-language-selection.md) · 最终实现`7417628` · 本地main`207ad63` |
+| REQ-20260912-001 | 自动隐藏展开与Mini即时切换轮廓缺陷 | 用户先反馈选择Mini时已展开悬浮条无反应，只有自动隐藏后重新悬停才看到Mini；进一步对照确认关闭自动隐藏时四周圆润，开启自动隐藏后无论Comfortable、Compact或Mini，鼠标悬停展开的四周都会变尖，说明动画展开与常驻展开未落到同一最终轮廓逻辑 | 高 | 已完成 | 2026-09-12 | 自动隐藏展开与常驻展开统一为精确无动画窗口终态，只保留内容显示时序；三密度即时切换、完整收起→展开、转换中途Mini、快速反向和拖拽延后提交均有真实NSPanel回归，双平台完整门禁通过，独立复核0/0/0，本地main合并`0c756b1`；未发布新版本 | [规格](design/specifications/2026-09-12-floating-strip-expanded-state-unification-design.md)、[计划](design/implementation-plans/2026-09-12-floating-strip-expanded-state-unification.md)、[开发记录](development/2026-09-12-floating-strip-expanded-state-unification.md)、提交`ab9f28f`/`18ae2d0`/`bb1d4fb`、本地main`0c756b1` |
 | REQ-20260911-016 | 双平台修复版发布 | 用户要求将已完成的密度即时生效及方案B左右轮廓三项修复发布新版本 | 高 | 已完成 | 2026-09-11 | 2026-09-11完成：0.8.2/build25已公开；PR/main/标签、双平台签名资产、三个更新源、匿名重下与发布后证据双平台CI全部通过 | [Release v0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2) · [PR #38](https://github.com/sljzdotcom/AI-Token-Meter/pull/38) · [证据PR #39](https://github.com/sljzdotcom/AI-Token-Meter/pull/39) · 合并/tag`308b4f1` · appcast`7e3b099` · [workflow 34613248760](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34613248760) · 证据CI `34615557775`/`34615557800` · [发布记录](development/2026-09-11-v0.8.2-release.md) · 物理Windows 11多屏/DPI边界保留 |
 | REQ-20260911-015 | 左贴边反向肩弧不足 | 用户反馈悬浮条位于最左侧时，贴边侧左上角与左下角的反向弧度过小，实际观看几乎看不出曲线变化 | 高 | 已完成 | 2026-09-11 | 2026-09-11完成：方案B把Mini/Compact贴屏侧肩深固定为70pt/px、Comfortable固定为88pt/px，并让30pt/px反向肩弧在左右贴边和上下肩严格镜像 | 用户确认“按推荐执行 B · 圆角 + 加强反向肩弧” · 实现`863601a` · 审查修复`1bc0a6d` · 33项macOS几何/渲染专项、24组真实Chrome展开布局与圆环周界通过 · [开发记录](development/2026-09-11-floating-strip-live-density-left-contour.md) · 随[0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)公开 |
 | REQ-20260911-014 | 左贴边外侧尖角缺陷 | 用户反馈悬浮条位于最左侧时，暴露侧右上角和右下角变成尖角，应恢复圆润角部 | 高 | 已完成 | 2026-09-11 | 2026-09-11完成：方案B用三段连续Bézier曲线把暴露侧上下角接入竖直主体，左贴边由右贴边路径严格水平镜像，三密度与1至4个Provider保持圆润 | 用户确认“按推荐执行 B · 圆角 + 加强反向肩弧” · 实现`863601a` · 审查修复`1bc0a6d` · 双平台关键点、镜像与圆环包含回归通过 · 独立复核0/0/0 · [开发记录](development/2026-09-11-floating-strip-live-density-left-contour.md) · 随[0.8.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.8.2)公开 |
@@ -239,6 +244,18 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-12 | REQ-20260912-005 | PR CI修复进度 | 公开PR #40首次macOS检查发现繁体星期与上下午间距受系统格式器版本影响，且固定100毫秒会在高负载runner中过早读取上一种辅助功能语言；已新增跨版本回归、归一化紧凑间距，并改为有界等待真实界面完成语言更新。原有断言未删除或降级，本机539+3+18共560项Swift与6份跨平台合同通过，等待独立复审和推送。 |
+| 2026-09-12 | REQ-20260912-003 | 实现验证进度 | 候选`eeaf215`通过147项、18个suite的串行真实窗口专项及538+3+18共559项Swift；Release App继续包含四份Provider Logo、三语言资源且签名有效。任务1/2独立审查与本阶段范围复核未发现剩余问题，Core、Windows和数据逻辑无变化。状态保持进行中，等待最终完整分支审查和本地main整合；没有推送或发布。 |
+| 2026-09-12 | REQ-20260912-002 | 最终验证进度 | 最终修复头`7417628`完整分支复审Critical/Important/Minor为`0/0/0`；重新运行51项专项及531+3+18共552项Swift全部通过。新Release App三份语言表各321键且默认English，签名有效；高置信凭据和常见私人邮箱扫描无命中，126处本机路径为已知编译路径；没有新增网络API。状态保持进行中，只等待本地main整合，没有推送或发布。 |
+| 2026-09-12 | REQ-20260912-002 | 实现验证进度 | macOS默认English、可选简体中文/繁體中文的实现头`5b230aa`已完成分阶段TDD与审查修正；51项资源界面专项、546项Swift、Release App三份语言表、默认英文、公开安全与无新增网络门禁通过。状态保持进行中，等待最终独立审查与本地main整合；没有推送或发布。 |
+| 2026-09-12 | REQ-20260912-004 | 新增 → 已完成 | 对照Google官方Models与Model Quotas资料及当前源码确认：Antigravity本身提供Gemini、Claude和GPT模型，/usage按Gemini Models与Claude and GPT models两组返回各五小时/每周额度；当前四窗口显示正确且不读取Claude Code或OpenAI Codex账户。强调色曾从全白恢复为青绿色`#3ED6B2`，只改视觉层级，未改额度计算。 |
+| 2026-09-12 | REQ-20260912-002 | 待用户确认 → 进行中 | 用户明确“确认，直接开发，给你授权”，批准书面规格与当前对话内直接实现。开发入口进入实施计划和TDD；该授权覆盖本地开发、测试、提交、审查与既有本地主分支整合，不自动解释为新版本发布授权。 |
+| 2026-09-12 | REQ-20260912-002 | 进行中 → 待用户确认 | 用户确认按推荐方案执行：默认English，可选简体中文/繁體中文，并即时切换整个macOS应用自有界面；品牌名、CLI、终端和第三方网页保持原文。正式规格已写入唯一设计目录，按设计关卡等待用户审阅后再开始测试与生产实现。 |
+| 2026-09-12 | REQ-20260912-003 | 新增 → 待处理 | 用户要求macOS Settings → Services在每个产品名称前增加对应Logo以方便区分。按运行中需求排序规则先登记，待REQ-20260912-002语言选择完成后实施；不改变当前任务优先级，也不包含发布授权。 |
+| 2026-09-12 | REQ-20260912-002 | 新增 → 进行中 | 用户要求macOS Settings → Appearance新增语言选择，默认英文，可选简体中文与繁体中文。开发入口先核对现有架构与可见文案范围，形成设计供确认；当前指示不包含远程推送或新版本发布授权。 |
+| 2026-09-12 | REQ-20260912-001 | 进行中 → 已完成 | macOS已移除自动隐藏与拖拽吸附的异形窗口frame拉伸，三密度统一使用常驻展开的精确圆润终态；新增真实NSPanel三密度、转换中途Mini、快速反向和拖拽延后提交回归。完整本机门禁通过，独立初审0/2/1全部修复，最终复核0/0/0，本地main合并`0c756b13bc3aa663fa8438e1fab67c1c5a964dbd`。本轮未授权也未发布新版本，远程推送仍等待用户对具体GitHub仓库的明确许可。 |
+| 2026-09-12 | REQ-20260912-001 | 新增 → 进行中 | 用户在v0.8.2现场验收中确认Comfortable/Compact即时切换有效，但Mini选择后已展开悬浮条无响应，必须依赖自动隐藏后重新悬停；同时Mini上下肩弧太小、不够圆润。开发入口接管双平台复现、失败回归、修复、独立审查与收尾；本次反馈未新增版本发布授权。 |
+| 2026-09-12 | REQ-20260912-001 | 现场根因补充 | 用户关闭自动隐藏时观察到悬浮条四周均圆润；开启自动隐藏后，Comfortable、Compact、Mini在鼠标悬停展开后四周都变尖。修复基线调整为让动画展开与常驻展开复用同一最终轮廓提交，并继续覆盖Mini设置即时生效。 |
 | 2026-09-11 | REQ-20260911-013 / REQ-20260911-014 / REQ-20260911-015 | 进行中 → 已完成 | 双平台已实现密度即时生效和方案B轮廓。独立初审的3项Important与2项Minor均补红绿回归并修复：事件TOCTOU、拖拽Deferred回执、失败/超时恢复、固定肩深与计划状态；最终复核Critical/Important/Minor为0/0/0。本轮只形成候选，没有创建版本、Release或修改更新源。 |
 | 2026-09-11 | REQ-20260911-014 / REQ-20260911-015 | 待用户确认 → 进行中 | 用户明确确认“按推荐执行 B · 圆角 + 加强反向肩弧”。后续以已展示的B方案为视觉基线：暴露侧上下角连续圆润，贴屏侧上下反向肩弧加强，左右严格镜像；先补齐书面规格与计划，再进入双平台实现。本次确认不包含新版本发布授权。 |
 | 2026-09-11 | REQ-20260911-014 / REQ-20260911-015 | 进行中 → 待用户确认 | 同尺度A/B对比预览已交付：A保持0.8.1现状，B用30pt可辨认反向肩弧和连续切线圆角，并展示左右严格镜像及左侧局部放大。Mini保持65×344、圆环48、间距10；推荐轮廓四环共720个周界采样全部落在背景内。等待用户确认B或提出弧度调整。 |

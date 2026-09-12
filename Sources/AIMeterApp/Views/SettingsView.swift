@@ -10,34 +10,35 @@ struct SettingsView: View {
         TabView(selection: $selectedTab) {
             AppearanceSettingsView(model: model)
                 .tabItem {
-                    Label(SettingsTab.appearance.title, systemImage: SettingsTab.appearance.systemImage)
+                    Label(SettingsTab.appearance.title(language: model.appLanguage), systemImage: SettingsTab.appearance.systemImage)
                 }
                 .tag(SettingsTab.appearance)
 
             FloatingStripSettingsView(model: model)
                 .tabItem {
-                    Label(SettingsTab.floatingStrip.title, systemImage: SettingsTab.floatingStrip.systemImage)
+                    Label(SettingsTab.floatingStrip.title(language: model.appLanguage), systemImage: SettingsTab.floatingStrip.systemImage)
                 }
                 .tag(SettingsTab.floatingStrip)
 
             MonitoringSettingsView(model: model)
                 .tabItem {
-                    Label(SettingsTab.monitoring.title, systemImage: SettingsTab.monitoring.systemImage)
+                    Label(SettingsTab.monitoring.title(language: model.appLanguage), systemImage: SettingsTab.monitoring.systemImage)
                 }
                 .tag(SettingsTab.monitoring)
 
             ServicesSettingsView(model: model, pendingAPIKey: $pendingAPIKey)
                 .tabItem {
-                    Label(SettingsTab.services.title, systemImage: SettingsTab.services.systemImage)
+                    Label(SettingsTab.services.title(language: model.appLanguage), systemImage: SettingsTab.services.systemImage)
                 }
                 .tag(SettingsTab.services)
 
             AboutSettingsView(updateCoordinator: updateCoordinator)
                 .tabItem {
-                    Label(SettingsTab.about.title, systemImage: SettingsTab.about.systemImage)
+                    Label(SettingsTab.about.title(language: model.appLanguage), systemImage: SettingsTab.about.systemImage)
                 }
                 .tag(SettingsTab.about)
         }
+        .environment(\.locale, model.appLanguage.locale)
         .aiMeterFontScope(.settings)
         .onAppear {
             selectedTab = model.requestedSettingsTab
