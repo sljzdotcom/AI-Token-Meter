@@ -3,7 +3,15 @@ import Foundation
 
 /// Runs a noninteractive command with pipes, bounded output, and deterministic cleanup.
 public struct BoundedCommandRunner: CommandRunning {
-    public init() {}
+    private let timeoutDidFire: (@Sendable () -> Void)?
+
+    public init() {
+        timeoutDidFire = nil
+    }
+
+    init(timeoutDidFire: @escaping @Sendable () -> Void) {
+        self.timeoutDidFire = timeoutDidFire
+    }
 
     public func run(_ request: CommandRequest) async throws -> CommandResult {
         let state = BoundedCommandState()
@@ -12,6 +20,7 @@ public struct BoundedCommandRunner: CommandRunning {
                 group.addTask { try await execute(request, state: state) }
                 group.addTask {
                     try await Task.sleep(for: .seconds(request.timeout))
+                    timeoutDidFire?()
                     state.stop(reason: .timedOut)
                     throw UsageCollectionError.timedOut
                 }

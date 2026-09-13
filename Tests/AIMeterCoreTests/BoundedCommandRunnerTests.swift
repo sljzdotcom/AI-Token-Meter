@@ -30,16 +30,25 @@ struct BoundedCommandRunnerTests {
     }
 
     @Test func terminatesAfterTheConfiguredDeadline() async {
-        let startedAt = Date()
+        let clock = ContinuousClock()
+        let timeoutInstant = TimeoutInstantCapture()
+        let startedAt = clock.now
         await #expect(throws: UsageCollectionError.timedOut) {
-            try await BoundedCommandRunner().run(CommandRequest(
+            try await BoundedCommandRunner(timeoutDidFire: {
+                timeoutInstant.record(clock.now)
+            }).run(CommandRequest(
                 executableURL: URL(fileURLWithPath: "/bin/sleep"),
-                arguments: ["2"],
+                arguments: ["30"],
                 inputLines: [],
                 timeout: 0.05
             ))
         }
-        #expect(Date().timeIntervalSince(startedAt) < 1)
+        guard let firedAt = timeoutInstant.value else {
+            Issue.record("The timeout event was not observed")
+            return
+        }
+        #expect(startedAt.duration(to: firedAt) >= .milliseconds(50))
+        #expect(firedAt.duration(to: clock.now) < .seconds(1))
     }
 
     @Test func cancellationTerminatesTheCommand() async {
@@ -79,5 +88,18 @@ struct BoundedCommandRunnerTests {
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(cancelledAt.duration(to: clock.now) < .seconds(1))
+    }
+}
+
+private final class TimeoutInstantCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue: ContinuousClock.Instant?
+
+    var value: ContinuousClock.Instant? {
+        lock.withLock { storedValue }
+    }
+
+    func record(_ value: ContinuousClock.Instant) {
+        lock.withLock { storedValue = value }
     }
 }
