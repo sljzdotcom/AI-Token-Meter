@@ -22,4 +22,4 @@
 
 独立审查先发现2秒夹具在延迟触发时可能靠自然退出误通过，并指出原CI不能证明具体延迟阶段。改用30秒夹具、修正文档证据边界后，最终复审Critical/Important/Minor为`0/0/0`；禁用终止的变异验证在28.486秒后正确失败。
 
-精确修正候选`819de54`的PR #44 macOS [workflow 34741171112](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741171112)（job `103681008998`）与Windows [workflow 34741171110](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741171110)（job `103681009052`）全部通过。最终合并与main CI节点记录在[0.9.1发布日志](2026-09-13-v0.9.1-release.md)。
+精确修正候选`819de54`的PR #44 macOS [workflow 34741171112](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741171112)（job `103681008998`）与Windows [workflow 34741171110](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741171110)（job `103681009052`）全部通过。最终合并与main CI节点待PR #44实际完成后补记。
