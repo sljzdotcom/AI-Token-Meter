@@ -31,3 +31,5 @@
 测试先改为观察尚不存在的进程退出入口，旧实现准确编译失败。最小实现把内部观察闭包连接到既有`ProcessTerminationWaiter`只触发一次的退出事件；超时和取消都直接断言真实停止请求到操作系统进程退出少于一秒，并继续等待及断言各自的`timedOut`和`CancellationError`。公开初始化器、默认生产路径、终止信号、强杀后备、EOF排空与错误语义不变。
 
 四项定向回归单轮通过，30秒子进程在取消后一秒内退出，调用最终返回`CancellationError`；四项测试连续20轮再次通过。独立变异验证把终止延后后，超时与取消的真实退出断言分别以1.219秒和1.234秒正确失败。
+
+最终候选`a6017d9`的PR #44 macOS [workflow 34742296793](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34742296793)（job `103683924232`）与Windows [workflow 34742296797](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34742296797)（job `103683938272`）全部通过，独立复审Critical/Important/Minor为`0/0/0`。PR #44合入main为`1cdf744b6a4582dbeaa079e2ecdda86ec3884bb6`；精确main的macOS [workflow 34742715345](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34742715345)（job `103685036122`）与Windows [workflow 34742715336](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34742715336)（job `103685036093`）再次通过。

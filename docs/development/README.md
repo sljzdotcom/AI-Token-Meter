@@ -12,8 +12,8 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-09-13](2026-09-13-bounded-command-timeout-test-reliability.md) | BoundedCommandRunner停止测试可靠性 | 超时与取消分别从真实停止请求计量到操作系统进程退出；两轮失败先行和连续定向通过，等待完整门禁与证据PR整合 |
-| [2026-09-13](2026-09-13-v0.9.1-release.md) | 0.9.1两档悬浮条与摘要同步稳定发布 | v0.9.1/build27已公开；七项签名资产、篡改拒绝和三个更新源通过，等待证据PR最终CI与整合 |
+| [2026-09-13](2026-09-13-bounded-command-timeout-test-reliability.md) | BoundedCommandRunner停止测试可靠性 | 超时与取消从真实停止请求计量到操作系统进程退出；两轮失败先行、完整门禁、独立复审、PR/main双平台CI与整合完成 |
+| [2026-09-13](2026-09-13-v0.9.1-release.md) | 0.9.1两档悬浮条与摘要同步稳定发布 | v0.9.1/build27、七项签名资产、篡改拒绝、三个更新源、证据归档及PR/main双平台CI全部完成 |
 | [2026-09-13](2026-09-13-provider-visibility-summary-sync.md) | 产品可见性与摘要同步 | macOS菜单栏和Windows托盘改为共用悬浮条隐藏及排序偏好；完整门禁与整合证据待收尾补记 |
 | [2026-09-12](2026-09-12-v0.9.0-release.md) | 0.9.0三语言、Services Logo与悬浮条修复稳定发布 | 0.9.0/build26候选与发布事务证据随流程补记 |
 | [2026-09-12](2026-09-12-macos-services-provider-logos.md) | macOS Services四产品Logo | 四个分组标题复用18pt Logo与6pt间距，浅深色和辅助功能真实窗口专项、559项Swift及Release资源/签名门禁通过；待最终分支审查与本地main整合，未发布 |
