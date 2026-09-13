@@ -27,8 +27,8 @@
 
 - [x] 运行完整Swift及屏幕测试、Windows前端/浏览器/生产构建/Rust/格式/严格Clippy、跨平台合同、文档与公开安全门禁。
 - [x] 构建并验证macOS Release App的版本、便携资源和Sparkle嵌套签名。
-- [ ] 完成独立审查，修复全部Critical、Important和Minor发现后重跑受影响门禁。
-- [ ] 更新开发记录、CHANGELOG、测试基线和需求台账，形成0.9.1/build27候选。
+- [x] 完成独立审查，修复全部Critical、Important和Minor发现后重跑受影响门禁。
+- [x] 更新开发记录、CHANGELOG、测试基线和需求台账，形成0.9.1/build27候选。
 
 ### 任务4：发布0.9.1
 

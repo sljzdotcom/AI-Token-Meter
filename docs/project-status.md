@@ -8,7 +8,7 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.9.1候选已完成本地实现：** 双平台Floating Strip尺寸只保留Comfortable与Compact，旧Mini和未知密度升级后迁移到Compact；产品显示与排序设置同时控制macOS菜单栏面板、最高用量和Windows托盘摘要。当前等待独立审查、PR/main双平台CI与正式发布，公开稳定版仍为0.9.0。[候选发布记录](development/2026-09-13-v0.9.1-release.md)。
+**0.9.1候选已完成本地实现与独立审查：** 双平台Floating Strip尺寸只保留Comfortable与Compact，旧Mini和未知密度升级后迁移到Compact；产品显示与排序设置同时控制macOS菜单栏面板、最高用量和Windows托盘摘要。独立审查Critical/Important/Minor为`0/0/0`，当前等待PR/main双平台CI与正式发布，公开稳定版仍为0.9.0。[候选发布记录](development/2026-09-13-v0.9.1-release.md)。
 
 **macOS Services四产品Logo已随0.9.0公开：** Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题复用同一18pt Logo组件与6pt名称间距，使用系统主前景色适配浅深外观，装饰Logo不进入辅助功能树。实现通过147项串行真实窗口专项、完整Swift门禁及Release App四Logo、三语言资源和签名验证，最终独立审查`0/0/0`。Core、Windows与数据逻辑无变化。[开发记录](development/2026-09-12-macos-services-provider-logos.md)。
 
