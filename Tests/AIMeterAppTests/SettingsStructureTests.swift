@@ -295,7 +295,10 @@ struct SettingsStructureTests {
 
         let comfortable = try #require(source.range(of: "Text(localizer.text(\"Comfortable\")).tag(FloatingStripDensity.comfortable)"))
         let compact = try #require(source.range(of: "Text(localizer.text(\"Compact\")).tag(FloatingStripDensity.compact)"))
+        let deepSea = try #require(source.range(of: "Text(localizer.text(\"Deep Sea\")).tag(FloatingStripAppearance.deepSea)"))
+        let liquidGlass = try #require(source.range(of: "Text(localizer.text(\"Liquid Glass\")).tag(FloatingStripAppearance.liquidGlass)"))
         #expect(comfortable.lowerBound < compact.lowerBound)
+        #expect(deepSea.lowerBound < liquidGlass.lowerBound)
         #expect(!source.contains("FloatingStripDensity.mini"))
         #expect(!source.contains("localizer.text(\"Mini\")"))
         #expect(source.contains("Toggle(localizer.text(\"Automatically collapse floating strip\""))
@@ -303,6 +306,7 @@ struct SettingsStructureTests {
         #expect(source.contains("FloatingStripDisplaySettings(model: model)"))
         #expect(appearanceSource.contains("Display font"))
         #expect(!appearanceSource.contains("Floating strip size"))
+        #expect(!appearanceSource.contains("Floating strip appearance"))
     }
 }
 

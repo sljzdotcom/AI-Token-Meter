@@ -18,16 +18,10 @@ struct FloatingStripView: View {
             if displayState.isFolded {
                 ZStack(alignment: displayState.resolvedEdge == .left ? .leading : .trailing) {
                     Color.clear
-                    FloatingStripFoldedShape(edge: displayState.resolvedEdge)
-                        .fill(Color(red: 0.015, green: 0.04, blue: 0.085))
-                        .overlay {
-                            if let image = FloatingStripBackgroundAsset.defaultImage {
-                                Image(nsImage: image).resizable().scaledToFill()
-                                    .scaleEffect(x: displayState.resolvedEdge == .left ? -1 : 1, y: 1)
-                                    .overlay(Color.black.opacity(0.46))
-                            }
-                        }
-                        .clipShape(FloatingStripFoldedShape(edge: displayState.resolvedEdge))
+                    FloatingStripFoldedSurface(
+                        edge: displayState.resolvedEdge,
+                        appearance: model.stripPreferences.appearance
+                    )
                         .overlay(alignment: displayState.resolvedEdge == .left ? .trailing : .leading) {
                             Capsule().fill(.white.opacity(0.30)).frame(width: 2, height: 28)
                                 .padding(displayState.resolvedEdge == .left ? .trailing : .leading, 3)
@@ -36,7 +30,12 @@ struct FloatingStripView: View {
                 }
                 .accessibilityLabel(localizer.text("Expand floating meter"))
             } else {
-                FloatingStripSurface(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count)
+                FloatingStripSurface(
+                    edge: displayState.resolvedEdge,
+                    density: density,
+                    providerCount: presentations.count,
+                    appearance: model.stripPreferences.appearance
+                )
                     .contentShape(FloatingStripDragShape(edge: displayState.resolvedEdge, density: density, providerCount: presentations.count), eoFill: true)
                     .focusable()
                     .accessibilityElement(children: .ignore)

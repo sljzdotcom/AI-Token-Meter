@@ -4,6 +4,32 @@ import Testing
 
 @Suite("Floating strip preferences and idle folding")
 struct FloatingStripPreferencesTests {
+    @Test func appearanceDefaultsToDeepSeaAndMigratesUnknownValues() throws {
+        #expect(FloatingStripPreferences().appearance == .deepSea)
+
+        for json in [
+            #"{"schemaVersion":4,"density":"comfortable"}"#,
+            #"{"schemaVersion":5,"appearance":"future"}"#,
+        ] {
+            let value = try JSONDecoder().decode(
+                FloatingStripPreferences.self,
+                from: Data(json.utf8)
+            )
+            #expect(value.appearance == .deepSea)
+        }
+    }
+
+    @Test func liquidGlassAppearanceSurvivesPersistence() throws {
+        var value = FloatingStripPreferences()
+        value.appearance = .liquidGlass
+
+        let encoded = try JSONEncoder().encode(value)
+        let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(json["schemaVersion"] as? Int == 5)
+        #expect(json["appearance"] as? String == "liquidGlass")
+        #expect(try JSONDecoder().decode(FloatingStripPreferences.self, from: encoded).appearance == .liquidGlass)
+    }
+
     @Test func foldSchedulerCanHonorEveryFiftyMillisecondPreferenceStep() {
         #expect(FloatingStripFoldState.pollingInterval <= 0.025)
     }
@@ -48,7 +74,7 @@ struct FloatingStripPreferencesTests {
         let changed = value.settingVisible(gemini, visible: true)
         let encoded = try JSONEncoder().encode(changed)
         let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["schemaVersion"] as? Int == 5)
         #expect(json["automaticallyCollapses"] as? Bool == true)
         #expect(try JSONDecoder().decode(FloatingStripPreferences.self, from: encoded) == changed)
     }
@@ -145,12 +171,12 @@ struct FloatingStripPreferencesTests {
         #expect(!state.isFolded)
     }
 
-    @Test func schemaFourPersistsAutomaticCollapseAndIndependentBoundedDelays() throws {
+    @Test func schemaFivePersistsAutomaticCollapseAndIndependentBoundedDelays() throws {
         var value = FloatingStripPreferences(revealDelayMilliseconds: 2_000, collapseDelayMilliseconds: 5_000)
         value.automaticallyCollapses = false
         value.normalize()
         let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["schemaVersion"] as? Int == 5)
         #expect(json["automaticallyCollapses"] as? Bool == false)
         #expect(json["revealDelayMilliseconds"] as? Int == 2_000)
         #expect(json["collapseDelayMilliseconds"] as? Int == 5_000)

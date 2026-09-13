@@ -18,14 +18,20 @@ public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public enum FloatingStripAppearance: String, Codable, CaseIterable, Sendable {
+    case deepSea
+    case liquidGlass
+}
+
 public enum FloatingStripFoldDelay: Int, Codable, CaseIterable, Sendable {
     case never = 0, fiveSeconds = 5, fifteenSeconds = 15
     public var displayName: String { self == .never ? "Never" : "After \(rawValue) seconds" }
 }
 
 public struct FloatingStripPreferences: Codable, Equatable, Sendable {
-    public private(set) var schemaVersion = 4
+    public private(set) var schemaVersion = 5
     public var density: FloatingStripDensity = .compact
+    public var appearance: FloatingStripAppearance = .deepSea
     public var automaticallyCollapses = true
     public var revealDelayMilliseconds = 150
     public var collapseDelayMilliseconds = 800
@@ -47,13 +53,14 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, density, automaticallyCollapses, revealDelayMilliseconds,
+        case schemaVersion, density, appearance, automaticallyCollapses, revealDelayMilliseconds,
              collapseDelayMilliseconds, orderedProviders, hiddenProviders, hiddenUntil
     }
     private enum LegacyCodingKeys: String, CodingKey { case foldDelay }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         density = (try? values.decode(FloatingStripDensity.self, forKey: .density)) ?? .compact
+        appearance = (try? values.decode(FloatingStripAppearance.self, forKey: .appearance)) ?? .deepSea
         let version = (try? values.decode(Int.self, forKey: .schemaVersion)) ?? 1
         automaticallyCollapses = version >= 4
             ? ((try? values.decode(Bool.self, forKey: .automaticallyCollapses)) ?? true)
@@ -81,7 +88,7 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
     }
 
     public mutating func normalize() {
-        schemaVersion = 4
+        schemaVersion = 5
         if !(0...2_000).contains(revealDelayMilliseconds) { revealDelayMilliseconds = 150 }
         if !(0...5_000).contains(collapseDelayMilliseconds) { collapseDelayMilliseconds = 800 }
         var seen = Set<UsageProvider>()

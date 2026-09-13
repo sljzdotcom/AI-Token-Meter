@@ -23,6 +23,10 @@ struct FloatingStripSettingsView: View {
                     Text(localizer.text("Comfortable")).tag(FloatingStripDensity.comfortable)
                     Text(localizer.text("Compact")).tag(FloatingStripDensity.compact)
                 }
+                Picker(localizer.text("Floating strip appearance"), selection: stripBinding(\.appearance)) {
+                    Text(localizer.text("Deep Sea")).tag(FloatingStripAppearance.deepSea)
+                    Text(localizer.text("Liquid Glass")).tag(FloatingStripAppearance.liquidGlass)
+                }
                 ForEach(model.stripPreferences.orderedProviders, id: \.self) { provider in
                     HStack {
                         Toggle(provider.displayName, isOn: Binding(

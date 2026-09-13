@@ -37,6 +37,22 @@ struct AppModelDisplaySettingsTests {
         #expect(FloatingStripPreferencesStore(defaults: defaults).load().density == .comfortable)
     }
 
+    @Test func changingAppearancePublishesAndSavesTheSelectionSynchronously() throws {
+        let suite = "StripAppearance-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(defaults: defaults, secretStore: DisplaySettingsSecretStore(), widgetSnapshotPublisher: nil, isDemoMode: true)
+        var observedAppearance: FloatingStripAppearance?
+        model.floatingAppearanceHandler = { observedAppearance = model.stripPreferences.appearance }
+        var preferences = model.stripPreferences
+        preferences.appearance = .liquidGlass
+
+        model.setStripPreferences(preferences)
+
+        #expect(observedAppearance == .liquidGlass)
+        #expect(FloatingStripPreferencesStore(defaults: defaults).load().appearance == .liquidGlass)
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
     func densitySettingImmediatelyResizesExpandedPanel() throws {
         let suite = "DensityPanel-\(UUID())"
