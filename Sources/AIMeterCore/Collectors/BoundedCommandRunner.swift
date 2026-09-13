@@ -3,7 +3,26 @@ import Foundation
 
 /// Runs a noninteractive command with pipes, bounded output, and deterministic cleanup.
 public struct BoundedCommandRunner: CommandRunning {
-    public init() {}
+    private let timeoutDidFire: (@Sendable () -> Void)?
+    private let processDidExit: (@Sendable () -> Void)?
+
+    public init() {
+        timeoutDidFire = nil
+        processDidExit = nil
+    }
+
+    init(processDidExit: @escaping @Sendable () -> Void) {
+        timeoutDidFire = nil
+        self.processDidExit = processDidExit
+    }
+
+    init(
+        timeoutDidFire: @escaping @Sendable () -> Void,
+        processDidExit: @escaping @Sendable () -> Void
+    ) {
+        self.timeoutDidFire = timeoutDidFire
+        self.processDidExit = processDidExit
+    }
 
     public func run(_ request: CommandRequest) async throws -> CommandResult {
         let state = BoundedCommandState()
@@ -12,6 +31,7 @@ public struct BoundedCommandRunner: CommandRunning {
                 group.addTask { try await execute(request, state: state) }
                 group.addTask {
                     try await Task.sleep(for: .seconds(request.timeout))
+                    timeoutDidFire?()
                     state.stop(reason: .timedOut)
                     throw UsageCollectionError.timedOut
                 }
@@ -34,7 +54,7 @@ public struct BoundedCommandRunner: CommandRunning {
     ) async throws -> CommandResult {
         let process = Process()
         let output = Pipe()
-        let waiter = ProcessTerminationWaiter()
+        let waiter = ProcessTerminationWaiter(onExit: processDidExit)
         let buffer = BoundedCommandOutput(limit: request.maxOutputBytes) {
             state.stop(reason: .outputLimitExceeded)
         }

@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-13 | BoundedCommandRunner停止测试可靠性 | [规格](specifications/2026-09-13-bounded-command-timeout-test-reliability-design.md) | [计划](implementation-plans/2026-09-13-bounded-command-timeout-test-reliability.md) |
 | 2026-09-13 | 删除Mini悬浮条密度 | [规格](specifications/2026-09-13-remove-mini-density-design.md) | [计划](implementation-plans/2026-09-13-remove-mini-density.md) |
 | 2026-09-13 | 产品可见性与摘要同步 | [规格](specifications/2026-09-13-provider-visibility-summary-sync-design.md) | [计划](implementation-plans/2026-09-13-provider-visibility-summary-sync.md) |
 | 2026-09-12 | 0.9.0三语言、Services Logo与悬浮条修复稳定发布 | 沿用三项已完成规格及双平台稳定发布流程 | [计划](implementation-plans/2026-09-12-v0.9.0-release.md) |

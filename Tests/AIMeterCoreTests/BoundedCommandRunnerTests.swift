@@ -30,25 +30,44 @@ struct BoundedCommandRunnerTests {
     }
 
     @Test func terminatesAfterTheConfiguredDeadline() async {
-        let startedAt = Date()
+        let clock = ContinuousClock()
+        let timeoutInstant = MonotonicInstantCapture()
+        let exitInstant = MonotonicInstantCapture()
+        let startedAt = clock.now
         await #expect(throws: UsageCollectionError.timedOut) {
-            try await BoundedCommandRunner().run(CommandRequest(
+            try await BoundedCommandRunner(timeoutDidFire: {
+                timeoutInstant.record(clock.now)
+            }, processDidExit: {
+                exitInstant.record(clock.now)
+            }).run(CommandRequest(
                 executableURL: URL(fileURLWithPath: "/bin/sleep"),
-                arguments: ["2"],
+                arguments: ["30"],
                 inputLines: [],
                 timeout: 0.05
             ))
         }
-        #expect(Date().timeIntervalSince(startedAt) < 1)
+        guard let firedAt = timeoutInstant.value else {
+            Issue.record("The timeout event was not observed")
+            return
+        }
+        guard let exitedAt = exitInstant.value else {
+            Issue.record("The timed out process exit was not observed")
+            return
+        }
+        #expect(startedAt.duration(to: firedAt) >= .milliseconds(50))
+        #expect(firedAt.duration(to: exitedAt) < .seconds(1))
     }
 
     @Test func cancellationTerminatesTheCommand() async {
         let clock = ContinuousClock()
+        let exitInstant = MonotonicInstantCapture()
         let startedSignal = FileManager.default.temporaryDirectory
             .appending(path: "bounded-command-started-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: startedSignal) }
         let task = Task {
-            try await BoundedCommandRunner().run(CommandRequest(
+            try await BoundedCommandRunner(processDidExit: {
+                exitInstant.record(clock.now)
+            }).run(CommandRequest(
                 executableURL: URL(fileURLWithPath: "/bin/sh"),
                 arguments: [
                     "-c", "printf started > \"$1\"; exec /bin/sleep 30",
@@ -78,6 +97,23 @@ struct BoundedCommandRunnerTests {
         let cancelledAt = clock.now
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
-        #expect(cancelledAt.duration(to: clock.now) < .seconds(1))
+        guard let exitedAt = exitInstant.value else {
+            Issue.record("The cancelled process exit was not observed")
+            return
+        }
+        #expect(cancelledAt.duration(to: exitedAt) < .seconds(1))
+    }
+}
+
+private final class MonotonicInstantCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue: ContinuousClock.Instant?
+
+    var value: ContinuousClock.Instant? {
+        lock.withLock { storedValue }
+    }
+
+    func record(_ value: ContinuousClock.Instant) {
+        lock.withLock { storedValue = value }
     }
 }
