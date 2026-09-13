@@ -27,7 +27,7 @@
 ### 任务3：候选验证与审查
 
 - [x] 更新用户指南、CHANGELOG、项目状态、版本合同和0.10.0发布说明；Windows仅更新统一版本元数据。
-- [ ] 运行完整Swift、macOS正式构建、Windows现有前端/Rust/浏览器/生产构建、跨平台合同、`scripts/check-docs.sh`和公开安全门禁。
+- [x] 运行完整Swift、macOS正式构建、Windows现有前端/Rust/浏览器/生产构建、跨平台合同、`scripts/check-docs.sh`和公开安全门禁。
 - [x] 使用macOS 26真实窗口检查Deep Sea与Liquid Glass的两种密度、左右贴边和展开/折叠状态，并保存证据。
 - [ ] 完成独立审查，修复全部发现并重跑受影响门禁；形成可合并候选。
 
