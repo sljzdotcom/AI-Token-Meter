@@ -19,5 +19,5 @@
 ## 任务3：审查与集成
 
 - [x] 更新需求、发布与提交证据，运行文档、公开安全和差异检查。
-- [ ] 完成独立审查并关闭全部Critical、Important与Minor问题。
-- [ ] 等待PR #44双平台CI通过后合入main，并记录最终main CI。
+- [x] 完成独立审查并关闭全部Critical、Important与Minor问题。
+- [x] 精确候选通过PR #44双平台CI，随已授权合并进入main；最终main CI记录在发布日志。
