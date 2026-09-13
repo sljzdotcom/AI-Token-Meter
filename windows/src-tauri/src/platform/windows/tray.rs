@@ -1,10 +1,11 @@
 use tauri::image::Image;
-use tauri::menu::{IconMenuItem, IconMenuItemBuilder, Menu, MenuBuilder, MenuItemBuilder};
+use tauri::menu::{
+    IconMenuItem, IconMenuItemBuilder, IsMenuItem, Menu, MenuBuilder, MenuItem, MenuItemBuilder,
+};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Listener, Manager, Runtime};
 
 use crate::domain::{MetricKind, MetricUnit, ProviderId, UsageSnapshot, UsageStatus};
-use crate::persistence::AppSettings;
 
 use super::strip_preferences::StripPreferences;
 use super::window_controller::{show_settings_window, toggle_meter_window};
@@ -47,14 +48,79 @@ pub fn build_brand_header<R: Runtime>(
 }
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
+    let settings = app.state::<crate::RuntimeState>().app_settings_snapshot();
+    let summaries = [
+        MenuItemBuilder::with_id(
+            "claude-summary",
+            unavailable_summary(ProviderId::Claude, settings.locale),
+        )
+        .enabled(false)
+        .build(app)?,
+        MenuItemBuilder::with_id(
+            "codex-summary",
+            unavailable_summary(ProviderId::Codex, settings.locale),
+        )
+        .enabled(false)
+        .build(app)?,
+        MenuItemBuilder::with_id(
+            "deepseek-summary",
+            unavailable_summary(ProviderId::DeepSeek, settings.locale),
+        )
+        .enabled(false)
+        .build(app)?,
+        MenuItemBuilder::with_id(
+            "gemini-summary",
+            unavailable_summary(ProviderId::Gemini, settings.locale),
+        )
+        .enabled(false)
+        .build(app)?,
+    ];
+    update_summary_texts(
+        &summaries,
+        &app.state::<crate::RuntimeState>().usage.snapshots(),
+        settings.locale,
+    );
+    let labels = [
+        ("refresh", "Refresh"),
+        ("settings", "Settings"),
+        ("toggle-meter", "Show / Hide Meter"),
+        ("show-meter-now", "Show Floating Strip Now"),
+        ("about", "About AI Token Meter"),
+        ("quit", "Quit AI Token Meter"),
+    ];
+    let actions = labels
+        .iter()
+        .map(|(id, key)| {
+            MenuItemBuilder::with_id(*id, crate::localization::text(settings.locale, key))
+                .build(app)
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
     let icon = app
         .default_window_icon()
         .cloned()
         .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
-    let settings = app.state::<crate::RuntimeState>().app_settings_snapshot();
-    let menu = build_tray_menu(app, &settings)?;
+    let brand_header = build_brand_header(app, icon.clone())?;
+    let summary_refs = summary_provider_ids(&settings.strip_preferences)
+        .into_iter()
+        .map(|provider| summary_item(&summaries, provider) as &dyn IsMenuItem<tauri::Wry>)
+        .collect::<Vec<_>>();
+    let menu = MenuBuilder::new(app)
+        .item(&brand_header)
+        .separator()
+        .items(&summary_refs)
+        .separator()
+        .items(&[
+            &actions[0],
+            &actions[1],
+            &actions[2],
+            &actions[3],
+            &actions[4],
+        ])
+        .separator()
+        .item(&actions[5])
+        .build()?;
 
-    let tray = TrayIconBuilder::with_id("ai-token-meter")
+    TrayIconBuilder::with_id("ai-token-meter")
         .icon(icon)
         .tooltip("AI Token Meter")
         .menu(&menu)
@@ -101,87 +167,89 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         .build(app)?;
 
     let settings_app = app.clone();
-    let settings_tray = tray.clone();
+    let settings_menu = menu.clone();
+    let settings_summaries = summaries.clone();
     app.listen("app-settings-changed", move |event| {
         let Ok(settings) = serde_json::from_str::<crate::persistence::AppSettings>(event.payload())
         else {
             return;
         };
-        if let Ok(menu) = build_tray_menu(&settings_app, &settings) {
-            let _ = settings_tray.set_menu(Some(menu));
+        for (item, (_, key)) in actions.iter().zip(labels) {
+            let _ = item.set_text(crate::localization::text(settings.locale, key));
         }
+        update_summary_texts(
+            &settings_summaries,
+            &settings_app
+                .state::<crate::RuntimeState>()
+                .usage
+                .snapshots(),
+            settings.locale,
+        );
+        let _ = reconcile_summary_items(
+            &settings_menu,
+            &settings_summaries,
+            &settings.strip_preferences,
+        );
     });
     let snapshot_app = app.clone();
-    let snapshot_tray = tray.clone();
+    let snapshot_summaries = summaries.clone();
     app.listen("snapshot-updated", move |event| {
-        if serde_json::from_str::<UsageSnapshot>(event.payload()).is_err() {
+        let Ok(snapshot) = serde_json::from_str::<UsageSnapshot>(event.payload()) else {
             return;
-        }
-        let settings = snapshot_app
+        };
+        let locale = snapshot_app
             .state::<crate::RuntimeState>()
-            .app_settings_snapshot();
-        if let Ok(menu) = build_tray_menu(&snapshot_app, &settings) {
-            let _ = snapshot_tray.set_menu(Some(menu));
-        }
+            .app_settings_snapshot()
+            .locale;
+        let _ = summary_item(&snapshot_summaries, snapshot.provider_id)
+            .set_text(format_summary_localized(&snapshot, locale));
     });
     Ok(())
 }
 
-fn build_tray_menu(app: &AppHandle, settings: &AppSettings) -> tauri::Result<Menu<tauri::Wry>> {
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
-    let brand_header = build_brand_header(app, icon)?;
-    let snapshots = app.state::<crate::RuntimeState>().usage.snapshots();
-    let summary_items = summary_provider_ids(&settings.strip_preferences)
-        .into_iter()
-        .map(|provider| {
-            let text = snapshots
-                .iter()
-                .find(|snapshot| snapshot.provider_id == provider)
-                .map(|snapshot| format_summary_localized(snapshot, settings.locale))
-                .unwrap_or_else(|| unavailable_summary(provider, settings.locale));
-            MenuItemBuilder::with_id(format!("{}-summary", provider.as_str()), text)
-                .enabled(false)
-                .build(app)
-        })
-        .collect::<tauri::Result<Vec<_>>>()?;
-    let labels = [
-        ("refresh", "Refresh"),
-        ("settings", "Settings"),
-        ("toggle-meter", "Show / Hide Meter"),
-        ("show-meter-now", "Show Floating Strip Now"),
-        ("about", "About AI Token Meter"),
-        ("quit", "Quit AI Token Meter"),
-    ];
-    let actions = labels
-        .iter()
-        .map(|(id, key)| {
-            MenuItemBuilder::with_id(*id, crate::localization::text(settings.locale, key))
-                .build(app)
-        })
-        .collect::<tauri::Result<Vec<_>>>()?;
-    let summary_refs = summary_items
-        .iter()
-        .map(|item| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
-        .collect::<Vec<_>>();
+fn summary_item<R: Runtime>(summaries: &[MenuItem<R>; 4], provider: ProviderId) -> &MenuItem<R> {
+    &summaries[match provider {
+        ProviderId::Claude => 0,
+        ProviderId::Codex => 1,
+        ProviderId::DeepSeek => 2,
+        ProviderId::Gemini => 3,
+    }]
+}
 
-    MenuBuilder::new(app)
-        .item(&brand_header)
-        .separator()
-        .items(&summary_refs)
-        .separator()
-        .items(&[
-            &actions[0],
-            &actions[1],
-            &actions[2],
-            &actions[3],
-            &actions[4],
-        ])
-        .separator()
-        .item(&actions[5])
-        .build()
+fn update_summary_texts<R: Runtime>(
+    summaries: &[MenuItem<R>; 4],
+    snapshots: &[UsageSnapshot],
+    locale: crate::persistence::Locale,
+) {
+    for provider in [
+        ProviderId::Claude,
+        ProviderId::Codex,
+        ProviderId::DeepSeek,
+        ProviderId::Gemini,
+    ] {
+        let text = snapshots
+            .iter()
+            .find(|snapshot| snapshot.provider_id == provider)
+            .map(|snapshot| format_summary_localized(snapshot, locale))
+            .unwrap_or_else(|| unavailable_summary(provider, locale));
+        let _ = summary_item(summaries, provider).set_text(text);
+    }
+}
+
+fn reconcile_summary_items<R: Runtime>(
+    menu: &Menu<R>,
+    summaries: &[MenuItem<R>; 4],
+    preferences: &StripPreferences,
+) -> tauri::Result<()> {
+    for item in summaries {
+        if menu.get(item.id().as_ref()).is_some() {
+            menu.remove(item)?;
+        }
+    }
+    for (offset, provider) in summary_provider_ids(preferences).into_iter().enumerate() {
+        menu.insert(summary_item(summaries, provider), 2 + offset)?;
+    }
+    Ok(())
 }
 
 fn unavailable_summary(provider: ProviderId, locale: crate::persistence::Locale) -> String {

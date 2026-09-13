@@ -18,7 +18,7 @@ Settings 将隐藏产品和产品顺序保存在悬浮条偏好中。悬浮条�
 
 macOS 的 `AppModel` 提供按 `stripPreferences.visibleProviders` 排序过滤的菜单栏快照，菜单栏卡片和最高用量摘要共同读取它。该值由可观察的设置和快照计算，因此已打开面板会随设置更新。
 
-Windows 从 `StripPreferences::visible_providers()` 生成托盘摘要顺序，并在设置或快照事件到达时，用最新设置和快照重建托盘菜单。菜单事件 ID、操作项、账户数据和采集逻辑保持原有合同。
+Windows 从 `StripPreferences::visible_providers()` 生成托盘摘要顺序。四个摘要项和六个操作项只在启动时创建一次；快照事件只更新对应摘要文字，设置事件复用现有项调整可见顺序并更新语言，避免后台刷新替换正在显示的原生菜单。菜单事件 ID、账户数据和采集逻辑保持原有合同。
 
 ## 验收边界
 
