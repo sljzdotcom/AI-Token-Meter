@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.9.1](https://img.shields.io/badge/version-0.9.1-3b82f6)
+![Version 0.10.0](https://img.shields.io/badge/version-0.10.0-3b82f6)
 ![Tests 564](https://img.shields.io/badge/tests-564%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -22,6 +22,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | ![AI Token Meter floating strip](docs/assets/screenshots/floating-strip.png) | ![OpenAI Codex detail using deterministic demo data](docs/assets/screenshots/provider-detail.png) | ![AI Token Meter Appearance Settings](docs/assets/screenshots/settings.png) |
 
 ## 主要功能
+
+> `0.10.0` / build `28` 候选：macOS Floating Strip新增可选B款烟熏Liquid Glass；Windows产品界面保持不变。[Release Notes](docs/releases/v0.10.0.md)。
 
 > `0.9.1` / build `27`：Floating Strip只保留Comfortable与Compact，旧Mini偏好自动迁移到Compact；产品显示与排序设置同步控制macOS菜单栏面板和Windows托盘摘要。[Release Notes](docs/releases/v0.9.1.md)。
 
@@ -244,7 +246,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码与公开稳定版均为`0.9.1`（macOS build `27`）；发布证据见[0.9.1发布记录](docs/development/2026-09-13-v0.9.1-release.md)。
+- 当前源码为`0.10.0`候选（macOS build `28`），公开稳定版仍为`0.9.1`（macOS build `27`）；候选发布证据见[0.10.0开发记录](docs/development/2026-09-13-macos-floating-strip-liquid-glass.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

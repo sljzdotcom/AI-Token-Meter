@@ -66,6 +66,35 @@ struct FloatingStripRenderingTests {
                 )
             }
         }
+
+        let suite = "FloatingStripRendering.LiquidGlass-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(
+            defaults: defaults,
+            secretStore: RenderingSecretStore(),
+            widgetSnapshotPublisher: nil,
+            isDemoMode: true
+        )
+        var preferences = model.stripPreferences
+        preferences.appearance = .liquidGlass
+        preferences.density = .compact
+        preferences.automaticallyCollapses = false
+        model.setStripPreferences(preferences)
+        let composed = try await render(
+            FloatingStripView(
+                model: model,
+                session: FloatingDetailSession(),
+                displayState: FloatingStripDisplayState(resolvedEdge: .right),
+                onProviderTap: { _ in },
+                onAccessibilityMove: { _ in }
+            ),
+            width: FloatingStripDensity.compact.width,
+            height: FloatingStripDensity.compact.height(providerCount: 4)
+        )
+        #expect(composed.pixelsWide == pixel(78))
+        #expect(composed.pixelsHigh == pixel(344))
+        try save(composed, name: "liquid-glass-composed-compact-right")
     }
 
     @Test("Folded handle uses the approved 14pt concave silhouette inside the 20pt hit window")

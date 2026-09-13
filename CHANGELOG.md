@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-09-13
+
 ### Added
 
 - macOS Settings → Floating Strip新增Deep Sea与Liquid Glass外观选择；B款烟熏深色玻璃即时应用并持久保存，Windows外观保持不变。

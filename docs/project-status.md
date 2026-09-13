@@ -3,10 +3,12 @@
 - **事实快照：** 2026-09-13
 - **产品：** AI Token Meter
 - **当前公开稳定版：** 双平台 [`0.9.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.1)（macOS build `27`）
-- **当前源码版本：** 双平台 `0.9.1`（macOS build `27`）
+- **当前源码版本：** 双平台 `0.10.0`候选（macOS build `28`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**0.10.0/build28正在发布：** macOS Floating Strip增加Deep Sea与B款烟熏Liquid Glass即时切换，macOS 26使用系统玻璃并在旧系统及辅助功能环境安全回退；Windows不增加此效果，只同步双平台版本和既有安装包。相关实现已通过失败先行的偏好、设置、材质与渲染回归，完整候选门禁、审查、PR/main与公开发布证据继续记录于[开发日志](development/2026-09-13-macos-floating-strip-liquid-glass.md)。
 
 **0.9.1/build27已公开发布：** 双平台Floating Strip尺寸只保留Comfortable与Compact，旧Mini和未知密度升级后迁移到Compact；产品显示与排序设置同时控制macOS菜单栏面板、最高用量和Windows托盘摘要。独立审查、PR/main双平台CI、正式签名workflow、七项公开资产、两端签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-13-v0.9.1-release.md)。
 
