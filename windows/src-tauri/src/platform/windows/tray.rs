@@ -1,10 +1,12 @@
 use tauri::image::Image;
-use tauri::menu::{IconMenuItem, IconMenuItemBuilder, MenuBuilder, MenuItemBuilder};
+use tauri::menu::{IconMenuItem, IconMenuItemBuilder, Menu, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Listener, Manager, Runtime};
 
 use crate::domain::{MetricKind, MetricUnit, ProviderId, UsageSnapshot, UsageStatus};
+use crate::persistence::AppSettings;
 
+use super::strip_preferences::StripPreferences;
 use super::window_controller::{show_settings_window, toggle_meter_window};
 
 pub struct BrandHeaderDefinition<'a> {
@@ -45,64 +47,14 @@ pub fn build_brand_header<R: Runtime>(
 }
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
-    let locale = app
-        .state::<crate::RuntimeState>()
-        .app_settings_snapshot()
-        .locale;
-    let claude_summary = MenuItemBuilder::with_id("claude-summary", "Claude Code · Unavailable")
-        .enabled(false)
-        .build(app)?;
-    let codex_summary = MenuItemBuilder::with_id("codex-summary", "OpenAI Codex · Unavailable")
-        .enabled(false)
-        .build(app)?;
-    let deepseek_summary = MenuItemBuilder::with_id("deepseek-summary", "DeepSeek · Unavailable")
-        .enabled(false)
-        .build(app)?;
-    let gemini_summary =
-        MenuItemBuilder::with_id("gemini-summary", "Google Antigravity · Unavailable")
-            .enabled(false)
-            .build(app)?;
-    let labels = [
-        ("refresh", "Refresh"),
-        ("settings", "Settings"),
-        ("toggle-meter", "Show / Hide Meter"),
-        ("show-meter-now", "Show Floating Strip Now"),
-        ("about", "About AI Token Meter"),
-        ("quit", "Quit AI Token Meter"),
-    ];
-    let actions = labels
-        .iter()
-        .map(|(id, key)| {
-            MenuItemBuilder::with_id(*id, crate::localization::text(locale, key)).build(app)
-        })
-        .collect::<tauri::Result<Vec<_>>>()?;
     let icon = app
         .default_window_icon()
         .cloned()
         .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
-    let brand_header = build_brand_header(app, icon.clone())?;
-    let menu = MenuBuilder::new(app)
-        .item(&brand_header)
-        .separator()
-        .items(&[
-            &claude_summary,
-            &codex_summary,
-            &deepseek_summary,
-            &gemini_summary,
-        ])
-        .separator()
-        .items(&[
-            &actions[0],
-            &actions[1],
-            &actions[2],
-            &actions[3],
-            &actions[4],
-        ])
-        .separator()
-        .item(&actions[5])
-        .build()?;
+    let settings = app.state::<crate::RuntimeState>().app_settings_snapshot();
+    let menu = build_tray_menu(app, &settings)?;
 
-    TrayIconBuilder::with_id("ai-token-meter")
+    let tray = TrayIconBuilder::with_id("ai-token-meter")
         .icon(icon)
         .tooltip("AI Token Meter")
         .menu(&menu)
@@ -148,55 +100,116 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    let summaries = [
-        claude_summary.clone(),
-        codex_summary.clone(),
-        deepseek_summary.clone(),
-        gemini_summary.clone(),
-    ];
-    let update_app = app.clone();
-    let update_summaries = move |locale| {
-        for snapshot in update_app.state::<crate::RuntimeState>().usage.snapshots() {
-            let index = match snapshot.provider_id {
-                ProviderId::Claude => 0,
-                ProviderId::Codex => 1,
-                ProviderId::DeepSeek => 2,
-                ProviderId::Gemini => 3,
-            };
-            let _ = summaries[index].set_text(format_summary_localized(&snapshot, locale));
-        }
-    };
-    update_summaries(locale);
+    let settings_app = app.clone();
+    let settings_tray = tray.clone();
     app.listen("app-settings-changed", move |event| {
         let Ok(settings) = serde_json::from_str::<crate::persistence::AppSettings>(event.payload())
         else {
             return;
         };
-        for (item, (_, key)) in actions.iter().zip(labels) {
-            let _ = item.set_text(crate::localization::text(settings.locale, key));
+        if let Ok(menu) = build_tray_menu(&settings_app, &settings) {
+            let _ = settings_tray.set_menu(Some(menu));
         }
-        update_summaries(settings.locale);
     });
-    let update_app = app.clone();
+    let snapshot_app = app.clone();
+    let snapshot_tray = tray.clone();
     app.listen("snapshot-updated", move |event| {
-        let Ok(snapshot) = serde_json::from_str::<UsageSnapshot>(event.payload()) else {
+        if serde_json::from_str::<UsageSnapshot>(event.payload()).is_err() {
             return;
-        };
-        let text = format_summary_localized(
-            &snapshot,
-            update_app
-                .state::<crate::RuntimeState>()
-                .app_settings_snapshot()
-                .locale,
-        );
-        let _ = match snapshot.provider_id {
-            ProviderId::Claude => claude_summary.set_text(text),
-            ProviderId::Codex => codex_summary.set_text(text),
-            ProviderId::DeepSeek => deepseek_summary.set_text(text),
-            ProviderId::Gemini => gemini_summary.set_text(text),
-        };
+        }
+        let settings = snapshot_app
+            .state::<crate::RuntimeState>()
+            .app_settings_snapshot();
+        if let Ok(menu) = build_tray_menu(&snapshot_app, &settings) {
+            let _ = snapshot_tray.set_menu(Some(menu));
+        }
     });
     Ok(())
+}
+
+fn build_tray_menu(app: &AppHandle, settings: &AppSettings) -> tauri::Result<Menu<tauri::Wry>> {
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
+    let brand_header = build_brand_header(app, icon)?;
+    let snapshots = app.state::<crate::RuntimeState>().usage.snapshots();
+    let summary_items = summary_provider_ids(&settings.strip_preferences)
+        .into_iter()
+        .map(|provider| {
+            let text = snapshots
+                .iter()
+                .find(|snapshot| snapshot.provider_id == provider)
+                .map(|snapshot| format_summary_localized(snapshot, settings.locale))
+                .unwrap_or_else(|| unavailable_summary(provider, settings.locale));
+            MenuItemBuilder::with_id(format!("{}-summary", provider.as_str()), text)
+                .enabled(false)
+                .build(app)
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let labels = [
+        ("refresh", "Refresh"),
+        ("settings", "Settings"),
+        ("toggle-meter", "Show / Hide Meter"),
+        ("show-meter-now", "Show Floating Strip Now"),
+        ("about", "About AI Token Meter"),
+        ("quit", "Quit AI Token Meter"),
+    ];
+    let actions = labels
+        .iter()
+        .map(|(id, key)| {
+            MenuItemBuilder::with_id(*id, crate::localization::text(settings.locale, key))
+                .build(app)
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let summary_refs = summary_items
+        .iter()
+        .map(|item| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+        .collect::<Vec<_>>();
+
+    MenuBuilder::new(app)
+        .item(&brand_header)
+        .separator()
+        .items(&summary_refs)
+        .separator()
+        .items(&[
+            &actions[0],
+            &actions[1],
+            &actions[2],
+            &actions[3],
+            &actions[4],
+        ])
+        .separator()
+        .item(&actions[5])
+        .build()
+}
+
+fn unavailable_summary(provider: ProviderId, locale: crate::persistence::Locale) -> String {
+    let display_name = match provider {
+        ProviderId::Claude => "Claude Code",
+        ProviderId::Codex => "OpenAI Codex",
+        ProviderId::DeepSeek => "DeepSeek",
+        ProviderId::Gemini => "Google Antigravity",
+    };
+    format!(
+        "{} · {}",
+        display_name,
+        crate::localization::text(locale, "Unavailable")
+    )
+}
+
+fn summary_provider_ids(preferences: &StripPreferences) -> Vec<ProviderId> {
+    preferences
+        .visible_providers()
+        .into_iter()
+        .filter_map(|id| match id.as_str() {
+            "claude" => Some(ProviderId::Claude),
+            "codex" => Some(ProviderId::Codex),
+            "deepseek" => Some(ProviderId::DeepSeek),
+            "gemini" => Some(ProviderId::Gemini),
+            _ => None,
+        })
+        .collect()
 }
 
 pub fn format_summary(snapshot: &UsageSnapshot) -> String {
@@ -247,4 +260,62 @@ pub fn format_summary_localized(
         snapshot.display_name,
         crate::localization::text(locale, status)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::ProviderId;
+    use crate::platform::windows::strip_preferences::StripPreferences;
+
+    use super::summary_provider_ids;
+
+    #[test]
+    fn tray_summaries_follow_visible_provider_order() {
+        let mut preferences = StripPreferences {
+            ordered_providers: vec![
+                "gemini".into(),
+                "deepseek".into(),
+                "codex".into(),
+                "claude".into(),
+            ],
+            hidden_providers: vec!["codex".into()],
+            ..StripPreferences::default()
+        };
+        preferences.normalize();
+
+        assert_eq!(
+            summary_provider_ids(&preferences),
+            vec![ProviderId::Gemini, ProviderId::DeepSeek, ProviderId::Claude]
+        );
+    }
+
+    #[test]
+    fn restoring_a_provider_restores_its_summary_without_changing_order() {
+        let mut preferences = StripPreferences {
+            ordered_providers: vec![
+                "deepseek".into(),
+                "claude".into(),
+                "gemini".into(),
+                "codex".into(),
+            ],
+            hidden_providers: vec!["gemini".into()],
+            ..StripPreferences::default()
+        };
+        preferences.normalize();
+        assert_eq!(
+            summary_provider_ids(&preferences),
+            vec![ProviderId::DeepSeek, ProviderId::Claude, ProviderId::Codex]
+        );
+
+        preferences.hidden_providers.clear();
+        assert_eq!(
+            summary_provider_ids(&preferences),
+            vec![
+                ProviderId::DeepSeek,
+                ProviderId::Claude,
+                ProviderId::Gemini,
+                ProviderId::Codex,
+            ]
+        );
+    }
 }
