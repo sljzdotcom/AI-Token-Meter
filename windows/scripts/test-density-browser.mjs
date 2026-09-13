@@ -26,7 +26,7 @@ await runWithCleanup(async () => {
   })
   const report = densityReport(result.output)
   assertDensity(report)
-  if (report.stripSamples?.length !== 24) throw new Error("Missing strip geometry scenarios")
+  if (report.stripSamples?.length !== 16) throw new Error("Missing strip geometry scenarios")
   for (const sample of report.stripSamples) {
     if (sample.width !== sample.expectedWidth || sample.height !== sample.expectedHeight
       || Math.abs(sample.sideMargin - sample.expectedSideMargin) > 0.01 || !sample.hitButtons || !sample.ringPerimetersVisible || sample.settingsVisible
@@ -77,7 +77,7 @@ await runWithCleanup(async () => {
     }
   }
   console.log("Antigravity detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
-  console.log("Four-provider strip geometry verified: 24 real CSS clipping/hit-test scenarios")
+  console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
   console.log("Folded strip geometry verified: 2 real CSS hit-window and concave-handle scenarios")
   console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)
 }, async () => {
@@ -176,7 +176,7 @@ function assertDensity(report) {
   for (const [property, value] of Object.entries(expected)) {
     if (report[property] !== value) throw new Error(`${property}: expected ${value}, received ${report[property]}`)
   }
-  if (JSON.stringify(report.stripDensityOptions) !== JSON.stringify(["comfortable", "compact", "mini"])
+  if (JSON.stringify(report.stripDensityOptions) !== JSON.stringify(["comfortable", "compact"])
     || report.selectedStripDensity !== "compact"
     || report.initialAutomaticCollapse !== true
     || report.automaticCollapseAfterClick !== false

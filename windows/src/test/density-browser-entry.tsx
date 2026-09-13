@@ -43,12 +43,12 @@ flushSync(() => {
   createRoot(root).render(
     <>
       {new URLSearchParams(location.search).has("comparison") && <aside style={{background: "#172131", padding: 24, height: 590, color: "#fff", fontFamily: "sans-serif"}}>
-        <h2 style={{fontSize: 20}}>AI Token Meter · Comfortable / Compact / Mini</h2>
+        <h2 style={{fontSize: 20}}>AI Token Meter · Comfortable / Compact</h2>
         <p style={{fontSize: 12, opacity: 0.6}}>Browser render · demo data · both screen edges</p>
         <div style={{display: "flex", gap: 32}}>
-          {(["comfortable", "compact", "mini"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
+          {(["comfortable", "compact"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
             <p style={{fontSize: 12}}>{density} · {edge}</p>
-            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : density === "compact" ? 78 : 65, height: density === "comfortable" ? 428 : 344}}>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "comfortable" ? 108 : 78, height: density === "comfortable" ? 428 : 344}}>
               <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
                 preferences={{...defaultStripPreferences, density}}
                 snapshots={unavailableSnapshots} />
@@ -298,10 +298,10 @@ for (const locale of ["en", "zh-CN"] as const) {
 // 1–4-row specification, independent of FloatingStrip's size calculation.
 const stripSamples = []
 flushSync(() => setLocale("en"))
-for (const density of ["comfortable", "compact", "mini"] as const) {
+for (const density of ["comfortable", "compact"] as const) {
   for (const edge of ["left", "right"] as const) {
     for (const count of [1, 2, 3, 4]) {
-      const width = density === "comfortable" ? 108 : density === "compact" ? 78 : 65
+      const width = density === "comfortable" ? 108 : 78
       const height = (density === "comfortable" ? [212,284,356,428] : [170,228,286,344])[count-1]
       const host = document.createElement("div")
       host.className = `meter-stage--strip-only meter-edge--${edge}`
@@ -341,7 +341,7 @@ for (const density of ["comfortable", "compact", "mini"] as const) {
       window.removeEventListener("meter-drag-requested", drag)
       const firstButtonWidth = buttons[0]?.getBoundingClientRect().width ?? 0
       stripSamples.push({density,edge,count,width:rect.width,height:rect.height,expectedWidth:width,expectedHeight:height,
-        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "comfortable" ? 24 : density === "compact" ? 15 : 8.5,
+        sideMargin:(rect.width-firstButtonWidth)/2,expectedSideMargin:density === "comfortable" ? 24 : 15,
         hitButtons,ringPerimetersVisible,settingsVisible:host.querySelector(".floating-strip__settings") !== null,
         drags,activated,expectedOrder:defaultStripPreferences.orderedProviders.slice(0,count),
         buttonCount:buttons.length,geminiProgress:host.querySelector('[aria-label="Gemini usage"][role="progressbar"]')?.getAttribute("aria-valuenow") ?? null,

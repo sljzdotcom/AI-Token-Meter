@@ -29,12 +29,12 @@ struct AppModelDisplaySettingsTests {
         var observedWidth: CGFloat?
         model.floatingAppearanceHandler = { observedWidth = model.stripPreferences.density.width }
         var preferences = model.stripPreferences
-        preferences.density = .mini
+        preferences.density = .comfortable
 
         model.setStripPreferences(preferences)
 
-        #expect(observedWidth == 65)
-        #expect(FloatingStripPreferencesStore(defaults: defaults).load().density == .mini)
+        #expect(observedWidth == 108)
+        #expect(FloatingStripPreferencesStore(defaults: defaults).load().density == .comfortable)
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
@@ -50,13 +50,13 @@ struct AppModelDisplaySettingsTests {
         model.floatingAppearanceHandler = { controller.applyAppearance() }
         let before = controller.stripFrameForTesting
         var preferences = model.stripPreferences
-        preferences.density = .mini
+        preferences.density = .comfortable
 
         model.setStripPreferences(preferences)
 
         let after = controller.stripFrameForTesting
         #expect(before.width == 78)
-        #expect(after.width == 65)
+        #expect(after.width == 108)
         #expect(abs(before.midY - after.midY) < 0.001)
         #expect(after.minX == screen.visibleFrame.minX || after.maxX == screen.visibleFrame.maxX)
     }
@@ -84,7 +84,7 @@ struct AppModelDisplaySettingsTests {
         model.floatingAppearanceHandler = { controller.applyAppearance() }
         controller.show()
 
-        for density in [FloatingStripDensity.comfortable, .compact, .mini] {
+        for density in FloatingStripDensity.allCases {
             var next = model.stripPreferences
             next.density = density
             model.setStripPreferences(next)
@@ -165,13 +165,13 @@ struct AppModelDisplaySettingsTests {
         controller.setStripDraggingForTesting(true)
 
         var preferences = model.stripPreferences
-        preferences.density = .mini
+        preferences.density = .comfortable
         model.setStripPreferences(preferences)
         #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.compact.width) < 0.001)
 
         controller.setStripDraggingForTesting(false)
 
-        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.mini.width) < 0.001)
+        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.comfortable.width) < 0.001)
         #expect(controller.stripContentBoundsForTesting.size == controller.stripFrameForTesting.size)
     }
 
@@ -203,9 +203,9 @@ struct AppModelDisplaySettingsTests {
         controller.transitionStripForTesting(toFolded: false)
         try await Task.sleep(for: .milliseconds(30))
         var preferences = model.stripPreferences
-        preferences.density = .mini
+        preferences.density = .comfortable
         model.setStripPreferences(preferences)
-        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.mini.width) < 0.001)
+        #expect(abs(controller.stripFrameForTesting.width - FloatingStripDensity.comfortable.width) < 0.001)
         #expect(controller.stripShowsExpandedContentForTesting)
         controller.transitionStripForTesting(toFolded: true)
         try await Task.sleep(for: .milliseconds(320))

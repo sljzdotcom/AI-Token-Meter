@@ -96,7 +96,7 @@ impl Default for StripPreferences {
 
 impl StripPreferences {
     pub fn normalize(&mut self) {
-        if !["comfortable", "compact", "mini"].contains(&self.density.as_str()) {
+        if !["comfortable", "compact"].contains(&self.density.as_str()) {
             self.density = "compact".into();
         }
         if self.reveal_delay_milliseconds > 2_000 {
@@ -142,7 +142,6 @@ impl StripPreferences {
         let count = self.visible_providers().len().clamp(1, 4);
         match self.density.as_str() {
             "comfortable" => (108.0, 212.0 + (count - 1) as f64 * 72.0),
-            "mini" => (65.0, 170.0 + (count - 1) as f64 * 58.0),
             _ => (78.0, 170.0 + (count - 1) as f64 * 58.0),
         }
     }
@@ -232,9 +231,16 @@ mod tests {
         .unwrap();
         assert!(schema_three_with_unknown_new_field.automatically_collapses);
 
-        let mut mini = defaults.clone();
-        mini.density = "mini".into();
-        assert_eq!(mini.logical_size(false), (65.0, 344.0));
+        let retired_mini: StripPreferences = serde_json::from_str(
+            r#"{"schemaVersion":4,"density":"mini","automaticallyCollapses":false,"orderedProviders":["codex","claude"],"hiddenProviders":["claude"]}"#,
+        )
+        .unwrap();
+        assert_eq!(retired_mini.density, "compact");
+        assert!(!retired_mini.automatically_collapses);
+        assert_eq!(
+            retired_mini.visible_providers(),
+            ["codex", "deepseek", "gemini"]
+        );
     }
 
     #[test]

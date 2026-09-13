@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.9.0](https://img.shields.io/badge/version-0.9.0-3b82f6)
-![Tests 563](https://img.shields.io/badge/tests-563%20passed-2ea44f)
+![Version 0.9.1](https://img.shields.io/badge/version-0.9.1-3b82f6)
+![Tests 564](https://img.shields.io/badge/tests-564%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -36,7 +36,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - 点击菜单栏后的弹出面板在 AI Token Meter 标题左侧显示现有应用 Logo；Windows 原生托盘菜单顶部提供等价的 Logo 与软件名品牌行。
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 OpenAI Codex 重置券摘要。
 - 贴边浮岛按设置显示一至四个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
-- Floating Strip提供Comfortable、Compact、Mini三档浮岛尺寸；Mini为65pt/px，Compact为78pt/px。自动收起可关闭，关闭后保留原延迟值并让浮岛持续展开。
+- Floating Strip提供Comfortable与Compact两档浮岛尺寸；旧Mini偏好升级后自动迁移到Compact。自动收起可关闭，关闭后保留原延迟值并让浮岛持续展开。
 - Claude Code、OpenAI Codex、DeepSeek、Gemini 分别使用黄橙、玫红紫、薄荷紫、青绿强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会按物理显示器稳定标识记住目标屏、侧边和垂直位置；目标屏暂时断开时只临时回到当前主屏，重新接入后自动恢复，详情始终朝桌面内部展开。
 - 浮岛保持 macOS 桌面层，普通应用和全屏应用可自然覆盖；用户点击 Provider 后，临时详情会显示在普通应用窗口上方，关闭或自动隐藏后立即退出窗口栈。

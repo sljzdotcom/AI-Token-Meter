@@ -8,6 +8,8 @@ struct RefreshBackoffTests {
         let data = try Data(contentsOf: root.appendingPathComponent("contracts/fixtures/auxiliary/strip-behavior.json"))
         let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let densities = try #require(json["densities"] as? [[String: Any]])
+        #expect(densities.compactMap { $0["id"] as? String } == ["comfortable", "compact"])
+        #expect(densities.count == FloatingStripDensity.allCases.count)
         for row in densities {
             let id = try #require(row["id"] as? String)
             let density = try #require(FloatingStripDensity(rawValue: id))

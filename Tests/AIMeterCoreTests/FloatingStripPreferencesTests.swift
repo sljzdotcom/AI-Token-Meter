@@ -10,18 +10,27 @@ struct FloatingStripPreferencesTests {
 
     // Catch a fourth row being clipped by the previous three-provider size cap.
     @Test func fourthProviderHasFullHeightAndLegacySizesStayStable() {
-        #expect(FloatingStripDensity.allCases == [.comfortable, .compact, .mini])
-        #expect(FloatingStripDensity.mini.width == 65)
-        #expect(FloatingStripDensity.mini.ringSize == 48)
-        #expect((FloatingStripDensity.mini.width - FloatingStripDensity.mini.ringSize) / 2 == 8.5)
+        #expect(FloatingStripDensity.allCases == [.comfortable, .compact])
         #expect(FloatingStripDensity.compact.width == 78)
         #expect(FloatingStripDensity.compact.ringSize == 48)
         #expect((FloatingStripDensity.compact.width - FloatingStripDensity.compact.ringSize) / 2 == 15)
         #expect(FloatingStripDensity.comfortable.width == 108)
-        for (density, heights) in [(FloatingStripDensity.mini, [170.0, 228, 286, 344]), (.compact, [170.0, 228, 286, 344]), (.comfortable, [212.0, 284, 356, 428])] {
+        for (density, heights) in [(FloatingStripDensity.compact, [170.0, 228, 286, 344]), (.comfortable, [212.0, 284, 356, 428])] {
             for (index, height) in heights.enumerated() {
                 #expect(density.height(providerCount: index + 1) == height)
             }
+        }
+    }
+
+    @Test func retiredMiniAndUnknownDensityMigrateToCompact() throws {
+        for stored in ["mini", "future"] {
+            let data = Data(#"{"schemaVersion":4,"density":"\#(stored)","automaticallyCollapses":false,"orderedProviders":["codex","claude"],"hiddenProviders":["claude"]}"#.utf8)
+            let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
+            #expect(value.density == .compact)
+            #expect(!value.automaticallyCollapses)
+            #expect(value.visibleProviders == [.codex, .deepSeek, .gemini])
+            let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
+            #expect(encoded["density"] as? String == "compact")
         }
     }
 
@@ -105,7 +114,6 @@ struct FloatingStripPreferencesTests {
     }
 
     @Test func providerRemovalShrinksOnlyTheMiddle() {
-        #expect(FloatingStripDensity.mini.height(providerCount: 2) == 228)
         #expect(FloatingStripDensity.compact.height(providerCount: 2) == 228)
         #expect(FloatingStripDensity.compact.height(providerCount: 1) == 170)
         #expect(FloatingStripDensity.comfortable.height(providerCount: 2) == 284)

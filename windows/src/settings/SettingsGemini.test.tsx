@@ -41,11 +41,11 @@ it("edits independent bounded show and hide delays", () => {
   expect(collapse.value).toBe("0")
 })
 
-it("offers Mini without migrating Compact and disables delays when automatic collapse is off", () => {
+it("offers only Comfortable and Compact and disables delays when automatic collapse is off", () => {
   render(<StatefulSettings />)
   const density = screen.getByLabelText("Floating strip size") as HTMLSelectElement
   expect([...density.options].map(option => [option.value, option.textContent])).toEqual([
-    ["comfortable", "Comfortable"], ["compact", "Compact"], ["mini", "Mini"],
+    ["comfortable", "Comfortable"], ["compact", "Compact"],
   ])
   expect(density.value).toBe("compact")
   const automatic = screen.getByLabelText("Automatically collapse floating strip") as HTMLInputElement

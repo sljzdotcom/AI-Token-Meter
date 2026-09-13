@@ -1594,7 +1594,7 @@ mod threshold_tests {
         let newer = std::thread::spawn(move || {
             let next = {
                 let mut settings = new_settings.lock().unwrap();
-                settings.strip_preferences.density = "mini".to_owned();
+                settings.strip_preferences.density = "comfortable".to_owned();
                 updated.send(()).unwrap();
                 settings.strip_preferences.clone()
             };
@@ -1616,14 +1616,14 @@ mod threshold_tests {
         release.send(()).unwrap();
         old.join().unwrap();
         newer.join().unwrap();
-        assert_eq!(&*events.lock().unwrap(), &["compact", "mini"]);
+        assert_eq!(&*events.lock().unwrap(), &["compact", "comfortable"]);
     }
 
     #[test]
     fn stale_strip_settings_never_publish_after_a_newer_write() {
         let settings = std::sync::Mutex::new(AppSettings::default());
         let stale = settings.lock().unwrap().strip_preferences.clone();
-        settings.lock().unwrap().strip_preferences.density = "mini".to_owned();
+        settings.lock().unwrap().strip_preferences.density = "comfortable".to_owned();
         let mut published = false;
 
         let did_publish = publish_strip_settings_if_current(&settings, &stale, |_| {
@@ -1641,7 +1641,7 @@ mod threshold_tests {
         use std::sync::{Arc, Mutex};
 
         let settings = Mutex::new(AppSettings::default());
-        settings.lock().unwrap().strip_preferences.density = "mini".to_owned();
+        settings.lock().unwrap().strip_preferences.density = "comfortable".to_owned();
         let expected = settings.lock().unwrap().strip_preferences.clone();
         let retried = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let retry_flag = retried.clone();
@@ -1664,7 +1664,7 @@ mod threshold_tests {
 
         assert_eq!(result, Err("Window resize failed".to_owned()));
         assert!(retried.load(std::sync::atomic::Ordering::Acquire));
-        assert_eq!(&*published.lock().unwrap(), &["mini"]);
+        assert_eq!(&*published.lock().unwrap(), &["comfortable"]);
     }
 
     #[tokio::test]
@@ -1677,7 +1677,7 @@ mod threshold_tests {
         assert_eq!(reconciliation, Err("Window resize failed".to_owned()));
 
         let settings = Mutex::new(AppSettings::default());
-        settings.lock().unwrap().strip_preferences.density = "mini".to_owned();
+        settings.lock().unwrap().strip_preferences.density = "comfortable".to_owned();
         let expected = settings.lock().unwrap().strip_preferences.clone();
         let retried = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let retry_flag = retried.clone();
@@ -1700,7 +1700,7 @@ mod threshold_tests {
 
         assert_eq!(result, Err("Window resize failed".to_owned()));
         assert!(retried.load(std::sync::atomic::Ordering::Acquire));
-        assert_eq!(&*published.lock().unwrap(), &["mini"]);
+        assert_eq!(&*published.lock().unwrap(), &["comfortable"]);
     }
 
     #[test]

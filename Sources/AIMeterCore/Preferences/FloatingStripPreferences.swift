@@ -1,9 +1,9 @@
 import Foundation
 
 public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
-    case comfortable, compact, mini
+    case comfortable, compact
     public var width: Double {
-        switch self { case .mini: 65; case .compact: 78; case .comfortable: 108 }
+        switch self { case .compact: 78; case .comfortable: 108 }
     }
     public var ringSize: Double { self == .comfortable ? 60 : 48 }
     public var spacing: Double { self == .comfortable ? 12 : 10 }

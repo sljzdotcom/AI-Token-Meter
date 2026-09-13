@@ -14,7 +14,6 @@
 "Floating strip size" = "懸浮條尺寸";
 "Comfortable" = "舒適";
 "Compact" = "緊湊";
-"Mini" = "迷你";
 "Move %@ up" = "將 %@ 上移";
 "Move %@ down" = "將 %@ 下移";
 "Keep at least one service visible. Hidden services continue monitoring." = "請保留至少一個可見服務。隱藏的服務仍會繼續監測。";

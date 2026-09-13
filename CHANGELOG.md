@@ -4,6 +4,19 @@
 
 ## Unreleased
 
+## 0.9.1 - 2026-09-13
+
+稳定修复版；macOS build27。悬浮条尺寸恢复为Comfortable与Compact两档，并让产品显示设置同步控制菜单栏和Windows托盘摘要。
+
+### Changed
+
+- 旧Mini偏好升级后自动迁移到Compact；产品顺序、隐藏状态、屏幕位置和自动收起设置保持不变。
+- Settings隐藏或排序产品后，macOS菜单栏面板、最高用量和Windows托盘摘要立即采用相同顺序。
+
+### Removed
+
+- 移除macOS与Windows的Mini悬浮条选项及65pt/px专用运行时路径。
+
 ## 0.9.0 - 2026-09-12
 
 稳定功能版；macOS build26。新增macOS三语言即时切换与Services产品Logo，并修复自动隐藏展开时的悬浮条轮廓和Mini即时切换。[发布记录](docs/development/2026-09-12-v0.9.0-release.md)。

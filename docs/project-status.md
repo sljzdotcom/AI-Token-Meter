@@ -3,10 +3,12 @@
 - **事实快照：** 2026-09-13
 - **产品：** AI Token Meter
 - **当前公开稳定版：** 双平台 [`0.9.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.0)（macOS build `26`）
-- **当前源码版本：** 双平台 `0.9.0`（macOS build `26`）
+- **当前源码版本：** 双平台 `0.9.1`候选（macOS build `27`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**0.9.1候选已完成本地实现：** 双平台Floating Strip尺寸只保留Comfortable与Compact，旧Mini和未知密度升级后迁移到Compact；产品显示与排序设置同时控制macOS菜单栏面板、最高用量和Windows托盘摘要。当前等待独立审查、PR/main双平台CI与正式发布，公开稳定版仍为0.9.0。[候选发布记录](development/2026-09-13-v0.9.1-release.md)。
 
 **macOS Services四产品Logo已随0.9.0公开：** Claude Code、OpenAI Codex、DeepSeek和Google Antigravity分组标题复用同一18pt Logo组件与6pt名称间距，使用系统主前景色适配浅深外观，装饰Logo不进入辅助功能树。实现通过147项串行真实窗口专项、完整Swift门禁及Release App四Logo、三语言资源和签名验证，最终独立审查`0/0/0`。Core、Windows与数据逻辑无变化。[开发记录](development/2026-09-12-macos-services-provider-logos.md)。
 
@@ -128,6 +130,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - macOS三语言最终实现`7417628`及本地main合并`207ad63`通过**531项主测试 + 3项独立刷新调度 + 18项PTY runner，共552项Swift**；另有51项资源与真实界面专项。无Widget Release App签名与便携资源验证通过，内含三份各321项的语言表；6份跨平台合同、290份Markdown、公开安全检查及最终独立审查`0/0/0`通过。
 - macOS Services产品Logo实现`eeaf215`及本地main合并`28ec9f6`通过**538项主测试 + 3项独立刷新调度 + 18项PTY runner，共559项Swift**；另有147项、18个suite的串行真实窗口专项。无Widget Release App包含四份Provider Logo与三份语言资源，主App及Sparkle嵌套签名有效；6份跨平台合同、293份Markdown、公开安全检查和最终独立审查`0/0/0`通过。
 - 0.9.0/build26通过**539项主测试 + 3项独立刷新调度 + 18项PTY runner，共560项Swift**，以及147项真实WindowServer专项；Windows通过137项前端、254项宿主Rust、25项浏览器进程生命周期、24组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、296份Markdown、公开安全和无Widget Release App签名门禁通过。
+- 0.9.1/build27候选通过**543项主测试 + 3项独立刷新调度 + 18项PTY runner，共564项Swift**；Windows通过132项前端、255项宿主Rust、25项浏览器进程生命周期、16组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、303份Markdown、公开安全和无Widget Release App签名门禁通过。
 - 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.9.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.0) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-12-v0.9.0-release.md)。
 - `v0.6.3` 标签指向 `dff54d8`，appcast `fd737f0` 首项为0.6.3/build18，Windows stable/旧 Preview同步为0.6.3；发布 workflow `34361767956`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。

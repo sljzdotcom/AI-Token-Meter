@@ -23,7 +23,7 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
   const visible = preferences.orderedProviders.filter(id => !preferences.hiddenProviders.includes(id))
     .map(id => snapshots.find(s => s.providerId === id)).filter(s => s != null)
   const comfortable = preferences.density === "comfortable"
-  const width = preferences.density === "mini" ? 65 : preferences.density === "compact" ? 78 : 108
+  const width = preferences.density === "compact" ? 78 : 108
   const contentHeight = (comfortable ? 356 : 286) - (3 - Math.max(visible.length, 1)) * (comfortable ? 72 : 58)
   const height = contentHeight
   const style = { clipPath: `url("#${clipId}-right")`, "--strip-width": `${width}px`, "--strip-height": `${height}px`,
@@ -73,7 +73,7 @@ export function FloatingStrip({ snapshots, activeProvider, onProviderActivate, p
 
 export function MeterClipPaths({ density = "comfortable", count = 3, idPrefix = "strip-clip" }: { density?: string, count?: number, idPrefix?: string }) {
   const comfortable = density === "comfortable"
-  const width = density === "mini" ? 65 : density === "compact" ? 78 : 108
+  const width = density === "compact" ? 78 : 108
   const removed = (3 - Math.max(count, 1)) * (comfortable ? 72 : 58)
   const contentHeight = (comfortable ? 356 : 286) - removed
   const height = contentHeight
@@ -94,7 +94,7 @@ export function MeterClipPaths({ density = "comfortable", count = 3, idPrefix = 
 
 export function meterContourPath(density: string, count: number) {
   const comfortable = density === "comfortable"
-  const width = density === "mini" ? 65 : density === "compact" ? 78 : 108
+  const width = density === "compact" ? 78 : 108
   const height = (comfortable ? 356 : 286) - (3 - Math.max(count, 1)) * (comfortable ? 72 : 58)
   const shoulderDepth = comfortable ? 88 : 70
   const widthScale = width / 65

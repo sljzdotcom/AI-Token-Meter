@@ -14,13 +14,11 @@ describe("compact floating strip interactions", () => {
       contentRevealDelayMilliseconds: 180,
     })
     expect(behavior.expandedContour).toMatchObject({referenceWidth: 65, compactShoulderDepth: 70, comfortableShoulderDepth: 88})
-    expect(meterContourPath("mini", 4)).toContain("M 65 4 C 63 18 54 29 37 30 C 18 31 5 42 1 58 C 0 62 0 66 0 70")
     expect(meterContourPath("compact", 4)).toContain("M 78 4")
     expect(meterContourPath("comfortable", 4)).toContain("M 108 5.0285714285714285")
     expect(meterContourPath("comfortable", 4)).toContain("0 88")
   })
   it.each([
-    ["mini", "left", 65, 286], ["mini", "right", 65, 286],
     ["compact", "left", 78, 286], ["compact", "right", 78, 286],
     ["comfortable", "left", 108, 356], ["comfortable", "right", 108, 356],
   ] as const)("%s/%s has undecorated draggable background and click-only providers", (density, edge, width, height) => {
@@ -35,7 +33,6 @@ describe("compact floating strip interactions", () => {
       const strip = screen.getByRole("navigation")
       expect(strip.style.getPropertyValue("--strip-width")).toBe(`${width}px`)
       expect(strip.style.getPropertyValue("--strip-height")).toBe(`${height}px`)
-      if (density === "mini") expect((width - 48) / 2).toBe(8.5)
       if (density === "compact") expect((width - 48) / 2).toBe(15)
       // Dispatch pointerdown with a real button value; jsdom lacks PointerEvent.
       fireEvent(strip, new MouseEvent("pointerdown", { bubbles: true, button: 0 }))
@@ -54,7 +51,7 @@ describe("compact floating strip interactions", () => {
   })
   it.each(behavior.densities)("matches shared $id dimensions", density => {
     render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
-      preferences={{...defaultStripPreferences, density: density.id as "mini" | "compact" | "comfortable", hiddenProviders: ["gemini"]}} />)
+      preferences={{...defaultStripPreferences, density: density.id as "compact" | "comfortable", hiddenProviders: ["gemini"]}} />)
     const style = screen.getByRole("navigation").style
     expect(style.getPropertyValue("--strip-width")).toBe(`${density.width}px`)
     expect(style.getPropertyValue("--strip-height")).toBe(`${density.height}px`)

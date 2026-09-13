@@ -229,10 +229,10 @@ export function SettingsWindow({
                   orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: []})}>{t("Restore default order")}</button>
               </div>
             </SettingRow>
-            <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable, Compact, or Mini.")}>
+            <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable or Compact.")}>
               <select aria-label={t("Floating strip size")} value={stripPreferences.density}
                 onChange={e => onStripPreferencesChange({...stripPreferences, density: e.target.value as StripPreferences["density"]})}>
-                <option value="comfortable">{t("Comfortable")}</option><option value="compact">{t("Compact")}</option><option value="mini">{t("Mini")}</option>
+                <option value="comfortable">{t("Comfortable")}</option><option value="compact">{t("Compact")}</option>
               </select>
             </SettingRow>
             </section>

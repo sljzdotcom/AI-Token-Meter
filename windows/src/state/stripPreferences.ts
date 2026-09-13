@@ -1,7 +1,7 @@
 import type { ProviderId } from "./usage"
 export type StripPreferences = {
   schemaVersion?: number
-  density: "comfortable" | "compact" | "mini"
+  density: "comfortable" | "compact"
   automaticallyCollapses: boolean
   revealDelayMilliseconds: number
   collapseDelayMilliseconds: number
