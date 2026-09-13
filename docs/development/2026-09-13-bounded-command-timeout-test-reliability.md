@@ -1,4 +1,4 @@
-# BoundedCommandRunner超时测试可靠性
+# BoundedCommandRunner停止测试可靠性
 
 关联需求：`REQ-20260913-004`。日期：2026-09-13。触发入口：[PR #44](https://github.com/sljzdotcom/AI-Token-Meter/pull/44)。
 
@@ -23,3 +23,11 @@
 独立审查先发现2秒夹具在延迟触发时可能靠自然退出误通过，并指出原CI不能证明具体延迟阶段。改用30秒夹具、修正文档证据边界后，最终复审Critical/Important/Minor为`0/0/0`；禁用终止的变异验证在28.486秒后正确失败。
 
 精确修正候选`819de54`的PR #44 macOS [workflow 34741171112](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741171112)（job `103681008998`）与Windows [workflow 34741171110](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741171110)（job `103681009052`）全部通过。最终合并与main CI节点待PR #44实际完成后补记。
+
+## 取消测试的后续失败
+
+最终文档提交`c083f5c`的macOS [workflow 34741790603](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34741790603)中，超时测试通过，但既有`cancellationTerminatesTheCommand`在返回正确`CancellationError`后记录取消到调用返回为1.105秒。当前清理路径本身允许0.5秒强制终止后备和最多0.5秒EOF排空，操作系统进程退出后Swift任务仍需重新获得调度；因此旧断言不能区分真实子进程清理与返回路径调度。
+
+测试先改为观察尚不存在的进程退出入口，旧实现准确编译失败。最小实现把内部观察闭包连接到既有`ProcessTerminationWaiter`只触发一次的退出事件；超时和取消都直接断言真实停止请求到操作系统进程退出少于一秒，并继续等待及断言各自的`timedOut`和`CancellationError`。公开初始化器、默认生产路径、终止信号、强杀后备、EOF排空与错误语义不变。
+
+四项定向回归单轮通过；取消调用总耗时约1.124秒时，30秒子进程仍在取消后一秒内退出，直接证明完整返回墙钟多出的时间不代表进程残留。四项测试连续20轮再次通过。
