@@ -45,6 +45,8 @@
 | [65pt贴边浮动条与悬停交互](design/specifications/2026-09-10-floating-strip-hover-redesign.md) | 镜像S形轮廓、内容安全过渡、快捷Settings与双延迟语义 |
 | [悬浮条密度即时生效与方案B轮廓修正](design/specifications/2026-09-11-floating-strip-live-density-left-contour-design.md) | Settings切换后立即重排原生窗口、暴露侧圆角、贴屏侧加强反向肩弧及左右严格镜像 |
 | [Google Antigravity详情强调色恢复](design/specifications/2026-09-10-antigravity-accent-restoration-design.md) | 双平台青绿色强调角色、状态覆盖和保持边界 |
+| [删除Mini悬浮条密度](design/specifications/2026-09-13-remove-mini-density-design.md) | 双平台仅保留Comfortable/Compact，旧Mini安全迁移到Compact |
+| [产品可见性与摘要同步](design/specifications/2026-09-13-provider-visibility-summary-sync-design.md) | 悬浮条、macOS菜单栏与Windows托盘共用隐藏和排序偏好 |
 
 ## 开发与维护
 
@@ -57,6 +59,7 @@
 | [维护手册](development/maintenance-playbook.md) | 变更影响矩阵、Provider 诊断、安装、回滚和安全处置 |
 | [提交历史](development/commit-history.md) | 从项目创建至今的 Git 节点与阶段说明 |
 | [开发日志索引](development/README.md) | 按日期查阅详细开发与验收记录 |
+| [产品可见性与摘要同步](development/2026-09-13-provider-visibility-summary-sync.md) | Settings隐藏和排序即时同步到双平台摘要入口 |
 | [四服务商新用户接入一致性](development/2026-09-09-four-provider-onboarding-consistency.md) | 双平台详情恢复、Services接入、DeepSeek首次保存文案与安全边界 |
 | [全项目复盘](development/2026-09-02-project-retrospective.md) | 全仓库盘点、文档差距、清理证据和最终验证 |
 | [公开 GitHub 发布](development/2026-09-02-public-github-release.md) | MIT、作者、社区文件、脱敏截图、历史扫描、CI 与 Release 证据 |

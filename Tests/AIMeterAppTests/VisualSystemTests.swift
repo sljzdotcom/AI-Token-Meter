@@ -124,14 +124,6 @@ struct VisualSystemTests {
 
     @Test("Expanded contour uses the approved rounded shoulder landmarks")
     func approvedRoundedShoulderLandmarks() {
-        let mini = FloatingStripContour.geometry(for: .mini)
-        #expect(mini.start == CGPoint(x: 65, y: 4))
-        #expect(mini.shoulderDepth == 70)
-        #expect(mini.curves == [
-            .init(control1: CGPoint(x: 63, y: 18), control2: CGPoint(x: 54, y: 29), end: CGPoint(x: 37, y: 30)),
-            .init(control1: CGPoint(x: 18, y: 31), control2: CGPoint(x: 5, y: 42), end: CGPoint(x: 1, y: 58)),
-            .init(control1: CGPoint(x: 0, y: 62), control2: CGPoint(x: 0, y: 66), end: CGPoint(x: 0, y: 70)),
-        ])
         let compact = FloatingStripContour.geometry(for: .compact)
         #expect(compact.start == CGPoint(x: 78, y: 4))
         #expect(compact.shoulderDepth == 70)

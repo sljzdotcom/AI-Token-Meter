@@ -73,16 +73,6 @@ fn density_switch_keeps_noncentral_anchor_at_all_dpi_scales() {
 }
 
 #[test]
-fn mini_width_rounds_to_the_expected_physical_pixels() {
-    for (scale, expected_width) in [(1.0, 65), (1.25, 81), (1.5, 98), (2.0, 130)] {
-        let physical: tauri::PhysicalSize<u32> =
-            tauri::LogicalSize::new(65.0, 286.0).to_physical(scale);
-        assert_eq!(physical.width, expected_width);
-        assert_eq!(physical.height, (286.0_f64 * scale).round() as u32);
-    }
-}
-
-#[test]
 fn upgrade_preserves_legacy_450_pixel_position() {
     use ai_token_meter_windows::platform::windows::window_controller::{
         POSITION_REFERENCE_HEIGHT, PhysicalRect,
@@ -193,11 +183,6 @@ fn every_four_provider_order_and_nonempty_subset_has_correct_native_size() {
                         assert_eq!(
                             prefs.logical_size(false),
                             (78.0, [170.0, 228.0, 286.0, 344.0][count - 1])
-                        );
-                        prefs.density = "mini".into();
-                        assert_eq!(
-                            prefs.logical_size(false),
-                            (65.0, [170.0, 228.0, 286.0, 344.0][count - 1])
                         );
                         prefs.density = "comfortable".into();
                         assert_eq!(

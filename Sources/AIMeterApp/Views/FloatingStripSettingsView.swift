@@ -22,7 +22,6 @@ struct FloatingStripSettingsView: View {
                 Picker(localizer.text("Floating strip size"), selection: stripBinding(\.density)) {
                     Text(localizer.text("Comfortable")).tag(FloatingStripDensity.comfortable)
                     Text(localizer.text("Compact")).tag(FloatingStripDensity.compact)
-                    Text(localizer.text("Mini")).tag(FloatingStripDensity.mini)
                 }
                 ForEach(model.stripPreferences.orderedProviders, id: \.self) { provider in
                     HStack {

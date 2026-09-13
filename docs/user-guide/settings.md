@@ -2,9 +2,9 @@
 
 ## Gemini 与四服务配置（0.6.0 起）
 
-青绿 `#3ED6B2` Gemini 是第四项服务。全新配置默认四项可见；旧记录缺少 Gemini 时将其追加末尾并隐藏，保留既有顺序与显示选择；已有 Gemini 的记录保留其选择。保存采用偏好 schemaVersion 4，以记录三档尺寸、自动收起开关及独立的显示与收起延迟；旧 schema 自动迁移并默认开启自动收起。Restore default order 恢复四项默认顺序与显示，至少保留一项可见；隐藏不停止采集。
+青绿 `#3ED6B2` Gemini 是第四项服务。全新配置默认四项可见；旧记录缺少 Gemini 时将其追加末尾并隐藏，保留既有顺序与显示选择；已有 Gemini 的记录保留其选择。保存采用偏好 schemaVersion 4，以记录两档尺寸、自动收起开关及独立的显示与收起延迟；旧 schema 自动迁移并默认开启自动收起。Restore default order 恢复四项默认顺序与显示，至少保留一项可见；隐藏不停止采集。
 
-四项全显示时Mini为65×344、Compact为78×344、Comfortable为108×428；显示三项时分别为65×286、78×286、108×356。总高随实际可见数量变化，悬浮条下方不显示Settings图标；设置仍可从应用菜单进入。
+四项全显示时Compact为78×344、Comfortable为108×428；显示三项时分别为78×286、108×356。总高随实际可见数量变化，悬浮条下方不显示Settings图标；设置仍可从应用菜单进入。旧Mini偏好升级后自动迁移到Compact。
 
 Google Antigravity 的账户状态来自同次额度采集，不另启一次认证探测，也不编造邮箱。服务卡按状态显示官方 `agy` 安装或登录步骤，安装按钮直达官方页面，并提供检查状态；当前不执行安装、登录或重新登录。版本与 Windows 原生限制见[Antigravity 指标说明](providers.md#google-antigravity)。
 
@@ -49,7 +49,7 @@ Floating Strip集中悬浮条的内容与尺寸、屏幕与位置、行为设置
 
 0.6.0 起两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
 
-- **Floating strip size**：固定按Comfortable、Compact、Mini排列，默认Compact。四项全显示分别为108×428、78×344、65×344；每隐藏一项高度自动缩短，三项尺寸分别为108×356、78×286、65×286。切换不改变保存的显示器与位置中心；升级时旧Compact保持Compact，不会自动变为Mini。
+- **Floating strip size**：固定按Comfortable、Compact排列，默认Compact。四项全显示分别为108×428、78×344；每隐藏一项高度自动缩短，三项尺寸分别为108×356、78×286。切换不改变保存的显示器与位置中心；升级时旧Mini自动迁移为Compact。
 - **Automatically collapse floating strip**：默认开启。关闭后立即取消待执行计时并保持展开；Show/Hide delay保留原值但暂时禁用，重新开启后继续使用。
 - **Show delay**：指针进入20pt/px命中区域后等待0–2000ms展开，默认150ms；期限内离开会取消展开。
 - **Hide delay**：离开整个浮动条交互区后等待0–5000ms收起，默认800ms。操作详情、Settings、菜单、拖动、刷新和读屏期间保持展开。

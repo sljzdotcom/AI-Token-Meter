@@ -200,8 +200,14 @@ final class AppModel {
         snapshots.map(ProviderPresentation.init(snapshot:))
     }
 
+    var menuBarSnapshots: [UsageSnapshot] {
+        stripPreferences.visibleProviders.compactMap { provider in
+            snapshots.first(where: { $0.provider == provider })
+        }
+    }
+
     var menuBarSummary: MenuBarSummary {
-        MenuBarSummary(snapshots: snapshots)
+        MenuBarSummary(snapshots: menuBarSnapshots)
     }
 
     var isRunningDemoMode: Bool { isDemoMode }

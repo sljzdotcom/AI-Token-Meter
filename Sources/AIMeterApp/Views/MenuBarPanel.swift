@@ -36,7 +36,7 @@ struct MenuBarPanel: View {
         VStack(spacing: 14) {
             header
 
-            if model.snapshots.isEmpty {
+            if model.menuBarSnapshots.isEmpty {
                 ContentUnavailableView {
                     Label {
                         Text(localizer.text("Checking usage"))
@@ -49,7 +49,7 @@ struct MenuBarPanel: View {
                 .frame(height: 190)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(model.snapshots) { snapshot in
+                    ForEach(model.menuBarSnapshots) { snapshot in
                         ProviderCard(
                             snapshot: snapshot,
                             onClaudeSetup: {

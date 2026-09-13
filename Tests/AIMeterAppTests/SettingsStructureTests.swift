@@ -295,9 +295,9 @@ struct SettingsStructureTests {
 
         let comfortable = try #require(source.range(of: "Text(localizer.text(\"Comfortable\")).tag(FloatingStripDensity.comfortable)"))
         let compact = try #require(source.range(of: "Text(localizer.text(\"Compact\")).tag(FloatingStripDensity.compact)"))
-        let mini = try #require(source.range(of: "Text(localizer.text(\"Mini\")).tag(FloatingStripDensity.mini)"))
         #expect(comfortable.lowerBound < compact.lowerBound)
-        #expect(compact.lowerBound < mini.lowerBound)
+        #expect(!source.contains("FloatingStripDensity.mini"))
+        #expect(!source.contains("localizer.text(\"Mini\")"))
         #expect(source.contains("Toggle(localizer.text(\"Automatically collapse floating strip\""))
         #expect(source.components(separatedBy: ".disabled(!model.stripPreferences.automaticallyCollapses)").count == 3)
         #expect(source.contains("FloatingStripDisplaySettings(model: model)"))

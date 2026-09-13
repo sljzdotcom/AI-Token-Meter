@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-12
+**最后更新：** 2026-09-13
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,6 +15,9 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260913-002 | 产品显示设置同步缺陷 | 用户在Settings只选择显示三个产品，但点击菜单栏后的汇总窗口仍显示四个；产品可见性设置应在悬浮条与菜单栏/托盘汇总页一致生效 | 高 | 已完成 | 2026-09-13 | macOS菜单栏面板和最高用量、Windows托盘摘要均按同一可见产品顺序即时同步；隐藏、恢复和排序不删除快照、账户或凭据。563项Swift、137项Windows前端、256项Rust、双端生产构建、严格Clippy、299份文档及公开安全门禁通过；最终独立复审0/0/0，本地main整合节点待补记；未发布 | 实现`346667b`，审查修正`bf27e2e`；[规格](design/specifications/2026-09-13-provider-visibility-summary-sync-design.md)、[计划](design/implementation-plans/2026-09-13-provider-visibility-summary-sync.md)、[开发记录](development/2026-09-13-provider-visibility-summary-sync.md) |
+| REQ-20260913-001 | 删除Mini密度选项 | 用户要求从悬浮条尺寸设置中删除Mini，只保留原有Comfortable与Compact两档 | 高 | 已完成 | 2026-09-13 | 2026-09-13完成：双平台设置与运行时只保留Comfortable/Compact；旧Mini及未知值迁移到Compact并保留其他偏好。564项Swift、11项显示设置集成测试（含7项真实NSPanel）、132项前端、255项Rust、浏览器/构建/格式/严格Clippy/合同/文档/安全门禁通过，独立审查`0/0/0`；随0.9.1发布事务继续交付 | 实现`406393c` · [规格](design/specifications/2026-09-13-remove-mini-density-design.md) · [计划](design/implementation-plans/2026-09-13-remove-mini-density.md) · [发布记录](development/2026-09-13-v0.9.1-release.md) |
+| REQ-20260913-003 | 发布0.9.1稳定版 | 用户确认删除Mini的推荐方案并要求直接发布，包含已完成的产品可见性摘要同步修复 | 高 | 进行中 | 2026-09-13 | 0.9.1/build27候选本地门禁已通过；完成独立审查后推送、PR/main双平台CI、标签、GitHub Release、双平台签名资产和三个更新源，最后做匿名公网验收与证据提交 | 用户原话“确认执行，直接发布”；交付REQ-20260913-001、REQ-20260913-002 |
 | REQ-20260912-006 | macOS CI取消时限可靠性 | 修复BoundedCommandRunner取消测试把发出取消前的调度等待也计入一秒取消门限，造成高负载runner可能误报超时 | 高 | 已完成 | 2026-09-12 | 2026-09-13完成：受控30秒子进程先发出启动信号，测试故意等待1.1秒后取消，继续要求一秒内返回CancellationError并完成进程清理；定向单次、连续10次、完整560项Swift/6合同/公开安全、独立复审及PR/main双平台CI全部通过 | [失败CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34703118587) · [PR #41](https://github.com/sljzdotcom/AI-Token-Meter/pull/41) · 修复`8daa50d` · main`f3f6157` · PR CI `34703862318`/`34703862343` · main CI `34704480418`/`34704480318` |
 | REQ-20260912-005 | 双平台稳定版发布 | 用户要求把当前本地main已完成但尚未公开的自动隐藏展开轮廓修复、macOS三语言即时切换和Services四产品Logo直接发布为可更新的新版本 | 高 | 已完成 | 2026-09-12 | 2026-09-13完成：0.9.0/build26已公开；PR/main双平台CI、标签workflow、七项签名资产、匿名重下、篡改拒绝、三个更新入口、发布证据独立复核`0/0/0`及证据PR双平台CI均通过，随PR #42合入main结项 | [Release v0.9.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.0) · [PR #40](https://github.com/sljzdotcom/AI-Token-Meter/pull/40) · [PR #41](https://github.com/sljzdotcom/AI-Token-Meter/pull/41) · [证据PR #42](https://github.com/sljzdotcom/AI-Token-Meter/pull/42) · tag/main`f3f6157` · appcast`2f260f3` · [workflow 34705225583](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34705225583) · 证据CI `34706471188`/`34706471186` · [发布记录](development/2026-09-12-v0.9.0-release.md) |
 | REQ-20260912-004 | Antigravity详情数据与颜色核对 | 用户询问Google Antigravity详情是否显示正确、为何包含Claude/GPT信息，以及强调颜色是否曾调整 | 中 | 已完成 | 2026-09-12 | 官方Models与/usage资料确认Antigravity同时提供Gemini、Claude与GPT模型，并把额度分为Gemini Models及Claude and GPT models两组；当前采集严格解析两组各五小时/每周四行，缺失或歧义则拒绝。标题、剩余比例和进度已从全白恢复为青绿色`#3ED6B2`，数据逻辑未改 | [Google Models](https://www.antigravity.google/docs/models/) · [Model Quotas /usage](https://antigravity.google/docs/cli/commands/usage) · `GeminiUsageParser.swift` · `GeminiDetailView.swift` · [强调色恢复记录](development/2026-09-10-antigravity-accent-restoration.md) |
@@ -245,6 +248,16 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-13 | REQ-20260913-003 | 新增 → 待处理 | 用户明确授权直接发布；登记0.9.1/build27稳定发布，交付删除Mini与产品可见性摘要同步，候选完成后开始发布事务。 |
+| 2026-09-13 | REQ-20260913-001 | 待用户确认 → 进行中 | 用户确认推荐方案；采用双平台彻底移除Mini、旧Mini迁移到Compact，开始测试驱动实现。 |
+| 2026-09-13 | REQ-20260913-001 | 待处理 → 待用户确认 | 项目上下文确认Mini同时存在于双平台枚举/持久化、设置、轮廓、尺寸和回归。推荐彻底移除运行时Mini并将旧`mini`迁移到Compact；按设计技能硬性关卡等待用户批准设计后实施。 |
+| 2026-09-13 | REQ-20260913-002 | 进行中 → 已完成 | 完整门禁重新通过，最终独立复审Critical/Important/Minor为0/0/0；实现`346667b`、审查修正`bf27e2e`，进入本地main整合，未获得也未执行新版本发布。 |
+| 2026-09-13 | REQ-20260913-001 | 待用户确认 → 待处理 | 用户再次明确删除Mini、只保留原有两档；按既有推荐采用Mini→Compact兼容迁移，排在当前进行中的REQ-20260913-002收尾之后实施。 |
+| 2026-09-13 | REQ-20260913-002 | 审查修正中 | 首轮独立审查0/3/1：Windows改为启动时一次创建菜单项，后台快照仅更新文字，设置变化复用原项调整可见顺序；macOS补真实SwiftUI宿主即时更新回归；当前测试基线更新为563项Swift、256项Rust，待修正后重验与复审。REQ-20260913-001仍为待用户确认。 |
+| 2026-09-13 | REQ-20260913-002 | 实现验证进度 | 根因确认：macOS菜单卡片/最高用量读取全部快照，Windows托盘固定创建四项；现已共用可见产品顺序。红灯后通过macOS 2项、Windows 2项专项，以及562项Swift、137项Windows前端、256项Rust、严格Clippy、双端生产构建、299份Markdown和公开安全门禁；待独立审查与本地main整合。REQ-20260913-001仍为待用户确认。 |
+| 2026-09-13 | REQ-20260913-002 | 待处理 → 进行中 | 长期开发入口接单；先以失败回归复现Settings隐藏产品后菜单栏汇总未同步，再定位共享偏好与汇总呈现链路，保留REQ-20260913-001的待确认状态。 |
+| 2026-09-13 | REQ-20260913-002 | 新增 → 待处理 | 登记“Settings选三个、菜单栏汇总仍四个”不同步反馈；由长期开发入口负责修复及完整验证收尾。保留其工作区已有REQ-20260913-001删除Mini事项和待确认状态，不以本条替代或确认该事项。 |
+| 2026-09-13 | REQ-20260913-001 | 新增 → 待用户确认 | 用户要求删除Mini密度选项，双平台只保留Comfortable与Compact；等待确认现有Mini持久化值升级后迁移目标，推荐Compact。 |
 | 2026-09-13 | REQ-20260912-005 | 进行中 → 已完成 | 发布证据候选`81e52e5`的macOS run 34706471188与Windows run 34706471186通过，独立复核`0/0/0`；随PR #42合入main，0.9.0发布事务结项。 |
 | 2026-09-13 | REQ-20260912-005 | 发布证据复核完成 | 独立审查核对Release七资产/大小/SHA、tag、三项发布job、PR/CI、appcast提交、三个更新入口与需求状态；唯一历史版本层级Minor修正后最终Critical/Important/Minor为`0/0/0`。 |
 | 2026-09-13 | REQ-20260912-005 | 发布与公网验证完成 | `v0.9.0`指向main`f3f6157`；workflow 34705225583的macOS、Windows与同步公开三项job通过，七项公开资产完成匿名重下、SHA、Sparkle/Tauri签名、篡改拒绝、版本元数据与三个更新入口验证，等待证据PR归档。 |

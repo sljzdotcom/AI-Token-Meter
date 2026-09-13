@@ -6,7 +6,6 @@ import Testing
 @Suite("Floating strip drag region")
 struct FloatingStripDragShapeTests {
     @Test func allDensitiesUseExpectedHorizontalPadding() {
-        #expect(FloatingStripContentLayout.horizontalPadding(for: .mini) == 0)
         #expect(FloatingStripContentLayout.horizontalPadding(for: .compact) == 11)
         #expect(FloatingStripContentLayout.horizontalPadding(for: .comfortable) == 11)
     }
