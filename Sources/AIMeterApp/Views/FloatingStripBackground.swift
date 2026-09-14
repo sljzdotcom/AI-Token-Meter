@@ -54,6 +54,7 @@ enum FloatingStripMaterialPolicy {
 private struct FloatingStripMaterialSurface<SurfaceShape: Shape>: View {
     let appearance: FloatingStripAppearance
     let shape: SurfaceShape
+    var reduceTransparencyOverride: Bool?
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
@@ -76,7 +77,7 @@ private struct FloatingStripMaterialSurface<SurfaceShape: Shape>: View {
         switch FloatingStripMaterialPolicy.rendering(
             for: appearance,
             nativeLiquidGlassAvailable: nativeLiquidGlassAvailable,
-            reduceTransparency: reduceTransparency
+            reduceTransparency: reduceTransparencyOverride ?? reduceTransparency
         ) {
         case .deepSea:
             shape.fill(AIMeterVisualTheme.floatingGlass)
@@ -125,19 +126,22 @@ struct FloatingStripSurface: View {
     var providerCount: Int
     var appearance: FloatingStripAppearance
     private let backgroundImage: NSImage?
+    private let reduceTransparencyOverride: Bool?
 
     init(
         edge: FloatingStripEdge,
         density: FloatingStripDensity = .comfortable,
         providerCount: Int = 3,
         appearance: FloatingStripAppearance = .deepSea,
-        backgroundImage: NSImage? = FloatingStripBackgroundAsset.defaultImage
+        backgroundImage: NSImage? = FloatingStripBackgroundAsset.defaultImage,
+        reduceTransparencyOverride: Bool? = nil
     ) {
         self.edge = edge
         self.density = density
         self.providerCount = providerCount
         self.appearance = appearance
         self.backgroundImage = backgroundImage
+        self.reduceTransparencyOverride = reduceTransparencyOverride
     }
 
     var body: some View {
@@ -145,7 +149,11 @@ struct FloatingStripSurface: View {
         Group {
             if appearance == .deepSea {
                 ZStack {
-                    FloatingStripMaterialSurface(appearance: appearance, shape: shape)
+                    FloatingStripMaterialSurface(
+                        appearance: appearance,
+                        shape: shape,
+                        reduceTransparencyOverride: reduceTransparencyOverride
+                    )
 
                     if let backgroundImage {
                         let scale = FloatingStripBackgroundPresentation.scale(for: edge)
@@ -160,7 +168,11 @@ struct FloatingStripSurface: View {
                     }
                 }
             } else {
-                FloatingStripMaterialSurface(appearance: appearance, shape: shape)
+                FloatingStripMaterialSurface(
+                    appearance: appearance,
+                    shape: shape,
+                    reduceTransparencyOverride: reduceTransparencyOverride
+                )
             }
         }
         .clipShape(shape)
@@ -171,15 +183,18 @@ struct FloatingStripFoldedSurface: View {
     let edge: FloatingStripEdge
     var appearance: FloatingStripAppearance
     private let backgroundImage: NSImage?
+    private let reduceTransparencyOverride: Bool?
 
     init(
         edge: FloatingStripEdge,
         appearance: FloatingStripAppearance = .deepSea,
-        backgroundImage: NSImage? = FloatingStripBackgroundAsset.defaultImage
+        backgroundImage: NSImage? = FloatingStripBackgroundAsset.defaultImage,
+        reduceTransparencyOverride: Bool? = nil
     ) {
         self.edge = edge
         self.appearance = appearance
         self.backgroundImage = backgroundImage
+        self.reduceTransparencyOverride = reduceTransparencyOverride
     }
 
     var body: some View {
@@ -198,7 +213,11 @@ struct FloatingStripFoldedSurface: View {
                     }
                 }
             } else {
-                FloatingStripMaterialSurface(appearance: appearance, shape: shape)
+                FloatingStripMaterialSurface(
+                    appearance: appearance,
+                    shape: shape,
+                    reduceTransparencyOverride: reduceTransparencyOverride
+                )
             }
         }
         .clipShape(shape)
