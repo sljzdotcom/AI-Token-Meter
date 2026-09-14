@@ -33,7 +33,7 @@
 
 ### 任务4：合并并发布0.10.0
 
-- [ ] 推送候选并创建PR，等待精确候选双平台CI通过后合入main。
-- [ ] 等待精确main双平台CI通过，从干净且与远端一致的main创建`v0.10.0`。
-- [ ] 等待正式发布workflow生成并公开双平台签名资产，推进macOS稳定appcast、Windows stable latest.json和旧Preview兼容入口。
-- [ ] 匿名重下资产并核对SHA、签名、篡改拒绝、版本元数据和更新源；提交发布证据，等待最终CI并关闭两项需求。
+- [x] 推送候选并创建PR，等待精确候选双平台CI通过后合入main。
+- [x] 等待精确main双平台CI通过，从干净且与远端一致的main创建`v0.10.0`。
+- [x] 等待正式发布workflow生成并公开双平台签名资产，推进macOS稳定appcast、Windows stable latest.json和旧Preview兼容入口。
+- [x] 匿名重下资产并核对SHA、签名、篡改拒绝、版本元数据和更新源；提交发布证据，等待最终CI并关闭两项需求。

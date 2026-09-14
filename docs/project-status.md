@@ -1,14 +1,14 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-13
+- **事实快照：** 2026-09-14
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.9.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.1)（macOS build `27`）
-- **当前源码版本：** 双平台 `0.10.0`候选（macOS build `28`）
+- **当前公开稳定版：** 双平台 [`0.10.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0)（macOS build `28`）
+- **当前源码版本：** 双平台 `0.10.0`（macOS build `28`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.10.0/build28正在发布：** macOS Floating Strip增加Deep Sea与B款烟熏Liquid Glass即时切换，macOS 26使用系统玻璃并在旧系统及辅助功能环境安全回退；Windows不增加此效果，只同步双平台版本和既有安装包。相关实现已通过失败先行的偏好、设置、材质与渲染回归，完整候选门禁、审查、PR/main与公开发布证据继续记录于[开发日志](development/2026-09-13-macos-floating-strip-liquid-glass.md)。
+**0.10.0/build28已公开发布：** macOS Floating Strip增加Deep Sea与B款烟熏Liquid Glass即时切换，macOS 26使用系统玻璃并在旧系统及辅助功能环境安全回退；Windows不增加此效果，只同步双平台版本和签名安装包。PR/main双平台CI、正式签名workflow、七项公开资产、两端签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-13-macos-floating-strip-liquid-glass.md)。
 
 **0.9.1/build27已公开发布：** 双平台Floating Strip尺寸只保留Comfortable与Compact，旧Mini和未知密度升级后迁移到Compact；产品显示与排序设置同时控制macOS菜单栏面板、最高用量和Windows托盘摘要。独立审查、PR/main双平台CI、正式签名workflow、七项公开资产、两端签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-13-v0.9.1-release.md)。
 
@@ -133,7 +133,8 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 - macOS Services产品Logo实现`eeaf215`及本地main合并`28ec9f6`通过**538项主测试 + 3项独立刷新调度 + 18项PTY runner，共559项Swift**；另有147项、18个suite的串行真实窗口专项。无Widget Release App包含四份Provider Logo与三份语言资源，主App及Sparkle嵌套签名有效；6份跨平台合同、293份Markdown、公开安全检查和最终独立审查`0/0/0`通过。
 - 0.9.0/build26通过**539项主测试 + 3项独立刷新调度 + 18项PTY runner，共560项Swift**，以及147项真实WindowServer专项；Windows通过137项前端、254项宿主Rust、25项浏览器进程生命周期、24组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、296份Markdown、公开安全和无Widget Release App签名门禁通过。
 - 0.9.1/build27通过**543项主测试 + 3项独立刷新调度 + 18项PTY runner，共564项Swift**；Windows通过132项前端、255项宿主Rust、25项浏览器进程生命周期、16组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、303份Markdown、公开安全和无Widget Release App签名门禁通过。
-- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.9.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.1) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-13-v0.9.1-release.md)。
+- 0.10.0/build28通过**549项主测试 + 3项独立刷新调度 + 18项PTY runner，共570项Swift**；Windows通过132项前端、完整宿主Rust、25项浏览器进程生命周期、16组展开、2组收起和608个文字角色。production build、格式、严格Clippy、6份合同、310份Markdown、公开安全、无Widget Release App和双平台签名门禁通过。
+- 公开源码仓库为 [sljzdotcom/AI-Token-Meter](https://github.com/sljzdotcom/AI-Token-Meter)。[v0.10.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0) 提供两端安装包、SHA-256 与签名更新清单；[公开验收证据](development/2026-09-13-macos-floating-strip-liquid-glass.md)。
 - `v0.6.3` 标签指向 `dff54d8`，appcast `fd737f0` 首项为0.6.3/build18，Windows stable/旧 Preview同步为0.6.3；发布 workflow `34361767956`三项job成功，七项公开资产的匿名重下、签名/哈希/篡改拒绝与更新兼容已验证。
 - 精确合并头 Windows CI [33742313609](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33742313609) 已通过 14 项前端测试与 production build、完整 Rust/Windows-only 运行测试、严格 rustfmt/Clippy、Release 模式 Tauri 壳和 current-user NSIS 构建，并上传可下载的 x64 CI 安装器。它是合并门禁证据，不是经过双平台签名流程的正式 Release。
 - 浮动条稳定显示器位置已合入 `main` 提交 `c2d2e64`；[macOS CI 33766955625](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955625) 与 [Windows CI 33766955622](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33766955622) 对精确合并头完成复验。

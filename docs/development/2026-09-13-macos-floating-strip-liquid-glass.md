@@ -19,4 +19,26 @@
 
 版本合同已升级为双平台0.10.0、macOS build28。当前完整门禁通过570项Swift、132项Windows前端、25项浏览器进程生命周期、16组四产品轮廓、2组折叠轮廓、608个文字角色、Windows生产构建及完整Rust宿主测试；Rust格式与全目标严格Clippy、6份跨平台合同、310份Markdown、公开安全、无Widget macOS Release App便携资源及Sparkle嵌套签名验证通过。首次Windows浏览器门禁在沙箱内因127.0.0.1监听权限被拒绝，在允许回环端口的受控环境重跑原命令后通过；没有修改代码或测试期限。
 
-独立审查首轮Critical/Important/Minor为`0/0/2`：README测试徽章与实现计划复选框落后于已经记录的570项完整门禁。两项文档一致性问题已修正；精确候选`29fe0c5..c3b169d`最终复审为`0/0/0`，产品实现没有审查发现。修正后的完整Swift、合同、310份Markdown和公开发布安全门禁再次通过。PR/main、0.10.0/build28签名发布与公网验收将在同一记录继续补充。
+独立审查首轮Critical/Important/Minor为`0/0/2`：README测试徽章与实现计划复选框落后于已经记录的570项完整门禁。两项文档一致性问题已修正；精确候选`29fe0c5..c3b169d`最终复审为`0/0/0`，产品实现没有审查发现。修正后的完整Swift、合同、310份Markdown和公开发布安全门禁再次通过。
+
+## 合并与正式发布
+
+[PR #46](https://github.com/sljzdotcom/AI-Token-Meter/pull/46)候选的macOS CI [`34793138251`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34793138251)用时2分33秒，Windows CI [`34793138222`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34793138222)用时12分42秒。合并提交`ddb531a891b8aeb25262d27d5d89f4632b51ac2d`的main macOS CI [`34793819831`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34793819831)用时2分36秒，Windows CI [`34793819847`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34793819847)用时11分58秒；两端完整门禁、NSIS、GUI subsystem和安装器上传均通过。
+
+注解标签`v0.10.0`精确指向上述main合并提交。正式发布workflow [`34794605355`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34794605355)三项job全部成功：macOS标签与签名资产复核2分20秒，Windows签名发布17分49秒，同步公开任务17秒。稳定appcast由提交`20681aa3bac864598eb0b1ac091de4e085b82fbe`推进；[GitHub Release v0.10.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0)于2026-09-14公开，包含七项资产。
+
+## 公网验收
+
+| Release资产 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| `AI-Token-Meter-0.10.0-macOS-arm64.zip` | 3,907,171 | `c90991b7eff5666a7f15aa1c21c4a559e07ab93c620031400bed65eb7087e44b` |
+| `AI-Token-Meter-0.10.0-macOS-arm64.zip.sha256` | 104 | `1c1d98e178a1c1f3e97969831180ad21b4e88e09e38250f37de2bfad3306f43e` |
+| `AI-Token-Meter-0.10.0-windows-x64-setup.exe` | 5,259,791 | `f7e4320d2b7b3d3204fb603b68da1b36493b4e5dd01286c4505b33455a43d0a1` |
+| `AI-Token-Meter-0.10.0-windows-x64-setup.exe.sha256` | 110 | `7690aea87c8e557e33792a95a597042b99670145d5f1a3e0a92446afcc9d63d0` |
+| `AI-Token-Meter-0.10.0-windows-x64-setup.exe.sig` | 428 | `c3b816186ca1e3f6bf79923e04932fe2b8449a03e618fe01b1cc8035f08e9749` |
+| `appcast.xml` | 2,535 | `ff48f97632c0719589fb2e024e6c99137dde82194c1636d531d4d6708f81dab3` |
+| `latest.json` | 767 | `c25b94859916ba0bb22f47ea972aab3d30eba553974e05cb80b186e7b9c8dfdc` |
+
+macOS与Windows安装资产均通过匿名重下和公开SHA清单核对。macOS Sparkle EdDSA验签通过，追加字节的篡改副本被拒绝；Windows应用内置Tauri公钥验签通过，追加字节后以`InvalidSignature`拒绝。Release `appcast.xml`与仓库稳定appcast字节一致；Windows stable `latest.json`与旧Preview兼容入口清单字节一致。三个公开更新入口均解析为0.10.0并包含对应平台签名。
+
+0.10.0/build28已完成实现、审查、PR/main双平台CI、签名发布、七项公开资产与三个更新入口的公网验收。发布证据分支独立复审为`0/0/0`；[证据PR #47](https://github.com/sljzdotcom/AI-Token-Meter/pull/47)首轮macOS CI [`34796369927`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34796369927)用时2分40秒、Windows CI [`34796369858`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34796369858)用时11分34秒，完整通过。Windows只同步统一版本与签名安装包，未增加Liquid Glass设置或渲染分支；两项需求随同一PR的状态关闭提交完成最终双平台CI并合入main后正式关闭。
