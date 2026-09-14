@@ -7,28 +7,27 @@ import Testing
 @Suite("Floating strip rendered background")
 @MainActor
 struct FloatingStripRenderingTests {
-    @Test("Liquid Glass visibly transmits its backdrop")
-    func liquidGlassHasNoOpaqueFullSurfaceTint() async throws {
-        let expandedDark = try await renderLiquidGlass(backdrop: .black, folded: false)
-        let expandedLight = try await renderLiquidGlass(backdrop: .white, folded: false)
-        let foldedDark = try await renderLiquidGlass(backdrop: .black, folded: true)
-        let foldedLight = try await renderLiquidGlass(backdrop: .white, folded: true)
-
-        let expandedContrast = try colorDistance(
-            atX: 39,
-            y: 172,
-            between: expandedDark,
-            and: expandedLight
+    @Test("Liquid Glass keeps only the approved low-alpha tint")
+    func liquidGlassHasNoOpaqueFullSurfaceTint() throws {
+        let tint = try #require(
+            NSColor(AIMeterVisualTheme.floatingLiquidGlassTint).usingColorSpace(.deviceRGB)
         )
-        let foldedContrast = try colorDistance(
-            atX: 12,
-            y: 44,
-            between: foldedDark,
-            and: foldedLight
-        )
+        #expect(abs(tint.alphaComponent - 0.12) < 0.005)
 
-        #expect(expandedContrast > 0.30, "Expanded backdrop contrast: \(expandedContrast)")
-        #expect(foldedContrast > 0.30, "Folded backdrop contrast: \(foldedContrast)")
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sources = try [
+            "Sources/AIMeterApp/Views/AIMeterVisualTheme.swift",
+            "Sources/AIMeterApp/Views/FloatingStripBackground.swift",
+        ].map { path in
+            try String(contentsOf: root.appending(path: path), encoding: .utf8)
+        }.joined(separator: "\n")
+
+        #expect(!sources.contains("floatingLiquidGlassSmoke"))
+        #expect(!sources.contains(".opacity(0.76)"))
+        #expect(!sources.contains(".opacity(0.88)"))
     }
 
     @Test("Liquid Glass becomes opaque when Reduce Transparency is enabled")
@@ -308,40 +307,6 @@ struct FloatingStripRenderingTests {
 
     private var renderScale: Double { 2 }
 
-    private func renderLiquidGlass(backdrop: Color, folded: Bool) async throws -> NSBitmapImageRep {
-        if folded {
-            return try await render(
-                ZStack {
-                    backdrop
-                    FloatingStripFoldedSurface(
-                        edge: .right,
-                        appearance: .liquidGlass,
-                        backgroundImage: nil,
-                        reduceTransparencyOverride: false
-                    )
-                },
-                width: 14,
-                height: 88
-            )
-        }
-
-        return try await render(
-            ZStack {
-                backdrop
-                FloatingStripSurface(
-                    edge: .right,
-                    density: .compact,
-                    providerCount: 4,
-                    appearance: .liquidGlass,
-                    backgroundImage: nil,
-                    reduceTransparencyOverride: false
-                )
-            },
-            width: FloatingStripDensity.compact.width,
-            height: FloatingStripDensity.compact.height(providerCount: 4)
-        )
-    }
-
     private func differingPixels(_ lhs: NSBitmapImageRep, _ rhs: NSBitmapImageRep) throws -> Int {
         var count = 0
         for y in 0..<lhs.pixelsHigh {
@@ -367,21 +332,6 @@ struct FloatingStripRenderingTests {
 
     private func alpha(atX x: Double, y: Double, in bitmap: NSBitmapImageRep) throws -> CGFloat {
         try #require(bitmap.colorAt(x: pixel(x), y: pixel(y))?.usingColorSpace(.deviceRGB)).alphaComponent
-    }
-
-    private func colorDistance(
-        atX x: Double,
-        y: Double,
-        between lhs: NSBitmapImageRep,
-        and rhs: NSBitmapImageRep
-    ) throws -> CGFloat {
-        let left = try #require(lhs.colorAt(x: pixel(x), y: pixel(y))?.usingColorSpace(.deviceRGB))
-        let right = try #require(rhs.colorAt(x: pixel(x), y: pixel(y))?.usingColorSpace(.deviceRGB))
-        return max(
-            abs(left.redComponent - right.redComponent),
-            abs(left.greenComponent - right.greenComponent),
-            abs(left.blueComponent - right.blueComponent)
-        )
     }
 
     private func save(_ bitmap: NSBitmapImageRep, name: String) throws {
