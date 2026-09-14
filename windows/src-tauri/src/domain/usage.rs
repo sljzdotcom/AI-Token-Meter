@@ -85,6 +85,17 @@ pub struct UsageMetric {
     pub reset_description: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AntigravityCliInfo {
+    #[serde(default)]
+    pub current_model: Option<String>,
+    #[serde(default)]
+    pub available_model_count: Option<u64>,
+    #[serde(default)]
+    pub model_families: Vec<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MetricUnit {
@@ -152,6 +163,8 @@ pub struct UsageSnapshot {
     pub secondary_metric: Option<UsageMetric>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gemini_quota_metrics: Vec<UsageMetric>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub antigravity_cli_info: Option<AntigravityCliInfo>,
     pub fetched_at: String,
     pub stale_after_seconds: u64,
     #[serde(default)]
@@ -302,6 +315,7 @@ impl UsageSnapshot {
             )),
             reset_credits: Vec::new(),
             gemini_quota_metrics: Vec::new(),
+            antigravity_cli_info: None,
             local_activity: None,
             daily_history: Vec::new(),
             history_fetched_at: None,

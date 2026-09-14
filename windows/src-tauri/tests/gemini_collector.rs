@@ -1,5 +1,7 @@
 use ai_token_meter_windows::collectors::CollectionError;
-use ai_token_meter_windows::collectors::gemini::parse_usage;
+use ai_token_meter_windows::collectors::gemini::{
+    parse_current_gemini_model, parse_gemini_catalog, parse_usage,
+};
 use ai_token_meter_windows::domain::{MetricKind, MetricUnit};
 
 const USAGE: &str = include_str!("../../../contracts/antigravity-cli/1.1.28/usage.txt");
@@ -40,6 +42,43 @@ fn validates_all_official_windows_but_only_publishes_gemini_quota() {
             && metric.kind == MetricKind::OfficialLimit
             && metric.reset_at.is_some()
     }));
+}
+
+#[test]
+fn parses_only_current_gemini_model() {
+    assert_eq!(
+        parse_current_gemini_model("gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n"),
+        Some("Gemini 3.8 Flash (High)".to_owned())
+    );
+    assert_eq!(
+        parse_current_gemini_model("claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)"),
+        None
+    );
+    assert_eq!(
+        parse_current_gemini_model(
+            "gemini-3.8-flash-high\tGemini 3.8 Flash (High)\ngemini-3.7-flash-low\tGemini 3.7 Flash (Low)"
+        ),
+        None
+    );
+}
+
+#[test]
+fn filters_third_party_models_and_groups_gemini_families() {
+    let catalog = parse_gemini_catalog(
+        "Fetching available models...\n\
+         gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n\
+         gemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n\
+         gemini-3.7-flash-high\tGemini 3.7 Flash (High)\n\
+         claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)\n",
+    )
+    .unwrap();
+    assert_eq!(catalog.model_count, 3);
+    assert_eq!(
+        catalog.families,
+        vec!["Gemini 3.8 Flash", "Gemini 3.7 Flash"]
+    );
+    assert!(parse_gemini_catalog("Fetching available models...").is_none());
+    assert!(parse_gemini_catalog("gemini-3.8-flash-high").is_none());
 }
 
 #[test]

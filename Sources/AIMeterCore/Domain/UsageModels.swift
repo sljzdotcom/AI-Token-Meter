@@ -83,6 +83,22 @@ public struct UsageMetric: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct AntigravityCLIInfo: Codable, Equatable, Sendable {
+    public let currentModel: String?
+    public let availableModelCount: Int?
+    public let modelFamilies: [String]
+
+    public init(
+        currentModel: String? = nil,
+        availableModelCount: Int? = nil,
+        modelFamilies: [String] = []
+    ) {
+        self.currentModel = currentModel
+        self.availableModelCount = availableModelCount
+        self.modelFamilies = modelFamilies
+    }
+}
+
 public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public var id: UsageProvider { provider }
 
@@ -99,6 +115,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let codexLocalActivity: CodexLocalActivitySummary?
     public let claudeLocalActivity: ClaudeLocalActivitySummary?
     public let geminiQuotaMetrics: [UsageMetric]?
+    public let antigravityCLIInfo: AntigravityCLIInfo?
     public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
     public init(
@@ -115,6 +132,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         codexLocalActivity: CodexLocalActivitySummary? = nil,
         claudeLocalActivity: ClaudeLocalActivitySummary? = nil,
         geminiQuotaMetrics: [UsageMetric]? = nil,
+        antigravityCLIInfo: AntigravityCLIInfo? = nil,
         deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
         self.provider = provider
@@ -130,6 +148,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.codexLocalActivity = codexLocalActivity
         self.claudeLocalActivity = claudeLocalActivity
         self.geminiQuotaMetrics = geminiQuotaMetrics
+        self.antigravityCLIInfo = antigravityCLIInfo
         self.deepSeekUsageHistory = deepSeekUsageHistory
     }
 
@@ -176,6 +195,27 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: published,
+            antigravityCLIInfo: antigravityCLIInfo,
+            deepSeekUsageHistory: deepSeekUsageHistory
+        )
+    }
+
+    func withAntigravityCLIInfo(_ info: AntigravityCLIInfo?) -> UsageSnapshot {
+        UsageSnapshot(
+            provider: provider,
+            primaryMetric: primaryMetric,
+            secondaryMetric: secondaryMetric,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
+            geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravityCLIInfo: info,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }
@@ -195,6 +235,7 @@ public extension UsageSnapshot {
             codexLocalActivity: activity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravityCLIInfo: antigravityCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }
@@ -214,6 +255,7 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: activity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravityCLIInfo: antigravityCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }

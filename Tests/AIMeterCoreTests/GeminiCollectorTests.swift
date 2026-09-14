@@ -25,7 +25,7 @@ struct GeminiCollectorTests {
             locator: AntigravityTestLocator(discovery: .found(executable)),
             environment: context.environment
         ).collect()
-        #expect(snapshot.geminiQuotaMetrics?.count == 4)
+        #expect(snapshot.geminiQuotaMetrics?.count == 2)
     }
 
     @Test func usesOnlyOfficialHeadlessUsageCommandInPrivateDirectory() async throws {
@@ -38,12 +38,17 @@ struct GeminiCollectorTests {
         )
 
         let snapshot = try await collector.collect()
-        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25, 80, 20])
+        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25])
+        #expect(snapshot.antigravityCLIInfo?.currentModel == "Gemini 3.8 Flash (High)")
+        #expect(snapshot.antigravityCLIInfo?.availableModelCount == 3)
+        #expect(snapshot.antigravityCLIInfo?.modelFamilies == ["Gemini 3.8 Flash", "Gemini 3.7 Flash"])
         let requests = await runner.requests
-        #expect(requests.count == 2)
+        #expect(requests.count == 4)
         #expect(requests[0].arguments.contains("--version"))
         #expect(requests[1].arguments.prefix(2) == ["-p", "/usage"])
         #expect(requests[1].arguments.contains("--print-timeout"))
+        #expect(requests[2].arguments.prefix(2) == ["-p", "/model"])
+        #expect(requests[3].arguments.first == "models")
         #expect(requests.allSatisfy { $0.inputLines.isEmpty })
         #expect(requests.allSatisfy { $0.maxOutputBytes == 64 * 1024 })
         #expect(requests[1].environment?["HOME"] == context.root.path)
@@ -51,6 +56,23 @@ struct GeminiCollectorTests {
         #expect(requests[1].environment?["GEMINI_API_KEY"] == nil)
         #expect(requests[0].currentDirectoryURL == requests[1].currentDirectoryURL)
         #expect(!FileManager.default.fileExists(atPath: requests[1].currentDirectoryURL!.path))
+    }
+
+    @Test func supplementalFailuresNeverDowngradeFreshQuota() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let snapshot = try await GeminiCollector(
+            runner: RecordingAntigravityRunner(
+                version: "1.2.2",
+                currentModelExitCode: 2,
+                modelsExitCode: 3
+            ),
+            locator: AntigravityTestLocator(),
+            environment: context.environment
+        ).collect()
+
+        #expect(snapshot.collectionStatus == .fresh)
+        #expect(snapshot.geminiQuotaMetrics?.count == 2)
+        #expect(snapshot.antigravityCLIInfo == nil)
     }
 
     @Test(arguments: ["1.1.28", "1.1.29", "1.2.0", "1.99.1"])
@@ -128,20 +150,47 @@ private actor RecordingAntigravityRunner: CommandRunning {
     let version: String
     let usageExitCode: Int32
     let usageOutput: String
+    let currentModelExitCode: Int32
+    let currentModelOutput: String
+    let modelsExitCode: Int32
+    let modelsOutput: String
     var requests: [CommandRequest] = []
 
-    init(version: String, usageExitCode: Int32 = 0, usageOutput: String = GeminiUsageParserTests.fixture) {
+    init(
+        version: String,
+        usageExitCode: Int32 = 0,
+        usageOutput: String = GeminiUsageParserTests.fixture,
+        currentModelExitCode: Int32 = 0,
+        currentModelOutput: String = "gemini-3.8-flash-high\tGemini 3.8 Flash (High)",
+        modelsExitCode: Int32 = 0,
+        modelsOutput: String = """
+        Fetching available models...
+        gemini-3.8-flash-high\tGemini 3.8 Flash (High)
+        gemini-3.8-flash-low\tGemini 3.8 Flash (Low)
+        gemini-3.7-flash-high\tGemini 3.7 Flash (High)
+        claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)
+        """
+    ) {
         self.version = version
         self.usageExitCode = usageExitCode
         self.usageOutput = usageOutput
+        self.currentModelExitCode = currentModelExitCode
+        self.currentModelOutput = currentModelOutput
+        self.modelsExitCode = modelsExitCode
+        self.modelsOutput = modelsOutput
     }
 
     func run(_ request: CommandRequest) async throws -> CommandResult {
         requests.append(request)
-        return CommandResult(
-            output: request.arguments.contains("--version") ? version : usageOutput,
-            exitCode: request.arguments.contains("--version") ? 0 : usageExitCode,
-            duration: 0.1
-        )
+        if request.arguments.contains("--version") {
+            return CommandResult(output: version, exitCode: 0, duration: 0.1)
+        }
+        if request.arguments.contains("/usage") {
+            return CommandResult(output: usageOutput, exitCode: usageExitCode, duration: 0.1)
+        }
+        if request.arguments.contains("/model") {
+            return CommandResult(output: currentModelOutput, exitCode: currentModelExitCode, duration: 0.1)
+        }
+        return CommandResult(output: modelsOutput, exitCode: modelsExitCode, duration: 0.1)
     }
 }

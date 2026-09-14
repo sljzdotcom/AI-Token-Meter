@@ -94,6 +94,28 @@ fn run(
         })
 }
 
+#[cfg(windows)]
+fn optional_output(
+    candidate: &ExecutableCandidate,
+    environment: &GeminiEnvironment,
+    arguments: Vec<String>,
+    cancellation: Arc<CancellationToken>,
+) -> Result<Option<String>, CollectionError> {
+    match run(
+        candidate,
+        environment,
+        arguments,
+        Duration::from_secs(15),
+        USAGE_OUTPUT_LIMIT,
+        cancellation,
+    ) {
+        Ok(output) if output.exit_code == Some(0) => Ok(Some(output.stdout)),
+        Ok(_) => Ok(None),
+        Err(CollectionError::Cancelled) => Err(CollectionError::Cancelled),
+        Err(_) => Ok(None),
+    }
+}
+
 fn version_from_output(output: &ProcessOutput) -> Result<String, CollectionError> {
     if output.exit_code != Some(0) {
         return Err(CollectionError::Transport);
@@ -173,7 +195,7 @@ pub fn collect(
         environment.arguments(false),
         Duration::from_secs(30),
         USAGE_OUTPUT_LIMIT,
-        cancellation,
+        Arc::clone(&cancellation),
     )?;
     if output.exit_code != Some(0) {
         return Err(if authentication_required(&output) {
@@ -182,7 +204,22 @@ pub fn collect(
             CollectionError::Transport
         });
     }
-    super::gemini::parse_usage(&output.stdout, fetched_at, &version)
+    let mut snapshot = super::gemini::parse_usage(&output.stdout, fetched_at, &version)?;
+    let current_model = optional_output(
+        &candidate,
+        &environment,
+        environment.arguments_for(&["-p", "/model", "--print-timeout", "10s"]),
+        Arc::clone(&cancellation),
+    )?;
+    let models = optional_output(
+        &candidate,
+        &environment,
+        environment.arguments_for(&["models"]),
+        cancellation,
+    )?;
+    snapshot.antigravity_cli_info =
+        super::gemini::cli_info(current_model.as_deref(), models.as_deref());
+    Ok(snapshot)
 }
 
 #[cfg(test)]

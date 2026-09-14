@@ -68,7 +68,50 @@ public struct GeminiCollector: UsageCollector {
             }
             throw UsageCollectionError.transportFailure
         }
-        return try GeminiUsageParser().parse(usageResult.output, sourceVersion: version)
+        let snapshot = try GeminiUsageParser().parse(usageResult.output, sourceVersion: version)
+        let currentModelOutput = try await optionalOutput(CommandRequest(
+            executableURL: executable,
+            arguments: ["-p", "/model", "--print-timeout", "10s"] + shared,
+            inputLines: [],
+            timeout: 15,
+            currentDirectoryURL: context.directory,
+            environment: context.environment,
+            maxOutputBytes: 64 * 1_024
+        ))
+        let modelsOutput = try await optionalOutput(CommandRequest(
+            executableURL: executable,
+            arguments: ["models"] + shared,
+            inputLines: [],
+            timeout: 15,
+            currentDirectoryURL: context.directory,
+            environment: context.environment,
+            maxOutputBytes: 64 * 1_024
+        ))
+        let currentModel = currentModelOutput.flatMap {
+            AntigravityCLIInfoParser.currentGeminiModel(from: $0)
+        }
+        let catalog = modelsOutput.flatMap {
+            AntigravityCLIInfoParser.geminiCatalog(from: $0)
+        }
+        guard currentModel != nil || catalog != nil else { return snapshot }
+        return snapshot.withAntigravityCLIInfo(AntigravityCLIInfo(
+            currentModel: currentModel,
+            availableModelCount: catalog?.modelCount,
+            modelFamilies: catalog?.families ?? []
+        ))
+    }
+
+    private func optionalOutput(_ request: CommandRequest) async throws -> String? {
+        do {
+            let result = try await runner.run(request)
+            try Task.checkCancellation()
+            return result.exitCode == 0 ? result.output : nil
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            try Task.checkCancellation()
+            return nil
+        }
     }
 
     private static func supports(version: String) -> Bool {

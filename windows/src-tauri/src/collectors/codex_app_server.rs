@@ -288,6 +288,7 @@ pub fn parse_rate_limits_response(
         status_message: None,
         reset_credits,
         gemini_quota_metrics: Vec::new(),
+        antigravity_cli_info: None,
         local_activity: None,
         daily_history: Vec::new(),
         history_fetched_at: None,

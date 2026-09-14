@@ -86,16 +86,18 @@ impl GeminiEnvironment {
     }
 
     pub fn arguments(&self, version: bool) -> Vec<String> {
-        let mut arguments = if version {
-            vec!["--version".into()]
+        if version {
+            self.arguments_for(&["--version"])
         } else {
-            vec![
-                "-p".into(),
-                "/usage".into(),
-                "--print-timeout".into(),
-                "20s".into(),
-            ]
-        };
+            self.arguments_for(&["-p", "/usage", "--print-timeout", "20s"])
+        }
+    }
+
+    pub fn arguments_for(&self, command: &[&str]) -> Vec<String> {
+        let mut arguments = command
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect::<Vec<_>>();
         arguments.extend([
             "--log-file".into(),
             self.directory
@@ -134,5 +136,34 @@ fn is_unsafe_override(key: &str) -> bool {
 impl Drop for GeminiEnvironment {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.directory);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_exact_bounded_cli_requests_with_private_log_path() {
+        let environment = GeminiEnvironment {
+            directory: PathBuf::from("private-antigravity"),
+            variables: Vec::new(),
+        };
+
+        assert_eq!(
+            &environment.arguments_for(&["-p", "/usage", "--print-timeout", "20s"])[..4],
+            ["-p", "/usage", "--print-timeout", "20s"]
+        );
+        assert_eq!(
+            &environment.arguments_for(&["-p", "/model", "--print-timeout", "10s"])[..4],
+            ["-p", "/model", "--print-timeout", "10s"]
+        );
+        assert_eq!(environment.arguments_for(&["models"])[0], "models");
+        assert!(
+            environment
+                .arguments_for(&["models"])
+                .windows(2)
+                .any(|values| values[0] == "--log-file" && values[1].ends_with("agy.log"))
+        );
     }
 }

@@ -348,6 +348,7 @@ fn status_snapshot(
         status_message: message.or(if provider == ProviderId::Gemini { Some("Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked.") } else { None }).map(str::to_owned),
         reset_credits: Vec::new(),
             gemini_quota_metrics: Vec::new(),
+            antigravity_cli_info: None,
         local_activity: None,
         daily_history: Vec::new(),
         history_fetched_at: None,
