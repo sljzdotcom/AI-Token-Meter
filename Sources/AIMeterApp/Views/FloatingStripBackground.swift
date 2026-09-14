@@ -85,7 +85,7 @@ private struct FloatingStripMaterialSurface<SurfaceShape: Shape>: View {
         case .fallbackLiquidGlass:
             shape
                 .fill(.ultraThinMaterial)
-                .overlay { shape.fill(AIMeterVisualTheme.floatingLiquidGlassSmoke) }
+                .overlay { shape.fill(AIMeterVisualTheme.floatingLiquidGlassTint) }
         case .opaqueLiquidGlass:
             shape.fill(AIMeterVisualTheme.floatingLiquidGlassOpaque)
         }
@@ -95,7 +95,7 @@ private struct FloatingStripMaterialSurface<SurfaceShape: Shape>: View {
     private var nativeLiquidGlass: some View {
         if #available(macOS 26.0, *) {
             ZStack {
-                shape.fill(AIMeterVisualTheme.floatingLiquidGlassSmoke)
+                shape.fill(AIMeterVisualTheme.floatingLiquidGlassTint)
                 Color.clear
                     .glassEffect(
                         .regular.tint(AIMeterVisualTheme.floatingLiquidGlassTint),
@@ -105,7 +105,7 @@ private struct FloatingStripMaterialSurface<SurfaceShape: Shape>: View {
         } else {
             shape
                 .fill(.ultraThinMaterial)
-                .overlay { shape.fill(AIMeterVisualTheme.floatingLiquidGlassSmoke) }
+                .overlay { shape.fill(AIMeterVisualTheme.floatingLiquidGlassTint) }
         }
     }
 
