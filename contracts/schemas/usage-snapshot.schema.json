@@ -63,8 +63,11 @@
     },
     "geminiQuotaMetrics": {
       "type": "array",
-      "maxItems": 4,
+      "maxItems": 2,
       "items": { "$ref": "#/$defs/geminiQuotaMetric" }
+    },
+    "antigravityCLIInfo": {
+      "$ref": "#/$defs/antigravityCLIInfo"
     },
     "resetCredits": {
       "type": "array",
@@ -101,9 +104,7 @@
         "label": {
           "enum": [
             "Gemini · Five hour",
-            "Gemini · Weekly",
-            "Claude/GPT · Five hour",
-            "Claude/GPT · Weekly"
+            "Gemini · Weekly"
           ]
         },
         "current": {
@@ -125,6 +126,33 @@
           "format": "date-time"
         }
       }
+    },
+    "antigravityCLIInfo": {
+      "type": ["object", "null"],
+      "properties": {
+        "currentModel": {
+          "type": ["string", "null"],
+          "maxLength": 120,
+          "pattern": "^Gemini [0-9]+(?:\\.[0-9]+)+(?: [A-Za-z0-9][A-Za-z0-9.-]*| \\((?:High|Medium|Low)\\)){1,8}$"
+        },
+        "availableModelCount": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 64
+        },
+        "modelFamilies": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^Gemini [0-9]+(?:\\.[0-9]+)+(?: [A-Za-z0-9][A-Za-z0-9.-]*| \\((?:High|Medium|Low)\\)){1,8}$"
+          }
+        }
+      },
+      "required": ["modelFamilies"],
+      "additionalProperties": false
     },
     "metric": {
       "type": ["object", "null"],

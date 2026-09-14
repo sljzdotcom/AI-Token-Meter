@@ -83,6 +83,54 @@ public struct UsageMetric: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct AntigravityCLIInfo: Codable, Equatable, Sendable {
+    public let currentModel: String?
+    public let availableModelCount: Int?
+    public let modelFamilies: [String]
+
+    public init(
+        currentModel: String? = nil,
+        availableModelCount: Int? = nil,
+        modelFamilies: [String] = []
+    ) {
+        self.currentModel = currentModel
+        self.availableModelCount = availableModelCount
+        self.modelFamilies = modelFamilies
+    }
+
+    static func isValidGeminiDisplayName(_ value: String) -> Bool {
+        guard value.count <= 120,
+              SensitiveTextRedactor.redact(value) == value,
+              value.unicodeScalars.allSatisfy({ scalar in
+                  scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar)
+                      || " .-()".unicodeScalars.contains(scalar))
+              }) else { return false }
+        let words = value.split(separator: " ", omittingEmptySubsequences: false)
+        guard (3...10).contains(words.count),
+              words[0] == "Gemini",
+              !words.contains(where: \.isEmpty) else { return false }
+        let versionParts = words[1].split(separator: ".", omittingEmptySubsequences: false)
+        guard versionParts.count >= 2,
+              versionParts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) }) else {
+            return false
+        }
+        let forbidden = ["bearer", "claude", "gpt", "key", "secret", "token", "sk-", "dk-"]
+        let lowered = value.lowercased()
+        guard !forbidden.contains(where: lowered.contains) else { return false }
+        for (index, word) in words.dropFirst(2).enumerated() {
+            if word.contains("(") || word.contains(")") {
+                guard index == words.count - 3,
+                      ["(High)", "(Medium)", "(Low)"].contains(String(word)) else { return false }
+            } else {
+                guard let first = word.unicodeScalars.first,
+                      first.isASCII,
+                      CharacterSet.alphanumerics.contains(first) else { return false }
+            }
+        }
+        return true
+    }
+}
+
 public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public var id: UsageProvider { provider }
 
@@ -99,6 +147,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let codexLocalActivity: CodexLocalActivitySummary?
     public let claudeLocalActivity: ClaudeLocalActivitySummary?
     public let geminiQuotaMetrics: [UsageMetric]?
+    public let antigravityCLIInfo: AntigravityCLIInfo?
     public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
     public init(
@@ -115,6 +164,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         codexLocalActivity: CodexLocalActivitySummary? = nil,
         claudeLocalActivity: ClaudeLocalActivitySummary? = nil,
         geminiQuotaMetrics: [UsageMetric]? = nil,
+        antigravityCLIInfo: AntigravityCLIInfo? = nil,
         deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
         self.provider = provider
@@ -130,6 +180,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.codexLocalActivity = codexLocalActivity
         self.claudeLocalActivity = claudeLocalActivity
         self.geminiQuotaMetrics = geminiQuotaMetrics
+        self.antigravityCLIInfo = antigravityCLIInfo
         self.deepSeekUsageHistory = deepSeekUsageHistory
     }
 
@@ -139,6 +190,82 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
 }
 
 public extension UsageSnapshot {
+    func normalizedAntigravityQuota() -> UsageSnapshot {
+        guard provider == .gemini else { return self }
+        let normalizedCLIInfo = normalizedAntigravityCLIInfo()
+        let expectedLabels = ["Gemini · Five hour", "Gemini · Weekly"]
+        let candidates = geminiQuotaMetrics ?? [primaryMetric, secondaryMetric].compactMap { $0 }
+        let byLabel = Dictionary(grouping: candidates, by: \.label)
+        let metrics = expectedLabels.compactMap { label -> UsageMetric? in
+            guard let matches = byLabel[label], matches.count == 1 else { return nil }
+            let metric = matches[0]
+            guard metric.kind == .officialLimit,
+                  metric.unit == .percent,
+                  metric.limit == 100,
+                  metric.current.isFinite,
+                  (0...100).contains(metric.current),
+                  metric.resetAt != nil else { return nil }
+            return metric
+        }
+        let complete = metrics.count == expectedLabels.count
+        let published = complete ? metrics : []
+        let ranked = published.enumerated().sorted { left, right in
+            left.element.current == right.element.current
+                ? left.offset < right.offset
+                : left.element.current > right.element.current
+        }.map(\.element)
+        return UsageSnapshot(
+            provider: provider,
+            primaryMetric: ranked.first,
+            secondaryMetric: ranked.dropFirst().first,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
+            geminiQuotaMetrics: published,
+            antigravityCLIInfo: normalizedCLIInfo,
+            deepSeekUsageHistory: deepSeekUsageHistory
+        )
+    }
+
+    private func normalizedAntigravityCLIInfo() -> AntigravityCLIInfo? {
+        guard let info = antigravityCLIInfo else { return nil }
+        let validModel = AntigravityCLIInfo.isValidGeminiDisplayName
+        guard info.currentModel.map(validModel) ?? true,
+              info.availableModelCount.map({ (1...64).contains($0) }) ?? true,
+              info.modelFamilies.count <= 16,
+              Set(info.modelFamilies).count == info.modelFamilies.count,
+              info.modelFamilies.allSatisfy(validModel),
+              info.currentModel != nil || info.availableModelCount != nil || !info.modelFamilies.isEmpty
+        else { return nil }
+        return info
+    }
+
+    func withAntigravityCLIInfo(_ info: AntigravityCLIInfo?) -> UsageSnapshot {
+        UsageSnapshot(
+            provider: provider,
+            primaryMetric: primaryMetric,
+            secondaryMetric: secondaryMetric,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
+            geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravityCLIInfo: info,
+            deepSeekUsageHistory: deepSeekUsageHistory
+        )
+    }
+
     func withCodexLocalActivity(_ activity: CodexLocalActivitySummary?) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,
@@ -154,6 +281,7 @@ public extension UsageSnapshot {
             codexLocalActivity: activity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravityCLIInfo: antigravityCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }
@@ -173,6 +301,7 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: activity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravityCLIInfo: antigravityCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
     }

@@ -94,6 +94,18 @@ fn run(
         })
 }
 
+#[cfg(any(windows, test))]
+fn optional_output_result(
+    result: Result<ProcessOutput, CollectionError>,
+) -> Result<Option<String>, CollectionError> {
+    match result {
+        Ok(output) if output.exit_code == Some(0) => Ok(Some(output.stdout)),
+        Ok(_) => Ok(None),
+        Err(CollectionError::Cancelled) => Err(CollectionError::Cancelled),
+        Err(_) => Ok(None),
+    }
+}
+
 fn version_from_output(output: &ProcessOutput) -> Result<String, CollectionError> {
     if output.exit_code != Some(0) {
         return Err(CollectionError::Transport);
@@ -115,7 +127,7 @@ fn version_from_output(output: &ProcessOutput) -> Result<String, CollectionError
     Ok(version.into())
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 fn authentication_required(output: &ProcessOutput) -> bool {
     let message = format!("{}\n{}", output.stdout, output.stderr).to_ascii_lowercase();
     [
@@ -127,6 +139,37 @@ fn authentication_required(output: &ProcessOutput) -> bool {
     ]
     .iter()
     .any(|phrase| message.contains(phrase))
+}
+
+#[cfg(any(windows, test))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CollectCommand {
+    Version,
+    Usage,
+    CurrentModel,
+    Models,
+}
+
+#[cfg(any(windows, test))]
+fn collect_with_runner(
+    fetched_at: &str,
+    mut execute: impl FnMut(CollectCommand) -> Result<ProcessOutput, CollectionError>,
+) -> Result<crate::domain::UsageSnapshot, CollectionError> {
+    let version = version_from_output(&execute(CollectCommand::Version)?)?;
+    let usage = execute(CollectCommand::Usage)?;
+    if usage.exit_code != Some(0) {
+        return Err(if authentication_required(&usage) {
+            CollectionError::AuthenticationRequired
+        } else {
+            CollectionError::Transport
+        });
+    }
+    let mut snapshot = super::gemini::parse_usage(&usage.stdout, fetched_at, &version)?;
+    let current_model = optional_output_result(execute(CollectCommand::CurrentModel))?;
+    let models = optional_output_result(execute(CollectCommand::Models))?;
+    snapshot.antigravity_cli_info =
+        super::gemini::cli_info(current_model.as_deref(), models.as_deref());
+    Ok(snapshot)
 }
 
 #[cfg(windows)]
@@ -158,31 +201,38 @@ pub fn collect(
         return Ok(snapshot);
     };
 
-    let version_output = run(
-        &candidate,
-        &environment,
-        environment.arguments(true),
-        Duration::from_secs(8),
-        VERSION_OUTPUT_LIMIT,
-        Arc::clone(&cancellation),
-    )?;
-    let version = version_from_output(&version_output)?;
-    let output = run(
-        &candidate,
-        &environment,
-        environment.arguments(false),
-        Duration::from_secs(30),
-        USAGE_OUTPUT_LIMIT,
-        cancellation,
-    )?;
-    if output.exit_code != Some(0) {
-        return Err(if authentication_required(&output) {
-            CollectionError::AuthenticationRequired
-        } else {
-            CollectionError::Transport
-        });
-    }
-    super::gemini::parse_usage(&output.stdout, fetched_at, &version)
+    collect_with_runner(fetched_at, |command| {
+        let (arguments, timeout, output_limit) = match command {
+            CollectCommand::Version => (
+                environment.arguments(true),
+                Duration::from_secs(8),
+                VERSION_OUTPUT_LIMIT,
+            ),
+            CollectCommand::Usage => (
+                environment.arguments(false),
+                Duration::from_secs(30),
+                USAGE_OUTPUT_LIMIT,
+            ),
+            CollectCommand::CurrentModel => (
+                environment.arguments_for(&["-p", "/model", "--print-timeout", "10s"]),
+                Duration::from_secs(15),
+                USAGE_OUTPUT_LIMIT,
+            ),
+            CollectCommand::Models => (
+                environment.arguments_for(&["models"]),
+                Duration::from_secs(15),
+                USAGE_OUTPUT_LIMIT,
+            ),
+        };
+        run(
+            &candidate,
+            &environment,
+            arguments,
+            timeout,
+            output_limit,
+            Arc::clone(&cancellation),
+        )
+    })
 }
 
 #[cfg(test)]
@@ -216,5 +266,109 @@ mod tests {
                 Err(CollectionError::UnsupportedVersion)
             ));
         }
+    }
+
+    #[test]
+    fn supplemental_failures_are_optional_but_cancellation_propagates() {
+        let successful = ProcessOutput {
+            exit_code: Some(0),
+            stdout: "Gemini 3.8 Flash".into(),
+            stderr: String::new(),
+        };
+        let failed = ProcessOutput {
+            exit_code: Some(2),
+            stdout: String::new(),
+            stderr: "failed".into(),
+        };
+        assert_eq!(
+            optional_output_result(Ok(successful)).unwrap().as_deref(),
+            Some("Gemini 3.8 Flash")
+        );
+        assert_eq!(optional_output_result(Ok(failed)).unwrap(), None);
+        for failure in [
+            CollectionError::TimedOut,
+            CollectionError::Transport,
+            CollectionError::UnrecognizedOutput,
+        ] {
+            assert_eq!(optional_output_result(Err(failure)).unwrap(), None);
+        }
+        assert_eq!(
+            optional_output_result(Err(CollectionError::Cancelled)),
+            Err(CollectionError::Cancelled)
+        );
+    }
+
+    fn successful_output(stdout: &str) -> ProcessOutput {
+        ProcessOutput {
+            exit_code: Some(0),
+            stdout: stdout.into(),
+            stderr: String::new(),
+        }
+    }
+
+    const USAGE: &str = "Gemini Models\tFive Hour Limit Remaining\t40%\t2026-09-14T10:00:00Z\nGemini Models\tWeekly Limit Remaining\t75%\t2026-09-21T10:00:00Z";
+
+    #[test]
+    fn production_collection_orchestration_short_circuits_after_quota_failure() {
+        let mut calls = Vec::new();
+        let result = collect_with_runner("2026-09-14T09:00:00Z", |command| {
+            calls.push(command);
+            Ok(match command {
+                CollectCommand::Version => successful_output("1.2.2"),
+                CollectCommand::Usage => ProcessOutput {
+                    exit_code: Some(2),
+                    stdout: "transport failure".into(),
+                    stderr: String::new(),
+                },
+                _ => successful_output("unexpected"),
+            })
+        });
+        assert_eq!(result, Err(CollectionError::Transport));
+        assert_eq!(calls, vec![CollectCommand::Version, CollectCommand::Usage]);
+    }
+
+    #[test]
+    fn production_collection_orchestration_keeps_supplements_independent() {
+        let mut calls = Vec::new();
+        let snapshot = collect_with_runner("2026-09-14T09:00:00Z", |command| {
+            calls.push(command);
+            match command {
+                CollectCommand::Version => Ok(successful_output("1.2.2")),
+                CollectCommand::Usage => Ok(successful_output(USAGE)),
+                CollectCommand::CurrentModel => Err(CollectionError::TimedOut),
+                CollectCommand::Models => Ok(successful_output(
+                    "gemini-3.8-flash-high\tGemini 3.8 Flash (High)",
+                )),
+            }
+        })
+        .unwrap();
+        assert_eq!(snapshot.status, crate::domain::UsageStatus::Fresh);
+        let info = snapshot.antigravity_cli_info.unwrap();
+        assert_eq!(info.current_model, None);
+        assert_eq!(info.available_model_count, Some(1));
+        assert_eq!(calls.len(), 4);
+    }
+
+    #[test]
+    fn production_collection_orchestration_propagates_cancellation_before_second_supplement() {
+        let mut calls = Vec::new();
+        let result = collect_with_runner("2026-09-14T09:00:00Z", |command| {
+            calls.push(command);
+            match command {
+                CollectCommand::Version => Ok(successful_output("1.2.2")),
+                CollectCommand::Usage => Ok(successful_output(USAGE)),
+                CollectCommand::CurrentModel => Err(CollectionError::Cancelled),
+                CollectCommand::Models => Ok(successful_output("unexpected")),
+            }
+        });
+        assert_eq!(result, Err(CollectionError::Cancelled));
+        assert_eq!(
+            calls,
+            vec![
+                CollectCommand::Version,
+                CollectCommand::Usage,
+                CollectCommand::CurrentModel
+            ]
+        );
     }
 }

@@ -7,10 +7,21 @@ import Testing
 
 @Suite("Gemini detail panel layout")
 struct GeminiDetailPanelLayoutTests {
-    @Test func allFourWindowsFitAndSmallScreensRemainScrollable() {
-        #expect(GeminiDetailPanelLayout.height(tierCount: 4, availableHeight: 900) >= 530)
-        #expect(GeminiDetailPanelLayout.height(tierCount: 4, availableHeight: 360) == 344)
-        #expect(GeminiDetailPanelLayout.height(tierCount: 0, availableHeight: 900) == 280)
+    @Test func twoGeminiWindowsAndCLIInfoFitAndSmallScreensRemainScrollable() {
+        #expect(GeminiDetailPanelLayout.height(tierCount: 2, hasCLIInfo: true, availableHeight: 900) >= 500)
+        #expect(GeminiDetailPanelLayout.height(tierCount: 2, hasCLIInfo: true, availableHeight: 360) == 344)
+        #expect(GeminiDetailPanelLayout.height(tierCount: 0, hasCLIInfo: false, availableHeight: 900) == 280)
+    }
+
+    @Test func cliInfoPresentsCurrentModelAndAvailableGeminiFamilies() {
+        let info = AntigravityCLIInfo(
+            currentModel: "Gemini 3.8 Flash (High)",
+            availableModelCount: 4,
+            modelFamilies: ["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini 3.1 Pro"]
+        )
+
+        #expect(GeminiDetailPresentation.availableModelsText(for: info) == "4 models · 3 families")
+        #expect(GeminiDetailPresentation.familyText(for: info) == "Gemini 3.8 Flash · Gemini 3.7 Flash · Gemini 3.1 Pro")
     }
 
     @Test func detailCardsShowRemainingWhileProgressUsesConsumedQuota() {
@@ -102,10 +113,15 @@ struct GeminiDetailPanelLayoutTests {
             primaryMetric: retained?.first,
             availability: status == .unavailable ? .unavailable : .available,
             fetchedAt: Date(timeIntervalSince1970: 1_788_316_200),
-            sourceVersion: "1.1.28",
+            sourceVersion: "1.2.2",
             collectionStatus: status,
             statusMessage: status == .unavailable ? "Quota unavailable" : nil,
-            geminiQuotaMetrics: retained
+            geminiQuotaMetrics: retained,
+            antigravityCLIInfo: AntigravityCLIInfo(
+                currentModel: "Gemini 3.8 Flash (High)",
+                availableModelCount: 4,
+                modelFamilies: ["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini 3.1 Pro"]
+            )
         )
     }
 

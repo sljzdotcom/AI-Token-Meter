@@ -45,6 +45,53 @@ fn deepseek_fixture_preserves_consumed_balance_ratio() {
 }
 
 #[test]
+fn gemini_fixture_contains_only_gemini_quota_and_bounded_cli_info() {
+    let value: Value = serde_json::from_slice(
+        &fs::read(fixtures_directory().join("gemini-fresh.json")).expect("fixture bytes"),
+    )
+    .expect("fixture json");
+
+    let snapshot = UsageSnapshot::decode_compatible(&value).expect("compatible fixture");
+
+    assert_eq!(snapshot.used_ratio.expect("ratio").get(), 0.6);
+    assert_eq!(
+        snapshot
+            .gemini_quota_metrics
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Gemini · Five hour", "Gemini · Weekly"]
+    );
+    let info = snapshot.antigravity_cli_info.expect("CLI info");
+    assert_eq!(
+        info.current_model.as_deref(),
+        Some("Gemini 3.8 Flash (High)")
+    );
+    assert_eq!(info.available_model_count, Some(4));
+    assert_eq!(info.model_families.len(), 3);
+}
+
+#[test]
+fn third_party_antigravity_cli_info_is_rejected() {
+    let value = json!({
+        "schemaVersion": 1,
+        "providerId": "gemini",
+        "displayName": "Google Antigravity",
+        "status": "fresh",
+        "fetchedAt": "2026-09-03T00:00:00Z",
+        "staleAfterSeconds": 300,
+        "antigravityCLIInfo": {
+            "currentModel": "Claude Sonnet",
+            "availableModelCount": 1,
+            "modelFamilies": ["Claude Sonnet"]
+        }
+    });
+
+    let error = UsageSnapshot::decode_compatible(&value).expect_err("third-party model");
+    assert!(error.to_string().contains("CLI info"));
+}
+
+#[test]
 fn unknown_major_schema_never_surfaces_a_number() {
     let value = json!({
         "schemaVersion": 99,

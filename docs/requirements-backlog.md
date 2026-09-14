@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,8 +15,9 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260913-005 | macOS悬浮条可选玻璃外观 | macOS悬浮条新增可切换的B款烟熏深色Liquid Glass材质，保留现有深海背景；Windows不实现此效果 | 高 | 进行中 | 2026-09-13 | 用户已选择B并授权直接开发。仅macOS的Floating Strip页增加材质选择，默认保留Deep Sea，切换即时生效并持久保存；macOS 26使用系统Liquid Glass，macOS 14–15及减少透明度环境使用烟熏深色回退。保持Comfortable/Compact尺寸、圆环、品牌色、左右肩弧、自动收起及折叠轮廓不变。 | 用户需求与方案B确认（2026-09-13） · Apple官方Liquid Glass资料 · 本机Xcode 26.6/SDK 26.5 API可用性核对 · 本地模拟预览与截图 |
-| REQ-20260913-006 | 发布0.10.0稳定版 | 将macOS悬浮条可选烟熏Liquid Glass作为下一稳定版发布；Windows产品行为保持不变但沿用双平台统一版本与签名安装包发布合同 | 高 | 进行中 | 2026-09-13 | 用户已授权直接开发、合并并发布。目标0.10.0/macOS build28；候选完成后执行PR、main双平台CI、标签、双平台签名资产、GitHub Release、三个更新入口与公网验收。 | 用户明确发布授权（2026-09-13） |
+| REQ-20260914-001 | Antigravity详情内容精简与充实 | 用户要求去掉Google Antigravity详情页中的Claude Code/Codex相关展示，补充登录后可靠的CLI信息；已确认推荐A“Gemini优先紧凑版” | 高 | 进行中 | 2026-09-14 | 按用户确认实施双平台A：只显示Gemini五小时/每周额度及重置时间；补充当前Gemini模型、动态可用Gemini数量/系列、CLI版本及检查时间。Antigravity主次指标、圆环、菜单/托盘摘要、提醒与旧缓存全部仅依据Gemini两窗口归一化；不影响独立Claude Code/OpenAI Codex。模型/版本等附加信息独立容错，不使成功的额度查询降级；首版排除AI Credits、无法可靠获取的套餐和30天统计。保留青绿渐变、深色底板、平台紧凑字号。由开发完成正式规格/计划、TDD、完整验证、独立审查及整合回传；不新增公开发布授权。 | 用户“确认，按照你的推荐进行”（2026-09-14）；调研提交`e0f4ff1`，分支`codex/antigravity-detail-design`；关联REQ-20260912-004 |
+| REQ-20260913-005 | macOS悬浮条可选玻璃外观 | macOS悬浮条新增可切换的B款烟熏深色Liquid Glass材质，保留现有深海背景；Windows不实现此效果 | 高 | 已完成 | 2026-09-13 | 2026-09-14完成：macOS实现、最终复审、产品PR/main双平台CI、0.10.0公开交付与发布后证据全部通过；Windows未增加Liquid Glass设置或渲染分支 | 实现`b1d4aff` · 最终复审`0/0/0` · [PR #46](https://github.com/sljzdotcom/AI-Token-Meter/pull/46) · [证据PR #47](https://github.com/sljzdotcom/AI-Token-Meter/pull/47) · 证据CI `34796369927`/`34796369858` · [Release v0.10.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0) · [规格](design/specifications/2026-09-13-macos-floating-strip-liquid-glass-design.md) · [发布记录](development/2026-09-13-macos-floating-strip-liquid-glass.md) |
+| REQ-20260913-006 | 发布0.10.0稳定版 | 将macOS悬浮条可选烟熏Liquid Glass作为下一稳定版发布；Windows产品行为保持不变但沿用双平台统一版本与签名安装包发布合同 | 高 | 已完成 | 2026-09-13 | 2026-09-14完成：0.10.0/build28已公开；PR/main双平台CI、正式签名workflow、七项资产、匿名重下、两端签名与篡改拒绝、三个更新入口及发布证据均通过 | [PR #46](https://github.com/sljzdotcom/AI-Token-Meter/pull/46) · [证据PR #47](https://github.com/sljzdotcom/AI-Token-Meter/pull/47) · main/tag`ddb531a` · appcast`20681aa` · [workflow 34794605355](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34794605355) · 证据CI `34796369927`/`34796369858` · [Release v0.10.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0) · [发布记录](development/2026-09-13-macos-floating-strip-liquid-glass.md) |
 | REQ-20260913-004 | macOS CI超时测试可靠性 | v0.9.1发布证据PR的macOS CI中，`BoundedCommandRunnerTests.terminatesAfterTheConfiguredDeadline`一次耗时1.507秒，超过把完整墙钟时间限制为1秒的断言；需确认产品超时语义与高负载runner调度影响并恢复稳定门禁 | 高 | 已完成 | 2026-09-13 | 2026-09-13完成：超时和取消均从真实停止请求计量到操作系统进程退出，30秒夹具防止终止失效靠自然退出通过；两轮RED、连续20轮、完整564项Swift、独立复审`0/0/0`、PR #44及main双平台CI通过 | 实现`819de54`/`04e2a89` · [PR #44](https://github.com/sljzdotcom/AI-Token-Meter/pull/44) · main`1cdf744` · PR CI `34742296793`/`34742296797` · main CI `34742715345`/`34742715336` · [开发记录](development/2026-09-13-bounded-command-timeout-test-reliability.md) |
 | REQ-20260913-002 | 产品显示设置同步缺陷 | 用户在Settings只选择显示三个产品，但点击菜单栏后的汇总窗口仍显示四个；产品可见性设置应在悬浮条与菜单栏/托盘汇总页一致生效 | 高 | 已完成 | 2026-09-13 | macOS菜单栏面板和最高用量、Windows托盘摘要均按同一可见产品顺序即时同步；隐藏、恢复和排序不删除快照、账户或凭据。563项Swift、137项Windows前端、256项Rust、双端生产构建、严格Clippy、299份文档及公开安全门禁通过；最终独立复审0/0/0，随0.9.1公开 | 实现`346667b`，审查修正`bf27e2e`；[PR #43](https://github.com/sljzdotcom/AI-Token-Meter/pull/43) · [Release v0.9.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.1) · [规格](design/specifications/2026-09-13-provider-visibility-summary-sync-design.md) · [开发记录](development/2026-09-13-provider-visibility-summary-sync.md) |
 | REQ-20260913-001 | 删除Mini密度选项 | 用户要求从悬浮条尺寸设置中删除Mini，只保留原有Comfortable与Compact两档 | 高 | 已完成 | 2026-09-13 | 2026-09-13完成：双平台设置与运行时只保留Comfortable/Compact；旧Mini及未知值迁移到Compact并保留其他偏好。564项Swift、11项显示设置集成测试（含7项真实NSPanel）、132项前端、255项Rust、浏览器/构建/格式/严格Clippy/合同/文档/安全门禁通过，独立审查`0/0/0`；随0.9.1公开 | 实现`406393c` · [PR #43](https://github.com/sljzdotcom/AI-Token-Meter/pull/43) · [Release v0.9.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.1) · [规格](design/specifications/2026-09-13-remove-mini-density-design.md) · [发布记录](development/2026-09-13-v0.9.1-release.md) |
@@ -251,6 +252,12 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-14 | REQ-20260914-001 | 待用户确认 → 进行中 | 用户确认推荐A及首版排除AI Credits，认可仅Gemini驱动详情/摘要/圆环/提醒的联动修正；开发入口以调研提交`e0f4ff1`继续规格、计划与双平台实现，不再重复询问同一方案。 |
+| 2026-09-14 | REQ-20260914-001 | 进行中 → 待用户确认 | 调研确认`/usage`的Claude/GPT共享额度当前会参与Antigravity主指标与提醒，不能只隐藏卡片；推荐把Antigravity口径收束为Gemini五小时/每周两项，并以当前Gemini模型、实时Gemini模型数量/系列、CLI版本及新鲜度充实详情。账户/套餐及30日统计没有稳定安全来源，AI Credits建议首版不混入。等待用户确认布局后再写正式规格与实现。 |
+| 2026-09-14 | REQ-20260914-001 | 待处理 → 进行中 | 长期开发入口接单；先核对现有实现、官方命令与本机已登录只读可用性，再回传字段清单、额度口径影响和2至3种精简布局方案，等待用户视觉选择后才实现。 |
+| 2026-09-14 | REQ-20260914-001 | 新增 → 待处理 | 登记Antigravity详情去除Claude/GPT相关展示及登录后信息调研，先核实真实可用字段与布局建议，不影响独立Claude Code/OpenAI Codex服务，不扩大旧发布授权。 |
+| 2026-09-14 | REQ-20260913-005/006 | 进行中 → 已完成 | 发布证据分支经独立复审`0/0/0`，证据PR #47首轮macOS CI `34796369927`与Windows CI `34796369858`完整通过；状态关闭提交继续由同一PR最终双平台CI验证后合并，以主分支结果正式生效。 |
+| 2026-09-14 | REQ-20260913-005/006 | 公开发布完成，证据收尾进行中 | PR #46及精确main双平台CI通过；v0.10.0/build28标签与正式workflow公开七项资产，macOS稳定appcast、Windows stable及旧Preview入口同步。匿名重下SHA与两端签名通过，篡改副本均被拒绝；等待证据PR最终CI与合并。 |
 | 2026-09-14 | REQ-20260913-005 | 候选审查完成 | 精确候选`29fe0c5..c3b169d`最终独立复审为0/0/0；修正后570项Swift、6份合同、310份Markdown及公开发布安全门禁重新通过，可以提交PR。 |
 | 2026-09-13 | REQ-20260913-005 | 独立审查修正 | 首轮独立审查0/0/2；仅发现README测试徽章与实现计划复选框落后，已同步修正。代码、macOS 26 API门控、旧系统/辅助功能回退、偏好迁移、即时通知、几何交互与Windows范围均无发现。 |
 | 2026-09-13 | REQ-20260913-006 | 候选验证进度 | 0.10.0/build28版本合同及发布说明完成；570项Swift、132项Windows前端、完整Rust宿主、浏览器轮廓、生产构建、严格Clippy、合同、310份文档、安全、macOS Release App资源与签名门禁通过，待独立审查与PR。 |

@@ -95,10 +95,13 @@ struct CrossPlatformContractTests {
                 #expect(fixture.usedRatio == nil)
             }
             if fixture.providerId == "gemini", fixture.status == "fresh" {
-                #expect(fixture.usedRatio == 0.8)
-                #expect(fixture.geminiQuotaMetrics?.map(\.label) == ["Gemini · Five hour", "Gemini · Weekly", "Claude/GPT · Five hour", "Claude/GPT · Weekly"])
-                #expect(fixture.geminiQuotaMetrics?.map(\.current) == [60, 25, 80, 20])
+                #expect(fixture.usedRatio == 0.6)
+                #expect(fixture.geminiQuotaMetrics?.map(\.label) == ["Gemini · Five hour", "Gemini · Weekly"])
+                #expect(fixture.geminiQuotaMetrics?.map(\.current) == [60, 25])
                 #expect(fixture.geminiQuotaMetrics?.allSatisfy { $0.limit == 100 && $0.unit == "percent" && $0.kind == "officialLimit" } == true)
+                #expect(fixture.antigravityCLIInfo?.currentModel == "Gemini 3.8 Flash (High)")
+                #expect(fixture.antigravityCLIInfo?.availableModelCount == 4)
+                #expect(fixture.antigravityCLIInfo?.modelFamilies == ["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini 3.1 Pro"])
             }
             if let usedRatio = fixture.usedRatio {
                 #expect(usedRatio >= 0 && usedRatio <= 1)
@@ -126,12 +129,18 @@ struct CrossPlatformContractTests {
         let usedRatio: Double?
         let fetchedAt: String
         let geminiQuotaMetrics: [Metric]?
+        let antigravityCLIInfo: AntigravityCLIInfo?
         struct Metric: Decodable {
             let label: String
             let current: Double
             let limit: Double?
             let unit: String
             let kind: String
+        }
+        struct AntigravityCLIInfo: Decodable {
+            let currentModel: String?
+            let availableModelCount: Int?
+            let modelFamilies: [String]
         }
     }
 

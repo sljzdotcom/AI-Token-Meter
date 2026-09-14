@@ -4,19 +4,18 @@ import Testing
 
 @Suite("Antigravity quota parser")
 struct GeminiUsageParserTests {
-    @Test func parsesAllOfficialWindowsAndConvertsRemainingToUsed() throws {
+    @Test func validatesAllOfficialWindowsButOnlyPublishesGeminiQuota() throws {
         let snapshot = try GeminiUsageParser().parse(Self.fixture)
 
         #expect(snapshot.provider == .gemini)
         #expect(snapshot.sourceVersion == "1.1.28")
         #expect(snapshot.geminiQuotaMetrics?.map(\.label) == [
             "Gemini · Five hour", "Gemini · Weekly",
-            "Claude/GPT · Five hour", "Claude/GPT · Weekly",
         ])
-        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25, 80, 20])
-        #expect(snapshot.primaryMetric?.label == "Claude/GPT · Five hour")
-        #expect(snapshot.primaryMetric?.current == 80)
-        #expect(snapshot.secondaryMetric?.label == "Gemini · Five hour")
+        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25])
+        #expect(snapshot.primaryMetric?.label == "Gemini · Five hour")
+        #expect(snapshot.primaryMetric?.current == 60)
+        #expect(snapshot.secondaryMetric?.label == "Gemini · Weekly")
         #expect(snapshot.geminiQuotaMetrics?.allSatisfy {
             $0.limit == 100 && $0.unit == .percent && $0.kind == .officialLimit && $0.resetAt != nil
         } == true)
@@ -25,7 +24,20 @@ struct GeminiUsageParserTests {
     @Test func rowOrderDoesNotChangePresentationOrder() throws {
         let reversed = Self.fixture.components(separatedBy: .newlines).reversed().joined(separator: "\n")
         let snapshot = try GeminiUsageParser().parse(reversed)
-        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25, 80, 20])
+        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25])
+    }
+
+    @Test func acceptsAccountsThatOnlyExposeTheTwoGeminiWindows() throws {
+        let geminiOnly = Self.fixture.components(separatedBy: .newlines)
+            .filter { $0.hasPrefix("Gemini Models\t") }
+            .joined(separator: "\n")
+
+        let snapshot = try GeminiUsageParser().parse(geminiOnly)
+
+        #expect(snapshot.geminiQuotaMetrics?.map(\.label) == [
+            "Gemini · Five hour", "Gemini · Weekly",
+        ])
+        #expect(snapshot.primaryMetric?.current == 60)
     }
 
     @Test func zeroAndFullRemainingAreValid() throws {
@@ -33,7 +45,8 @@ struct GeminiUsageParserTests {
             geminiWeekly: "0%", geminiFiveHour: "100%",
             otherWeekly: "100%", otherFiveHour: "0%"
         ))
-        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [0, 100, 100, 0])
+        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [0, 100])
+        #expect(snapshot.primaryMetric?.label == "Gemini · Weekly")
     }
 
     @Test(arguments: [
@@ -46,6 +59,9 @@ struct GeminiUsageParserTests {
         Self.table(group: "Unknown models"),
         Self.table(window: "Daily Limit Remaining"),
         Self.fixture + "\nGemini Models\tWeekly Limit Remaining\t75%\t2026-09-17T10:00:00Z",
+        Self.fixture.components(separatedBy: .newlines)
+            .filter { !$0.hasPrefix("Claude and GPT models\tFive Hour") }
+            .joined(separator: "\n"),
         "Select Model\nModel usage\nPro 25%",
     ])
     func refusesIncompleteAmbiguousAndLegacyOutput(_ text: String) {

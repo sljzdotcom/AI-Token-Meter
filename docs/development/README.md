@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-14](2026-09-14-antigravity-gemini-detail.md) | Google Antigravity Gemini 优先详情 | 两个Gemini额度窗口驱动全部摘要与提醒；动态模型信息独立容错，580项Swift、133项前端、261项Rust及完整门禁通过，独立审查待补记 |
 | [2026-09-13](2026-09-13-macos-floating-strip-liquid-glass.md) | macOS悬浮条B款烟熏Liquid Glass与0.10.0发布 | 偏好、三语言设置、原生/回退材质和轮廓渲染已完成失败先行与120项相关回归；完整门禁、审查和发布证据继续补记 |
 | [2026-09-13](2026-09-13-bounded-command-timeout-test-reliability.md) | BoundedCommandRunner停止测试可靠性 | 超时与取消从真实停止请求计量到操作系统进程退出；两轮失败先行、完整门禁、独立复审、PR/main双平台CI与整合完成 |
 | [2026-09-13](2026-09-13-v0.9.1-release.md) | 0.9.1两档悬浮条与摘要同步稳定发布 | v0.9.1/build27、七项签名资产、篡改拒绝、三个更新源、证据归档及PR/main双平台CI全部完成 |

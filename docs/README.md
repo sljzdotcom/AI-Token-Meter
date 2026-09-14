@@ -47,6 +47,8 @@
 | [Google Antigravity详情强调色恢复](design/specifications/2026-09-10-antigravity-accent-restoration-design.md) | 双平台青绿色强调角色、状态覆盖和保持边界 |
 | [删除Mini悬浮条密度](design/specifications/2026-09-13-remove-mini-density-design.md) | 双平台仅保留Comfortable/Compact，旧Mini安全迁移到Compact |
 | [产品可见性与摘要同步](design/specifications/2026-09-13-provider-visibility-summary-sync-design.md) | 悬浮条、macOS菜单栏与Windows托盘共用隐藏和排序偏好 |
+| [Google Antigravity Gemini 优先详情](design/specifications/2026-09-14-antigravity-gemini-detail-design.md) | 仅Gemini额度驱动详情、圆环、汇总与提醒，并补充真实CLI模型信息 |
+| [Google Antigravity Gemini 优先详情计划](design/implementation-plans/2026-09-14-antigravity-gemini-detail.md) | 双平台额度归一化、CLI附加信息、紧凑详情与完整验证步骤 |
 
 ## 开发与维护
 

@@ -3,23 +3,23 @@
   "providerId": "gemini",
   "displayName": "Google Antigravity",
   "status": "fresh",
-  "usedRatio": 0.8,
+  "usedRatio": 0.6,
   "primaryMetric": {
-    "label": "Claude/GPT · Five hour",
-    "current": 80,
-    "limit": 100,
-    "unit": "percent",
-    "kind": "officialLimit",
-    "resetAt": "2026-09-10T11:00:00Z",
-    "resetDescription": null
-  },
-  "secondaryMetric": {
     "label": "Gemini · Five hour",
     "current": 60,
     "limit": 100,
     "unit": "percent",
     "kind": "officialLimit",
     "resetAt": "2026-09-10T10:00:00Z",
+    "resetDescription": null
+  },
+  "secondaryMetric": {
+    "label": "Gemini · Weekly",
+    "current": 25,
+    "limit": 100,
+    "unit": "percent",
+    "kind": "officialLimit",
+    "resetAt": "2026-09-17T10:00:00Z",
     "resetDescription": null
   },
   "geminiQuotaMetrics": [
@@ -40,27 +40,18 @@
       "kind": "officialLimit",
       "resetAt": "2026-09-17T10:00:00Z",
       "resetDescription": null
-    },
-    {
-      "label": "Claude/GPT · Five hour",
-      "current": 80,
-      "limit": 100,
-      "unit": "percent",
-      "kind": "officialLimit",
-      "resetAt": "2026-09-10T11:00:00Z",
-      "resetDescription": null
-    },
-    {
-      "label": "Claude/GPT · Weekly",
-      "current": 20,
-      "limit": 100,
-      "unit": "percent",
-      "kind": "officialLimit",
-      "resetAt": "2026-09-18T11:00:00Z",
-      "resetDescription": null
     }
   ],
+  "antigravityCLIInfo": {
+    "currentModel": "Gemini 3.8 Flash (High)",
+    "availableModelCount": 4,
+    "modelFamilies": [
+      "Gemini 3.8 Flash",
+      "Gemini 3.7 Flash",
+      "Gemini 3.1 Pro"
+    ]
+  },
   "fetchedAt": "2026-09-10T08:47:00Z",
   "staleAfterSeconds": 300,
-  "sourceVersion": "1.1.28"
+  "sourceVersion": "1.2.2"
 }
