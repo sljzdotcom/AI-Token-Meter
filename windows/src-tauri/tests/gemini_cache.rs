@@ -152,6 +152,8 @@ fn cached_sensitive_or_non_gemini_model_information_is_discarded() {
         "Gemini /Users/example/.config",
         "Gemini sk-proj-secretvalue",
         "Gemini Claude/GPT",
+        "Gemini 3.8 Flash 13800000000",
+        "Gemini 3.8 .-",
     ] {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path()).unwrap();

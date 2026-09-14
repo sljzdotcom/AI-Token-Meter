@@ -6,6 +6,8 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
+use crate::security::SensitiveTextRedactor;
+
 const CURRENT_SCHEMA_VERSION: u64 = 1;
 
 #[derive(Clone, Copy, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
@@ -98,6 +100,7 @@ pub struct AntigravityCliInfo {
 
 pub(crate) fn valid_gemini_display_name(value: &str) -> bool {
     if value.chars().count() > 120
+        || SensitiveTextRedactor::redact(value) != value
         || !value
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || " .-()".contains(character))
@@ -105,7 +108,10 @@ pub(crate) fn valid_gemini_display_name(value: &str) -> bool {
         return false;
     }
     let words = value.split(' ').collect::<Vec<_>>();
-    if words.len() < 3 || words[0] != "Gemini" || words.iter().any(|word| word.is_empty()) {
+    if !(3..=10).contains(&words.len())
+        || words[0] != "Gemini"
+        || words.iter().any(|word| word.is_empty())
+    {
         return false;
     }
     let version = words[1].split('.').collect::<Vec<_>>();
@@ -129,7 +135,9 @@ pub(crate) fn valid_gemini_display_name(value: &str) -> bool {
         if word.contains(['(', ')']) {
             index == words.len() - 1 && ["(High)", "(Medium)", "(Low)"].contains(word)
         } else {
-            true
+            word.chars()
+                .next()
+                .is_some_and(|character| character.is_ascii_alphanumeric())
         }
     })
 }

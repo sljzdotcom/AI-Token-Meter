@@ -66,6 +66,8 @@ fn parses_only_current_gemini_model() {
         "gemini-3.8-flash-high\tGemini sk-proj-secretvalue",
         "gemini-3.8-flash-high\tGemini Claude/GPT",
         "gemini--3.8-flash\tGemini 3.8 Flash",
+        "gemini-3.8-flash-high\tGemini 3.8 Flash 13800000000",
+        "gemini-3.8-flash-high\tGemini 3.8 .-",
     ] {
         assert_eq!(parse_current_gemini_model(unsafe_output), None);
     }

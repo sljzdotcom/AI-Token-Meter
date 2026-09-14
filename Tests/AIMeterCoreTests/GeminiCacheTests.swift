@@ -79,6 +79,8 @@ struct GeminiCacheTests {
         "Gemini /Users/example/.config",
         "Gemini sk-proj-secretvalue",
         "Gemini Claude/GPT",
+        "Gemini 3.8 Flash 13800000000",
+        "Gemini 3.8 .-",
     ])
     func cachedUnsafeModelInformationDoesNotRemainVisible(_ unsafeModel: String) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("gemini-cache-\(UUID())")

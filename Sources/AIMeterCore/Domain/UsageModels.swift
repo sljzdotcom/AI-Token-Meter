@@ -100,12 +100,13 @@ public struct AntigravityCLIInfo: Codable, Equatable, Sendable {
 
     static func isValidGeminiDisplayName(_ value: String) -> Bool {
         guard value.count <= 120,
+              SensitiveTextRedactor.redact(value) == value,
               value.unicodeScalars.allSatisfy({ scalar in
                   scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar)
                       || " .-()".unicodeScalars.contains(scalar))
               }) else { return false }
         let words = value.split(separator: " ", omittingEmptySubsequences: false)
-        guard words.count >= 3,
+        guard (3...10).contains(words.count),
               words[0] == "Gemini",
               !words.contains(where: \.isEmpty) else { return false }
         let versionParts = words[1].split(separator: ".", omittingEmptySubsequences: false)
@@ -116,9 +117,15 @@ public struct AntigravityCLIInfo: Codable, Equatable, Sendable {
         let forbidden = ["bearer", "claude", "gpt", "key", "secret", "token", "sk-", "dk-"]
         let lowered = value.lowercased()
         guard !forbidden.contains(where: lowered.contains) else { return false }
-        for (index, word) in words.dropFirst(2).enumerated() where word.contains("(") || word.contains(")") {
-            guard index == words.count - 3,
-                  ["(High)", "(Medium)", "(Low)"].contains(String(word)) else { return false }
+        for (index, word) in words.dropFirst(2).enumerated() {
+            if word.contains("(") || word.contains(")") {
+                guard index == words.count - 3,
+                      ["(High)", "(Medium)", "(Low)"].contains(String(word)) else { return false }
+            } else {
+                guard let first = word.unicodeScalars.first,
+                      first.isASCII,
+                      CharacterSet.alphanumerics.contains(first) else { return false }
+            }
         }
         return true
     }

@@ -22,6 +22,8 @@ struct AntigravityCLIInfoParserTests {
         "gemini-3.8-flash-high\tGemini sk-proj-secretvalue",
         "gemini-3.8-flash-high\tGemini Claude/GPT",
         "gemini--3.8-flash\tGemini 3.8 Flash",
+        "gemini-3.8-flash-high\tGemini 3.8 Flash 13800000000",
+        "gemini-3.8-flash-high\tGemini 3.8 .-",
     ])
     func omitsThirdPartyAmbiguousAndMalformedCurrentModels(_ output: String) {
         #expect(AntigravityCLIInfoParser.currentGeminiModel(from: output) == nil)
@@ -55,6 +57,7 @@ struct AntigravityCLIInfoParserTests {
         "gemini-3.8-flash-high\tClaude Sonnet",
         "unknown\tGemini 3.8 Flash",
         "gemini-3.8-flash-high\tGemini 3.8 Flash\ngemini-3.7-flash-high\tGemini user@example.com",
+        "gemini-3.8-flash-high\tGemini 3.8 Flash\ngemini-3.7-flash-high\tGemini 3.8 Flash 13800000000",
     ])
     func omitsUnavailableOrMalformedCatalogs(_ output: String) {
         #expect(AntigravityCLIInfoParser.geminiCatalog(from: output) == nil)
