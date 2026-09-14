@@ -29,8 +29,16 @@
 
 ## 公网验收
 
-- macOS ZIP为3,907,171字节，SHA-256 `c90991b7eff5666a7f15aa1c21c4a559e07ab93c620031400bed65eb7087e44b`；匿名下载与公开SHA清单一致，Sparkle EdDSA验签通过，追加字节的篡改副本被拒绝。
-- Windows安装器为5,259,791字节，SHA-256 `f7e4320d2b7b3d3204fb603b68da1b36493b4e5dd01286c4505b33455a43d0a1`；`.sig`为428字节，SHA-256 `c3b816186ca1e3f6bf79923e04932fe2b8449a03e618fe01b1cc8035f08e9749`。匿名下载与公开SHA清单一致，应用内置Tauri公钥验签通过，追加字节后以`InvalidSignature`拒绝。
-- Release `appcast.xml`与仓库稳定appcast的SHA-256均为`ff48f97632c0719589fb2e024e6c99137dde82194c1636d531d4d6708f81dab3`；Windows stable `latest.json`与旧Preview兼容入口的清单SHA-256均为`c25b94859916ba0bb22f47ea972aab3d30eba553974e05cb80b186e7b9c8dfdc`。三个公开更新入口均解析为0.10.0并包含对应平台签名。
+| Release资产 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| `AI-Token-Meter-0.10.0-macOS-arm64.zip` | 3,907,171 | `c90991b7eff5666a7f15aa1c21c4a559e07ab93c620031400bed65eb7087e44b` |
+| `AI-Token-Meter-0.10.0-macOS-arm64.zip.sha256` | 104 | `1c1d98e178a1c1f3e97969831180ad21b4e88e09e38250f37de2bfad3306f43e` |
+| `AI-Token-Meter-0.10.0-windows-x64-setup.exe` | 5,259,791 | `f7e4320d2b7b3d3204fb603b68da1b36493b4e5dd01286c4505b33455a43d0a1` |
+| `AI-Token-Meter-0.10.0-windows-x64-setup.exe.sha256` | 110 | `7690aea87c8e557e33792a95a597042b99670145d5f1a3e0a92446afcc9d63d0` |
+| `AI-Token-Meter-0.10.0-windows-x64-setup.exe.sig` | 428 | `c3b816186ca1e3f6bf79923e04932fe2b8449a03e618fe01b1cc8035f08e9749` |
+| `appcast.xml` | 2,535 | `ff48f97632c0719589fb2e024e6c99137dde82194c1636d531d4d6708f81dab3` |
+| `latest.json` | 767 | `c25b94859916ba0bb22f47ea972aab3d30eba553974e05cb80b186e7b9c8dfdc` |
 
-0.10.0/build28已完成实现、审查、PR/main双平台CI、签名发布、七项公开资产与三个更新入口的公网验收。Windows只同步统一版本与签名安装包，未增加Liquid Glass设置或渲染分支。
+macOS与Windows安装资产均通过匿名重下和公开SHA清单核对。macOS Sparkle EdDSA验签通过，追加字节的篡改副本被拒绝；Windows应用内置Tauri公钥验签通过，追加字节后以`InvalidSignature`拒绝。Release `appcast.xml`与仓库稳定appcast字节一致；Windows stable `latest.json`与旧Preview兼容入口清单字节一致。三个公开更新入口均解析为0.10.0并包含对应平台签名。
+
+0.10.0/build28已完成实现、审查、PR/main双平台CI、签名发布、七项公开资产与三个更新入口的公网验收。Windows只同步统一版本与签名安装包，未增加Liquid Glass设置或渲染分支；发布证据PR及其最终CI通过后关闭需求。
