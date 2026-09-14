@@ -4,8 +4,8 @@
 
 ## 当前版本边界
 
-- 当前源码：双平台`0.10.1`候选（macOS build`29`），Antigravity可见用量统一为Gemini并补充CLI信息；公开稳定版仍为双平台`0.10.0`（macOS build`28`）。
-- 上一公开稳定版：双平台`0.9.1`（macOS build`27`）；删除Mini并同步产品可见性摘要，随PR #43公开，稳定appcast为`c4b8c9b`。
+- 当前源码与公开稳定版：双平台`0.10.1`（macOS build`29`）；Antigravity可见用量统一为Gemini并补充CLI信息，随PR #48公开，稳定appcast为`8d8f434`。
+- 上一公开稳定版：双平台`0.10.0`（macOS build`28`）；macOS烟熏Liquid Glass随PR #46公开，稳定appcast为`20681aa`。
 - 更早公开稳定版：双平台`0.8.2`（macOS build`25`）；密度设置即时调整已展开悬浮条、左右贴边暴露侧圆角和加强反向肩弧随PR #38合入`308b4f1`。
 - 更早公开稳定版：双平台`0.8.1`（macOS build`24`）；14pt内凹收起把手、镜像展开轮廓、底部Settings入口移除与第五个设置页签已随PR #36公开，稳定appcast为`8765303`。
 - 更早公开稳定版：双平台`0.8.0`（macOS build`23`）；65pt Mini、78pt Compact、自动收起开关和Settings底弧修正已随PR #34合并/tag `0eec432`公开，稳定appcast为`bd153ca`。
@@ -19,13 +19,14 @@
 - Widget 合入 `main` 的基线：`74a59ad`；后续文档提交以实际 Git 历史为准，不在此维护易过期的“当前提交”指针。
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
-- 当前公开 tag 为 `v0.10.0`（`ddb531a`），发布 workflow `34794605355`，appcast `20681aa`；双平台签名资产、SHA-256、篡改拒绝及三个更新入口的匿名验证见[0.10.0 发布记录](2026-09-13-macos-floating-strip-liquid-glass.md)。旧版历史继续保留。
+- 当前公开 tag 为 `v0.10.1`（`e2af00f`），发布 workflow `34826396546`，appcast `8d8f434`；双平台签名资产、SHA-256、篡改拒绝及三个更新入口的匿名验证见[0.10.1 发布记录](2026-09-14-v0.10.1-release.md)。旧版历史继续保留。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
+| 0.10.1 Antigravity Gemini优先详情稳定发布 | `bd5bcea`、`b138fe4`、`8b112c4`、`fa09c4e`、`e2af00f`、`8d8f434`、`2c990a1` | 双平台Antigravity详情、圆环、摘要与提醒只使用Gemini五小时/每周额度并补充CLI信息；583项Swift、133项前端、268项Rust、PR/main/标签原生CI、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
 | 0.10.0 macOS烟熏Liquid Glass稳定发布 | `b1d4aff`、`07cf04e`、`7f38a68`、`ddb531a`、`20681aa` | macOS新增即时切换的Deep Sea与烟熏Liquid Glass，Windows界面保持；570项Swift、PR/main双平台CI、独立复审、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
 | 0.9.1发布证据与macOS停止测试可靠性 | `37bbafe`、`819de54`、`04e2a89`、`a6017d9`、`1cdf744` | 七项公开资产、两端签名与三个更新源归档；超时与取消从真实停止请求计量到OS进程退出并使用30秒夹具，完整564项Swift、独立复审、PR #44及main双平台CI通过 |
 | 0.9.1两档悬浮条与摘要同步稳定发布 | `346667b`、`bf27e2e`、`406393c`、`f756641`、`8d33a34`、`c4b8c9b` | 删除Mini并迁移旧偏好，产品可见性同步到macOS菜单面板与Windows托盘摘要；PR/main、签名发布、七项公开资产和三个更新入口通过 |

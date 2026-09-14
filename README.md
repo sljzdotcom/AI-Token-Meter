@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.10.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0)（macOS build `28`）。现有macOS与Windows安装均可通过应用内更新入口升级；完整证据见[0.10.0发布记录](docs/development/2026-09-13-macos-floating-strip-liquid-glass.md)。
+> 当前公开稳定版为[0.10.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.1)（macOS build `29`）。现有macOS与Windows安装均可通过应用内更新入口升级；完整证据见[0.10.1发布记录](docs/development/2026-09-14-v0.10.1-release.md)。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> `0.10.1` / build `29` 候选：Google Antigravity的详情、圆环、摘要和提醒统一只采用Gemini五小时/每周额度，并补充当前Gemini模型、动态可用模型数量/系列与CLI版本。[Release Notes](docs/releases/v0.10.1.md)。
+> `0.10.1` / build `29`：Google Antigravity的详情、圆环、摘要和提醒统一只采用Gemini五小时/每周额度，并补充当前Gemini模型、动态可用模型数量/系列与CLI版本。[Release Notes](docs/releases/v0.10.1.md)。
 
 > `0.10.0` / build `28`：macOS Floating Strip新增可选B款烟熏Liquid Glass；Windows产品界面保持不变。[Release Notes](docs/releases/v0.10.0.md)。
 
@@ -92,10 +92,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-当前下载页面：**[Download v0.10.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0)**：
+当前下载页面：**[Download v0.10.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.1)**：
 
-- macOS：下载 `AI-Token-Meter-0.10.0-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.10.0-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.10.1-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.10.1-windows-x64-setup.exe` 与同名 `.sha256`。
 
 已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到当前公开稳定版；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
@@ -248,7 +248,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码为`0.10.1`候选（macOS build `29`），公开稳定版仍为`0.10.0`（macOS build `28`）；候选发布证据见[0.10.1开发记录](docs/development/2026-09-14-v0.10.1-release.md)。
+- 当前源码与公开稳定版均为`0.10.1`（macOS build `29`）；完整发布证据见[0.10.1发布记录](docs/development/2026-09-14-v0.10.1-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

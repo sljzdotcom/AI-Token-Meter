@@ -2,13 +2,13 @@
 
 - **事实快照：** 2026-09-14
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0)（macOS build `28`）
-- **当前源码版本：** 双平台 `0.10.1`候选（macOS build `29`）
+- **当前公开稳定版：** 双平台 [`0.10.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.1)（macOS build `29`）
+- **当前源码版本：** 双平台 `0.10.1`（macOS build `29`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.10.1/build29正在发布：** Google Antigravity的详情、圆环、菜单/托盘摘要和提醒统一只采用Gemini五小时/每周额度，并补充当前Gemini模型、动态可用模型数量/系列、CLI版本与检查时间；独立Claude Code/OpenAI Codex不受影响。实现和本机完整验证已完成，候选PR/main与公开签名发布证据继续记录于[开发日志](development/2026-09-14-v0.10.1-release.md)。
+**0.10.1/build29已公开发布：** Google Antigravity的详情、圆环、菜单/托盘摘要和提醒统一只采用Gemini五小时/每周额度，并补充当前Gemini模型、动态可用模型数量/系列、CLI版本与检查时间；独立Claude Code/OpenAI Codex不受影响。PR #48、PR/main双平台CI、正式签名workflow、七项公开资产、两端签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-14-v0.10.1-release.md)。
 
 **0.10.0/build28已公开发布：** macOS Floating Strip增加Deep Sea与B款烟熏Liquid Glass即时切换，macOS 26使用系统玻璃并在旧系统及辅助功能环境安全回退；Windows不增加此效果，只同步双平台版本和签名安装包。PR/main双平台CI、正式签名workflow、七项公开资产、两端签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-13-macos-floating-strip-liquid-glass.md)。
 
@@ -32,7 +32,7 @@
 
 **菜单面板顶部Logo放大已随0.7.1交付：** macOS菜单栏弹出面板的应用Logo由32pt放大至40pt，面板宽度、文字、间距、系统菜单栏图标及Windows界面保持。实现`7cadd72`经[PR #25](https://github.com/sljzdotcom/AI-Token-Meter/pull/25)合并为`0a086a2`，PR及main双平台门禁全部通过。[开发记录](development/2026-09-10-menu-panel-logo-enlargement.md)。
 
-**Google Antigravity 的0.10.1候选采用 Gemini 优先口径：** 第四项保留内部 `gemini` 兼容标识；采集仍由官方 `agy -p /usage` 提供，但快照、圆环、摘要和提醒只采用 Gemini 五小时与每周两个窗口。详情补充当前 Gemini 模型、动态可用数量/系列、CLI 版本与检查时间，附加命令失败不影响额度。该变化尚未公开发布；0.10.0 稳定版仍是此前四窗口行为。[规格](design/specifications/2026-09-14-antigravity-gemini-detail-design.md)。
+**Google Antigravity 的 Gemini 优先口径已随0.10.1公开：** 第四项保留内部 `gemini` 兼容标识；采集仍由官方 `agy -p /usage` 提供，但快照、圆环、摘要和提醒只采用 Gemini 五小时与每周两个窗口。详情补充当前 Gemini 模型、动态可用数量/系列、CLI 版本与检查时间，附加命令失败不影响额度。[规格](design/specifications/2026-09-14-antigravity-gemini-detail-design.md)。
 
 **Compact 65pt 已随0.7.1交付：** Compact浮动条宽度从78收至65pt/px，48pt/px圆环与全部高度保持。[PR #26](https://github.com/sljzdotcom/AI-Token-Meter/pull/26)最终候选`c199c6c`及合并提交`1c0a1ed`的双平台原生CI全部通过；[开发记录](development/2026-09-10-compact-strip-width.md)。
 
@@ -154,7 +154,7 @@ Windows 对应位置为 `%APPDATA%\AI Token Meter\settings.json`、`%LOCALAPPDAT
 | Windows DeepSeek 显式同步、关闭、复用聚焦、真实登录/聚合与字体下拉 | 待用户确认 | `0.3.0-preview.3` 已列入 `REQ-20260904-006` 修复；在交互式 Windows 11/WebView2 会话按开发日志逐项确认 |
 | Windows `preview.0 → preview.1` 签名更新演练 | 待用户确认 | `preview.1` 发布后在交互式 Windows 会话检查原位升级、设置/凭据保留，并另用错误签名 feed 证明旧版不被替换 |
 | Windows Authenticode 发布者身份 | 当前限制 | 取得代码签名证书；此前 README/Release 必须保留 SmartScreen 说明 |
-| Google Antigravity 真实账号与实际额度 | 待用户确认 | 用户安装包含 REQ-20260914-001 的后续版本后，在已登录 `agy` 1.1.28+ 的设备核对两个 Gemini 窗口、模型摘要、重置时间和刷新；开发阶段已完成脱敏只读 CLI 探测，不展示个人额度 |
+| Google Antigravity 真实账号与实际额度 | 待用户确认 | 用户安装公开版0.10.1后，在已登录 `agy` 1.1.28+ 的设备核对两个 Gemini 窗口、模型摘要、重置时间和刷新；开发阶段已完成脱敏只读 CLI 探测，不展示个人额度 |
 
 以上状态不得在证据不足时改写为“已完成”。逐项依据见[需求台账](requirements-backlog.md)。
 
