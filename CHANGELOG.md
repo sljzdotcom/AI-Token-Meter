@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+## 0.10.1 - 2026-09-14
+
+稳定修复版；macOS build29。Google Antigravity的可见用量口径统一为Gemini，并补充安全、有界的CLI模型信息。
+
 ### Changed
 
 - Google Antigravity 的详情、圆环、菜单/托盘摘要和用量提醒现在只采用 Gemini 五小时与每周额度；Claude/GPT 仍是独立服务，不再出现在 Antigravity 详情中。详情新增当前 Gemini 模型、动态可用 Gemini 模型数量与系列、Antigravity CLI 版本和检查时间；附加信息查询失败不会影响已成功读取的额度。
