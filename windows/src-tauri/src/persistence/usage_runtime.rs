@@ -26,6 +26,7 @@ impl UsageRuntime {
                     .map(|mut snapshot| {
                         if provider == ProviderId::Gemini {
                             snapshot.display_name = "Google Antigravity".to_owned();
+                            snapshot.normalize_antigravity_quota();
                         }
                         snapshot.status = UsageStatus::Cached;
                         snapshot.status_message = Some("Cached · waiting for refresh".to_owned());
@@ -117,6 +118,7 @@ impl UsageRuntime {
         if snapshot.provider_id != provider || !self.is_current(provider, generation) {
             return false;
         }
+        snapshot.normalize_antigravity_quota();
         let previous = self.snapshot(provider);
         // Balance refreshes never own DeepSeek history. A request can carry an
         // old, non-empty cache snapshot, so the current runtime history is the

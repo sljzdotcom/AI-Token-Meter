@@ -33,7 +33,14 @@ fn successful_tiers_roundtrip_and_failed_refresh_preserves_timestamp_and_account
         let cached = runtime.snapshot(ProviderId::Gemini);
         assert_eq!(cached.status, UsageStatus::Cached);
         assert_eq!(cached.fetched_at, snapshot.fetched_at);
-        assert_eq!(cached.gemini_quota_metrics, snapshot.gemini_quota_metrics);
+        assert_eq!(
+            cached
+                .gemini_quota_metrics
+                .iter()
+                .map(|metric| metric.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Gemini · Five hour", "Gemini · Weekly"]
+        );
         assert_eq!(
             service_status(&cached).connection_state,
             if error == CollectionError::AuthenticationRequired {
@@ -46,7 +53,16 @@ fn successful_tiers_roundtrip_and_failed_refresh_preserves_timestamp_and_account
     }
     let loaded = UsageRuntime::load(SnapshotCache::new(dir.path()), "2026-09-08T11:00:00Z")
         .snapshot(ProviderId::Gemini);
-    assert_eq!(loaded.gemini_quota_metrics, snapshot.gemini_quota_metrics);
+    assert_eq!(
+        loaded
+            .gemini_quota_metrics
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Gemini · Five hour", "Gemini · Weekly"]
+    );
+    assert_eq!(loaded.used_ratio.unwrap().get(), 0.6);
+    assert_eq!(loaded.primary_metric.unwrap().label, "Gemini · Five hour");
     assert_eq!(loaded.fetched_at, snapshot.fetched_at);
 }
 
@@ -75,6 +91,8 @@ fn legacy_gemini_cache_keeps_quota_but_migrates_the_visible_provider_name() {
         .snapshot(ProviderId::Gemini);
     assert_eq!(snapshot.display_name, "Google Antigravity");
     assert_eq!(snapshot.status, UsageStatus::Cached);
-    assert_eq!(snapshot.primary_metric.unwrap().current, 60.0);
-    assert_eq!(snapshot.gemini_quota_metrics[0].label, "Flash");
+    assert!(snapshot.used_ratio.is_none());
+    assert!(snapshot.primary_metric.is_none());
+    assert!(snapshot.secondary_metric.is_none());
+    assert!(snapshot.gemini_quota_metrics.is_empty());
 }

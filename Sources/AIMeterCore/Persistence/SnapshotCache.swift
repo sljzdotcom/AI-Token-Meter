@@ -13,7 +13,7 @@ public struct SnapshotCache: Sendable {
     public func save(_ snapshots: [UsageSnapshot]) throws {
         let envelope = CacheEnvelope(
             version: 1,
-            snapshots: snapshots.map { $0.privacySanitized() }
+            snapshots: snapshots.map { $0.normalizedAntigravityQuota().privacySanitized() }
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -33,7 +33,7 @@ public struct SnapshotCache: Sendable {
               envelope.version == 1 else {
             return []
         }
-        return envelope.snapshots
+        return envelope.snapshots.map { $0.normalizedAntigravityQuota() }
     }
 }
 

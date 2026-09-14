@@ -139,6 +139,47 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
 }
 
 public extension UsageSnapshot {
+    func normalizedAntigravityQuota() -> UsageSnapshot {
+        guard provider == .gemini else { return self }
+        let expectedLabels = ["Gemini · Five hour", "Gemini · Weekly"]
+        let candidates = geminiQuotaMetrics ?? [primaryMetric, secondaryMetric].compactMap { $0 }
+        let byLabel = Dictionary(grouping: candidates, by: \.label)
+        let metrics = expectedLabels.compactMap { label -> UsageMetric? in
+            guard let matches = byLabel[label], matches.count == 1 else { return nil }
+            let metric = matches[0]
+            guard metric.kind == .officialLimit,
+                  metric.unit == .percent,
+                  metric.limit == 100,
+                  metric.current.isFinite,
+                  (0...100).contains(metric.current),
+                  metric.resetAt != nil else { return nil }
+            return metric
+        }
+        let complete = metrics.count == expectedLabels.count
+        let published = complete ? metrics : []
+        let ranked = published.enumerated().sorted { left, right in
+            left.element.current == right.element.current
+                ? left.offset < right.offset
+                : left.element.current > right.element.current
+        }.map(\.element)
+        return UsageSnapshot(
+            provider: provider,
+            primaryMetric: ranked.first,
+            secondaryMetric: ranked.dropFirst().first,
+            availability: availability,
+            fetchedAt: fetchedAt,
+            staleAfter: staleAfter,
+            sourceVersion: sourceVersion,
+            collectionStatus: collectionStatus,
+            statusMessage: statusMessage,
+            codexResetCredits: codexResetCredits,
+            codexLocalActivity: codexLocalActivity,
+            claudeLocalActivity: claudeLocalActivity,
+            geminiQuotaMetrics: published,
+            deepSeekUsageHistory: deepSeekUsageHistory
+        )
+    }
+
     func withCodexLocalActivity(_ activity: CodexLocalActivitySummary?) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,

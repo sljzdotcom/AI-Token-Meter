@@ -44,7 +44,7 @@ pub fn parse_usage(
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>();
-    if rows.len() != 4 {
+    if rows.len() != 2 && rows.len() != 4 {
         return Err(CollectionError::UnrecognizedOutput);
     }
 
@@ -80,10 +80,19 @@ pub fn parse_usage(
         ));
     }
     metrics.sort_by_key(|(key, _)| *key);
+    let has_other_five_hour = metrics.iter().any(|(key, _)| *key == Key::OtherFiveHour);
+    let has_other_weekly = metrics.iter().any(|(key, _)| *key == Key::OtherWeekly);
+    if has_other_five_hour != has_other_weekly {
+        return Err(CollectionError::UnrecognizedOutput);
+    }
     let metrics = metrics
         .into_iter()
+        .filter(|(key, _)| matches!(key, Key::GeminiFiveHour | Key::GeminiWeekly))
         .map(|(_, metric)| metric)
         .collect::<Vec<_>>();
+    if metrics.len() != 2 {
+        return Err(CollectionError::UnrecognizedOutput);
+    }
     let mut ranked = metrics.clone();
     ranked.sort_by(|a, b| b.current.total_cmp(&a.current));
 

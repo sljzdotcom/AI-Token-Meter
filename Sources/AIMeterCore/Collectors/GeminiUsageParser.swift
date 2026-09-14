@@ -9,7 +9,7 @@ public struct GeminiUsageParser: Sendable {
         let rows = text.components(separatedBy: .newlines)
             .map { ANSITextSanitizer.sanitize($0).trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        guard rows.count == QuotaKey.allCases.count else {
+        guard rows.count == 2 || rows.count == QuotaKey.allCases.count else {
             throw UsageCollectionError.unrecognizedOutput
         }
 
@@ -32,7 +32,13 @@ public struct GeminiUsageParser: Sendable {
             )
         }
 
-        let metrics = try QuotaKey.allCases.map { key in
+        let requiredKeys: [QuotaKey] = [.geminiFiveHour, .geminiWeekly]
+        let optionalKeys: [QuotaKey] = [.otherFiveHour, .otherWeekly]
+        let optionalCount = optionalKeys.filter { byKey[$0] != nil }.count
+        guard optionalCount == 0 || optionalCount == optionalKeys.count else {
+            throw UsageCollectionError.unrecognizedOutput
+        }
+        let metrics = try requiredKeys.map { key in
             guard let metric = byKey[key] else { throw UsageCollectionError.unrecognizedOutput }
             return metric
         }

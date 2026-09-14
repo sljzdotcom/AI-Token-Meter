@@ -169,6 +169,43 @@ pub struct UsageSnapshot {
 }
 
 impl UsageSnapshot {
+    pub fn normalize_antigravity_quota(&mut self) {
+        if self.provider_id != ProviderId::Gemini {
+            return;
+        }
+        let mut published = Vec::with_capacity(2);
+        for label in ["Gemini · Five hour", "Gemini · Weekly"] {
+            let matches = self
+                .gemini_quota_metrics
+                .iter()
+                .filter(|metric| metric.label == label)
+                .collect::<Vec<_>>();
+            let Some(metric) = matches.first().filter(|_| matches.len() == 1) else {
+                published.clear();
+                break;
+            };
+            if !metric.current.is_finite()
+                || !(0.0..=100.0).contains(&metric.current)
+                || metric.limit != Some(100.0)
+                || metric.unit != MetricUnit::Percent
+                || metric.kind != MetricKind::OfficialLimit
+                || metric.reset_at.is_none()
+            {
+                published.clear();
+                break;
+            }
+            published.push((*metric).clone());
+        }
+        let mut ranked = published.clone();
+        ranked.sort_by(|left, right| right.current.total_cmp(&left.current));
+        self.used_ratio = ranked
+            .first()
+            .and_then(|metric| Ratio::new(metric.current / 100.0).ok());
+        self.primary_metric = ranked.first().cloned();
+        self.secondary_metric = ranked.get(1).cloned();
+        self.gemini_quota_metrics = published;
+    }
+
     pub fn decode_compatible(value: &Value) -> Result<Self, UsageDecodeError> {
         let schema_version = value
             .get("schemaVersion")
