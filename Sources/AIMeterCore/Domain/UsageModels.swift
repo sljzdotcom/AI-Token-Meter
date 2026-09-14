@@ -160,6 +160,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
 public extension UsageSnapshot {
     func normalizedAntigravityQuota() -> UsageSnapshot {
         guard provider == .gemini else { return self }
+        let normalizedCLIInfo = normalizedAntigravityCLIInfo()
         let expectedLabels = ["Gemini · Five hour", "Gemini · Weekly"]
         let candidates = geminiQuotaMetrics ?? [primaryMetric, secondaryMetric].compactMap { $0 }
         let byLabel = Dictionary(grouping: candidates, by: \.label)
@@ -195,9 +196,24 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: published,
-            antigravityCLIInfo: antigravityCLIInfo,
+            antigravityCLIInfo: normalizedCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
+    }
+
+    private func normalizedAntigravityCLIInfo() -> AntigravityCLIInfo? {
+        guard let info = antigravityCLIInfo else { return nil }
+        let validModel: (String) -> Bool = { value in
+            value.hasPrefix("Gemini ") && value.count <= 120 && !value.contains(where: \.isNewline)
+        }
+        guard info.currentModel.map(validModel) ?? true,
+              info.availableModelCount.map({ (1...64).contains($0) }) ?? true,
+              info.modelFamilies.count <= 16,
+              Set(info.modelFamilies).count == info.modelFamilies.count,
+              info.modelFamilies.allSatisfy(validModel),
+              info.currentModel != nil || info.availableModelCount != nil || !info.modelFamilies.isEmpty
+        else { return nil }
+        return info
     }
 
     func withAntigravityCLIInfo(_ info: AntigravityCLIInfo?) -> UsageSnapshot {

@@ -33,6 +33,7 @@ fn successful_tiers_roundtrip_and_failed_refresh_preserves_timestamp_and_account
         let cached = runtime.snapshot(ProviderId::Gemini);
         assert_eq!(cached.status, UsageStatus::Cached);
         assert_eq!(cached.fetched_at, snapshot.fetched_at);
+        assert_eq!(cached.antigravity_cli_info, snapshot.antigravity_cli_info);
         assert_eq!(
             cached
                 .gemini_quota_metrics
@@ -64,6 +65,7 @@ fn successful_tiers_roundtrip_and_failed_refresh_preserves_timestamp_and_account
     assert_eq!(loaded.used_ratio.unwrap().get(), 0.6);
     assert_eq!(loaded.primary_metric.unwrap().label, "Gemini · Five hour");
     assert_eq!(loaded.fetched_at, snapshot.fetched_at);
+    assert_eq!(loaded.antigravity_cli_info, snapshot.antigravity_cli_info);
 }
 
 #[test]
@@ -82,7 +84,8 @@ fn legacy_gemini_cache_keeps_quota_but_migrates_the_visible_provider_name() {
           "geminiQuotaMetrics":[{"label":"Flash","current":60,"limit":100,"unit":"percent","kind":"officialLimit"}],
           "fetchedAt":"2026-09-08T08:47:00Z",
           "staleAfterSeconds":300,
-          "sourceVersion":"0.58.0"
+          "sourceVersion":"0.58.0",
+          "antigravityCLIInfo":{"currentModel":"Claude Sonnet","availableModelCount":1,"modelFamilies":["Claude Sonnet"]}
         }"#,
     )
     .unwrap();
@@ -95,4 +98,5 @@ fn legacy_gemini_cache_keeps_quota_but_migrates_the_visible_provider_name() {
     assert!(snapshot.primary_metric.is_none());
     assert!(snapshot.secondary_metric.is_none());
     assert!(snapshot.gemini_quota_metrics.is_empty());
+    assert!(snapshot.antigravity_cli_info.is_none());
 }

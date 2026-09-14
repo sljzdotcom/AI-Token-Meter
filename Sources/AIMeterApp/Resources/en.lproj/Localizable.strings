@@ -323,3 +323,10 @@
 "%@ · %@" = "%@ · %@";
 "The author link could not be opened." = "The author link could not be opened.";
 "Opens in your default browser" = "Opens in your default browser";
+"Gemini quota" = "Gemini quota";
+"Last available Gemini quota" = "Last available Gemini quota";
+"Antigravity CLI" = "Antigravity CLI";
+"Current model" = "Current model";
+"Available models" = "Available models";
+"CLI version" = "CLI version";
+"%lld models · %lld families" = "%lld models · %lld families";

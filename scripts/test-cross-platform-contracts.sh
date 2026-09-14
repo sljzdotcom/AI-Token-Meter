@@ -71,6 +71,14 @@ fi
 grep -Fq "invalid Antigravity quota window" "$TEST_ROOT/gemini-invalid-tier.log"
 cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
 
+ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["antigravityCLIInfo"]["currentModel"]="Claude Sonnet"; File.write(path,JSON.generate(value))' "$quota_fixture"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-invalid-cli-info.log" 2>&1; then
+    echo "Third-party Antigravity model information must be rejected." >&2
+    exit 1
+fi
+grep -Fq "invalid Antigravity CLI info" "$TEST_ROOT/gemini-invalid-cli-info.log"
+cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
+
 gemini_fixture="$TEST_ROOT/repository/contracts/fixtures/gemini-unavailable.json"
 cp "$gemini_fixture" "$TEST_ROOT/original-gemini.json"
 ruby -rjson -e 'path = ARGV.fetch(0); value = JSON.parse(File.read(path)); value["displayName"] = "Unknown Product"; File.write(path, JSON.generate(value))' "$gemini_fixture"

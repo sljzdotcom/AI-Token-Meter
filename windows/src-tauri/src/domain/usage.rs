@@ -163,7 +163,11 @@ pub struct UsageSnapshot {
     pub secondary_metric: Option<UsageMetric>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gemini_quota_metrics: Vec<UsageMetric>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "antigravityCLIInfo",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub antigravity_cli_info: Option<AntigravityCliInfo>,
     pub fetched_at: String,
     pub stale_after_seconds: u64,
@@ -186,6 +190,7 @@ impl UsageSnapshot {
         if self.provider_id != ProviderId::Gemini {
             return;
         }
+        self.normalize_antigravity_cli_info();
         let mut published = Vec::with_capacity(2);
         for label in ["Gemini · Five hour", "Gemini · Weekly"] {
             let matches = self
@@ -219,6 +224,38 @@ impl UsageSnapshot {
         self.gemini_quota_metrics = published;
     }
 
+    fn normalize_antigravity_cli_info(&mut self) {
+        let Some(info) = &self.antigravity_cli_info else {
+            return;
+        };
+        let valid_model = |value: &str| {
+            value.starts_with("Gemini ")
+                && value.len() <= 120
+                && !value.contains('\n')
+                && !value.contains('\r')
+        };
+        let mut families = std::collections::HashSet::new();
+        let is_empty = info.current_model.is_none()
+            && info.available_model_count.is_none()
+            && info.model_families.is_empty();
+        if is_empty
+            || info
+                .current_model
+                .as_deref()
+                .is_some_and(|model| !valid_model(model))
+            || info
+                .available_model_count
+                .is_some_and(|count| !(1..=64).contains(&count))
+            || info.model_families.len() > 16
+            || info
+                .model_families
+                .iter()
+                .any(|family| !valid_model(family) || !families.insert(family))
+        {
+            self.antigravity_cli_info = None;
+        }
+    }
+
     pub fn decode_compatible(value: &Value) -> Result<Self, UsageDecodeError> {
         let schema_version = value
             .get("schemaVersion")
@@ -237,16 +274,10 @@ impl UsageSnapshot {
             ));
         }
         let mut tier_names = std::collections::HashSet::new();
-        if snapshot.gemini_quota_metrics.len() > 4
+        if snapshot.gemini_quota_metrics.len() > 2
             || snapshot.gemini_quota_metrics.iter().any(|metric| {
                 snapshot.provider_id != ProviderId::Gemini
-                    || ![
-                        "Gemini · Five hour",
-                        "Gemini · Weekly",
-                        "Claude/GPT · Five hour",
-                        "Claude/GPT · Weekly",
-                    ]
-                    .contains(&metric.label.as_str())
+                    || !["Gemini · Five hour", "Gemini · Weekly"].contains(&metric.label.as_str())
                     || !tier_names.insert(&metric.label)
                     || !metric.current.is_finite()
                     || !(0.0..=100.0).contains(&metric.current)
@@ -257,6 +288,26 @@ impl UsageSnapshot {
             })
         {
             return Err(UsageDecodeError::new("invalid Antigravity quota window"));
+        }
+        if let Some(info) = &snapshot.antigravity_cli_info {
+            let valid_model = |value: &str| value.starts_with("Gemini ") && value.len() <= 120;
+            let mut families = std::collections::HashSet::new();
+            if snapshot.provider_id != ProviderId::Gemini
+                || info
+                    .current_model
+                    .as_deref()
+                    .is_some_and(|model| !valid_model(model))
+                || info
+                    .available_model_count
+                    .is_some_and(|count| !(1..=64).contains(&count))
+                || info.model_families.len() > 16
+                || info
+                    .model_families
+                    .iter()
+                    .any(|family| !valid_model(family) || !families.insert(family))
+            {
+                return Err(UsageDecodeError::new("invalid Antigravity CLI info"));
+            }
         }
         Ok(snapshot)
     }
