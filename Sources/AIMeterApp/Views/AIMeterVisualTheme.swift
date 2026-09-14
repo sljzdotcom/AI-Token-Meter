@@ -24,15 +24,7 @@ enum AIMeterVisualTheme {
         endPoint: .bottomTrailing
     )
 
-    static let floatingLiquidGlassTint = Color(red: 0.030, green: 0.052, blue: 0.082)
-    static let floatingLiquidGlassSmoke = LinearGradient(
-        colors: [
-            Color(red: 0.055, green: 0.078, blue: 0.112).opacity(0.76),
-            Color(red: 0.018, green: 0.030, blue: 0.050).opacity(0.88),
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static let floatingLiquidGlassTint = Color(red: 0.22, green: 0.40, blue: 0.56).opacity(0.12)
     static let floatingLiquidGlassOpaque = LinearGradient(
         colors: [
             Color(red: 0.070, green: 0.090, blue: 0.120),

@@ -7,6 +7,53 @@ import Testing
 @Suite("Floating strip rendered background")
 @MainActor
 struct FloatingStripRenderingTests {
+    @Test("Liquid Glass remains visibly translucent without a backdrop")
+    func liquidGlassHasNoOpaqueFullSurfaceTint() async throws {
+        let expanded = try await render(
+            FloatingStripSurface(
+                edge: .right,
+                density: .compact,
+                providerCount: 4,
+                appearance: .liquidGlass,
+                backgroundImage: nil,
+                reduceTransparencyOverride: false
+            ),
+            width: FloatingStripDensity.compact.width,
+            height: FloatingStripDensity.compact.height(providerCount: 4)
+        )
+        let folded = try await render(
+            FloatingStripFoldedSurface(
+                edge: .right,
+                appearance: .liquidGlass,
+                backgroundImage: nil,
+                reduceTransparencyOverride: false
+            ),
+            width: 14,
+            height: 88
+        )
+
+        #expect(try alpha(atX: 39, y: 172, in: expanded) < 0.30)
+        #expect(try alpha(atX: 12, y: 44, in: folded) < 0.30)
+    }
+
+    @Test("Liquid Glass becomes opaque when Reduce Transparency is enabled")
+    func liquidGlassHonorsReduceTransparency() async throws {
+        let surface = try await render(
+            FloatingStripSurface(
+                edge: .right,
+                density: .compact,
+                providerCount: 4,
+                appearance: .liquidGlass,
+                backgroundImage: nil,
+                reduceTransparencyOverride: true
+            ),
+            width: FloatingStripDensity.compact.width,
+            height: FloatingStripDensity.compact.height(providerCount: 4)
+        )
+
+        #expect(try alpha(atX: 39, y: 172, in: surface) > 0.99)
+    }
+
     @Test("Liquid Glass keeps both silhouettes and never draws the Deep Sea image")
     func liquidGlassPreservesSilhouettesWithoutDeepSeaArtwork() async throws {
         let marker = NSImage(size: NSSize(width: 2, height: 2))
