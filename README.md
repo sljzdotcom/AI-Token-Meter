@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.1](https://img.shields.io/badge/version-0.10.1-3b82f6)
-![Tests 583](https://img.shields.io/badge/tests-583%20passed-2ea44f)
+![Version 0.10.2](https://img.shields.io/badge/version-0.10.2-3b82f6)
+![Tests 585](https://img.shields.io/badge/tests-585%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.10.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.1)（macOS build `29`）。现有macOS与Windows安装均可通过应用内更新入口升级；完整证据见[0.10.1发布记录](docs/development/2026-09-14-v0.10.1-release.md)。
+> 当前发布候选为`0.10.2`（macOS build `30`），公开稳定版仍为[0.10.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.1)。0.10.2完成公开发布后，现有macOS与Windows安装可通过应用内更新入口升级；候选证据见[0.10.2发布记录](docs/development/2026-09-14-v0.10.2-release.md)。
 
 ## Screenshots
 
@@ -22,6 +22,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | ![AI Token Meter floating strip](docs/assets/screenshots/floating-strip.png) | ![OpenAI Codex detail using deterministic demo data](docs/assets/screenshots/provider-detail.png) | ![AI Token Meter Appearance Settings](docs/assets/screenshots/settings.png) |
 
 ## 主要功能
+
+> `0.10.2` / build `30`：macOS Liquid Glass移除深色烟熏底板，恢复清透系统玻璃；同时修复带Widget正式构建的App Group校验误报。Windows产品界面保持不变。[Release Notes](docs/releases/v0.10.2.md)。
 
 > `0.10.1` / build `29`：Google Antigravity的详情、圆环、摘要和提醒统一只采用Gemini五小时/每周额度，并补充当前Gemini模型、动态可用模型数量/系列与CLI版本。[Release Notes](docs/releases/v0.10.1.md)。
 
@@ -41,7 +43,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 OpenAI Codex 重置券摘要。
 - 贴边浮岛按设置显示一至四个经过光学校正的品牌 Logo 与用量环；内部使用低亮度黑蓝「深海波纹」背景，左右贴边时背景会随轮廓镜像，但 Logo 和进度方向保持不变。
 - Floating Strip提供Comfortable与Compact两档浮岛尺寸；旧Mini偏好升级后自动迁移到Compact。自动收起可关闭，关闭后保留原延迟值并让浮岛持续展开。
-- macOS Floating Strip可在现有Deep Sea与烟熏深色Liquid Glass之间即时切换；macOS 26使用系统玻璃效果，macOS 14–15与减少透明度环境使用可读性回退。Windows外观保持不变。
+- macOS Floating Strip可在现有Deep Sea与清透Liquid Glass之间即时切换；macOS 26使用系统玻璃效果，macOS 14–15使用超薄系统材质，减少透明度环境使用不透明可读性回退。Windows外观保持不变。
 - Claude Code、OpenAI Codex、DeepSeek、Gemini 分别使用黄橙、玫红紫、薄荷紫、青绿强调色；警告、严重、缓存和不可用状态仍使用统一语义色。
 - 浮岛会按物理显示器稳定标识记住目标屏、侧边和垂直位置；目标屏暂时断开时只临时回到当前主屏，重新接入后自动恢复，详情始终朝桌面内部展开。
 - 浮岛保持 macOS 桌面层，普通应用和全屏应用可自然覆盖；用户点击 Provider 后，临时详情会显示在普通应用窗口上方，关闭或自动隐藏后立即退出窗口栈。
@@ -92,10 +94,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-当前下载页面：**[Download v0.10.1](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.1)**：
+0.10.2候选完成公开发布后的下载页面：**[Download v0.10.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.2)**：
 
-- macOS：下载 `AI-Token-Meter-0.10.1-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.10.1-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.10.2-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.10.2-windows-x64-setup.exe` 与同名 `.sha256`。
 
 已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到当前公开稳定版；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
@@ -248,7 +250,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码与公开稳定版均为`0.10.1`（macOS build `29`）；完整发布证据见[0.10.1发布记录](docs/development/2026-09-14-v0.10.1-release.md)。
+- 当前源码为`0.10.2`（macOS build `30`），公开稳定版在发布事务完成前仍为`0.10.1`；候选与发布证据见[0.10.2发布记录](docs/development/2026-09-14-v0.10.2-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

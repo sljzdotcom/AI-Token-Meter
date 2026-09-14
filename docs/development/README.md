@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-14](2026-09-14-v0.10.2-release.md) | 0.10.2清透Liquid Glass稳定发布 | 交付003/004，版本/build30、PR/main、双平台签名资产、三个更新入口与公网验收按发布事务留证 |
 | [2026-09-14](2026-09-14-v0.10.1-release.md) | 0.10.1 Antigravity Gemini优先详情稳定发布 | 交付001，版本/build29、PR/main、双平台签名资产、三个更新入口与公网验收按发布事务留证 |
 | [2026-09-14](2026-09-14-antigravity-gemini-detail.md) | Google Antigravity Gemini 优先详情 | 两个Gemini额度窗口驱动全部摘要与提醒；动态模型信息独立容错，583项Swift、133项前端、268项Rust及完整门禁通过，独立复审0/0/0 |
 | [2026-09-14](2026-09-14-macos-liquid-glass-transparency.md) | macOS 悬浮条清透 Liquid Glass | 烟熏深色底改为原生清透玻璃与12%冷蓝 tint；透明度、辅助功能回退、585项Swift及独立复审通过 |

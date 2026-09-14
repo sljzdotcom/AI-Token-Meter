@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+## 0.10.2 - 2026-09-14
+
+稳定修复版；macOS build30。Liquid Glass悬浮条恢复清透层次，并修复带Widget正式构建的App Group校验误报。
+
+### Changed
+
+- macOS Liquid Glass移除覆盖系统玻璃的76%–88%深色烟熏渐变，普通透明模式仅保留12%冷蓝tint、原生/系统材质和边缘高光；开启“降低透明度”时继续使用不透明可读性回退。
+
+### Fixed
+
+- Widget打包校验精确比较宿主应用与扩展签名中的App Group标识，避免PlistBuddy数组展示格式导致已正确签名的构建被误判失败。
+
 ## 0.10.1 - 2026-09-14
 
 稳定修复版；macOS build29。Google Antigravity的可见用量口径统一为Gemini，并补充安全、有界的CLI模型信息。
