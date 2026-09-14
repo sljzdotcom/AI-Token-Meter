@@ -26,7 +26,7 @@
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
-| 0.10.1 Antigravity Gemini优先详情稳定发布 | `bd5bcea`、`b138fe4`、`8b112c4`、`fa09c4e`、`e2af00f`、`8d8f434` | 双平台Antigravity详情、圆环、摘要与提醒只使用Gemini五小时/每周额度并补充CLI信息；583项Swift、133项前端、268项Rust、PR/main/标签原生CI、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
+| 0.10.1 Antigravity Gemini优先详情稳定发布 | `bd5bcea`、`b138fe4`、`8b112c4`、`fa09c4e`、`e2af00f`、`8d8f434`、`2c990a1` | 双平台Antigravity详情、圆环、摘要与提醒只使用Gemini五小时/每周额度并补充CLI信息；583项Swift、133项前端、268项Rust、PR/main/标签原生CI、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
 | 0.10.0 macOS烟熏Liquid Glass稳定发布 | `b1d4aff`、`07cf04e`、`7f38a68`、`ddb531a`、`20681aa` | macOS新增即时切换的Deep Sea与烟熏Liquid Glass，Windows界面保持；570项Swift、PR/main双平台CI、独立复审、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
 | 0.9.1发布证据与macOS停止测试可靠性 | `37bbafe`、`819de54`、`04e2a89`、`a6017d9`、`1cdf744` | 七项公开资产、两端签名与三个更新源归档；超时与取消从真实停止请求计量到OS进程退出并使用30秒夹具，完整564项Swift、独立复审、PR #44及main双平台CI通过 |
 | 0.9.1两档悬浮条与摘要同步稳定发布 | `346667b`、`bf27e2e`、`406393c`、`f756641`、`8d33a34`、`c4b8c9b` | 删除Mini并迁移旧偏好，产品可见性同步到macOS菜单面板与Windows托盘摘要；PR/main、签名发布、七项公开资产和三个更新入口通过 |
