@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前源码为`0.10.0`候选、macOS build`28`；公开稳定版仍为[`0.9.1`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.9.1)、macOS build`27`，直到候选完成全部门禁并公开。两端使用同一个`VERSION`、tag和GitHub Release，并同步稳定appcast、Windows stable latest.json与旧Windows Preview feed。[0.10.0开发与发布记录](2026-09-13-macos-floating-strip-liquid-glass.md)。
+当前源码与公开稳定版均为[`0.10.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.0)、macOS build`28`。两端使用同一个`VERSION`、tag和GitHub Release，并同步稳定appcast、Windows stable latest.json与旧Windows Preview feed。[0.10.0开发与发布记录](2026-09-13-macos-floating-strip-liquid-glass.md)。
 
 ## 发布前检查清单
 
