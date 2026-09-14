@@ -41,4 +41,4 @@
 
 macOS与Windows安装资产均通过匿名重下和公开SHA清单核对。macOS Sparkle EdDSA验签通过，追加字节的篡改副本被拒绝；Windows应用内置Tauri公钥验签通过，追加字节后以`InvalidSignature`拒绝。Release `appcast.xml`与仓库稳定appcast字节一致；Windows stable `latest.json`与旧Preview兼容入口清单字节一致。三个公开更新入口均解析为0.10.0并包含对应平台签名。
 
-0.10.0/build28已完成实现、审查、PR/main双平台CI、签名发布、七项公开资产与三个更新入口的公网验收。Windows只同步统一版本与签名安装包，未增加Liquid Glass设置或渲染分支；发布证据PR及其最终CI通过后关闭需求。
+0.10.0/build28已完成实现、审查、PR/main双平台CI、签名发布、七项公开资产与三个更新入口的公网验收。发布证据分支独立复审为`0/0/0`；[证据PR #47](https://github.com/sljzdotcom/AI-Token-Meter/pull/47)首轮macOS CI [`34796369927`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34796369927)用时2分40秒、Windows CI [`34796369858`](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34796369858)用时11分34秒，完整通过。Windows只同步统一版本与签名安装包，未增加Liquid Glass设置或渲染分支；两项需求随同一PR的状态关闭提交完成最终双平台CI并合入main后正式关闭。
