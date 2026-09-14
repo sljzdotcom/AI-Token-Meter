@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-09-13
+
+### Added
+
+- macOS Settings → Floating Strip新增Deep Sea与Liquid Glass外观选择；B款烟熏深色玻璃即时应用并持久保存，Windows外观保持不变。
+
+### Changed
+
+- macOS 26使用系统Liquid Glass；macOS 14–15使用烟熏系统材质，减少透明度时使用不透明回退。两档尺寸、左右轮廓、圆环和自动收起交互保持不变。
+
 ## 0.9.1 - 2026-09-13
 
 稳定修复版；macOS build27。悬浮条尺寸恢复为Comfortable与Compact两档，并让产品显示设置同步控制菜单栏和Windows托盘摘要。

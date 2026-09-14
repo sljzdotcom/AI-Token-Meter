@@ -7,6 +7,96 @@ import Testing
 @Suite("Floating strip rendered background")
 @MainActor
 struct FloatingStripRenderingTests {
+    @Test("Liquid Glass keeps both silhouettes and never draws the Deep Sea image")
+    func liquidGlassPreservesSilhouettesWithoutDeepSeaArtwork() async throws {
+        let marker = NSImage(size: NSSize(width: 2, height: 2))
+        marker.lockFocus()
+        NSColor.systemRed.setFill()
+        NSRect(x: 0, y: 0, width: 2, height: 2).fill()
+        marker.unlockFocus()
+
+        for density in FloatingStripDensity.allCases {
+            for edge in [FloatingStripEdge.left, .right] {
+                let height = density.height(providerCount: 3)
+                let withMarker = try await render(
+                    FloatingStripSurface(
+                        edge: edge,
+                        density: density,
+                        providerCount: 3,
+                        appearance: .liquidGlass,
+                        backgroundImage: marker
+                    ),
+                    width: density.width,
+                    height: height
+                )
+                let withoutImage = try await render(
+                    FloatingStripSurface(
+                        edge: edge,
+                        density: density,
+                        providerCount: 3,
+                        appearance: .liquidGlass,
+                        backgroundImage: nil
+                    ),
+                    width: density.width,
+                    height: height
+                )
+
+                #expect(try differingPixels(withMarker, withoutImage) == 0)
+                #expect(try alpha(atX: 0, y: 0, in: withMarker) < 0.05)
+                #expect(try alpha(atX: density.width / 2, y: height / 2, in: withMarker) > 0.10)
+                try save(
+                    withMarker,
+                    name: "liquid-glass-\(density.rawValue)-\(edge == .left ? "left" : "right")"
+                )
+
+                let folded = try await render(
+                    FloatingStripFoldedSurface(
+                        edge: edge,
+                        appearance: .liquidGlass,
+                        backgroundImage: marker
+                    ),
+                    width: 14,
+                    height: 88
+                )
+                #expect(try alpha(atX: 7, y: 2, in: folded) < 0.05)
+                #expect(try alpha(atX: edge == .right ? 12 : 2, y: 44, in: folded) > 0.10)
+                try save(
+                    folded,
+                    name: "liquid-glass-folded-\(density.rawValue)-\(edge == .left ? "left" : "right")"
+                )
+            }
+        }
+
+        let suite = "FloatingStripRendering.LiquidGlass-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(
+            defaults: defaults,
+            secretStore: RenderingSecretStore(),
+            widgetSnapshotPublisher: nil,
+            isDemoMode: true
+        )
+        var preferences = model.stripPreferences
+        preferences.appearance = .liquidGlass
+        preferences.density = .compact
+        preferences.automaticallyCollapses = false
+        model.setStripPreferences(preferences)
+        let composed = try await render(
+            FloatingStripView(
+                model: model,
+                session: FloatingDetailSession(),
+                displayState: FloatingStripDisplayState(resolvedEdge: .right),
+                onProviderTap: { _ in },
+                onAccessibilityMove: { _ in }
+            ),
+            width: FloatingStripDensity.compact.width,
+            height: FloatingStripDensity.compact.height(providerCount: 4)
+        )
+        #expect(composed.pixelsWide == pixel(78))
+        #expect(composed.pixelsHigh == pixel(344))
+        try save(composed, name: "liquid-glass-composed-compact-right")
+    }
+
     @Test("Folded handle uses the approved 14pt concave silhouette inside the 20pt hit window")
     func foldedHandleSilhouette() async throws {
         let suite = "FloatingStripRendering.Folded-\(UUID())"
@@ -175,6 +265,25 @@ struct FloatingStripRenderingTests {
     }
 
     private var renderScale: Double { 2 }
+
+    private func differingPixels(_ lhs: NSBitmapImageRep, _ rhs: NSBitmapImageRep) throws -> Int {
+        var count = 0
+        for y in 0..<lhs.pixelsHigh {
+            for x in 0..<lhs.pixelsWide {
+                let left = try #require(lhs.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+                let right = try #require(rhs.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+                if max(
+                    abs(left.redComponent - right.redComponent),
+                    abs(left.greenComponent - right.greenComponent),
+                    abs(left.blueComponent - right.blueComponent),
+                    abs(left.alphaComponent - right.alphaComponent)
+                ) > 1.0 / 255.0 {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
 
     private func pixel(_ points: Double) -> Int {
         Int(points * renderScale)

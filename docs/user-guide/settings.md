@@ -2,7 +2,7 @@
 
 ## Gemini 与四服务配置（0.6.0 起）
 
-青绿 `#3ED6B2` Gemini 是第四项服务。全新配置默认四项可见；旧记录缺少 Gemini 时将其追加末尾并隐藏，保留既有顺序与显示选择；已有 Gemini 的记录保留其选择。保存采用偏好 schemaVersion 4，以记录两档尺寸、自动收起开关及独立的显示与收起延迟；旧 schema 自动迁移并默认开启自动收起。Restore default order 恢复四项默认顺序与显示，至少保留一项可见；隐藏不停止采集。
+青绿 `#3ED6B2` Gemini 是第四项服务。全新配置默认四项可见；旧记录缺少 Gemini 时将其追加末尾并隐藏，保留既有顺序与显示选择；已有 Gemini 的记录保留其选择。macOS保存采用偏好 schemaVersion 5，以记录两档尺寸、外观、自动收起开关及独立的显示与收起延迟；Windows继续使用schemaVersion 4且不增加玻璃外观。旧 schema 自动迁移并默认开启自动收起。Restore default order 恢复四项默认顺序与显示，至少保留一项可见；隐藏不停止采集。
 
 四项全显示时Compact为78×344、Comfortable为108×428；显示三项时分别为78×286、108×356。总高随实际可见数量变化，悬浮条下方不显示Settings图标；设置仍可从应用菜单进入。旧Mini偏好升级后自动迁移到Compact。
 
@@ -50,6 +50,7 @@ Floating Strip集中悬浮条的内容与尺寸、屏幕与位置、行为设置
 0.6.0 起两端展开态顶部不再显示横线；仍可从非按钮背景拖动，折叠态竖线保留。见[开发记录](../development/2026-09-08-remove-strip-drag-hint.md)。
 
 - **Floating strip size**：固定按Comfortable、Compact排列，默认Compact。四项全显示分别为108×428、78×344；每隐藏一项高度自动缩短，三项尺寸分别为108×356、78×286。切换不改变保存的显示器与位置中心；升级时旧Mini自动迁移为Compact。
+- **Floating strip appearance（仅macOS）**：Deep Sea为默认的现有深海背景；Liquid Glass为烟熏深色玻璃。切换会立即应用到展开与收起状态并在重启后保留。macOS 26使用系统Liquid Glass，macOS 14–15使用烟熏系统材质；开启“减少透明度”时改用不透明烟熏底板。Windows不显示此选项。
 - **Automatically collapse floating strip**：默认开启。关闭后立即取消待执行计时并保持展开；Show/Hide delay保留原值但暂时禁用，重新开启后继续使用。
 - **Show delay**：指针进入20pt/px命中区域后等待0–2000ms展开，默认150ms；期限内离开会取消展开。
 - **Hide delay**：离开整个浮动条交互区后等待0–5000ms收起，默认800ms。操作详情、Settings、菜单、拖动、刷新和读屏期间保持展开。

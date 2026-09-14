@@ -12,8 +12,11 @@
 "Show floating meter" = "顯示懸浮用量表";
 "The menu bar meter remains available when the floating meter is hidden." = "隱藏懸浮用量表後，仍可使用選單列用量表。";
 "Floating strip size" = "懸浮條尺寸";
+"Floating strip appearance" = "懸浮條外觀";
 "Comfortable" = "舒適";
 "Compact" = "緊湊";
+"Deep Sea" = "深海";
+"Liquid Glass" = "液態玻璃";
 "Move %@ up" = "將 %@ 上移";
 "Move %@ down" = "將 %@ 下移";
 "Keep at least one service visible. Hidden services continue monitoring." = "請保留至少一個可見服務。隱藏的服務仍會繼續監測。";

@@ -12,8 +12,11 @@
 "Show floating meter" = "Show floating meter";
 "The menu bar meter remains available when the floating meter is hidden." = "The menu bar meter remains available when the floating meter is hidden.";
 "Floating strip size" = "Floating strip size";
+"Floating strip appearance" = "Floating strip appearance";
 "Comfortable" = "Comfortable";
 "Compact" = "Compact";
+"Deep Sea" = "Deep Sea";
+"Liquid Glass" = "Liquid Glass";
 "Move %@ up" = "Move %@ up";
 "Move %@ down" = "Move %@ down";
 "Keep at least one service visible. Hidden services continue monitoring." = "Keep at least one service visible. Hidden services continue monitoring.";
