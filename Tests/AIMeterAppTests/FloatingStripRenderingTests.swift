@@ -7,6 +7,47 @@ import Testing
 @Suite("Floating strip rendered background")
 @MainActor
 struct FloatingStripRenderingTests {
+    @Test("Liquid Glass keeps only the approved low-alpha tint")
+    func liquidGlassHasNoOpaqueFullSurfaceTint() throws {
+        let tint = try #require(
+            NSColor(AIMeterVisualTheme.floatingLiquidGlassTint).usingColorSpace(.deviceRGB)
+        )
+        #expect(abs(tint.alphaComponent - 0.12) < 0.005)
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sources = try [
+            "Sources/AIMeterApp/Views/AIMeterVisualTheme.swift",
+            "Sources/AIMeterApp/Views/FloatingStripBackground.swift",
+        ].map { path in
+            try String(contentsOf: root.appending(path: path), encoding: .utf8)
+        }.joined(separator: "\n")
+
+        #expect(!sources.contains("floatingLiquidGlassSmoke"))
+        #expect(!sources.contains(".opacity(0.76)"))
+        #expect(!sources.contains(".opacity(0.88)"))
+    }
+
+    @Test("Liquid Glass becomes opaque when Reduce Transparency is enabled")
+    func liquidGlassHonorsReduceTransparency() async throws {
+        let surface = try await render(
+            FloatingStripSurface(
+                edge: .right,
+                density: .compact,
+                providerCount: 4,
+                appearance: .liquidGlass,
+                backgroundImage: nil,
+                reduceTransparencyOverride: true
+            ),
+            width: FloatingStripDensity.compact.width,
+            height: FloatingStripDensity.compact.height(providerCount: 4)
+        )
+
+        #expect(try alpha(atX: 39, y: 172, in: surface) > 0.99)
+    }
+
     @Test("Liquid Glass keeps both silhouettes and never draws the Deep Sea image")
     func liquidGlassPreservesSilhouettesWithoutDeepSeaArtwork() async throws {
         let marker = NSImage(size: NSSize(width: 2, height: 2))

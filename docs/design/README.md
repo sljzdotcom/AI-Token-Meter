@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-09-14 | 0.10.2 清透Liquid Glass稳定发布 | 沿用已完成的清透Liquid Glass规格与双平台稳定发布流程 | [计划](implementation-plans/2026-09-14-v0.10.2-release.md) |
 | 2026-09-14 | 0.10.1 Antigravity Gemini优先详情稳定发布 | 沿用已完成的Antigravity Gemini优先详情规格与双平台稳定发布流程 | [计划](implementation-plans/2026-09-14-v0.10.1-release.md) |
 | 2026-09-13 | macOS悬浮条B款烟熏Liquid Glass与0.10.0稳定发布 | [规格](specifications/2026-09-13-macos-floating-strip-liquid-glass-design.md) | [计划](implementation-plans/2026-09-13-macos-floating-strip-liquid-glass.md) |
 | 2026-09-13 | BoundedCommandRunner停止测试可靠性 | [规格](specifications/2026-09-13-bounded-command-timeout-test-reliability-design.md) | [计划](implementation-plans/2026-09-13-bounded-command-timeout-test-reliability.md) |
