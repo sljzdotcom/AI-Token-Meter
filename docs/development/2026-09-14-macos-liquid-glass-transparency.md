@@ -21,3 +21,9 @@ REQ-20260914-003 把 macOS 悬浮条的 Liquid Glass 从烟熏深色改为清透
 - 独立首轮审查为Critical/Important/Minor `0/2/0`；修正后复审为`0/0/0`。
 
 实现提交为`d2ae00b`，审查修正为`be26676`。本次只形成已验证的本地开发结果，没有创建标签、GitHub Release或更新源。
+
+## 本地整合收尾
+
+本地合并后，在可访问Apple Development身份的构建环境中，`build-app.sh`首次进入Widget完整签名路径。宿主应用和Widget实际都包含`XHHFD4M7SL.com.millerpan.AIMeter`，但旧校验器读取整个数组后要求文本元素带双引号；PlistBuddy的实际数组展示不带该引号，因而产生假失败。
+
+REQ-20260914-004将校验改为分别读取双方`com.apple.security.application-groups:0`并做完整字符串等值比较。新增打包合同防止恢复数组文本模糊匹配；3项定向测试、真实已签名产物复验及带Widget的完整正式构建通过。最终应用同时通过便携资源、Sparkle嵌套签名、宿主/Widget App Group、Widget Sandbox和深层签名校验。
