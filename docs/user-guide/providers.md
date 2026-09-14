@@ -9,7 +9,7 @@ AI Token Meter 不把不同服务强行换算成同一个“额度”。每个�
 | Claude Code | 官方当前额度窗口的已用比例 | 次级额度、重置时间，以及本机近 30 天活动 |
 | OpenAI Codex | 官方通用速率限制的已用比例 | 次级窗口、重置额度，以及本机近 30 天三项活动聚合 |
 | DeepSeek | 相对余额基准已经消耗的比例 | 当前余额、近 30 天成本/请求/Token 与每日成本图 |
-| Gemini | 官方模型档位中最高的已用比例 | 全部可见档位、重置说明与 CLI 来源版本 |
+| Google Antigravity | Gemini 五小时/每周窗口中最高的已用比例 | 两个 Gemini 额度窗口、重置说明、当前模型、可用模型系列与 CLI 版本 |
 
 ## Claude Code
 
@@ -113,7 +113,9 @@ DeepSeek 没有在当前余额 API 中同时提供官网控制台的完整 30 �
 
 新用户按[官方安装页](https://antigravity.google/docs/cli/install/)安装 `agy`。macOS 可运行 `curl -fsSL https://antigravity.google/cli/install.sh | bash`，Windows PowerShell 可运行 `irm https://antigravity.google/cli/install.ps1 | iex`。安装后运行 `agy` 完成 Google 登录，然后回到 Settings → Services 选择 **Retry / Check Status**。
 
-应用在私有空目录执行固定的 `agy -p /usage`。该斜杠命令由 CLI 本地处理，不发送模型提示。输出中的“剩余百分比”转换为“已用百分比”，固定展示 Gemini 与 Claude/GPT 两组的 Five hour 和 Weekly 四个额度窗口及各自重置时间；圆环选择最高已用窗口，不把窗口相加。首期不展示 AI Credits，也不回退到旧 `gemini` 可执行文件。
+应用在私有空目录执行固定的 `agy -p /usage`。该斜杠命令由 CLI 本地处理，不发送模型提示。采集器会验证完整输出，但只发布 Gemini 的 Five hour 和 Weekly 两个窗口，把“剩余百分比”转换为“已用百分比”；圆环、菜单/托盘摘要和提醒选择这两个窗口中最高的已用比例，不把窗口相加。Claude/GPT 配额不会出现在 Antigravity 详情，也不会影响独立的 Claude Code 与 OpenAI Codex 服务。
+
+额度成功后，应用分别以有界只读命令查询 `/model` 与 `models`，详情显示当前 Gemini 模型、动态可用 Gemini 模型数量与去重系列，并显示 CLI 版本和检查时间。每项附加查询独立容错，失败或出现第三方/异常模型名称时只省略对应信息，不会让成功的额度降级。首期不展示 AI Credits，不推测套餐或 30 天统计，也不回退到旧 `gemini` 可执行文件。
 
 缺少 CLI、需要登录、版本不支持、环境覆盖、超时和解析失败分别保留可辨认状态。已有缓存时保留上次成功数据与采集时间，并显示本次失败。[完整迁移范围](../design/specifications/2026-09-09-antigravity-cli-migration-design.md)。
 

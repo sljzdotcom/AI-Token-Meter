@@ -400,6 +400,38 @@ button {
   color: #9ba5b4;
 }
 
+.antigravity-cli-info {
+  background: rgb(19 27 41 / 90%);
+  border: 1px solid rgb(62 214 178 / 18%);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+}
+
+.antigravity-cli-info__row {
+  align-items: baseline;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.antigravity-cli-info__row small,
+.antigravity-cli-info__families {
+  color: #8f9bad;
+}
+
+.antigravity-cli-info__row strong {
+  color: #dce8e5;
+  font-size: 12px;
+  text-align: right;
+}
+
+.antigravity-cli-info__families {
+  line-height: 1.45;
+}
+
 .metric-bar {
   background: #2a303b;
   border-radius: 99px;

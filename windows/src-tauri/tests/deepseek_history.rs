@@ -1063,6 +1063,7 @@ fn balance_snapshot() -> UsageSnapshot {
         status_message: None,
         reset_credits: Vec::new(),
         gemini_quota_metrics: Vec::new(),
+        antigravity_cli_info: None,
         local_activity: None,
         daily_history: Vec::new(),
         history_fetched_at: None,

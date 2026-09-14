@@ -63,8 +63,8 @@ export function ProviderDetail({
         <strong className="provider-detail__headline">{percent == null ? t(statusLabel(snapshot.status)) : `${percent}%`}</strong>
       </header>
 
-      <section aria-label={t("Official quota")} className="detail-section">
-        <h2>{t("Official quota")}</h2>
+      <section aria-label={t(snapshot.providerId === "gemini" ? "Gemini quota" : "Official quota")} className="detail-section">
+        <h2>{t(snapshot.providerId === "gemini" ? "Gemini quota" : "Official quota")}</h2>
         <div className="metric-grid">
           {snapshot.providerId === "gemini" && snapshot.geminiQuotaMetrics?.length
             ? snapshot.geminiQuotaMetrics.map(metric => <MetricCard key={metric.label} metric={metric} showRemaining />)
@@ -72,6 +72,26 @@ export function ProviderDetail({
               {snapshot.secondaryMetric ? <MetricCard metric={snapshot.secondaryMetric} /> : null}</>}
         </div>
       </section>
+
+      {snapshot.providerId === "gemini" && (snapshot.antigravityCLIInfo || snapshot.sourceVersion) ? (
+        <section aria-label={t("Antigravity CLI")} className="detail-section detail-section--cli-info">
+          <h2>{t("Antigravity CLI")}</h2>
+          <article className="antigravity-cli-info">
+            {snapshot.antigravityCLIInfo?.currentModel ? <InfoRow label={t("Current model")} value={snapshot.antigravityCLIInfo.currentModel} /> : null}
+            {snapshot.antigravityCLIInfo?.availableModelCount != null ? <>
+              <InfoRow
+                label={t("Available models")}
+                value={t("{count} models · {families} families", {
+                  count: snapshot.antigravityCLIInfo.availableModelCount,
+                  families: snapshot.antigravityCLIInfo.modelFamilies.length,
+                })}
+              />
+              {snapshot.antigravityCLIInfo.modelFamilies.length ? <small className="antigravity-cli-info__families">{snapshot.antigravityCLIInfo.modelFamilies.join(" · ")}</small> : null}
+            </> : null}
+            {snapshot.sourceVersion ? <InfoRow label={t("CLI version")} value={snapshot.sourceVersion} /> : null}
+          </article>
+        </section>
+      ) : null}
 
       {snapshot.providerId === "codex" && snapshot.resetCredits?.length ? (
         <section className="detail-section">
@@ -115,7 +135,6 @@ export function ProviderDetail({
       ) : null}
 
       {snapshot.providerId === "gemini" && (snapshot.statusMessage || !snapshot.primaryMetric) && <p>{t(snapshot.statusMessage ?? "Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked.")}</p>}
-      {snapshot.providerId === "gemini" && snapshot.sourceVersion && <p>Antigravity CLI {snapshot.sourceVersion} · /usage · {t("Official quota")}</p>}
       {snapshot.providerId === "gemini" && geminiInstructions.length ? <div className="gemini-setup-guide">
         {geminiInstructions.map(instruction => instruction === GEMINI_INSTALL_COMMAND
           ? <code className="gemini-install-command" key={instruction}>{instruction}</code>
@@ -159,6 +178,10 @@ function UnavailableCard({ status }: { status: UsageSnapshot["status"] }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return <article><strong>{value}</strong><small>{label}</small></article>
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return <span className="antigravity-cli-info__row"><small>{label}</small><strong>{value}</strong></span>
 }
 
 function subtitle(provider: UsageSnapshot["providerId"]) {

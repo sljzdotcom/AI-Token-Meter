@@ -76,7 +76,7 @@ const zh = {
   "The replacement was not saved. The existing API Key remains active.": "替换未保存，现有 API 密钥仍然有效。",
   "Open the protected Windows prompt to save the API Key.": "请在受保护的 Windows 提示框中保存 API 密钥。", "DeepSeek accepted and saved the API Key.": "DeepSeek 已接受并保存 API 密钥。", "The API Key was not saved. No existing Key was changed.": "API 密钥未保存，也没有更改任何现有密钥。",
   "Configure a DeepSeek API Key in Services. Official website sign-in only syncs usage history.": "请在“服务”中配置 DeepSeek API 密钥。官方网站登录只用于同步用量历史。", "Open Services Settings": "打开服务设置",
-  "{name} details": "{name} 详情", "Official quota": "官方额度", "{percent}% remaining": "剩余 {percent}%", "Reset credits": "重置次数", "Full usage reset": "完整用量重置", "Expiration": "到期时间", "{count} available": "可用 {count} 次",
+  "{name} details": "{name} 详情", "Official quota": "官方额度", "Gemini quota": "Gemini 额度", "Antigravity CLI": "Antigravity CLI", "Current model": "当前模型", "Available models": "可用模型", "CLI version": "CLI 版本", "{count} models · {families} families": "{count} 个模型 · {families} 个系列", "{percent}% remaining": "剩余 {percent}%", "Reset credits": "重置次数", "Full usage reset": "完整用量重置", "Expiration": "到期时间", "{count} available": "可用 {count} 次",
   "Last {days} days · This PC": "最近 {days} 天 · 本机", "Tokens": "Token", "Sessions": "会话", "Active days": "活跃天数", "Last 30 days · Official website": "最近 30 天 · 官方网站",
   "Updated": "更新于", "Cached · {minutes} min ago": "缓存 · {minutes} 分钟前", "Fresh": "最新", "Refreshing": "正在刷新", "Needs sign-in": "需要登录", "Needs setup": "需要设置",
   "Resets {date}": "重置时间 {date}", "Official value": "官方数据", "Official balance · API usage": "官方余额 · API 用量", "Official quota · Local OpenAI Codex activity": "官方额度 · 本机 OpenAI Codex 活动", "Official quota · Local Claude Code activity": "官方额度 · 本机 Claude Code 活动",

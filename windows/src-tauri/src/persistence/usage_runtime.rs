@@ -26,6 +26,7 @@ impl UsageRuntime {
                     .map(|mut snapshot| {
                         if provider == ProviderId::Gemini {
                             snapshot.display_name = "Google Antigravity".to_owned();
+                            snapshot.normalize_antigravity_quota();
                         }
                         snapshot.status = UsageStatus::Cached;
                         snapshot.status_message = Some("Cached · waiting for refresh".to_owned());
@@ -117,6 +118,7 @@ impl UsageRuntime {
         if snapshot.provider_id != provider || !self.is_current(provider, generation) {
             return false;
         }
+        snapshot.normalize_antigravity_quota();
         let previous = self.snapshot(provider);
         // Balance refreshes never own DeepSeek history. A request can carry an
         // old, non-empty cache snapshot, so the current runtime history is the
@@ -346,6 +348,7 @@ fn status_snapshot(
         status_message: message.or(if provider == ProviderId::Gemini { Some("Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked.") } else { None }).map(str::to_owned),
         reset_credits: Vec::new(),
             gemini_quota_metrics: Vec::new(),
+            antigravity_cli_info: None,
         local_activity: None,
         daily_history: Vec::new(),
         history_fetched_at: None,

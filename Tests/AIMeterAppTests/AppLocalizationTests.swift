@@ -112,6 +112,7 @@ struct AppLocalizationTests {
             "%lldm limit": ["70m limit", "70 分钟限额", "70 分鐘限額"],
             "Cached · %lld min ago": ["Cached · 70 min ago", "缓存 · 70 分钟前", "快取 · 70 分鐘前"],
             "%lld%% remaining": ["70% remaining", "剩余 70%", "剩餘 70%"],
+            "%lld models · %lld families": ["70 models · 70 families", "70 个模型 · 70 个系列", "70 個模型 · 70 個系列"],
             "Resets %@": ["Resets Claude Code", "重置时间：Claude Code", "重設時間：Claude Code"],
             "Resets in %@": ["Resets in Claude Code", "Claude Code 后重置", "Claude Code 後重設"],
             "Source: Antigravity CLI %@ · /usage": ["Source: Antigravity CLI Claude Code · /usage", "来源：Antigravity CLI Claude Code · /usage", "來源：Antigravity CLI Claude Code · /usage"],

@@ -323,3 +323,10 @@
 "%@ · %@" = "%@ · %@";
 "The author link could not be opened." = "無法開啟作者連結。";
 "Opens in your default browser" = "在預設瀏覽器中開啟";
+"Gemini quota" = "Gemini 額度";
+"Last available Gemini quota" = "最近可用的 Gemini 額度";
+"Antigravity CLI" = "Antigravity CLI";
+"Current model" = "目前模型";
+"Available models" = "可用模型";
+"CLI version" = "CLI 版本";
+"%lld models · %lld families" = "%lld 個模型 · %lld 個系列";

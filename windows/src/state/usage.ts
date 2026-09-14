@@ -19,6 +19,12 @@ export type UsageMetric = {
   resetDescription?: string | null
 }
 
+export type AntigravityCLIInfo = {
+  currentModel?: string | null
+  availableModelCount?: number | null
+  modelFamilies: string[]
+}
+
 export type UsageSnapshot = {
   schemaVersion: number
   providerId: ProviderId
@@ -28,6 +34,7 @@ export type UsageSnapshot = {
   primaryMetric?: UsageMetric | null
   secondaryMetric?: UsageMetric | null
   geminiQuotaMetrics?: UsageMetric[]
+  antigravityCLIInfo?: AntigravityCLIInfo | null
   fetchedAt: string
   staleAfterSeconds: number
   sourceVersion?: string | null

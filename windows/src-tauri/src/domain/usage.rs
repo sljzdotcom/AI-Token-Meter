@@ -6,6 +6,8 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
+use crate::security::SensitiveTextRedactor;
+
 const CURRENT_SCHEMA_VERSION: u64 = 1;
 
 #[derive(Clone, Copy, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
@@ -85,6 +87,61 @@ pub struct UsageMetric {
     pub reset_description: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AntigravityCliInfo {
+    #[serde(default)]
+    pub current_model: Option<String>,
+    #[serde(default)]
+    pub available_model_count: Option<u64>,
+    #[serde(default)]
+    pub model_families: Vec<String>,
+}
+
+pub(crate) fn valid_gemini_display_name(value: &str) -> bool {
+    if value.chars().count() > 120
+        || SensitiveTextRedactor::redact(value) != value
+        || !value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || " .-()".contains(character))
+    {
+        return false;
+    }
+    let words = value.split(' ').collect::<Vec<_>>();
+    if !(3..=10).contains(&words.len())
+        || words[0] != "Gemini"
+        || words.iter().any(|word| word.is_empty())
+    {
+        return false;
+    }
+    let version = words[1].split('.').collect::<Vec<_>>();
+    if version.len() < 2
+        || version.iter().any(|part| {
+            part.is_empty() || !part.chars().all(|character| character.is_ascii_digit())
+        })
+    {
+        return false;
+    }
+    let lowered = value.to_ascii_lowercase();
+    if [
+        "bearer", "claude", "gpt", "key", "secret", "token", "sk-", "dk-",
+    ]
+    .iter()
+    .any(|term| lowered.contains(term))
+    {
+        return false;
+    }
+    words.iter().enumerate().skip(2).all(|(index, word)| {
+        if word.contains(['(', ')']) {
+            index == words.len() - 1 && ["(High)", "(Medium)", "(Low)"].contains(word)
+        } else {
+            word.chars()
+                .next()
+                .is_some_and(|character| character.is_ascii_alphanumeric())
+        }
+    })
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MetricUnit {
@@ -152,6 +209,12 @@ pub struct UsageSnapshot {
     pub secondary_metric: Option<UsageMetric>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gemini_quota_metrics: Vec<UsageMetric>,
+    #[serde(
+        default,
+        rename = "antigravityCLIInfo",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub antigravity_cli_info: Option<AntigravityCliInfo>,
     pub fetched_at: String,
     pub stale_after_seconds: u64,
     #[serde(default)]
@@ -169,6 +232,71 @@ pub struct UsageSnapshot {
 }
 
 impl UsageSnapshot {
+    pub fn normalize_antigravity_quota(&mut self) {
+        if self.provider_id != ProviderId::Gemini {
+            return;
+        }
+        self.normalize_antigravity_cli_info();
+        let mut published = Vec::with_capacity(2);
+        for label in ["Gemini · Five hour", "Gemini · Weekly"] {
+            let matches = self
+                .gemini_quota_metrics
+                .iter()
+                .filter(|metric| metric.label == label)
+                .collect::<Vec<_>>();
+            let Some(metric) = matches.first().filter(|_| matches.len() == 1) else {
+                published.clear();
+                break;
+            };
+            if !metric.current.is_finite()
+                || !(0.0..=100.0).contains(&metric.current)
+                || metric.limit != Some(100.0)
+                || metric.unit != MetricUnit::Percent
+                || metric.kind != MetricKind::OfficialLimit
+                || metric.reset_at.is_none()
+            {
+                published.clear();
+                break;
+            }
+            published.push((*metric).clone());
+        }
+        let mut ranked = published.clone();
+        ranked.sort_by(|left, right| right.current.total_cmp(&left.current));
+        self.used_ratio = ranked
+            .first()
+            .and_then(|metric| Ratio::new(metric.current / 100.0).ok());
+        self.primary_metric = ranked.first().cloned();
+        self.secondary_metric = ranked.get(1).cloned();
+        self.gemini_quota_metrics = published;
+    }
+
+    fn normalize_antigravity_cli_info(&mut self) {
+        let Some(info) = &self.antigravity_cli_info else {
+            return;
+        };
+        let valid_model = valid_gemini_display_name;
+        let mut families = std::collections::HashSet::new();
+        let is_empty = info.current_model.is_none()
+            && info.available_model_count.is_none()
+            && info.model_families.is_empty();
+        if is_empty
+            || info
+                .current_model
+                .as_deref()
+                .is_some_and(|model| !valid_model(model))
+            || info
+                .available_model_count
+                .is_some_and(|count| !(1..=64).contains(&count))
+            || info.model_families.len() > 16
+            || info
+                .model_families
+                .iter()
+                .any(|family| !valid_model(family) || !families.insert(family))
+        {
+            self.antigravity_cli_info = None;
+        }
+    }
+
     pub fn decode_compatible(value: &Value) -> Result<Self, UsageDecodeError> {
         let schema_version = value
             .get("schemaVersion")
@@ -187,16 +315,10 @@ impl UsageSnapshot {
             ));
         }
         let mut tier_names = std::collections::HashSet::new();
-        if snapshot.gemini_quota_metrics.len() > 4
+        if snapshot.gemini_quota_metrics.len() > 2
             || snapshot.gemini_quota_metrics.iter().any(|metric| {
                 snapshot.provider_id != ProviderId::Gemini
-                    || ![
-                        "Gemini · Five hour",
-                        "Gemini · Weekly",
-                        "Claude/GPT · Five hour",
-                        "Claude/GPT · Weekly",
-                    ]
-                    .contains(&metric.label.as_str())
+                    || !["Gemini · Five hour", "Gemini · Weekly"].contains(&metric.label.as_str())
                     || !tier_names.insert(&metric.label)
                     || !metric.current.is_finite()
                     || !(0.0..=100.0).contains(&metric.current)
@@ -207,6 +329,26 @@ impl UsageSnapshot {
             })
         {
             return Err(UsageDecodeError::new("invalid Antigravity quota window"));
+        }
+        if let Some(info) = &snapshot.antigravity_cli_info {
+            let valid_model = valid_gemini_display_name;
+            let mut families = std::collections::HashSet::new();
+            if snapshot.provider_id != ProviderId::Gemini
+                || info
+                    .current_model
+                    .as_deref()
+                    .is_some_and(|model| !valid_model(model))
+                || info
+                    .available_model_count
+                    .is_some_and(|count| !(1..=64).contains(&count))
+                || info.model_families.len() > 16
+                || info
+                    .model_families
+                    .iter()
+                    .any(|family| !valid_model(family) || !families.insert(family))
+            {
+                return Err(UsageDecodeError::new("invalid Antigravity CLI info"));
+            }
         }
         Ok(snapshot)
     }
@@ -265,6 +407,7 @@ impl UsageSnapshot {
             )),
             reset_credits: Vec::new(),
             gemini_quota_metrics: Vec::new(),
+            antigravity_cli_info: None,
             local_activity: None,
             daily_history: Vec::new(),
             history_fetched_at: None,

@@ -178,6 +178,16 @@ if schema
       (%w[label current limit unit kind] - Array(gemini_metric["required"])).empty?
     errors << "Antigravity metric schema must require a non-null object with limit and source fields"
   end
+  unless schema.dig("properties", "geminiQuotaMetrics", "maxItems") == 2 &&
+      gemini_metric&.dig("properties", "label", "enum") == ["Gemini · Five hour", "Gemini · Weekly"]
+    errors << "Antigravity quota schema must expose only two Gemini windows"
+  end
+  cli_info = schema.dig("$defs", "antigravityCLIInfo")
+  unless cli_info.is_a?(Hash) && cli_info["type"] == ["object", "null"] &&
+      Array(cli_info["required"]).include?("modelFamilies") &&
+      cli_info["additionalProperties"] == false
+    errors << "Antigravity CLI info schema must be bounded and reject unknown fields"
+  end
   schema_statuses = schema.dig("properties", "status", "enum")
   errors << "Snapshot schema status enum is incomplete" unless schema_statuses == allowed_statuses
   schema_providers = schema.dig("properties", "providerId", "enum")
@@ -224,7 +234,7 @@ fixture_paths.each do |path|
   end
   tiers = fixture["geminiQuotaMetrics"]
   if tiers
-    valid = fixture["providerId"] == "gemini" && tiers.is_a?(Array) && tiers.length == 4 && tiers.all? { |item| item.is_a?(Hash) }
+    valid = fixture["providerId"] == "gemini" && tiers.is_a?(Array) && tiers.length == 2 && tiers.all? { |item| item.is_a?(Hash) }
     valid &&= tiers.map { |item| item["label"] }.uniq.length == tiers.length
     valid &&= tiers.all? do |item|
       current = item["current"]
@@ -235,16 +245,30 @@ fixture_paths.each do |path|
     end
     errors << "#{path.basename}: invalid Antigravity quota window" unless valid
   end
+  cli_info = fixture["antigravityCLIInfo"]
+  if cli_info
+    current_model = cli_info["currentModel"]
+    available_count = cli_info["availableModelCount"]
+    families = cli_info["modelFamilies"]
+    valid_model = ->(value) { value.is_a?(String) && value.start_with?("Gemini ") && value.length <= 120 }
+    valid = fixture["providerId"] == "gemini" && cli_info.is_a?(Hash) &&
+      (current_model.nil? || valid_model.call(current_model)) &&
+      (available_count.nil? || (available_count.is_a?(Integer) && available_count.between?(1, 64))) &&
+      families.is_a?(Array) && families.length <= 16 && families.uniq.length == families.length &&
+      families.all? { |family| valid_model.call(family) }
+    errors << "#{path.basename}: invalid Antigravity CLI info" unless valid
+  end
   if path.basename.to_s == "gemini-fresh.json"
     unless tiers&.map { |item| [item["label"], item["current"]] } == [
         ["Gemini · Five hour", 60],
-        ["Gemini · Weekly", 25],
-        ["Claude/GPT · Five hour", 80],
-        ["Claude/GPT · Weekly", 20]
-      ] && fixture.dig("primaryMetric", "label") == "Claude/GPT · Five hour" &&
-        fixture.dig("secondaryMetric", "label") == "Gemini · Five hour" &&
-        fixture["usedRatio"] == 0.8
-      errors << "Antigravity fresh fixture must preserve the official synthetic quota windows"
+        ["Gemini · Weekly", 25]
+      ] && fixture.dig("primaryMetric", "label") == "Gemini · Five hour" &&
+        fixture.dig("secondaryMetric", "label") == "Gemini · Weekly" &&
+        fixture["usedRatio"] == 0.6 &&
+        cli_info&.dig("currentModel") == "Gemini 3.8 Flash (High)" &&
+        cli_info&.dig("availableModelCount") == 4 &&
+        cli_info&.dig("modelFamilies") == ["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini 3.1 Pro"]
+      errors << "Antigravity fresh fixture must preserve the Gemini-only quota and CLI info contract"
     end
   end
   ratio = fixture["usedRatio"]

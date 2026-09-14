@@ -4,7 +4,7 @@
 
 两平台注册第四个 Provider，界面显示 **Google Antigravity**，内部保留 `gemini` ID 以兼容既有排序、隐藏设置、缓存与 Widget 数据。Swift `GeminiCollector` 与 Rust `gemini` collector 只发现原生 `agy`，在受控环境中先验证 1.1.28 起的 1.x 版本，再以普通有界进程执行固定的 `-p /usage`；不使用 PTY/ConPTY、按键注入或旧 `gemini` CLI 回退。Windows 首期只允许 native。
 
-快照中的 `geminiQuotaMetrics` 固定保存 Gemini 与 Claude/GPT 两组的 Five hour、Weekly 四个窗口。采集器把 CLI 的剩余百分比转换为领域模型的已用百分比，主指标选择最高已用窗口；详情仍明确展示剩余百分比与各自重置时间。Settings 从同次采集结果推导状态，旧缓存的可见名称在读取时迁移。界面四项配置继续使用既有兼容迁移；Widget 默认仍显示原三项。见[迁移规格](../design/specifications/2026-09-09-antigravity-cli-migration-design.md)及[合同](../../contracts/README.md)。
+快照中的 `geminiQuotaMetrics` 只保存 Gemini Five hour 与 Weekly 两个窗口。采集器验证官方 `/usage` 输出后只发布这两行，把剩余百分比转换为已用百分比，主指标选择两者中最高已用窗口；旧四窗口缓存读取时也归一化为相同语义。额度成功后，`antigravityCLIInfo` 可选附加 `/model` 与 `models` 返回的当前 Gemini 模型、动态可用数量和去重系列；任一附加命令失败都不改变额度状态。Settings 从同次额度采集结果推导状态，界面四项配置继续使用既有兼容迁移；Widget 默认仍显示原三项。见[Gemini优先规格](../design/specifications/2026-09-14-antigravity-gemini-detail-design.md)及[合同](../../contracts/README.md)。
 
 ## 目标
 
@@ -92,7 +92,7 @@ Unreleased Windows 本地化由 Rust 持久化 `locale`，前端集中翻译字�
 - OpenAI Codex 重置额度摘要；
 - OpenAI Codex 本机 30 天活动摘要；
 - Claude Code 本机 30 天每日 Token、会话、活跃日和模型摘要；
-- Google Antigravity 四个官方额度窗口；
+- Google Antigravity 两个 Gemini 官方额度窗口与可选 CLI 模型摘要；
 - DeepSeek 标准化历史用量。
 
 ### Coordination
