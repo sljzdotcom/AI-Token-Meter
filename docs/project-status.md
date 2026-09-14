@@ -72,7 +72,7 @@ AI Token Meter 是面向 Apple Silicon macOS 14+ 与 Windows 11 x64 的本地桌
 | --- | --- | --- | --- | --- |
 | 主要来源 | CLI `/usage` | 自动发现的 CLI/桌面 App 内置 `app-server` JSON-RPC | 官方余额 API | 官方 Antigravity CLI 1.1.28+ 的 `/usage` |
 | 身份状态 | `claude auth status --json` | `app-server` account/read | Keychain 中 API Key 后四位 | `agy` 的 Google 登录状态 |
-| 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 | 四个官方窗口的剩余额度换算已用比例 |
+| 主指标 | 当前会话与周额度已用比例 | 通用速率限制已用比例 | 相对余额基准的已消耗比例 | Gemini 五小时/每周窗口中的最高已用比例 |
 | 补充详情 | 本机近 30 天会话、活跃日、Token、趋势 | 重置券；本机近 30 天 Token、连续日、最长会话 | 隔离官网会话中的近 30 天成本、请求、Token、趋势 | Gemini 五小时/每周窗口，当前模型、动态可用模型数量/系列、CLI 版本与采集时间 |
 | 登录/换号 | Services 打开官方 CLI 登录 | Services 打开官方 CLI 登录 | 两阶段验证后替换 Key | 先在官方 CLI 登录；Services 提供官方指南与重新检查 |
 | 失败降级 | 最近成功快照或明确错误 | 最近成功快照或明确错误 | 余额与历史各自独立缓存/错误 | 最近成功快照或明确的安装、认证、版本、配置、解析状态 |

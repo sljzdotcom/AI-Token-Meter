@@ -40,12 +40,17 @@ struct GeminiCacheTests {
             UsageMetric(label: "Claude/GPT · Five hour", current: 80, limit: 100, unit: .percent, resetAt: reset),
             UsageMetric(label: "Claude/GPT · Weekly", current: 20, limit: 100, unit: .percent, resetAt: reset),
         ]
-        try cache.save([UsageSnapshot(
+        let legacy = UsageSnapshot(
             provider: .gemini,
             primaryMetric: metrics[2],
             secondaryMetric: metrics[0],
             geminiQuotaMetrics: metrics
-        )])
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try encoder.encode(LegacyGeminiCacheEnvelope(version: 1, snapshots: [legacy]))
+            .write(to: cache.fileURL)
 
         let restored = try #require(cache.load().first)
 
@@ -68,7 +73,14 @@ struct GeminiCacheTests {
         #expect(restored.secondaryMetric == nil)
     }
 
-    @Test func cachedThirdPartyModelInformationDoesNotRemainVisible() throws {
+    @Test(arguments: [
+        "Claude Sonnet",
+        "Gemini user@example.com",
+        "Gemini /Users/example/.config",
+        "Gemini sk-proj-secretvalue",
+        "Gemini Claude/GPT",
+    ])
+    func cachedUnsafeModelInformationDoesNotRemainVisible(_ unsafeModel: String) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("gemini-cache-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = SnapshotCache(directoryURL: root)
@@ -77,21 +89,30 @@ struct GeminiCacheTests {
             UsageMetric(label: "Gemini · Five hour", current: 60, limit: 100, unit: .percent, resetAt: reset),
             UsageMetric(label: "Gemini · Weekly", current: 25, limit: 100, unit: .percent, resetAt: reset),
         ]
-        try cache.save([UsageSnapshot(
+        let legacy = UsageSnapshot(
             provider: .gemini,
             primaryMetric: metrics[0],
             secondaryMetric: metrics[1],
             geminiQuotaMetrics: metrics,
             antigravityCLIInfo: AntigravityCLIInfo(
-                currentModel: "Claude Sonnet",
+                currentModel: unsafeModel,
                 availableModelCount: 1,
-                modelFamilies: ["Claude Sonnet"]
+                modelFamilies: [unsafeModel]
             )
-        )])
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(LegacyGeminiCacheEnvelope(version: 1, snapshots: [legacy]))
+            .write(to: cache.fileURL)
 
         #expect(try cache.load().first?.antigravityCLIInfo == nil)
     }
 }
+
+private struct LegacyGeminiCacheEnvelope: Encodable {
+    let version: Int
+    let snapshots: [UsageSnapshot]
+}
+
 private struct FailedGemini: UsageCollector {
     let provider = UsageProvider.gemini
     func collect() async throws -> UsageSnapshot { throw UsageCollectionError.geminiUnavailable("Antigravity CLI authentication mode is not supported") }

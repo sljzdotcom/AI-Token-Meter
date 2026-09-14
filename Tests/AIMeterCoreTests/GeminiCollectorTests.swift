@@ -75,6 +75,55 @@ struct GeminiCollectorTests {
         #expect(snapshot.antigravityCLIInfo == nil)
     }
 
+    @Test func supplementalCommandsFailIndependently() async throws {
+        let currentContext = try context(); defer { try? FileManager.default.removeItem(at: currentContext.root) }
+        let currentFailure = try await GeminiCollector(
+            runner: RecordingAntigravityRunner(version: "1.2.2", currentModelThrows: true),
+            locator: AntigravityTestLocator(),
+            environment: currentContext.environment
+        ).collect()
+        #expect(currentFailure.collectionStatus == .fresh)
+        #expect(currentFailure.antigravityCLIInfo?.currentModel == nil)
+        #expect(currentFailure.antigravityCLIInfo?.availableModelCount == 3)
+
+        let catalogContext = try context(); defer { try? FileManager.default.removeItem(at: catalogContext.root) }
+        let catalogFailure = try await GeminiCollector(
+            runner: RecordingAntigravityRunner(version: "1.2.2", modelsThrows: true),
+            locator: AntigravityTestLocator(),
+            environment: catalogContext.environment
+        ).collect()
+        #expect(catalogFailure.collectionStatus == .fresh)
+        #expect(catalogFailure.antigravityCLIInfo?.currentModel == "Gemini 3.8 Flash (High)")
+        #expect(catalogFailure.antigravityCLIInfo?.availableModelCount == nil)
+        #expect(catalogFailure.antigravityCLIInfo?.modelFamilies.isEmpty == true)
+    }
+
+    @Test func supplementalCancellationPropagates() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        await #expect(throws: CancellationError.self) {
+            try await GeminiCollector(
+                runner: RecordingAntigravityRunner(version: "1.2.2", currentModelCancels: true),
+                locator: AntigravityTestLocator(),
+                environment: context.environment
+            ).collect()
+        }
+    }
+
+    @Test func failedQuotaNeverStartsSupplementalCommands() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: "1.2.2", usageExitCode: 2, usageOutput: "transport failure")
+        await #expect(throws: UsageCollectionError.transportFailure) {
+            try await GeminiCollector(
+                runner: runner,
+                locator: AntigravityTestLocator(),
+                environment: context.environment
+            ).collect()
+        }
+        let requests = await runner.requests
+        #expect(requests.count == 2)
+        #expect(!requests.contains { $0.arguments.contains("/model") || $0.arguments.first == "models" })
+    }
+
     @Test(arguments: ["1.1.28", "1.1.29", "1.2.0", "1.99.1"])
     func acceptsSupportedMajorWhenStrictUsageOutputMatches(_ version: String) async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
@@ -154,6 +203,9 @@ private actor RecordingAntigravityRunner: CommandRunning {
     let currentModelOutput: String
     let modelsExitCode: Int32
     let modelsOutput: String
+    let currentModelThrows: Bool
+    let modelsThrows: Bool
+    let currentModelCancels: Bool
     var requests: [CommandRequest] = []
 
     init(
@@ -163,6 +215,9 @@ private actor RecordingAntigravityRunner: CommandRunning {
         currentModelExitCode: Int32 = 0,
         currentModelOutput: String = "gemini-3.8-flash-high\tGemini 3.8 Flash (High)",
         modelsExitCode: Int32 = 0,
+        currentModelThrows: Bool = false,
+        modelsThrows: Bool = false,
+        currentModelCancels: Bool = false,
         modelsOutput: String = """
         Fetching available models...
         gemini-3.8-flash-high\tGemini 3.8 Flash (High)
@@ -177,6 +232,9 @@ private actor RecordingAntigravityRunner: CommandRunning {
         self.currentModelExitCode = currentModelExitCode
         self.currentModelOutput = currentModelOutput
         self.modelsExitCode = modelsExitCode
+        self.currentModelThrows = currentModelThrows
+        self.modelsThrows = modelsThrows
+        self.currentModelCancels = currentModelCancels
         self.modelsOutput = modelsOutput
     }
 
@@ -189,8 +247,11 @@ private actor RecordingAntigravityRunner: CommandRunning {
             return CommandResult(output: usageOutput, exitCode: usageExitCode, duration: 0.1)
         }
         if request.arguments.contains("/model") {
+            if currentModelCancels { throw CancellationError() }
+            if currentModelThrows { throw UsageCollectionError.timedOut }
             return CommandResult(output: currentModelOutput, exitCode: currentModelExitCode, duration: 0.1)
         }
+        if modelsThrows { throw UsageCollectionError.timedOut }
         return CommandResult(output: modelsOutput, exitCode: modelsExitCode, duration: 0.1)
     }
 }

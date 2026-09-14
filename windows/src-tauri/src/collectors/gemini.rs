@@ -1,7 +1,7 @@
 use super::CollectionError;
 use crate::domain::{
     AntigravityCliInfo, MetricKind, MetricUnit, ProviderId, Ratio, UsageMetric, UsageSnapshot,
-    UsageStatus,
+    UsageStatus, valid_gemini_display_name,
 };
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -28,6 +28,12 @@ pub fn parse_current_gemini_model(raw: &str) -> Option<String> {
 
 pub fn parse_gemini_catalog(raw: &str) -> Option<GeminiModelCatalog> {
     let rows = parse_model_rows(raw, true)?;
+    if rows
+        .iter()
+        .any(|row| row.0.starts_with("gemini-") && !is_gemini_model(row))
+    {
+        return None;
+    }
     let gemini = rows.into_iter().filter(is_gemini_model).collect::<Vec<_>>();
     if gemini.is_empty() {
         return None;
@@ -98,7 +104,24 @@ fn valid_model_value(value: &str) -> bool {
 }
 
 fn is_gemini_model((id, name): &(String, String)) -> bool {
-    id.starts_with("gemini-") && name.starts_with("Gemini ")
+    valid_gemini_model_id(id) && valid_gemini_display_name(name)
+}
+
+fn valid_gemini_model_id(value: &str) -> bool {
+    value.starts_with("gemini-")
+        && value.chars().count() <= MAXIMUM_MODEL_VALUE_LENGTH
+        && value
+            .chars()
+            .last()
+            .is_some_and(|character| character.is_ascii_alphanumeric())
+        && !value.contains("--")
+        && !value.contains("..")
+        && value.chars().all(|character| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || character == '-'
+                || character == '.'
+        })
 }
 
 fn model_family(name: &str) -> String {

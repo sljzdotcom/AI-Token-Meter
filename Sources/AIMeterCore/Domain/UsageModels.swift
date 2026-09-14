@@ -97,6 +97,31 @@ public struct AntigravityCLIInfo: Codable, Equatable, Sendable {
         self.availableModelCount = availableModelCount
         self.modelFamilies = modelFamilies
     }
+
+    static func isValidGeminiDisplayName(_ value: String) -> Bool {
+        guard value.count <= 120,
+              value.unicodeScalars.allSatisfy({ scalar in
+                  scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar)
+                      || " .-()".unicodeScalars.contains(scalar))
+              }) else { return false }
+        let words = value.split(separator: " ", omittingEmptySubsequences: false)
+        guard words.count >= 3,
+              words[0] == "Gemini",
+              !words.contains(where: \.isEmpty) else { return false }
+        let versionParts = words[1].split(separator: ".", omittingEmptySubsequences: false)
+        guard versionParts.count >= 2,
+              versionParts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) }) else {
+            return false
+        }
+        let forbidden = ["bearer", "claude", "gpt", "key", "secret", "token", "sk-", "dk-"]
+        let lowered = value.lowercased()
+        guard !forbidden.contains(where: lowered.contains) else { return false }
+        for (index, word) in words.dropFirst(2).enumerated() where word.contains("(") || word.contains(")") {
+            guard index == words.count - 3,
+                  ["(High)", "(Medium)", "(Low)"].contains(String(word)) else { return false }
+        }
+        return true
+    }
 }
 
 public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
@@ -203,9 +228,7 @@ public extension UsageSnapshot {
 
     private func normalizedAntigravityCLIInfo() -> AntigravityCLIInfo? {
         guard let info = antigravityCLIInfo else { return nil }
-        let validModel: (String) -> Bool = { value in
-            value.hasPrefix("Gemini ") && value.count <= 120 && !value.contains(where: \.isNewline)
-        }
+        let validModel = AntigravityCLIInfo.isValidGeminiDisplayName
         guard info.currentModel.map(validModel) ?? true,
               info.availableModelCount.map({ (1...64).contains($0) }) ?? true,
               info.modelFamilies.count <= 16,

@@ -24,6 +24,9 @@ public enum AntigravityCLIInfoParser {
 
     public static func geminiCatalog(from text: String) -> AntigravityModelCatalog? {
         guard let rows = parsedRows(from: text, allowsBanner: true) else { return nil }
+        guard !rows.contains(where: { $0.id.hasPrefix("gemini-") && !isGemini($0) }) else {
+            return nil
+        }
         let gemini = rows.filter(isGemini)
         guard !gemini.isEmpty else { return nil }
 
@@ -69,7 +72,17 @@ public enum AntigravityCLIInfoParser {
     }
 
     private static func isGemini(_ row: (id: String, name: String)) -> Bool {
-        row.id.hasPrefix("gemini-") && row.name.hasPrefix("Gemini ")
+        validGeminiModelID(row.id) && AntigravityCLIInfo.isValidGeminiDisplayName(row.name)
+    }
+
+    private static func validGeminiModelID(_ value: String) -> Bool {
+        guard value.hasPrefix("gemini-"), value.count <= maximumValueLength,
+              value.last?.isLetter == true || value.last?.isNumber == true,
+              !value.contains("--"), !value.contains("..") else { return false }
+        return value.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII && (CharacterSet.lowercaseLetters.contains(scalar)
+                || CharacterSet.decimalDigits.contains(scalar) || scalar == "-" || scalar == ".")
+        }
     }
 
     private static func familyName(_ displayName: String) -> String {

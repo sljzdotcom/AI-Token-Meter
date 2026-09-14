@@ -1,6 +1,6 @@
 use ai_token_meter_windows::collectors::CollectionError;
 use ai_token_meter_windows::collectors::gemini::{
-    parse_current_gemini_model, parse_gemini_catalog, parse_usage,
+    cli_info, parse_current_gemini_model, parse_gemini_catalog, parse_usage,
 };
 use ai_token_meter_windows::domain::{MetricKind, MetricUnit};
 
@@ -60,6 +60,15 @@ fn parses_only_current_gemini_model() {
         ),
         None
     );
+    for unsafe_output in [
+        "gemini-3.8-flash-high\tGemini user@example.com",
+        "gemini-3.8-flash-high\tGemini /Users/example/.config",
+        "gemini-3.8-flash-high\tGemini sk-proj-secretvalue",
+        "gemini-3.8-flash-high\tGemini Claude/GPT",
+        "gemini--3.8-flash\tGemini 3.8 Flash",
+    ] {
+        assert_eq!(parse_current_gemini_model(unsafe_output), None);
+    }
 }
 
 #[test]
@@ -79,6 +88,31 @@ fn filters_third_party_models_and_groups_gemini_families() {
     );
     assert!(parse_gemini_catalog("Fetching available models...").is_none());
     assert!(parse_gemini_catalog("gemini-3.8-flash-high").is_none());
+    assert!(
+        parse_gemini_catalog(
+            "gemini-3.8-flash-high\tGemini 3.8 Flash\n\
+         gemini-3.7-flash-high\tGemini user@example.com"
+        )
+        .is_none()
+    );
+}
+
+#[test]
+fn supplemental_results_merge_independently() {
+    let current = "gemini-3.8-flash-high\tGemini 3.8 Flash (High)";
+    let catalog = "gemini-3.8-flash-high\tGemini 3.8 Flash (High)";
+    let without_catalog = cli_info(Some(current), None).unwrap();
+    assert_eq!(
+        without_catalog.current_model.as_deref(),
+        Some("Gemini 3.8 Flash (High)")
+    );
+    assert_eq!(without_catalog.available_model_count, None);
+    assert!(without_catalog.model_families.is_empty());
+
+    let without_current = cli_info(None, Some(catalog)).unwrap();
+    assert_eq!(without_current.current_model, None);
+    assert_eq!(without_current.available_model_count, Some(1));
+    assert_eq!(without_current.model_families, vec!["Gemini 3.8 Flash"]);
 }
 
 #[test]

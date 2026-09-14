@@ -96,6 +96,44 @@ pub struct AntigravityCliInfo {
     pub model_families: Vec<String>,
 }
 
+pub(crate) fn valid_gemini_display_name(value: &str) -> bool {
+    if value.chars().count() > 120
+        || !value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || " .-()".contains(character))
+    {
+        return false;
+    }
+    let words = value.split(' ').collect::<Vec<_>>();
+    if words.len() < 3 || words[0] != "Gemini" || words.iter().any(|word| word.is_empty()) {
+        return false;
+    }
+    let version = words[1].split('.').collect::<Vec<_>>();
+    if version.len() < 2
+        || version.iter().any(|part| {
+            part.is_empty() || !part.chars().all(|character| character.is_ascii_digit())
+        })
+    {
+        return false;
+    }
+    let lowered = value.to_ascii_lowercase();
+    if [
+        "bearer", "claude", "gpt", "key", "secret", "token", "sk-", "dk-",
+    ]
+    .iter()
+    .any(|term| lowered.contains(term))
+    {
+        return false;
+    }
+    words.iter().enumerate().skip(2).all(|(index, word)| {
+        if word.contains(['(', ')']) {
+            index == words.len() - 1 && ["(High)", "(Medium)", "(Low)"].contains(word)
+        } else {
+            true
+        }
+    })
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MetricUnit {
@@ -228,12 +266,7 @@ impl UsageSnapshot {
         let Some(info) = &self.antigravity_cli_info else {
             return;
         };
-        let valid_model = |value: &str| {
-            value.starts_with("Gemini ")
-                && value.len() <= 120
-                && !value.contains('\n')
-                && !value.contains('\r')
-        };
+        let valid_model = valid_gemini_display_name;
         let mut families = std::collections::HashSet::new();
         let is_empty = info.current_model.is_none()
             && info.available_model_count.is_none()
@@ -290,7 +323,7 @@ impl UsageSnapshot {
             return Err(UsageDecodeError::new("invalid Antigravity quota window"));
         }
         if let Some(info) = &snapshot.antigravity_cli_info {
-            let valid_model = |value: &str| value.starts_with("Gemini ") && value.len() <= 120;
+            let valid_model = valid_gemini_display_name;
             let mut families = std::collections::HashSet::new();
             if snapshot.provider_id != ProviderId::Gemini
                 || info

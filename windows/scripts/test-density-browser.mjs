@@ -49,10 +49,18 @@ await runWithCleanup(async () => {
   if (report.geminiSamples?.length !== 8) throw new Error("Missing Antigravity detail states")
   for (const sample of report.geminiSamples) {
     if (!sample.unclipped || sample.retries !== 1 || sample.guides !== 1 || !sample.reasonVisible
-      || (sample.hasQuota ? sample.texts.length !== 4
+      || sample.thirdPartyVisible
+      || (sample.hasQuota ? sample.texts.length !== 2
         || !sample.texts.some(text=>text.includes("Gemini · Five hour") && text.includes("40% remaining"))
-        || !sample.texts.some(text=>text.includes("Claude/GPT · Weekly") && text.includes("80% remaining"))
-        : sample.texts.some(text=>text.includes("0% remaining")))) {
+        || !sample.texts.some(text=>text.includes("Gemini · Weekly") && text.includes("75% remaining"))
+        || !sample.cliText.includes("Current model")
+        || !sample.cliText.includes("Gemini 3.8 Flash (High)")
+        || !sample.cliText.includes("Available models")
+        || !sample.cliText.includes("4 models · 3 families")
+        || !sample.cliText.includes("Gemini 3.8 Flash · Gemini 3.7 Flash · Gemini 3.1 Pro")
+        || !sample.cliText.includes("CLI version")
+        || !sample.cliText.includes("1.2.2")
+        : sample.texts.some(text=>text.includes("0% remaining")) || sample.cliText !== "")) {
       throw new Error(`Antigravity detail state mismatch: ${JSON.stringify(sample)}`)
     }
     if (sample.accentRoles?.title !== "rgb(62, 214, 178)") {
@@ -76,7 +84,7 @@ await runWithCleanup(async () => {
       throw new Error(`Provider detail surface mismatch: ${JSON.stringify(sample)}`)
     }
   }
-  console.log("Antigravity detail verified: 8 fresh/cache/auth/unavailable clipping and action scenarios")
+  console.log("Antigravity detail verified: 8 Gemini-only quota and CLI info scenarios")
   console.log("Four-provider strip geometry verified: 16 real CSS clipping/hit-test scenarios")
   console.log("Folded strip geometry verified: 2 real CSS hit-window and concave-handle scenarios")
   console.log(`Browser density styles verified with ${result.browser.label}: ${report.detailSamples.length} text roles across providers, locales and fonts`)

@@ -101,14 +101,21 @@ fn optional_output(
     arguments: Vec<String>,
     cancellation: Arc<CancellationToken>,
 ) -> Result<Option<String>, CollectionError> {
-    match run(
+    optional_output_result(run(
         candidate,
         environment,
         arguments,
         Duration::from_secs(15),
         USAGE_OUTPUT_LIMIT,
         cancellation,
-    ) {
+    ))
+}
+
+#[cfg(any(windows, test))]
+fn optional_output_result(
+    result: Result<ProcessOutput, CollectionError>,
+) -> Result<Option<String>, CollectionError> {
+    match result {
         Ok(output) if output.exit_code == Some(0) => Ok(Some(output.stdout)),
         Ok(_) => Ok(None),
         Err(CollectionError::Cancelled) => Err(CollectionError::Cancelled),
@@ -253,5 +260,35 @@ mod tests {
                 Err(CollectionError::UnsupportedVersion)
             ));
         }
+    }
+
+    #[test]
+    fn supplemental_failures_are_optional_but_cancellation_propagates() {
+        let successful = ProcessOutput {
+            exit_code: Some(0),
+            stdout: "Gemini 3.8 Flash".into(),
+            stderr: String::new(),
+        };
+        let failed = ProcessOutput {
+            exit_code: Some(2),
+            stdout: String::new(),
+            stderr: "failed".into(),
+        };
+        assert_eq!(
+            optional_output_result(Ok(successful)).unwrap().as_deref(),
+            Some("Gemini 3.8 Flash")
+        );
+        assert_eq!(optional_output_result(Ok(failed)).unwrap(), None);
+        for failure in [
+            CollectionError::TimedOut,
+            CollectionError::Transport,
+            CollectionError::UnrecognizedOutput,
+        ] {
+            assert_eq!(optional_output_result(Err(failure)).unwrap(), None);
+        }
+        assert_eq!(
+            optional_output_result(Err(CollectionError::Cancelled)),
+            Err(CollectionError::Cancelled)
+        );
     }
 }

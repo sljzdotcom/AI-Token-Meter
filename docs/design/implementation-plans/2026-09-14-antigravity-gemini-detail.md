@@ -2,8 +2,8 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 test-driven-development 逐任务完成红灯、绿灯和重构；完成后使用 verification-before-completion 与 requesting-code-review。
 
-**目标：** 让双平台 Antigravity 详情、汇总、圆环和提醒只使用 Gemini 两个额度窗口，并以可选的真实 CLI 模型信息充实详情。  
-**架构：** 额度解析层验证可选 Claude/GPT 行但只产出 Gemini 指标，从源头统一所有下游口径；可选 `AntigravityCLIInfo` 由独立有界命令采集并随快照缓存。详情层只消费统一快照。  
+**目标：** 让双平台 Antigravity 详情、汇总、圆环和提醒只使用 Gemini 两个额度窗口，并以可选的真实 CLI 模型信息充实详情。
+**架构：** 额度解析层验证可选 Claude/GPT 行但只产出 Gemini 指标，从源头统一所有下游口径；可选 `AntigravityCLIInfo` 由独立有界命令采集并随快照缓存。详情层只消费统一快照。
 **技术栈：** Swift 6/SwiftUI/Swift Testing、Rust/Serde、React/TypeScript/Vitest、JSON Schema
 
 ---
