@@ -35,11 +35,11 @@ trap 'rm -rf "$VERIFY_DIR"' EXIT
 codesign -d --entitlements :- "$APP" >"$VERIFY_DIR/app-entitlements.plist" 2>/dev/null
 codesign -d --entitlements :- "$APPEX" >"$VERIFY_DIR/widget-entitlements.plist" 2>/dev/null
 
-APP_GROUPS="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$VERIFY_DIR/app-entitlements.plist")"
-WIDGET_GROUPS="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$VERIFY_DIR/widget-entitlements.plist")"
+APP_GROUP="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups:0" "$VERIFY_DIR/app-entitlements.plist")"
+WIDGET_GROUP="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups:0" "$VERIFY_DIR/widget-entitlements.plist")"
 WIDGET_SANDBOX="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.app-sandbox" "$VERIFY_DIR/widget-entitlements.plist")"
 
-if [[ "$APP_GROUPS" != *"\"$EXPECTED_GROUP\""* || "$WIDGET_GROUPS" != *"\"$EXPECTED_GROUP\""* ]]; then
+if [[ "$APP_GROUP" != "$EXPECTED_GROUP" || "$WIDGET_GROUP" != "$EXPECTED_GROUP" ]]; then
     echo "Signed App Group entitlements do not match." >&2
     exit 1
 fi

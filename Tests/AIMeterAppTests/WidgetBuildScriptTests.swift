@@ -33,6 +33,9 @@ struct WidgetBuildScriptTests {
         #expect(source.contains("codesign --verify --deep --strict"))
         #expect(source.contains("AIWidgetAppGroupIdentifier"))
         #expect(source.contains("/usr/libexec/PlistBuddy"))
+        #expect(source.contains("Print :com.apple.security.application-groups:0"))
+        #expect(!source.contains("APP_GROUPS\" != *\"\\\"$EXPECTED_GROUP\\\"\"*"))
+        #expect(!source.contains("WIDGET_GROUPS\" != *\"\\\"$EXPECTED_GROUP\\\"\"*"))
         #expect(!source.contains("plutil -extract com.apple.security.application-groups"))
         #expect(!source.contains("plutil -extract com.apple.security.app-sandbox"))
     }
