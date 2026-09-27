@@ -1,6 +1,6 @@
 # AI Token Meter 待完成需求与需求历史
 
-**最后更新：** 2026-09-27
+**最后更新：** 2026-09-28
 **用途：** 统一记录用户在开发过程中随时提出的碎片化需求，避免任务耗时较长或对话切换后遗漏。
 
 ## 使用规则
@@ -15,7 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260927-004 | macOS Codex CLI路径识别与稳定版发布 | 用户批准修复ChatGPT.app内嵌CLI发现缺陷，并明确要求公开发布 | 高 | 进行中 | 2026-09-27 | 完成0.10.3/build31候选PR、main、双平台签名资产、Release、三个更新入口与匿名验收 | 实现与发布证据见 [发布记录](development/2026-09-27-v0.10.3-release.md)；现场更新后额度恢复仍需用户设备验收 |
+| REQ-20260927-004 | macOS Codex CLI路径识别与稳定版发布 | 用户批准修复ChatGPT.app内嵌CLI发现缺陷，并明确要求公开发布 | 高 | 已完成 | 2026-09-27 | 2026-09-28完成0.10.3/build31公开发布，PR/main/发布workflow双平台CI、macOS/Windows签名资产、三个更新入口、匿名下载、SHA-256、两端签名与篡改拒绝均通过；用户设备更新后的额度恢复仍待现场观察 | 实现`0c60aa2` · PR #52 · main/tag`4eaa2fd` · appcast`a7807ab` · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.3) · workflow `36331190555` · [发布记录](development/2026-09-27-v0.10.3-release.md) |
 | REQ-20260914-005 | 双平台稳定版发布 | 用户要求把已完成并合入本地main的macOS清透Liquid Glass及Widget签名校验修复发布为可更新的新版本 | 高 | 已完成 | 2026-09-14 | 2026-09-14完成：0.10.2/build30已公开；PR/main双平台CI、正式签名workflow、七项资产匿名重下、SHA-256、两端签名与篡改拒绝、三个更新入口、发布证据双平台CI、独立复审与协调回传均通过。物理Windows 11真实账号与DPI继续作为现场边界。 | 用户明确“发布” · [Release v0.10.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.2) · [PR #50](https://github.com/sljzdotcom/AI-Token-Meter/pull/50) · [证据PR #51](https://github.com/sljzdotcom/AI-Token-Meter/pull/51) · 合并/tag`766505f` · appcast`4219595` · [workflow 34857567679](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34857567679) · 证据CI`34860967055`/`34860967195` · [发布记录](development/2026-09-14-v0.10.2-release.md) |
 | REQ-20260914-004 | macOS Widget 打包校验缺陷 | 合并后正式构建已正确签入相同 App Group，但校验脚本按带引号的数组文本匹配，误报宿主应用与 Widget 权限不一致并阻断构建收尾 | 高 | 已完成 | 2026-09-14 | 2026-09-14完成：PlistBuddy精确读取宿主和Widget App Group首项并与完整标识等值比较；嵌套签名、Widget Sandbox与Info.plist检查保持。3项打包合同及带Widget的正式签名构建通过 | 合并后 `bash scripts/build-app.sh` 复现；双方 entitlement 均为 `XHHFD4M7SL.com.millerpan.AIMeter` · 修复`aa14262` · 本地main整合`8e9b326` · [开发记录](development/2026-09-14-macos-liquid-glass-transparency.md) |
 | REQ-20260914-003 | macOS Liquid Glass 清透化 | 用户反馈 Liquid Glass 外观呈灰色底板而不是透明玻璃，并批准按推荐方案改为清透玻璃 | 中 | 已完成 | 2026-09-14 | 2026-09-14完成：删除76%–88%烟熏渐变，普通Liquid Glass仅保留原生/旧系统材质、12%冷蓝tint与边缘高光；“降低透明度”不透明回退保留。585项Swift、正式App构建、合同/文档/安全门禁及独立复审`0/0/0`通过，未发布新版本。 | 实现`d2ae00b` · 审查修正`be26676` · [规格](design/specifications/2026-09-14-macos-liquid-glass-transparency-design.md) · [计划](design/implementation-plans/2026-09-14-macos-liquid-glass-transparency.md) · [开发记录](development/2026-09-14-macos-liquid-glass-transparency.md) |
@@ -257,6 +257,7 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-28 | REQ-20260927-004 | 进行中 → 已完成 | PR #52候选及精确main提交双平台CI通过；`v0.10.3`指向`4eaa2fd`，正式workflow `36331190555`签署并公开七项资产，稳定appcast提交`a7807ab`。匿名下载SHA一致，Sparkle/Tauri验签和篡改拒绝通过，Release appcast、稳定latest与Preview兼容feed三入口字节一致。完整证据见开发发布记录；用户Mac更新后的额度恢复保留为设备现场观察边界。 |
 | 2026-09-27 | REQ-20260927-004 | 新登记 → 进行中 | 用户批准修复ChatGPT.app内嵌Codex CLI新路径识别，并明确要求公开发布；按双平台稳定版流程交付0.10.3/build31。 |
 | 2026-09-14 | REQ-20260914-005 | 进行中 → 已完成 | 发布证据提交`576e7bd`进入PR #51，macOS CI `34860967055`与Windows CI `34860967195`通过；独立复审Critical/Important/Minor为`0/0/0`，完整阶段证据已回传协调任务，最终状态随PR #51合入main。 |
 | 2026-09-14 | REQ-20260914-005 | 公开发布与公网验收完成 | PR #50最终候选及精确main双平台CI通过；`v0.10.2`指向`766505f`，workflow `34857567679`公开七项资产并以`4219595`写回稳定appcast。匿名重下、SHA-256、0.10.2/build30/arm64、严格codesign、Sparkle/Tauri签名、两份篡改拒绝与三个更新入口字节一致性全部通过，等待证据PR最终CI、合并和协调回传。 |
