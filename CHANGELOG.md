@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+## 0.10.3 - 2026-09-27
+
+稳定修复版；macOS build31。macOS现在可以发现新版ChatGPT.app内嵌的Codex CLI；Windows产品行为保持不变。
+
+### Fixed
+
+- 修复 macOS AI Token Meter 找不到新版 ChatGPT.app 嵌套 Codex CLI、因而将已安装服务误报为未安装的问题。账户状态、额度读取和登录入口共用定位逻辑；旧候选与优先次序保持，失效链接和不可执行文件会继续回退。
+
 ## 0.10.2 - 2026-09-14
 
 稳定修复版；macOS build30。Liquid Glass悬浮条恢复清透层次，并修复带Widget正式构建的App Group校验误报。

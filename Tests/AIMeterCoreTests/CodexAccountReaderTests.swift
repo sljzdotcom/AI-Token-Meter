@@ -26,6 +26,23 @@ struct CodexAccountReaderTests {
         #expect(status.accountDetail == "ChatGPT · Pro")
     }
 
+    @Test("Account status reads the CLI from ChatGPT's nested app bundle")
+    func nestedBundledChatGPTAccount() async throws {
+        let nestedCLI = try NestedCodexExecutableFixture(copying: fixtureExecutable)
+        defer { nestedCLI.remove() }
+        let reader = CodexAccountReader(
+            locator: nestedCLI.locator,
+            client: CodexAppServerClient(environmentOverrides: [
+                "AI_METER_TEST_ACCOUNT_KIND": "chatgpt",
+            ])
+        )
+
+        let status = await reader.read()
+
+        #expect(status.connectionState == .connected)
+        #expect(status.accountLabel == "codex@example.com")
+    }
+
     @Test("An API Key account is identified without exposing the key")
     func apiKeyAccount() async {
         let status = await reader(accountKind: "api-key").read()

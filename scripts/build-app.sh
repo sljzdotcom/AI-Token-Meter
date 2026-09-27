@@ -95,7 +95,7 @@ copy_main_app() {
         echo "SwiftPM resource bundle was not produced for $EXECUTABLE_NAME." >&2
         exit 1
     fi
-    cp -R "$resource_bundle"/. "$CONTENTS_DIR/Resources/"
+    cp -R "$resource_bundle/Contents/Resources"/. "$CONTENTS_DIR/Resources/"
     install -m 644 \
         "$PROJECT_DIR/Sources/AIMeterApp/Resources/Info.plist" \
         "$CONTENTS_DIR/Info.plist"
