@@ -82,17 +82,37 @@ public struct ExecutableLocator: ExecutableLocating {
 
     private static func defaultBundledExecutablePaths() -> [String: [String]] {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let userApplications = home.appendingPathComponent("Applications", isDirectory: true)
         let systemApplications = URL(fileURLWithPath: "/Applications", isDirectory: true)
+        return bundledExecutablePaths(
+            homeDirectory: home,
+            systemApplications: systemApplications
+        )
+    }
+
+    static func bundledExecutablePaths(
+        homeDirectory: URL,
+        systemApplications: URL
+    ) -> [String: [String]] {
+        let userApplications = homeDirectory.appendingPathComponent("Applications", isDirectory: true)
         let appNames = ["ChatGPT.app", "Codex.app"]
-        let candidates = [userApplications, systemApplications].flatMap { applications in
+        let applicationDirectories = [userApplications, systemApplications]
+        let legacyCandidates = applicationDirectories.flatMap { applications in
             appNames.map { appName in
                 applications
                     .appendingPathComponent(appName, isDirectory: true)
                     .appendingPathComponent("Contents/Resources/codex").path
             }
         }
-        return ["codex": candidates]
+        let nestedCandidates = applicationDirectories.flatMap { applications in
+            appNames.map { appName in
+                applications
+                    .appendingPathComponent(appName, isDirectory: true)
+                    .appendingPathComponent(
+                        "Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+                    ).path
+            }
+        }
+        return ["codex": legacyCandidates + nestedCandidates]
     }
 
     static func nvmSearchPaths(

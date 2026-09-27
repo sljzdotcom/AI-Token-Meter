@@ -29,6 +29,40 @@ struct CLIAuthenticationLauncherTests {
         #expect(try String(contentsOf: codexURL, encoding: .utf8).contains("codex' login"))
     }
 
+    @Test("Codex login script uses the nested ChatGPT app-bundled CLI")
+    func nestedBundledCodexLoginScript() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let applications = root.appendingPathComponent("Applications", isDirectory: true)
+        let home = root.appendingPathComponent("home", isDirectory: true)
+        let executable = home.appendingPathComponent(
+            "Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        )
+        try FileManager.default.createDirectory(
+            at: executable.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        let locator = ExecutableLocator(
+            searchPaths: [],
+            bundledExecutablePaths: ExecutableLocator.bundledExecutablePaths(
+                homeDirectory: home,
+                systemApplications: applications
+            )
+        )
+        let launcher = CLIAuthenticationLauncher(
+            authenticationDirectoryURL: root.appendingPathComponent("authentication"),
+            executableLocator: locator,
+            openURL: { _ in true }
+        )
+
+        let scriptURL = try launcher.open(provider: .codex)
+        let script = try String(contentsOf: scriptURL, encoding: .utf8)
+
+        #expect(script.contains("exec '\(executable.path)' login"))
+    }
+
     @Test("A missing executable produces a provider-specific failure")
     func missingCLI() {
         let launcher = CLIAuthenticationLauncher(

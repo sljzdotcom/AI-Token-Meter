@@ -31,6 +31,101 @@ struct ExecutableLocatorTests {
         #expect(locator.locate(named: "codex") == bundled)
     }
 
+    @Test("ChatGPT's nested Codex CLI candidates follow all legacy bundle candidates")
+    func nestedChatGPTCandidatesPreserveLegacyOrder() {
+        let home = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
+        let systemApplications = URL(fileURLWithPath: "/System/Applications", isDirectory: true)
+        let candidates = ExecutableLocator.bundledExecutablePaths(
+            homeDirectory: home,
+            systemApplications: systemApplications
+        )["codex"] ?? []
+
+        #expect(candidates == [
+            "/Users/tester/Applications/ChatGPT.app/Contents/Resources/codex",
+            "/Users/tester/Applications/Codex.app/Contents/Resources/codex",
+            "/System/Applications/ChatGPT.app/Contents/Resources/codex",
+            "/System/Applications/Codex.app/Contents/Resources/codex",
+            "/Users/tester/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+            "/Users/tester/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+            "/System/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+            "/System/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        ])
+    }
+
+    @Test("A nested ChatGPT CLI is discovered after invalid legacy candidates")
+    func nestedChatGPTCLIIsFallbackAfterInvalidCandidates() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let home = root.appendingPathComponent("home", isDirectory: true)
+        let systemApplications = root.appendingPathComponent("Applications", isDirectory: true)
+        let oldCandidate = home.appendingPathComponent(
+            "Applications/ChatGPT.app/Contents/Resources/codex"
+        )
+        try FileManager.default.createDirectory(
+            at: oldCandidate.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("not executable".utf8).write(to: oldCandidate)
+
+        let nestedCLI = try makeExecutable(at: home.appendingPathComponent(
+            "Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        ))
+        let candidates = ExecutableLocator.bundledExecutablePaths(
+            homeDirectory: home,
+            systemApplications: systemApplications
+        )
+        let locator = ExecutableLocator(searchPaths: [], bundledExecutablePaths: candidates)
+
+        #expect(locator.locate(named: "codex") == nestedCLI)
+    }
+
+    @Test("A system Applications ChatGPT bundle is used when the user bundle is absent")
+    func nestedSystemChatGPTCLIIsDiscovered() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let home = root.appendingPathComponent("home", isDirectory: true)
+        let systemApplications = root.appendingPathComponent("Applications", isDirectory: true)
+        let nestedCLI = try makeExecutable(at: systemApplications.appendingPathComponent(
+            "ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        ))
+        let candidates = ExecutableLocator.bundledExecutablePaths(
+            homeDirectory: home,
+            systemApplications: systemApplications
+        )
+        let locator = ExecutableLocator(searchPaths: [], bundledExecutablePaths: candidates)
+
+        #expect(locator.locate(named: "codex") == nestedCLI)
+    }
+
+    @Test("A broken legacy app symlink falls through to the nested CLI")
+    func brokenLegacySymlinkFallsThroughToNestedCLI() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let home = root.appendingPathComponent("home", isDirectory: true)
+        let systemApplications = root.appendingPathComponent("Applications", isDirectory: true)
+        let legacyCLI = home.appendingPathComponent(
+            "Applications/ChatGPT.app/Contents/Resources/codex"
+        )
+        try FileManager.default.createDirectory(
+            at: legacyCLI.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: legacyCLI,
+            withDestinationURL: root.appendingPathComponent("missing-codex")
+        )
+        let nestedCLI = try makeExecutable(at: home.appendingPathComponent(
+            "Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        ))
+        let candidates = ExecutableLocator.bundledExecutablePaths(
+            homeDirectory: home,
+            systemApplications: systemApplications
+        )
+        let locator = ExecutableLocator(searchPaths: [], bundledExecutablePaths: candidates)
+
+        #expect(locator.locate(named: "codex") == nestedCLI)
+    }
+
     @Test("A non-executable app resource is not mistaken for Codex CLI")
     func rejectsNonExecutableBundleResource() throws {
         let root = temporaryDirectory()

@@ -118,6 +118,17 @@ struct CLICollectorTests {
         #expect(snapshot.sourceVersion == "codex-app-server")
     }
 
+    @Test("Codex quota collection uses the nested ChatGPT app-bundled CLI")
+    func codexCollectorUsesNestedChatGPTCLI() async throws {
+        let nestedCLI = try NestedCodexExecutableFixture(copying: fixtureExecutable)
+        defer { nestedCLI.remove() }
+        let snapshot = try await CodexCollector(locator: nestedCLI.locator).collect()
+
+        #expect(snapshot.provider == .codex)
+        #expect(snapshot.primaryMetric?.usedFraction == 0.27)
+        #expect(snapshot.secondaryMetric?.usedFraction == 0.08)
+    }
+
     @Test("Codex keeps the general limit instead of replacing it with a model limit")
     func codexPrefersGeneralLimit() async throws {
         let snapshot = try await CodexAppServerClient().readRateLimits(
