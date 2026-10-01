@@ -2,13 +2,13 @@
 
 - **事实快照：** 2026-10-01
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.4`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.4)（macOS build `32`）
-- **当前发布候选：** `0.10.5` / build `33`（Antigravity 状态与诊断，发布前双平台验证中）
+- **当前公开稳定版：** 双平台 [`0.10.5`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.5)（macOS build `33`）
+- **当前发布候选：** 无
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.10.4/build32 已公开发布；0.10.5/build33 候选：** macOS Antigravity区分实时额度、最近缓存和持久暂停原因，认证错误才提供登录入口，并可复制白名单阶段诊断；Windows仅同步共享版本。候选说明见[0.10.5发行说明](releases/v0.10.5.md)。
+**0.10.5/build33 已公开发布：** macOS Antigravity区分实时额度、最近缓存和持久暂停原因，认证错误才提供登录入口，并可复制白名单阶段诊断；Windows仅同步共享版本。PR #56、双平台 CI、七项签名/哈希资产和三个更新入口已验证，完整证据见[发布记录](development/2026-10-01-antigravity-status-and-diagnostics-release.md)。M4 Max现场额度状态与真实超时根因仍待用户验收；本机发布流程期间出现的真实登录脚本会话另行追踪。
 
 **0.10.4/build32 已公开发布：** macOS Antigravity额度采集异常后持久暂停；启动、定时刷新、唤醒、手动检查与Retry不会重新运行CLI；用户显式登录并返回一次性回执后只检查一轮。超时/取消清理本次命令进程组，Windows运行行为保持不变。PR #54、main和标签双平台CI、七项公开资产、两端签名与篡改拒绝、三个更新入口均通过。M4 Max现场更新后的行为仍待用户确认；完整证据见[发布记录](development/2026-10-01-v0.10.4-release.md)。
 

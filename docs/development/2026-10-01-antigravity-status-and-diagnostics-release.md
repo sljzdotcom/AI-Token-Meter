@@ -21,4 +21,9 @@
 - Windows frontend：133 Vitest、25 density lifecycle/browser support、Chrome真实浏览器密度场景通过；生产前端构建通过；
 - Windows Rust：`cargo test --locked`及本地回环集成测试通过；
 - `scripts/check-docs.sh`：334 Markdown文件通过；
-- 当前候选分支、PR、main/tag、签名资产、SHA-256、更新源与发布workflow：待正式发布流程完成后填写。
+- PR [#56](https://github.com/sljzdotcom/AI-Token-Meter/pull/56) 合入 `main`：`b4a4b45`；候选 `71e62d2`，双平台 PR CI `36881216889` / `36881216958` 通过；
+- `v0.10.5` 于 2026-10-01 公开：[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.5)，发布 workflow [36883701586](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/36883701586)，Windows 签名资产构建与校验通过；stable appcast 提交 `257a4c8`；
+- macOS ZIP SHA-256：`6df2a9270801f401bb1ff13ec37ff9ce07c6060a68caa7c476d23c524909cfd6`；Windows installer SHA-256：`2059567f68f268b6c0df22d18f37973be7072aac51edaca5f8c4ca664bac7415`；两份 sidecar 与匿名下载所得摘要一致；
+- Release 含 macOS ZIP/SHA-256/appcast 与 Windows NSIS/SHA-256/minisign/latest.json 共七项资产；匿名重下核对一致。stable macOS appcast、Windows stable `latest.json` 和固定 Preview `latest-preview.json` 均指向 0.10.5；Release 中 appcast 与根稳定 appcast相同；
+- 本机最终打包过程中出现两个运行精确 Antigravity 登录脚本的 Terminal 会话；仅停止其已核实的独立进程组并关闭对应标签。会话来源及任何账户侧影响均未确认；该事件单独跟踪，不能视作此版本已修复或与发布测试无关的证据；
+- M4 Max 实机更新后的额度状态与真实超时根因仍待现场核验；未运行真实 `agy` / Google OAuth。

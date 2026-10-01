@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-10-01](2026-10-01-antigravity-status-and-diagnostics-release.md) | 0.10.5/build33 Antigravity状态与诊断双平台发布 | PR #56、main、签名资产、七项公开文件、SHA-256及三个更新入口通过；M4 Max现场与本机发布时登录脚本会话另行追踪 |
 | [2026-10-01](2026-10-01-v0.10.4-release.md) | 0.10.4/build32 Antigravity刷新保护稳定发布 | 双平台门禁、PR/main、签名资产与三个更新入口证据随发布补齐 |
 | [2026-10-01](2026-10-01-antigravity-refresh-safety.md) | Antigravity静默刷新与异常暂停 | 持久暂停、一次性登录回执、命令进程组清理及自动化证据；M4 Max现场观察保留为发布后验收边界 |
 | [2026-09-27](2026-09-27-v0.10.3-release.md) | 0.10.3 Codex CLI路径识别稳定发布 | REQ-004公开交付与双平台发布证据随发布事务补齐 |

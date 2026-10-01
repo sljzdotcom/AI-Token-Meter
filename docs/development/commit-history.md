@@ -4,7 +4,7 @@
 
 ## 当前版本边界
 
-- 当前公开稳定版：双平台`0.10.4`（macOS build`32`）；PR #54 合并`14da9f5`、tag `v0.10.4`、发布 workflow `36833521351`、stable appcast `bd61489`，详见[发布记录](2026-10-01-v0.10.4-release.md)。
+- 当前公开稳定版：双平台`0.10.5`（macOS build`33`）；PR #56 合并`b4a4b45`、tag `v0.10.5`、发布 workflow `36883701586`、stable appcast `257a4c8`，详见[发布记录](2026-10-01-antigravity-status-and-diagnostics-release.md)。
 - 上一公开稳定版：双平台`0.10.3`（macOS build`31`）；macOS Codex CLI路径识别的PR、合并/tag和appcast证据见[发布记录](2026-09-27-v0.10.3-release.md)。
 - 更早公开稳定版：双平台`0.8.2`（macOS build`25`）；密度设置即时调整已展开悬浮条、左右贴边暴露侧圆角和加强反向肩弧随PR #38合入`308b4f1`。
 - 更早公开稳定版：双平台`0.8.1`（macOS build`24`）；14pt内凹收起把手、镜像展开轮廓、底部Settings入口移除与第五个设置页签已随PR #36公开，稳定appcast为`8765303`。
@@ -20,6 +20,7 @@
 - 公共文档体系节点：`0f9852a`。
 - 可移植测试入口节点：`e3381ea`。
 - `v0.10.4`（`14da9f5`）于 2026-10-01 公开发布，workflow `36833521351`，stable appcast 提交`bd61489`；七项签名资产、SHA-256、篡改拒绝与三个更新入口的匿名验证见[0.10.4 发布记录](2026-10-01-v0.10.4-release.md)。旧版历史继续保留。
+- `v0.10.5`（PR #56 合并`b4a4b45`）于 2026-10-01 公开发布，workflow `36883701586`，stable appcast 提交`257a4c8`；双平台CI、七项公开资产、两端签名、SHA-256与三个更新入口的匿名验证见[0.10.5 发布记录](2026-10-01-antigravity-status-and-diagnostics-release.md)。旧版历史继续保留。
 - `0.2.0` 增加用户手动触发的 GitHub 稳定版检查与 EdDSA 签名自更新；`0.2.1` 加固高负载下的 PTY 退出确认、尾部排空和 CI 测试隔离；`0.2.2` 让 Sparkle 安装窗口从 Settings 启动时自动置前，并移除两项 CI fixture 的固定时序/进程扇出。三个公开 Release 均提供 Apple Silicon ZIP 和 SHA-256 文件。
 
 ## 阶段摘要
@@ -27,6 +28,7 @@
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
 | 0.10.4 Antigravity刷新保护双平台稳定发布 | `c39b1e9`、`14da9f5`、`bd61489` | macOS额度采集异常后持久暂停，显式登录完成后仅恢复一轮 headless 检查并清理超时/取消进程组；PR #54、PR/main与Release workflow `36833521351` 双平台门禁通过，七项公开资产、两端签名、篡改拒绝和三个更新入口匿名核验通过 |
+| 0.10.5 Antigravity缓存状态与诊断双平台稳定发布 | `71e62d2`、`b4a4b45`、`257a4c8` | PR #56 双平台CI通过；tag与Release workflow `36883701586`；macOS Sparkle及Windows minisign资产、SHA-256、七项公开文件和三个更新入口匿名核验通过 |
 | 0.10.2 清透Liquid Glass稳定发布 | `d2ae00b`、`be26676`、`aa14262`、`766505f`、`4219595`、`576e7bd` | macOS普通Liquid Glass去除烟熏深色覆盖并保留12%冷蓝tint；Widget App Group签名校验改为精确等值比较；PR #50、main双平台CI、workflow `34857567679`、七项公开资产、三个更新源及PR #51发布证据双平台CI通过 |
 | 0.10.1 Antigravity Gemini优先详情稳定发布 | `bd5bcea`、`b138fe4`、`8b112c4`、`fa09c4e`、`e2af00f`、`8d8f434`、`2c990a1` | 双平台Antigravity详情、圆环、摘要与提醒只使用Gemini五小时/每周额度并补充CLI信息；583项Swift、133项前端、268项Rust、PR/main/标签原生CI、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
 | 0.10.0 macOS烟熏Liquid Glass稳定发布 | `b1d4aff`、`07cf04e`、`7f38a68`、`ddb531a`、`20681aa` | macOS新增即时切换的Deep Sea与烟熏Liquid Glass，Windows界面保持；570项Swift、PR/main双平台CI、独立复审、七项公开资产、两端签名、篡改拒绝与三个更新入口通过 |
