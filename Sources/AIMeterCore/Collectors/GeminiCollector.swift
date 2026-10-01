@@ -7,7 +7,7 @@ public struct GeminiCollector: UsageCollector {
     private let environment: GeminiCLIEnvironment
 
     public init(
-        runner: any CommandRunning = BoundedCommandRunner(),
+        runner: any CommandRunning = ProcessGroupCommandRunner(),
         locator: any ExecutableLocating = ExecutableLocator(),
         environment: GeminiCLIEnvironment = GeminiCLIEnvironment()
     ) {
@@ -173,7 +173,6 @@ public struct GeminiCLIEnvironment: Sendable {
                 "TERM": "dumb",
                 "LANG": "en_US.UTF-8",
                 "SHELL": "/bin/sh",
-                "NO_BROWSER": "true",
                 "TMPDIR": directory.path,
             ])
         } catch {

@@ -4,8 +4,8 @@
 
 ## 当前版本边界
 
-- 当前源码与公开稳定版：双平台`0.10.2`（macOS build`30`）；清透Liquid Glass与Widget签名校验修复经PR #50合入`766505f`，稳定appcast为`4219595`。
-- 上一公开稳定版：双平台`0.10.1`（macOS build`29`）；Antigravity Gemini优先详情随PR #48合入`e2af00f`，稳定appcast为`8d8f434`。
+- 当前公开稳定版：双平台`0.10.3`（macOS build`31`）；macOS Codex CLI路径识别的PR、合并/tag和appcast证据见[发布记录](2026-09-27-v0.10.3-release.md)。
+- 当前发布候选：双平台`0.10.4`（macOS build`32`）；Antigravity刷新异常持久暂停修复的PR/main/tag、正式Release与稳定appcast节点将在[发布记录](2026-10-01-v0.10.4-release.md)补齐。
 - 更早公开稳定版：双平台`0.8.2`（macOS build`25`）；密度设置即时调整已展开悬浮条、左右贴边暴露侧圆角和加强反向肩弧随PR #38合入`308b4f1`。
 - 更早公开稳定版：双平台`0.8.1`（macOS build`24`）；14pt内凹收起把手、镜像展开轮廓、底部Settings入口移除与第五个设置页签已随PR #36公开，稳定appcast为`8765303`。
 - 更早公开稳定版：双平台`0.8.0`（macOS build`23`）；65pt Mini、78pt Compact、自动收起开关和Settings底弧修正已随PR #34合并/tag `0eec432`公开，稳定appcast为`bd153ca`。

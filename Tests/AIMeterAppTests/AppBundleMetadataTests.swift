@@ -16,8 +16,8 @@ struct AppBundleMetadataTests {
         #expect(plist["CFBundleIdentifier"] as? String == "com.millerpan.AIMeter")
         #expect(plist["CFBundleExecutable"] as? String == "AIMeterApp")
         #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
-        #expect(plist["CFBundleShortVersionString"] as? String == "0.10.3")
-        #expect(plist["CFBundleVersion"] as? String == "31")
+        #expect(plist["CFBundleShortVersionString"] as? String == "0.10.4")
+        #expect(plist["CFBundleVersion"] as? String == "32")
 
         let URLTypes = try #require(plist["CFBundleURLTypes"] as? [[String: Any]])
         let URLType = try #require(URLTypes.first)

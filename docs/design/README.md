@@ -13,6 +13,8 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-10-01 | 0.10.4/build32 Antigravity刷新保护稳定发布 | [规格](specifications/2026-10-01-antigravity-refresh-safety-design.md) | [计划](implementation-plans/2026-10-01-antigravity-refresh-safety.md) |
+| 2026-10-01 | Antigravity 静默刷新与异常暂停 | [规格](specifications/2026-10-01-antigravity-refresh-safety-design.md) | [计划](implementation-plans/2026-10-01-antigravity-refresh-safety.md) |
 | 2026-09-27 | 0.10.3/build31 Codex CLI路径识别稳定发布 | 沿用嵌套CLI发现修复与双平台稳定发布流程 | [计划](implementation-plans/2026-09-27-v0.10.3-release.md) |
 | 2026-09-14 | 0.10.2 清透Liquid Glass稳定发布 | 沿用已完成的清透Liquid Glass规格与双平台稳定发布流程 | [计划](implementation-plans/2026-09-14-v0.10.2-release.md) |
 | 2026-09-14 | 0.10.1 Antigravity Gemini优先详情稳定发布 | 沿用已完成的Antigravity Gemini优先详情规格与双平台稳定发布流程 | [计划](implementation-plans/2026-09-14-v0.10.1-release.md) |

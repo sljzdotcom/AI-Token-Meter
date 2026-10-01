@@ -25,8 +25,10 @@ final class AppModel {
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
+    private let clearGeminiSuspensionOperation: @Sendable () async -> Void
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
+    private let geminiAuthenticationOpenOperation: (String) throws -> Void
     private let installationOpenOperation: (UsageProvider) throws -> Bool
     private let codexInstallGuideOpenOperation: () -> Bool
     private let deepSeekReplaceOperation: @Sendable (String) async throws -> ServiceAccountStatus
@@ -42,6 +44,7 @@ final class AppModel {
     private var refreshWaitID: UUID?
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
     private var signInTokens: [UsageProvider: UUID] = [:]
+    private var pendingGeminiLoginToken: String?
     private var providersRequiringAction: Set<UsageProvider> = []
     var isAuthenticating: Bool { !signInTokens.isEmpty }
     private var isRefreshingServiceAccounts = false
@@ -97,8 +100,10 @@ final class AppModel {
         widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
         isDemoMode: Bool? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
+        clearGeminiSuspensionOperation: (@Sendable () async -> Void)? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
+        geminiAuthenticationOpenOperation: ((String) throws -> Void)? = nil,
         installationOpenOperation: ((UsageProvider) throws -> Bool)? = nil,
         codexInstallGuideOpenOperation: (() -> Bool)? = nil,
         deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
@@ -142,6 +147,9 @@ final class AppModel {
         self.installationOpenOperation = installationOpenOperation ?? { try installationLauncher.open(provider: $0) }
         self.authenticationOpenOperation = authenticationOpenOperation ?? { provider in
             try authenticationLauncher.open(provider: provider)
+        }
+        self.geminiAuthenticationOpenOperation = geminiAuthenticationOpenOperation ?? { token in
+            try authenticationLauncher.open(provider: .gemini, completionToken: token)
         }
         let codexInstallationGuideLauncher = CodexInstallationGuideLauncher()
         self.codexInstallGuideOpenOperation = codexInstallGuideOpenOperation ?? {
@@ -192,6 +200,9 @@ final class AppModel {
         )
         self.coordinator = coordinator
         self.refreshOperation = refreshOperation
+        self.clearGeminiSuspensionOperation = clearGeminiSuspensionOperation ?? {
+            await coordinator.clearGeminiSuspensionAfterExplicitSignIn()
+        }
         apiKeyConfigured = false
         launchAtLoginEnabled = launchAtLoginService.isEnabled
     }
@@ -211,6 +222,8 @@ final class AppModel {
     }
 
     var isRunningDemoMode: Bool { isDemoMode }
+    var isGeminiRefreshPaused: Bool { providersRequiringAction.contains(.gemini) }
+    var isGeminiSignInPending: Bool { pendingGeminiLoginToken != nil }
 
     @discardableResult
     func setRefreshInterval(_ text: String) -> Bool {
@@ -528,7 +541,10 @@ final class AppModel {
     @discardableResult
     func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
         if provider == .gemini {
-            await coordinator.clearAuthenticationBackoff(for: .gemini)
+            guard !isGeminiRefreshPaused else {
+                updateGeminiAccountStatus()
+                return serviceAccounts[.gemini] ?? .geminiUnavailable
+            }
             await refresh()
             updateGeminiAccountStatus()
             return serviceAccounts[.gemini] ?? .geminiUnavailable
@@ -620,6 +636,21 @@ final class AppModel {
 
     @discardableResult
     func beginSignIn(_ provider: UsageProvider) -> Task<Void, Never>? {
+        if provider == .gemini {
+            guard pendingGeminiLoginToken == nil else { return nil }
+            let token = UUID().uuidString
+            pendingGeminiLoginToken = token
+            do {
+                try geminiAuthenticationOpenOperation(token)
+                settingsNotice = .signInStarted(provider)
+                settingsMessageKind = authenticationMessageKind(for: provider)
+            } catch {
+                pendingGeminiLoginToken = nil
+                settingsNotice = .signInFailed(provider)
+                settingsMessageKind = authenticationMessageKind(for: provider)
+            }
+            return nil
+        }
         guard provider == .claude || provider == .codex else { return nil }
         guard signInTokens[provider] == nil else { return nil }
         let originalStatus = serviceAccounts[provider]
@@ -684,6 +715,13 @@ final class AppModel {
         }
         signInTasks[provider] = task
         return task
+    }
+
+    func completeGeminiInteractiveSignIn(token: String) async {
+        guard !isDemoMode, pendingGeminiLoginToken == token else { return }
+        pendingGeminiLoginToken = nil
+        await clearGeminiSuspensionOperation()
+        await refresh(manual: false)
     }
 
     func replaceDeepSeekAPIKey(_ apiKey: String) async -> Bool {

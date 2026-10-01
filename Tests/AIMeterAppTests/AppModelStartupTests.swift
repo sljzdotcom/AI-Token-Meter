@@ -19,6 +19,47 @@ struct AppModelStartupTests {
         #expect(!model.apiKeyConfigured)
     }
 
+    @Test("Only the active one-time Antigravity login receipt resumes collection")
+    @MainActor
+    func antigravityLoginReceiptIsOneTime() async throws {
+        let suiteName = "AppModelStartupTests.AntigravityReceipt.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let clearCount = AsyncCallCounter()
+        let refreshCount = AsyncCallCounter()
+        var openedToken: String?
+        let model = AppModel(
+            defaults: defaults,
+            widgetSnapshotPublisher: nil,
+            isDemoMode: false,
+            refreshOperation: {
+                await refreshCount.increment()
+                return []
+            },
+            clearGeminiSuspensionOperation: { await clearCount.increment() },
+            geminiAuthenticationOpenOperation: { openedToken = $0 }
+        )
+
+        model.beginSignIn(.gemini)
+        let token = try #require(openedToken)
+        #expect(model.isGeminiSignInPending)
+        model.beginSignIn(.gemini)
+        #expect(openedToken == token)
+
+        await model.completeGeminiInteractiveSignIn(token: UUID().uuidString)
+        #expect(await clearCount.value == 0)
+        #expect(await refreshCount.value == 0)
+
+        await model.completeGeminiInteractiveSignIn(token: token)
+        #expect(!model.isGeminiSignInPending)
+        #expect(await clearCount.value == 1)
+        #expect(await refreshCount.value == 1)
+
+        await model.completeGeminiInteractiveSignIn(token: token)
+        #expect(await clearCount.value == 1)
+        #expect(await refreshCount.value == 1)
+    }
+
     @Test("Display font defaults, updates, and persists without restarting")
     @MainActor
     func displayFontPreference() {
@@ -202,6 +243,12 @@ struct AppModelStartupTests {
         let suiteName = "AppModelStartupTests.\(suffix).\(UUID().uuidString)"
         return (suiteName, UserDefaults(suiteName: suiteName)!)
     }
+}
+
+private actor AsyncCallCounter {
+    private(set) var value = 0
+
+    func increment() { value += 1 }
 }
 
 @MainActor

@@ -30,7 +30,7 @@ final class CLIAuthenticationLauncher {
     }
 
     @discardableResult
-    func open(provider: UsageProvider) throws -> URL {
+    func open(provider: UsageProvider, completionToken: String? = nil) throws -> URL {
         let executableName: String
         let scriptName: String
         switch provider {
@@ -40,14 +40,21 @@ final class CLIAuthenticationLauncher {
         case .codex:
             executableName = "codex"
             scriptName = "Open Codex Login.command"
-        case .deepSeek, .gemini:
+        case .gemini:
+            executableName = "agy"
+            scriptName = "Open Antigravity Login.command"
+        case .deepSeek:
             throw CLIAuthenticationLaunchError.unsupportedProvider
         }
 
         guard let executableURL = executableLocator.locate(named: executableName) else {
             throw CLIAuthenticationLaunchError.notInstalled(provider)
         }
-        let script = try scriptBuilder.build(provider: provider, executableURL: executableURL)
+        let script = try scriptBuilder.build(
+            provider: provider,
+            executableURL: executableURL,
+            completionToken: completionToken
+        )
         try FileManager.default.createDirectory(
             at: authenticationDirectoryURL,
             withIntermediateDirectories: true

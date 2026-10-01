@@ -45,7 +45,11 @@ public actor RefreshCoordinator {
             if let cached = cacheByProvider[collector.provider] {
                 return Self.cachedPresentation(from: cached, message: lastPresented[collector.provider]?.statusMessage ?? "Waiting before next refresh")
             }
-            return lastPresented[collector.provider] ?? Self.failurePresentation(for: collector.provider, error:
+            if let previous = lastPresented[collector.provider] { return previous }
+            if backoffs[collector.provider]?.failureKind == .suspended {
+                return Self.suspendedPresentation(for: collector.provider)
+            }
+            return Self.failurePresentation(for: collector.provider, error:
                 backoffs[collector.provider]?.failureKind == .authentication ? .authenticationRequired : .rateLimited)
         }
         lastPresented = Dictionary(snapshots.map { ($0.provider, $0) }, uniquingKeysWith: { first, _ in first })
@@ -59,8 +63,15 @@ public actor RefreshCoordinator {
         saveBackoffs()
     }
 
+    /// Resumes Antigravity collection only after the explicit interactive login flow completes.
+    public func clearGeminiSuspensionAfterExplicitSignIn() {
+        guard backoffs[.gemini]?.failureKind == .suspended else { return }
+        backoffs.removeValue(forKey: .gemini)
+        saveBackoffs()
+    }
+
     public func providersRequiringAction() -> Set<UsageProvider> {
-        Set(backoffs.filter { $0.value.failureKind == .authentication }.map(\.key))
+        Set(backoffs.filter { [.authentication, .suspended].contains($0.value.failureKind) }.map(\.key))
     }
 
     private func saveBackoffs() {
@@ -112,9 +123,18 @@ public actor RefreshCoordinator {
             return collected
         }
 
-        // A cancelled pass may have cooperative or non-cooperative collectors. Neither
-        // is allowed to replace the cache or create retry penalties after cancellation.
-        guard !Task.isCancelled else { return [] }
+        // A cancelled Antigravity pass must remain paused after restart so app shutdown
+        // cannot cause another headless CLI launch. Other providers keep their existing
+        // cancellation behavior and do not receive a retry penalty.
+        guard !Task.isCancelled else {
+            if collectors.contains(where: { $0.provider == .gemini }) {
+                var backoff = backoffs[.gemini] ?? RefreshBackoffState()
+                backoff.record(.suspended, now: Date().timeIntervalSince1970)
+                backoffs[.gemini] = backoff
+                saveBackoffs()
+            }
+            return []
+        }
 
         var lastGoodByProvider = cachedByProvider
         var presented: [UsageSnapshot] = []
@@ -130,11 +150,15 @@ public actor RefreshCoordinator {
                     var backoff = backoffs[outcome.provider] ?? RefreshBackoffState()
                     let kind: RefreshFailureKind
                     var delay: TimeInterval = 0
-                    switch error {
-                    case .rateLimited: kind = .rateLimited
-                    case .rateLimitedRetryAfter(let seconds): kind = .rateLimited; delay = seconds
-                    case .authenticationRequired, .setupRequired, .notInstalled: kind = .authentication
-                    default: kind = outcome.provider == .deepSeek ? .network : .cli
+                    if outcome.provider == .gemini {
+                        kind = .suspended
+                    } else {
+                        switch error {
+                        case .rateLimited: kind = .rateLimited
+                        case .rateLimitedRetryAfter(let seconds): kind = .rateLimited; delay = seconds
+                        case .authenticationRequired, .setupRequired, .notInstalled: kind = .authentication
+                        default: kind = outcome.provider == .deepSeek ? .network : .cli
+                        }
                     }
                     backoff.record(kind, now: Date().timeIntervalSince1970, retryAfter: delay)
                     backoffs[outcome.provider] = backoff
@@ -215,6 +239,15 @@ public actor RefreshCoordinator {
             availability: .unavailable,
             collectionStatus: status,
             statusMessage: message
+        )
+    }
+
+    private static func suspendedPresentation(for provider: UsageProvider) -> UsageSnapshot {
+        UsageSnapshot(
+            provider: provider,
+            availability: .unavailable,
+            collectionStatus: .unavailable,
+            statusMessage: "Antigravity refresh paused. Sign in to resume."
         )
     }
 

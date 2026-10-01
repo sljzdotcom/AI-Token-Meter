@@ -1,14 +1,16 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-14
+- **事实快照：** 2026-10-01
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.2`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.2)（macOS build `30`）
-- **当前源码版本：** 双平台 `0.10.2`（macOS build `30`）
+- **当前公开稳定版：** 双平台 [`0.10.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.3)（macOS build `31`）
+- **当前发布候选：** 双平台 `0.10.4`（macOS build `32`），等待合并与正式发布验证
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.10.2/build30已公开发布：** macOS Liquid Glass删除76%–88%深色烟熏覆盖，普通模式保留系统玻璃、12%冷蓝tint与边缘高光，“降低透明度”不透明回退保持；Widget正式构建的App Group校验改为精确等值比较。Windows产品行为保持不变并同步版本与签名安装包。PR #50、精确main双平台CI、正式签名workflow、七项公开资产、两端更新签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-14-v0.10.2-release.md)。
+**0.10.4/build32 发布候选：** macOS Antigravity额度采集异常后持久暂停；启动、定时刷新、唤醒、手动检查与Retry不会重新运行CLI；用户显式登录并返回一次性回执后只检查一轮。超时/取消清理本次命令进程组，Windows运行行为保持不变。候选验证与待完成发布证据见[发布记录](development/2026-10-01-v0.10.4-release.md)。真实M4 Max观察仍是现场验收边界。
+
+**0.10.3/build31已公开发布：** macOS现在可以发现新版ChatGPT.app内嵌的Codex CLI；Windows产品行为保持不变。完整证据见[0.10.3发布记录](development/2026-09-27-v0.10.3-release.md)。
 
 **0.10.1/build29已公开发布：** Google Antigravity的详情、圆环、菜单/托盘摘要和提醒统一只采用Gemini五小时/每周额度，并补充当前Gemini模型、动态可用模型数量/系列、CLI版本与检查时间；独立Claude Code/OpenAI Codex不受影响。PR #48、PR/main双平台CI、正式签名workflow、七项公开资产、两端签名与篡改拒绝、三个更新入口均已通过，[发布记录](development/2026-09-14-v0.10.1-release.md)。
 

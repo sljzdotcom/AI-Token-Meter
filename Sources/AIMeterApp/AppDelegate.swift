@@ -62,6 +62,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        if let loginCompletion = urls.first(where: {
+            $0.scheme?.lowercased() == "aitokenmeter" && $0.host == "antigravity-login-complete"
+        }),
+           let token = URLComponents(url: loginCompletion, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "token" })?.value {
+            Task { await model.completeGeminiInteractiveSignIn(token: token) }
+            return
+        }
         guard urls.contains(where: { $0.scheme?.lowercased() == "aitokenmeter" }) else { return }
         application.activate(ignoringOtherApps: true)
         if model.showFloatingStrip {

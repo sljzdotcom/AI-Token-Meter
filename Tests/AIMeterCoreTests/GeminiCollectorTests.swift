@@ -52,7 +52,7 @@ struct GeminiCollectorTests {
         #expect(requests.allSatisfy { $0.inputLines.isEmpty })
         #expect(requests.allSatisfy { $0.maxOutputBytes == 64 * 1024 })
         #expect(requests[1].environment?["HOME"] == context.root.path)
-        #expect(requests[1].environment?["NO_BROWSER"] == "true")
+        #expect(requests[1].environment?["NO_BROWSER"] == nil)
         #expect(requests[1].environment?["GEMINI_API_KEY"] == nil)
         #expect(requests[0].currentDirectoryURL == requests[1].currentDirectoryURL)
         #expect(!FileManager.default.fileExists(atPath: requests[1].currentDirectoryURL!.path))

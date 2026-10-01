@@ -6,7 +6,7 @@ import Testing
 @Suite("CLI authentication launcher", .serialized)
 @MainActor
 struct CLIAuthenticationLauncherTests {
-    @Test("Claude and Codex login scripts are private and opened")
+    @Test("Claude, Codex, and Antigravity login scripts are private and opened")
     func writesPrivateScripts() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -19,14 +19,22 @@ struct CLIAuthenticationLauncherTests {
 
         let claudeURL = try launcher.open(provider: .claude)
         let codexURL = try launcher.open(provider: .codex)
+        let antigravityURL = try launcher.open(
+            provider: .gemini,
+            completionToken: "12345678-1234-1234-1234-123456789abc"
+        )
 
         #expect(claudeURL.lastPathComponent == "Open Claude Login.command")
         #expect(codexURL.lastPathComponent == "Open Codex Login.command")
-        #expect(opened == [claudeURL, codexURL])
+        #expect(antigravityURL.lastPathComponent == "Open Antigravity Login.command")
+        #expect(opened == [claudeURL, codexURL, antigravityURL])
         #expect(permissions(of: claudeURL) == 0o700)
         #expect(permissions(of: codexURL) == 0o700)
+        #expect(permissions(of: antigravityURL) == 0o700)
         #expect(try String(contentsOf: claudeURL, encoding: .utf8).contains("auth login"))
         #expect(try String(contentsOf: codexURL, encoding: .utf8).contains("codex' login"))
+        #expect(try String(contentsOf: antigravityURL, encoding: .utf8).contains("agy"))
+        #expect(try String(contentsOf: antigravityURL, encoding: .utf8).contains("aitokenmeter://antigravity-login-complete?token=12345678-1234-1234-1234-123456789abc"))
     }
 
     @Test("Codex login script uses the nested ChatGPT app-bundled CLI")
