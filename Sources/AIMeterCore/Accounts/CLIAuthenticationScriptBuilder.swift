@@ -2,6 +2,7 @@ import Foundation
 
 public enum CLIAuthenticationScriptError: Error, Equatable {
     case unsupportedProvider
+    case invalidCompletionToken
 }
 
 public struct CLIAuthenticationScriptBuilder: Sendable {
@@ -9,23 +10,41 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
 
     public func build(
         provider: UsageProvider,
-        executableURL: URL
+        executableURL: URL,
+        completionToken: String? = nil
     ) throws -> String {
-        let arguments: String
+        let command: String
         switch provider {
         case .claude:
-            arguments = "auth login"
+            command = "exec \(shellQuote(executableURL.path)) auth login"
         case .codex:
-            arguments = "login"
-        case .deepSeek, .gemini:
+            command = "exec \(shellQuote(executableURL.path)) login"
+        case .gemini:
+            guard let completionToken, UUID(uuidString: completionToken) != nil else {
+                throw CLIAuthenticationScriptError.invalidCompletionToken
+            }
+            var components = URLComponents()
+            components.scheme = "aitokenmeter"
+            components.host = "antigravity-login-complete"
+            components.queryItems = [URLQueryItem(name: "token", value: completionToken)]
+            guard let callbackURL = components.url?.absoluteString else {
+                throw CLIAuthenticationScriptError.invalidCompletionToken
+            }
+            command = """
+            \(shellQuote(executableURL.path))
+            status=$?
+            /usr/bin/open -g \(shellQuote(callbackURL))
+            exit "$status"
+            """
+        case .deepSeek:
             throw CLIAuthenticationScriptError.unsupportedProvider
         }
 
         return """
         #!/bin/zsh
-        set -eu
+        set -u
         export PATH=\(shellQuote(executableURL.deletingLastPathComponent().path)):"${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}"
-        exec \(shellQuote(executableURL.path)) \(arguments)
+        \(command)
 
         """
     }

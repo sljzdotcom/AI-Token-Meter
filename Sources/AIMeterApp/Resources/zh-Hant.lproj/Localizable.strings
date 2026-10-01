@@ -70,6 +70,7 @@
 "Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view." = "透過支援的 Antigravity CLI 讀取官方額度。此畫面不提供帳號資訊。";
 "Antigravity CLI installation guide" = "Antigravity CLI 安裝指南";
 "Retry" = "重試";
+"Sign in to Antigravity" = "登入 Antigravity";
 "Downloads and runs the official installer in Terminal." = "在 Terminal 中下載並執行官方安裝程式。";
 "Official installation instructions" = "官方安裝說明";
 "Privacy" = "隱私";

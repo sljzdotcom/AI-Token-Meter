@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## 0.10.4 - 2026-10-01
+
+稳定修复版；macOS build32。Antigravity静默刷新在异常后持久暂停，并提供明确的交互登录恢复入口；Windows运行行为保持不变。
+
+### Fixed
+
+- Antigravity额度刷新发生失败、超时或取消后会持久暂停，不再因应用启动、唤醒、定时刷新、手动检查或 Retry 反复启动 CLI。只有用户明确启动交互登录并由该次登录返回的一次性回执，才能恢复一次额度检查。
+- Antigravity额度读取继续使用官方 headless `/usage` 命令；超时或取消会清理该次命令启动的整个进程组，避免孤儿子进程重启浏览器。
+- macOS Services 在采集暂停时显示专属 Antigravity 登录操作；其他供应商刷新行为不变，Windows仅同步版本号。
+
 ## 0.10.3 - 2026-09-27
 
 稳定修复版；macOS build31。macOS现在可以发现新版ChatGPT.app内嵌的Codex CLI；Windows产品行为保持不变。

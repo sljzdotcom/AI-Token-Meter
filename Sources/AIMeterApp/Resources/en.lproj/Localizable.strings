@@ -70,6 +70,7 @@
 "Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view." = "Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view.";
 "Antigravity CLI installation guide" = "Antigravity CLI installation guide";
 "Retry" = "Retry";
+"Sign in to Antigravity" = "Sign in to Antigravity";
 "Downloads and runs the official installer in Terminal." = "Downloads and runs the official installer in Terminal.";
 "Official installation instructions" = "Official installation instructions";
 "Privacy" = "Privacy";

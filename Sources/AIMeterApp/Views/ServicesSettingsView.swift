@@ -131,7 +131,12 @@ struct ServicesSettingsView: View {
                 GeminiInstallationHelp(state: geminiStatus.connectionState)
                 HStack {
                     Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
-                    Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }
+                    if model.isGeminiRefreshPaused {
+                        Button(localizer.text("Sign in to Antigravity")) { model.beginSignIn(.gemini) }
+                            .disabled(model.isGeminiSignInPending)
+                    } else {
+                        Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }
+                    }
                 }
             } header: {
                 ServiceSectionHeader(provider: .gemini)

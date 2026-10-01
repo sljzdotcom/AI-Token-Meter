@@ -65,6 +65,8 @@ struct ProviderParserLocalizationTests {
     @Test("Traditional weekday reset spacing is stable across macOS formatter versions")
     func traditionalWeekdaySpacingIsStable() {
         #expect(ProviderDetailText.normalizeResetDateSpacing("週四 上午12:00", language: .traditionalChinese) == "週四上午12:00")
+        #expect(ProviderDetailText.normalizeResetDateSpacing("週四 凌晨12:00", language: .traditionalChinese) == "週四上午12:00")
+        #expect(ProviderDetailText.normalizeResetDateSpacing("晚上10:30", language: .traditionalChinese) == "下午10:30")
         #expect(ProviderDetailText.normalizeResetDateSpacing("週五 下午1:00", language: .traditionalChinese) == "週五下午1:00")
         #expect(ProviderDetailText.normalizeResetDateSpacing("9月5日 下午3:59", language: .traditionalChinese) == "9月5日 下午3:59")
         #expect(ProviderDetailText.normalizeResetDateSpacing("周四 00:00", language: .simplifiedChinese) == "周四 00:00")

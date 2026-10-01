@@ -157,11 +157,14 @@ enum ProviderDetailText {
     /// releases. Keep the app's compact reset-time copy stable on every supported OS.
     static func normalizeResetDateSpacing(_ formatted: String, language: AppLanguage) -> String {
         guard language == .traditionalChinese else { return formatted }
-        return formatted.replacingOccurrences(
+        return formatted
+            .replacingOccurrences(of: "凌晨", with: "上午")
+            .replacingOccurrences(of: "晚上", with: "下午")
+            .replacingOccurrences(
             of: #"(週[日一二三四五六])\s+([上下]午)"#,
             with: "$1$2",
             options: .regularExpression
-        )
+            )
     }
 
     static func freshness(_ snapshot: UsageSnapshot, now: Date = Date(), localizer: AppLocalizer) -> String {

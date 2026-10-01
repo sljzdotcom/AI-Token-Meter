@@ -16,6 +16,27 @@ struct RefreshCoordinatorTests {
         _ = await coordinator.refresh(manual: false)
         #expect(collector.callCount == 2)
     }
+
+    @Test("Cancelled Antigravity refresh stays suspended across restart")
+    func cancelledGeminiRefreshSuspendsUntilExplicitSignIn() async {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ControlledCollector(provider: .gemini, delay: 5, result: .failure(.timedOut))
+        let cache = SnapshotCache(directoryURL: directory)
+        let path = directory.appendingPathComponent("backoff.json")
+        let first = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+        let task = Task { await first.refresh() }
+        while collector.callCount == 0 { await Task.yield() }
+        task.cancel()
+        _ = await task.value
+
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+        _ = await restarted.refresh(manual: true)
+        _ = await restarted.refresh(manual: false)
+
+        #expect(collector.callCount == 1)
+        #expect(await restarted.providersRequiringAction().contains(.gemini))
+    }
     @Test("Rate limited provider is not recollected after a coordinator restart")
     func persistedBackoffSkipsOnlyFailedProvider() async {
         let directory = temporaryDirectory()
@@ -30,6 +51,28 @@ struct RefreshCoordinatorTests {
         #expect(limited.callCount == 1)
         #expect(healthy.callCount == 2)
         #expect(values.count == 2)
+    }
+
+    @Test("Any Antigravity failure remains suspended across restart and manual refresh")
+    func geminiFailureSuspendsUntilExplicitSignIn() async {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ControlledCollector(provider: .gemini, result: .failure(.timedOut))
+        let cache = SnapshotCache(directoryURL: directory)
+        let path = directory.appendingPathComponent("backoff.json")
+        let first = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+
+        _ = await first.refresh(manual: true)
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+        _ = await restarted.refresh(manual: true)
+        _ = await restarted.refresh(manual: false)
+
+        #expect(collector.callCount == 1)
+        #expect(await restarted.providersRequiringAction().contains(.gemini))
+
+        await restarted.clearGeminiSuspensionAfterExplicitSignIn()
+        _ = await restarted.refresh(manual: false)
+        #expect(collector.callCount == 2)
     }
     @Test("Runs independent provider collectors concurrently and sorts their results")
     func refreshesConcurrently() async {

@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.3](https://img.shields.io/badge/version-0.10.3-3b82f6)
+![Version 0.10.4](https://img.shields.io/badge/version-0.10.4-3b82f6)
 ![Tests 592](https://img.shields.io/badge/tests-592%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.10.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.3)（macOS build `31`）。现有macOS与Windows安装可通过应用内更新入口升级；完整发布证据见[0.10.3发布记录](docs/development/2026-09-27-v0.10.3-release.md)。
+> 当前公开稳定版为[0.10.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.3)（macOS build `31`）；`0.10.4`/build `32` 正在准备发布。现有macOS与Windows安装可通过应用内更新入口升级；完整证据见[0.10.3发布记录](docs/development/2026-09-27-v0.10.3-release.md)。
 
 ## Screenshots
 
@@ -22,6 +22,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | ![AI Token Meter floating strip](docs/assets/screenshots/floating-strip.png) | ![OpenAI Codex detail using deterministic demo data](docs/assets/screenshots/provider-detail.png) | ![AI Token Meter Appearance Settings](docs/assets/screenshots/settings.png) |
 
 ## 主要功能
+
+> 发布候选 `0.10.4` / build `32`：macOS Antigravity额度采集异常后持久暂停自动重试，并提供明确的交互登录恢复操作和进程组清理；Windows运行行为保持不变。[Release Notes](docs/releases/v0.10.4.md)。
 
 > `0.10.3` / build `31`：macOS可发现新版ChatGPT.app内嵌的Codex CLI，账户状态、额度读取和登录入口统一使用该定位逻辑；Windows产品行为不变。[Release Notes](docs/releases/v0.10.3.md)。
 
@@ -252,7 +254,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前源码与公开稳定版均为`0.10.3`（macOS build `31`）；发布证据见[0.10.3发布记录](docs/development/2026-09-27-v0.10.3-release.md)。
+- 当前公开稳定版为`0.10.3`（macOS build `31`）；`0.10.4`/build `32` 正在准备发布，见[发布记录](docs/development/2026-10-01-v0.10.4-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
