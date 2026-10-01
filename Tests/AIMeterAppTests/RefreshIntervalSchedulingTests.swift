@@ -129,7 +129,9 @@ private actor IntervalBoundary {
 }
 @MainActor
 private func eventually(_ condition: () async -> Bool) async throws {
-    let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+    // Full app test runs host many accessibility/UI suites concurrently; keep
+    // fake continuation ordering strict without assuming a two-second scheduler window.
+    let deadline = ContinuousClock.now.advanced(by: .seconds(10))
     while ContinuousClock.now < deadline {
         if await condition() { return }
         try await Task.sleep(for: .milliseconds(5))

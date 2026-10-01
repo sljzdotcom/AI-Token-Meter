@@ -69,10 +69,52 @@ struct RefreshCoordinatorTests {
 
         #expect(collector.callCount == 1)
         #expect(await restarted.providersRequiringAction().contains(.gemini))
+        #expect(await restarted.geminiPauseReason() == .timeout)
 
         await restarted.clearGeminiSuspensionAfterExplicitSignIn()
         _ = await restarted.refresh(manual: false)
         #expect(collector.callCount == 2)
+    }
+
+    @Test("A cached Gemini quota shows the specific pause reason immediately")
+    func cachedGeminiQuotaShowsPauseReason() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let cache = SnapshotCache(directoryURL: directory)
+        let metrics = [
+            UsageMetric(label: "Gemini · Five hour", current: 20, limit: 100, unit: .percent, resetAt: Date()),
+            UsageMetric(label: "Gemini · Weekly", current: 35, limit: 100, unit: .percent, resetAt: Date()),
+        ]
+        try cache.save([UsageSnapshot(provider: .gemini, primaryMetric: metrics[1], secondaryMetric: metrics[0], geminiQuotaMetrics: metrics)])
+        let collector = ControlledCollector(provider: .gemini, result: .failure(.timedOut))
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+
+        let result = await coordinator.refresh()
+
+        #expect(result.first?.collectionStatus == .cached)
+        #expect(result.first?.statusMessage == "Antigravity refresh paused after a timeout")
+        #expect(result.first?.primaryMetric != nil)
+    }
+
+    @Test("Legacy Antigravity authentication pause migrates to unknown and stays closed")
+    func legacyAuthenticationPauseDoesNotInventReasonOrRetry() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ControlledCollector(provider: .gemini, result: .failure(.timedOut))
+        let cache = SnapshotCache(directoryURL: directory)
+        let path = directory.appendingPathComponent("backoff.json")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let legacy = #"["gemini",{"failureKind":"authentication","consecutiveFailures":1,"nextEligibleAt":0,"recordedAt":0}]"#.data(using: .utf8)!
+        try legacy.write(to: path)
+
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+        _ = await coordinator.refresh(manual: true)
+
+        #expect(collector.callCount == 0)
+        #expect(await coordinator.geminiPauseReason() == .unknown)
+        let saved = try Data(contentsOf: path)
+        #expect(String(decoding: saved, as: UTF8.self).contains("unknown"))
     }
     @Test("Runs independent provider collectors concurrently and sorts their results")
     func refreshesConcurrently() async {

@@ -98,6 +98,45 @@ struct GeminiCollectorTests {
         #expect(catalogFailure.antigravityCLIInfo?.modelFamilies.isEmpty == true)
     }
 
+    @Test("Optional command timeouts are diagnosed without failing the fresh quota")
+    func recordsOptionalTimeoutStagesIndependently() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let diagnostics = GeminiDiagnosticStore(fileURL: nil)
+        let snapshot = try await GeminiCollector(
+            runner: RecordingAntigravityRunner(version: "1.2.2", currentModelThrows: true, modelsThrows: true),
+            locator: AntigravityTestLocator(),
+            environment: context.environment,
+            diagnostics: diagnostics
+        ).collect()
+
+        let records = await diagnostics.records()
+        #expect(snapshot.collectionStatus == .fresh)
+        #expect(records.contains { $0.stage == .version && $0.category == .succeeded })
+        #expect(records.contains { $0.stage == .usage && $0.category == .succeeded })
+        #expect(records.contains { $0.stage == .model && $0.category == .timedOut })
+        #expect(records.contains { $0.stage == .catalog && $0.category == .timedOut })
+        #expect(!records.contains { $0.stage == .usage && $0.category == .timedOut })
+    }
+
+    @Test("Explicit sign-in output is recorded as authentication without storing CLI text")
+    func recordsAuthenticationCategoryWithoutOutput() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let diagnostics = GeminiDiagnosticStore(fileURL: nil)
+        await #expect(throws: UsageCollectionError.authenticationRequired) {
+            try await GeminiCollector(
+                runner: RecordingAntigravityRunner(version: "1.1.28", usageExitCode: 2, usageOutput: "please sign in USER_PRIVATE_MARKER"),
+                locator: AntigravityTestLocator(),
+                environment: context.environment,
+                diagnostics: diagnostics
+            ).collect()
+        }
+
+        let records = await diagnostics.records()
+        let summary = await diagnostics.summary(pauseReason: .authenticationRequired, lastQuotaAt: nil)
+        #expect(records.contains { $0.stage == .usage && $0.category == .authenticationRequired })
+        #expect(!summary.contains("USER_PRIVATE_MARKER"))
+    }
+
     @Test func supplementalCancellationPropagates() async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
         await #expect(throws: CancellationError.self) {
@@ -139,7 +178,7 @@ struct GeminiCollectorTests {
     func unsupportedVersionNeverStartsUsage(_ version: String) async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
         let runner = RecordingAntigravityRunner(version: version)
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)")) {
+        await #expect(throws: UsageCollectionError.unsupportedVersion) {
             try await GeminiCollector(
                 runner: runner,
                 locator: AntigravityTestLocator(),
@@ -163,7 +202,7 @@ struct GeminiCollectorTests {
         await #expect(throws: UsageCollectionError.notInstalled) {
             try await GeminiCollector(locator: AntigravityTestLocator(discovery: .missing), environment: context.environment).collect()
         }
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Antigravity CLI is not executable")) {
+        await #expect(throws: UsageCollectionError.executableUnavailable) {
             try await GeminiCollector(locator: AntigravityTestLocator(discovery: .unavailable), environment: context.environment).collect()
         }
     }
@@ -173,7 +212,7 @@ struct GeminiCollectorTests {
         let context = try context(extraEnvironment: [key: "unverified"])
         defer { try? FileManager.default.removeItem(at: context.root) }
         let runner = RecordingAntigravityRunner(version: "1.1.28")
-        await #expect(throws: UsageCollectionError.geminiUnavailable("Antigravity CLI environment uses an unsupported override")) {
+        await #expect(throws: UsageCollectionError.environmentRejected) {
             try await GeminiCollector(runner: runner, locator: AntigravityTestLocator(), environment: context.environment).collect()
         }
         #expect(await runner.requests.isEmpty)

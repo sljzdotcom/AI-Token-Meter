@@ -12,14 +12,16 @@ struct GeminiAvailabilityTests {
         #expect(GeminiInstallationGuide.installCommand == "curl -fsSL https://antigravity.google/cli/install.sh | bash")
         #expect(GeminiInstallationGuide.instructions(for: .notInstalled) == [
             "curl -fsSL https://antigravity.google/cli/install.sh | bash",
-            "Run agy and complete Google sign-in.",
-            "Return to AI Token Meter and choose Retry.",
         ])
         #expect(GeminiInstallationGuide.instructions(for: .signInRequired) == [
-            "Run agy and complete Google sign-in.",
-            "Return to AI Token Meter and choose Retry.",
+            "Google authentication is required. Sign in through AI Token Meter.",
         ])
+        #expect(GeminiInstallationGuide.instructions(for: .lastKnown).isEmpty)
         #expect(GeminiInstallationGuide.instructions(for: .connected).isEmpty)
+        #expect(GeminiInstallationGuide.shouldOfferInstallation(for: .lastKnown, pauseReason: .notInstalled))
+        #expect(GeminiInstallationGuide.instructions(for: .lastKnown, pauseReason: .notInstalled) == [
+            GeminiInstallationGuide.installCommand,
+        ])
     }
 
     @Test func refreshPublishesRealGeminiQuotaAndAccountState() async throws {
@@ -55,7 +57,7 @@ struct GeminiAvailabilityTests {
                              isDemoMode: false, refreshOperation: { [sample] })
         await model.refresh()
         let state = model.serviceAccounts[.gemini]
-        #expect(state?.connectionState == (status == .cached ? .connected : status == .authenticationRequired ? .signInRequired : status == .notInstalled ? .notInstalled : .unavailable))
+        #expect(state?.connectionState == (status == .cached ? .lastKnown : status == .authenticationRequired ? .signInRequired : status == .notInstalled ? .notInstalled : .unavailable))
         #expect(state?.accountDetail == "Latest Gemini check failed")
         #expect(state?.accountLabel == nil)
         #expect(model.snapshots.first?.fetchedAt == previous)
@@ -63,6 +65,13 @@ struct GeminiAvailabilityTests {
         if status == .cached {
             let instructions = GeminiInstallationGuide.instructions(for: state?.connectionState ?? .unavailable)
             #expect(instructions.isEmpty)
+            if model.geminiPauseReason == .notInstalled {
+                #expect(GeminiInstallationGuide.shouldOfferInstallation(
+                    for: state?.connectionState ?? .unavailable,
+                    pauseReason: model.geminiPauseReason
+                ))
+            }
+            #expect(state?.checkedAt == previous)
         }
     }
 
@@ -78,12 +87,27 @@ struct GeminiAvailabilityTests {
             geminiQuotaMetrics: [metric]
         )
 
-        let state = ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState
-        #expect(state == .signInRequired)
-        #expect(GeminiInstallationGuide.instructions(for: state) == [
-            "Run agy and complete Google sign-in.",
-            "Return to AI Token Meter and choose Retry.",
+        let status = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: .authenticationRequired)
+        #expect(status.connectionState == .signInRequired)
+        #expect(status.refreshPauseReason == .authenticationRequired)
+        #expect(GeminiInstallationGuide.instructions(for: status.connectionState) == [
+            "Google authentication is required. Sign in through AI Token Meter.",
         ])
+    }
+
+    @Test("Cached quotas are last-known data, not a live connection")
+    func cachedQuotaDoesNotAssertConnected() {
+        let metric = UsageMetric(label: "Pro", current: 25, limit: 100, unit: .percent)
+        let fetchedAt = Date(timeIntervalSince1970: 1_234)
+        let snapshot = UsageSnapshot(provider: .gemini, primaryMetric: metric, fetchedAt: fetchedAt,
+            collectionStatus: .cached, statusMessage: "Request timed out", geminiQuotaMetrics: [metric])
+
+        let status = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: .timeout)
+
+        #expect(status.connectionState == .lastKnown)
+        #expect(status.checkedAt == fetchedAt)
+        #expect(status.refreshPauseReason == .timeout)
+        #expect(GeminiInstallationGuide.instructions(for: status.connectionState).isEmpty)
     }
 
     // Catch accidental launch/login or fake quota in initial and refreshed runtime state.

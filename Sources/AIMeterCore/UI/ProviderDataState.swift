@@ -1,9 +1,10 @@
 import Foundation
 
 public enum ProviderOperationState: String, Codable, Sendable {
-    case idle, refreshing, waiting
-    public static func resolve(status: CollectionStatus, refreshing: Bool, needsAction: Bool) -> Self {
+    case idle, refreshing, waiting, paused
+    public static func resolve(status: CollectionStatus, refreshing: Bool, needsAction: Bool, paused: Bool = false) -> Self {
         if refreshing || status == .refreshing { return .refreshing }
+        if paused { return .paused }
         if needsAction || [.authenticationRequired, .setupRequired, .notInstalled].contains(status) { return .waiting }
         return .idle
     }

@@ -7,11 +7,18 @@ public struct RefreshBackoffState: Codable, Sendable {
     public private(set) var consecutiveFailures = 0
     public private(set) var nextEligibleAt: TimeInterval = 0
     public private(set) var recordedAt: TimeInterval = 0
+    public private(set) var pauseReason: GeminiPauseReason?
     public init() {}
-    public mutating func record(_ kind: RefreshFailureKind, now: TimeInterval, retryAfter: TimeInterval = 0) {
+    public mutating func record(
+        _ kind: RefreshFailureKind,
+        now: TimeInterval,
+        retryAfter: TimeInterval = 0,
+        pauseReason: GeminiPauseReason? = nil
+    ) {
         consecutiveFailures = kind == failureKind ? min(consecutiveFailures + 1, 10) : 1
         failureKind = kind
         recordedAt = now
+        self.pauseReason = kind == .suspended ? (pauseReason ?? .unknown) : nil
         if kind == .suspended {
             nextEligibleAt = now
             return

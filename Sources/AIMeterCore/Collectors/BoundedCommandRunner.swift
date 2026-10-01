@@ -93,7 +93,7 @@ public struct BoundedCommandRunner: CommandRunning {
         if let reason = state.reason {
             switch reason {
             case .timedOut: throw UsageCollectionError.timedOut
-            case .outputLimitExceeded: throw UsageCollectionError.unrecognizedOutput
+            case .outputLimitExceeded: throw UsageCollectionError.outputLimitExceeded
             case .cancelled: throw CancellationError()
             }
         }

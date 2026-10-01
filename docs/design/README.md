@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-10-01 | Antigravity缓存状态、暂停提示与本地诊断 | [规格](specifications/2026-10-01-antigravity-status-and-diagnostics-design.md) | [计划](implementation-plans/2026-10-01-antigravity-status-and-diagnostics.md) |
 | 2026-10-01 | 0.10.4/build32 Antigravity刷新保护稳定发布 | [规格](specifications/2026-10-01-antigravity-refresh-safety-design.md) | [计划](implementation-plans/2026-10-01-antigravity-refresh-safety.md) |
 | 2026-10-01 | Antigravity 静默刷新与异常暂停 | [规格](specifications/2026-10-01-antigravity-refresh-safety-design.md) | [计划](implementation-plans/2026-10-01-antigravity-refresh-safety.md) |
 | 2026-09-27 | 0.10.3/build31 Codex CLI路径识别稳定发布 | 沿用嵌套CLI发现修复与双平台稳定发布流程 | [计划](implementation-plans/2026-09-27-v0.10.3-release.md) |

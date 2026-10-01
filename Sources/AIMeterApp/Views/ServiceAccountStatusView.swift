@@ -39,6 +39,7 @@ struct ServiceAccountStatusView: View {
     private var symbolName: String {
         switch status.connectionState {
         case .connected: "checkmark.circle.fill"
+        case .lastKnown: "clock.arrow.circlepath"
         case .signInRequired: "person.crop.circle.badge.exclamationmark"
         case .notInstalled: "terminal.fill"
         case .checking: "arrow.triangle.2.circlepath"
@@ -49,6 +50,7 @@ struct ServiceAccountStatusView: View {
     private var symbolColor: Color {
         switch status.connectionState {
         case .connected: .green
+        case .lastKnown: .secondary
         case .checking: .secondary
         case .signInRequired, .notInstalled, .unavailable: .orange
         }

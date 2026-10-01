@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20261001-002 | Antigravity缓存状态与超时诊断 | M4 Max在0.10.4显示缓存额度、Request timed out、Services中Connected/Waiting与Sign in并存；区分真实连接、历史缓存、持久暂停与认证错误，并提供隐私安全的阶段诊断 | 高 | 进行中 | 2026-10-01 | 用户已于2026-10-01追加明确“发布”授权；按macOS修正、双平台验证和正式稳定版发布执行。保留异常持久暂停与防弹窗保护，不将网络/超时恢复为自动重试，不运行真实agy/OAuth，不触碰M4 Pro账户/环境 | 用户批准方案；Services截图证实缓存Connected与持久暂停提示冲突。验收：区分缓存和实时读取；暂停原因明确且旧状态未知；仅明确认证错误提供登录；已识别CLI不误显示安装引导；只存白名单脱敏诊断并可读取/复制；Windows与其他Provider不变。M4 Max实际超时根因保留现场边界 |
 | REQ-20261001-001 | Antigravity额度刷新触发浏览器授权 | M4 Max运行0.10.3(31)刷新agy额度反复弹Google授权页，用户报告一夜打开几百页；Mac mini M4 Pro运行正常 | 紧急（P0） | 待用户确认 | 2026-10-01 | 0.10.4/build32已公开发布，修复异常后持久暂停、仅在用户显式登录并返回一次性回执后恢复一轮 headless 检查，并清理本应用启动的超时/取消进程组。待用户更新 M4 Max 后确认不再重复弹授权页；此现场观察不影响公开版本及三个更新入口 | [PR #54](https://github.com/sljzdotcom/AI-Token-Meter/pull/54) · [Release v0.10.4](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.4) · workflow `36833521351` · main `14da9f5` / appcast `bd61489` · 双端签名、SHA-256、篡改拒绝及三个更新入口匿名验收见[发布记录](development/2026-10-01-v0.10.4-release.md)。现场用户报告的页面数未独立测量；未运行真实 `agy` / Google OAuth |
 | REQ-20260927-004 | macOS Codex CLI路径识别与稳定版发布 | 用户批准修复ChatGPT.app内嵌CLI发现缺陷，并明确要求公开发布 | 高 | 进行中 | 2026-09-27 | 完成0.10.3/build31候选PR、main、双平台签名资产、Release、三个更新入口与匿名验收 | 实现与发布证据见 [发布记录](development/2026-09-27-v0.10.3-release.md)；现场更新后额度恢复仍需用户设备验收 |
 | REQ-20260914-005 | 双平台稳定版发布 | 用户要求把已完成并合入本地main的macOS清透Liquid Glass及Widget签名校验修复发布为可更新的新版本 | 高 | 已完成 | 2026-09-14 | 2026-09-14完成：0.10.2/build30已公开；PR/main双平台CI、正式签名workflow、七项资产匿名重下、SHA-256、两端签名与篡改拒绝、三个更新入口、发布证据双平台CI、独立复审与协调回传均通过。物理Windows 11真实账号与DPI继续作为现场边界。 | 用户明确“发布” · [Release v0.10.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.2) · [PR #50](https://github.com/sljzdotcom/AI-Token-Meter/pull/50) · [证据PR #51](https://github.com/sljzdotcom/AI-Token-Meter/pull/51) · 合并/tag`766505f` · appcast`4219595` · [workflow 34857567679](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34857567679) · 证据CI`34860967055`/`34860967195` · [发布记录](development/2026-09-14-v0.10.2-release.md) |
@@ -258,6 +259,7 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-10-01 | REQ-20261001-002 | 新登记 → 进行中；设计已批准 | 依据v0.10.4 M4 Max截图，将额度缓存、连接状态与永久暂停分开展示；任何CLI失败仍暂停以阻止重复浏览器弹窗，仅明确认证错误引导显式登录。新增本地有限白名单阶段诊断和复制摘要，不存正文/路径/环境/账号/令牌。用户授权实现、测试、审查和本地交付；2026-10-01用户追加明确“发布”授权，转为0.10.5/build33双平台稳定发布。 |
 | 2026-10-01 | REQ-20261001-001 | v0.10.4/build32公开发布 | 用户授权在本版本范围内使用既有 Sparkle 密钥发布；受控只读诊断确认 GitHub CLI 已认证且 Sparkle 公钥与 app 内公钥匹配。PR #54/main、发布 workflow、七项公开资产、两端签名、SHA-256、篡改拒绝和三个更新入口均通过。M4 Max 更新后的现场确认待用户完成；没有重新登录、导出/替换密钥或运行真实 `agy` / Google OAuth。 |
 | 2026-10-01 | REQ-20261001-001 | 新登记 → 紧急P0、进行中 | M4 Max刷新Antigravity额度反复打开Google授权页，用户报告一夜打开几百页（未独立测量），M4 Pro正常；用户批准静默采集、异常后持久暂停重复启动和本应用子进程清理，随后明确“发布”，授权覆盖下一双平台稳定版和更新入口。OAuth链接不打开/重放/保存，不操作Google账户、Keychain或用户环境。 |
 | 2026-09-27 | REQ-20260927-004 | 新登记 → 进行中 | 用户批准修复ChatGPT.app内嵌Codex CLI新路径识别，并明确要求公开发布；按双平台稳定版流程交付0.10.3/build31。 |

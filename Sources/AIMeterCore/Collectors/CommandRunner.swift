@@ -41,11 +41,13 @@ public struct CommandResult: Equatable, Sendable {
     public let output: String
     public let exitCode: Int32
     public let duration: TimeInterval
+    public let outputTruncated: Bool
 
-    public init(output: String, exitCode: Int32, duration: TimeInterval) {
+    public init(output: String, exitCode: Int32, duration: TimeInterval, outputTruncated: Bool = false) {
         self.output = output
         self.exitCode = exitCode
         self.duration = duration
+        self.outputTruncated = outputTruncated
     }
 }
 

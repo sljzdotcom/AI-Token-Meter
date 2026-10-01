@@ -1,4 +1,5 @@
 import AIMeterCore
+import AppKit
 import Foundation
 import Observation
 
@@ -25,6 +26,7 @@ final class AppModel {
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
+    private let geminiDiagnosticStore: GeminiDiagnosticStore
     private let clearGeminiSuspensionOperation: @Sendable () async -> Void
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
@@ -46,6 +48,7 @@ final class AppModel {
     private var signInTokens: [UsageProvider: UUID] = [:]
     private var pendingGeminiLoginToken: String?
     private var providersRequiringAction: Set<UsageProvider> = []
+    private(set) var geminiPauseReason: GeminiPauseReason?
     var isAuthenticating: Bool { !signInTokens.isEmpty }
     private var isRefreshingServiceAccounts = false
 
@@ -192,13 +195,15 @@ final class AppModel {
         deepSeekWebSession = DeepSeekWebSession(
             historyStore: DeepSeekHistoryStore(directoryURL: cacheDirectory)
         )
+        let diagnosticStore = GeminiDiagnosticStore(fileURL: cacheDirectory.appendingPathComponent("antigravity-diagnostics.json"))
         let coordinator = RefreshCoordinator(
             collectors: self.isDemoMode
                 ? []
-                : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore), GeminiCollector()],
+                : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore), GeminiCollector(diagnostics: diagnosticStore)],
             cache: SnapshotCache(directoryURL: cacheDirectory)
         )
         self.coordinator = coordinator
+        self.geminiDiagnosticStore = diagnosticStore
         self.refreshOperation = refreshOperation
         self.clearGeminiSuspensionOperation = clearGeminiSuspensionOperation ?? {
             await coordinator.clearGeminiSuspensionAfterExplicitSignIn()
@@ -323,6 +328,7 @@ final class AppModel {
         }
         guard !Task.isCancelled else { return }
         providersRequiringAction = await coordinator.providersRequiringAction()
+        geminiPauseReason = await coordinator.geminiPauseReason()
         updateAPIKeyConfiguration(from: collected)
         snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         if !snapshots.contains(where: { $0.provider == .gemini }) { snapshots.append(.geminiUnavailable) }
@@ -343,7 +349,7 @@ final class AppModel {
             serviceAccounts[.gemini] = .geminiUnavailable
             return
         }
-        serviceAccounts[.gemini] = .fromGeminiSnapshot(snapshot)
+        serviceAccounts[.gemini] = .fromGeminiSnapshot(snapshot, pauseReason: geminiPauseReason)
     }
 
     private func setProviderRefreshing(_ provider: UsageProvider, active: Bool) {
@@ -353,9 +359,19 @@ final class AppModel {
     func operationState(for provider: UsageProvider) -> ProviderOperationState {
         let status = snapshots.first { $0.provider == provider }?.collectionStatus ?? .unavailable
         let needsAction = serviceAccounts[provider].map { [.signInRequired, .notInstalled].contains($0.connectionState) } ?? false
+        let geminiPausedWithoutSignIn = provider == .gemini && geminiPauseReason != nil && geminiPauseReason != .authenticationRequired
         let historyNeedsAction = provider == .deepSeek && deepSeekWebSession.webView.url != nil && deepSeekWebSession.state == .signedOut
         return .resolve(status: status, refreshing: refreshingProviders.contains(provider),
-                        needsAction: needsAction || historyNeedsAction || signInTokens[provider] != nil || providersRequiringAction.contains(provider))
+                        needsAction: needsAction || historyNeedsAction || signInTokens[provider] != nil
+                            || (provider == .gemini ? geminiPauseReason == .authenticationRequired : providersRequiringAction.contains(provider)),
+                        paused: geminiPausedWithoutSignIn)
+    }
+
+    func copyGeminiDiagnosticSummary() async {
+        let lastQuotaAt = snapshots.first(where: { $0.provider == .gemini })?.geminiQuotaFetchedAt
+        let summary = await geminiDiagnosticStore.summary(pauseReason: geminiPauseReason, lastQuotaAt: lastQuotaAt)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(summary, forType: .string)
     }
 
     func setFloatingStripVisible(_ isVisible: Bool) {
@@ -525,6 +541,7 @@ final class AppModel {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
+        geminiPauseReason = await coordinator.geminiPauseReason()
         for status in statuses where status.provider != .gemini {
             serviceAccounts[status.provider] = status
         }

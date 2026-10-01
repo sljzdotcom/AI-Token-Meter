@@ -28,6 +28,13 @@ public actor RefreshCoordinator {
 
         let now = Date().timeIntervalSince1970
         for provider in Array(backoffs.keys) { backoffs[provider]?.normalizeClock(now: now) }
+        if let gemini = backoffs[.gemini],
+           [.authentication, .suspended].contains(gemini.failureKind),
+           gemini.pauseReason == nil {
+            var migrated = gemini
+            migrated.record(.suspended, now: now, pauseReason: .unknown)
+            backoffs[.gemini] = migrated
+        }
         saveBackoffs()
         let eligible = collectors.filter { backoffs[$0.provider]?.isEligible(now: now, manual: manual) ?? true }
         let task = Task {
@@ -43,11 +50,14 @@ public actor RefreshCoordinator {
         let snapshots = collectors.map { collector in
             if let snapshot = refreshed.first(where: { $0.provider == collector.provider }) { return snapshot }
             if let cached = cacheByProvider[collector.provider] {
-                return Self.cachedPresentation(from: cached, message: lastPresented[collector.provider]?.statusMessage ?? "Waiting before next refresh")
+                let fallback = backoffs[collector.provider]?.failureKind == .suspended
+                    ? Self.pauseStatusMessage(backoffs[collector.provider]?.pauseReason ?? .unknown)
+                    : "Waiting before next refresh"
+                return Self.cachedPresentation(from: cached, message: lastPresented[collector.provider]?.statusMessage ?? fallback)
             }
             if let previous = lastPresented[collector.provider] { return previous }
             if backoffs[collector.provider]?.failureKind == .suspended {
-                return Self.suspendedPresentation(for: collector.provider)
+                return Self.suspendedPresentation(for: collector.provider, reason: backoffs[collector.provider]?.pauseReason ?? .unknown)
             }
             return Self.failurePresentation(for: collector.provider, error:
                 backoffs[collector.provider]?.failureKind == .authentication ? .authenticationRequired : .rateLimited)
@@ -72,6 +82,12 @@ public actor RefreshCoordinator {
 
     public func providersRequiringAction() -> Set<UsageProvider> {
         Set(backoffs.filter { [.authentication, .suspended].contains($0.value.failureKind) }.map(\.key))
+    }
+
+    public func geminiPauseReason() -> GeminiPauseReason? {
+        guard let backoff = backoffs[.gemini],
+              [.authentication, .suspended].contains(backoff.failureKind) else { return nil }
+        return backoff.pauseReason ?? .unknown
     }
 
     private func saveBackoffs() {
@@ -129,7 +145,7 @@ public actor RefreshCoordinator {
         guard !Task.isCancelled else {
             if collectors.contains(where: { $0.provider == .gemini }) {
                 var backoff = backoffs[.gemini] ?? RefreshBackoffState()
-                backoff.record(.suspended, now: Date().timeIntervalSince1970)
+                backoff.record(.suspended, now: Date().timeIntervalSince1970, pauseReason: .cancelled)
                 backoffs[.gemini] = backoff
                 saveBackoffs()
             }
@@ -152,6 +168,7 @@ public actor RefreshCoordinator {
                     var delay: TimeInterval = 0
                     if outcome.provider == .gemini {
                         kind = .suspended
+                        backoff.record(kind, now: Date().timeIntervalSince1970, pauseReason: Self.pauseReason(for: error))
                     } else {
                         switch error {
                         case .rateLimited: kind = .rateLimited
@@ -160,12 +177,17 @@ public actor RefreshCoordinator {
                         default: kind = outcome.provider == .deepSeek ? .network : .cli
                         }
                     }
-                    backoff.record(kind, now: Date().timeIntervalSince1970, retryAfter: delay)
+                    if outcome.provider != .gemini {
+                        backoff.record(kind, now: Date().timeIntervalSince1970, retryAfter: delay)
+                    }
                     backoffs[outcome.provider] = backoff
                 }
                 let failure = Self.failurePresentation(for: outcome.provider, error: error)
                 if let cached = cachedByProvider[outcome.provider] {
-                    presented.append(Self.cachedPresentation(from: cached, message: failure.statusMessage))
+                    let message = outcome.provider == .gemini
+                        ? Self.pauseStatusMessage(Self.pauseReason(for: error))
+                        : failure.statusMessage
+                    presented.append(Self.cachedPresentation(from: cached, message: message))
                 } else {
                     presented.append(failure)
                 }
@@ -230,6 +252,18 @@ public actor RefreshCoordinator {
         case .timedOut:
             status = .unavailable
             message = "Request timed out"
+        case .outputLimitExceeded:
+            status = .unrecognizedOutput
+            message = "Antigravity CLI output exceeded the safe diagnostic limit"
+        case .unsupportedVersion:
+            status = .unavailable
+            message = "Antigravity CLI version is not supported (requires 1.1.28 or later in major version 1)"
+        case .environmentRejected:
+            status = .unavailable
+            message = "Antigravity CLI environment uses an unsupported override"
+        case .executableUnavailable:
+            status = .unavailable
+            message = "Antigravity CLI is not executable"
         case .transportFailure, .invalidResponse:
             status = .unavailable
             message = "Service temporarily unavailable"
@@ -242,13 +276,33 @@ public actor RefreshCoordinator {
         )
     }
 
-    private static func suspendedPresentation(for provider: UsageProvider) -> UsageSnapshot {
+    private static func suspendedPresentation(for provider: UsageProvider, reason: GeminiPauseReason) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,
             availability: .unavailable,
             collectionStatus: .unavailable,
-            statusMessage: "Antigravity refresh paused. Sign in to resume."
+            statusMessage: pauseStatusMessage(reason)
         )
+    }
+
+    private static func pauseReason(for error: UsageCollectionError) -> GeminiPauseReason {
+        switch error {
+        case .authenticationRequired: .authenticationRequired
+        case .timedOut: .timeout
+        case .transportFailure: .networkOrProcessFailure
+        case .notInstalled, .executableUnavailable: .notInstalled
+        case .rateLimited, .rateLimitedRetryAfter: .rateLimited
+        case .outputLimitExceeded: .outputTruncated
+        case .invalidResponse: .invalidResponse
+        case .unrecognizedOutput: .unrecognizedOutput
+        case .unsupportedVersion: .unsupportedVersion
+        case .environmentRejected: .environmentRejected
+        case .geminiUnavailable, .setupRequired: .unknown
+        }
+    }
+
+    private static func pauseStatusMessage(_ reason: GeminiPauseReason) -> String {
+        reason.statusMessage
     }
 
     private static func sorted(_ snapshots: [UsageSnapshot]) -> [UsageSnapshot] {
