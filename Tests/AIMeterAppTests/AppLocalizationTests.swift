@@ -488,6 +488,7 @@ extension AppLocalizationTests {
         let traditional = AppLocalizer(language: .traditionalChinese)
         for provider in UsageProvider.allCases {
             for (state, expected) in [(ServiceAccountConnectionState.connected, "已连接"),
+                                      (.lastKnown, "最近已知额度"),
                                       (.notInstalled, "未安装 CLI"), (.checking, "正在检查账户…"),
                                       (.unavailable, "账户状态不可用")] {
                 #expect(ProviderDetailText.accountText(.init(provider: provider, connectionState: state), localizer: simplified) == expected)
@@ -504,7 +505,7 @@ extension AppLocalizationTests {
         }
         #expect(ProviderDetailText.deepSeekSync(.signedOut, isDemo: true, localizer: simplified) == "预览数据")
         #expect(GeminiInstallationGuide.instructions(for: .notInstalled, localizer: traditional) == [
-            "curl -fsSL https://antigravity.google/cli/install.sh | bash", "執行 agy 並完成 Google 登入。", "返回 AI Token Meter 並選擇「重試」。",
+            "curl -fsSL https://antigravity.google/cli/install.sh | bash",
         ])
         #expect(GeminiInstallationGuide.instructions(for: .connected, localizer: simplified).isEmpty)
     }

@@ -41,7 +41,7 @@ struct CLIServiceAction {
     let showsSeparateStatusCheck: Bool
 
     init(state: ServiceAccountConnectionState, busy: Bool) {
-        title = busy ? "Waiting for Terminal…" : state == .notInstalled ? "Install CLI" : state == .connected ? "Sign in again" : state == .unavailable ? "Check Status" : "Sign in"
+        title = busy ? "Waiting for Terminal…" : state == .notInstalled ? "Install CLI" : state == .connected ? "Sign in again" : [.unavailable, .lastKnown].contains(state) ? "Check Status" : state == .checking ? "Checking account…" : "Sign in"
         needsAttention = !busy && [.notInstalled, .signInRequired].contains(state)
         isEnabled = !busy && state != .checking
         showsSeparateStatusCheck = state != .unavailable

@@ -44,6 +44,14 @@ enum ProviderDetailText {
         "Showing cached usage", "Using cached usage", "Usage is visible but could not be cached",
         "DeepSeek usage page could not be loaded", "Sign in if prompted, or open DeepSeek usage in your browser",
         "Using cached usage; automatic sync needs attention", "Synced from DeepSeek", "Demo usage", "Quota unavailable",
+        "Antigravity refresh paused after an authentication error", "Antigravity refresh paused after a timeout",
+        "Antigravity refresh paused after a service or process error", "Antigravity refresh paused after an interrupted check",
+        "Antigravity refresh paused after rate limiting", "Antigravity refresh paused because CLI output exceeded the safe limit",
+        "Antigravity refresh paused after an invalid response", "Antigravity refresh paused because CLI output was not recognized",
+        "Antigravity refresh paused because the CLI version is unsupported", "Antigravity refresh paused because the CLI is unavailable",
+        "Antigravity refresh paused because the CLI environment is unsupported", "Antigravity refresh paused; the previous failure reason is unknown",
+        "Last known Gemini quota",
+        "Last known quota", "Google authentication is required. Sign in through AI Token Meter.",
     ]
 
     static func diagnostic(_ message: String, localizer: AppLocalizer) -> String {
@@ -243,6 +251,7 @@ enum ProviderDetailText {
         }
         let key = switch status.connectionState {
         case .connected: "Connected"
+        case .lastKnown: "Last known quota"
         case .signInRequired: status.provider == .deepSeek ? "No API Key stored" : "Sign-in required"
         case .notInstalled: "CLI not installed"
         case .checking: "Checking account…"

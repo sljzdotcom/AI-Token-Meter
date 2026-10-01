@@ -27,7 +27,27 @@ struct GeminiDetailView: View {
     @Environment(\.locale) private var locale
     private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
     let snapshot: UsageSnapshot
+    let pauseReason: GeminiPauseReason?
+    let isPaused: Bool
     let onRetry: () -> Void
+    let onSignIn: () -> Void
+    let onCopyDiagnostics: () -> Void
+
+    init(
+        snapshot: UsageSnapshot,
+        pauseReason: GeminiPauseReason? = nil,
+        isPaused: Bool = false,
+        onRetry: @escaping () -> Void,
+        onSignIn: @escaping () -> Void = {},
+        onCopyDiagnostics: @escaping () -> Void = {}
+    ) {
+        self.snapshot = snapshot
+        self.pauseReason = pauseReason
+        self.isPaused = isPaused
+        self.onRetry = onRetry
+        self.onSignIn = onSignIn
+        self.onCopyDiagnostics = onCopyDiagnostics
+    }
 
     private var accentStyle: AnyShapeStyle {
         AnyShapeStyle(UsageProvider.gemini.accentPalette.gradient)
@@ -99,11 +119,23 @@ struct GeminiDetailView: View {
                 Text(localizer.text("Updated %@", localizer.date(snapshot.fetchedAt)))
                     .aiMeterFont(.caption).foregroundStyle(.secondary)
                 if let message = snapshot.statusMessage { Text(ProviderDetailText.diagnostic(message, localizer: localizer)).foregroundStyle(.secondary) }
-                GeminiInstallationHelp(state: ServiceAccountStatus.fromGeminiSnapshot(snapshot).connectionState)
+                let accountStatus = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: pauseReason)
+                GeminiInstallationHelp(state: accountStatus.connectionState, pauseReason: pauseReason)
                 HStack {
-                    Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
+                    if GeminiInstallationGuide.shouldOfferInstallation(
+                        for: accountStatus.connectionState,
+                        pauseReason: pauseReason
+                    ) {
+                        Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
+                    }
                     Spacer()
-                    Button(localizer.text("Retry"), action: onRetry)
+                    if pauseReason == .authenticationRequired {
+                        Button(localizer.text("Sign in to Antigravity"), action: onSignIn)
+                    } else if isPaused {
+                        Button(localizer.text("Copy diagnostic info"), action: onCopyDiagnostics)
+                    } else {
+                        Button(localizer.text("Retry"), action: onRetry)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

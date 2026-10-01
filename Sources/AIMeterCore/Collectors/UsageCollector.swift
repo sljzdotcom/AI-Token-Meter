@@ -11,9 +11,13 @@ public enum UsageCollectionError: Error, Equatable, Sendable {
     case authenticationRequired
     case setupRequired
     case timedOut
+    case outputLimitExceeded
     case unrecognizedOutput
     case transportFailure
     case invalidResponse
+    case unsupportedVersion
+    case environmentRejected
+    case executableUnavailable
     case rateLimited
     case rateLimitedRetryAfter(TimeInterval)
 }

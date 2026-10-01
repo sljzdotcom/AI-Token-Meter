@@ -39,6 +39,8 @@ struct RefreshBackoffTests {
         #expect(ProviderDataState.freshness(snapshot, now: Date(timeIntervalSince1970: 280)) == "Cached · 3 min ago")
         #expect(ProviderOperationState.resolve(status: .cached, refreshing: true, needsAction: false) == .refreshing)
         #expect(ProviderOperationState.resolve(status: .authenticationRequired, refreshing: false, needsAction: false) == .waiting)
+        #expect(ProviderOperationState.resolve(status: .cached, refreshing: false, needsAction: false, paused: true) == .paused)
+        #expect(ProviderOperationState.resolve(status: .cached, refreshing: true, needsAction: false, paused: true) == .refreshing)
     }
     @Test func rateLimitSurvivesRestartAndManualRefresh() throws {
         var state = RefreshBackoffState()

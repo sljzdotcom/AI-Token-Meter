@@ -19,7 +19,7 @@ struct BoundedCommandRunnerTests {
     }
 
     @Test func rejectsOutputBeyondTheConfiguredLimit() async {
-        await #expect(throws: UsageCollectionError.unrecognizedOutput) {
+        await #expect(throws: UsageCollectionError.outputLimitExceeded) {
             try await BoundedCommandRunner().run(CommandRequest(
                 executableURL: URL(fileURLWithPath: "/usr/bin/yes"),
                 inputLines: [],

@@ -23,7 +23,7 @@ struct GeminiCacheTests {
         #expect(result.collectionStatus == .cached)
         #expect(result.geminiQuotaMetrics == [fiveHour, weekly])
         #expect(result.fetchedAt == Date(timeIntervalSince1970: 1234))
-        #expect(result.statusMessage == "Antigravity CLI authentication mode is not supported")
+        #expect(result.statusMessage == "Antigravity refresh paused; the previous failure reason is unknown")
         #expect(result.antigravityCLIInfo == cliInfo)
         #expect(try cache.load().first?.geminiQuotaMetrics == [fiveHour, weekly])
         #expect(try cache.load().first?.antigravityCLIInfo == cliInfo)

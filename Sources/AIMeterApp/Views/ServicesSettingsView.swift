@@ -128,12 +128,19 @@ struct ServicesSettingsView: View {
                 Text(localizer.text("Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
-                GeminiInstallationHelp(state: geminiStatus.connectionState)
+                GeminiInstallationHelp(state: geminiStatus.connectionState, pauseReason: geminiStatus.refreshPauseReason)
                 HStack {
-                    Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
-                    if model.isGeminiRefreshPaused {
+                    if GeminiInstallationGuide.shouldOfferInstallation(
+                        for: geminiStatus.connectionState,
+                        pauseReason: geminiStatus.refreshPauseReason
+                    ) {
+                        Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
+                    }
+                    if model.geminiPauseReason == .authenticationRequired {
                         Button(localizer.text("Sign in to Antigravity")) { model.beginSignIn(.gemini) }
                             .disabled(model.isGeminiSignInPending)
+                    } else if model.isGeminiRefreshPaused {
+                        Button(localizer.text("Copy diagnostic info")) { Task { await model.copyGeminiDiagnosticSummary() } }
                     } else {
                         Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }
                     }

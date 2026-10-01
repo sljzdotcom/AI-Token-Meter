@@ -152,9 +152,14 @@ struct FloatingDetailView: View {
                         onOpenServicesSettings: onOpenServicesSettings
                     )
                 } else if provider == .gemini {
-                    GeminiDetailView(snapshot: snapshot) {
-                        Task { await model.checkServiceAccount(.gemini) }
-                    }
+                    GeminiDetailView(
+                        snapshot: snapshot,
+                        pauseReason: model.geminiPauseReason,
+                        isPaused: model.isGeminiRefreshPaused,
+                        onRetry: { Task { await model.checkServiceAccount(.gemini) } },
+                        onSignIn: { model.beginSignIn(.gemini) },
+                        onCopyDiagnostics: { Task { await model.copyGeminiDiagnosticSummary() } }
+                    )
                     .onHover(perform: onInteractionChange)
                 } else if provider == .codex {
                     CodexDetailView(

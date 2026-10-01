@@ -6,16 +6,26 @@ enum GeminiInstallationGuide {
     static let url = URL(string: "https://antigravity.google/docs/cli/install/")!
     static let installCommand = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
 
-    static func instructions(for state: ServiceAccountConnectionState, localizer: AppLocalizer = AppLocalizer(language: .english)) -> [String] {
-        let signIn = localizer.text("Run agy and complete Google sign-in.")
-        let finish = localizer.text("Return to AI Token Meter and choose Retry.")
+    static func shouldOfferInstallation(
+        for state: ServiceAccountConnectionState,
+        pauseReason: GeminiPauseReason?
+    ) -> Bool {
+        state == .notInstalled || pauseReason == .notInstalled
+    }
+
+    static func instructions(
+        for state: ServiceAccountConnectionState,
+        pauseReason: GeminiPauseReason? = nil,
+        localizer: AppLocalizer = AppLocalizer(language: .english)
+    ) -> [String] {
+        if pauseReason == .notInstalled { return [installCommand] }
         switch state {
-        case .connected:
+        case .connected, .lastKnown, .checking, .unavailable:
             return []
         case .signInRequired:
-            return [signIn, finish]
-        case .notInstalled, .checking, .unavailable:
-            return [installCommand, signIn, finish]
+            return [localizer.text("Google authentication is required. Sign in through AI Token Meter.")]
+        case .notInstalled:
+            return [installCommand]
         }
     }
 }
@@ -23,9 +33,14 @@ enum GeminiInstallationGuide {
 struct GeminiInstallationHelp: View {
     @Environment(\.locale) private var locale
     let state: ServiceAccountConnectionState
+    var pauseReason: GeminiPauseReason? = nil
 
     var body: some View {
-        let instructions = GeminiInstallationGuide.instructions(for: state, localizer: AppLocalizer(locale: locale))
+        let instructions = GeminiInstallationGuide.instructions(
+            for: state,
+            pauseReason: pauseReason,
+            localizer: AppLocalizer(locale: locale)
+        )
         if !instructions.isEmpty {
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(instructions.enumerated()), id: \.offset) { _, instruction in

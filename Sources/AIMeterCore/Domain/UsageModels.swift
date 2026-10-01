@@ -190,6 +190,11 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
 }
 
 public extension UsageSnapshot {
+    var geminiQuotaFetchedAt: Date? {
+        guard provider == .gemini, geminiQuotaMetrics?.isEmpty == false else { return nil }
+        return fetchedAt
+    }
+
     func normalizedAntigravityQuota() -> UsageSnapshot {
         guard provider == .gemini else { return self }
         let normalizedCLIInfo = normalizedAntigravityCLIInfo()

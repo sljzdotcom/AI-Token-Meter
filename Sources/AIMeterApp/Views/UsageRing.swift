@@ -33,7 +33,7 @@ struct UsageRing: View {
                     let seconds = context.date.timeIntervalSinceReferenceDate
                     Circle()
                         .trim(from: 0, to: operation == .refreshing ? 0.25 : 1)
-                        .stroke(operation == .refreshing ? Color(red: 0.72, green: 0.85, blue: 1) : Color.orange,
+                        .stroke(operation == .refreshing ? Color(red: 0.72, green: 0.85, blue: 1) : operation == .paused ? Color.secondary : Color.orange,
                                 style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
                         .rotationEffect(.degrees(operation == .refreshing && !reduceMotion ? seconds / 1.1 * 360 : -90))
                         .opacity(operation == .waiting && !reduceMotion ? 0.55 + 0.3 * sin(seconds * 3) : 0.85)
@@ -44,6 +44,12 @@ struct UsageRing: View {
             if operation == .waiting {
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.system(size: 10)).foregroundStyle(.orange)
+                    .offset(x: size * 0.30, y: -size * 0.30)
+                    .accessibilityHidden(true)
+            }
+            if operation == .paused {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
                     .offset(x: size * 0.30, y: -size * 0.30)
                     .accessibilityHidden(true)
             }
@@ -61,7 +67,7 @@ struct UsageRing: View {
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(localizer.text(operation == .refreshing ? "Refreshing" : operation == .waiting ? "Action required" : ""))
+        .accessibilityHint(localizer.text(operation == .refreshing ? "Refreshing" : operation == .waiting ? "Action required" : operation == .paused ? "Refresh paused" : ""))
     }
 
     private var accessibilityLabel: String {
