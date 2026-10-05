@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.5](https://img.shields.io/badge/version-0.10.5-3b82f6)
+![Version 0.10.6](https://img.shields.io/badge/version-0.10.6-3b82f6)
 ![Tests 607](https://img.shields.io/badge/tests-607%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
