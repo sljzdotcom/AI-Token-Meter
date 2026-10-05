@@ -3,14 +3,17 @@ import AppKit
 import SwiftUI
 
 struct BrandLinkOpenAction {
-    private let openURL: (URL) -> Bool
+    private let openURL: ((URL) -> Bool)?
+    private let systemActionPolicy: SystemActionPolicy
 
-    init(openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }) {
+    init(openURL: ((URL) -> Bool)? = nil, systemActionPolicy: SystemActionPolicy = .current) {
         self.openURL = openURL
+        self.systemActionPolicy = systemActionPolicy
     }
 
     func open(_ link: AppBrand.Link) -> Bool {
-        openURL(link.url)
+        if let openURL { return openURL(link.url) }
+        return systemActionPolicy.open(link.url) { NSWorkspace.shared.open($0) }
     }
 }
 

@@ -31,7 +31,8 @@ struct GeminiAvailabilityTests {
         let metrics = [UsageMetric(label: "Pro", current: 25, limit: 100, unit: .percent), UsageMetric(label: "Flash", current: 60, limit: 100, unit: .percent)]
         let sample = UsageSnapshot(provider: .gemini, primaryMetric: metrics[1], secondaryMetric: metrics[0], sourceVersion: "1.1.28", geminiQuotaMetrics: metrics)
         let model = AppModel(defaults: defaults, secretStore: GeminiTestSecretStore(), widgetSnapshotPublisher: nil,
-                             isDemoMode: false, refreshOperation: { [sample] })
+                             isDemoMode: false, refreshOperation: { [sample] },
+                             geminiAuthenticationOpenOperation: { _ in })
         await model.refresh()
         #expect(model.snapshots.first?.geminiQuotaMetrics?.map(\.current) == [25, 60])
         #expect(model.serviceAccounts[.gemini]?.connectionState == .connected)
@@ -118,6 +119,7 @@ struct GeminiAvailabilityTests {
         let model = AppModel(defaults: defaults, secretStore: GeminiTestSecretStore(), widgetSnapshotPublisher: nil,
                              isDemoMode: false, refreshOperation: { [] },
                              authenticationOpenOperation: { _ in Issue.record("Must not launch authentication") },
+                             geminiAuthenticationOpenOperation: { _ in },
                              installationOpenOperation: { _ in Issue.record("Must not launch installation"); return false })
         for refreshed in [false, true] {
             if refreshed { await model.refresh() }

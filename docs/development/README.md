@@ -12,6 +12,9 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-10-06](../releases/v0.10.6.md) | 0.10.6/build34发布候选说明 | 测试进程外部动作隔离与诊断版本标识；PR、双平台CI和公开发布进行中 |
+| [2026-10-06](2026-10-06-antigravity-diagnostic-versioning.md) | Antigravity现场诊断发行标识补充 | 摘要增加经白名单校验的版本/build；未知旧暂停保持不变 |
+| [2026-10-05](2026-10-05-test-process-external-action-safety.md) | 测试进程外部操作隔离 | 针对性测试已通过；完整验证、独立审查和本地提交待完成 |
 | [2026-10-01](2026-10-01-antigravity-status-and-diagnostics-release.md) | 0.10.5/build33 Antigravity状态与诊断双平台发布 | PR #56、main、签名资产、七项公开文件、SHA-256及三个更新入口通过；M4 Max现场与本机发布时登录脚本会话另行追踪 |
 | [2026-10-01](2026-10-01-v0.10.4-release.md) | 0.10.4/build32 Antigravity刷新保护稳定发布 | 双平台门禁、PR/main、签名资产与三个更新入口证据随发布补齐 |
 | [2026-10-01](2026-10-01-antigravity-refresh-safety.md) | Antigravity静默刷新与异常暂停 | 持久暂停、一次性登录回执、命令进程组清理及自动化证据；M4 Max现场观察保留为发布后验收边界 |

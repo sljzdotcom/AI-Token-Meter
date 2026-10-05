@@ -33,13 +33,34 @@ struct GeminiDiagnosticTests {
     @Test func summaryReportsUnknownLegacyPauseWithoutInventingAStage() async {
         let store = GeminiDiagnosticStore(fileURL: nil)
 
-        let summary = await store.summary(pauseReason: .unknown, lastQuotaAt: Date(timeIntervalSince1970: 1_234))
+        let summary = await store.summary(
+            pauseReason: .unknown,
+            lastQuotaAt: Date(timeIntervalSince1970: 1_234),
+            appVersion: "0.10.5",
+            buildNumber: "33"
+        )
 
         #expect(summary.contains("refreshPaused=true reason=unknown"))
         #expect(summary.contains("lastQuotaAt=1970-01-01T00:20:34Z"))
+        #expect(summary.contains("appVersion=0.10.5 build=33"))
         #expect(summary.contains("stage=unknown"))
         #expect(!summary.contains("stdout"))
         #expect(!summary.contains("environment="))
+    }
+
+    @Test func summarySanitizesBuildMetadataBeforeCopying() async {
+        let store = GeminiDiagnosticStore(fileURL: nil)
+
+        let summary = await store.summary(
+            pauseReason: .unknown,
+            lastQuotaAt: nil,
+            appVersion: "0.10.5\\nreason=authenticationRequired",
+            buildNumber: "33 / private"
+        )
+
+        #expect(summary.contains("appVersion=unknown build=unknown"))
+        #expect(!summary.contains("private"))
+        #expect(!summary.contains("reason=authenticationRequired"))
     }
 
     @Test func failureTimestampIsNotReportedAsLastQuotaWhenSnapshotHasNoQuota() {

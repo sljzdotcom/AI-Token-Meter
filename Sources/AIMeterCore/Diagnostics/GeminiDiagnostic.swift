@@ -128,8 +128,14 @@ public actor GeminiDiagnosticStore {
 
     public func records() -> [GeminiDiagnosticRecord] { storedRecords }
 
-    public func summary(pauseReason: GeminiPauseReason?, lastQuotaAt: Date?) -> String {
+    public func summary(
+        pauseReason: GeminiPauseReason?,
+        lastQuotaAt: Date?,
+        appVersion: String? = nil,
+        buildNumber: String? = nil
+    ) -> String {
         var lines = ["Antigravity local diagnostic summary"]
+        lines.append("appVersion=\(Self.safeVersion(appVersion)) build=\(Self.safeBuildNumber(buildNumber))")
         lines.append("refreshPaused=\(pauseReason == nil ? "false" : "true") reason=\(pauseReason?.rawValue ?? "none")")
         if let lastQuotaAt { lines.append("lastQuotaAt=\(Self.timestamp(lastQuotaAt))") }
         if storedRecords.isEmpty {
@@ -164,5 +170,22 @@ public actor GeminiDiagnosticStore {
 
     private static func timestamp(_ date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
+    }
+
+    private static func safeVersion(_ value: String?) -> String {
+        guard let value, !value.isEmpty, value.utf8.count <= 40,
+              value.unicodeScalars.allSatisfy({ scalar in
+                  (48...57).contains(scalar.value)
+                      || (65...90).contains(scalar.value)
+                      || (97...122).contains(scalar.value)
+                      || [".", "-", "+", "_"].contains(String(scalar))
+              }) else { return "unknown" }
+        return value
+    }
+
+    private static func safeBuildNumber(_ value: String?) -> String {
+        guard let value, !value.isEmpty, value.utf8.count <= 20,
+              value.utf8.allSatisfy({ (48...57).contains($0) }) else { return "unknown" }
+        return value
     }
 }

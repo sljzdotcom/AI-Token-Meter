@@ -71,6 +71,30 @@ struct CLIAuthenticationLauncherTests {
         #expect(script.contains("exec '\(executable.path)' login"))
     }
 
+    @Test("A default test-process launch is refused before writing a login script")
+    func defaultTestProcessLaunchIsFailClosed() {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let authenticationDirectory = root.appendingPathComponent("Authentication", isDirectory: true)
+        let policy = SystemActionPolicy(
+            environment: ["XCTestConfigurationFilePath": "/tmp/fake-tests.xctest"],
+            isXCTestBundle: false
+        )
+        let launcher = CLIAuthenticationLauncher(
+            authenticationDirectoryURL: authenticationDirectory,
+            executableLocator: AuthenticationFixedLocator(),
+            systemActionPolicy: policy
+        )
+
+        #expect(throws: CLIAuthenticationLaunchError.externalActionsDisabled) {
+            try launcher.open(
+                provider: .gemini,
+                completionToken: "12345678-1234-1234-1234-123456789abc"
+            )
+        }
+        #expect(!FileManager.default.fileExists(atPath: authenticationDirectory.path))
+    }
+
     @Test("A missing executable produces a provider-specific failure")
     func missingCLI() {
         let launcher = CLIAuthenticationLauncher(

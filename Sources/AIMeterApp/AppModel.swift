@@ -19,6 +19,7 @@ final class AppModel {
     private let secretStore: any SecretStore
     private let launchAtLoginService: LaunchAtLoginService
     private let claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher
+    private let systemActionPolicy: SystemActionPolicy
     private let defaults: UserDefaults
     private let detailAutoHidePreferenceStore: DetailAutoHidePreferenceStore
     private let displayFontPreferenceStore: DisplayFontPreferenceStore
@@ -100,6 +101,8 @@ final class AppModel {
         secretStore: any SecretStore = KeychainStore(),
         launchAtLoginService: LaunchAtLoginService = LaunchAtLoginService(),
         claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher = ClaudeWorkspaceSetupLauncher(),
+        authenticationLauncher: CLIAuthenticationLauncher? = nil,
+        systemActionPolicy: SystemActionPolicy = .current,
         widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
         isDemoMode: Bool? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
@@ -125,6 +128,7 @@ final class AppModel {
         self.secretStore = secretStore
         self.launchAtLoginService = launchAtLoginService
         self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
+        self.systemActionPolicy = systemActionPolicy
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
         self.displayFontPreferenceStore = DisplayFontPreferenceStore(defaults: defaults)
         self.displayFontChoice = self.displayFontPreferenceStore.load()
@@ -145,18 +149,31 @@ final class AppModel {
             }
             return await accountCoordinator.readAll()
         }
-        let authenticationLauncher = CLIAuthenticationLauncher()
-        let installationLauncher = CLIInstallationLauncher()
-        self.installationOpenOperation = installationOpenOperation ?? { try installationLauncher.open(provider: $0) }
+        let authenticationLauncher = authenticationLauncher
+            ?? CLIAuthenticationLauncher(systemActionPolicy: systemActionPolicy)
+        let installationLauncher = CLIInstallationLauncher(systemActionPolicy: systemActionPolicy)
+        self.installationOpenOperation = installationOpenOperation ?? { provider in
+            guard systemActionPolicy.allowsExternalOpen else {
+                throw CLIInstallationLaunchError.externalActionsDisabled
+            }
+            return try installationLauncher.open(provider: provider)
+        }
         self.authenticationOpenOperation = authenticationOpenOperation ?? { provider in
+            guard systemActionPolicy.allowsExternalOpen else {
+                throw CLIAuthenticationLaunchError.externalActionsDisabled
+            }
             try authenticationLauncher.open(provider: provider)
         }
         self.geminiAuthenticationOpenOperation = geminiAuthenticationOpenOperation ?? { token in
+            guard systemActionPolicy.allowsExternalOpen else {
+                throw CLIAuthenticationLaunchError.externalActionsDisabled
+            }
             try authenticationLauncher.open(provider: .gemini, completionToken: token)
         }
-        let codexInstallationGuideLauncher = CodexInstallationGuideLauncher()
+        let codexInstallationGuideLauncher = CodexInstallationGuideLauncher(systemActionPolicy: systemActionPolicy)
         self.codexInstallGuideOpenOperation = codexInstallGuideOpenOperation ?? {
-            codexInstallationGuideLauncher.open()
+            guard systemActionPolicy.allowsExternalOpen else { return false }
+            return codexInstallationGuideLauncher.open()
         }
         self.deepSeekReplaceOperation = deepSeekReplaceOperation ?? { candidate in
             try await deepSeekCredentialManager.replace(with: candidate)
@@ -369,7 +386,13 @@ final class AppModel {
 
     func copyGeminiDiagnosticSummary() async {
         let lastQuotaAt = snapshots.first(where: { $0.provider == .gemini })?.geminiQuotaFetchedAt
-        let summary = await geminiDiagnosticStore.summary(pauseReason: geminiPauseReason, lastQuotaAt: lastQuotaAt)
+        let info = Bundle.main.infoDictionary ?? [:]
+        let summary = await geminiDiagnosticStore.summary(
+            pauseReason: geminiPauseReason,
+            lastQuotaAt: lastQuotaAt,
+            appVersion: info["CFBundleShortVersionString"] as? String,
+            buildNumber: info["CFBundleVersion"] as? String
+        )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(summary, forType: .string)
     }
@@ -512,6 +535,11 @@ final class AppModel {
     }
 
     func openClaudeWorkspaceSetup() {
+        guard systemActionPolicy.allowsExternalOpen else {
+            settingsNotice = .workspaceSetupFailed
+            settingsMessageKind = .claudeWorkspace
+            return
+        }
         do {
             try claudeWorkspaceSetupLauncher.open()
             settingsNotice = .workspaceApproval
