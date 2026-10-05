@@ -13,6 +13,8 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-10-06 | Antigravity诊断发行标识 | [规格](specifications/2026-10-01-antigravity-status-and-diagnostics-design.md) | [计划](implementation-plans/2026-10-01-antigravity-status-and-diagnostics.md) |
+| 2026-10-05 | 测试进程外部操作与登录启动隔离 | [规格](specifications/2026-10-05-test-process-external-action-safety-design.md) | [计划](implementation-plans/2026-10-05-test-process-external-action-safety.md) |
 | 2026-10-01 | Antigravity缓存状态、暂停提示与本地诊断 | [规格](specifications/2026-10-01-antigravity-status-and-diagnostics-design.md) | [计划](implementation-plans/2026-10-01-antigravity-status-and-diagnostics.md) |
 | 2026-10-01 | 0.10.4/build32 Antigravity刷新保护稳定发布 | [规格](specifications/2026-10-01-antigravity-refresh-safety-design.md) | [计划](implementation-plans/2026-10-01-antigravity-refresh-safety.md) |
 | 2026-10-01 | Antigravity 静默刷新与异常暂停 | [规格](specifications/2026-10-01-antigravity-refresh-safety-design.md) | [计划](implementation-plans/2026-10-01-antigravity-refresh-safety.md) |

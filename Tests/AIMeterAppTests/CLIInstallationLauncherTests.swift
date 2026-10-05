@@ -6,6 +6,25 @@ import Testing
 @Suite("CLI installation launcher", .serialized)
 @MainActor
 struct CLIInstallationLauncherTests {
+    @Test("A default test-process install is refused before writing an installer script")
+    func defaultTestProcessInstallIsFailClosed() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let policy = SystemActionPolicy(
+            environment: ["XCTestConfigurationFilePath": "/tmp/fake-tests.xctest"],
+            isXCTestBundle: false
+        )
+        let launcher = CLIInstallationLauncher(
+            directory: root,
+            locator: InstallLocator(found: false),
+            systemActionPolicy: policy
+        )
+
+        #expect(throws: CLIInstallationLaunchError.externalActionsDisabled) {
+            try launcher.open(provider: .claude)
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.path))
+    }
+
     @Test("Nonexecutable and broken-link CLI candidates cannot authorize installation", arguments: [false, true])
     func invalidExistingCLI(brokenLink: Bool) async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -45,7 +64,7 @@ struct CLIInstallationLauncherTests {
         defer { try? FileManager.default.removeItem(at: root) }
         var script: URL?
         let launcher = CLIInstallationLauncher(directory: root, locator: InstallLocator(found: false), openURL: { script = $0; return false })
-        #expect(throws: CLIAuthenticationLaunchError.couldNotOpenTerminal) { try launcher.open(provider: .claude) }
+        #expect(throws: CLIInstallationLaunchError.couldNotOpenTerminal) { try launcher.open(provider: .claude) }
         let path = try #require(script).path
         let permissions = try FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? NSNumber
         #expect(permissions?.intValue == 0o700)

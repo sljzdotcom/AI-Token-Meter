@@ -6,6 +6,7 @@ enum CLIAuthenticationLaunchError: Error, Equatable {
     case unsupportedProvider
     case notInstalled(UsageProvider)
     case couldNotOpenTerminal
+    case externalActionsDisabled
 }
 
 @MainActor
@@ -14,23 +15,37 @@ final class CLIAuthenticationLauncher {
     private let executableLocator: any ExecutableLocating
     private let scriptBuilder: CLIAuthenticationScriptBuilder
     private let openURL: (URL) -> Bool
+    private let systemActionPolicy: SystemActionPolicy
+    private let usesSystemOpener: Bool
 
     init(
         authenticationDirectoryURL: URL? = nil,
         executableLocator: any ExecutableLocating = ExecutableLocator(),
         scriptBuilder: CLIAuthenticationScriptBuilder = CLIAuthenticationScriptBuilder(),
-        openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }
+        openURL: ((URL) -> Bool)? = nil,
+        systemActionPolicy: SystemActionPolicy = .current
     ) {
-        self.authenticationDirectoryURL = authenticationDirectoryURL
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("AI Meter/Authentication", isDirectory: true)
+        let applicationSupportDirectory = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        )[0]
+        self.authenticationDirectoryURL = authenticationDirectoryURL ?? systemActionPolicy.scriptDirectory(
+            name: "Authentication",
+            applicationSupportDirectory: applicationSupportDirectory,
+            temporaryDirectory: FileManager.default.temporaryDirectory
+        )
         self.executableLocator = executableLocator
         self.scriptBuilder = scriptBuilder
-        self.openURL = openURL
+        self.systemActionPolicy = systemActionPolicy
+        self.usesSystemOpener = openURL == nil
+        self.openURL = openURL ?? { NSWorkspace.shared.open($0) }
     }
 
     @discardableResult
     func open(provider: UsageProvider, completionToken: String? = nil) throws -> URL {
+        guard !usesSystemOpener || systemActionPolicy.allowsExternalOpen else {
+            throw CLIAuthenticationLaunchError.externalActionsDisabled
+        }
         let executableName: String
         let scriptName: String
         switch provider {
