@@ -33,10 +33,20 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             command = """
             token_pipe=\(shellQuote(completionTokenPipeURL.path))
             completion_token=""
-            if [[ ! -p "$token_pipe" ]] || ! IFS= read -r -t 300 completion_token < "$token_pipe"; then
+            if [[ ! -p "$token_pipe" ]]; then
               rm -f -- "$token_pipe"
               exit 124
             fi
+            if ! exec 3<> "$token_pipe"; then
+              rm -f -- "$token_pipe"
+              exit 124
+            fi
+            if ! IFS= read -r -t \(loginTimeoutSeconds) -u 3 completion_token; then
+              exec 3>&-
+              rm -f -- "$token_pipe"
+              exit 124
+            fi
+            exec 3>&-
             rm -f -- "$token_pipe"
             if [[ ! "$completion_token" =~ '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$' ]]; then
               exit 127
@@ -86,11 +96,6 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             trap 'cancel_login 130' INT
             trap 'cancel_login 143' TERM
             trap 'mark_timeout' USR1
-
-            if [[ ! -x '/usr/bin/perl' ]]; then
-              send_receipt failure 127
-              exit 127
-            fi
 
             /usr/bin/perl -MPOSIX -e 'POSIX::setpgid(0, 0) == 0 or die "setpgid failed"; exec @ARGV or die $!;' \(shellQuote(executableURL.path)) &
             agy_pid=$!

@@ -218,6 +218,50 @@ struct CLIAuthenticationScriptBuilderTests {
         #expect(kill(childPID, 0) != 0)
     }
 
+    @Test("Antigravity token wait is bounded even when no app writer opens the FIFO")
+    func geminiTokenWaitIsBoundedWithoutWriter() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        let startedFile = root.appendingPathComponent("agy-started")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable(
+            "#!/bin/sh\nprintf started > '\(startedFile.path)'\nexit 0\n",
+            named: "agy",
+            in: root
+        )
+        let script = try CLIAuthenticationScriptBuilder().build(
+            provider: .gemini,
+            executableURL: executable,
+            completionTokenPipeURL: tokenPipe,
+            loginTimeoutSeconds: 1
+        )
+        let scriptURL = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: scriptURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptURL.path)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = [scriptURL.path]
+        let startedAt = Date()
+        try process.run()
+
+        let deadline = startedAt.addingTimeInterval(2.5)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        let exitedBeforeDeadline = !process.isRunning
+        if !exitedBeforeDeadline {
+            process.terminate()
+        }
+        process.waitUntilExit()
+
+        #expect(exitedBeforeDeadline)
+        #expect(process.terminationReason == .exit)
+        #expect(process.terminationStatus == 124)
+        #expect(!FileManager.default.fileExists(atPath: startedFile.path))
+        #expect(!FileManager.default.fileExists(atPath: tokenPipe.path))
+    }
+
     @Test("Antigravity scripts require a completion token pipe")
     func requiresCompletionTokenPipe() {
         let builder = CLIAuthenticationScriptBuilder()
