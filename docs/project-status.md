@@ -1,13 +1,15 @@
 # 当前项目状态
 
-- **事实快照：** 2026-10-06
+- **事实快照：** 2026-10-07
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.6`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)（macOS build `34`）
+- **当前公开稳定版：** 双平台 [`0.10.6`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)（macOS build `34`）；v0.10.7/build35发布候选正在准备中
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**0.10.6/build34 已公开发布：** 测试进程默认拒绝真实系统打开，正式App中的显式操作不变；Antigravity复制诊断会附上经白名单校验的应用版本/build，不会清除旧暂停或触发刷新。PR #57、候选与main双平台CI、正式签名发布workflow、七项公开资产、两端签名和篡改拒绝、三个更新入口匿名验收均通过，完整证据见[发布记录](development/2026-10-06-v0.10.6-release.md)。M4 Max现场额度仍保持旧暂停与unknown原因；此版本不推断根因或自动恢复。
+**v0.10.7/build35 发布候选：** Antigravity未知暂停新增用户主动的一次性官方登录与只读额度检查。一次成功只更新一次额度并保留自动刷新暂停；回执等待有界，失败或取消不会清除保护。Windows运行行为保持不变。公开发布证据待[发布记录](development/2026-10-07-v0.10.7-release.md)补齐。
+
+**0.10.6/build34 历史发布：** 测试进程默认拒绝真实系统打开，正式App中的显式操作不变；Antigravity复制诊断会附上经白名单校验的应用版本/build，不会清除旧暂停或触发刷新。PR #57、候选与main双平台CI、正式签名发布workflow、七项公开资产、两端签名和篡改拒绝、三个更新入口匿名验收均通过，完整证据见[发布记录](development/2026-10-06-v0.10.6-release.md)。M4 Max现场额度仍保持旧暂停与unknown原因；此版本不推断根因或自动恢复。
 
 **0.10.5/build33 历史发布：** macOS Antigravity区分实时额度、最近缓存和持久暂停原因，认证错误才提供登录入口，并可复制白名单阶段诊断；Windows仅同步共享版本。完整证据见[发布记录](development/2026-10-01-antigravity-status-and-diagnostics-release.md)。M4 Max现场额度状态与真实超时根因仍待用户验收；本机发布流程期间出现的真实登录脚本会话另行追踪。
 

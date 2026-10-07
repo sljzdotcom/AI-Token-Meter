@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-10-07 | 0.10.7/build35 Antigravity 单次受控恢复双平台稳定发布 | 沿用一次性受控恢复规格与双平台稳定发布流程 | [计划](implementation-plans/2026-10-07-v0.10.7-release.md) |
 | 2026-10-07 | Antigravity 单次受控恢复 | [规格](specifications/2026-10-07-antigravity-one-time-recovery-design.md) | [计划](implementation-plans/2026-10-07-antigravity-one-time-recovery.md) |
 | 2026-10-06 | 0.10.6/build34双平台稳定发布 | 沿用测试进程外部操作隔离与诊断发行标识规格 | [已完成计划](implementation-plans/2026-10-06-v0.10.6-release.md) |
 | 2026-10-06 | Antigravity诊断发行标识 | [规格](specifications/2026-10-01-antigravity-status-and-diagnostics-design.md) | [计划](implementation-plans/2026-10-01-antigravity-status-and-diagnostics.md) |

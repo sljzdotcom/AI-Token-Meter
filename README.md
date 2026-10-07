@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.6](https://img.shields.io/badge/version-0.10.6-3b82f6)
-![Tests 607](https://img.shields.io/badge/tests-607%20passed-2ea44f)
+![Version 0.10.7](https://img.shields.io/badge/version-0.10.7-3b82f6)
+![Tests 636](https://img.shields.io/badge/tests-636%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.10.6](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)（macOS build `34`）；现有macOS与Windows安装可通过应用内更新入口升级。测试进程默认拒绝真实系统打开，Antigravity本地诊断包含经过安全校验的应用版本/build；完整双平台签名与更新入口证据见[0.10.6发布记录](docs/development/2026-10-06-v0.10.6-release.md)。
+> 源码发布候选为[0.10.7](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)（macOS build `35`）；当前公开稳定版仍为[0.10.6](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)。候选新增Antigravity未知暂停的一次性受控登录与只读额度检查；成功后仍保持自动刷新暂停，Windows运行行为不变。发布与更新源证据见[0.10.7发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> 稳定版 `0.10.6` / build `34`：macOS测试进程默认拒绝真实系统打开，正式用户显式登录流程不变；Antigravity复制诊断会附带经过安全校验的应用版本/build。Windows运行行为保持不变。[Release Notes](docs/releases/v0.10.6.md)。
+> 候选版 `0.10.7` / build `35`：Antigravity未知暂停可由用户主动执行一次官方登录及只读额度检查；成功后仍保持自动刷新暂停。Windows运行行为保持不变。[Release Notes](docs/releases/v0.10.7.md)。
 
 > `0.10.3` / build `31`：macOS可发现新版ChatGPT.app内嵌的Codex CLI，账户状态、额度读取和登录入口统一使用该定位逻辑；Windows产品行为不变。[Release Notes](docs/releases/v0.10.3.md)。
 
@@ -98,10 +98,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-当前公开稳定版下载页面：**[Download v0.10.6](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)**：
+当前发布目标下载页面：**[Download v0.10.7](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)**（签名 Release 公开后可用）：
 
-- macOS：下载 `AI-Token-Meter-0.10.6-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.10.6-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.10.7-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.10.7-windows-x64-setup.exe` 与同名 `.sha256`。
 
 已经安装的 macOS `0.2.x` 及以后版本、Windows 稳定版和旧 Preview 均可在 Settings → About → Check for Updates → Update Now 升级到当前公开稳定版；中文入口为 设置 → 关于 → 检查更新 → 立即更新。无需手工安装中间版本。早期无更新器的 macOS `0.1.2` 需手动安装一次。
 
@@ -254,7 +254,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前公开稳定版为`0.10.6`（macOS build `34`），见[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)及[发布记录](docs/development/2026-10-06-v0.10.6-release.md)。
+- 当前公开稳定版为`0.10.7`（macOS build `35`），见[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)及[发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
