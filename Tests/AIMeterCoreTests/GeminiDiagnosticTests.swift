@@ -48,6 +48,24 @@ struct GeminiDiagnosticTests {
         #expect(!summary.contains("environment="))
     }
 
+    @Test func summaryIncludesRecoveryReceiptOutcomeWithoutSensitivePayload() async {
+        let store = GeminiDiagnosticStore(fileURL: nil)
+        await store.record(GeminiDiagnosticRecord(
+            recordedAt: Date(timeIntervalSince1970: 1_235),
+            stage: .login,
+            category: .succeeded,
+            durationMilliseconds: 0,
+            outputTruncated: false
+        ))
+
+        let summary = await store.summary(pauseReason: .unknown, lastQuotaAt: nil)
+
+        #expect(summary.contains("stage=login result=succeeded"))
+        #expect(summary.contains("refreshPaused=true reason=unknown"))
+        #expect(!summary.contains("token"))
+        #expect(!summary.contains("https://"))
+    }
+
     @Test func summarySanitizesBuildMetadataBeforeCopying() async {
         let store = GeminiDiagnosticStore(fileURL: nil)
 

@@ -29,6 +29,8 @@ struct GeminiDetailView: View {
     let snapshot: UsageSnapshot
     let pauseReason: GeminiPauseReason?
     let isPaused: Bool
+    let isRecoveryInProgress: Bool
+    let recoveryMessage: String?
     let onRetry: () -> Void
     let onSignIn: () -> Void
     let onCopyDiagnostics: () -> Void
@@ -37,6 +39,8 @@ struct GeminiDetailView: View {
         snapshot: UsageSnapshot,
         pauseReason: GeminiPauseReason? = nil,
         isPaused: Bool = false,
+        isRecoveryInProgress: Bool = false,
+        recoveryMessage: String? = nil,
         onRetry: @escaping () -> Void,
         onSignIn: @escaping () -> Void = {},
         onCopyDiagnostics: @escaping () -> Void = {}
@@ -44,6 +48,8 @@ struct GeminiDetailView: View {
         self.snapshot = snapshot
         self.pauseReason = pauseReason
         self.isPaused = isPaused
+        self.isRecoveryInProgress = isRecoveryInProgress
+        self.recoveryMessage = recoveryMessage
         self.onRetry = onRetry
         self.onSignIn = onSignIn
         self.onCopyDiagnostics = onCopyDiagnostics
@@ -119,8 +125,20 @@ struct GeminiDetailView: View {
                 Text(localizer.text("Updated %@", localizer.date(snapshot.fetchedAt)))
                     .aiMeterFont(.caption).foregroundStyle(.secondary)
                 if let message = snapshot.statusMessage { Text(ProviderDetailText.diagnostic(message, localizer: localizer)).foregroundStyle(.secondary) }
+                if let recoveryMessage {
+                    Text(recoveryMessage)
+                        .aiMeterFont(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 let accountStatus = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: pauseReason)
                 GeminiInstallationHelp(state: accountStatus.connectionState, pauseReason: pauseReason)
+                if isPaused {
+                    Text(localizer.text("A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh."))
+                        .aiMeterFont(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack {
                     if GeminiInstallationGuide.shouldOfferInstallation(
                         for: accountStatus.connectionState,
@@ -129,10 +147,14 @@ struct GeminiDetailView: View {
                         Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
                     }
                     Spacer()
-                    if pauseReason == .authenticationRequired {
-                        Button(localizer.text("Sign in to Antigravity"), action: onSignIn)
-                    } else if isPaused {
+                    if isPaused {
                         Button(localizer.text("Copy diagnostic info"), action: onCopyDiagnostics)
+                            .buttonStyle(.bordered)
+                        Button(localizer.text("One-time quota check"), action: onSignIn)
+                            .disabled(isRecoveryInProgress)
+                        if isRecoveryInProgress {
+                            ProgressView().controlSize(.small)
+                        }
                     } else {
                         Button(localizer.text("Retry"), action: onRetry)
                     }

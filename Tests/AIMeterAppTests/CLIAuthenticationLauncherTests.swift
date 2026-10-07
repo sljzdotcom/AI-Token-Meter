@@ -19,9 +19,10 @@ struct CLIAuthenticationLauncherTests {
 
         let claudeURL = try launcher.open(provider: .claude)
         let codexURL = try launcher.open(provider: .codex)
+        let completionToken = "12345678-1234-1234-1234-123456789abc"
         let antigravityURL = try launcher.open(
             provider: .gemini,
-            completionToken: "12345678-1234-1234-1234-123456789abc"
+            completionToken: completionToken
         )
 
         #expect(claudeURL.lastPathComponent == "Open Claude Login.command")
@@ -34,7 +35,14 @@ struct CLIAuthenticationLauncherTests {
         #expect(try String(contentsOf: claudeURL, encoding: .utf8).contains("auth login"))
         #expect(try String(contentsOf: codexURL, encoding: .utf8).contains("codex' login"))
         #expect(try String(contentsOf: antigravityURL, encoding: .utf8).contains("agy"))
-        #expect(try String(contentsOf: antigravityURL, encoding: .utf8).contains("aitokenmeter://antigravity-login-complete?token=12345678-1234-1234-1234-123456789abc"))
+        let script = try String(contentsOf: antigravityURL, encoding: .utf8)
+        #expect(script.contains("aitokenmeter://antigravity-login-complete?token=${completion_token}"))
+        #expect(!script.contains(completionToken))
+        let tokenPipe = try #require(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .first(where: { $0.pathExtension == "token" }))
+        #expect(permissions(of: tokenPipe) == 0o600)
+        launcher.cancelPendingGeminiLogin(token: completionToken)
+        #expect(!FileManager.default.fileExists(atPath: tokenPipe.path))
     }
 
     @Test("Codex login script uses the nested ChatGPT app-bundled CLI")

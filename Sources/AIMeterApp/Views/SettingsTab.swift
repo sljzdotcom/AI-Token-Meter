@@ -6,6 +6,7 @@ enum SettingsMessageKind: Equatable {
     case claudeAuthentication
     case codexAuthentication
     case deepSeekCredential
+    case antigravityRecovery
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
@@ -48,6 +49,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
              (.services, .claudeAuthentication),
              (.services, .codexAuthentication),
              (.services, .deepSeekCredential):
+            true
+        case (.services, .antigravityRecovery):
             true
         default:
             false

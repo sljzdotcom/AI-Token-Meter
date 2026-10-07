@@ -62,12 +62,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        if let loginCompletion = urls.first(where: {
-            $0.scheme?.lowercased() == "aitokenmeter" && $0.host == "antigravity-login-complete"
-        }),
-           let token = URLComponents(url: loginCompletion, resolvingAgainstBaseURL: false)?
-            .queryItems?.first(where: { $0.name == "token" })?.value {
-            Task { await model.completeGeminiInteractiveSignIn(token: token) }
+        if let receipt = urls.compactMap(GeminiLoginReceipt.init(url:)).first {
+            Task { await model.completeGeminiInteractiveSignIn(token: receipt.token, result: receipt.result) }
+            return
+        }
+        if urls.contains(where: {
+            $0.scheme?.lowercased() == "aitokenmeter"
+                && $0.host?.lowercased() == "antigravity-login-complete"
+        }) {
             return
         }
         guard urls.contains(where: { $0.scheme?.lowercased() == "aitokenmeter" }) else { return }

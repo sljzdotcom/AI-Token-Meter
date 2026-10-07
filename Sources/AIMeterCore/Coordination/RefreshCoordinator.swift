@@ -1,5 +1,11 @@
 import Foundation
 
+public enum GeminiOneTimeQuotaError: Error, Equatable, Sendable {
+    case notPaused
+    case alreadyRunning
+    case collectorUnavailable
+}
+
 public actor RefreshCoordinator {
     private let collectors: [any UsageCollector]
     private let cache: SnapshotCache
@@ -7,6 +13,7 @@ public actor RefreshCoordinator {
     private let backoffURL: URL
     private var backoffs: [UsageProvider: RefreshBackoffState]
     private var lastPresented: [UsageProvider: UsageSnapshot] = [:]
+    private var isGeminiQuotaOnceRunning = false
 
     public init(
         collectors: [any UsageCollector],
@@ -73,11 +80,30 @@ public actor RefreshCoordinator {
         saveBackoffs()
     }
 
-    /// Resumes Antigravity collection only after the explicit interactive login flow completes.
-    public func clearGeminiSuspensionAfterExplicitSignIn() {
-        guard backoffs[.gemini]?.failureKind == .suspended else { return }
-        backoffs.removeValue(forKey: .gemini)
-        saveBackoffs()
+    public func collectGeminiQuotaOnce() async throws -> UsageSnapshot {
+        guard backoffs[.gemini]?.failureKind == .suspended else {
+            throw GeminiOneTimeQuotaError.notPaused
+        }
+        guard !isGeminiQuotaOnceRunning else {
+            throw GeminiOneTimeQuotaError.alreadyRunning
+        }
+        guard let collector = collectors.first(where: { $0.provider == .gemini }) as? any OneTimeGeminiQuotaCollecting else {
+            throw GeminiOneTimeQuotaError.collectorUnavailable
+        }
+
+        isGeminiQuotaOnceRunning = true
+        defer { isGeminiQuotaOnceRunning = false }
+        if let inFlight { _ = await inFlight.value }
+        guard backoffs[.gemini]?.failureKind == .suspended else {
+            throw GeminiOneTimeQuotaError.notPaused
+        }
+
+        let snapshot = try await collector.collectQuotaOnce()
+        guard snapshot.provider == .gemini, snapshot.geminiQuotaMetrics?.isEmpty == false else {
+            throw UsageCollectionError.invalidResponse
+        }
+        try cache.saveReplacing(snapshot)
+        return snapshot
     }
 
     public func providersRequiringAction() -> Set<UsageProvider> {
@@ -195,6 +221,18 @@ public actor RefreshCoordinator {
         }
 
         if outcomes.contains(where: { if case .success = $0.result { true } else { false } }) {
+            // A one-time Antigravity quota read may finish while this refresh is
+            // collecting other providers. Preserve that newer Gemini cache entry
+            // rather than writing the snapshot captured at refresh start.
+            let refreshedGemini = outcomes.contains { outcome in
+                guard outcome.provider == .gemini else { return false }
+                if case .success = outcome.result { return true }
+                return false
+            }
+            if !refreshedGemini,
+               let latestGemini = (try? cache.load())?.first(where: { $0.provider == .gemini }) {
+                lastGoodByProvider[.gemini] = latestGemini
+            }
             try? cache.save(Self.sorted(Array(lastGoodByProvider.values)))
         }
         saveBackoffs()

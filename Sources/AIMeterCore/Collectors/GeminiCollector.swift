@@ -1,6 +1,6 @@
 import Foundation
 
-public struct GeminiCollector: UsageCollector {
+public struct GeminiCollector: OneTimeGeminiQuotaCollecting {
     public let provider = UsageProvider.gemini
     private let runner: any CommandRunning
     private let locator: any ExecutableLocating
@@ -20,6 +20,14 @@ public struct GeminiCollector: UsageCollector {
     }
 
     public func collect() async throws -> UsageSnapshot {
+        try await collect(includeSupplemental: true)
+    }
+
+    public func collectQuotaOnce() async throws -> UsageSnapshot {
+        try await collect(includeSupplemental: false)
+    }
+
+    private func collect(includeSupplemental: Bool) async throws -> UsageSnapshot {
         let discoveryStartedAt = Date()
         let executable: URL
         switch locator.discover(named: "agy") {
@@ -101,6 +109,7 @@ public struct GeminiCollector: UsageCollector {
             await record(.usage, .invalidResponse, since: usageStartedAt)
             throw UsageCollectionError.invalidResponse
         }
+        guard includeSupplemental else { return snapshot }
         let modelStartedAt = Date()
         let currentModelOutput = try await optionalOutput(CommandRequest(
             executableURL: executable,
