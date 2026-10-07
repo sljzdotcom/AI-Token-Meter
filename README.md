@@ -254,7 +254,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前公开稳定版为`0.10.7`（macOS build `35`），见[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)及[发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
+- 当前公开稳定版仍为`0.10.6`（macOS build `34`）；`0.10.7`/build35 是正在审查的发布候选，公开后可从[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)获取，证据见[发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**
