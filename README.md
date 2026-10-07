@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 源码发布候选为[0.10.7](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)（macOS build `35`）；当前公开稳定版仍为[0.10.6](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.6)。候选新增Antigravity未知暂停的一次性受控登录与只读额度检查；成功后仍保持自动刷新暂停，Windows运行行为不变。发布与更新源证据见[0.10.7发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
+> 当前公开稳定版为[0.10.7](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)（macOS build `35`）。Antigravity未知暂停现在提供一次性受控登录与只读额度检查；成功后仍保持自动刷新暂停，Windows运行行为不变。发布与更新源证据见[0.10.7发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
 
 ## Screenshots
 
@@ -254,7 +254,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前公开稳定版仍为`0.10.6`（macOS build `34`）；`0.10.7`/build35 是正在审查的发布候选，公开后可从[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)获取，证据见[发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
+- 当前公开稳定版为`0.10.7`（macOS build `35`），可从[GitHub Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)获取；完整发布证据见[发布记录](docs/development/2026-10-07-v0.10.7-release.md)。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

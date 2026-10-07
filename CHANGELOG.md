@@ -6,7 +6,7 @@
 
 ## 0.10.7 - 2026-10-07
 
-稳定修复版；macOS build35。Antigravity未知暂停可通过一次性受控额度检查恢复信息；Windows运行行为保持不变。
+稳定修复版；macOS build35。Antigravity未知暂停新增一次性受控登录与只读额度检查；Windows运行行为保持不变。
 
 ### Added
 

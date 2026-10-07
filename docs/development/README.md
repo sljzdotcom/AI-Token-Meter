@@ -12,7 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-10-07](2026-10-07-v0.10.7-release.md) | 0.10.7/build35 Antigravity 一次性恢复入口发布 | 发布候选；最终公开资产与三个更新源验证待补 |
+| [2026-10-07](2026-10-07-v0.10.7-release.md) | 0.10.7/build35 Antigravity 一次性恢复入口发布 | PR #58、main/tag、双平台签名 Release、七项资产与三个公开更新源均验证通过；现场额度待用户设备确认 |
 | [2026-10-07](2026-10-07-antigravity-one-time-recovery.md) | Antigravity 单次受控恢复入口 | 本地 macOS 修复；保留持久暂停，单次登录/额度路径受限；未发布、未操作真实账号 |
 | [2026-10-06](2026-10-06-v0.10.6-release.md) | 0.10.6/build34双平台稳定发布 | PR #57、main/Release workflow、七项公开资产和三个匿名更新源均验证通过 |
 | [2026-10-06](2026-10-06-antigravity-diagnostic-versioning.md) | Antigravity现场诊断发行标识补充 | 摘要增加经白名单校验的版本/build；未知旧暂停保持不变 |
