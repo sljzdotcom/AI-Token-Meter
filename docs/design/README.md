@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-10-07 | Antigravity 单次受控恢复 | [规格](specifications/2026-10-07-antigravity-one-time-recovery-design.md) | [计划](implementation-plans/2026-10-07-antigravity-one-time-recovery.md) |
 | 2026-10-06 | 0.10.6/build34双平台稳定发布 | 沿用测试进程外部操作隔离与诊断发行标识规格 | [已完成计划](implementation-plans/2026-10-06-v0.10.6-release.md) |
 | 2026-10-06 | Antigravity诊断发行标识 | [规格](specifications/2026-10-01-antigravity-status-and-diagnostics-design.md) | [计划](implementation-plans/2026-10-01-antigravity-status-and-diagnostics.md) |
 | 2026-10-05 | 测试进程外部操作与登录启动隔离 | [规格](specifications/2026-10-05-test-process-external-action-safety-design.md) | [计划](implementation-plans/2026-10-05-test-process-external-action-safety.md) |
