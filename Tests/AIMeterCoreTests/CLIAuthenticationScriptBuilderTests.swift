@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Testing
 @testable import AIMeterCore
 
@@ -33,28 +34,195 @@ struct CLIAuthenticationScriptBuilderTests {
         #expect(script.contains("'/tmp/Miller'\\''s Tools/claude'"))
     }
 
-    @Test("Antigravity login is interactive and sends completion only after it exits")
-    func geminiInteractiveCompletionSignal() throws {
-        let script = try CLIAuthenticationScriptBuilder().build(
-            provider: .gemini,
-            executableURL: URL(fileURLWithPath: "/tmp/Antigravity CLI/agy"),
-            completionToken: "12345678-1234-1234-1234-123456789abc"
+    @Test("Antigravity success receipt is emitted only after a zero-exit fake CLI")
+    func geminiSuccessReceiptRequiresZeroExit() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let callbackLog = root.appendingPathComponent("callbacks.txt")
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable("#!/bin/sh\nexit 0\n", named: "agy", in: root)
+        let fakeOpen = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '\(callbackLog.path)'\n",
+            named: "open",
+            in: root
         )
 
-        #expect(script.contains("'/tmp/Antigravity CLI/agy'"))
-        #expect(script.contains("aitokenmeter://antigravity-login-complete?token=12345678-1234-1234-1234-123456789abc"))
-        #expect(script.range(of: "aitokenmeter://antigravity-login-complete")!.lowerBound > script.range(of: "'/tmp/Antigravity CLI/agy'")!.lowerBound)
-        #expect(script.contains("status=$?"))
+        try runGeminiScript(executable: executable, fakeOpen: fakeOpen, timeoutSeconds: 8, tokenPipe: tokenPipe, in: root)
+
+        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        #expect(callback.contains("token=12345678-1234-1234-1234-123456789abc"))
+        #expect(callback.contains("result=success"))
+        #expect(callback.contains("exit_code=0"))
     }
 
-    @Test("Antigravity scripts reject missing or malformed one-time completion tokens")
-    func requiresCompletionToken() {
-        let builder = CLIAuthenticationScriptBuilder()
-        #expect(throws: CLIAuthenticationScriptError.invalidCompletionToken) {
-            try builder.build(provider: .gemini, executableURL: URL(fileURLWithPath: "/tmp/agy"))
+    @Test("Antigravity nonzero login exit sends a failure receipt, never a success receipt")
+    func geminiNonzeroExitIsFailure() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let callbackLog = root.appendingPathComponent("callbacks.txt")
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable("#!/bin/sh\nexit 7\n", named: "agy", in: root)
+        let fakeOpen = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '\(callbackLog.path)'\n",
+            named: "open",
+            in: root
+        )
+
+        try runGeminiScript(executable: executable, fakeOpen: fakeOpen, timeoutSeconds: 8, tokenPipe: tokenPipe, in: root)
+
+        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        #expect(callback.contains("result=failure"))
+        #expect(callback.contains("exit_code=7"))
+        #expect(!callback.contains("result=success"))
+    }
+
+    @Test("Antigravity login watchdog terminates its fake CLI and reports timeout")
+    func geminiLoginWatchdogIsBounded() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let callbackLog = root.appendingPathComponent("callbacks.txt")
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable("#!/bin/sh\nsleep 8\n", named: "agy", in: root)
+        let fakeOpen = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '\(callbackLog.path)'\n",
+            named: "open",
+            in: root
+        )
+
+        let startedAt = Date()
+        try runGeminiScript(executable: executable, fakeOpen: fakeOpen, timeoutSeconds: 4, tokenPipe: tokenPipe, in: root)
+        let elapsed = Date().timeIntervalSince(startedAt)
+
+        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        #expect(elapsed < 7)
+        #expect(callback.contains("result=timeout"))
+        #expect(!callback.contains("result=success"))
+    }
+
+    @Test("Antigravity watchdog kills a CLI process group that ignores TERM")
+    func geminiWatchdogKillsTermResistantProcessGroup() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let callbackLog = root.appendingPathComponent("callbacks.txt")
+        let childPIDFile = root.appendingPathComponent("agy.pid")
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable(
+            "#!/bin/sh\ntrap '' TERM\nprintf '%s' \"$$\" > '\(childPIDFile.path)'\nwhile :; do /bin/sleep 1; done\n",
+            named: "agy",
+            in: root
+        )
+        let fakeOpen = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '\(callbackLog.path)'\n",
+            named: "open",
+            in: root
+        )
+
+        let startedAt = Date()
+        try runGeminiScript(executable: executable, fakeOpen: fakeOpen, timeoutSeconds: 1, tokenPipe: tokenPipe, in: root)
+        let elapsed = Date().timeIntervalSince(startedAt)
+
+        let childPIDText = try String(contentsOf: childPIDFile, encoding: .utf8)
+        let childPID = try #require(pid_t(childPIDText))
+        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        #expect(elapsed < 4)
+        #expect(callback.contains("result=timeout"))
+        #expect(kill(childPID, 0) != 0)
+    }
+
+    @Test("Antigravity watchdog cleans descendants after the CLI leader exits")
+    func geminiWatchdogCleansDescendantsAfterLeaderExit() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let callbackLog = root.appendingPathComponent("callbacks.txt")
+        let childPIDFile = root.appendingPathComponent("agy-child.pid")
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable(
+            "#!/bin/sh\n/bin/sh -c 'trap \"\" TERM; while :; do /bin/sleep 1; done' &\nprintf '%s' \"$!\" > '\(childPIDFile.path)'\nexit 0\n",
+            named: "agy",
+            in: root
+        )
+        let fakeOpen = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '\(callbackLog.path)'\n",
+            named: "open",
+            in: root
+        )
+
+        let startedAt = Date()
+        try runGeminiScript(executable: executable, fakeOpen: fakeOpen, timeoutSeconds: 2, tokenPipe: tokenPipe, in: root)
+        let elapsed = Date().timeIntervalSince(startedAt)
+        let childPIDText = try String(contentsOf: childPIDFile, encoding: .utf8)
+        let childPID = try #require(pid_t(childPIDText))
+        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+
+        #expect(elapsed < 5)
+        #expect(callback.contains("result=timeout"))
+        #expect(!isRunning(childPID))
+    }
+
+    @Test("Closing the login terminal cancels only its own process group and sends a failure receipt")
+    func geminiLoginCancellationCleansOwnedProcessGroup() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let callbackLog = root.appendingPathComponent("callbacks.txt")
+        let childPIDFile = root.appendingPathComponent("agy.pid")
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let executable = try writeExecutable(
+            "#!/bin/sh\nprintf '%s' \"$$\" > '\(childPIDFile.path)'\nexec /bin/sleep 30\n",
+            named: "agy",
+            in: root
+        )
+        let fakeOpen = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '\(callbackLog.path)'\n",
+            named: "open",
+            in: root
+        )
+        let script = try CLIAuthenticationScriptBuilder().build(
+            provider: .gemini,
+            executableURL: executable,
+            completionTokenPipeURL: tokenPipe,
+            completionOpenExecutableURL: fakeOpen,
+            loginTimeoutSeconds: 10
+        )
+        let scriptURL = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: scriptURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptURL.path)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = [scriptURL.path]
+        try process.run()
+        try writeToken("12345678-1234-1234-1234-123456789abc", to: tokenPipe)
+
+        let deadline = Date().addingTimeInterval(2)
+        while !FileManager.default.fileExists(atPath: childPIDFile.path), Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
         }
-        #expect(throws: CLIAuthenticationScriptError.invalidCompletionToken) {
-            try builder.build(provider: .gemini, executableURL: URL(fileURLWithPath: "/tmp/agy"), completionToken: "not-a-token")
+        let childPIDText = try String(contentsOf: childPIDFile, encoding: .utf8)
+        let childPID = try #require(pid_t(childPIDText))
+        process.terminate()
+        process.waitUntilExit()
+        #expect(!FileManager.default.fileExists(atPath: scriptURL.path))
+
+        let cleanupDeadline = Date().addingTimeInterval(2)
+        while kill(childPID, 0) == 0, Date() < cleanupDeadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        #expect(callback.contains("result=cancelled"))
+        #expect(callback.contains("exit_code=143"))
+        #expect(kill(childPID, 0) != 0)
+    }
+
+    @Test("Antigravity scripts require a completion token pipe")
+    func requiresCompletionTokenPipe() {
+        let builder = CLIAuthenticationScriptBuilder()
+        #expect(throws: CLIAuthenticationScriptError.invalidCompletionTokenPipe) {
+            try builder.build(provider: .gemini, executableURL: URL(fileURLWithPath: "/tmp/agy"))
         }
     }
 
@@ -66,5 +234,68 @@ struct CLIAuthenticationScriptBuilderTests {
                 executableURL: URL(fileURLWithPath: "/tmp/deepseek")
             )
         }
+    }
+
+    private func runGeminiScript(executable: URL, fakeOpen: URL, timeoutSeconds: Int, tokenPipe: URL, in root: URL) throws {
+        let token = "12345678-1234-1234-1234-123456789abc"
+        let script = try CLIAuthenticationScriptBuilder().build(
+            provider: .gemini,
+            executableURL: executable,
+            completionTokenPipeURL: tokenPipe,
+            completionOpenExecutableURL: fakeOpen,
+            loginTimeoutSeconds: timeoutSeconds
+        )
+        let scriptURL = root.appendingPathComponent("login.command")
+        // Keep the generated shell behavior while routing URL opens to a local recorder.
+        try Data(script.utf8).write(to: scriptURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptURL.path)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = [scriptURL.path]
+        try process.run()
+        try writeToken(token, to: tokenPipe)
+        process.waitUntilExit()
+        #expect(!FileManager.default.fileExists(atPath: scriptURL.path))
+    }
+
+    private func createTokenPipe(at url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let result = url.path.withCString { Darwin.mkfifo($0, mode_t(S_IRUSR | S_IWUSR)) }
+        #expect(result == 0)
+    }
+
+    private func writeToken(_ token: String, to url: URL) throws {
+        let writer = try FileHandle(forWritingTo: url)
+        try writer.write(contentsOf: Data("\(token)\n".utf8))
+        try writer.close()
+    }
+
+    private func writeExecutable(_ contents: String, named name: String, in root: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent(name)
+        try Data(contents.utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+        return url
+    }
+
+    private func isRunning(_ pid: pid_t) -> Bool {
+        guard kill(pid, 0) == 0 else { return false }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-o", "stat=", "-p", String(pid)]
+        let output = Pipe()
+        process.standardOutput = output
+        guard (try? process.run()) != nil else { return false }
+        process.waitUntilExit()
+        let state = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return !state.isEmpty && !state.hasPrefix("Z")
+    }
+
+    private func temporaryDirectory() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent(
+            "antigravity-auth-script-\(UUID().uuidString)",
+            isDirectory: true
+        )
     }
 }

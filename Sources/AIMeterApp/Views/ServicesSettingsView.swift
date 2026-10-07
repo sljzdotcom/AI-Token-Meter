@@ -128,6 +128,11 @@ struct ServicesSettingsView: View {
                 Text(localizer.text("Reads official quota through the supported Antigravity CLI. Account identity is not provided by this view."))
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
+                if model.isGeminiRefreshPaused {
+                    Text(localizer.text("A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh."))
+                        .aiMeterFont(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 GeminiInstallationHelp(state: geminiStatus.connectionState, pauseReason: geminiStatus.refreshPauseReason)
                 HStack {
                     if GeminiInstallationGuide.shouldOfferInstallation(
@@ -136,10 +141,12 @@ struct ServicesSettingsView: View {
                     ) {
                         Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
                     }
-                    if model.geminiPauseReason == .authenticationRequired {
-                        Button(localizer.text("Sign in to Antigravity")) { model.beginSignIn(.gemini) }
-                            .disabled(model.isGeminiSignInPending)
-                    } else if model.isGeminiRefreshPaused {
+                    if model.isGeminiRefreshPaused {
+                        Button(localizer.text("One-time quota check")) { model.beginGeminiOneTimeRecovery() }
+                            .disabled(model.isGeminiOneTimeRecoveryInProgress)
+                        if model.isGeminiOneTimeRecoveryInProgress {
+                            ProgressView().controlSize(.small)
+                        }
                         Button(localizer.text("Copy diagnostic info")) { Task { await model.copyGeminiDiagnosticSummary() } }
                     } else {
                         Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }

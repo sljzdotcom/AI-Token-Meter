@@ -6,6 +6,17 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
+    enum GeminiOneTimeRecoveryState: Equatable {
+        case idle
+        case awaitingLogin
+        case checkingQuota
+        case succeeded
+        case loginFailed
+        case loginCancelled
+        case loginExpired
+        case quotaFailed
+    }
+
     private enum DefaultsKey {
         static let refreshIntervalSeconds = "refreshIntervalSeconds"
         static let showFloatingStrip = "showFloatingStrip"
@@ -28,10 +39,13 @@ final class AppModel {
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
     private let geminiDiagnosticStore: GeminiDiagnosticStore
-    private let clearGeminiSuspensionOperation: @Sendable () async -> Void
+    private let geminiPauseReasonOperation: @Sendable () async -> GeminiPauseReason?
+    private let geminiQuotaCheckOperation: @Sendable () async throws -> UsageSnapshot
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
     private let geminiAuthenticationOpenOperation: (String) throws -> Void
+    private let geminiAuthenticationCancelOperation: (String) -> Void
+    private let geminiRecoveryTimeout: Duration
     private let installationOpenOperation: (UsageProvider) throws -> Bool
     private let codexInstallGuideOpenOperation: () -> Bool
     private let deepSeekReplaceOperation: @Sendable (String) async throws -> ServiceAccountStatus
@@ -48,9 +62,18 @@ final class AppModel {
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
     private var signInTokens: [UsageProvider: UUID] = [:]
     private var pendingGeminiLoginToken: String?
+    private var geminiRecoveryStartedAt: Date?
+    private var geminiRecoveryTimeoutTask: Task<Void, Never>?
+    private var geminiQuotaTask: Task<Void, Never>?
+    private var geminiQuotaTaskID: UUID?
+    private var geminiQuotaSnapshotGeneration: UInt64 = 0
     private var providersRequiringAction: Set<UsageProvider> = []
     private(set) var geminiPauseReason: GeminiPauseReason?
     var isAuthenticating: Bool { !signInTokens.isEmpty }
+    private(set) var geminiOneTimeRecoveryState: GeminiOneTimeRecoveryState = .idle
+    var isGeminiOneTimeRecoveryInProgress: Bool {
+        geminiOneTimeRecoveryState == .awaitingLogin || geminiOneTimeRecoveryState == .checkingQuota
+    }
     private var isRefreshingServiceAccounts = false
 
     let deepSeekWebSession: DeepSeekWebSession
@@ -71,6 +94,10 @@ final class AppModel {
     private(set) var settingsNotice: SettingsNotice?
     var settingsMessage: String? {
         settingsNotice?.text(using: AppLocalizer(language: appLanguage))
+    }
+    var geminiRecoveryMessage: String? {
+        guard settingsMessageKind == .antigravityRecovery else { return nil }
+        return settingsMessage
     }
     private(set) var settingsMessageKind: SettingsMessageKind?
     private(set) var requestedSettingsTab = SettingsTab.appearance
@@ -106,15 +133,18 @@ final class AppModel {
         widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
         isDemoMode: Bool? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
-        clearGeminiSuspensionOperation: (@Sendable () async -> Void)? = nil,
+        geminiPauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
+        geminiQuotaCheckOperation: (@Sendable () async throws -> UsageSnapshot)? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
         geminiAuthenticationOpenOperation: ((String) throws -> Void)? = nil,
+        geminiAuthenticationCancelOperation: ((String) -> Void)? = nil,
         installationOpenOperation: ((UsageProvider) throws -> Bool)? = nil,
         codexInstallGuideOpenOperation: (() -> Bool)? = nil,
         deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
         signInPollAttempts: Int = 40,
         signInPollInterval: Duration = .seconds(3),
+        geminiRecoveryTimeout: Duration = .seconds(330),
         refreshSleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         signInSleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
             try await Task.sleep(for: duration)
@@ -170,6 +200,9 @@ final class AppModel {
             }
             try authenticationLauncher.open(provider: .gemini, completionToken: token)
         }
+        self.geminiAuthenticationCancelOperation = geminiAuthenticationCancelOperation ?? { token in
+            authenticationLauncher.cancelPendingGeminiLogin(token: token)
+        }
         let codexInstallationGuideLauncher = CodexInstallationGuideLauncher(systemActionPolicy: systemActionPolicy)
         self.codexInstallGuideOpenOperation = codexInstallGuideOpenOperation ?? {
             guard systemActionPolicy.allowsExternalOpen else { return false }
@@ -180,6 +213,7 @@ final class AppModel {
         }
         self.signInPollAttempts = max(signInPollAttempts, 1)
         self.signInPollInterval = signInPollInterval
+        self.geminiRecoveryTimeout = geminiRecoveryTimeout
         self.signInSleep = signInSleep
         self.refreshSleep = refreshSleep
         self.isDemoMode = isDemoMode
@@ -222,9 +256,8 @@ final class AppModel {
         self.coordinator = coordinator
         self.geminiDiagnosticStore = diagnosticStore
         self.refreshOperation = refreshOperation
-        self.clearGeminiSuspensionOperation = clearGeminiSuspensionOperation ?? {
-            await coordinator.clearGeminiSuspensionAfterExplicitSignIn()
-        }
+        self.geminiPauseReasonOperation = geminiPauseReasonOperation ?? { await coordinator.geminiPauseReason() }
+        self.geminiQuotaCheckOperation = geminiQuotaCheckOperation ?? { try await coordinator.collectGeminiQuotaOnce() }
         apiKeyConfigured = false
         launchAtLoginEnabled = launchAtLoginService.isEnabled
     }
@@ -244,8 +277,8 @@ final class AppModel {
     }
 
     var isRunningDemoMode: Bool { isDemoMode }
-    var isGeminiRefreshPaused: Bool { providersRequiringAction.contains(.gemini) }
-    var isGeminiSignInPending: Bool { pendingGeminiLoginToken != nil }
+    var isGeminiRefreshPaused: Bool { geminiPauseReason != nil || providersRequiringAction.contains(.gemini) }
+    var isGeminiSignInPending: Bool { geminiOneTimeRecoveryState == .awaitingLogin }
 
     @discardableResult
     func setRefreshInterval(_ text: String) -> Bool {
@@ -321,6 +354,17 @@ final class AppModel {
         signInTasks.values.forEach { $0.cancel() }
         signInTasks.removeAll()
         signInTokens.removeAll()
+        if let pendingGeminiLoginToken {
+            geminiAuthenticationCancelOperation(pendingGeminiLoginToken)
+        }
+        geminiRecoveryTimeoutTask?.cancel()
+        geminiRecoveryTimeoutTask = nil
+        geminiQuotaTask?.cancel()
+        geminiQuotaTask = nil
+        geminiQuotaTaskID = nil
+        pendingGeminiLoginToken = nil
+        geminiRecoveryStartedAt = nil
+        geminiOneTimeRecoveryState = .idle
     }
 
     func refresh(manual: Bool = true) async {
@@ -332,6 +376,7 @@ final class AppModel {
         }
         guard !isRefreshing else { return }
         isRefreshing = true
+        let geminiQuotaGenerationAtStart = geminiQuotaSnapshotGeneration
         defer { isRefreshing = false; refreshingProviders.removeAll() }
 
         let collected: [UsageSnapshot]
@@ -345,9 +390,18 @@ final class AppModel {
         }
         guard !Task.isCancelled else { return }
         providersRequiringAction = await coordinator.providersRequiringAction()
-        geminiPauseReason = await coordinator.geminiPauseReason()
+        geminiPauseReason = await geminiPauseReasonOperation()
         updateAPIKeyConfiguration(from: collected)
-        snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
+        var presentedSnapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
+        if geminiQuotaSnapshotGeneration != geminiQuotaGenerationAtStart,
+           let recoveredGemini = snapshots.first(where: { $0.provider == .gemini }) {
+            if let index = presentedSnapshots.firstIndex(where: { $0.provider == .gemini }) {
+                presentedSnapshots[index] = recoveredGemini
+            } else {
+                presentedSnapshots.append(recoveredGemini)
+            }
+        }
+        snapshots = presentedSnapshots
         if !snapshots.contains(where: { $0.provider == .gemini }) { snapshots.append(.geminiUnavailable) }
         updateGeminiAccountStatus()
         lastUpdatedAt = Date()
@@ -569,7 +623,7 @@ final class AppModel {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
-        geminiPauseReason = await coordinator.geminiPauseReason()
+        geminiPauseReason = await geminiPauseReasonOperation()
         for status in statuses where status.provider != .gemini {
             serviceAccounts[status.provider] = status
         }
@@ -682,18 +736,7 @@ final class AppModel {
     @discardableResult
     func beginSignIn(_ provider: UsageProvider) -> Task<Void, Never>? {
         if provider == .gemini {
-            guard pendingGeminiLoginToken == nil else { return nil }
-            let token = UUID().uuidString
-            pendingGeminiLoginToken = token
-            do {
-                try geminiAuthenticationOpenOperation(token)
-                settingsNotice = .signInStarted(provider)
-                settingsMessageKind = authenticationMessageKind(for: provider)
-            } catch {
-                pendingGeminiLoginToken = nil
-                settingsNotice = .signInFailed(provider)
-                settingsMessageKind = authenticationMessageKind(for: provider)
-            }
+            beginGeminiOneTimeRecovery()
             return nil
         }
         guard provider == .claude || provider == .codex else { return nil }
@@ -762,11 +805,127 @@ final class AppModel {
         return task
     }
 
-    func completeGeminiInteractiveSignIn(token: String) async {
-        guard !isDemoMode, pendingGeminiLoginToken == token else { return }
+    func beginGeminiOneTimeRecovery() {
+        guard !isDemoMode, isGeminiRefreshPaused,
+              pendingGeminiLoginToken == nil,
+              !isGeminiOneTimeRecoveryInProgress else { return }
+        let token = UUID().uuidString
+        pendingGeminiLoginToken = token
+        geminiRecoveryStartedAt = Date()
+        geminiOneTimeRecoveryState = .awaitingLogin
+        settingsMessageKind = .antigravityRecovery
+        settingsNotice = .recoveryLoginStarted
+        do {
+            try geminiAuthenticationOpenOperation(token)
+            geminiRecoveryTimeoutTask?.cancel()
+            geminiRecoveryTimeoutTask = Task { [weak self] in
+                guard let self else { return }
+                do { try await signInSleep(geminiRecoveryTimeout) } catch { return }
+                guard !Task.isCancelled, pendingGeminiLoginToken == token else { return }
+                geminiAuthenticationCancelOperation(token)
+                pendingGeminiLoginToken = nil
+                geminiRecoveryTimeoutTask = nil
+                geminiOneTimeRecoveryState = .loginExpired
+                recordGeminiRecovery(.timedOut)
+                settingsNotice = .recoveryLoginExpired
+            }
+        } catch {
+            pendingGeminiLoginToken = nil
+            geminiOneTimeRecoveryState = .loginFailed
+            recordGeminiRecovery(.transportFailure)
+            settingsNotice = .recoveryLoginFailed
+        }
+    }
+
+    func completeGeminiInteractiveSignIn(token: String, result: GeminiLoginResult) async {
+        guard !isDemoMode, geminiOneTimeRecoveryState == .awaitingLogin,
+              pendingGeminiLoginToken == token, UUID(uuidString: token) != nil else { return }
+        geminiAuthenticationCancelOperation(token)
         pendingGeminiLoginToken = nil
-        await clearGeminiSuspensionOperation()
-        await refresh(manual: false)
+        geminiRecoveryTimeoutTask?.cancel()
+        geminiRecoveryTimeoutTask = nil
+        switch result {
+        case .failure:
+            geminiOneTimeRecoveryState = .loginFailed
+            recordGeminiRecovery(.loginFailed)
+            settingsNotice = .recoveryLoginFailed
+            return
+        case .cancelled:
+            geminiOneTimeRecoveryState = .loginCancelled
+            recordGeminiRecovery(.loginCancelled)
+            settingsNotice = .recoveryLoginCancelled
+            return
+        case .timedOut:
+            geminiOneTimeRecoveryState = .loginExpired
+            recordGeminiRecovery(.timedOut)
+            settingsNotice = .recoveryLoginExpired
+            return
+        case .success:
+            recordGeminiRecovery(.succeeded)
+            break
+        }
+        geminiOneTimeRecoveryState = .checkingQuota
+        settingsNotice = .recoveryCheckingQuota
+        let operation = geminiQuotaCheckOperation
+        let taskID = UUID()
+        geminiQuotaTaskID = taskID
+        geminiQuotaTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if geminiQuotaTaskID == taskID {
+                    geminiQuotaTaskID = nil
+                    geminiQuotaTask = nil
+                }
+            }
+            do {
+                let quota = try await operation()
+                guard !Task.isCancelled, geminiQuotaTaskID == taskID else { return }
+                guard quota.provider == .gemini,
+                      let metrics = quota.geminiQuotaMetrics, !metrics.isEmpty else {
+                    geminiOneTimeRecoveryState = .quotaFailed
+                    recordGeminiRecovery(.invalidResponse, stage: .usage)
+                    settingsNotice = .recoveryQuotaFailed
+                    return
+                }
+                if let index = snapshots.firstIndex(where: { $0.provider == .gemini }) {
+                    snapshots[index] = applyingLocalBudget(to: quota)
+                } else {
+                    snapshots.append(applyingLocalBudget(to: quota))
+                }
+                geminiQuotaSnapshotGeneration &+= 1
+                updateGeminiAccountStatus()
+                lastUpdatedAt = Date()
+                publishWidgetSnapshot()
+                geminiOneTimeRecoveryState = .succeeded
+                settingsNotice = .recoveryQuotaUpdatedStillPaused
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled, geminiQuotaTaskID == taskID else { return }
+                geminiOneTimeRecoveryState = .quotaFailed
+                recordGeminiRecovery(.transportFailure, stage: .usage)
+                settingsNotice = .recoveryQuotaFailed
+            }
+        }
+        if let task = geminiQuotaTask { await task.value }
+    }
+
+    private func recordGeminiRecovery(
+        _ category: GeminiDiagnosticCategory,
+        stage: GeminiDiagnosticStage = .login
+    ) {
+        Task {
+            let now = Date()
+            let elapsed = geminiRecoveryStartedAt.map { Int(now.timeIntervalSince($0) * 1_000) } ?? 0
+            if stage == .login { geminiRecoveryStartedAt = nil }
+            await geminiDiagnosticStore.record(GeminiDiagnosticRecord(
+                recordedAt: now,
+                stage: stage,
+                category: category,
+                durationMilliseconds: elapsed,
+                outputTruncated: false
+            ))
+        }
     }
 
     func replaceDeepSeekAPIKey(_ apiKey: String) async -> Bool {

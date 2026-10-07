@@ -156,6 +156,8 @@ struct FloatingDetailView: View {
                         snapshot: snapshot,
                         pauseReason: model.geminiPauseReason,
                         isPaused: model.isGeminiRefreshPaused,
+                        isRecoveryInProgress: model.isGeminiOneTimeRecoveryInProgress,
+                        recoveryMessage: model.geminiRecoveryMessage,
                         onRetry: { Task { await model.checkServiceAccount(.gemini) } },
                         onSignIn: { model.beginSignIn(.gemini) },
                         onCopyDiagnostics: { Task { await model.copyGeminiDiagnosticSummary() } }

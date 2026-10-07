@@ -18,10 +18,10 @@
 - 修改：`Sources/AIMeterApp/System/CLIAuthenticationLauncher.swift`
 - 测试：`Tests/AIMeterAppTests/CLIAuthenticationLauncherTests.swift`
 
-- [ ] 先增加合成 CLI 端到端测试：生成脚本，fake `agy` 返回 0，注入 fake opener 收到精确 token 且 `result=success`；再测非零返回 `result=failure`、看门狗到期不返回成功。测试不使用系统 `/usr/bin/open`。
-- [ ] 单独运行 `swift test --filter CLIAuthenticationScriptBuilderTests`，确认新增行为因脚本仍无退出码门控/期限而失败。
-- [ ] 实现脚本退出码回执、可注入的 callback opener 和 300 秒只针对本次 child PID 的 watchdog；收到 HUP/INT/TERM 时只清理本次 child 并回送失败或让 AppModel deadline 到期。保留 UUID 参数校验与 shell quoting。
-- [ ] 再运行同一过滤测试，确认成功、失败、超时与信号路径均符合断言；用 fake launcher opener 检查脚本路径和每次唯一 token。
+- [x] 先增加合成 CLI 端到端测试：生成脚本，fake `agy` 返回 0，注入 fake opener 收到精确 token 且 `result=success`；再测非零返回 `result=failure`、看门狗到期不返回成功。测试不使用系统 `/usr/bin/open`。
+- [x] 单独运行 `swift test --filter CLIAuthenticationScriptBuilderTests`，新增测试覆盖退出码门控、期限与进程回收。
+- [x] 实现脚本退出码回执、可注入的 callback opener 和 300 秒进程组 watchdog；收到 HUP/INT/TERM 时只清理本次进程组并回送失败或让 AppModel deadline 到期。UUID 经私有 FIFO 传递，保留 shell quoting。
+- [x] 再运行定向过滤测试，确认成功、失败、超时、终端关闭和遗留子进程路径符合断言；fake opener 检查脚本与回执。
 
 ### 任务 2：quota-only collector 与 coordinator 缓存提交
 
@@ -34,11 +34,11 @@
 - 测试：`Tests/AIMeterCoreTests/RefreshCoordinatorTests.swift`
 - 测试：`Tests/AIMeterCoreTests/GeminiCacheTests.swift`
 
-- [ ] 先写测试证明 one-time collector 只执行 `--version` 与 `-p /usage`，不执行 `/model`、`models`；失败输出与 timeout 不产出快照。
-- [ ] 先写 coordinator 测试：unknown/authentication suspension 可开始一次专用采集；成功更新 Gemini cache 且保留其他 cache；coordinator 重建后仍 suspended；普通 `refresh(manual:true/false)` 不再调用 Gemini。并发 one-time 调用最多进入 collector 一次。
-- [ ] 运行三个定向过滤测试，确认因新 API 不存在或断言不符而失败。
-- [ ] 实现单独的 quota-only collector 协议/方法；coordinator 持有专用单次 in-flight gate，成功 parser 回执后原子合并缓存，失败不写缓存且不碰 backoff。移除仅为旧回调清暂停使用的生产注入依赖。
-- [ ] 运行定向测试，检查 CLI 参数序列、缓存文件重载、暂停 JSON 重载和并发调用次数；原正常 Gemini collector 的 model/catalog 读取回归不变。
+- [x] 先写测试证明 one-time collector 只执行 `--version` 与 `-p /usage`，不执行 `/model`、`models`；失败输出与 timeout 不产出快照。
+- [x] 先写 coordinator 测试：unknown/authentication suspension 可开始一次专用采集；成功更新 Gemini cache 且保留其他 cache；coordinator 重建后仍 suspended；普通 `refresh(manual:true/false)` 不再调用 Gemini。并发 one-time 调用最多进入 collector 一次。
+- [x] 运行定向过滤测试，确认新 API 与缓存行为符合预期。
+- [x] 实现独立 quota-only collector 路径与单次 in-flight gate；成功原子合并缓存，失败不写缓存且不碰 backoff，并移除旧回调清暂停依赖。
+- [x] 定向验证 CLI 参数、缓存重载、暂停 JSON 重载、并发次数及普通 Gemini supplemental 行为；补并发刷新不能覆盖新缓存的回归。
 
 ### 任务 3：AppModel 一次性有限状态机
 
@@ -48,11 +48,11 @@
 - 测试：`Tests/AIMeterAppTests/AppModelStartupTests.swift`
 - 新建或修改：`Tests/AIMeterAppTests/AppModelGeminiRecoveryTests.swift`
 
-- [ ] 先写 fake operation 测试：unknown/auth pause 可启动一次登录；打开失败、非零、token 不匹配、重复/过期 token 与 deadline 均不调用 quota check；成功 token 调用 quota check 一次，不调用全局 refresh/清暂停操作。
-- [ ] 先写竞态与重启测试：重复点击/回执、登录等待期间 timer refresh、quota check 并发、`stop()` 后回执、模拟 relaunch 后旧 token 都不能再调用 Gemini collector。
-- [ ] 运行 `swift test --filter AppModelGeminiRecoveryTests` 确认缺少状态机/guard 时失败。
-- [ ] 实现 `idle/awaitingLogin/checkingQuota/succeeded/failed` 内存状态、330 秒可注入 deadline、回调结果参数验证和 App stop 作废；成功只调用 coordinator 专用 one-time API，不调用全局 `refresh()`。App stop 丢弃 token；startup 不恢复状态。
-- [ ] 回跑 focused 测试，确认每个状态只允许一次转移、deadline 与 completion 竞态只由先到的一方认领、常规 refresh 保持不受影响。
+- [x] 先写 fake operation 测试：unknown/auth pause 可启动一次登录；打开失败、非零、token 不匹配、重复/过期 token 与 deadline 均不调用 quota check；成功 token 调用 quota check 一次，不调用全局 refresh/清暂停操作。
+- [x] 覆盖重复点击/回执、登录等待期间普通刷新、quota check 并发、`stop()` 后回执及新启动不恢复旧 token。
+- [x] 运行 `swift test --filter AppModelGeminiRecoveryTests` 验证状态机与 guard。
+- [x] 实现 `idle/awaitingLogin/checkingQuota/succeeded/failed` 内存状态、330 秒可注入 deadline、回调参数验证和 App stop 作废；成功只调用 coordinator 专用 one-time API，不调用全局 `refresh()`。startup 不恢复状态。
+- [x] 回跑 focused 测试；额外以延迟普通刷新验证较旧的 UI/Widget 结果不会覆盖单次新额度。
 
 ### 任务 4：暂停入口、辅助信息与本地化
 
@@ -66,10 +66,9 @@
 - 修改：`Sources/AIMeterApp/Resources/zh-Hant.lproj/Localizable.strings`
 - 测试：`Tests/AIMeterAppTests/GeminiAvailabilityTests.swift`
 
-- [ ] 先增加暂停状态 action 选择测试，覆盖 `.unknown`、`.authenticationRequired`、其他 pause 都显示 one-time recovery，正常状态仍显示原动作。
-- [ ] 先运行 focused 测试确认旧条件只对认证暂停显示登录入口，因此 unknown 用例失败。
-- [ ] 实现共用的一次性入口与明确说明：会运行官方 Terminal 登录、可能出现浏览器授权页、一次采集上限、成功后仍暂停；显示 busy、失败/过期与成功“单次检查成功，自动刷新仍暂停”。三语言翻译均准确，不声称 OS 沙箱隔离。
-- [ ] 再运行 UI/动作及 localization tests；检查 Settings 和 detail 两处都能启动同一 AppModel action，非暂停用户流程不变。
+- [x] 增加暂停状态 action 覆盖与所有暂停原因的一次性入口。
+- [x] 在 Services 和详情复用同一入口，并明确 Terminal/可能的浏览器授权、有限检查和成功后仍暂停；补齐 busy、失败/过期/成功提示及三语言文本，没有声称 OS 沙箱隔离。
+- [x] UI/动作及 localization 定向测试通过；非暂停流程保持既有动作。
 
 ### 任务 5：诊断、文档、独立审查与本地交付
 
@@ -81,11 +80,10 @@
 - 新建：`docs/development/2026-10-07-antigravity-one-time-recovery.md`
 - 修改：`docs/requirements-backlog.md`
 
-- [ ] 先写诊断测试覆盖登录成功/失败/超时与 quota-only 成功/失败阶段和严格字段白名单，证明摘要无原始 CLI 文本、凭据、用户路径和 OAuth URL。
-- [ ] 运行 focused diagnostic tests，确认新阶段/结果行为失败。
-- [ ] 实现最少诊断枚举与本地结果文案；补设计索引、开发记录和项目文档索引；更新 backlog 需求证据，保留所有历史记录。
-- [ ] 依序运行 `scripts/test.sh`、`scripts/check-docs.sh`、`git diff --check` 与构建/合同检查；任何受环境限制的检查如实记录。
-- [ ] 请求独立代码审查，按 Critical/Important 修正并对修正重跑对应回归；保存本地实现提交及最终测试证据，不推送、不发布、不安装、不启动应用。
+- [x] 增加诊断测试覆盖登录结果、quota-only 阶段/结果与字段白名单；摘要不保存原始 CLI 文本、凭据、用户路径或 OAuth URL。
+- [x] 运行诊断定向测试；补齐阶段、文案、设计/开发索引与需求记录，保留历史。
+- [x] 完成验证：完整 323 项 Swift 测试通过（排除一个需受限 HFSX 磁盘映像的测试）；`scripts/check-docs.sh`、`git diff --check`、shell syntax、跨平台合同、Release feed、Windows 资产归一化及公开发布安全检查通过。无发布。
+- [x] 独立最终审查覆盖超时进程组、遗留子进程、缓存并发、AppModel UI 快照竞态、FIFO token 与失败清理；按反馈修复并重跑相关测试。提交本地实现与收尾证据；不推送、不发布、不安装、不启动应用。
 
 ## 計畫自检
 

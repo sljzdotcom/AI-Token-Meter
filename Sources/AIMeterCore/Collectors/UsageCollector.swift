@@ -5,6 +5,10 @@ public protocol UsageCollector: Sendable {
     func collect() async throws -> UsageSnapshot
 }
 
+public protocol OneTimeGeminiQuotaCollecting: UsageCollector {
+    func collectQuotaOnce() async throws -> UsageSnapshot
+}
+
 public enum UsageCollectionError: Error, Equatable, Sendable {
     case geminiUnavailable(String)
     case notInstalled

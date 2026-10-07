@@ -26,6 +26,12 @@ public struct SnapshotCache: Sendable {
         try data.write(to: fileURL, options: [.atomic])
     }
 
+    public func saveReplacing(_ snapshot: UsageSnapshot) throws {
+        var snapshots = try load().filter { $0.provider != snapshot.provider }
+        snapshots.append(snapshot)
+        try save(snapshots)
+    }
+
     public func load() throws -> [UsageSnapshot] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
         let data = try Data(contentsOf: fileURL)

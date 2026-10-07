@@ -58,6 +58,30 @@ struct GeminiCollectorTests {
         #expect(!FileManager.default.fileExists(atPath: requests[1].currentDirectoryURL!.path))
     }
 
+    @Test("One-time recovery runs only version validation and quota usage")
+    func oneTimeQuotaCheckSkipsSupplementalCommands() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: "1.1.28")
+        let collector = GeminiCollector(
+            runner: runner,
+            locator: AntigravityTestLocator(),
+            environment: context.environment
+        )
+
+        let snapshot = try await collector.collectQuotaOnce()
+
+        let requests = await runner.requests
+        #expect(snapshot.collectionStatus == .fresh)
+        #expect(snapshot.geminiQuotaMetrics?.map(\.current) == [60, 25])
+        #expect(requests.count == 2)
+        #expect(requests[0].arguments.prefix(2) == ["--version", "--log-file"])
+        #expect(requests[0].arguments.count == 3)
+        #expect(requests[0].timeout == 8)
+        #expect(requests[1].arguments.prefix(2) == ["-p", "/usage"])
+        #expect(requests[1].arguments.contains("20s"))
+        #expect(requests[1].timeout == 30)
+    }
+
     @Test func supplementalFailuresNeverDowngradeFreshQuota() async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
         let snapshot = try await GeminiCollector(

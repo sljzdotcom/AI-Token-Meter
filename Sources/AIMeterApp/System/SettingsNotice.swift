@@ -26,6 +26,13 @@ enum SettingsNotice: Equatable {
     case signInFailed(UsageProvider)
     case signInStarted(UsageProvider)
     case accountConnected(UsageProvider)
+    case recoveryLoginStarted
+    case recoveryLoginFailed
+    case recoveryLoginCancelled
+    case recoveryLoginExpired
+    case recoveryCheckingQuota
+    case recoveryQuotaFailed
+    case recoveryQuotaUpdatedStillPaused
 
     func text(using localizer: AppLocalizer) -> String {
         switch self {
@@ -57,6 +64,20 @@ enum SettingsNotice: Equatable {
             localizer.text("Complete %@ sign-in in Terminal. Status will update automatically.", provider.displayName)
         case .accountConnected(let provider):
             localizer.text("%@ account connected.", provider.displayName)
+        case .recoveryLoginStarted:
+            localizer.text("Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This recovery performs one quota check only; automatic refresh stays paused.")
+        case .recoveryLoginFailed:
+            localizer.text("Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept.")
+        case .recoveryLoginCancelled:
+            localizer.text("Antigravity sign-in was cancelled. Refresh remains paused and the previous quota is kept.")
+        case .recoveryLoginExpired:
+            localizer.text("Antigravity sign-in expired before completion. Start a new one-time check if you want to try again.")
+        case .recoveryCheckingQuota:
+            localizer.text("Sign-in completed. Checking Antigravity quota once…")
+        case .recoveryQuotaFailed:
+            localizer.text("The one-time quota check failed. Refresh remains paused and the previous quota is kept.")
+        case .recoveryQuotaUpdatedStillPaused:
+            localizer.text("Antigravity quota updated by one check. Automatic refresh remains paused.")
         }
     }
 }
