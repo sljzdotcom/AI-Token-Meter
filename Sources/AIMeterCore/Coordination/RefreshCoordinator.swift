@@ -2,8 +2,17 @@ import Foundation
 
 public enum GeminiOneTimeQuotaError: Error, Equatable, Sendable {
     case notPaused
+    case unauthorized
     case alreadyRunning
     case collectorUnavailable
+    case persistenceFailed
+}
+
+/// Single-use capability issued only after the registered interactive login succeeds.
+public struct GeminiQuotaRecoveryAuthorization: Equatable, Sendable {
+    let id: UUID
+
+    init(id: UUID) { self.id = id }
 }
 
 public actor RefreshCoordinator {
@@ -14,6 +23,8 @@ public actor RefreshCoordinator {
     private var backoffs: [UsageProvider: RefreshBackoffState]
     private var lastPresented: [UsageProvider: UsageSnapshot] = [:]
     private var isGeminiQuotaOnceRunning = false
+    private var pendingGeminiLoginToken: String?
+    private var pendingGeminiQuotaAuthorization: UUID?
 
     public init(
         collectors: [any UsageCollector],
@@ -80,29 +91,77 @@ public actor RefreshCoordinator {
         saveBackoffs()
     }
 
-    public func collectGeminiQuotaOnce() async throws -> UsageSnapshot {
+    private func resumeGeminiAfterSuccessfulQuotaCheck() -> Bool {
+        guard backoffs[.gemini]?.failureKind == .suspended else { return true }
+        var resumedBackoffs = backoffs
+        resumedBackoffs.removeValue(forKey: .gemini)
+        guard persistBackoffs(resumedBackoffs) else { return false }
+        backoffs = resumedBackoffs
+        return true
+    }
+
+    public func beginGeminiQuotaRecovery(token: String) -> Bool {
+        guard backoffs[.gemini]?.failureKind == .suspended,
+              UUID(uuidString: token) != nil,
+              !isGeminiQuotaOnceRunning else { return false }
+        pendingGeminiLoginToken = token
+        pendingGeminiQuotaAuthorization = nil
+        return true
+    }
+
+    public func authorizeGeminiQuotaRecoveryAfterSignIn(token: String) -> GeminiQuotaRecoveryAuthorization? {
+        guard backoffs[.gemini]?.failureKind == .suspended,
+              pendingGeminiLoginToken == token,
+              UUID(uuidString: token) != nil else { return nil }
+        pendingGeminiLoginToken = nil
+        let authorization = UUID()
+        pendingGeminiQuotaAuthorization = authorization
+        return GeminiQuotaRecoveryAuthorization(id: authorization)
+    }
+
+    public func collectGeminiQuotaOnce(authorization: GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot {
         guard backoffs[.gemini]?.failureKind == .suspended else {
             throw GeminiOneTimeQuotaError.notPaused
         }
         guard !isGeminiQuotaOnceRunning else {
             throw GeminiOneTimeQuotaError.alreadyRunning
         }
+        guard pendingGeminiQuotaAuthorization == authorization.id else {
+            throw GeminiOneTimeQuotaError.unauthorized
+        }
         guard let collector = collectors.first(where: { $0.provider == .gemini }) as? any OneTimeGeminiQuotaCollecting else {
             throw GeminiOneTimeQuotaError.collectorUnavailable
         }
 
         isGeminiQuotaOnceRunning = true
+        pendingGeminiQuotaAuthorization = nil
         defer { isGeminiQuotaOnceRunning = false }
         if let inFlight { _ = await inFlight.value }
+        try Task.checkCancellation()
         guard backoffs[.gemini]?.failureKind == .suspended else {
             throw GeminiOneTimeQuotaError.notPaused
         }
 
         let snapshot = try await collector.collectQuotaOnce()
+        try Task.checkCancellation()
         guard snapshot.provider == .gemini, snapshot.geminiQuotaMetrics?.isEmpty == false else {
             throw UsageCollectionError.invalidResponse
         }
+        try Task.checkCancellation()
+        let cachedSnapshotsBeforeRecovery = try cache.load()
         try cache.saveReplacing(snapshot)
+        // A user-confirmed sign-in followed by a valid official quota response is
+        // the only path that unlocks the persistent automatic-refresh suspension.
+        // The final cancellation check above is the commit boundary; the cache and
+        // suspension writes that follow are synchronous and contain no suspension.
+        guard resumeGeminiAfterSuccessfulQuotaCheck() else {
+            do {
+                try cache.save(cachedSnapshotsBeforeRecovery)
+            } catch {
+                NSLog("AI Token Meter: previous quota cache could not be restored after recovery-state persistence failed")
+            }
+            throw GeminiOneTimeQuotaError.persistenceFailed
+        }
         return snapshot
     }
 
@@ -117,10 +176,18 @@ public actor RefreshCoordinator {
     }
 
     private func saveBackoffs() {
+        _ = persistBackoffs(backoffs)
+    }
+
+    private func persistBackoffs(_ state: [UsageProvider: RefreshBackoffState]) -> Bool {
         do {
             try FileManager.default.createDirectory(at: backoffURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(backoffs).write(to: backoffURL, options: .atomic)
-        } catch { NSLog("AI Token Meter: refresh retry state could not be saved") }
+            try JSONEncoder().encode(state).write(to: backoffURL, options: .atomic)
+            return true
+        } catch {
+            NSLog("AI Token Meter: refresh retry state could not be saved")
+            return false
+        }
     }
 
     private func performRefresh(

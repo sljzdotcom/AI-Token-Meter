@@ -7,7 +7,7 @@ import Testing
 @MainActor
 struct AppModelExternalActionPolicyTests {
     @Test("omitted Claude, Codex, and Gemini login injections are refused in tests")
-    func omittedAuthenticationOperationsFailClosed() throws {
+    func omittedAuthenticationOperationsFailClosed() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ai-meter-app-model-policy-\(UUID())", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -36,6 +36,9 @@ struct AppModelExternalActionPolicyTests {
             )
 
             #expect(model.beginSignIn(provider) == nil)
+            if provider == .gemini {
+                await model.beginGeminiOneTimeRecovery()
+            }
             #expect(!model.isAuthenticating)
             #expect(!model.isGeminiSignInPending)
         }

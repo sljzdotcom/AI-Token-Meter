@@ -32,6 +32,8 @@
 | [GitHub 应用内更新实施计划](design/implementation-plans/2026-09-02-github-app-update.md) | 状态模型、Sparkle 适配、构建签名、appcast、集成验收与发布任务 |
 | [Windows 跨平台设计](design/specifications/2026-09-03-windows-platform-design.md) | Windows 11 x64 架构、原生/WSL、Win32 窗口、安全更新与同步发布边界 |
 | [Windows 实施计划](design/implementation-plans/2026-09-03-windows-platform.md) | 共享合同、Tauri/Rust、Provider、窗口、Updater、NSIS、CI 与真机验收任务 |
+| [Antigravity 安全自动刷新恢复规格](design/specifications/2026-10-09-antigravity-safe-auto-refresh-design.md) | 官方 headless `/usage`、显式用户登录门槛、成功恢复与失败持久暂停边界 |
+| [Antigravity 安全自动刷新恢复计划](design/implementation-plans/2026-10-09-antigravity-safe-auto-refresh.md) | 协调器/AppModel 状态转换、失败先行、回归、文档与本地收尾 |
 | [Windows 浮动条修复设计](design/specifications/2026-09-04-windows-floating-strip-parity-fix-design.md) | macOS 同源 Bezier、透明窗口边框、拖动释放与拓扑互斥 |
 | [Windows 浮动条修复计划](design/implementation-plans/2026-09-04-windows-floating-strip-parity-fix.md) | 测试先行的视觉、原生拖动、文档与 Preview 发布步骤 |
 | [Windows 启动空白终端修复设计](design/specifications/2026-09-04-windows-console-window-suppression-design.md) | Windows GUI subsystem、真实 PE 产物门禁与跨平台边界 |

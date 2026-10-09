@@ -349,11 +349,12 @@
 "CLI version" = "CLI version";
 "%lld models · %lld families" = "%lld models · %lld families";
 "One-time quota check" = "One-time quota check";
-"A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh." = "A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh.";
-"Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This recovery performs one quota check only; automatic refresh stays paused." = "Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This recovery performs one quota check only; automatic refresh stays paused.";
+"Complete the official CLI sign-in and pass a one-time quota check to resume automatic refresh. A browser authorization page may open." = "Complete the official CLI sign-in and pass a one-time quota check to resume automatic refresh. A browser authorization page may open.";
+"Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. Automatic refresh resumes only if the one-time quota check succeeds." = "Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. Automatic refresh resumes only if the one-time quota check succeeds.";
 "Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept." = "Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept.";
 "Antigravity sign-in was cancelled. Refresh remains paused and the previous quota is kept." = "Antigravity sign-in was cancelled. Refresh remains paused and the previous quota is kept.";
 "Antigravity sign-in expired before completion. Start a new one-time check if you want to try again." = "Antigravity sign-in expired before completion. Start a new one-time check if you want to try again.";
 "Sign-in completed. Checking Antigravity quota once…" = "Sign-in completed. Checking Antigravity quota once…";
 "The one-time quota check failed. Refresh remains paused and the previous quota is kept." = "The one-time quota check failed. Refresh remains paused and the previous quota is kept.";
-"Antigravity quota updated by one check. Automatic refresh remains paused." = "Antigravity quota updated by one check. Automatic refresh remains paused.";
+"Antigravity quota was read, but automatic refresh could not be resumed. Refresh remains paused." = "Antigravity quota was read, but automatic refresh could not be resumed. Refresh remains paused.";
+"Antigravity quota updated. Automatic refresh has resumed." = "Antigravity quota updated. Automatic refresh has resumed.";

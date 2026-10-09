@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-10-09](2026-10-09-antigravity-safe-auto-refresh.md) | Antigravity安全自动刷新恢复 | 用户主动完成登录且单次额度检查有效后解除持久暂停；后台只运行官方 headless `/usage`，认证失败继续暂停；本地开发中，尚未发布 |
 | [2026-10-07](2026-10-07-v0.10.7-release.md) | 0.10.7/build35 Antigravity 一次性恢复入口发布 | PR #58、main/tag、双平台签名 Release、七项资产与三个公开更新源均验证通过；现场额度待用户设备确认 |
 | [2026-10-07](2026-10-07-antigravity-one-time-recovery.md) | Antigravity 单次受控恢复入口 | 本地 macOS 修复；保留持久暂停，单次登录/额度路径受限；未发布、未操作真实账号 |
 | [2026-10-06](2026-10-06-v0.10.6-release.md) | 0.10.6/build34双平台稳定发布 | PR #57、main/Release workflow、七项公开资产和三个匿名更新源均验证通过 |

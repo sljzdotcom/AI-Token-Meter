@@ -22,9 +22,9 @@ struct AppModelGeminiRecoveryTests {
         )
 
         await model.refresh()
-        model.beginGeminiOneTimeRecovery()
+        await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
-        model.beginGeminiOneTimeRecovery()
+        await model.beginGeminiOneTimeRecovery()
         #expect(openedToken == token)
         #expect(model.isGeminiOneTimeRecoveryInProgress)
 
@@ -38,13 +38,43 @@ struct AppModelGeminiRecoveryTests {
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
         #expect(await counters.quotaCalls == 1)
         #expect(await counters.globalRefreshCalls == 2)
-        #expect(model.geminiPauseReason == .unknown)
+        #expect(model.geminiPauseReason == nil)
+        #expect(!model.isGeminiRefreshPaused)
         #expect(model.geminiOneTimeRecoveryState == .succeeded)
+        #expect(model.settingsNotice == .recoveryQuotaUpdated)
         #expect(model.snapshots.first(where: { $0.provider == .gemini })?.fetchedAt == freshQuota.fetchedAt)
 
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
         #expect(await counters.quotaCalls == 1)
-        #expect(model.geminiPauseReason == .unknown)
+        #expect(model.geminiPauseReason == nil)
+    }
+
+    @Test("Concurrent recovery starts open only one interactive login")
+    @MainActor
+    func concurrentRecoveryStartsShareOneLogin() async throws {
+        let context = makeRecoveryContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let counters = RecoveryCounters()
+        var openedTokens: [String] = []
+        let model = makeModel(
+            context: context,
+            counters: counters,
+            pauseReason: .unknown,
+            quota: .success(recoverySnapshot(value: 22)),
+            openLogin: { openedTokens.append($0) },
+            recoveryBegin: {
+                try? await Task.sleep(for: .milliseconds(30))
+                return true
+            }
+        )
+
+        await model.refresh()
+        async let first: Void = model.beginGeminiOneTimeRecovery()
+        async let second: Void = model.beginGeminiOneTimeRecovery()
+        _ = await (first, second)
+
+        #expect(openedTokens.count == 1)
+        #expect(model.isGeminiOneTimeRecoveryInProgress)
     }
 
     @Test("Nonzero login receipt and CLI launch failure never start a quota check")
@@ -63,7 +93,7 @@ struct AppModelGeminiRecoveryTests {
         )
 
         await model.refresh()
-        model.beginGeminiOneTimeRecovery()
+        await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
         await model.completeGeminiInteractiveSignIn(token: token, result: .failure)
 
@@ -83,7 +113,7 @@ struct AppModelGeminiRecoveryTests {
             openShouldFail: true
         )
         await failedLaunchModel.refresh()
-        failedLaunchModel.beginGeminiOneTimeRecovery()
+        await failedLaunchModel.beginGeminiOneTimeRecovery()
         #expect(failedLaunchModel.geminiOneTimeRecoveryState == .loginFailed)
         #expect(await failedLaunchCounters.quotaCalls == 0)
     }
@@ -105,7 +135,7 @@ struct AppModelGeminiRecoveryTests {
         )
 
         await model.refresh()
-        model.beginGeminiOneTimeRecovery()
+        await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
         try await Task.sleep(for: .milliseconds(30))
         #expect(model.geminiOneTimeRecoveryState == .loginExpired)
@@ -131,7 +161,7 @@ struct AppModelGeminiRecoveryTests {
         )
 
         await model.refresh()
-        model.beginGeminiOneTimeRecovery()
+        await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
         model.stop()
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
@@ -164,7 +194,7 @@ struct AppModelGeminiRecoveryTests {
         await model.refresh()
         let refresh = Task { await model.refresh() }
         try await Task.sleep(for: .milliseconds(20))
-        model.beginGeminiOneTimeRecovery()
+        await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
         #expect(model.snapshots.first(where: { $0.provider == .gemini })?.fetchedAt == recovered.fetchedAt)
@@ -185,7 +215,8 @@ struct AppModelGeminiRecoveryTests {
         openLogin: @escaping (String) -> Void,
         recoveryTimeout: Duration = .seconds(330),
         openShouldFail: Bool = false,
-        refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil
+        refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
+        recoveryBegin: (@Sendable () async -> Bool)? = nil
     ) -> AppModel {
         AppModel(
             defaults: context.defaults,
@@ -196,7 +227,12 @@ struct AppModelGeminiRecoveryTests {
                 return []
             },
             geminiPauseReasonOperation: { pauseReason },
-            geminiQuotaCheckOperation: {
+            geminiRecoveryBeginOperation: { _ in
+                if let recoveryBegin { return await recoveryBegin() }
+                return true
+            },
+            geminiRecoveryAuthorizeOperation: { _ in GeminiQuotaRecoveryAuthorization(id: UUID()) },
+            geminiQuotaCheckOperation: { _ in
                 await counters.incrementQuota()
                 return try quota.get()
             },

@@ -349,11 +349,12 @@
 "Antigravity refresh paused because the CLI environment is unsupported" = "Antigravity 因 CLI 環境不受支援已暫停重新整理";
 "Antigravity refresh paused; the previous failure reason is unknown" = "Antigravity 已暫停重新整理；先前失敗原因未知";
 "One-time quota check" = "單次檢查額度";
-"A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh." = "透過官方 CLI 登入後，可以單次更新額度。系統可能會開啟瀏覽器授權頁面；此操作不會恢復自動重新整理。";
-"Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This recovery performs one quota check only; automatic refresh stays paused." = "請在終端機完成官方 Antigravity CLI 登入。系統可能會開啟瀏覽器授權頁面。本次只檢查一次額度，自動重新整理仍保持暫停。";
+"Complete the official CLI sign-in and pass a one-time quota check to resume automatic refresh. A browser authorization page may open." = "完成官方 CLI 登入並通過單次額度檢查後，才會恢復自動重新整理。系統可能會開啟瀏覽器授權頁面。";
+"Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. Automatic refresh resumes only if the one-time quota check succeeds." = "請在終端機完成官方 Antigravity CLI 登入。系統可能會開啟瀏覽器授權頁面。單次額度檢查成功後才會恢復自動重新整理。";
 "Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept." = "Antigravity 登入未完成。重新整理仍保持暫停，並保留先前的額度資料。";
 "Antigravity sign-in was cancelled. Refresh remains paused and the previous quota is kept." = "Antigravity 登入已取消。重新整理仍保持暫停，並保留先前的額度資料。";
 "Antigravity sign-in expired before completion. Start a new one-time check if you want to try again." = "Antigravity 登入等待已逾時。若要重試，請重新啟動單次檢查。";
 "Sign-in completed. Checking Antigravity quota once…" = "登入完成，正在單次檢查 Antigravity 額度…";
 "The one-time quota check failed. Refresh remains paused and the previous quota is kept." = "單次額度檢查失敗。重新整理仍保持暫停，並保留先前的額度資料。";
-"Antigravity quota updated by one check. Automatic refresh remains paused." = "已透過單次檢查更新 Antigravity 額度。自動重新整理仍保持暫停。";
+"Antigravity quota was read, but automatic refresh could not be resumed. Refresh remains paused." = "已讀取 Antigravity 額度，但無法恢復自動重新整理。重新整理仍保持暫停。";
+"Antigravity quota updated. Automatic refresh has resumed." = "Antigravity 額度已更新，自動重新整理已恢復。";
