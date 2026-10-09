@@ -1,13 +1,15 @@
 # 当前项目状态
 
-- **事实快照：** 2026-10-07
+- **事实快照：** 2026-10-10
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.7`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.7)（macOS build `35`）
+- **当前公开稳定版：** 双平台 [`0.10.8`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.8)（macOS build `36`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**v0.10.7/build35 已公开：** Antigravity未知暂停新增用户主动的一次性官方登录与只读额度检查。一次成功只更新一次额度并保留自动刷新暂停；回执等待有界，失败或取消不会清除保护。Windows运行行为保持不变。PR #58、main/tag双平台CI、签名资产和三个更新源均通过匿名核验，详见[发布记录](development/2026-10-07-v0.10.7-release.md)。M4 Max现场用户更新与额度检查仍待确认；版本公开不代表现场额度已恢复。
+**v0.10.8/build36 已公开：** Antigravity详情增加官方 `/usage` 中 Claude/GPT 五小时和每周共享额度，Gemini仍是主指标、圆环与提醒来源；Windows同步显示共享额度。PR #59、main/tag双平台CI、macOS Sparkle签名、Windows更新签名和三个更新源均通过匿名核验。用户提供的旧诊断仍显示 `appVersion=0.10.6 build=34`、`refreshPaused=true reason=unknown`、最后成功额度时间为 `2026-10-01T05:18:21Z`；未知原因和阶段没有被回填。本版本不清除暂停或恢复周期刷新。详见[0.10.8发布记录](development/2026-10-09-v0.10.8-release.md)。
+
+**0.10.7/build35 历史发布：** Antigravity未知暂停新增用户主动的一次性官方登录与只读额度检查。一次成功只更新一次额度并保留自动刷新暂停；回执等待有界，失败或取消不会清除保护。Windows运行行为保持不变。PR #58、main/tag双平台CI、签名资产和三个更新源均通过匿名核验，详见[发布记录](development/2026-10-07-v0.10.7-release.md)。用户现场更新与额度检查结果仍须现场验收；版本公开不代表现场额度已恢复。
 
 **0.10.6/build34 历史发布：** 测试进程默认拒绝真实系统打开，正式App中的显式操作不变；Antigravity复制诊断会附上经白名单校验的应用版本/build，不会清除旧暂停或触发刷新。PR #57、候选与main双平台CI、正式签名发布workflow、七项公开资产、两端签名和篡改拒绝、三个更新入口匿名验收均通过，完整证据见[发布记录](development/2026-10-06-v0.10.6-release.md)。M4 Max现场额度仍保持旧暂停与unknown原因；此版本不推断根因或自动恢复。
 

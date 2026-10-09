@@ -125,6 +125,7 @@ struct AppModelGeminiRecoveryTests {
         let context = makeRecoveryContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
         let counters = RecoveryCounters()
+        let timeoutGate = RecoveryTimeoutGate()
         var openedToken: String?
         let model = makeModel(
             context: context,
@@ -132,13 +133,18 @@ struct AppModelGeminiRecoveryTests {
             pauseReason: .unknown,
             quota: .success(recoverySnapshot(value: 1)),
             openLogin: { openedToken = $0 },
-            recoveryTimeout: .milliseconds(5)
+            recoveryTimeout: .milliseconds(5),
+            signInSleep: { _ in try await timeoutGate.sleep() }
         )
 
         await model.refresh()
         await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
-        try await Task.sleep(for: .milliseconds(30))
+        await timeoutGate.waitUntilStarted()
+        await timeoutGate.expire()
+        for _ in 0..<100 where model.geminiOneTimeRecoveryState != .loginExpired {
+            await Task.yield()
+        }
         #expect(model.geminiOneTimeRecoveryState == .loginExpired)
 
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
@@ -217,7 +223,8 @@ struct AppModelGeminiRecoveryTests {
         recoveryTimeout: Duration = .seconds(330),
         openShouldFail: Bool = false,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
-        recoveryBegin: (@Sendable () async -> Bool)? = nil
+        recoveryBegin: (@Sendable () async -> Bool)? = nil,
+        signInSleep: (@Sendable (Duration) async throws -> Void)? = nil
     ) -> AppModel {
         AppModel(
             defaults: context.defaults,
@@ -241,7 +248,8 @@ struct AppModelGeminiRecoveryTests {
                 if openShouldFail { throw CocoaError(.fileWriteUnknown) }
                 openLogin(token)
             },
-            geminiRecoveryTimeout: recoveryTimeout
+            geminiRecoveryTimeout: recoveryTimeout,
+            signInSleep: signInSleep ?? { try await Task.sleep(for: $0) }
         )
     }
 
@@ -268,6 +276,31 @@ private actor RecoveryCounters {
 
     func incrementQuota() { quotaCalls += 1 }
     func incrementGlobalRefresh() { globalRefreshCalls += 1 }
+}
+
+private actor RecoveryTimeoutGate {
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+
+    func sleep() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.continuation = continuation
+            startedContinuation?.resume()
+            startedContinuation = nil
+        }
+    }
+
+    func waitUntilStarted() async {
+        if continuation != nil { return }
+        await withCheckedContinuation { continuation in
+            startedContinuation = continuation
+        }
+    }
+
+    func expire() {
+        continuation?.resume()
+        continuation = nil
+    }
 }
 
 private actor RecoveryRefreshSequence {
