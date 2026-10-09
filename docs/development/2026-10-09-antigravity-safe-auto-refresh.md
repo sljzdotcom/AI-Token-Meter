@@ -36,4 +36,4 @@ Google Antigravity CLI 官方 [Headless mode 文档](https://antigravity.google/
 
 ## Git 节点
 
-本地分支：`codex/antigravity-safe-auto-refresh`。本地提交：待补录。
+本地分支：`codex/antigravity-safe-auto-refresh`。实现提交：`6b014a7`（基于 `4158fea`）。仅保留在本地；未推送、合并、打标签或发布。
