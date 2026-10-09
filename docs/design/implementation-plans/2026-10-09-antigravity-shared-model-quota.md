@@ -32,6 +32,10 @@
 7. 添加 macOS detail 测试，断言共享区块标题、五小时/每周百分比和重置文本；断言缺失时隐藏。
 8. 添加 Windows `ProviderDetail` 测试并补英文、简体、繁体三种文案；保持 Antigravity 既有强调色。
 9. 运行 Swift detail/localization 与 Windows Vitest 定向测试，确认失败后实现最少 UI 变更并通过。
-10. 更新跨平台 fixture/schema 合同，使 Swift 解析器、Windows Rust 与前端共用一个真实样例，且 Gemini 主指标未受共享池影响。
+10. 更新跨平台 fixture/schema 合同，使 Swift 解析器、Windows Rust 与前端共用一个代表性合成测试样例，且 Gemini 主指标未受共享池影响。
 11. 运行相关完整平台测试、`scripts/test.sh`、macOS release build、Windows web/Rust合同测试及 `scripts/check-docs.sh`；记录跳过项与非原生验证范围。
 12. 请求独立只读代码审查，处理发现后提交本地变更；不推送、合并或发布。
+
+## 最终状态
+
+本地实现及独立复审已完成。最终 Swift 645 项、Windows 前端 135 项、Windows Rust 宿主 268 项通过；macOS Release product build 通过。跳过项和平台限制见[开发记录](../../development/2026-10-09-antigravity-shared-model-quota.md)，审查闭环见[独立复审记录](../../development/2026-10-09-antigravity-shared-model-quota-review.md)。未触发 CI，未签名、合并或发布。

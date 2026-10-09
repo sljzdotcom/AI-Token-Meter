@@ -1,7 +1,7 @@
 # Antigravity Claude/GPT 共享额度详情规格
 
 **需求：** REQ-20261009-002  
-**状态：** 已获用户批准，开发中  
+**状态：** 本地实现、独立复审与完整本地验证已完成；未发布，后续整合由协调入口决定
 **范围：** macOS 与 Windows 的 Google Antigravity 详情
 
 ## 目标
