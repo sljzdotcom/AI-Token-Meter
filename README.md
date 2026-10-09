@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.7](https://img.shields.io/badge/version-0.10.7-3b82f6)
-![Tests 636](https://img.shields.io/badge/tests-636%20passed-2ea44f)
+![Version 0.10.8](https://img.shields.io/badge/version-0.10.8-3b82f6)
+![Tests 645](https://img.shields.io/badge/tests-645%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> 候选版 `0.10.7` / build `35`：Antigravity未知暂停可由用户主动执行一次官方登录及只读额度检查；成功后仍保持自动刷新暂停。Windows运行行为保持不变。[Release Notes](docs/releases/v0.10.7.md)。
+> 候选版 `0.10.8` / build `36`：Antigravity详情新增 Claude/GPT 五小时与每周共享额度。未知暂停仍须用户主动执行一次官方登录及只读额度检查；成功后本次运行仍保持暂停。暂停状态尽力持久化，写盘失败时无法保证重启后仍暂停；本次版本不宣称自动恢复已修复。[Release Notes](docs/releases/v0.10.8.md)。
 
 > `0.10.3` / build `31`：macOS可发现新版ChatGPT.app内嵌的Codex CLI，账户状态、额度读取和登录入口统一使用该定位逻辑；Windows产品行为不变。[Release Notes](docs/releases/v0.10.3.md)。
 

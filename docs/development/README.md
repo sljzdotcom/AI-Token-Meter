@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-10-09](2026-10-09-v0.10.8-release.md) | 0.10.8/build36 发布准备 | Antigravity 共享 Claude/GPT 额度详情；保留自动刷新暂停，尚未发布 |
 | [2026-10-09](2026-10-09-antigravity-safe-auto-refresh.md) | Antigravity安全恢复边界 | 单次检查可更新缓存但不清持久暂停；真实CLI无浏览器边界未证实，周期自动恢复受环境限制；未发布 |
 | [2026-10-09](2026-10-09-antigravity-safe-refresh-review.md) | Antigravity安全恢复独立审查 | 审查生产采集路径、持久暂停与真实CLI浏览器边界；记录已修正发现和未关闭限制 |
 | [2026-10-09](2026-10-09-antigravity-shared-model-quota.md) | Antigravity Claude/GPT 共享额度详情 | 双平台详情读取同一官方 `/usage` 共享池；不改变 Gemini 摘要、提醒或独立 Provider 账号 |
