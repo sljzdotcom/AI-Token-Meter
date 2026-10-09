@@ -76,7 +76,25 @@ struct RefreshCoordinatorTests {
         #expect(collector.callCount == 1)
     }
 
-    @Test("One-time Gemini quota success updates cache without clearing persistent suspension")
+    @Test("A headless authentication failure stays paused across restart")
+    func headlessAuthenticationFailureNeverRetriesInteractively() async {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ControlledCollector(provider: .gemini, result: .failure(.authenticationRequired))
+        let cache = SnapshotCache(directoryURL: directory)
+        let path = directory.appendingPathComponent("backoff.json")
+        let first = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+
+        _ = await first.refresh(manual: false)
+
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: path)
+        _ = await restarted.refresh(manual: true)
+
+        #expect(collector.callCount == 1)
+        #expect(await restarted.geminiPauseReason() == .authenticationRequired)
+    }
+
+    @Test("One-time Gemini quota success updates cache but keeps persistent suspension")
     func oneTimeGeminiCheckKeepsPauseAndOtherProviderCache() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -94,7 +112,12 @@ struct RefreshCoordinatorTests {
         let initial = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
 
         _ = await initial.refresh()
-        let recovered = try await initial.collectGeminiQuotaOnce()
+        await #expect(throws: GeminiOneTimeQuotaError.unauthorized) {
+            try await initial.collectGeminiQuotaOnce(authorization: GeminiQuotaRecoveryAuthorization(id: UUID()))
+        }
+        #expect(await initial.geminiPauseReason() == .timeout)
+        let authorization = try await authorizeRecovery(on: initial)
+        let recovered = try await initial.collectGeminiQuotaOnce(authorization: authorization)
 
         #expect(recovered.geminiQuotaMetrics?.first?.current == 77)
         #expect(await initial.geminiPauseReason() == .timeout)
@@ -103,8 +126,9 @@ struct RefreshCoordinatorTests {
         #expect(saved.first(where: { $0.provider == .gemini })?.fetchedAt == Date(timeIntervalSince1970: 800))
 
         let restarted = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
-        _ = await restarted.refresh(manual: true)
+        _ = await restarted.refresh(manual: false)
         #expect(await restarted.geminiPauseReason() == .timeout)
+        #expect(await restarted.providersRequiringAction().contains(.gemini))
         #expect(quotaCollector.normalCalls == 1)
         #expect(quotaCollector.oneTimeCalls == 1)
     }
@@ -130,13 +154,90 @@ struct RefreshCoordinatorTests {
             backoffURL: directory.appendingPathComponent("backoff.json")
         )
         _ = await coordinator.refresh()
+        let authorization = try await authorizeRecovery(on: coordinator)
 
         await #expect(throws: UsageCollectionError.timedOut) {
-            try await coordinator.collectGeminiQuotaOnce()
+            try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
         }
         let after = try cache.load()
         #expect(after.first(where: { $0.provider == .gemini })?.fetchedAt == oldQuota.fetchedAt)
         #expect(after.first(where: { $0.provider == .claude })?.fetchedAt == oldClaude.fetchedAt)
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+    }
+
+    @Test("An invalid one-time Gemini response cannot clear the suspension")
+    func invalidOneTimeGeminiResponseKeepsPause() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = InvalidOneTimeGeminiCollector()
+        let coordinator = RefreshCoordinator(
+            collectors: [collector],
+            cache: SnapshotCache(directoryURL: directory),
+            backoffURL: directory.appendingPathComponent("backoff.json")
+        )
+        _ = await coordinator.refresh(manual: false)
+        let authorization = try await authorizeRecovery(on: coordinator)
+
+        await #expect(throws: UsageCollectionError.invalidResponse) {
+            try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
+        }
+
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(collector.oneTimeCalls == 1)
+    }
+
+    @Test("A failed one-time cache write keeps suspension in place")
+    func failedOneTimeCacheWriteKeepsSuspension() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let blockedDirectory = directory.appendingPathComponent("not-a-directory")
+        try Data("occupied".utf8).write(to: blockedDirectory)
+        let collector = OneTimeGeminiCollector()
+        let cache = SnapshotCache(directoryURL: blockedDirectory)
+        let coordinator = RefreshCoordinator(
+            collectors: [collector],
+            cache: cache,
+            backoffURL: directory.appendingPathComponent("backoff.json")
+        )
+
+        _ = await coordinator.refresh(manual: false)
+        let authorization = try await authorizeRecovery(on: coordinator)
+        await #expect(throws: (any Error).self) {
+            try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
+        }
+
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+    }
+
+    @Test("Cancelling a one-time quota check preserves cache and suspension")
+    func cancelledOneTimeGeminiCheckPreservesCacheAndPause() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = SnapshotCache(directoryURL: directory)
+        let previous = UsageSnapshot(
+            provider: .gemini,
+            primaryMetric: metric(value: 19),
+            fetchedAt: Date(timeIntervalSince1970: 250),
+            collectionStatus: .fresh,
+            geminiQuotaMetrics: [metric(value: 19)]
+        )
+        try cache.save([previous])
+        let collector = OneTimeGeminiCollector(oneTimeDelay: 5)
+        let coordinator = RefreshCoordinator(
+            collectors: [collector],
+            cache: cache,
+            backoffURL: directory.appendingPathComponent("backoff.json")
+        )
+        _ = await coordinator.refresh(manual: false)
+        let authorization = try await authorizeRecovery(on: coordinator)
+
+        let task = Task { try await coordinator.collectGeminiQuotaOnce(authorization: authorization) }
+        while collector.oneTimeCalls == 0 { await Task.yield() }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+
+        #expect(try cache.load().first(where: { $0.provider == .gemini })?.fetchedAt == previous.fetchedAt)
         #expect(await coordinator.geminiPauseReason() == .timeout)
     }
 
@@ -151,17 +252,18 @@ struct RefreshCoordinatorTests {
             backoffURL: directory.appendingPathComponent("backoff.json")
         )
         _ = await coordinator.refresh()
+        let authorization = try await authorizeRecovery(on: coordinator)
 
-        async let first = coordinator.collectGeminiQuotaOnce()
+        async let first = coordinator.collectGeminiQuotaOnce(authorization: authorization)
         try await Task.sleep(for: .milliseconds(20))
         await #expect(throws: GeminiOneTimeQuotaError.alreadyRunning) {
-            try await coordinator.collectGeminiQuotaOnce()
+            try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
         }
         _ = try await first
         #expect(collector.oneTimeCalls == 1)
     }
 
-    @Test("A concurrent provider refresh cannot overwrite a newer one-time Gemini quota")
+    @Test("A concurrent provider refresh preserves the newer quota and suspension")
     func concurrentRefreshPreservesOneTimeGeminiQuota() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -190,8 +292,9 @@ struct RefreshCoordinatorTests {
             backoffURL: directory.appendingPathComponent("backoff.json")
         )
         _ = await coordinator.refresh()
+        let authorization = try await authorizeRecovery(on: coordinator)
 
-        async let quota = coordinator.collectGeminiQuotaOnce()
+        async let quota = coordinator.collectGeminiQuotaOnce(authorization: authorization)
         try await Task.sleep(for: .milliseconds(25))
         let refresh = Task { await coordinator.refresh() }
         _ = try await quota
@@ -409,6 +512,13 @@ struct RefreshCoordinatorTests {
     private func metric(value: Double) -> UsageMetric {
         UsageMetric(label: "Usage", current: value, limit: 100, unit: .percent)
     }
+
+    private func authorizeRecovery(on coordinator: RefreshCoordinator) async throws -> GeminiQuotaRecoveryAuthorization {
+        let token = UUID().uuidString
+        #expect(await coordinator.beginGeminiQuotaRecovery(token: token))
+        #expect(await coordinator.authorizeGeminiQuotaRecoveryAfterSignIn(token: "wrong-token") == nil)
+        return try #require(await coordinator.authorizeGeminiQuotaRecoveryAfterSignIn(token: token))
+    }
 }
 
 private final class ControlledCollector: UsageCollector, @unchecked Sendable {
@@ -458,19 +568,24 @@ private final class OneTimeGeminiCollector: OneTimeGeminiQuotaCollecting, @unche
     var oneTimeCalls: Int { lock.withLock { oneTime } }
 
     func collect() async throws -> UsageSnapshot {
-        lock.withLock { normal += 1 }
-        throw UsageCollectionError.timedOut
+        let call = lock.withLock { normal += 1; return normal }
+        guard call > 1 else { throw UsageCollectionError.timedOut }
+        return quotaSnapshot(value: 77)
     }
 
     func collectQuotaOnce() async throws -> UsageSnapshot {
         lock.withLock { oneTime += 1 }
         if oneTimeDelay > 0 { try await Task.sleep(for: .seconds(oneTimeDelay)) }
+        return quotaSnapshot(value: 77)
+    }
+
+    private func quotaSnapshot(value: Double) -> UsageSnapshot {
         let fiveHour = UsageMetric(
-            label: "Gemini · Five hour", current: 77, limit: 100,
+            label: "Gemini · Five hour", current: value, limit: 100,
             unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
         )
         let weekly = UsageMetric(
-            label: "Gemini · Weekly", current: 77, limit: 100,
+            label: "Gemini · Weekly", current: value, limit: 100,
             unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
         )
         return UsageSnapshot(
@@ -488,6 +603,20 @@ private struct FailingOneTimeGeminiCollector: OneTimeGeminiQuotaCollecting {
 
     func collect() async throws -> UsageSnapshot { throw UsageCollectionError.timedOut }
     func collectQuotaOnce() async throws -> UsageSnapshot { throw UsageCollectionError.timedOut }
+}
+
+private final class InvalidOneTimeGeminiCollector: OneTimeGeminiQuotaCollecting, @unchecked Sendable {
+    let provider = UsageProvider.gemini
+    private let lock = NSLock()
+    private var oneTime = 0
+
+    var oneTimeCalls: Int { lock.withLock { oneTime } }
+
+    func collect() async throws -> UsageSnapshot { throw UsageCollectionError.timedOut }
+    func collectQuotaOnce() async throws -> UsageSnapshot {
+        lock.withLock { oneTime += 1 }
+        return UsageSnapshot(provider: .gemini)
+    }
 }
 
 private final class ConcurrentCollectionProbe: @unchecked Sendable {

@@ -2,8 +2,16 @@ import Foundation
 
 public enum GeminiOneTimeQuotaError: Error, Equatable, Sendable {
     case notPaused
+    case unauthorized
     case alreadyRunning
     case collectorUnavailable
+}
+
+/// Single-use capability issued only after the registered interactive login succeeds.
+public struct GeminiQuotaRecoveryAuthorization: Equatable, Sendable {
+    let id: UUID
+
+    init(id: UUID) { self.id = id }
 }
 
 public actor RefreshCoordinator {
@@ -14,6 +22,8 @@ public actor RefreshCoordinator {
     private var backoffs: [UsageProvider: RefreshBackoffState]
     private var lastPresented: [UsageProvider: UsageSnapshot] = [:]
     private var isGeminiQuotaOnceRunning = false
+    private var pendingGeminiLoginToken: String?
+    private var pendingGeminiQuotaAuthorization: UUID?
 
     public init(
         collectors: [any UsageCollector],
@@ -80,29 +90,58 @@ public actor RefreshCoordinator {
         saveBackoffs()
     }
 
-    public func collectGeminiQuotaOnce() async throws -> UsageSnapshot {
+    public func beginGeminiQuotaRecovery(token: String) -> Bool {
+        guard backoffs[.gemini]?.failureKind == .suspended,
+              UUID(uuidString: token) != nil,
+              !isGeminiQuotaOnceRunning else { return false }
+        pendingGeminiLoginToken = token
+        pendingGeminiQuotaAuthorization = nil
+        return true
+    }
+
+    public func authorizeGeminiQuotaRecoveryAfterSignIn(token: String) -> GeminiQuotaRecoveryAuthorization? {
+        guard backoffs[.gemini]?.failureKind == .suspended,
+              pendingGeminiLoginToken == token,
+              UUID(uuidString: token) != nil else { return nil }
+        pendingGeminiLoginToken = nil
+        let authorization = UUID()
+        pendingGeminiQuotaAuthorization = authorization
+        return GeminiQuotaRecoveryAuthorization(id: authorization)
+    }
+
+    public func collectGeminiQuotaOnce(authorization: GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot {
         guard backoffs[.gemini]?.failureKind == .suspended else {
             throw GeminiOneTimeQuotaError.notPaused
         }
         guard !isGeminiQuotaOnceRunning else {
             throw GeminiOneTimeQuotaError.alreadyRunning
         }
+        guard pendingGeminiQuotaAuthorization == authorization.id else {
+            throw GeminiOneTimeQuotaError.unauthorized
+        }
         guard let collector = collectors.first(where: { $0.provider == .gemini }) as? any OneTimeGeminiQuotaCollecting else {
             throw GeminiOneTimeQuotaError.collectorUnavailable
         }
 
         isGeminiQuotaOnceRunning = true
+        pendingGeminiQuotaAuthorization = nil
         defer { isGeminiQuotaOnceRunning = false }
         if let inFlight { _ = await inFlight.value }
+        try Task.checkCancellation()
         guard backoffs[.gemini]?.failureKind == .suspended else {
             throw GeminiOneTimeQuotaError.notPaused
         }
 
         let snapshot = try await collector.collectQuotaOnce()
+        try Task.checkCancellation()
         guard snapshot.provider == .gemini, snapshot.geminiQuotaMetrics?.isEmpty == false else {
             throw UsageCollectionError.invalidResponse
         }
+        try Task.checkCancellation()
         try cache.saveReplacing(snapshot)
+        // A successful user-initiated read refreshes the cached quota only.
+        // Keep the persistent suspension until the CLI's future background
+        // authentication behavior is covered by a reliable no-browser boundary.
         return snapshot
     }
 
@@ -117,10 +156,18 @@ public actor RefreshCoordinator {
     }
 
     private func saveBackoffs() {
+        _ = persistBackoffs(backoffs)
+    }
+
+    private func persistBackoffs(_ state: [UsageProvider: RefreshBackoffState]) -> Bool {
         do {
             try FileManager.default.createDirectory(at: backoffURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(backoffs).write(to: backoffURL, options: .atomic)
-        } catch { NSLog("AI Token Meter: refresh retry state could not be saved") }
+            try JSONEncoder().encode(state).write(to: backoffURL, options: .atomic)
+            return true
+        } catch {
+            NSLog("AI Token Meter: refresh retry state could not be saved")
+            return false
+        }
     }
 
     private func performRefresh(
@@ -257,6 +304,7 @@ public actor RefreshCoordinator {
             codexLocalActivity: snapshot.codexLocalActivity,
             claudeLocalActivity: snapshot.claudeLocalActivity,
             geminiQuotaMetrics: snapshot.geminiQuotaMetrics,
+            antigravitySharedQuotaMetrics: snapshot.antigravitySharedQuotaMetrics,
             antigravityCLIInfo: snapshot.antigravityCLIInfo,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )

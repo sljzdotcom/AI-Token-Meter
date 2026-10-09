@@ -129,7 +129,7 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 if model.isGeminiRefreshPaused {
-                    Text(localizer.text("A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh."))
+                    Text(localizer.text("Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -142,7 +142,7 @@ struct ServicesSettingsView: View {
                         Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
                     }
                     if model.isGeminiRefreshPaused {
-                        Button(localizer.text("One-time quota check")) { model.beginGeminiOneTimeRecovery() }
+                        Button(localizer.text("One-time quota check")) { Task { await model.beginGeminiOneTimeRecovery() } }
                             .disabled(model.isGeminiOneTimeRecoveryInProgress)
                         if model.isGeminiOneTimeRecoveryInProgress {
                             ProgressView().controlSize(.small)

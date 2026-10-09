@@ -93,6 +93,28 @@ struct GeminiDetailView: View {
                 } else {
                     Text(localizer.text("Quota unavailable")).aiMeterFont(.headline)
                 }
+                if let metrics = snapshot.antigravitySharedQuotaMetrics, !metrics.isEmpty {
+                    Text(localizer.text("Claude/GPT shared quota")).aiMeterFont(.headline)
+                    ForEach(metrics) { metric in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(ProviderDetailText.metricLabel(metric.label, localizer: localizer))
+                                Spacer()
+                                Text(GeminiDetailPresentation.remainingText(for: metric, localizer: localizer))
+                                    .monospacedDigit()
+                                    .foregroundStyle(accentStyle)
+                            }
+                            AIMeterProgressBar(
+                                provider: .gemini,
+                                fraction: metric.usedFraction ?? 0,
+                                semantic: .normal
+                            )
+                            if let reset = ProviderDetailText.reset(metric, localizer: localizer, prefersTimestamp: true) {
+                                Text(reset).aiMeterFont(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
                 if snapshot.antigravityCLIInfo != nil || snapshot.sourceVersion != nil {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(localizer.text("Antigravity CLI")).aiMeterFont(.headline)
@@ -134,7 +156,7 @@ struct GeminiDetailView: View {
                 let accountStatus = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: pauseReason)
                 GeminiInstallationHelp(state: accountStatus.connectionState, pauseReason: pauseReason)
                 if isPaused {
-                    Text(localizer.text("A one-time check can refresh quota after official CLI sign-in. A browser authorization page may open. This does not resume automatic refresh."))
+                    Text(localizer.text("Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -66,6 +66,11 @@
       "maxItems": 2,
       "items": { "$ref": "#/$defs/geminiQuotaMetric" }
     },
+    "antigravitySharedQuotaMetrics": {
+      "type": "array",
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/antigravitySharedQuotaMetric" }
+    },
     "antigravityCLIInfo": {
       "$ref": "#/$defs/antigravityCLIInfo"
     },
@@ -105,6 +110,41 @@
           "enum": [
             "Gemini · Five hour",
             "Gemini · Weekly"
+          ]
+        },
+        "current": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "limit": {
+          "const": 100
+        },
+        "unit": {
+          "const": "percent"
+        },
+        "kind": {
+          "const": "officialLimit"
+        },
+        "resetAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "antigravitySharedQuotaMetric": {
+      "type": "object",
+      "required": ["label", "current", "limit", "unit", "kind", "resetAt"],
+      "allOf": [
+        {
+          "$ref": "#/$defs/metric"
+        }
+      ],
+      "properties": {
+        "label": {
+          "enum": [
+            "Claude/GPT · Five hour",
+            "Claude/GPT · Weekly"
           ]
         },
         "current": {

@@ -511,11 +511,13 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         case .gemini:
             let snapshot = model.snapshots.first(where: { $0.provider == .gemini })
             let tierCount = snapshot?.geminiQuotaMetrics?.count ?? 0
+            let sharedQuotaCount = snapshot?.antigravitySharedQuotaMetrics?.count ?? 0
             let hasCLIInfo = snapshot?.antigravityCLIInfo != nil || snapshot?.sourceVersion != nil
             detailSize = NSSize(
                 width: 420,
                 height: GeminiDetailPanelLayout.height(
                     tierCount: tierCount,
+                    sharedQuotaCount: sharedQuotaCount,
                     hasCLIInfo: hasCLIInfo,
                     availableHeight: availableHeight
                 )

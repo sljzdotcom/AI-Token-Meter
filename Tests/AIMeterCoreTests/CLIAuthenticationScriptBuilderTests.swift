@@ -3,7 +3,7 @@ import Darwin
 import Testing
 @testable import AIMeterCore
 
-@Suite("CLI authentication script builder")
+@Suite("CLI authentication script builder", .serialized)
 struct CLIAuthenticationScriptBuilderTests {
     @Test("Claude and Codex scripts contain only approved login commands")
     func approvedCommands() throws {

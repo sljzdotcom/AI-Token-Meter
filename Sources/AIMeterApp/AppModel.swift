@@ -40,7 +40,9 @@ final class AppModel {
     private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
     private let geminiDiagnosticStore: GeminiDiagnosticStore
     private let geminiPauseReasonOperation: @Sendable () async -> GeminiPauseReason?
-    private let geminiQuotaCheckOperation: @Sendable () async throws -> UsageSnapshot
+    private let geminiRecoveryBeginOperation: @Sendable (String) async -> Bool
+    private let geminiRecoveryAuthorizeOperation: @Sendable (String) async -> GeminiQuotaRecoveryAuthorization?
+    private let geminiQuotaCheckOperation: @Sendable (GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
     private let geminiAuthenticationOpenOperation: (String) throws -> Void
@@ -134,7 +136,9 @@ final class AppModel {
         isDemoMode: Bool? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         geminiPauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
-        geminiQuotaCheckOperation: (@Sendable () async throws -> UsageSnapshot)? = nil,
+        geminiRecoveryBeginOperation: (@Sendable (String) async -> Bool)? = nil,
+        geminiRecoveryAuthorizeOperation: (@Sendable (String) async -> GeminiQuotaRecoveryAuthorization?)? = nil,
+        geminiQuotaCheckOperation: (@Sendable (GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot)? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
         geminiAuthenticationOpenOperation: ((String) throws -> Void)? = nil,
@@ -257,7 +261,13 @@ final class AppModel {
         self.geminiDiagnosticStore = diagnosticStore
         self.refreshOperation = refreshOperation
         self.geminiPauseReasonOperation = geminiPauseReasonOperation ?? { await coordinator.geminiPauseReason() }
-        self.geminiQuotaCheckOperation = geminiQuotaCheckOperation ?? { try await coordinator.collectGeminiQuotaOnce() }
+        self.geminiRecoveryBeginOperation = geminiRecoveryBeginOperation ?? { await coordinator.beginGeminiQuotaRecovery(token: $0) }
+        self.geminiRecoveryAuthorizeOperation = geminiRecoveryAuthorizeOperation ?? {
+            await coordinator.authorizeGeminiQuotaRecoveryAfterSignIn(token: $0)
+        }
+        self.geminiQuotaCheckOperation = geminiQuotaCheckOperation ?? {
+            try await coordinator.collectGeminiQuotaOnce(authorization: $0)
+        }
         apiKeyConfigured = false
         launchAtLoginEnabled = launchAtLoginService.isEnabled
     }
@@ -736,7 +746,7 @@ final class AppModel {
     @discardableResult
     func beginSignIn(_ provider: UsageProvider) -> Task<Void, Never>? {
         if provider == .gemini {
-            beginGeminiOneTimeRecovery()
+            Task { await beginGeminiOneTimeRecovery() }
             return nil
         }
         guard provider == .claude || provider == .codex else { return nil }
@@ -805,7 +815,7 @@ final class AppModel {
         return task
     }
 
-    func beginGeminiOneTimeRecovery() {
+    func beginGeminiOneTimeRecovery() async {
         guard !isDemoMode, isGeminiRefreshPaused,
               pendingGeminiLoginToken == nil,
               !isGeminiOneTimeRecoveryInProgress else { return }
@@ -813,6 +823,14 @@ final class AppModel {
         pendingGeminiLoginToken = token
         geminiRecoveryStartedAt = Date()
         geminiOneTimeRecoveryState = .awaitingLogin
+        guard await geminiRecoveryBeginOperation(token) else {
+            if pendingGeminiLoginToken == token {
+                pendingGeminiLoginToken = nil
+                geminiRecoveryStartedAt = nil
+                geminiOneTimeRecoveryState = .idle
+            }
+            return
+        }
         settingsMessageKind = .antigravityRecovery
         settingsNotice = .recoveryLoginStarted
         do {
@@ -864,6 +882,12 @@ final class AppModel {
             recordGeminiRecovery(.succeeded)
             break
         }
+        guard let authorization = await geminiRecoveryAuthorizeOperation(token) else {
+            geminiOneTimeRecoveryState = .loginFailed
+            recordGeminiRecovery(.loginFailed)
+            settingsNotice = .recoveryLoginFailed
+            return
+        }
         geminiOneTimeRecoveryState = .checkingQuota
         settingsNotice = .recoveryCheckingQuota
         let operation = geminiQuotaCheckOperation
@@ -878,8 +902,11 @@ final class AppModel {
                 }
             }
             do {
-                let quota = try await operation()
-                guard !Task.isCancelled, geminiQuotaTaskID == taskID else { return }
+                let quota = try await operation(authorization)
+                // A successful coordinator return means the cache and persisted
+                // suspension already committed. Finish the matching UI update even
+                // if cancellation arrived after that commit boundary.
+                guard geminiQuotaTaskID == taskID else { return }
                 guard quota.provider == .gemini,
                       let metrics = quota.geminiQuotaMetrics, !metrics.isEmpty else {
                     geminiOneTimeRecoveryState = .quotaFailed
@@ -897,7 +924,7 @@ final class AppModel {
                 lastUpdatedAt = Date()
                 publishWidgetSnapshot()
                 geminiOneTimeRecoveryState = .succeeded
-                settingsNotice = .recoveryQuotaUpdatedStillPaused
+                settingsNotice = .recoveryQuotaUpdated
             } catch is CancellationError {
                 return
             } catch {
@@ -1072,6 +1099,7 @@ final class AppModel {
             codexResetCredits: snapshot.codexResetCredits,
             codexLocalActivity: snapshot.codexLocalActivity,
             claudeLocalActivity: snapshot.claudeLocalActivity,
+            antigravitySharedQuotaMetrics: snapshot.antigravitySharedQuotaMetrics,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
@@ -1222,6 +1250,7 @@ private extension UsageSnapshot {
             codexResetCredits: codexResetCredits,
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity,
+            antigravitySharedQuotaMetrics: antigravitySharedQuotaMetrics,
             deepSeekUsageHistory: history
         )
     }

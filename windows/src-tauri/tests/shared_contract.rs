@@ -45,7 +45,7 @@ fn deepseek_fixture_preserves_consumed_balance_ratio() {
 }
 
 #[test]
-fn gemini_fixture_contains_only_gemini_quota_and_bounded_cli_info() {
+fn gemini_fixture_keeps_gemini_summary_separate_from_shared_pool() {
     let value: Value = serde_json::from_slice(
         &fs::read(fixtures_directory().join("gemini-fresh.json")).expect("fixture bytes"),
     )
@@ -62,6 +62,15 @@ fn gemini_fixture_contains_only_gemini_quota_and_bounded_cli_info() {
             .collect::<Vec<_>>(),
         vec!["Gemini · Five hour", "Gemini · Weekly"]
     );
+    assert_eq!(
+        snapshot
+            .antigravity_shared_quota_metrics
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Claude/GPT · Five hour", "Claude/GPT · Weekly"]
+    );
+    assert_eq!(snapshot.used_ratio.expect("Gemini summary").get(), 0.6);
     let info = snapshot.antigravity_cli_info.expect("CLI info");
     assert_eq!(
         info.current_model.as_deref(),

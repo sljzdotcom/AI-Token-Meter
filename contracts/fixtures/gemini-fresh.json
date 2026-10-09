@@ -42,6 +42,10 @@
       "resetDescription": null
     }
   ],
+  "antigravitySharedQuotaMetrics": [
+    {"label": "Claude/GPT · Five hour", "current": 80, "limit": 100, "unit": "percent", "kind": "officialLimit", "resetAt": "2026-09-10T11:00:00Z"},
+    {"label": "Claude/GPT · Weekly", "current": 20, "limit": 100, "unit": "percent", "kind": "officialLimit", "resetAt": "2026-09-18T11:00:00Z"}
+  ],
   "antigravityCLIInfo": {
     "currentModel": "Gemini 3.8 Flash (High)",
     "availableModelCount": 4,

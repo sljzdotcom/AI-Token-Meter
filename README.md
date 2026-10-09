@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.7](https://img.shields.io/badge/version-0.10.7-3b82f6)
-![Tests 636](https://img.shields.io/badge/tests-636%20passed-2ea44f)
+![Version 0.10.8](https://img.shields.io/badge/version-0.10.8-3b82f6)
+![Tests 645](https://img.shields.io/badge/tests-645%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -23,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-> 候选版 `0.10.7` / build `35`：Antigravity未知暂停可由用户主动执行一次官方登录及只读额度检查；成功后仍保持自动刷新暂停。Windows运行行为保持不变。[Release Notes](docs/releases/v0.10.7.md)。
+> 候选版 `0.10.8` / build `36`：Antigravity详情新增 Claude/GPT 五小时与每周共享额度。未知暂停仍须用户主动执行一次官方登录及只读额度检查；成功后本次运行仍保持暂停。暂停状态尽力持久化，写盘失败时无法保证重启后仍暂停；本次版本不宣称自动恢复已修复。[Release Notes](docs/releases/v0.10.8.md)。
 
 > `0.10.3` / build `31`：macOS可发现新版ChatGPT.app内嵌的Codex CLI，账户状态、额度读取和登录入口统一使用该定位逻辑；Windows产品行为不变。[Release Notes](docs/releases/v0.10.3.md)。
 
@@ -59,7 +59,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - Claude Code：读取当前会话与周额度，并在专用详情页补充本机最近 30 天的会话、活跃日、Token 总量和每日趋势；两种数据口径明确分区。
 - OpenAI Codex：读取官方通用速率限制和重置额度，并在详情中补充本机近 30 天 Token、连续使用天数与最长会话。
 - DeepSeek：读取账户余额；以可配置余额基准（默认 ¥100）显示已消耗比例。
-- Google Antigravity：在受限空目录中调用官方 `agy`，圆环和详情只采用 Gemini 的五小时及每周额度，并补充当前 Gemini 模型、动态可用模型数量/系列与 CLI 版本；不发送模型请求。
+- Google Antigravity：详情分别展示 Gemini 额度与官方 `/usage` 提供的 Claude/GPT 共享池五小时/每周额度；圆环和提醒仍只采用 Gemini 五小时及每周额度，并补充当前 Gemini 模型、动态可用模型数量/系列与 CLI 版本；不发送模型请求。
 - DeepSeek 详情页：通过隔离的官方网页会话获取最近 30 天成本、请求数、Token 数和每日成本图表。Windows 从 `0.3.0-preview.3` 起，查看详情不会自动打开网页，用户显式点击同步后才启动支持关闭、复用聚焦、失败恢复与可见进度的官网窗口；macOS 现有行为不变。
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
 - 默认每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知；两平台均支持 30 秒至 24 小时的刷新间隔，见[设置说明](docs/user-guide/settings.md#refresh-interval)。
@@ -73,7 +73,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | Claude Code | 已登录的 Claude Code CLI，隔离工作区内执行 `/usage`；Windows 本机活动跟随所选 Native/WSL profile | 当前会话、周额度、重置时间、近 30 天本机活动 | 安装并登录 Claude Code；首次可能需批准 AI Token Meter 私有工作区 |
 | OpenAI Codex | OpenAI Codex CLI 官方 `app-server` JSON-RPC + 当前 Native/WSL profile 状态库的允许聚合列 | 通用用量窗口、重置额度、近 30 天本机活动 | 安装并登录 OpenAI Codex CLI |
 | DeepSeek | 官方余额 API + App 内隔离的 `platform.deepseek.com` 会话（macOS WebKit / Windows WebView2） | 余额、基准消耗环、近 30 天成本/请求/Token 图表 | 在设置中保存 API Key；历史图表首次需登录官网 |
-| Google Antigravity | 官方 Antigravity CLI 1.1.28+ 的 `/usage`、`/model` 与 `models`（macOS / Windows 原生） | Gemini 五小时/每周额度与重置时间；当前模型、动态可用模型数量/系列、CLI 版本和检查时间 | 安装官方 `agy` CLI 并完成 Google 登录；App 内重新检查 |
+| Google Antigravity | 官方 Antigravity CLI 1.1.28+ 的 `/usage`、`/model` 与 `models`（macOS / Windows 原生） | Gemini 与 Claude/GPT 共享池分别显示五小时/每周额度及重置时间；当前 Gemini 模型、动态可用 Gemini 数量/系列、CLI 版本和检查时间 | 安装官方 `agy` CLI 并完成 Google 登录；App 内重新检查 |
 
 详细的数据口径、降级行为与限制见 [服务与指标说明](docs/user-guide/providers.md)。
 

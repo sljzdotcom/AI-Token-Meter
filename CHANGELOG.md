@@ -2,7 +2,11 @@
 
 本文件记录 AI Token Meter 面向使用者的主要变化。格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，版本号遵循语义化版本思路。
 
-## Unreleased
+## 0.10.8 - 2026-10-09
+
+### Added
+
+- Antigravity 详情新增官方 `/usage` 的 Claude/GPT 五小时及每周共享额度；Gemini 主指标、提醒与独立 Claude Code/Codex 服务保持各自口径。自动刷新暂停逻辑不变，暂停状态尽力持久化；本次变更不代表已恢复周期刷新。
 
 ## 0.10.7 - 2026-10-07
 

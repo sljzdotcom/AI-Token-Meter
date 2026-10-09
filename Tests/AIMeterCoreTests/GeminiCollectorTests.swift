@@ -9,7 +9,7 @@ struct GeminiCollectorTests {
         let executable = context.root.appendingPathComponent("agy")
         let script = """
         #!/bin/sh
-        if [ -t 1 ]; then exit 9; fi
+        if [ -t 0 ] || [ -t 1 ] || [ -t 2 ]; then exit 9; fi
         if [ "$1" = "--version" ]; then
           printf '1.1.28\\n'
         else

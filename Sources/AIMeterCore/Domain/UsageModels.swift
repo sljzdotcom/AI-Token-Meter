@@ -147,6 +147,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
     public let codexLocalActivity: CodexLocalActivitySummary?
     public let claudeLocalActivity: ClaudeLocalActivitySummary?
     public let geminiQuotaMetrics: [UsageMetric]?
+    public let antigravitySharedQuotaMetrics: [UsageMetric]?
     public let antigravityCLIInfo: AntigravityCLIInfo?
     public let deepSeekUsageHistory: DeepSeekUsageHistory?
 
@@ -164,6 +165,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         codexLocalActivity: CodexLocalActivitySummary? = nil,
         claudeLocalActivity: ClaudeLocalActivitySummary? = nil,
         geminiQuotaMetrics: [UsageMetric]? = nil,
+        antigravitySharedQuotaMetrics: [UsageMetric]? = nil,
         antigravityCLIInfo: AntigravityCLIInfo? = nil,
         deepSeekUsageHistory: DeepSeekUsageHistory? = nil
     ) {
@@ -180,6 +182,7 @@ public struct UsageSnapshot: Codable, Equatable, Identifiable, Sendable {
         self.codexLocalActivity = codexLocalActivity
         self.claudeLocalActivity = claudeLocalActivity
         self.geminiQuotaMetrics = geminiQuotaMetrics
+        self.antigravitySharedQuotaMetrics = antigravitySharedQuotaMetrics
         self.antigravityCLIInfo = antigravityCLIInfo
         self.deepSeekUsageHistory = deepSeekUsageHistory
     }
@@ -196,8 +199,46 @@ public extension UsageSnapshot {
     }
 
     func normalizedAntigravityQuota() -> UsageSnapshot {
-        guard provider == .gemini else { return self }
+        guard provider == .gemini else {
+            guard antigravitySharedQuotaMetrics != nil else { return self }
+            return UsageSnapshot(
+                provider: provider,
+                primaryMetric: primaryMetric,
+                secondaryMetric: secondaryMetric,
+                availability: availability,
+                fetchedAt: fetchedAt,
+                staleAfter: staleAfter,
+                sourceVersion: sourceVersion,
+                collectionStatus: collectionStatus,
+                statusMessage: statusMessage,
+                codexResetCredits: codexResetCredits,
+                codexLocalActivity: codexLocalActivity,
+                claudeLocalActivity: claudeLocalActivity,
+                geminiQuotaMetrics: geminiQuotaMetrics,
+                antigravityCLIInfo: antigravityCLIInfo,
+                deepSeekUsageHistory: deepSeekUsageHistory
+            )
+        }
         let normalizedCLIInfo = normalizedAntigravityCLIInfo()
+        let expectedSharedLabels = ["Claude/GPT · Five hour", "Claude/GPT · Weekly"]
+        let legacySharedMetrics = (geminiQuotaMetrics ?? [])
+            .filter { expectedSharedLabels.contains($0.label) }
+        let sharedCandidates = antigravitySharedQuotaMetrics ?? legacySharedMetrics
+        let sharedByLabel = Dictionary(grouping: sharedCandidates, by: \.label)
+        let sharedMetrics = expectedSharedLabels.compactMap { label -> UsageMetric? in
+            guard let matches = sharedByLabel[label], matches.count == 1 else { return nil }
+            let metric = matches[0]
+            guard metric.kind == .officialLimit,
+                  metric.unit == .percent,
+                  metric.limit == 100,
+                  metric.current.isFinite,
+                  (0...100).contains(metric.current),
+                  metric.resetAt != nil else { return nil }
+            return metric
+        }
+        let normalizedSharedMetrics = sharedCandidates.count == expectedSharedLabels.count &&
+            Set(sharedByLabel.keys) == Set(expectedSharedLabels) &&
+            sharedMetrics.count == expectedSharedLabels.count ? sharedMetrics : nil
         let expectedLabels = ["Gemini · Five hour", "Gemini · Weekly"]
         let candidates = geminiQuotaMetrics ?? [primaryMetric, secondaryMetric].compactMap { $0 }
         let byLabel = Dictionary(grouping: candidates, by: \.label)
@@ -233,6 +274,7 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: published,
+            antigravitySharedQuotaMetrics: normalizedSharedMetrics,
             antigravityCLIInfo: normalizedCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
@@ -266,6 +308,7 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravitySharedQuotaMetrics: antigravitySharedQuotaMetrics,
             antigravityCLIInfo: info,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
@@ -286,6 +329,7 @@ public extension UsageSnapshot {
             codexLocalActivity: activity,
             claudeLocalActivity: claudeLocalActivity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravitySharedQuotaMetrics: antigravitySharedQuotaMetrics,
             antigravityCLIInfo: antigravityCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )
@@ -306,6 +350,7 @@ public extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: activity,
             geminiQuotaMetrics: geminiQuotaMetrics,
+            antigravitySharedQuotaMetrics: antigravitySharedQuotaMetrics,
             antigravityCLIInfo: antigravityCLIInfo,
             deepSeekUsageHistory: deepSeekUsageHistory
         )

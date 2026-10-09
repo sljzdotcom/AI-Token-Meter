@@ -394,6 +394,7 @@ for (const width of [340, 440]) {
     const value: UsageSnapshot = {...geminiFresh, status, providerId:"gemini", fetchedAt:new Date().toISOString(),
       usedRatio:hasQuota ? .6 : null, primaryMetric:hasQuota ? geminiFresh.primaryMetric as UsageSnapshot["primaryMetric"] : null,
       secondaryMetric:null, geminiQuotaMetrics:hasQuota ? geminiFresh.geminiQuotaMetrics as NonNullable<UsageSnapshot["geminiQuotaMetrics"]> : [],
+      antigravitySharedQuotaMetrics:hasQuota ? geminiFresh.antigravitySharedQuotaMetrics as UsageSnapshot["antigravitySharedQuotaMetrics"] : [],
       antigravityCLIInfo:hasQuota ? geminiFresh.antigravityCLIInfo : null,
       sourceVersion:hasQuota ? geminiFresh.sourceVersion : null,
       statusMessage:status === "cached" ? "Cached · sign in required" : status === "unavailable" ? "Antigravity CLI configuration is not supported" : null}
@@ -401,17 +402,24 @@ for (const width of [340, 440]) {
     const cards = [...host.querySelectorAll<HTMLElement>(".metric-card")]
     const texts = cards.map(card=>card.textContent ?? "")
     const cliText = host.querySelector<HTMLElement>(".antigravity-cli-info")?.textContent ?? ""
-    const thirdPartyVisible = host.textContent!.includes("Claude/GPT") || host.textContent!.includes("AI Credits")
+    const thirdPartyVisible = host.textContent!.includes("Claude Code") || host.textContent!.includes("OpenAI Codex") || host.textContent!.includes("AI Credits")
     const identityTitle = host.querySelector<HTMLElement>(".provider-detail__identity strong")!
     const metricValues = [...host.querySelectorAll<HTMLElement>(".metric-card strong")]
     const metricBars = [...host.querySelectorAll<HTMLElement>(".metric-bar i")]
     const bounds = host.getBoundingClientRect()
     const nodes = [...host.querySelectorAll<HTMLElement>(".metric-card, .antigravity-cli-info, .service-actions button, footer")]
+    const detail = host.querySelector<HTMLElement>(".provider-detail")!
+    const clipped = nodes.flatMap(node=>{
+      node.scrollIntoView({block:"nearest",inline:"nearest"})
+      const r=node.getBoundingClientRect()
+      return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]
+    })
+    detail.scrollTop = detail.scrollHeight
+    const footer = host.querySelector<HTMLElement>("footer")!.getBoundingClientRect()
     for (const button of host.querySelectorAll<HTMLButtonElement>("button")) button.click()
-    const clipped = nodes.flatMap(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]})
     geminiSamples.push({width,status,hasQuota,texts,cliText,thirdPartyVisible,retries,guides,reasonVisible:status !== "cached" || host.textContent!.includes("Cached · sign in required"),
       accentRoles:{title:getComputedStyle(identityTitle).color,values:metricValues.map(node=>getComputedStyle(node).color),bars:metricBars.map(node=>getComputedStyle(node).backgroundImage)},
-      unclipped:clipped.length===0,clipped})
+      unclipped:clipped.length===0,scrollReachable:footer.top>=bounds.top && footer.bottom<=bounds.bottom,clipped})
     flushSync(()=>sampleRoot.unmount());host.remove()
   }
 }

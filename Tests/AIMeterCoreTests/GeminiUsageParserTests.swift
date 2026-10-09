@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Antigravity quota parser")
 struct GeminiUsageParserTests {
-    @Test func validatesAllOfficialWindowsButOnlyPublishesGeminiQuota() throws {
+    @Test func publishesGeminiAndSharedModelWindowsSeparately() throws {
         let snapshot = try GeminiUsageParser().parse(Self.fixture)
 
         #expect(snapshot.provider == .gemini)
@@ -19,6 +19,10 @@ struct GeminiUsageParserTests {
         #expect(snapshot.geminiQuotaMetrics?.allSatisfy {
             $0.limit == 100 && $0.unit == .percent && $0.kind == .officialLimit && $0.resetAt != nil
         } == true)
+        #expect(snapshot.antigravitySharedQuotaMetrics?.map(\.label) == [
+            "Claude/GPT · Five hour", "Claude/GPT · Weekly",
+        ])
+        #expect(snapshot.antigravitySharedQuotaMetrics?.map(\.current) == [80, 20])
     }
 
     @Test func rowOrderDoesNotChangePresentationOrder() throws {
@@ -38,6 +42,56 @@ struct GeminiUsageParserTests {
             "Gemini · Five hour", "Gemini · Weekly",
         ])
         #expect(snapshot.primaryMetric?.current == 60)
+        #expect(snapshot.antigravitySharedQuotaMetrics == nil)
+    }
+
+    @Test func oldSnapshotsWithoutSharedQuotaFieldStillDecode() throws {
+        let snapshot = try GeminiUsageParser().parse(Self.fixture)
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot)) as? [String: Any])
+        object.removeValue(forKey: "antigravitySharedQuotaMetrics")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let legacy = try JSONDecoder().decode(UsageSnapshot.self, from: legacyData)
+        #expect(legacy.antigravitySharedQuotaMetrics == nil)
+        #expect(legacy.geminiQuotaMetrics?.count == 2)
+    }
+
+    @Test func legacyFourWindowCacheNormalizesSharedPoolSeparately() throws {
+        let gemini = try GeminiUsageParser().parse(Self.fixture)
+        let legacy = UsageSnapshot(
+            provider: .gemini,
+            primaryMetric: gemini.primaryMetric,
+            secondaryMetric: gemini.secondaryMetric,
+            geminiQuotaMetrics: (gemini.geminiQuotaMetrics ?? []) + (gemini.antigravitySharedQuotaMetrics ?? [])
+        ).normalizedAntigravityQuota()
+        #expect(legacy.geminiQuotaMetrics?.map(\.label) == ["Gemini · Five hour", "Gemini · Weekly"])
+        #expect(legacy.antigravitySharedQuotaMetrics?.map(\.current) == [80, 20])
+        #expect(legacy.primaryMetric?.label == "Gemini · Five hour")
+        #expect(legacy.primaryMetric?.current == 60)
+    }
+
+    @Test func normalizationDropsSharedQuotaFromOtherProviders() throws {
+        let reset = Date(timeIntervalSince1970: 2_000)
+        let shared = [
+            UsageMetric(label: "Claude/GPT · Five hour", current: 80, limit: 100, unit: .percent, resetAt: reset),
+            UsageMetric(label: "Claude/GPT · Weekly", current: 20, limit: 100, unit: .percent, resetAt: reset),
+        ]
+        let snapshot = UsageSnapshot(provider: .claude, antigravitySharedQuotaMetrics: shared)
+            .normalizedAntigravityQuota()
+
+        #expect(snapshot.antigravitySharedQuotaMetrics == nil)
+    }
+
+    @Test func normalizationRejectsExtraUnknownSharedQuotaWindow() throws {
+        let reset = Date(timeIntervalSince1970: 2_000)
+        let shared = [
+            UsageMetric(label: "Claude/GPT · Five hour", current: 80, limit: 100, unit: .percent, resetAt: reset),
+            UsageMetric(label: "Claude/GPT · Weekly", current: 20, limit: 100, unit: .percent, resetAt: reset),
+            UsageMetric(label: "Unknown · Daily", current: 40, limit: 100, unit: .percent, resetAt: reset),
+        ]
+        let snapshot = UsageSnapshot(provider: .gemini, antigravitySharedQuotaMetrics: shared)
+            .normalizedAntigravityQuota()
+
+        #expect(snapshot.antigravitySharedQuotaMetrics == nil)
     }
 
     @Test func zeroAndFullRemainingAreValid() throws {
@@ -59,6 +113,7 @@ struct GeminiUsageParserTests {
         Self.table(group: "Unknown models"),
         Self.table(window: "Daily Limit Remaining"),
         Self.fixture + "\nGemini Models\tWeekly Limit Remaining\t75%\t2026-09-17T10:00:00Z",
+        Self.fixture + "\nClaude and GPT models\tFive Hour Limit Remaining\t20%\t2026-09-10T11:00:00Z",
         Self.fixture.components(separatedBy: .newlines)
             .filter { !$0.hasPrefix("Claude and GPT models\tFive Hour") }
             .joined(separator: "\n"),

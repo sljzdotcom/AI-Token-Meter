@@ -42,6 +42,7 @@ public struct GeminiUsageParser: Sendable {
             guard let metric = byKey[key] else { throw UsageCollectionError.unrecognizedOutput }
             return metric
         }
+        let sharedMetrics = optionalKeys.compactMap { byKey[$0] }
         let ranked = metrics.enumerated().sorted { left, right in
             left.element.current == right.element.current
                 ? left.offset < right.offset
@@ -52,7 +53,8 @@ public struct GeminiUsageParser: Sendable {
             primaryMetric: ranked[0],
             secondaryMetric: ranked[1],
             sourceVersion: sourceVersion,
-            geminiQuotaMetrics: metrics
+            geminiQuotaMetrics: metrics,
+            antigravitySharedQuotaMetrics: sharedMetrics.isEmpty ? nil : sharedMetrics
         )
     }
 

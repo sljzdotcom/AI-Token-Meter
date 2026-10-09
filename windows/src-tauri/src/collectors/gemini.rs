@@ -211,6 +211,11 @@ pub fn parse_usage(
     if has_other_five_hour != has_other_weekly {
         return Err(CollectionError::UnrecognizedOutput);
     }
+    let shared_metrics = metrics
+        .iter()
+        .filter(|(key, _)| matches!(key, Key::OtherFiveHour | Key::OtherWeekly))
+        .map(|(_, metric)| metric.clone())
+        .collect::<Vec<_>>();
     let metrics = metrics
         .into_iter()
         .filter(|(key, _)| matches!(key, Key::GeminiFiveHour | Key::GeminiWeekly))
@@ -233,6 +238,7 @@ pub fn parse_usage(
         primary_metric: ranked.first().cloned(),
         secondary_metric: ranked.get(1).cloned(),
         gemini_quota_metrics: metrics,
+        antigravity_shared_quota_metrics: shared_metrics,
         antigravity_cli_info: None,
         fetched_at: fetched_at.into(),
         stale_after_seconds: 300,

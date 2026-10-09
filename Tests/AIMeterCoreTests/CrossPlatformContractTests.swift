@@ -19,7 +19,7 @@ struct CrossPlatformContractTests {
                 as? [String: Any]
         )
 
-        #expect(sharedVersion == "0.10.7")
+        #expect(sharedVersion == "0.10.8")
         #expect(sharedVersion == plist["CFBundleShortVersionString"] as? String)
 
         let packageData = try Data(
@@ -99,6 +99,8 @@ struct CrossPlatformContractTests {
                 #expect(fixture.geminiQuotaMetrics?.map(\.label) == ["Gemini · Five hour", "Gemini · Weekly"])
                 #expect(fixture.geminiQuotaMetrics?.map(\.current) == [60, 25])
                 #expect(fixture.geminiQuotaMetrics?.allSatisfy { $0.limit == 100 && $0.unit == "percent" && $0.kind == "officialLimit" } == true)
+                #expect(fixture.antigravitySharedQuotaMetrics?.map(\.label) == ["Claude/GPT · Five hour", "Claude/GPT · Weekly"])
+                #expect(fixture.antigravitySharedQuotaMetrics?.map(\.current) == [80, 20])
                 #expect(fixture.antigravityCLIInfo?.currentModel == "Gemini 3.8 Flash (High)")
                 #expect(fixture.antigravityCLIInfo?.availableModelCount == 4)
                 #expect(fixture.antigravityCLIInfo?.modelFamilies == ["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini 3.1 Pro"])
@@ -129,6 +131,7 @@ struct CrossPlatformContractTests {
         let usedRatio: Double?
         let fetchedAt: String
         let geminiQuotaMetrics: [Metric]?
+        let antigravitySharedQuotaMetrics: [Metric]?
         let antigravityCLIInfo: AntigravityCLIInfo?
         struct Metric: Decodable {
             let label: String

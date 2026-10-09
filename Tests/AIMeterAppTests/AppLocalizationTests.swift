@@ -377,6 +377,7 @@ extension AppLocalizationTests {
             ("Claude/GPT · Weekly", "Claude/GPT · 每周", "Claude/GPT · 每週"),
             ("Fresh", "最新", "最新"), ("Unavailable", "不可用", "無法使用"),
             ("Official quota", "官方额度", "官方額度"),
+            ("Claude/GPT shared quota", "Claude/GPT 共享额度", "Claude/GPT 共用額度"),
             ("Last 30 days · This Mac", "最近 30 天 · 此 Mac", "最近 30 天 · 這部 Mac"),
             ("Local estimate", "本地估算", "本機估算"),
             ("Daily token activity", "每日 Token 活动", "每日 Token 活動"),
