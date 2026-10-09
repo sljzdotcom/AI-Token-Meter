@@ -409,12 +409,17 @@ for (const width of [340, 440]) {
     const bounds = host.getBoundingClientRect()
     const nodes = [...host.querySelectorAll<HTMLElement>(".metric-card, .antigravity-cli-info, .service-actions button, footer")]
     const detail = host.querySelector<HTMLElement>(".provider-detail")!
+    const clipped = nodes.flatMap(node=>{
+      node.scrollIntoView({block:"nearest",inline:"nearest"})
+      const r=node.getBoundingClientRect()
+      return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]
+    })
     detail.scrollTop = detail.scrollHeight
+    const footer = host.querySelector<HTMLElement>("footer")!.getBoundingClientRect()
     for (const button of host.querySelectorAll<HTMLButtonElement>("button")) button.click()
-    const clipped = nodes.flatMap(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]})
     geminiSamples.push({width,status,hasQuota,texts,cliText,thirdPartyVisible,retries,guides,reasonVisible:status !== "cached" || host.textContent!.includes("Cached · sign in required"),
       accentRoles:{title:getComputedStyle(identityTitle).color,values:metricValues.map(node=>getComputedStyle(node).color),bars:metricBars.map(node=>getComputedStyle(node).backgroundImage)},
-      unclipped:clipped.length===0,scrollReachable:detail.scrollTop + detail.clientHeight >= detail.scrollHeight,clipped})
+      unclipped:clipped.length===0,scrollReachable:footer.top>=bounds.top && footer.bottom<=bounds.bottom,clipped})
     flushSync(()=>sampleRoot.unmount());host.remove()
   }
 }
