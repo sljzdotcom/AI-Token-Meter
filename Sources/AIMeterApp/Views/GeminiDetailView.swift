@@ -134,7 +134,7 @@ struct GeminiDetailView: View {
                 let accountStatus = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: pauseReason)
                 GeminiInstallationHelp(state: accountStatus.connectionState, pauseReason: pauseReason)
                 if isPaused {
-                    Text(localizer.text("Complete the official CLI sign-in and pass a one-time quota check to resume automatic refresh. A browser authorization page may open."))
+                    Text(localizer.text("Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

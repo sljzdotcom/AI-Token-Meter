@@ -919,10 +919,6 @@ final class AppModel {
                 } else {
                     snapshots.append(applyingLocalBudget(to: quota))
                 }
-                // The successful one-time operation is the recovery gate. Clear
-                // the immediately visible UI after its coordinator transaction.
-                providersRequiringAction.remove(.gemini)
-                geminiPauseReason = nil
                 geminiQuotaSnapshotGeneration &+= 1
                 updateGeminiAccountStatus()
                 lastUpdatedAt = Date()
@@ -931,11 +927,6 @@ final class AppModel {
                 settingsNotice = .recoveryQuotaUpdated
             } catch is CancellationError {
                 return
-            } catch GeminiOneTimeQuotaError.persistenceFailed {
-                guard !Task.isCancelled, geminiQuotaTaskID == taskID else { return }
-                geminiOneTimeRecoveryState = .quotaFailed
-                recordGeminiRecovery(.transportFailure, stage: .usage)
-                settingsNotice = .recoveryResumePersistenceFailed
             } catch {
                 guard !Task.isCancelled, geminiQuotaTaskID == taskID else { return }
                 geminiOneTimeRecoveryState = .quotaFailed

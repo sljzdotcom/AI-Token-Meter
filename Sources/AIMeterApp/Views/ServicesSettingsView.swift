@@ -129,7 +129,7 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 if model.isGeminiRefreshPaused {
-                    Text(localizer.text("Complete the official CLI sign-in and pass a one-time quota check to resume automatic refresh. A browser authorization page may open."))
+                    Text(localizer.text("Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                 }

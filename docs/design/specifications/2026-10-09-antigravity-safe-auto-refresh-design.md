@@ -1,35 +1,36 @@
-# Antigravity 安全自动刷新恢复规格
+# Antigravity 安全恢复边界规格
 
 **需求：** REQ-20261009-001
 **基线：** v0.10.7 / build35，main `4158fea`
-**范围：** macOS Antigravity 生命周期；Windows 不改行为。
+**适用范围：** macOS Antigravity；Windows不变。
 
-## 问题
+## 现场状态
 
-0.10.7 将 Antigravity 任意采集失败持久标记为 `suspended`。用户完成官方 CLI 交互登录后，一次性的 `agy -p /usage` 查询可以成功并更新缓存，但 `RefreshCoordinator.collectGeminiQuotaOnce()` 刻意保留暂停。此后定时刷新无法再调度 Antigravity，诊断继续显示 `refreshPaused=true`。
+M4 Max当前基线由用户截图确认为 AI Token Meter 0.10.7/build35、Antigravity CLI 1.3.1。2026-10-08 23:26 的额度截图显示两个Gemini窗口剩余100%，但浮动条仍显示旧的 service/process error 暂停。额度可读取且额度充足，不等同于应用已验证恢复周期采集；也不说明历史失败的确切触发阶段。
 
-## 证据与决策
+## 可验证的行为
 
-Google Antigravity CLI 官方 headless 文档说明 `agy -p` 是一次性非交互模式；它使用已有凭证，在无终端的非交互环境中未认证时以 `authentication required` 退出，不等待交互。官方 headless 文档也明确：`/usage` 由 CLI 自行处理，必须作为单独的 `-p /usage` 调用；它产生文本报告，不启动普通 Agent turn。`/usage` 官方页面说明该读取会向后端刷新额度信息。
+- Google [Headless mode](https://antigravity.google/docs/cli/headless/)说明 `agy -p` 是单次非交互调用，使用缓存凭据；无终端且未认证时返回 `authentication required`，不等待交互。它还要求 `/usage` 作为单独调用，因为CLI自身处理该命令。
+- Google [Installation and auth](https://antigravity.google/docs/cli/install/)说明本机CLI使用操作系统密钥环中的会话；找不到已保存会话时会自动打开默认浏览器。
+- Google [Model Quotas](https://antigravity.google/docs/cli/commands/usage/)说明 `/usage` 会向后端刷新额度。
+- 本地 `ProcessGroupCommandRunner` 将stdin连接到`/dev/null`、stdout/stderr连接管道，不创建PTY，并以独立进程组实施限时和取消清理。这证明本应用不给CLI提供终端交互输入，不证明CLI进程不能调用LaunchServices打开浏览器。
+- 普通 `GeminiCollector.collect()` 还运行 `agy -p /model` 与非headless的 `agy models`；测试用fake CLI只证明参数、无TTY、进程组/超时合同，不证明真实`agy`调用外部应用的行为。
+- CLI版本校验接受严格三段数字的1.x版本且要求至少1.1.28。测试fixtures覆盖1.1.28和1.2.2；现场截图只确认CLI 1.3.1，未执行真实二进制。未知、格式不符、低于1.1.28或不同主版本会拒绝；目前也没有1.3.1真实CLI行为测试。
 
-产品已用 `posix_spawn` 创建独立会话，stdin 接 `/dev/null`，stdout/stderr 接管道，且不创建 PTY；只执行 `-p /usage` 读取额度，不运行 agent prompt、不自动运行交互登录脚本。该查询路径仅在用户主动完成官方登录回执后用于一次性恢复检查。真实 CLI 与账号不在自动化测试范围内。
+## 安全决定
 
-恢复门槛：有效用户登录成功回执 + 与该回执令牌绑定的一次性协调器授权 + 单次查询成功 + Gemini 额度响应通过解析及非空校验。授权被消费后才可采集，缓存与暂停状态提交成功后，下一次周期调度恢复。认证失败、任意命令错误、无效/空响应、提交前取消或超时均保留暂停、保留旧缓存并停止后续尝试。若持久暂停状态写入失败，恢复旧缓存并继续暂停。不得通过手动刷新、启动、唤醒或旧缓存推断认证成功。
+一次用户明确发起的官方登录及成功额度读取，可以刷新本地额度缓存；它不能证明凭据将来过期时的行为，也不能证明其它CLI子命令不会弹出浏览器。因此单次成功不得清除持久 `suspended`，不得恢复启动、定时或唤醒后的周期采集。暂停状态及UI必须继续明确显示。
 
-## 状态与数据
+后台服务/网络/CLI失败当前直接转为`.suspended`，重试次数为0；取消也暂停。已持久化的暂停阻止普通自动和手动刷新再次启动Antigravity；协调器的`inFlight`合并并发请求。持久化写入失败的可靠跨重启封锁仍未被证明，见开发记录；不得将该边界描述成完整安全保证。
 
-- 暂停是持久的，仅由显式登录流程发起恢复尝试。
-- 成功额度快照原子写入缓存，再原子持久化清除对应 `suspended` backoff；持久化失败时恢复完整旧缓存，保持暂停和其他 provider 数据不变。
-- AppModel 在恢复成功后即时清除暂停展示状态与 Antigravity action-needed 状态，更新状态文案，并由现有全局自动刷新定时器继续后续刷新。
-- 自动刷新仍遵守用户配置的间隔、取消、应用启动/唤醒既有调度和同一时刻去重。
-- 后台 `agy` 查询失败再次持久暂停；绝不触发浏览器、Terminal 或自动认证。
-- 诊断字段来源真实执行阶段与结果；不记录 CLI 原始输出或认证数据。
+只有取得针对CLI版本的明确官方契约或可审计操作系统边界，证明后台命令在凭据缺失/过期时不会启动浏览器、终端登录或其它外部交互，并覆盖所有实际调用命令及持久暂停写入失败路径后，才可重新评估周期自动恢复。未取得前保持暂停；不把成功quota、模拟测试或一次用户登录当作替代证据。
 
-## 验收
+## 验收范围
 
-1. 用户登录回执成功但额度检查失败/无效/取消：暂停仍在，旧额度保留，无后台调用。
-2. 用户登录回执成功且额度检查有效：立即清除暂停并更新 UI/缓存；后续普通定时刷新调用一次受支持的 headless `/usage`。
-3. 重启后未解锁状态继续暂停；成功解锁后的状态在重启后不再暂停。
-4. 后台刷新认证失败：仍无交互认证，仅记录诊断并重新持久暂停。
-5. mock CLI 验证进程 stdin 不可交互、无 PTY/终端、输出被限制，超时/取消能终止整个进程组；测试不调用系统 URL opener、浏览器、Terminal、真实 `agy` 或账号。
-6. 不更改 Windows、更新偏好、刷新间隔、用户账号配置和认证存储。
+1. 单次官方登录回执匹配且quota读取成功时，只更新额度缓存。
+2. 单次读取成功后，内存和持久`refresh-backoff.json`仍保持Gemini暂停；应用重启后自动/手动刷新都不再调用collector。
+3. 登录失败、quota失败、无效响应、取消、并发开始和缓存写入失败均不解除暂停。
+4. 提示准确说明额度只读取一次且自动刷新仍暂停。
+5. 不运行真实`agy`、访问真实凭据/Keychain、登录、启动URL opener/Terminal/browser或测试设备账号；不发布。
+
+上述验收只证明暂停保持和本地模拟流程，不证明未来可以安全恢复周期查询。

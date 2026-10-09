@@ -5,7 +5,6 @@ public enum GeminiOneTimeQuotaError: Error, Equatable, Sendable {
     case unauthorized
     case alreadyRunning
     case collectorUnavailable
-    case persistenceFailed
 }
 
 /// Single-use capability issued only after the registered interactive login succeeds.
@@ -91,15 +90,6 @@ public actor RefreshCoordinator {
         saveBackoffs()
     }
 
-    private func resumeGeminiAfterSuccessfulQuotaCheck() -> Bool {
-        guard backoffs[.gemini]?.failureKind == .suspended else { return true }
-        var resumedBackoffs = backoffs
-        resumedBackoffs.removeValue(forKey: .gemini)
-        guard persistBackoffs(resumedBackoffs) else { return false }
-        backoffs = resumedBackoffs
-        return true
-    }
-
     public func beginGeminiQuotaRecovery(token: String) -> Bool {
         guard backoffs[.gemini]?.failureKind == .suspended,
               UUID(uuidString: token) != nil,
@@ -148,20 +138,10 @@ public actor RefreshCoordinator {
             throw UsageCollectionError.invalidResponse
         }
         try Task.checkCancellation()
-        let cachedSnapshotsBeforeRecovery = try cache.load()
         try cache.saveReplacing(snapshot)
-        // A user-confirmed sign-in followed by a valid official quota response is
-        // the only path that unlocks the persistent automatic-refresh suspension.
-        // The final cancellation check above is the commit boundary; the cache and
-        // suspension writes that follow are synchronous and contain no suspension.
-        guard resumeGeminiAfterSuccessfulQuotaCheck() else {
-            do {
-                try cache.save(cachedSnapshotsBeforeRecovery)
-            } catch {
-                NSLog("AI Token Meter: previous quota cache could not be restored after recovery-state persistence failed")
-            }
-            throw GeminiOneTimeQuotaError.persistenceFailed
-        }
+        // A successful user-initiated read refreshes the cached quota only.
+        // Keep the persistent suspension until the CLI's future background
+        // authentication behavior is covered by a reliable no-browser boundary.
         return snapshot
     }
 

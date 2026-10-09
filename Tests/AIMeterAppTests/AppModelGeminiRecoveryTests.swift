@@ -38,15 +38,16 @@ struct AppModelGeminiRecoveryTests {
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
         #expect(await counters.quotaCalls == 1)
         #expect(await counters.globalRefreshCalls == 2)
-        #expect(model.geminiPauseReason == nil)
-        #expect(!model.isGeminiRefreshPaused)
+        #expect(model.geminiPauseReason == .unknown)
+        #expect(model.isGeminiRefreshPaused)
         #expect(model.geminiOneTimeRecoveryState == .succeeded)
         #expect(model.settingsNotice == .recoveryQuotaUpdated)
         #expect(model.snapshots.first(where: { $0.provider == .gemini })?.fetchedAt == freshQuota.fetchedAt)
 
         await model.completeGeminiInteractiveSignIn(token: token, result: .success)
         #expect(await counters.quotaCalls == 1)
-        #expect(model.geminiPauseReason == nil)
+        #expect(model.geminiPauseReason == .unknown)
+        #expect(model.isGeminiRefreshPaused)
     }
 
     @Test("Concurrent recovery starts open only one interactive login")

@@ -32,7 +32,6 @@ enum SettingsNotice: Equatable {
     case recoveryLoginExpired
     case recoveryCheckingQuota
     case recoveryQuotaFailed
-    case recoveryResumePersistenceFailed
     case recoveryQuotaUpdated
 
     func text(using localizer: AppLocalizer) -> String {
@@ -66,7 +65,7 @@ enum SettingsNotice: Equatable {
         case .accountConnected(let provider):
             localizer.text("%@ account connected.", provider.displayName)
         case .recoveryLoginStarted:
-            localizer.text("Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. Automatic refresh resumes only if the one-time quota check succeeds.")
+            localizer.text("Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This checks quota once; automatic refresh remains paused.")
         case .recoveryLoginFailed:
             localizer.text("Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept.")
         case .recoveryLoginCancelled:
@@ -77,10 +76,8 @@ enum SettingsNotice: Equatable {
             localizer.text("Sign-in completed. Checking Antigravity quota once…")
         case .recoveryQuotaFailed:
             localizer.text("The one-time quota check failed. Refresh remains paused and the previous quota is kept.")
-        case .recoveryResumePersistenceFailed:
-            localizer.text("Antigravity quota was read, but automatic refresh could not be resumed. Refresh remains paused.")
         case .recoveryQuotaUpdated:
-            localizer.text("Antigravity quota updated. Automatic refresh has resumed.")
+            localizer.text("Antigravity quota updated. Automatic refresh remains paused.")
         }
     }
 }

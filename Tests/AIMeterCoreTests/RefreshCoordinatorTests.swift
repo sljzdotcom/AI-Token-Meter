@@ -94,7 +94,7 @@ struct RefreshCoordinatorTests {
         #expect(await restarted.geminiPauseReason() == .authenticationRequired)
     }
 
-    @Test("One-time Gemini quota success updates cache and clears persistent suspension")
+    @Test("One-time Gemini quota success updates cache but keeps persistent suspension")
     func oneTimeGeminiCheckKeepsPauseAndOtherProviderCache() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -120,15 +120,16 @@ struct RefreshCoordinatorTests {
         let recovered = try await initial.collectGeminiQuotaOnce(authorization: authorization)
 
         #expect(recovered.geminiQuotaMetrics?.first?.current == 77)
-        #expect(await initial.geminiPauseReason() == nil)
+        #expect(await initial.geminiPauseReason() == .timeout)
         let saved = try cache.load()
         #expect(saved.first(where: { $0.provider == .claude })?.fetchedAt == claudeCache.fetchedAt)
         #expect(saved.first(where: { $0.provider == .gemini })?.fetchedAt == Date(timeIntervalSince1970: 800))
 
         let restarted = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
         _ = await restarted.refresh(manual: false)
-        #expect(await restarted.geminiPauseReason() == nil)
-        #expect(quotaCollector.normalCalls == 2)
+        #expect(await restarted.geminiPauseReason() == .timeout)
+        #expect(await restarted.providersRequiringAction().contains(.gemini))
+        #expect(quotaCollector.normalCalls == 1)
         #expect(quotaCollector.oneTimeCalls == 1)
     }
 
@@ -185,37 +186,28 @@ struct RefreshCoordinatorTests {
         #expect(collector.oneTimeCalls == 1)
     }
 
-    @Test("A failed suspension-state write cannot report a successful recovery")
-    func failedRecoveryPersistenceKeepsSuspension() async throws {
+    @Test("A failed one-time cache write keeps suspension in place")
+    func failedOneTimeCacheWriteKeepsSuspension() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let blockedDirectory = directory.appendingPathComponent("not-a-directory")
         try Data("occupied".utf8).write(to: blockedDirectory)
         let collector = OneTimeGeminiCollector()
-        let cache = SnapshotCache(directoryURL: directory.appendingPathComponent("cache"))
-        let previousQuota = UsageSnapshot(
-            provider: .gemini,
-            primaryMetric: metric(value: 16),
-            fetchedAt: Date(timeIntervalSince1970: 125),
-            collectionStatus: .fresh,
-            geminiQuotaMetrics: [metric(value: 16)]
-        )
-        try cache.save([previousQuota])
+        let cache = SnapshotCache(directoryURL: blockedDirectory)
         let coordinator = RefreshCoordinator(
             collectors: [collector],
             cache: cache,
-            backoffURL: blockedDirectory.appendingPathComponent("backoff.json")
+            backoffURL: directory.appendingPathComponent("backoff.json")
         )
 
         _ = await coordinator.refresh(manual: false)
         let authorization = try await authorizeRecovery(on: coordinator)
-        await #expect(throws: GeminiOneTimeQuotaError.persistenceFailed) {
+        await #expect(throws: (any Error).self) {
             try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
         }
 
         #expect(await coordinator.geminiPauseReason() == .timeout)
-        #expect(try cache.load().first(where: { $0.provider == .gemini })?.fetchedAt == previousQuota.fetchedAt)
     }
 
     @Test("Cancelling a one-time quota check preserves cache and suspension")
@@ -271,7 +263,7 @@ struct RefreshCoordinatorTests {
         #expect(collector.oneTimeCalls == 1)
     }
 
-    @Test("A concurrent provider refresh cannot overwrite a newer one-time Gemini quota")
+    @Test("A concurrent provider refresh preserves the newer quota and suspension")
     func concurrentRefreshPreservesOneTimeGeminiQuota() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -311,7 +303,7 @@ struct RefreshCoordinatorTests {
         let savedGemini = try #require(cache.load().first(where: { $0.provider == .gemini }))
         #expect(savedGemini.geminiQuotaMetrics?.first?.current == 77)
         #expect(savedGemini.fetchedAt == Date(timeIntervalSince1970: 800))
-        #expect(await coordinator.geminiPauseReason() == nil)
+        #expect(await coordinator.geminiPauseReason() == .timeout)
     }
 
     @Test("A cached Gemini quota shows the specific pause reason immediately")
