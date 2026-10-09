@@ -304,6 +304,7 @@ public actor RefreshCoordinator {
             codexLocalActivity: snapshot.codexLocalActivity,
             claudeLocalActivity: snapshot.claudeLocalActivity,
             geminiQuotaMetrics: snapshot.geminiQuotaMetrics,
+            antigravitySharedQuotaMetrics: snapshot.antigravitySharedQuotaMetrics,
             antigravityCLIInfo: snapshot.antigravityCLIInfo,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )

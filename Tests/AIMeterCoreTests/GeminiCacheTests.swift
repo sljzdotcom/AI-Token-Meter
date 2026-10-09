@@ -11,25 +11,31 @@ struct GeminiCacheTests {
         let reset = Date(timeIntervalSince1970: 2_000)
         let fiveHour = UsageMetric(label: "Gemini · Five hour", current: 10, limit: 100, unit: .percent, resetAt: reset)
         let weekly = UsageMetric(label: "Gemini · Weekly", current: 20, limit: 100, unit: .percent, resetAt: reset)
+        let sharedQuota = [
+            UsageMetric(label: "Claude/GPT · Five hour", current: 80, limit: 100, unit: .percent, resetAt: reset),
+            UsageMetric(label: "Claude/GPT · Weekly", current: 20, limit: 100, unit: .percent, resetAt: reset),
+        ]
         let cliInfo = AntigravityCLIInfo(
             currentModel: "Gemini 3.8 Flash (High)",
             availableModelCount: 4,
             modelFamilies: ["Gemini 3.8 Flash", "Gemini 3.7 Flash"]
         )
-        let original = UsageSnapshot(provider: .gemini, primaryMetric: weekly, secondaryMetric: fiveHour, fetchedAt: Date(timeIntervalSince1970: 1234), sourceVersion: "1.1.28", geminiQuotaMetrics: [fiveHour, weekly], antigravityCLIInfo: cliInfo)
+        let original = UsageSnapshot(provider: .gemini, primaryMetric: weekly, secondaryMetric: fiveHour, fetchedAt: Date(timeIntervalSince1970: 1234), sourceVersion: "1.1.28", geminiQuotaMetrics: [fiveHour, weekly], antigravitySharedQuotaMetrics: sharedQuota, antigravityCLIInfo: cliInfo)
         try cache.save([original])
         let coordinator = RefreshCoordinator(collectors: [FailedGemini()], cache: cache)
         let result = try #require(await coordinator.refresh().first)
         #expect(result.collectionStatus == .cached)
         #expect(result.geminiQuotaMetrics == [fiveHour, weekly])
+        #expect(result.antigravitySharedQuotaMetrics == sharedQuota)
         #expect(result.fetchedAt == Date(timeIntervalSince1970: 1234))
         #expect(result.statusMessage == "Antigravity refresh paused; the previous failure reason is unknown")
         #expect(result.antigravityCLIInfo == cliInfo)
         #expect(try cache.load().first?.geminiQuotaMetrics == [fiveHour, weekly])
         #expect(try cache.load().first?.antigravityCLIInfo == cliInfo)
+        #expect(try cache.load().first?.antigravitySharedQuotaMetrics == sharedQuota)
     }
 
-    @Test func legacyFourWindowCacheKeepsOnlyGeminiAndRecomputesTheSummary() throws {
+    @Test func legacyFourWindowCacheMigratesSharedPoolAndRecomputesGeminiSummary() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("gemini-cache-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = SnapshotCache(directoryURL: root)
@@ -57,6 +63,8 @@ struct GeminiCacheTests {
         #expect(restored.geminiQuotaMetrics?.map(\.label) == ["Gemini · Five hour", "Gemini · Weekly"])
         #expect(restored.primaryMetric?.label == "Gemini · Five hour")
         #expect(restored.secondaryMetric?.label == "Gemini · Weekly")
+        #expect(restored.antigravitySharedQuotaMetrics?.map(\.label) == ["Claude/GPT · Five hour", "Claude/GPT · Weekly"])
+        #expect(restored.antigravitySharedQuotaMetrics?.map(\.current) == [80, 20])
     }
 
     @Test func incompleteLegacyGeminiCacheDoesNotRemainVisible() throws {

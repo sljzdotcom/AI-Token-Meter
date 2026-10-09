@@ -9,7 +9,7 @@ AI Token Meter 不把不同服务强行换算成同一个“额度”。每个�
 | Claude Code | 官方当前额度窗口的已用比例 | 次级额度、重置时间，以及本机近 30 天活动 |
 | OpenAI Codex | 官方通用速率限制的已用比例 | 次级窗口、重置额度，以及本机近 30 天三项活动聚合 |
 | DeepSeek | 相对余额基准已经消耗的比例 | 当前余额、近 30 天成本/请求/Token 与每日成本图 |
-| Google Antigravity | Gemini 五小时/每周窗口中最高的已用比例 | 两个 Gemini 额度窗口、重置说明、当前模型、可用模型系列与 CLI 版本 |
+| Google Antigravity | Gemini 五小时/每周窗口中最高的已用比例 | Gemini 两个窗口、独立的 Claude/GPT 共享池五小时/每周额度、重置时间、当前 Gemini 模型、可用 Gemini 模型系列与 CLI 版本 |
 
 ## Claude Code
 

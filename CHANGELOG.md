@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Added
+
+- Antigravity 详情新增官方 `/usage` 的 Claude/GPT 五小时及每周共享额度；Gemini 主指标、提醒与独立 Claude Code/Codex 服务保持各自口径。
+
 ## 0.10.7 - 2026-10-07
 
 稳定修复版；macOS build35。Antigravity未知暂停新增一次性受控登录与只读额度检查；Windows运行行为保持不变。

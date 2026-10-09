@@ -66,6 +66,10 @@ fn successful_tiers_roundtrip_and_failed_refresh_preserves_timestamp_and_account
     assert_eq!(loaded.primary_metric.unwrap().label, "Gemini · Five hour");
     assert_eq!(loaded.fetched_at, snapshot.fetched_at);
     assert_eq!(loaded.antigravity_cli_info, snapshot.antigravity_cli_info);
+    assert_eq!(
+        loaded.antigravity_shared_quota_metrics,
+        snapshot.antigravity_shared_quota_metrics
+    );
 }
 
 #[test]
@@ -102,7 +106,7 @@ fn legacy_gemini_cache_keeps_quota_but_migrates_the_visible_provider_name() {
 }
 
 #[test]
-fn legacy_four_window_cache_keeps_only_gemini_and_recomputes_the_summary() {
+fn legacy_four_window_cache_migrates_shared_pool_without_changing_gemini_summary() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path()).unwrap();
     std::fs::write(
@@ -132,7 +136,10 @@ fn legacy_four_window_cache_keeps_only_gemini_and_recomputes_the_summary() {
         .snapshot(ProviderId::Gemini);
     assert_eq!(snapshot.status, UsageStatus::Cached);
     assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
-    assert_eq!(snapshot.primary_metric.unwrap().label, "Gemini · Five hour");
+    assert_eq!(
+        snapshot.primary_metric.as_ref().unwrap().label,
+        "Gemini · Five hour"
+    );
     assert_eq!(snapshot.secondary_metric.unwrap().label, "Gemini · Weekly");
     assert_eq!(
         snapshot
@@ -142,6 +149,16 @@ fn legacy_four_window_cache_keeps_only_gemini_and_recomputes_the_summary() {
             .collect::<Vec<_>>(),
         vec!["Gemini · Five hour", "Gemini · Weekly"]
     );
+    assert_eq!(
+        snapshot
+            .antigravity_shared_quota_metrics
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Claude/GPT · Five hour", "Claude/GPT · Weekly"]
+    );
+    assert_eq!(snapshot.antigravity_shared_quota_metrics[0].current, 80.0);
+    assert_eq!(snapshot.primary_metric.as_ref().unwrap().current, 60.0);
 }
 
 #[test]

@@ -182,6 +182,12 @@ if schema
       gemini_metric&.dig("properties", "label", "enum") == ["Gemini · Five hour", "Gemini · Weekly"]
     errors << "Antigravity quota schema must expose only two Gemini windows"
   end
+  shared_metric = schema.dig("$defs", "antigravitySharedQuotaMetric")
+  unless schema.dig("properties", "antigravitySharedQuotaMetrics", "maxItems") == 2 &&
+      shared_metric&.dig("properties", "label", "enum") == ["Claude/GPT · Five hour", "Claude/GPT · Weekly"] &&
+      (%w[label current limit unit kind resetAt] - Array(shared_metric&.[]("required"))).empty?
+    errors << "Antigravity shared quota schema must expose exactly two bounded Claude/GPT windows"
+  end
   cli_info = schema.dig("$defs", "antigravityCLIInfo")
   unless cli_info.is_a?(Hash) && cli_info["type"] == ["object", "null"] &&
       Array(cli_info["required"]).include?("modelFamilies") &&
@@ -244,6 +250,22 @@ fixture_paths.each do |path|
         item["resetAt"].is_a?(String) && (Time.iso8601(item["resetAt"]) rescue false)
     end
     errors << "#{path.basename}: invalid Antigravity quota window" unless valid
+  end
+  shared_tiers = fixture["antigravitySharedQuotaMetrics"]
+  if path.basename.to_s == "gemini-fresh.json" && shared_tiers.nil?
+    errors << "gemini-fresh.json: missing Antigravity shared quota example"
+  end
+  if shared_tiers
+    valid = fixture["providerId"] == "gemini" && shared_tiers.is_a?(Array) && shared_tiers.length == 2 && shared_tiers.all? { |item| item.is_a?(Hash) }
+    valid &&= shared_tiers.map { |item| item["label"] }.uniq.length == shared_tiers.length
+    valid &&= shared_tiers.all? do |item|
+      current = item["current"]
+      Array(schema&.dig("$defs", "antigravitySharedQuotaMetric", "properties", "label", "enum")).include?(item["label"]) &&
+        current.is_a?(Numeric) && current.finite? && current.between?(0, 100) &&
+        item["limit"] == 100 && item["unit"] == "percent" && item["kind"] == "officialLimit" &&
+        item["resetAt"].is_a?(String) && (Time.iso8601(item["resetAt"]) rescue false)
+    end
+    errors << "#{path.basename}: invalid Antigravity shared quota window" unless valid
   end
   cli_info = fixture["antigravityCLIInfo"]
   if cli_info

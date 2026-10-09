@@ -34,6 +34,7 @@ export type UsageSnapshot = {
   primaryMetric?: UsageMetric | null
   secondaryMetric?: UsageMetric | null
   geminiQuotaMetrics?: UsageMetric[]
+  antigravitySharedQuotaMetrics?: UsageMetric[]
   antigravityCLIInfo?: AntigravityCLIInfo | null
   fetchedAt: string
   staleAfterSeconds: number

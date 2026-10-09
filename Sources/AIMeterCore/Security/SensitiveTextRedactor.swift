@@ -55,6 +55,7 @@ extension UsageSnapshot {
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity?.privacySanitized(),
             geminiQuotaMetrics: geminiQuotaMetrics?.map { $0.privacySanitized() },
+            antigravitySharedQuotaMetrics: antigravitySharedQuotaMetrics?.map { $0.privacySanitized() },
             antigravityCLIInfo: antigravityCLIInfo.map {
                 AntigravityCLIInfo(
                     currentModel: $0.currentModel.map(SensitiveTextRedactor.redact),

@@ -14,6 +14,7 @@
 | --- | --- | --- |
 | [2026-10-09](2026-10-09-antigravity-safe-auto-refresh.md) | Antigravity安全恢复边界 | 单次检查可更新缓存但不清持久暂停；真实CLI无浏览器边界未证实，周期自动恢复受环境限制；未发布 |
 | [2026-10-09](2026-10-09-antigravity-safe-refresh-review.md) | Antigravity安全恢复独立审查 | 审查生产采集路径、持久暂停与真实CLI浏览器边界；记录已修正发现和未关闭限制 |
+| [2026-10-09](2026-10-09-antigravity-shared-model-quota.md) | Antigravity Claude/GPT 共享额度详情 | 双平台详情读取同一官方 `/usage` 共享池；不改变 Gemini 摘要、提醒或独立 Provider 账号 |
 | [2026-10-07](2026-10-07-v0.10.7-release.md) | 0.10.7/build35 Antigravity 一次性恢复入口发布 | PR #58、main/tag、双平台签名 Release、七项资产与三个公开更新源均验证通过；现场额度待用户设备确认 |
 | [2026-10-07](2026-10-07-antigravity-one-time-recovery.md) | Antigravity 单次受控恢复入口 | 本地 macOS 修复；保留持久暂停，单次登录/额度路径受限；未发布、未操作真实账号 |
 | [2026-10-06](2026-10-06-v0.10.6-release.md) | 0.10.6/build34双平台稳定发布 | PR #57、main/Release workflow、七项公开资产和三个匿名更新源均验证通过 |

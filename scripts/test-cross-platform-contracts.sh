@@ -71,6 +71,24 @@ fi
 grep -Fq "invalid Antigravity quota window" "$TEST_ROOT/gemini-invalid-tier.log"
 cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
 
+ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["antigravitySharedQuotaMetrics"][0]["current"]=110; File.write(path,JSON.generate(value))' "$quota_fixture"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-invalid-shared-tier.log" 2>&1; then
+    echo "Antigravity shared quota percentages above 100 must be rejected." >&2
+    exit 1
+fi
+grep -Fq "invalid Antigravity shared quota window" "$TEST_ROOT/gemini-invalid-shared-tier.log"
+cp "$TEST_ROOT/original-quota.json" "$quota_fixture"
+
+shared_schema="$TEST_ROOT/repository/contracts/schemas/usage-snapshot.schema.json"
+cp "$shared_schema" "$TEST_ROOT/original-schema.json"
+ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["$defs"]["antigravitySharedQuotaMetric"]["required"].delete("resetAt"); File.write(path,JSON.generate(value))' "$shared_schema"
+if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-shared-schema-reset.log" 2>&1; then
+    echo "Antigravity shared quota schema must require resetAt." >&2
+    exit 1
+fi
+grep -Fq "Antigravity shared quota schema must expose exactly two bounded Claude/GPT windows" "$TEST_ROOT/gemini-shared-schema-reset.log"
+cp "$TEST_ROOT/original-schema.json" "$shared_schema"
+
 ruby -rjson -e 'path=ARGV.fetch(0); value=JSON.parse(File.read(path)); value["antigravityCLIInfo"]["currentModel"]="Claude Sonnet"; File.write(path,JSON.generate(value))' "$quota_fixture"
 if ruby "$TEST_ROOT/repository/scripts/check-cross-platform-contracts.rb" "$TEST_ROOT/repository" >"$TEST_ROOT/gemini-invalid-cli-info.log" 2>&1; then
     echo "Third-party Antigravity model information must be rejected." >&2

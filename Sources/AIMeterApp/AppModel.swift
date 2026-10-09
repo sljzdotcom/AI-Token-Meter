@@ -1099,6 +1099,7 @@ final class AppModel {
             codexResetCredits: snapshot.codexResetCredits,
             codexLocalActivity: snapshot.codexLocalActivity,
             claudeLocalActivity: snapshot.claudeLocalActivity,
+            antigravitySharedQuotaMetrics: snapshot.antigravitySharedQuotaMetrics,
             deepSeekUsageHistory: snapshot.deepSeekUsageHistory
         )
     }
@@ -1249,6 +1250,7 @@ private extension UsageSnapshot {
             codexResetCredits: codexResetCredits,
             codexLocalActivity: codexLocalActivity,
             claudeLocalActivity: claudeLocalActivity,
+            antigravitySharedQuotaMetrics: antigravitySharedQuotaMetrics,
             deepSeekUsageHistory: history
         )
     }

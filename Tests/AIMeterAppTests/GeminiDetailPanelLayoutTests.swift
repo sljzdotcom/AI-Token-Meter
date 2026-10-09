@@ -9,6 +9,7 @@ import Testing
 struct GeminiDetailPanelLayoutTests {
     @Test func twoGeminiWindowsAndCLIInfoFitAndSmallScreensRemainScrollable() {
         #expect(GeminiDetailPanelLayout.height(tierCount: 2, hasCLIInfo: true, availableHeight: 900) >= 500)
+        #expect(GeminiDetailPanelLayout.height(tierCount: 2, sharedQuotaCount: 2, hasCLIInfo: true, availableHeight: 900) == 676)
         #expect(GeminiDetailPanelLayout.height(tierCount: 2, hasCLIInfo: true, availableHeight: 360) == 344)
         #expect(GeminiDetailPanelLayout.height(tierCount: 0, hasCLIInfo: false, availableHeight: 900) == 280)
     }

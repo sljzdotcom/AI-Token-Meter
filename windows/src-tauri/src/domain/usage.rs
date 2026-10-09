@@ -209,6 +209,8 @@ pub struct UsageSnapshot {
     pub secondary_metric: Option<UsageMetric>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gemini_quota_metrics: Vec<UsageMetric>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub antigravity_shared_quota_metrics: Vec<UsageMetric>,
     #[serde(
         default,
         rename = "antigravityCLIInfo",
@@ -237,6 +239,41 @@ impl UsageSnapshot {
             return;
         }
         self.normalize_antigravity_cli_info();
+        let shared_labels = ["Claude/GPT · Five hour", "Claude/GPT · Weekly"];
+        let legacy_shared = self
+            .gemini_quota_metrics
+            .iter()
+            .filter(|metric| shared_labels.contains(&metric.label.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
+        let shared_candidates = if self.antigravity_shared_quota_metrics.is_empty() {
+            legacy_shared
+        } else {
+            self.antigravity_shared_quota_metrics.clone()
+        };
+        let mut shared = Vec::with_capacity(2);
+        for label in ["Claude/GPT · Five hour", "Claude/GPT · Weekly"] {
+            let matches = shared_candidates
+                .iter()
+                .filter(|metric| metric.label == label)
+                .collect::<Vec<_>>();
+            let Some(metric) = matches.first().filter(|_| matches.len() == 1) else {
+                shared.clear();
+                break;
+            };
+            if !metric.current.is_finite()
+                || !(0.0..=100.0).contains(&metric.current)
+                || metric.limit != Some(100.0)
+                || metric.unit != MetricUnit::Percent
+                || metric.kind != MetricKind::OfficialLimit
+                || metric.reset_at.is_none()
+            {
+                shared.clear();
+                break;
+            }
+            shared.push((*metric).clone());
+        }
+        self.antigravity_shared_quota_metrics = shared;
         let mut published = Vec::with_capacity(2);
         for label in ["Gemini · Five hour", "Gemini · Weekly"] {
             let matches = self
@@ -315,10 +352,24 @@ impl UsageSnapshot {
             ));
         }
         let mut tier_names = std::collections::HashSet::new();
-        if snapshot.gemini_quota_metrics.len() > 2
+        let legacy_shared_count = snapshot
+            .gemini_quota_metrics
+            .iter()
+            .filter(|metric| {
+                ["Claude/GPT · Five hour", "Claude/GPT · Weekly"].contains(&metric.label.as_str())
+            })
+            .count();
+        if snapshot.gemini_quota_metrics.len() > 4
+            || legacy_shared_count == 1
             || snapshot.gemini_quota_metrics.iter().any(|metric| {
                 snapshot.provider_id != ProviderId::Gemini
-                    || !["Gemini · Five hour", "Gemini · Weekly"].contains(&metric.label.as_str())
+                    || ![
+                        "Gemini · Five hour",
+                        "Gemini · Weekly",
+                        "Claude/GPT · Five hour",
+                        "Claude/GPT · Weekly",
+                    ]
+                    .contains(&metric.label.as_str())
                     || !tier_names.insert(&metric.label)
                     || !metric.current.is_finite()
                     || !(0.0..=100.0).contains(&metric.current)
@@ -329,6 +380,29 @@ impl UsageSnapshot {
             })
         {
             return Err(UsageDecodeError::new("invalid Antigravity quota window"));
+        }
+        let mut shared_names = std::collections::HashSet::new();
+        if snapshot.antigravity_shared_quota_metrics.len() > 2
+            || (snapshot.antigravity_shared_quota_metrics.len() == 1)
+            || snapshot
+                .antigravity_shared_quota_metrics
+                .iter()
+                .any(|metric| {
+                    snapshot.provider_id != ProviderId::Gemini
+                        || !["Claude/GPT · Five hour", "Claude/GPT · Weekly"]
+                            .contains(&metric.label.as_str())
+                        || !shared_names.insert(&metric.label)
+                        || !metric.current.is_finite()
+                        || !(0.0..=100.0).contains(&metric.current)
+                        || metric.limit != Some(100.0)
+                        || metric.unit != MetricUnit::Percent
+                        || metric.kind != MetricKind::OfficialLimit
+                        || metric.reset_at.is_none()
+                })
+        {
+            return Err(UsageDecodeError::new(
+                "invalid Antigravity shared quota window",
+            ));
         }
         if let Some(info) = &snapshot.antigravity_cli_info {
             let valid_model = valid_gemini_display_name;
@@ -407,6 +481,7 @@ impl UsageSnapshot {
             )),
             reset_credits: Vec::new(),
             gemini_quota_metrics: Vec::new(),
+            antigravity_shared_quota_metrics: Vec::new(),
             antigravity_cli_info: None,
             local_activity: None,
             daily_history: Vec::new(),

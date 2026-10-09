@@ -8,7 +8,7 @@ const USAGE: &str = include_str!("../../../contracts/antigravity-cli/1.1.28/usag
 const DATE: &str = "2026-09-10T12:00:00Z";
 
 #[test]
-fn validates_all_official_windows_but_only_publishes_gemini_quota() {
+fn validates_and_publishes_gemini_and_shared_model_windows_separately() {
     let snapshot = parse_usage(USAGE, DATE, "1.1.28").unwrap();
     assert_eq!(snapshot.display_name, "Google Antigravity");
     assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
@@ -42,6 +42,22 @@ fn validates_all_official_windows_but_only_publishes_gemini_quota() {
             && metric.kind == MetricKind::OfficialLimit
             && metric.reset_at.is_some()
     }));
+    assert_eq!(
+        snapshot
+            .antigravity_shared_quota_metrics
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Claude/GPT · Five hour", "Claude/GPT · Weekly"]
+    );
+    assert_eq!(
+        snapshot
+            .antigravity_shared_quota_metrics
+            .iter()
+            .map(|metric| metric.current)
+            .collect::<Vec<_>>(),
+        vec![80.0, 20.0]
+    );
 }
 
 #[test]
@@ -141,6 +157,7 @@ fn accepts_accounts_that_only_expose_the_two_gemini_windows() {
     let snapshot = parse_usage(&gemini_only, DATE, "1.1.28").unwrap();
     assert_eq!(snapshot.used_ratio.unwrap().get(), 0.6);
     assert_eq!(snapshot.gemini_quota_metrics.len(), 2);
+    assert!(snapshot.antigravity_shared_quota_metrics.is_empty());
 }
 
 #[test]
@@ -155,6 +172,13 @@ fn incomplete_ambiguous_and_legacy_output_is_rejected() {
         USAGE.replacen("Gemini Models", "Unknown models", 1),
         USAGE.replacen("Weekly Limit Remaining", "Daily Limit Remaining", 1),
         format!("{USAGE}\n{}", USAGE.lines().next().unwrap()),
+        format!(
+            "{USAGE}\n{}",
+            USAGE
+                .lines()
+                .find(|line| line.starts_with("Claude and GPT models\tFive Hour"))
+                .unwrap()
+        ),
         USAGE.lines().take(3).collect::<Vec<_>>().join("\n"),
         "Select Model\nModel usage\nPro 25%".into(),
     ];

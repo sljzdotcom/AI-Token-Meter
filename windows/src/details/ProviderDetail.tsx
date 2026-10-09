@@ -73,6 +73,15 @@ export function ProviderDetail({
         </div>
       </section>
 
+      {snapshot.providerId === "gemini" && snapshot.antigravitySharedQuotaMetrics?.length ? (
+        <section aria-label={t("Claude/GPT shared quota")} className="detail-section">
+          <h2>{t("Claude/GPT shared quota")}</h2>
+          <div className="metric-grid">
+            {snapshot.antigravitySharedQuotaMetrics.map(metric => <MetricCard key={metric.label} metric={metric} showRemaining />)}
+          </div>
+        </section>
+      ) : null}
+
       {snapshot.providerId === "gemini" && (snapshot.antigravityCLIInfo || snapshot.sourceVersion) ? (
         <section aria-label={t("Antigravity CLI")} className="detail-section detail-section--cli-info">
           <h2>{t("Antigravity CLI")}</h2>
