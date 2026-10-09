@@ -408,11 +408,13 @@ for (const width of [340, 440]) {
     const metricBars = [...host.querySelectorAll<HTMLElement>(".metric-bar i")]
     const bounds = host.getBoundingClientRect()
     const nodes = [...host.querySelectorAll<HTMLElement>(".metric-card, .antigravity-cli-info, .service-actions button, footer")]
+    const detail = host.querySelector<HTMLElement>(".provider-detail")!
+    detail.scrollTop = detail.scrollHeight
     for (const button of host.querySelectorAll<HTMLButtonElement>("button")) button.click()
     const clipped = nodes.flatMap(node=>{const r=node.getBoundingClientRect();return r.left>=bounds.left && r.right<=bounds.right && r.top>=bounds.top && r.bottom<=bounds.bottom ? [] : [{className:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right}]})
     geminiSamples.push({width,status,hasQuota,texts,cliText,thirdPartyVisible,retries,guides,reasonVisible:status !== "cached" || host.textContent!.includes("Cached · sign in required"),
       accentRoles:{title:getComputedStyle(identityTitle).color,values:metricValues.map(node=>getComputedStyle(node).color),bars:metricBars.map(node=>getComputedStyle(node).backgroundImage)},
-      unclipped:clipped.length===0,clipped})
+      unclipped:clipped.length===0,scrollReachable:detail.scrollTop + detail.clientHeight >= detail.scrollHeight,clipped})
     flushSync(()=>sampleRoot.unmount());host.remove()
   }
 }
