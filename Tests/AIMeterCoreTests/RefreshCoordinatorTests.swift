@@ -124,6 +124,9 @@ struct RefreshCoordinatorTests {
         let saved = try cache.load()
         #expect(saved.first(where: { $0.provider == .claude })?.fetchedAt == claudeCache.fetchedAt)
         #expect(saved.first(where: { $0.provider == .gemini })?.fetchedAt == Date(timeIntervalSince1970: 800))
+        #expect(saved.first(where: { $0.provider == .gemini })?.antigravitySharedQuotaMetrics?.map(\.label) == [
+            "Claude/GPT · Five hour", "Claude/GPT · Weekly",
+        ])
 
         let restarted = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
         _ = await restarted.refresh(manual: false)
@@ -588,12 +591,21 @@ private final class OneTimeGeminiCollector: OneTimeGeminiQuotaCollecting, @unche
             label: "Gemini · Weekly", current: value, limit: 100,
             unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
         )
+        let sharedFiveHour = UsageMetric(
+            label: "Claude/GPT · Five hour", current: 80, limit: 100,
+            unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
+        let sharedWeekly = UsageMetric(
+            label: "Claude/GPT · Weekly", current: 20, limit: 100,
+            unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
         return UsageSnapshot(
             provider: .gemini,
             primaryMetric: weekly,
             fetchedAt: Date(timeIntervalSince1970: 800),
             collectionStatus: .fresh,
-            geminiQuotaMetrics: [fiveHour, weekly]
+            geminiQuotaMetrics: [fiveHour, weekly],
+            antigravitySharedQuotaMetrics: [sharedFiveHour, sharedWeekly]
         )
     }
 }

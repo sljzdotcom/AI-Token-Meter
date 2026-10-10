@@ -343,6 +343,7 @@
 "Opens in your default browser" = "Opens in your default browser";
 "Gemini quota" = "Gemini quota";
 "Claude/GPT shared quota" = "Claude/GPT shared quota";
+"Claude/GPT shared quota is not available in this snapshot." = "Claude/GPT shared quota is not available in this snapshot.";
 "Last available Gemini quota" = "Last available Gemini quota";
 "Antigravity CLI" = "Antigravity CLI";
 "Current model" = "Current model";

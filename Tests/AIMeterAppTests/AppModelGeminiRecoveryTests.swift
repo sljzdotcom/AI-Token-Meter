@@ -9,7 +9,10 @@ struct AppModelGeminiRecoveryTests {
     @MainActor
     func unknownPauseUsesSingleValidReceiptWithoutGlobalRefresh() async throws {
         let context = makeRecoveryContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        defer {
+            context.defaults.removePersistentDomain(forName: context.suiteName)
+            try? FileManager.default.removeItem(at: context.applicationSupport)
+        }
         let counters = RecoveryCounters()
         var openedToken: String?
         let freshQuota = recoverySnapshot(value: 22, fetchedAt: Date(timeIntervalSince1970: 900))
@@ -54,7 +57,10 @@ struct AppModelGeminiRecoveryTests {
     @MainActor
     func concurrentRecoveryStartsShareOneLogin() async throws {
         let context = makeRecoveryContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        defer {
+            context.defaults.removePersistentDomain(forName: context.suiteName)
+            try? FileManager.default.removeItem(at: context.applicationSupport)
+        }
         let counters = RecoveryCounters()
         var openedTokens: [String] = []
         let model = makeModel(
@@ -82,7 +88,10 @@ struct AppModelGeminiRecoveryTests {
     @MainActor
     func failedLoginRemainsPaused() async throws {
         let context = makeRecoveryContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        defer {
+            context.defaults.removePersistentDomain(forName: context.suiteName)
+            try? FileManager.default.removeItem(at: context.applicationSupport)
+        }
         let counters = RecoveryCounters()
         var openedToken: String?
         let model = makeModel(
@@ -103,7 +112,10 @@ struct AppModelGeminiRecoveryTests {
         #expect(model.geminiOneTimeRecoveryState == .loginFailed)
 
         let failedLaunchContext = makeRecoveryContext()
-        defer { failedLaunchContext.defaults.removePersistentDomain(forName: failedLaunchContext.suiteName) }
+        defer {
+            failedLaunchContext.defaults.removePersistentDomain(forName: failedLaunchContext.suiteName)
+            try? FileManager.default.removeItem(at: failedLaunchContext.applicationSupport)
+        }
         let failedLaunchCounters = RecoveryCounters()
         let failedLaunchModel = makeModel(
             context: failedLaunchContext,
@@ -123,7 +135,10 @@ struct AppModelGeminiRecoveryTests {
     @MainActor
     func expiredReceiptCannotResume() async throws {
         let context = makeRecoveryContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        defer {
+            context.defaults.removePersistentDomain(forName: context.suiteName)
+            try? FileManager.default.removeItem(at: context.applicationSupport)
+        }
         let counters = RecoveryCounters()
         let timeoutGate = RecoveryTimeoutGate()
         var openedToken: String?
@@ -156,7 +171,10 @@ struct AppModelGeminiRecoveryTests {
     @MainActor
     func appStopInvalidatesPendingReceipt() async throws {
         let context = makeRecoveryContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        defer {
+            context.defaults.removePersistentDomain(forName: context.suiteName)
+            try? FileManager.default.removeItem(at: context.applicationSupport)
+        }
         let counters = RecoveryCounters()
         var openedToken: String?
         let model = makeModel(
@@ -181,7 +199,10 @@ struct AppModelGeminiRecoveryTests {
     @MainActor
     func inFlightRefreshPreservesRecoveredGeminiSnapshot() async throws {
         let context = makeRecoveryContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        defer {
+            context.defaults.removePersistentDomain(forName: context.suiteName)
+            try? FileManager.default.removeItem(at: context.applicationSupport)
+        }
         let counters = RecoveryCounters()
         var openedToken: String?
         let stale = recoverySnapshot(value: 18, fetchedAt: Date(timeIntervalSince1970: 700))
@@ -215,12 +236,12 @@ struct AppModelGeminiRecoveryTests {
 
     @MainActor
     private func makeModel(
-        context: (suiteName: String, defaults: UserDefaults),
+        context: (suiteName: String, defaults: UserDefaults, applicationSupport: URL),
         counters: RecoveryCounters,
         pauseReason: GeminiPauseReason,
         quota: Result<UsageSnapshot, UsageCollectionError>,
         openLogin: @escaping (String) -> Void,
-        recoveryTimeout: Duration = .seconds(330),
+        recoveryTimeout: Duration = .seconds(310),
         openShouldFail: Bool = false,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         recoveryBegin: (@Sendable () async -> Bool)? = nil,
@@ -228,6 +249,7 @@ struct AppModelGeminiRecoveryTests {
     ) -> AppModel {
         AppModel(
             defaults: context.defaults,
+            applicationSupportDirectoryURL: context.applicationSupport,
             widgetSnapshotPublisher: nil,
             isDemoMode: false,
             refreshOperation: refreshOperation ?? {
@@ -264,9 +286,11 @@ struct AppModelGeminiRecoveryTests {
         )
     }
 
-    private func makeRecoveryContext() -> (suiteName: String, defaults: UserDefaults) {
+    private func makeRecoveryContext() -> (suiteName: String, defaults: UserDefaults, applicationSupport: URL) {
         let suiteName = "AppModelGeminiRecoveryTests.\(UUID().uuidString)"
-        return (suiteName, UserDefaults(suiteName: suiteName)!)
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent(suiteName, isDirectory: true)
+        return (suiteName, UserDefaults(suiteName: suiteName)!, support)
     }
 }
 

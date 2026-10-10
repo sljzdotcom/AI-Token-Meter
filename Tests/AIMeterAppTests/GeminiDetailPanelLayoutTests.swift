@@ -37,6 +37,27 @@ struct GeminiDetailPanelLayoutTests {
         #expect(metric.usedFraction == 0.2)
     }
 
+    @Test("Gemini-only quota snapshots explain when shared quota is absent")
+    func missingSharedQuotaNoticeRequiresGeminiQuotaAndNoSharedRows() {
+        let geminiMetric = UsageMetric(label: "Gemini · Weekly", current: 20, limit: 100, unit: .percent)
+        let sharedMetric = UsageMetric(label: "Claude/GPT · Weekly", current: 30, limit: 100, unit: .percent)
+        let onlyGemini = UsageSnapshot(
+            provider: .gemini,
+            primaryMetric: geminiMetric,
+            geminiQuotaMetrics: [geminiMetric]
+        )
+        let withShared = UsageSnapshot(
+            provider: .gemini,
+            primaryMetric: geminiMetric,
+            geminiQuotaMetrics: [geminiMetric],
+            antigravitySharedQuotaMetrics: [sharedMetric]
+        )
+
+        #expect(GeminiDetailPresentation.showsMissingSharedQuotaNotice(for: onlyGemini))
+        #expect(!GeminiDetailPresentation.showsMissingSharedQuotaNotice(for: withShared))
+        #expect(!GeminiDetailPresentation.showsMissingSharedQuotaNotice(for: .geminiUnavailable))
+    }
+
     @Test("Antigravity detail keeps an opaque themed surface in every data state")
     @MainActor
     func detailSurfaceIsOpaqueAcrossStates() throws {

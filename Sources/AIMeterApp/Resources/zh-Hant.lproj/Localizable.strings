@@ -326,6 +326,7 @@
 "Opens in your default browser" = "在預設瀏覽器中開啟";
 "Gemini quota" = "Gemini 額度";
 "Claude/GPT shared quota" = "Claude/GPT 共用額度";
+"Claude/GPT shared quota is not available in this snapshot." = "此額度快照中沒有 Claude/GPT 共用額度。";
 "Last available Gemini quota" = "最近可用的 Gemini 額度";
 "Antigravity CLI" = "Antigravity CLI";
 "Current model" = "目前模型";

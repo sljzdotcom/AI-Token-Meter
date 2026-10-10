@@ -21,6 +21,12 @@ enum GeminiDetailPresentation {
     static func familyText(for info: AntigravityCLIInfo) -> String? {
         info.modelFamilies.isEmpty ? nil : info.modelFamilies.joined(separator: " · ")
     }
+
+    static func showsMissingSharedQuotaNotice(for snapshot: UsageSnapshot) -> Bool {
+        snapshot.provider == .gemini
+            && snapshot.geminiQuotaMetrics?.isEmpty == false
+            && snapshot.antigravitySharedQuotaMetrics?.isEmpty != false
+    }
 }
 
 struct GeminiDetailView: View {
@@ -114,6 +120,10 @@ struct GeminiDetailView: View {
                             }
                         }
                     }
+                } else if GeminiDetailPresentation.showsMissingSharedQuotaNotice(for: snapshot) {
+                    Text(localizer.text("Claude/GPT shared quota is not available in this snapshot."))
+                        .aiMeterFont(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 if snapshot.antigravityCLIInfo != nil || snapshot.sourceVersion != nil {
                     VStack(alignment: .leading, spacing: 10) {
