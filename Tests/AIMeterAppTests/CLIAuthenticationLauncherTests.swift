@@ -103,6 +103,63 @@ struct CLIAuthenticationLauncherTests {
         #expect(!FileManager.default.fileExists(atPath: authenticationDirectory.path))
     }
 
+    @Test("A test-policy Antigravity script cannot call the system URL opener")
+    func testPolicyDisablesScriptCallbackOpener() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let policy = SystemActionPolicy(
+            environment: ["XCTestConfigurationFilePath": "/tmp/fake-tests.xctest"],
+            isXCTestBundle: false
+        )
+        let launcher = CLIAuthenticationLauncher(
+            authenticationDirectoryURL: root,
+            executableLocator: AuthenticationFixedLocator(),
+            openURL: { _ in true },
+            systemActionPolicy: policy
+        )
+
+        let scriptURL = try launcher.open(
+            provider: .gemini,
+            completionToken: "12345678-1234-1234-1234-123456789abc"
+        )
+        defer { launcher.cancelPendingGeminiLogin(token: "12345678-1234-1234-1234-123456789abc") }
+        let script = try String(contentsOf: scriptURL, encoding: .utf8)
+
+        #expect(script.contains("open_command='/usr/bin/false'"))
+        #expect(!script.contains("open_command='/usr/bin/open'"))
+    }
+
+    @Test("An unacknowledged stop marker is removed after its bounded wait")
+    func unacknowledgedStopMarkerIsCleanedUp() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let token = "12345678-1234-1234-1234-123456789abc"
+        let launcher = CLIAuthenticationLauncher(
+            authenticationDirectoryURL: root,
+            executableLocator: AuthenticationFixedLocator(),
+            openURL: { _ in true },
+            geminiStopAcknowledgementTimeout: .milliseconds(20)
+        )
+
+        _ = try launcher.open(provider: .gemini, completionToken: token)
+        let statusFile = try #require(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .first(where: { $0.pathExtension == "status" }))
+        let launchGate = statusFile.appendingPathExtension("lock")
+        let tokenPipe = try #require(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .first(where: { $0.pathExtension == "token" }))
+        #expect(try String(contentsOf: statusFile, encoding: .utf8) == "ready\n")
+        #expect(FileManager.default.fileExists(atPath: launchGate.path))
+
+        launcher.requestGeminiLoginStop(token: token)
+
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while FileManager.default.fileExists(atPath: statusFile.path), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(!FileManager.default.fileExists(atPath: statusFile.path))
+        #expect(!FileManager.default.fileExists(atPath: tokenPipe.path))
+    }
+
     @Test("A missing executable produces a provider-specific failure")
     func missingCLI() {
         let launcher = CLIAuthenticationLauncher(

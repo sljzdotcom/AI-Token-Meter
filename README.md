@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.8](https://img.shields.io/badge/version-0.10.8-3b82f6)
-![Tests 645](https://img.shields.io/badge/tests-645%20passed-2ea44f)
+![Version 0.10.9](https://img.shields.io/badge/version-0.10.9-3b82f6)
+![Tests 653](https://img.shields.io/badge/tests-653%20passing-brightgreen)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -13,7 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 当前公开稳定版为[0.10.8](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.8)（macOS build `36`）。Antigravity详情现展示 Gemini 与 Claude/GPT 共享额度；自动刷新暂停逻辑保持不变。诊断 `refreshPaused=true reason=unknown` 只说明旧状态仍暂停，不能据此推断原始失败原因。本版本不宣称自动刷新已恢复。发布和更新源验收见[0.10.8发布记录](docs/development/2026-10-09-v0.10.8-release.md)。
+> 当前公开稳定版仍为[0.10.8](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.8)（macOS build `36`）。双平台 0.10.9/build37 候选正在完成发布门禁，修复 Antigravity 单次登录回执失败后的长时间等待，并在共享额度缺失时明确提示。自动刷新暂停仍保留；真实 `agy 1.3.1` 和现场额度未验证。
 
 ## Screenshots
 

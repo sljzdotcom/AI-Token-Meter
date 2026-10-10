@@ -13,6 +13,7 @@
 
 | 日期 | 主题 | 规格 | 计划 |
 | --- | --- | --- | --- |
+| 2026-10-10 | Antigravity登录启动与握手恢复 | 本计划界定测试隔离、握手错误可见性及现场边界 | [计划](implementation-plans/2026-10-10-antigravity-login-startup-recovery.md) |
 | 2026-10-09 | 0.10.8/build36 Antigravity共享额度双平台稳定发布 | 沿用共享额度规格及双平台稳定发布流程 | [计划](implementation-plans/2026-10-09-v0.10.8-release.md) |
 | 2026-10-07 | 0.10.7/build35 Antigravity 单次受控恢复双平台稳定发布 | 沿用一次性受控恢复规格与双平台稳定发布流程 | [计划](implementation-plans/2026-10-07-v0.10.7-release.md) |
 | 2026-10-07 | Antigravity 单次受控恢复 | [规格](specifications/2026-10-07-antigravity-one-time-recovery-design.md) | [计划](implementation-plans/2026-10-07-antigravity-one-time-recovery.md) |
