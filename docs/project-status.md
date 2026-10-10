@@ -2,13 +2,13 @@
 
 - **事实快照：** 2026-10-10
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.8`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.8)（macOS build `36`）
-- **候选版本：** 双平台 `0.10.9`（macOS build `37`），发布门禁进行中
+- **当前公开稳定版：** 双平台 [`0.10.9`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.9)（macOS build `37`）
+- **候选版本：** 无
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**v0.10.9/build37 候选：** 修复 Antigravity 单次登录回执无法送达时界面长时间等待的问题，补齐启动/失败诊断，并在已有 Gemini 额度但缺少 Claude/GPT 共享窗口时显示明确提示。自动刷新暂停仍按安全设计保留；真实 `agy 1.3.1` 输出与现场额度未验证。发布记录与本地门禁证据见[候选记录](development/2026-10-10-v0.10.9-release.md)。
+**v0.10.9/build37 已公开：** 修复 Antigravity 单次登录回执无法送达时界面长时间等待的问题，补齐启动/失败诊断，并在已有 Gemini 额度但缺少 Claude/GPT 共享窗口时显示明确提示。自动刷新暂停仍按安全设计保留；真实 `agy 1.3.1` 输出与现场额度未验证。PR #61、双平台签名安装包、匿名下载校验及三个更新源均已验收，见[发布记录](development/2026-10-10-v0.10.9-release.md)。
 
 **v0.10.8/build36 历史发布：** Antigravity详情显示官方 `/usage` 中Claude/GPT五小时与每周共享额度，Gemini仍是主指标；暂停逻辑未变。PR #59及签名Release、三个更新源均已核验。此版本不解除周期刷新暂停，现场额度另需用户设备验收。详见[发布记录](development/2026-10-09-v0.10.8-release.md)。
 
