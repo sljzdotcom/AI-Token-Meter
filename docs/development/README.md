@@ -12,9 +12,9 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
-| [2026-10-10](2026-10-10-v0.10.9-release.md) | 0.10.9/build37 发布候选 | Antigravity回执失败即时报错与共享额度缺失提示；双平台发布门禁进行中 |
+| [2026-10-10](2026-10-10-v0.10.9-release.md) | 0.10.9/build37 双平台稳定发布 | PR #61、macOS/Windows 签名资产及三个匿名更新源验收完成；自动刷新暂停边界保留 |
 | [2026-10-10](2026-10-10-antigravity-login-startup-recovery.md) | Antigravity单次恢复启动与共享额度诊断 | 合成登录回执、FIFO与共享额度回归；真实CLI和账号现场未验证 |
-| [2026-10-09](2026-10-09-v0.10.8-release.md) | 0.10.8/build36 发布准备 | Antigravity 共享 Claude/GPT 额度详情；保留自动刷新暂停，尚未发布 |
+| [2026-10-09](2026-10-09-v0.10.8-release.md) | 0.10.8/build36 双平台稳定发布 | Antigravity共享Claude/GPT额度详情；签名资产与三个更新源匿名验收通过，自动刷新暂停边界保留 |
 | [2026-10-09](2026-10-09-antigravity-safe-auto-refresh.md) | Antigravity安全恢复边界 | 单次检查可更新缓存但不清持久暂停；真实CLI无浏览器边界未证实，周期自动恢复受环境限制；未发布 |
 | [2026-10-09](2026-10-09-antigravity-safe-refresh-review.md) | Antigravity安全恢复独立审查 | 审查生产采集路径、持久暂停与真实CLI浏览器边界；记录已修正发现和未关闭限制 |
 | [2026-10-09](2026-10-09-antigravity-shared-model-quota.md) | Antigravity Claude/GPT 共享额度详情 | 双平台详情读取同一官方 `/usage` 共享池；不改变 Gemini 摘要、提醒或独立 Provider 账号 |

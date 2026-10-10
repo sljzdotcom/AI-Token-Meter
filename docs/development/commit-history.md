@@ -4,7 +4,9 @@
 
 ## 当前版本边界
 
-- 当前公开稳定版：双平台`0.10.5`（macOS build`33`）；PR #56 合并`b4a4b45`、tag `v0.10.5`、发布 workflow `36883701586`、stable appcast `257a4c8`，详见[发布记录](2026-10-01-antigravity-status-and-diagnostics-release.md)。
+- 当前公开稳定版：双平台`0.10.9`（macOS build`37`）；PR #61 合并`1682b4be086327df609a66318a357a7b730403a2`、tag 对象`6161c3dc6d2369af1d255f5666dc8ad308c2bb58`、发布 workflow `38063497306`、稳定 appcast 提交`ce336e4bff924694c7137cf1c5c9bf2587e528ad`，详见[发布记录](2026-10-10-v0.10.9-release.md)。
+
+- 先前公开稳定版：双平台`0.10.5`（macOS build`33`）；PR #56 合并`b4a4b45`、tag `v0.10.5`、发布 workflow `36883701586`、stable appcast `257a4c8`，详见[发布记录](2026-10-01-antigravity-status-and-diagnostics-release.md)。
 - 上一公开稳定版：双平台`0.10.3`（macOS build`31`）；macOS Codex CLI路径识别的PR、合并/tag和appcast证据见[发布记录](2026-09-27-v0.10.3-release.md)。
 - 更早公开稳定版：双平台`0.8.2`（macOS build`25`）；密度设置即时调整已展开悬浮条、左右贴边暴露侧圆角和加强反向肩弧随PR #38合入`308b4f1`。
 - 更早公开稳定版：双平台`0.8.1`（macOS build`24`）；14pt内凹收起把手、镜像展开轮廓、底部Settings入口移除与第五个设置页签已随PR #36公开，稳定appcast为`8765303`。
@@ -27,6 +29,7 @@
 
 | 阶段 | 提交范围 | 主要结果 |
 | --- | --- | --- |
+| 0.10.9 Antigravity单次恢复修复与双平台稳定发布 | `058f732`、`1682b4b`、tag `6161c3d`、appcast `ce336e4` | PR #61及双平台CI通过；修复回执失败后的无限等待与共享额度缺失提示；签名安装资产、Sparkle/Tauri更新签名、SHA-256及三个匿名更新源均通过 |
 | 0.10.4 Antigravity刷新保护双平台稳定发布 | `c39b1e9`、`14da9f5`、`bd61489` | macOS额度采集异常后持久暂停，显式登录完成后仅恢复一轮 headless 检查并清理超时/取消进程组；PR #54、PR/main与Release workflow `36833521351` 双平台门禁通过，七项公开资产、两端签名、篡改拒绝和三个更新入口匿名核验通过 |
 | 0.10.5 Antigravity缓存状态与诊断双平台稳定发布 | `71e62d2`、`b4a4b45`、`257a4c8` | PR #56 双平台CI通过；tag与Release workflow `36883701586`；macOS Sparkle及Windows minisign资产、SHA-256、七项公开文件和三个更新入口匿名核验通过 |
 | 0.10.2 清透Liquid Glass稳定发布 | `d2ae00b`、`be26676`、`aa14262`、`766505f`、`4219595`、`576e7bd` | macOS普通Liquid Glass去除烟熏深色覆盖并保留12%冷蓝tint；Widget App Group签名校验改为精确等值比较；PR #50、main双平台CI、workflow `34857567679`、七项公开资产、三个更新源及PR #51发布证据双平台CI通过 |
