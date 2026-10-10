@@ -55,3 +55,17 @@
 - [x] `scripts/check-docs.sh` 通过（359 份 Markdown）；其后完整 Swift 测试通过（328 项，56 suites）。
 - [ ] 完成独立代码审查并处理所有 Critical/Important 发现；安全隔离审查已通过。
 - [ ] 更新开发记录与台账，完成 Git 状态/凭据隐私检查及提交；REQ-20261010-004 已明确授权本轮随后推送、PR、合并、双平台签名 Release 和更新源同步。
+
+## 任务 4：修复 macOS CI 的 watchdog 测试超时
+
+**文件：**
+- 修改：`Sources/AIMeterCore/Accounts/CLIAuthenticationScriptBuilder.swift`
+- 修改：`Tests/AIMeterCoreTests/CLIAuthenticationScriptBuilderTests.swift`
+- 更新：`docs/requirements-backlog.md`、对应开发记录及发布记录
+
+- [x] 读取完整失败日志并定位到忽略 TERM 的合成 CLI watchdog 用例；不扩大 CI 作业时限。
+- [x] 将 CLI 登录时限的起点改为受控进程组建立后；使用高精度计时，退出时清除进程组标记。
+- [x] 给合成脚本测试加有界等待和只针对本次测试子进程的超时清理。
+- [x] 认证脚本 16 项（含真实 watchdog 在 launch gate 持锁跨越10秒期限时回收 bootstrapper）、完整 Swift 主套件 633 项、刷新调度 3 项、PTY 18 项、合同、362 份文档和公开发布安全检查通过。
+- [x] 独立复审未发现发布阻塞项；记录了 gate 持续不可用超过1秒时以超时分类、优先保证进程回收的窄边界。
+- [ ] 推送修复后重跑 PR 双平台原生 CI，随后按 REQ-20261010-004 完成已授权发布。

@@ -72,7 +72,11 @@ struct CLIAuthenticationScriptBuilderTests {
         let cliLaunch = try #require(script.range(of: "/usr/bin/perl -MFcntl=:DEFAULT -MPOSIX -e"))
         #expect(watchdogLaunch.lowerBound < cliLaunch.lowerBound)
         #expect(script.contains("if [[ ! -r \"$status_file\" ]] || [[ \"$(<\"$status_file\")\" != ready ]]; then"))
-        #expect(script.contains("if ($status ne \"ready\") { kill \"USR2\", $parent_pid; exit 0; }"))
+        #expect(script.contains("my $read_status = sub"))
+        #expect(script.contains("my $finish_deadline = sub"))
+        #expect(script.contains("defined(fcntl($gate, F_SETLKW, $record_lock))"))
+        #expect(script.contains("defined(fcntl($gate, F_SETLK, $record_lock))"))
+        #expect(script.contains("\"$process_group_file\" \"$launch_gate\" &"))
         #expect(script.contains("watchdog_state=$(/bin/ps -o stat= -p \"$watchdog_pid\" 2>/dev/null)"))
         #expect(script.contains("\"$watchdog_state\" != *Z*"))
         #expect(script.contains("defined(fcntl($gate, F_SETLKW, $record_lock))"))
@@ -95,7 +99,7 @@ struct CLIAuthenticationScriptBuilderTests {
             in: root
         )
         let fakeWatcher = try writeExecutable(
-            "#!/bin/sh\nprintf started > '\(watcherStarted.path)'\nwhile [ \"$(cat \"$5\")\" = ready ]; do /bin/sleep 0.01; done\n/bin/kill -USR2 \"$3\"\n/bin/sleep 0.05\n/bin/touch \"$6\"\n",
+            "#!/bin/sh\nprintf started > '\(watcherStarted.path)'\nwhile [ \"$(cat \"$5\")\" = ready ]; do /bin/sleep 0.01; done\n/bin/kill -USR2 \"$3\"\n/bin/sleep 0.05\n/usr/bin/touch \"$6\"\n",
             named: "watchdog",
             in: root
         )
@@ -115,7 +119,7 @@ struct CLIAuthenticationScriptBuilderTests {
         try process.run()
         try writeToken("12345678-1234-1234-1234-123456789abc", to: tokenPipe)
 
-        let watcherDeadline = Date().addingTimeInterval(2)
+        let watcherDeadline = Date().addingTimeInterval(5)
         while !FileManager.default.fileExists(atPath: watcherStarted.path), Date() < watcherDeadline {
             Thread.sleep(forTimeInterval: 0.01)
         }
@@ -191,6 +195,65 @@ struct CLIAuthenticationScriptBuilderTests {
 
         #expect(process.terminationStatus == 130)
         #expect(!FileManager.default.fileExists(atPath: cliStarted.path))
+    }
+
+    @Test("Antigravity launch timeout reaps a bootstrapper blocked on its launch gate")
+    func geminiLaunchTimeoutReapsBlockedBootstrapper() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        let statusFile = tokenPipe.appendingPathExtension("status")
+        let launchGate = statusFile.appendingPathExtension("lock")
+        let cliStarted = root.appendingPathComponent("agy-started")
+        let gateLocked = root.appendingPathComponent("gate-locked")
+        let releaseGate = root.appendingPathComponent("release-gate")
+        try createTokenPipe(at: tokenPipe)
+        let gateHolder = isolatedProcess(
+            executable: URL(fileURLWithPath: "/usr/bin/perl"),
+            arguments: ["-e", "use Fcntl qw(:DEFAULT); my ($path, $locked, $release) = @ARGV; open my $gate, '+<', $path or die $!; my $record_lock = pack('qqiss', 0, 0, 0, F_WRLCK, SEEK_SET); defined(fcntl($gate, F_SETLKW, $record_lock)) or die $!; open my $ready, '>', $locked or die $!; close $ready; sleep 0.01 until -e $release; my $unlock = pack('qqiss', 0, 0, 0, F_UNLCK, SEEK_SET); defined(fcntl($gate, F_SETLK, $unlock)) or die $!;", launchGate.path, gateLocked.path, releaseGate.path],
+            in: root
+        )
+        try gateHolder.run()
+        defer {
+            try? Data().write(to: releaseGate)
+            if gateHolder.isRunning { gateHolder.terminate() }
+            gateHolder.waitUntilExit()
+        }
+        let holderDeadline = Date().addingTimeInterval(3)
+        while !FileManager.default.fileExists(atPath: gateLocked.path), Date() < holderDeadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        #expect(FileManager.default.fileExists(atPath: gateLocked.path))
+
+        let executable = try writeExecutable("#!/bin/sh\nprintf started > '\(cliStarted.path)'\nexit 0\n", named: "agy", in: root)
+        let fakeOpen = try writeExecutable("#!/bin/sh\nexit 0\n", named: "open", in: root)
+        let script = try CLIAuthenticationScriptBuilder().build(
+            provider: .gemini,
+            executableURL: executable,
+            completionTokenPipeURL: tokenPipe,
+            completionOpenExecutableURL: fakeOpen,
+            loginTimeoutSeconds: 1
+        )
+        let scriptURL = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: scriptURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptURL.path)
+        let process = isolatedProcess(executable: URL(fileURLWithPath: "/bin/zsh"), arguments: [scriptURL.path], in: root)
+        try process.run()
+        try writeToken("12345678-1234-1234-1234-123456789abc", to: tokenPipe)
+
+        // The real watchdog's startup limit is 10 seconds. Keep the launch gate
+        // held across that deadline to prove it never blocks forever on the gate.
+        let timeoutDeadline = Date().addingTimeInterval(16)
+        while process.isRunning && Date() < timeoutDeadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        #expect(!process.isRunning)
+        #expect(process.terminationStatus == 124)
+        try Data().write(to: releaseGate)
+        gateHolder.waitUntilExit()
+        Thread.sleep(forTimeInterval: 0.2)
+        #expect(!FileManager.default.fileExists(atPath: cliStarted.path))
+        #expect(!FileManager.default.fileExists(atPath: statusFile.path + ".process-group"))
     }
 
     @Test("Antigravity success receipt is emitted only after a zero-exit fake CLI")
@@ -364,6 +427,7 @@ struct CLIAuthenticationScriptBuilderTests {
         process.terminate()
         process.waitUntilExit()
         #expect(!FileManager.default.fileExists(atPath: scriptURL.path))
+        #expect(!FileManager.default.fileExists(atPath: tokenPipe.path + ".status.process-group"))
 
         let cleanupDeadline = Date().addingTimeInterval(2)
         while kill(childPID, 0) == 0, Date() < cleanupDeadline {
@@ -452,6 +516,31 @@ struct CLIAuthenticationScriptBuilderTests {
         let process = isolatedProcess(executable: URL(fileURLWithPath: "/bin/zsh"), arguments: [scriptURL.path], in: root)
         try process.run()
         try writeToken(token, to: tokenPipe)
+        let deadline = Date().addingTimeInterval(TimeInterval(timeoutSeconds + 18))
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        if process.isRunning {
+            let processGroupFile = URL(fileURLWithPath: tokenPipe.path + ".status.process-group")
+            if let text = try? String(contentsOf: processGroupFile, encoding: .utf8),
+               let processGroupID = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                _ = kill(-processGroupID, SIGKILL)
+            }
+            process.terminate()
+            let cleanupDeadline = Date().addingTimeInterval(2)
+            while process.isRunning && Date() < cleanupDeadline {
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            if process.isRunning {
+                _ = kill(process.processIdentifier, SIGKILL)
+            }
+            process.waitUntilExit()
+            throw NSError(
+                domain: "CLIAuthenticationScriptBuilderTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Generated Antigravity login script exceeded its test deadline."]
+            )
+        }
         process.waitUntilExit()
         #expect(!FileManager.default.fileExists(atPath: scriptURL.path))
     }

@@ -43,6 +43,8 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             status_file=\(shellQuote(completionStatusPath))
             launch_gate="${status_file}.lock"
             watchdog_ready_file="${status_file}.ready"
+            process_group_file="${status_file}.process-group"
+            rm -f -- "$process_group_file"
             rm -f -- "$watchdog_ready_file"
             trap 'rm -f -- "$watchdog_ready_file"' EXIT
             completion_token=""
@@ -166,6 +168,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               fi
               watchdog_pid=""
               rm -f -- "$watchdog_ready_file"
+              rm -f -- "$process_group_file"
             }
 
             cancel_login() {
@@ -194,7 +197,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             trap 'cancel_from_app' USR2
             trap 'cleanup_watchdog' EXIT
 
-            \(shellQuote(watchdogExecutableURL.path)) -e 'my ($parent_pid, $seconds, $status_file, $ready_file) = @ARGV; my $deadline = time + $seconds; while (time < $deadline) { exit 0 if getppid() != $parent_pid; my $status = ""; if (open my $status_handle, "<", $status_file) { $status = <$status_handle> // ""; close $status_handle; chomp $status; } if ($status ne "ready") { kill "USR2", $parent_pid; exit 0; } if (!-e $ready_file) { open my $ready_handle, ">", $ready_file or die "watchdog ready file unavailable"; close $ready_handle; } select undef, undef, undef, 0.1; } kill "USR1", $parent_pid if getppid() == $parent_pid;' "$$" \(loginTimeoutSeconds) "$status_file" "$watchdog_ready_file" &
+            \(shellQuote(watchdogExecutableURL.path)) -e 'use Fcntl qw(:DEFAULT); use Time::HiRes qw(time); my ($parent_pid, $seconds, $status_file, $ready_file, $process_group_file, $launch_gate) = @ARGV; my $read_status = sub { my $value = ""; if (open my $handle, "<", $status_file) { $value = <$handle> // ""; close $handle; chomp $value; } return $value; }; my $finish_deadline = sub { return if getppid() != $parent_pid; open my $gate, "+<", $launch_gate or do { kill "USR2", $parent_pid; return; }; my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET); my $locked = 0; for (1..20) { if (defined(fcntl($gate, F_SETLK, $record_lock))) { $locked = 1; last; } if ($read_status->() ne "ready") { close $gate; kill "USR2", $parent_pid; return; } select undef, undef, undef, 0.05; } if (!$locked) { close $gate; kill "USR1", $parent_pid if getppid() == $parent_pid; return; } if ($read_status->() ne "ready") { kill "USR2", $parent_pid; } else { kill "USR1", $parent_pid if getppid() == $parent_pid; } close $gate; }; my $launch_deadline = time + 10; while (1) { exit 0 if getppid() != $parent_pid; if ($read_status->() ne "ready") { kill "USR2", $parent_pid; exit 0; } if (!-e $ready_file) { open my $ready_handle, ">", $ready_file or die "watchdog ready file unavailable"; close $ready_handle; } last if -e $process_group_file; if (time >= $launch_deadline) { $finish_deadline->(); exit 0; } select undef, undef, undef, 0.1; } my $deadline = time + $seconds; while (time < $deadline) { exit 0 if getppid() != $parent_pid; if ($read_status->() ne "ready") { kill "USR2", $parent_pid; exit 0; } select undef, undef, undef, 0.1; } $finish_deadline->();' "$$" \(loginTimeoutSeconds) "$status_file" "$watchdog_ready_file" "$process_group_file" "$launch_gate" &
             watchdog_pid=$!
             watchdog_ready=0
             for _ in {1..50}; do
@@ -218,12 +221,20 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               exit 130
             fi
 
-            /usr/bin/perl -MFcntl=:DEFAULT -MPOSIX -e 'my ($gate_path, $status_path, @command) = @ARGV; open my $gate, "+<", $gate_path or exit 130; my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET); defined(fcntl($gate, F_SETLKW, $record_lock)) or exit 130; my $status = ""; if (open my $status_handle, "<", $status_path) { $status = <$status_handle> // ""; close $status_handle; chomp $status; } if ($status ne "ready") { if ($status eq "cancelled" && open my $ack, ">", $status_path) { print {$ack} "helper_cancelled\\n"; close $ack; } exit 130; } POSIX::setpgid(0, 0) == 0 or die "setpgid failed"; my $flags = fcntl($gate, F_GETFD, 0); defined($flags) && defined(fcntl($gate, F_SETFD, $flags | FD_CLOEXEC)) or die "gate close-on-exec failed"; exec @command or die $!;' "$launch_gate" "$status_file" \(shellQuote(executableURL.path)) &
+            /usr/bin/perl -MFcntl=:DEFAULT -MPOSIX -e 'my ($gate_path, $status_path, $process_group_file, @command) = @ARGV; open my $gate, "+<", $gate_path or exit 130; my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET); defined(fcntl($gate, F_SETLKW, $record_lock)) or exit 130; my $status = ""; if (open my $status_handle, "<", $status_path) { $status = <$status_handle> // ""; close $status_handle; chomp $status; } if ($status ne "ready") { if ($status eq "cancelled" && open my $ack, ">", $status_path) { print {$ack} "helper_cancelled\\n"; close $ack; } exit 130; } POSIX::setpgid(0, 0) == 0 or die "setpgid failed"; open my $group_handle, ">", $process_group_file or die "process group marker unavailable"; chmod 0600, $process_group_file or die "process group marker permissions unavailable"; print {$group_handle} "$$\\n" or die "process group marker write failed"; close $group_handle or die "process group marker close failed"; my $flags = fcntl($gate, F_GETFD, 0); defined($flags) && defined(fcntl($gate, F_SETFD, $flags | FD_CLOEXEC)) or die "gate close-on-exec failed"; exec @command or die $!;' "$launch_gate" "$status_file" "$process_group_file" \(shellQuote(executableURL.path)) &
             agy_pid=$!
 
-            wait "$agy_pid"
-            agy_exit_code=$?
-            agy_child_reaped=1
+            agy_exit_code=0
+            while (( ! timed_out )); do
+              agy_state=$(/bin/ps -o stat= -p "$agy_pid" 2>/dev/null)
+              if [[ -z "$agy_state" || "$agy_state" == *Z* ]]; then
+                wait "$agy_pid"
+                agy_exit_code=$?
+                agy_child_reaped=1
+                break
+              fi
+              /bin/sleep 0.1 || true
+            done
             # The CLI can exit while descendants remain in its process group.
             # Keep the watchdog alive until that whole owned group is gone.
             while owned_group_exists && (( ! timed_out )); do
