@@ -1,6 +1,6 @@
 # Antigravity 显式恢复自动刷新
 
-关联 REQ-20261026-003。当前状态：候选实现及独立源码审查完成，原生 GREEN、合并和发布尚未完成。规格与任务见[设计](../design/specifications/2026-10-26-antigravity-explicit-resume-design.md)及[计划](../design/implementation-plans/2026-10-26-antigravity-explicit-resume.md)。
+关联 REQ-20261026-003。当前状态：最终候选双平台检查及独立审查通过，已合并并发布0.10.11/build39；公开下载和三个更新源验收通过，设备现场恢复仍待确认。规格与任务见[设计](../design/specifications/2026-10-26-antigravity-explicit-resume-design.md)及[计划](../design/implementation-plans/2026-10-26-antigravity-explicit-resume.md)。
 
 ## 问题与改动
 
@@ -12,7 +12,7 @@
 
 - 检查点 `8568ca9` 的 [macOS CI 40278340007](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40278340007) 编译成功；主组执行636项、104个suite，出现5条预期新断言失败，证明拒绝型契约尚不提供恢复能力。后续独立组和工具因主组失败未运行，不计为通过。
 - 同一检查点的 [Windows CI 40278340030](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40278340030) 成功。
-- Core 候选独立源码审查通过，仍待原生验证。App 审查发现两个并发显示问题：账户刷新遗漏同步动作状态，及无关刷新先发布时误丢弃仍有效的忙状态能力；已修正并补充真实协调器的受控回归，独立复审通过；新增集成夹具的双窗口额度契约也已修正。
+- Core 候选独立源码审查通过，后续最终候选原生验证亦已通过。App 审查发现两个并发显示问题：账户刷新遗漏同步动作状态，及无关刷新先发布时误丢弃仍有效的忙状态能力；已修正并补充真实协调器的受控回归，独立复审通过；新增集成夹具的双窗口额度契约也已修正。
 - 普通 CI 保留全部既有测试分组和限制；新增单独串行的窗口验证步骤，显式启用既有 SettingsLocalizationCoverageTests，以实际验证两处恢复控件及三语言。不能把默认跳过的窗口测试记为已通过。
 
 ## 验收边界
@@ -24,3 +24,9 @@
 候选 `8136355` 的 [macOS CI 40288054503](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40288054503) 编译成功，普通五组661/3/18/50/16，共748项通过；合同、发布工具、368份文档及公开安全检查通过。窗口套件实际运行8项，新增恢复操作及提示两项通过；旧 Claude/Codex 按钮测试有3条失败，不能计为整个CI通过。
 
 失败原因是旧测试把 checking 状态的三语言预期写成 Sign in；产品既有动作模型在基线已返回 Checking account…。修正仅更新这一行预期并加强状态、标题与辅助功能诊断；保留 Sign in 状态、精确按钮数量、禁用断言、原等待和完整套件。准备0.10.11/build39元数据与说明后，仍须对最终候选重新通过完整检查与独审再发布。
+
+## 最终候选与合并
+
+`1097353` 的 [macOS CI 40289834588](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40289834588) 完整通过：748项常规测试和选定窗口套件全部8项，零issue；合同、369份文档和公开安全检查通过。[Windows CI 40289834585](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40289834585) 的135项前端、275项Rust、25项密度辅助测试、Edge实际检查、debug NSIS及PE GUI子系统检查通过。其他环境门控测试保持未运行边界。
+
+最终源码、集成、实际结果和macOS包的独立审查无未解严重或重要发现。[PR #65](https://github.com/sljzdotcom/AI-Token-Meter/pull/65)合并为`5830da5f0e92d951f9de0337d01685071f2addcb`，树与已审查候选完全相同，174项构建输入逐个匹配。合并后的正常[macOS检查40292087048](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40292087048)及[Windows检查40292087084](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40292087084)亦通过。正式发布与公开下载结果见[0.10.11发布记录](2026-10-26-v0.10.11-release.md)。
