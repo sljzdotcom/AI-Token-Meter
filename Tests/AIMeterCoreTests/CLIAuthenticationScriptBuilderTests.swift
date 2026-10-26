@@ -687,6 +687,15 @@ struct CLIAuthenticationScriptBuilderTests {
         let scriptURL = root.appendingPathComponent("login.command")
         try Data(script.utf8).write(to: scriptURL)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptURL.path)
+        var markerObservation: [String: Any] = [
+            "called": false, "cancelWriteCompleted": false, "releaseWriteCompleted": false, "holderWaitCompleted": false,
+            "guardianExistsBeforeCancel": NSNull(), "readyExistsBeforeCancel": NSNull(), "execStageBeforeCancel": "notObserved"
+        ]
+        var diagnosticResult: IsolatedPTYLoginResult?
+        defer {
+            emitCancelGateDiagnostic(markerObservation: markerObservation, result: diagnosticResult,
+                                     statusFile: statusFile, cliStarted: cliStarted)
+        }
         let result = try runIsolatedPTYLogin(
             scriptURL: scriptURL,
             tokenPipe: tokenPipe,
@@ -695,12 +704,22 @@ struct CLIAuthenticationScriptBuilderTests {
             inputAfterOutput: "handoff received.",
             cliStartRequired: false,
             onMarker: { _ in
+                markerObservation["called"] = true
+                // Non-atomic samples immediately before the original cancellation actions.
+                markerObservation["guardianExistsBeforeCancel"] = FileManager.default.fileExists(atPath: statusFile.appendingPathExtension("guardian").path)
+                markerObservation["readyExistsBeforeCancel"] = FileManager.default.fileExists(atPath: statusFile.appendingPathExtension("ready").path)
+                markerObservation["execStageBeforeCancel"] = cancelGateDiagnosticValue(
+                    statusFile.appendingPathExtension("exec"), allowedValues: Self.cancelGateExecStages)
                 try Data("cancelled\n".utf8).write(to: statusFile.appendingPathExtension("cancel"), options: .atomic)
+                markerObservation["cancelWriteCompleted"] = true
                 try Data().write(to: releaseGate)
+                markerObservation["releaseWriteCompleted"] = true
                 gateHolder.waitUntilExit()
+                markerObservation["holderWaitCompleted"] = true
             },
             in: root
         )
+        diagnosticResult = result
         #expect(result.cleanupSucceeded)
         #expect(result.terminationStatus == 130)
         #expect(!FileManager.default.fileExists(atPath: cliStarted.path))
@@ -1884,6 +1903,76 @@ struct CLIAuthenticationScriptBuilderTests {
             "LC_ALL": "C",
         ]
         return process
+    }
+
+    private static let cancelGateExecStages: Set<String> = [
+        "pending", "pre_exec_failed", "pre_exec_cancelled", "launch_gate_timeout", "exec_confirmed", "exec_failed", "launch_indeterminate"
+    ]
+
+    // Only this synthetic cancel-gate fixture uses these fixed-value diagnostics.
+    private func cancelGateDiagnosticValue(_ url: URL, allowedValues: Set<String>) -> String {
+        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW) }
+        guard descriptor >= 0 else {
+            let openError = errno
+            return openError == ENOENT ? "missing" : "unreadable"
+        }
+        defer { Darwin.close(descriptor) }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0 else { return "unreadable" }
+        guard info.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG), info.st_uid == getuid(), info.st_nlink == 1 else {
+            return "rejectedFile"
+        }
+        guard info.st_size >= 0, info.st_size <= 128 else { return "oversized" }
+        var bytes = [UInt8](repeating: 0, count: 129)
+        let count = Darwin.read(descriptor, &bytes, bytes.count)
+        guard count >= 0 else { return "unreadable" }
+        guard count <= 128 else { return "oversized" }
+        guard let value = String(bytes: bytes.prefix(count), encoding: .utf8) else { return "unknown" }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return allowedValues.contains(trimmed) ? trimmed : "unknown"
+    }
+
+    private func emitCancelGateDiagnostic(markerObservation: [String: Any], result: IsolatedPTYLoginResult?,
+                                          statusFile: URL, cliStarted: URL) {
+        let statusValues: Set<String> = [
+            "ready", "helper_cancelled", "helper_stop_unconfirmed", "process_state_unavailable", "watchdog_start_failed",
+            "missing_pipe", "pipe_open_failed", "handoff_timeout", "invalid_handoff", "callback_failed",
+            "guardian_identity_mismatch", "terminal_foreground_failed", "terminal_foreground_restore_failed"
+        ]
+        let output = result?.terminalOutput ?? ""
+        let prefix = String(decoding: output.utf8.prefix(8192), as: UTF8.self)
+        let messages: [(String, String)] = [
+            ("watchdogStartFailed", "could not start the Antigravity login watchdog"),
+            ("supervisorStateUnknown", "could not confirm the Antigravity process state"),
+            ("cleanupUnconfirmed", "process cleanup could not be confirmed"),
+            ("ownedCleanupUnconfirmed", "Antigravity cleanup is unconfirmed"),
+            ("groupMayBeRunning", "Antigravity process group may still be running"),
+            ("foregroundFailed", "could not give the Antigravity CLI the Terminal foreground"),
+            ("foregroundRestoreFailed", "could not restore the Terminal foreground"),
+            ("cliExecFailed", "Antigravity CLI could not be started"),
+            ("launchIndeterminate", "Antigravity CLI startup could not be confirmed"),
+            ("callbackFailed", "could not send the login result back to the app")
+        ]
+        var hits: [String: Bool] = [:]
+        for (key, message) in messages { hits[key] = prefix.contains(message) }
+        let record: [String: Any] = [
+            "schema": "cli-cancel-gate-diagnostic-v1", "acceptance": false,
+            "marker": markerObservation, "resultAvailable": result != nil,
+            "cleanupSucceeded": result.map { $0.cleanupSucceeded as Any } ?? NSNull(),
+            "terminationStatus": result.flatMap { $0.terminationStatus }.map { $0 as Any } ?? NSNull(),
+            "cliMarkerExistsAtEnd": FileManager.default.fileExists(atPath: cliStarted.path),
+            "statusAtEnd": cancelGateDiagnosticValue(statusFile, allowedValues: statusValues),
+            "execStageAtEnd": cancelGateDiagnosticValue(statusFile.appendingPathExtension("exec"), allowedValues: Self.cancelGateExecStages),
+            "terminalPrefixLimit": 8192, "terminalPrefixTruncated": output.utf8.count > 8192,
+            "terminalMessageHits": hits, "finalStateIsNotFirstCause": true
+        ]
+        let marker = "CLI_CANCEL_GATE_DIAGNOSTIC "
+        if let data = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]),
+           data.count <= 4 * 1024, let text = String(data: data, encoding: .utf8) {
+            print(marker + text)
+        } else {
+            print(marker + "{\"schema\":\"cli-cancel-gate-diagnostic-v1\",\"acceptance\":false,\"serializationOrBudgetError\":true}")
+        }
     }
 
     private struct IsolatedPTYLoginResult {
