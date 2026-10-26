@@ -1151,6 +1151,9 @@ struct CLIAuthenticationScriptBuilderTests {
             in: root
         )
         #expect(result.cleanupSucceeded, "PTY transcript: \(result.terminalOutput)")
+        if !result.cleanupSucceeded || result.terminationStatus == nil {
+            diagnoseSyntheticLoginFailure("foreground-\(failureMode)", result: result, in: root)
+        }
         let wrapperStatus = try #require(result.terminationStatus)
         #expect(wrapperStatus != 0)
         #expect(FileManager.default.fileExists(atPath: queryMarker.path))
@@ -1159,8 +1162,20 @@ struct CLIAuthenticationScriptBuilderTests {
         #expect(attempts.split(separator: "\n").count == (failureMode == "continue-failed" ? 1 : 0))
         let callback = (try? String(contentsOf: callbackLog, encoding: .utf8)) ?? ""
         #expect(!callback.contains("result=success"))
-        let finalStatus = try String(contentsOf: statusFile, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalStatus: String
+        do {
+            finalStatus = try String(contentsOf: statusFile, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            diagnoseSyntheticLoginFailure("foreground-\(failureMode)", result: result, in: root)
+            throw error
+        }
+        let expectedStatus = failureMode == "cancel-wait"
+            ? ["helper_cancelled", "helper_stop_unconfirmed"].contains(finalStatus)
+            : finalStatus == "helper_stop_unconfirmed"
+        if !expectedStatus || (failureMode != "cancel-wait" && wrapperStatus != 127) {
+            diagnoseSyntheticLoginFailure("foreground-\(failureMode)", result: result, in: root)
+        }
         if failureMode == "cancel-wait" {
             #expect(["helper_cancelled", "helper_stop_unconfirmed"].contains(finalStatus))
         } else {
@@ -1382,7 +1397,7 @@ struct CLIAuthenticationScriptBuilderTests {
         )
 
         let startedAt = Date()
-        try runGeminiScript(
+        let result = try runGeminiScript(
             executable: executable,
             fakeOpen: fakeOpen,
             timeoutSeconds: 2,
@@ -1398,7 +1413,16 @@ struct CLIAuthenticationScriptBuilderTests {
         let leaderPID = try #require(ownershipFields.first.flatMap { pid_t($0) })
         let guardianPID = try #require(ownershipFields.dropFirst().first.flatMap { pid_t($0) })
         let leaderProcessGroupID = try #require(ownershipFields.dropFirst(2).first.flatMap { pid_t($0) })
-        let callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        let callback: String
+        do {
+            callback = try String(contentsOf: callbackLog, encoding: .utf8)
+        } catch {
+            diagnoseSyntheticLoginFailure("watchdog-descendants", result: result, in: root)
+            throw error
+        }
+        if !callback.contains("result=timeout") {
+            diagnoseSyntheticLoginFailure("watchdog-descendants", result: result, in: root)
+        }
 
         #expect(elapsed < 5)
         #expect(callback.contains("result=timeout"))
@@ -1520,6 +1544,7 @@ struct CLIAuthenticationScriptBuilderTests {
         }
     }
 
+    @discardableResult
     private func runGeminiScript(
         executable: URL,
         fakeOpen: URL,
@@ -1527,7 +1552,7 @@ struct CLIAuthenticationScriptBuilderTests {
         tokenPipe: URL,
         additionalTrackedProcessIDFiles: [URL] = [],
         in root: URL
-    ) throws {
+    ) throws -> IsolatedPTYLoginResult {
         let trackedCLIPIDFile = root.appendingPathComponent("generated-agy.pid")
         let trackedWatchdogPIDFile = root.appendingPathComponent("generated-watchdog.pid")
         let trackedExecutable = try writeExecutable(
@@ -1566,6 +1591,75 @@ struct CLIAuthenticationScriptBuilderTests {
             )
         }
         #expect(!FileManager.default.fileExists(atPath: scriptURL.path))
+        return result
+    }
+
+    /// Synthetic fixture evidence only: never print callback URLs, nonce/token
+    /// contents, arbitrary file values, or raw terminal output.
+    private func diagnoseSyntheticLoginFailure(_ context: String, result: IsolatedPTYLoginResult, in root: URL) {
+        let contexts: Set<String> = ["watchdog-descendants", "foreground-query-failed",
+                                     "foreground-foreground-missing", "foreground-continue-failed", "foreground-cancel-wait"]
+        let context = contexts.contains(context) ? context : "unrecognized"
+        preserveTemporaryDirectory(root, reason: "Synthetic login diagnostic: \(context)")
+        let statuses: Set<String> = ["ready", "process_state_unavailable", "helper_stop_unconfirmed",
+                                    "helper_cancelled", "terminal_foreground_failed", "terminal_foreground_restore_failed",
+                                    "callback_failed", "watchdog_start_failed", "launch_gate_timeout"]
+        let execStates: Set<String> = ["exec_confirmed", "exec_failed", "launch_indeterminate",
+                                      "pre_exec_failed", "pre_exec_cancelled", "launch_gate_timeout"]
+        let files: [(String, Set<String>?)] = [
+            ("completion.token.status", statuses), ("completion.token.status.exec", execStates),
+            ("completion.token.status.cancel", ["pending", "cancelled"]), ("cancel.request", ["pending", "cancelled"]),
+            ("callbacks.txt", nil), ("foreground-query", nil), ("continue-attempts", nil),
+            ("agy.pid", nil), ("agy-child.pid", nil), ("agy-leader-ownership.txt", nil),
+            ("generated-agy.pid", nil), ("generated-watchdog.pid", nil),
+            ("completion.token.status.guardian", nil), ("completion.token.status.guardian-stop", nil),
+            ("completion.token.status.process-group", nil), ("completion.token.status.ready", nil)
+        ]
+        let fileEvidence = files.map { name, values in
+            "\(name){\(syntheticFileEvidence(root.appendingPathComponent(name), allowedValues: values))}"
+        }.joined(separator: " ")
+        let terminalPrefix = String(decoding: result.terminalOutput.utf8.prefix(8192), as: UTF8.self)
+        let markers: [(String, String)] = [
+            ("helperStarted", "Antigravity login helper started"), ("handoffReceived", "handoff received."),
+            ("cliStarted", "CLI process started"), ("cleanupUnconfirmed", "cleanup could not be confirmed"),
+            ("processStateUnknown", "could not confirm the Antigravity process state"),
+            ("timeoutStopped", "timed out and its login process was stopped"),
+            ("timeoutUnconfirmed", "timed out; process cleanup is unconfirmed"),
+            ("foregroundTransferFailed", "could not give the Antigravity CLI the Terminal foreground"),
+            ("foregroundRestoreFailed", "could not restore the Terminal foreground"),
+            ("callbackFailed", "could not send the login result back to the app")
+        ]
+        let markerIDs = markers.filter { terminalPrefix.contains($0.1) }.map(\.0)
+        let exitStatus = result.terminationStatus.map(String.init) ?? "unknown"
+        print("SYNTHETIC_LOGIN_DIAGNOSTIC context=\(context) cleanup=\(result.cleanupSucceeded) exit=\(exitStatus) terminalBytes=\(result.terminalOutput.utf8.count) terminalPrefixTruncated=\(result.terminalOutput.utf8.count > 8192) terminalMarkers=\(markerIDs) processQueryCause=unobserved \(fileEvidence)")
+    }
+
+    private func syntheticFileEvidence(_ url: URL, allowedValues: Set<String>?) -> String {
+        var info = stat()
+        guard url.path.withCString({ Darwin.lstat($0, &info) }) == 0 else { return "unavailable errno=\(errno)" }
+        guard info.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG), info.st_uid == getuid(), info.st_nlink == 1 else {
+            return "rejected-file-kind-or-owner"
+        }
+        let metadata = "regular bytes=\(info.st_size)"
+        // Most markers, especially callback/guardian files, are metadata-only.
+        guard let allowedValues else { return metadata }
+        guard info.st_size >= 0, info.st_size <= 128 else { return "\(metadata) value=oversized" }
+        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW) }
+        guard descriptor >= 0 else { return "\(metadata) read=unavailable errno=\(errno)" }
+        defer { Darwin.close(descriptor) }
+        var opened = stat()
+        guard fstat(descriptor, &opened) == 0, opened.st_dev == info.st_dev, opened.st_ino == info.st_ino,
+              opened.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG), opened.st_uid == getuid(), opened.st_nlink == 1 else {
+            return "\(metadata) read=identity-unconfirmed"
+        }
+        var bytes = [UInt8](repeating: 0, count: 129)
+        let count = Darwin.read(descriptor, &bytes, bytes.count)
+        guard count >= 0 else { return "\(metadata) read=failed errno=\(errno)" }
+        guard count <= 128, let value = String(bytes: bytes.prefix(count), encoding: .utf8) else {
+            return "\(metadata) value=unrecognized"
+        }
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(metadata) value=\(allowedValues.contains(value) ? value : "unrecognized")"
     }
 
     @Test("Timeout cleanup rejects malformed and unrelated process group markers")
@@ -2147,8 +2241,10 @@ struct CLIAuthenticationScriptBuilderTests {
     }
 
     private func observeTrackedChild(pid: pid_t, in root: URL) -> TrackedProcessObservation {
-        guard Darwin.kill(pid, 0) == 0 else {
-            let probeErrno = errno
+        let beforeQueryResult = Darwin.kill(pid, 0)
+        let beforeQueryErrno = beforeQueryResult == 0 ? 0 : errno
+        guard beforeQueryResult == 0 else {
+            let probeErrno = beforeQueryErrno
             if probeErrno != ESRCH { print("TRACKED_CHILD_PROBE_UNKNOWN pid=\(pid) errno=\(probeErrno)") }
             return probeErrno == ESRCH ? .gone : .unknown
         }
@@ -2157,7 +2253,15 @@ struct CLIAuthenticationScriptBuilderTests {
             executable: URL(fileURLWithPath: "/bin/ps"), arguments: ["-o", "stat=", "-p", String(pid)], in: root
         )
         guard let output = queryOutput, output.exitStatus == 0 else {
-            print("TRACKED_CHILD_QUERY_UNKNOWN pid=\(pid) query=\(String(reflecting: queryOutput)) elapsed=\(queryStarted.duration(to: .now))")
+            let elapsed = queryStarted.duration(to: .now)
+            let afterQueryResult = Darwin.kill(pid, 0)
+            let afterQueryErrno = afterQueryResult == 0 ? 0 : errno
+            let completion = queryOutput == nil ? "unknown-lifecycle" : "complete-reaped-and-drained"
+            let exitStatus = queryOutput.map { String($0.exitStatus) } ?? "unknown"
+            let outputBytes = queryOutput.map { String($0.text.utf8.count) } ?? "unknown"
+            let emptyOutput = queryOutput.map { String($0.text.isEmpty) } ?? "unknown"
+            let afterKernelAbsent = afterQueryResult != 0 && afterQueryErrno == ESRCH
+            print("TRACKED_CHILD_QUERY_UNKNOWN pid=\(pid) beforeResult=\(beforeQueryResult) beforeErrno=\(beforeQueryErrno) completion=\(completion) exit=\(exitStatus) outputBytes=\(outputBytes) emptyOutput=\(emptyOutput) elapsed=\(elapsed) afterResult=\(afterQueryResult) afterErrno=\(afterQueryErrno) afterKernelAbsent=\(afterKernelAbsent) classification=unknown")
             preserveTemporaryDirectory(root, reason: "Tracked child query unknown")
             return .unknown
         }
