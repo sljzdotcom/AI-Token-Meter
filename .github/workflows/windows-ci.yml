@@ -55,7 +55,7 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test Windows runtime
         working-directory: windows/src-tauri
-        run: cargo test --locked
+        run: cargo test --locked --no-fail-fast
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug

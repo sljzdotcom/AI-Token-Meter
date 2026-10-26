@@ -104,3 +104,48 @@ it.each(locales)("fixed storage failure redraws while retaining the successful t
   expect(container.querySelector("time")).toHaveAttribute("datetime", current.snapshot!.fetchedAt)
   expect(onAction).not.toHaveBeenCalled()
 })
+
+
+it("an action rejection displays a fixed message without exposing the rejection text", async () => {
+  const response = deferred<Code0ActionResult>()
+  const onAction = vi.fn((_action: Code0Action) => response.promise)
+  render(<SettingsCode0 session={code0Session()} onAction={onAction} />)
+  fireEvent.click(screen.getByRole("button", {name: "Sync Code0"}))
+  await act(async () => { response.reject(new Error("controlled-private-error")); await Promise.resolve() })
+  expect(screen.getByText("The Code0 action could not start.")).toBeVisible()
+  expect(screen.queryByText("controlled-private-error")).not.toBeInTheDocument()
+  expect(onAction.mock.calls).toEqual([["syncNow"]])
+})
+
+it("a late busy response cannot overwrite a newer native failure publication", async () => {
+  const response = deferred<Code0ActionResult>()
+  const onAction = vi.fn((_action: Code0Action) => response.promise)
+  const {rerender} = render(<SettingsCode0 session={code0Session()} onAction={onAction} />)
+  fireEvent.click(screen.getByRole("button", {name: "Sync Code0"}))
+  rerender(<SettingsCode0 session={code0Session({revision: 2, failure: "storageFailed"})} onAction={onAction} />)
+  await act(async () => { response.resolve({kind: "busy"}); await response.promise })
+  expect(screen.getByText("Code0 storage could not be confirmed. Automatic sync is paused.")).toBeVisible()
+  expect(screen.queryByText("Code0 is busy. Wait for the current operation to finish.")).not.toBeInTheDocument()
+  expect(onAction.mock.calls).toEqual([["syncNow"]])
+})
+
+it("a retired action handler cannot keep new controls busy or replace their result", async () => {
+  const response = deferred<Code0ActionResult>()
+  const oldAction = vi.fn((_action: Code0Action) => response.promise)
+  const nextAction = vi.fn(async (_action: Code0Action): Promise<Code0ActionResult> => ({kind: "denied"}))
+  const current = code0Session()
+  const {rerender} = render(<SettingsCode0 session={current} onAction={oldAction} />)
+  try {
+    fireEvent.click(screen.getByRole("button", {name: "Sync Code0"}))
+    rerender(<SettingsCode0 session={current} onAction={nextAction} />)
+    expect(screen.getByRole("button", {name: "Sync Code0"})).toBeEnabled()
+    await act(async () => { fireEvent.click(screen.getByRole("button", {name: "Sync Code0"})); await Promise.resolve() })
+    await act(async () => { response.resolve({kind: "busy"}); await response.promise })
+    expect(screen.getByText("The Code0 action could not start.")).toBeVisible()
+    expect(screen.queryByText("Code0 is busy. Wait for the current operation to finish.")).not.toBeInTheDocument()
+    expect(oldAction.mock.calls).toEqual([["syncNow"]])
+    expect(nextAction.mock.calls).toEqual([["syncNow"]])
+  } finally {
+    await act(async () => { response.resolve({kind: "busy"}); await response.promise })
+  }
+})

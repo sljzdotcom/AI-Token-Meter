@@ -82,3 +82,54 @@ it("listener disposal and late messages cannot perform a website action", async 
   expect(fixture.stop).toHaveBeenCalledOnce()
   expect(fixture.bridge.perform).not.toHaveBeenCalled()
 })
+
+
+it("accepts revision zero as the first cached publication", async () => {
+  const cached = code0Session({revision: 0})
+  const fixture = code0BridgeFixture(Promise.resolve(cached))
+  const {result} = renderHook(() => useCode0Session(fixture.bridge))
+  await waitFor(() => expect(result.current).toEqual(cached))
+})
+
+it("bridge replacement starts cold and ignores the retired runtime's late read", async () => {
+  const oldRead = deferred<unknown>()
+  const old = code0BridgeFixture(oldRead.promise)
+  const nextRead = deferred<unknown>()
+  const next = code0BridgeFixture(nextRead.promise)
+  const {result, rerender} = renderHook(({bridge}) => useCode0Session(bridge), {initialProps: {bridge: old.bridge}})
+  await act(async () => { await Promise.resolve() })
+  act(() => old.emit(code0Session({revision: 7})))
+  expect(result.current.revision).toBe(7)
+  rerender({bridge: next.bridge})
+  expect(result.current.snapshot).toBeNull()
+  expect(result.current.state).toBe("disconnected")
+  const current = code0Session({revision: 0, snapshot: code0Snapshot(8, 3)})
+  await act(async () => { nextRead.resolve(current); await nextRead.promise })
+  expect(result.current).toEqual(current)
+  await act(async () => { oldRead.resolve(code0Session({revision: 99})); await oldRead.promise })
+  expect(result.current).toEqual(current)
+  expect(old.stop).toHaveBeenCalledOnce()
+  expect(next.bridge.perform).not.toHaveBeenCalled()
+})
+
+it("an asynchronous listener acknowledgement after unmount is released without starting a read", async () => {
+  const registration = deferred<() => void>()
+  const fixture = code0BridgeFixture()
+  fixture.bridge.onUpdated = () => registration.promise
+  const {unmount} = renderHook(() => useCode0Session(fixture.bridge))
+  unmount()
+  await act(async () => { registration.resolve(fixture.stop); await registration.promise })
+  expect(fixture.stop).toHaveBeenCalledOnce()
+  expect(fixture.bridge.read).not.toHaveBeenCalled()
+  expect(fixture.bridge.perform).not.toHaveBeenCalled()
+})
+
+it("an invalid high-revision event cannot poison the next valid publication", async () => {
+  const fixture = code0BridgeFixture()
+  const {result} = renderHook(() => useCode0Session(fixture.bridge))
+  await act(async () => { await Promise.resolve() })
+  act(() => fixture.emit({...code0Session({revision: 999}), epoch: "discard"}))
+  const current = code0Session({revision: 2, snapshot: code0Snapshot(8, 3)})
+  act(() => fixture.emit(current))
+  expect(result.current).toEqual(current)
+})

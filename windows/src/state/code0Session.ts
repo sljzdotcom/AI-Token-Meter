@@ -60,16 +60,75 @@ export const emptyCode0Session: Code0SessionDTO = Object.freeze({
   isAutomaticallySyncing: false, retryAfterSeconds: null, snapshot: null,
 } as const)
 
-// First RED contract only. No Tauri command, event channel or website operation
-// is installed until the later reviewed runtime integration checkpoint.
+// No Tauri command, event channel or website operation is installed here.
+// The reviewed runtime adapter is a separate integration checkpoint.
 export const disabledCode0SessionBridge: Code0SessionBridge = {
   async read() { return emptyCode0Session },
   async onUpdated() { return () => {} },
   async perform() { return {kind: "denied"} },
 }
 
-export function decodeCode0Session(_value: unknown): Code0SessionDTO | null {
-  // Deny-only scaffold; valid projections must produce behavioral RED, not a
-  // missing type/import error. Unknown fields and failures never reach the UI.
-  return null
+const sessionKeys = ["revision", "state", "failure", "isAutomaticallySyncing", "retryAfterSeconds", "snapshot"] as const
+const snapshotKeys = ["schemaVersion", "providerId", "displayName", "status", "usedRatio", "primaryMetric", "secondaryMetric", "fetchedAt", "staleAfterSeconds", "sourceVersion"] as const
+const metricKeys = ["label", "current", "limit", "unit", "kind", "resetAt", "resetDescription"] as const
+const states = new Set<string>(code0SessionStates)
+const failures = new Set<string>(code0SessionFailures)
+
+export function decodeCode0Session(value: unknown): Code0SessionDTO | null {
+  try {
+    if (!exactRecord(value, sessionKeys) || !safeUnsignedInteger(value.revision)
+      || typeof value.state !== "string" || !states.has(value.state)
+      || !(value.failure === null || typeof value.failure === "string" && failures.has(value.failure))
+      || typeof value.isAutomaticallySyncing !== "boolean"
+      || !(value.retryAfterSeconds === null || safeUnsignedInteger(value.retryAfterSeconds) && value.retryAfterSeconds <= 300)) return null
+    const snapshot = value.snapshot === null ? null : decodeSnapshot(value.snapshot)
+    if (value.snapshot !== null && snapshot === null) return null
+    return Object.freeze({
+      revision: value.revision, state: value.state as Code0SessionState,
+      failure: value.failure as Code0SessionFailure | null,
+      isAutomaticallySyncing: value.isAutomaticallySyncing,
+      retryAfterSeconds: value.retryAfterSeconds, snapshot,
+    })
+  } catch { return null }
+}
+
+function decodeSnapshot(value: unknown): Code0Snapshot | null {
+  if (!exactRecord(value, snapshotKeys) || value.schemaVersion !== 1 || value.providerId !== "code0"
+    || value.displayName !== "Code0" || (value.status !== "fresh" && value.status !== "cached")
+    || value.usedRatio !== null || value.staleAfterSeconds !== 300 || value.sourceVersion !== "website"
+    || typeof value.fetchedAt !== "string" || !validNativeTime(value.fetchedAt)) return null
+  const primaryMetric = decodeMetric(value.primaryMetric, "Balance", "balance")
+  const secondaryMetric = decodeMetric(value.secondaryMetric, "Cumulative usage", "cumulativeUsage")
+  if (!primaryMetric || !secondaryMetric) return null
+  return Object.freeze({
+    schemaVersion: 1, providerId: "code0", displayName: "Code0", status: value.status, usedRatio: null,
+    primaryMetric, secondaryMetric, fetchedAt: value.fetchedAt, staleAfterSeconds: 300, sourceVersion: "website",
+  } as const)
+}
+
+function decodeMetric<Label extends string, Kind extends string>(value: unknown, label: Label, kind: Kind): Code0Metric<Label, Kind> | null {
+  if (!exactRecord(value, metricKeys) || value.label !== label || value.kind !== kind
+    || value.unit !== "siteCredits" || value.limit !== null || value.resetAt !== null || value.resetDescription !== null
+    || typeof value.current !== "number" || !Number.isFinite(value.current) || value.current < 0) return null
+  return Object.freeze({label, current: value.current, limit: null, unit: "siteCredits", kind, resetAt: null, resetDescription: null} as const)
+}
+
+function safeUnsignedInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+}
+
+function exactRecord(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) return false
+  const actual = Reflect.ownKeys(value)
+  return actual.length === keys.length && keys.every(key => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)
+    return descriptor !== undefined && "value" in descriptor
+  })
+}
+
+function validNativeTime(value: string) {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+    && Number.isFinite(Date.parse(value))
 }

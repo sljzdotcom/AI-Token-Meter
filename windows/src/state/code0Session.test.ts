@@ -53,3 +53,40 @@ it("default bridge is inert and denies all explicit actions", async () => {
   const stop = await disabledCode0SessionBridge.onUpdated(() => { throw new Error("No implicit event") })
   stop()
 })
+
+
+it("clones and freezes every accepted numeric projection so source mutation cannot rewrite it", () => {
+  const source = {...code0Session(), snapshot: {...code0Snapshot(), primaryMetric: {...code0Snapshot().primaryMetric}}}
+  const accepted = decodeCode0Session(source)
+  expect(accepted).not.toBeNull()
+  expect(accepted).not.toBe(source)
+  expect(accepted?.snapshot).not.toBe(source.snapshot)
+  expect(Object.isFrozen(accepted)).toBe(true)
+  expect(Object.isFrozen(accepted?.snapshot)).toBe(true)
+  expect(Object.isFrozen(accepted?.snapshot?.primaryMetric)).toBe(true)
+  expect(Object.isFrozen(accepted?.snapshot?.secondaryMetric)).toBe(true)
+  source.revision = 99
+  source.snapshot.primaryMetric.current = 99
+  expect(accepted?.revision).toBe(1)
+  expect(accepted?.snapshot?.primaryMetric.current).toBe(2.5)
+})
+
+it.each([0, Number.MAX_SAFE_INTEGER])("accepts safe revision boundary %s without coercion", revision => {
+  const value = code0Session({revision})
+  expect(decodeCode0Session(value)).toEqual(value)
+})
+
+it("rejects accessors and extra numeric fields without evaluating arbitrary getters", () => {
+  let reads = 0
+  const source = {...code0Session()}
+  Object.defineProperty(source, "state", {enumerable: true, get() { reads += 1; return "paused" }})
+  expect(decodeCode0Session(source)).toBeNull()
+  expect(reads).toBe(0)
+  const snapshot = code0Snapshot()
+  expect(decodeCode0Session({...code0Session(), snapshot: {...snapshot,
+    primaryMetric: {...snapshot.primaryMetric, account: "discard"}}})).toBeNull()
+})
+
+it.each([0.5, 301, NaN])("rejects invalid presentation retry value %s", retryAfterSeconds => {
+  expect(decodeCode0Session({...code0Session(), retryAfterSeconds})).toBeNull()
+})

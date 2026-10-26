@@ -151,3 +151,11 @@ REQ-20261027-001只读诊断确认：真实测试`/bin/ps`查询已完整回收�
 同提交[Windows 40374270495](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40374270495)完整通过前端138、Rust300、608文字角色密度检查、严格Clippy、debug NSIS及GUI子系统验证。原生媒体权限委托与TCC仍因无设备未观察，真实账户未验收；保留既有明确覆盖边界。两端完整日志分别为1398290B/SHA-256 `bc2676171f5143be2693841e62618b55b54ed50c0f0c835c92304c4c78ecb344`、247917B/`ba85faff88d3b14fdfdc0140fb01c33263f7c51847580aa94931795768e5ac40`；旧RED与诊断记录保留。
 
 Task4首个Windows检查点只增加纯会话接缝与20项行为测试，当前实现固定拒绝；异步策略安装、实际释放和清理确认均分别绑定实例身份。该候选尚未通过实际编译与RED，不代表Windows会话或WebView2已实现。后续须依次完成纯会话、真实底层和界面整合，再作完整发布验收。
+
+
+`48f54fa`的[Windows 40377388832](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40377388832)实际通过严格Clippy并完成测试编译；原前端138与先执行的Rust92项通过，新增纯会话20项均在拒绝桩的预期行为断言失败。冷缓存、权限忙、清理未完成、部分创建和动作启动的失败点已逐项核对；深层时序断言未触达不算通过，后续Rust/NSIS未运行。该结果支持开始纯会话实现。同提交[macOS 40377388758](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40377388758)完整通过原各分组、窗口12与原生12及公开门禁。
+
+`325b333`增加独立Windows前端会话DTO、排序hook及Services/detail的拒绝型契约；经独立规格/质量审查无关键、重要或次要发现。[Windows 40379526386](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40379526386)实际收集并运行222项：原138项全通过，新增84项中51个正向行为按预期失败、33个负向或被动行为通过。失败来自拒绝DTO/空显示/无按钮，非导入或转换错误；后续类型检查、生产构建和Rust未运行。开始最小界面实现，真实Shell、普通账户隔离、生产命令及WebView2仍留后续整合。独立存储/OS排他契约测试同步准备，不以纯模拟断言冒称实际Windows能力。
+
+
+同一`325b333`的[macOS 40379526195](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40379526195)在普通主组出现非预期失败：原有隔离PTY端到端测试的`completionExitCode=5`场景未确认finished、cleanupSucceeded，退出码为nil而非127，共3个issue。诊断仅见helperStarted/handoffReceived，guardian/ready/processGroup等记录已缺失，watchdog PID文件仍有元数据；这些非原子采样不足以确认根因。主组之后的3/18/59/16分组未执行；hosted12、native12与共享桥分别通过。已登记REQ-20261027-002并保留完整失败日志1073340B/SHA-256 `464d46cf95527f15acb1ccbff01343c9dd36066c67982a765e278ee1d48ac868`，不把新前端代码视作已证原因，也不以此前成功覆盖本次失败。
