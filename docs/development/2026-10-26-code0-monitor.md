@@ -130,3 +130,9 @@ App接线的第一测试候选已形成：11个普通方法覆盖当前值/断�
 `300ac94`接入macOS冷会话、独立调度、Services四个明确动作、只读详情及三语言文案，保留原App/hosted失败断言并补6个运行时方法和2个窗口方法。独审发现无快照的暂停状态隐藏了仍可执行的断开入口，需修正；另记录停止tick测试仅等待sleep返回、未确认任务终结的非阻断测试弱点，留给最终审查核实。
 
 [macOS 40367382853](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40367382853)在编译时发现新增窗口测试调用缺少`secondsRemaining:`参数名；normal/native未执行，hosted没有构建产物，本轮不能记为行为RED或GREEN。共享网页桥检查通过。先修编译前置并为暂停无快照的断开入口增加实际窗口失败回归，随后修正界面，不改原成功/失败断言或放宽门禁。
+
+同一`300ac94`的[Windows 40367382837](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40367382837)完整通过前端138、Rust300、608文字角色密度、debug NSIS和GUI子系统检查。`9ffdd3b`仅修正测试参数名并新增暂停无快照的六组合窗口回归，定向源码审查无新增发现；产品断开入口暂未修，等待实际编译及行为失败确认。
+
+`9ffdd3b`的[macOS 40368964764](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40368964764)已完成实际编译：主组报告756/114套件通过（含既有条件跳过），Code0原11项及新6方法通过；调度3和PTY18通过。窗口12方法仅新暂停无快照六组合产生12个预期issue，原11方法包含异步状态重绘及节流到期控件恢复均通过；原生12方法/2套件及完整19条driver/探针门禁通过。最小UI修正只移动Disconnect显示条件，保留全部测试与会话权威，待复审和实际GREEN。
+
+同轮CLI50组另有1个非预期失败：`Antigravity preserves state when the owned process-group probe fails`的`cleanupSucceeded`为false；测试诊断仅supervisor=false，cli/watchdog/additional均true、groupKnown=true且groupHasMembers=false，后续16项分组未执行。关联REQ-20261027-001，只读诊断测试清理确认边界，不把合成故障触发的产品保护提示当已证产品缺陷；不降低断言、不原样盲跑。

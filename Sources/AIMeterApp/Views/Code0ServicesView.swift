@@ -32,8 +32,8 @@ struct Code0ServicesView: View {
                     case .paused, .active:
                         if model.snapshots.contains(where: { $0.provider == .code0 }) {
                             action(.syncNow, title: "Sync Code0")
-                            action(.disconnect, title: "Disconnect Code0")
                         } else { action(.connect, title: "Connect Code0") }
+                        action(.disconnect, title: "Disconnect Code0")
                     case .syncing:
                         action(.syncNow, title: "Sync Code0").disabled(true)
                         action(.disconnect, title: "Disconnect Code0")
