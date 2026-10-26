@@ -45,6 +45,9 @@ final class AppModel {
     private let geminiRecoveryBeginOperation: @Sendable (String) async -> Bool
     private let geminiRecoveryAuthorizeOperation: @Sendable (String) async -> GeminiQuotaRecoveryAuthorization?
     private let geminiQuotaCheckOperation: @Sendable (GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot
+    private let geminiResumeAuthorizationOperation: @Sendable (GeminiQuotaRecoveryAuthorization) async -> GeminiAutomaticRefreshResumeAuthorization?
+    private let geminiAutomaticRefreshResumeOperation: @Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot
+    private let geminiResumeInvalidationOperation: @Sendable () async -> Void
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
     private let geminiAuthenticationOpenOperation: (String) throws -> Void
@@ -152,6 +155,9 @@ final class AppModel {
         geminiRecoveryBeginOperation: (@Sendable (String) async -> Bool)? = nil,
         geminiRecoveryAuthorizeOperation: (@Sendable (String) async -> GeminiQuotaRecoveryAuthorization?)? = nil,
         geminiQuotaCheckOperation: (@Sendable (GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot)? = nil,
+        geminiResumeAuthorizationOperation: (@Sendable (GeminiQuotaRecoveryAuthorization) async -> GeminiAutomaticRefreshResumeAuthorization?)? = nil,
+        geminiAutomaticRefreshResumeOperation: (@Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot)? = nil,
+        geminiResumeInvalidationOperation: (@Sendable () async -> Void)? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
         geminiAuthenticationOpenOperation: ((String) throws -> Void)? = nil,
@@ -302,6 +308,15 @@ final class AppModel {
         self.geminiQuotaCheckOperation = geminiQuotaCheckOperation ?? {
             try await coordinator.collectGeminiQuotaOnce(authorization: $0)
         }
+        self.geminiResumeAuthorizationOperation = geminiResumeAuthorizationOperation ?? {
+            await coordinator.geminiAutomaticRefreshResumeAuthorization(for: $0)
+        }
+        self.geminiAutomaticRefreshResumeOperation = geminiAutomaticRefreshResumeOperation ?? {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: $0)
+        }
+        self.geminiResumeInvalidationOperation = geminiResumeInvalidationOperation ?? {
+            await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
+        }
         apiKeyConfigured = false
         launchAtLoginEnabled = self.launchAtLoginStatusOperation()
     }
@@ -323,6 +338,12 @@ final class AppModel {
     var isRunningDemoMode: Bool { isDemoMode }
     var isGeminiRefreshPaused: Bool { geminiPauseReason != nil || providersRequiringAction.contains(.gemini) }
     var isGeminiSignInPending: Bool { geminiOneTimeRecoveryState == .awaitingLogin }
+
+    // Denial-only contract scaffold. The explicit opt-in behavior is implemented
+    // only after the new behavioral regression has been observed failing in CI.
+    var canResumeGeminiAutomaticRefresh: Bool { false }
+
+    func resumeGeminiAutomaticRefresh() async {}
 
     @discardableResult
     func setRefreshInterval(_ text: String) -> Bool {

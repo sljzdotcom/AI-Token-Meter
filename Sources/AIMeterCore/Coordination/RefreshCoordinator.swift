@@ -14,6 +14,20 @@ public struct GeminiQuotaRecoveryAuthorization: Equatable, Sendable {
     init(id: UUID) { self.id = id }
 }
 
+/// In-memory capability for a separate, explicit automatic-refresh resume action.
+public struct GeminiAutomaticRefreshResumeAuthorization: Equatable, Sendable {
+    let id: UUID
+
+    init(id: UUID) { self.id = id }
+}
+
+public enum GeminiAutomaticRefreshResumeError: Error, Equatable, Sendable {
+    case validationRequired
+    case alreadyRunning
+    case persistenceFailed
+    case notPaused
+}
+
 public actor RefreshCoordinator {
     private let collectors: [any UsageCollector]
     private let cache: SnapshotCache
@@ -144,6 +158,20 @@ public actor RefreshCoordinator {
         // authentication behavior is covered by a reliable no-browser boundary.
         return snapshot
     }
+
+    public func geminiAutomaticRefreshResumeAuthorization(
+        for authorization: GeminiQuotaRecoveryAuthorization
+    ) -> GeminiAutomaticRefreshResumeAuthorization? {
+        nil
+    }
+
+    public func resumeGeminiAutomaticRefresh(
+        authorization: GeminiAutomaticRefreshResumeAuthorization
+    ) throws -> UsageSnapshot {
+        throw GeminiAutomaticRefreshResumeError.validationRequired
+    }
+
+    public func invalidateGeminiAutomaticRefreshResumeAuthorization() {}
 
     public func providersRequiringAction() -> Set<UsageProvider> {
         Set(backoffs.filter { [.authentication, .suspended].contains($0.value.failureKind) }.map(\.key))

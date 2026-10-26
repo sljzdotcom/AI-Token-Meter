@@ -5,6 +5,117 @@ import Testing
 
 @Suite("App model Antigravity one-time recovery", .serialized)
 struct AppModelGeminiRecoveryTests {
+    @Test("A matching fresh quota check offers explicit resume without automatically unpausing")
+    @MainActor
+    func freshQuotaOffersExplicitResumeWithoutAutomaticallyUnpausing() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let quotaAuthorization = GeminiQuotaRecoveryAuthorization(id: UUID())
+        let resumeAuthorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let resumeProbe = RecoveryResumeProbe(authorization: resumeAuthorization)
+        var openedToken: String?
+        let freshQuota = recoverySnapshot(value: 22, sourceVersion: "1.1.28")
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(freshQuota), openLogin: { openedToken = $0 },
+            authorizeLogin: { _ in quotaAuthorization },
+            authorizeResume: { await resumeProbe.authorize(for: $0) },
+            resumeAutomaticRefresh: { authorization in
+                await resumeProbe.recordResume(authorization)
+                return freshQuota
+            }
+        )
+
+        await model.refresh()
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(await resumeProbe.resumeAuthorizations.isEmpty)
+        await model.beginGeminiOneTimeRecovery()
+        let token = try #require(openedToken)
+        await model.completeGeminiInteractiveSignIn(token: token, result: .success)
+
+        #expect(await resumeProbe.quotaAuthorizations == [quotaAuthorization])
+        #expect(model.canResumeGeminiAutomaticRefresh)
+        #expect(model.geminiOneTimeRecoveryState == .succeeded)
+        #expect(model.geminiPauseReason == .unknown)
+        #expect(model.isGeminiRefreshPaused)
+        #expect(await resumeProbe.resumeAuthorizations.isEmpty)
+        #expect(await counters.quotaCalls == 1)
+        #expect(await counters.globalRefreshCalls == 1)
+        #expect(model.snapshots.first(where: { $0.provider == .gemini }) == freshQuota)
+    }
+
+    @Test("Only a successful explicit resume clears pause, with one submit and no immediate refresh", arguments: [true, false])
+    @MainActor
+    func explicitResumePublishesOnlyAfterSuccessfulCommit(commitSucceeds: Bool) async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let quotaAuthorization = GeminiQuotaRecoveryAuthorization(id: UUID())
+        let resumeAuthorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let resumeProbe = RecoveryResumeProbe(authorization: resumeAuthorization)
+        defer { Task { await resumeProbe.release() } }
+        var openedToken: String?
+        let freshQuota = recoverySnapshot(value: 83, sourceVersion: "1.1.28")
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(freshQuota), openLogin: { openedToken = $0 },
+            authorizeLogin: { _ in quotaAuthorization },
+            authorizeResume: { await resumeProbe.authorize(for: $0) },
+            resumeAutomaticRefresh: { authorization in
+                await resumeProbe.submitAndWait(authorization)
+                if !commitSucceeds { throw GeminiAutomaticRefreshResumeError.persistenceFailed }
+                return freshQuota
+            }
+        )
+
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        let token = try #require(openedToken)
+        await model.completeGeminiInteractiveSignIn(token: token, result: .success)
+        #expect(model.isGeminiRefreshPaused)
+        #expect(await resumeProbe.resumeAuthorizations.isEmpty)
+
+        let resume = Task { await model.resumeGeminiAutomaticRefresh() }
+        let didStart = await resumeProbe.waitUntilStarted(timeout: .seconds(2))
+        if !didStart {
+            await resumeProbe.release()
+            await resume.value
+        }
+        try #require(didStart, "The explicit action must invoke the injected resume operation")
+        #expect(model.isGeminiRefreshPaused)
+        #expect(model.geminiPauseReason == .unknown)
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        let duplicateResume = Task {
+            await model.resumeGeminiAutomaticRefresh()
+            await resumeProbe.markDuplicateCompleted()
+        }
+        let duplicateCompleted = await resumeProbe.waitUntilDuplicateCompleted(timeout: .seconds(2))
+        // A missing duplicate guard must fail after releasing both submissions,
+        // rather than deadlock the test while the first operation is held.
+        if !duplicateCompleted {
+            await resumeProbe.release()
+            await duplicateResume.value
+            await resume.value
+        }
+        #expect(duplicateCompleted, "A duplicate action must return without waiting for the held resume operation")
+        #expect(await resumeProbe.resumeAuthorizations == [resumeAuthorization])
+        #expect(await counters.quotaCalls == 1)
+        #expect(await counters.globalRefreshCalls == 1)
+
+        await resumeProbe.release()
+        await duplicateResume.value
+        await resume.value
+        #expect(model.isGeminiRefreshPaused == !commitSucceeds)
+        #expect(model.geminiPauseReason == (commitSucceeds ? nil : .unknown))
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        #expect(model.snapshots.first(where: { $0.provider == .gemini }) == freshQuota)
+        #expect(await resumeProbe.resumeAuthorizations == [resumeAuthorization])
+        #expect(await counters.quotaCalls == 1)
+        #expect(await counters.globalRefreshCalls == 1)
+    }
+
     @Test("Unknown pause exposes one login token and accepts only one success receipt")
     @MainActor
     func unknownPauseUsesSingleValidReceiptWithoutGlobalRefresh() async throws {
@@ -764,6 +875,10 @@ struct AppModelGeminiRecoveryTests {
         cleanupUncertain: @escaping (String) -> Bool = { _ in false },
         execConfirmed: @escaping (String) -> Bool = { _ in true },
         authorizeLogin: (@Sendable (String) async -> GeminiQuotaRecoveryAuthorization?)? = nil,
+        authorizeResume: @escaping @Sendable (GeminiQuotaRecoveryAuthorization) async -> GeminiAutomaticRefreshResumeAuthorization? = { _ in nil },
+        resumeAutomaticRefresh: @escaping @Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot = { _ in
+            throw GeminiAutomaticRefreshResumeError.validationRequired
+        },
         diagnosticStore: GeminiDiagnosticStore = GeminiDiagnosticStore(fileURL: nil),
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         recoveryBegin: (@Sendable () async -> Bool)? = nil,
@@ -789,6 +904,8 @@ struct AppModelGeminiRecoveryTests {
                 await counters.incrementQuota()
                 return try quota.get()
             },
+            geminiResumeAuthorizationOperation: authorizeResume,
+            geminiAutomaticRefreshResumeOperation: resumeAutomaticRefresh,
             geminiAuthenticationOpenOperation: { token in
                 if openShouldFail { throw CocoaError(.fileWriteUnknown) }
                 openLogin(token)
@@ -809,12 +926,13 @@ struct AppModelGeminiRecoveryTests {
         )
     }
 
-    private func recoverySnapshot(value: Double, fetchedAt: Date = Date(timeIntervalSince1970: 800)) -> UsageSnapshot {
+    private func recoverySnapshot(value: Double, fetchedAt: Date = Date(timeIntervalSince1970: 800), sourceVersion: String? = nil) -> UsageSnapshot {
         let metric = UsageMetric(label: "Gemini · Weekly", current: value, limit: 100, unit: .percent)
         return UsageSnapshot(
             provider: .gemini,
             primaryMetric: metric,
             fetchedAt: fetchedAt,
+            sourceVersion: sourceVersion,
             collectionStatus: .fresh,
             geminiQuotaMetrics: [metric]
         )
@@ -831,6 +949,64 @@ struct AppModelGeminiRecoveryTests {
     private func clean(_ context: (suiteName: String, defaults: UserDefaults, cacheDirectoryURL: URL)) {
         context.defaults.removePersistentDomain(forName: context.suiteName)
         try? FileManager.default.removeItem(at: context.cacheDirectoryURL)
+    }
+}
+
+private actor RecoveryResumeProbe {
+    let authorization: GeminiAutomaticRefreshResumeAuthorization
+    private(set) var quotaAuthorizations: [GeminiQuotaRecoveryAuthorization] = []
+    private(set) var resumeAuthorizations: [GeminiAutomaticRefreshResumeAuthorization] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var isReleased = false
+    private var duplicateCompleted = false
+
+    init(authorization: GeminiAutomaticRefreshResumeAuthorization) {
+        self.authorization = authorization
+    }
+
+    func authorize(for quotaAuthorization: GeminiQuotaRecoveryAuthorization) -> GeminiAutomaticRefreshResumeAuthorization {
+        quotaAuthorizations.append(quotaAuthorization)
+        return authorization
+    }
+
+    func recordResume(_ authorization: GeminiAutomaticRefreshResumeAuthorization) {
+        resumeAuthorizations.append(authorization)
+    }
+
+    func submitAndWait(_ authorization: GeminiAutomaticRefreshResumeAuthorization) async {
+        recordResume(authorization)
+        if !isReleased {
+            await withCheckedContinuation { releaseContinuations.append($0) }
+        }
+    }
+
+    func markDuplicateCompleted() {
+        duplicateCompleted = true
+    }
+
+    func waitUntilDuplicateCompleted(timeout: Duration) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while !duplicateCompleted {
+            guard !Task.isCancelled, ContinuousClock.now < deadline else { return false }
+            await Task.yield()
+        }
+        return true
+    }
+
+    func waitUntilStarted(timeout: Duration) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while resumeAuthorizations.isEmpty {
+            guard !Task.isCancelled, ContinuousClock.now < deadline else { return false }
+            await Task.yield()
+        }
+        return true
+    }
+
+    func release() {
+        isReleased = true
+        let continuations = releaseContinuations
+        releaseContinuations.removeAll()
+        continuations.forEach { $0.resume() }
     }
 }
 
