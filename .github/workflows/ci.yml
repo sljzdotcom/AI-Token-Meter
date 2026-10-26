@@ -66,7 +66,8 @@ jobs:
         run: brew install gitleaks
       - name: Test and validate documentation
         run: bash scripts/test.sh
-      - name: Verify Antigravity recovery controls in hosted windows
+      - name: Verify settings controls in hosted windows
+        if: ${{ !cancelled() }}
         env:
           AI_METER_SCREEN_TESTS: "1"
         run: bash scripts/test.sh --skip-build --no-parallel --filter SettingsLocalizationCoverageTests

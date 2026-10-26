@@ -176,9 +176,10 @@ struct Code0NativeDriverFixtureTests {
     }
 
     @Test(arguments: [Code0NativeFixturePage.media, .geolocation])
-    func visibleExplicitLoginObservesActualPermissionDenial(page: Code0NativeFixturePage) async throws {
-        let caseID = page == .media ? "visible-media-denial" : "visible-geolocation-denial"
+    func visibleExplicitLoginObservesPermissionOutcome(page: Code0NativeFixturePage) async throws {
+        let caseID = page == .media ? "visible-media-permission" : "visible-geolocation-denial"
         await run(try NativeDriverFixture(page: page, mode: .login), caseID: caseID) { fixture in
+            if page == .media, !fixture.beginMediaBoundary() { return }
             fixture.navigate()
             fixture.sampleWeakObjects()
             let terminal = await nativeWait(seconds: 4) {
@@ -200,8 +201,20 @@ struct Code0NativeDriverFixtureTests {
                 fixture.denialEvidence = "native-delegate-deny"
             } else {
                 let denied = fixture.pageOutcome == .notAllowed || fixture.pageOutcome == .securityError
-                #expect(denied, "No-device/other error or pending is page-only UNOBSERVED, not permission denial")
+                let devicePrerequisite = fixture.pageOutcome == .overconstrained || fixture.pageOutcome == .notFound
+                #expect(denied || devicePrerequisite, "Unknown/timeout/success cannot become media permission evidence")
+                if devicePrerequisite {
+                    // Provisional until the root wrapper associates exactly one
+                    // native zero-device diagnostic inside our flushed boundary.
+                    fixture.mediaCoverage = "device-prerequisite-unavailable"
+                    #expect(!fixture.driver.fixtureObservations.contains { if case .delegate = $0 { return true }; return false })
+                } else if denied { fixture.mediaCoverage = "permission-denied" }
                 fixture.denialEvidence = denied ? "page-permission-denied" : "unobserved"
+            }
+            if page == .media {
+                #expect(fixture.mediaRequestCount == 1)
+                #expect(fixture.hasStage(.requestStarted))
+                if fixture.hasDelegate(.mediaCapture) { fixture.mediaCoverage = "permission-denied" }
             }
         }
     }
@@ -255,10 +268,24 @@ struct Code0NativeDriverFixtureTests {
             #expect(fixture.weakObjects.window != nil && fixture.weakObjects.view != nil)
             await body(fixture)
         }
-        await fixture.finish(caseID: caseID, outcome: created && ready ? "driver-observation" : "denied-no-owned-view")
+        let released = await fixture.finish(caseID: caseID, outcome: created && ready ? "driver-observation" : "denied-no-owned-view")
+        if fixture.mediaBoundaryBegan, released { #expect(writeMediaBoundary(.finish)) }
         #expect(created, "The deny-only RED driver cannot create the required real owned WebKit instance")
         #expect(ready, "Native policy installation acknowledgement must precede first navigation")
     }
+}
+
+private enum NativeMediaBoundaryPhase: String { case begin, finish }
+
+@MainActor
+private func writeMediaBoundary(_ phase: NativeMediaBoundaryPhase) -> Bool {
+    let line = "CODE0_NATIVE_MEDIA_BOUNDARY {\"schema\":1,\"case\":\"visible-media-permission\",\"phase\":\"\(phase.rawValue)\"}\n"
+    do {
+        // FileHandle writes synchronously to the descriptor; unlike print this
+        // does not leave the boundary in a stdio user-space line buffer.
+        try FileHandle.standardOutput.write(contentsOf: Data(line.utf8))
+        return true
+    } catch { Issue.record("The fixed media boundary could not be synchronously written"); return false }
 }
 
 @MainActor
@@ -427,6 +454,10 @@ private final class NativeDriverFixture {
     var sessionTimeout = false
     var deadlineEvidence = "unobserved"
     var denialEvidence = "unobserved"
+    var mediaCoverage = "unobserved"
+    private(set) var mediaBoundaryBegan = false
+    private let page: Code0NativeFixturePage
+    private static var mediaLifetimes: [UUID: NativeDriverWeakObjects] = [:]
     let weakObjects = NativeDriverWeakObjects()
     private var requests: [Code0WindowRequest]
     private var hiddenBefore = false
@@ -439,10 +470,25 @@ private final class NativeDriverFixture {
         try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let profile = NativeDriverProfile(location: location)
         let request = Code0WindowRequest(instanceID: UUID(), connectionEpoch: UUID(), nonce: UUID(), documentID: UUID(), mode: mode)
-        self.root = root; self.request = request; self.requests = [request]; self.profile = profile
+        self.root = root; self.request = request; self.requests = [request]; self.profile = profile; self.page = page
         self.store = Code0SnapshotStore(profile: profile)
         self.driver = Code0NativeWebDriver.fixture(profile: profile, page: page)
         self.record = NativeDriverRecord(request: request)
+    }
+
+    var mediaRequestCount: Int {
+        guard page == .media else { return 0 }
+        return driver.fixtureObservations.filter { if case .stage(.requestStarted) = $0 { return true }; return false }.count
+    }
+    func beginMediaBoundary() -> Bool {
+        guard !mediaBoundaryBegan else { Issue.record("Visible media case must not reenter"); return false }
+        let previousReleased = Self.mediaLifetimes.allSatisfy { id, objects in
+            id == request.instanceID || (objects.view == nil && objects.window == nil)
+        }
+        #expect(previousReleased, "A prior hidden media producer must be actually released before a visible request")
+        guard previousReleased, writeMediaBoundary(.begin) else { return false }
+        mediaBoundaryBegan = true
+        return true
     }
 
     func prepareCachedSession(clock: NativePermissionClock) throws {
@@ -493,6 +539,7 @@ private final class NativeDriverFixture {
     func sampleWeakObjects() {
         inspect { window, view in
             weakObjects.window = window; weakObjects.view = view
+            if page == .media { Self.mediaLifetimes[request.instanceID] = weakObjects }
             hiddenBefore = window.map { !$0.isVisible } ?? false
             unfocusedBefore = window.map { !$0.isKeyWindow && !$0.isMainWindow } ?? false
         }
@@ -512,7 +559,8 @@ private final class NativeDriverFixture {
     func assertHidden() {
         inspect { window, _ in #expect(window?.isVisible == false); #expect(window?.isKeyWindow == false) }
     }
-    func finish(caseID: String, outcome: String) async {
+    @discardableResult
+    func finish(caseID: String, outcome: String) async -> Bool {
         var hiddenAfter = true, unfocusedAfter = true
         // Preserve the original end-of-work hidden/unfocused oracle for every
         // sync case. Only the two explicit-login cases may be visible here.
@@ -552,6 +600,7 @@ private final class NativeDriverFixture {
             })).sorted(),
             "displayMode": request.mode == .login ? "explicit-login" : "hidden-sync",
             "visibleObserved": visibleObserved, "denialEvidence": denialEvidence,
+            "mediaCoverage": mediaCoverage, "mediaRequestCount": mediaRequestCount,
             "permissionEvidence": permissionEvidence, "sessionTermination": sessionTermination,
             "sessionTimeout": sessionTimeout, "sessionPublications": min(publications, 2),
             "deadline": deadlineEvidence, "requestStarted": hasStage(.requestStarted),
@@ -571,6 +620,7 @@ private final class NativeDriverFixture {
             print("CODE0_NATIVE_DRIVER \(text)")
         } else { Issue.record("Driver evidence must remain finite and contain no raw website data") }
         try? FileManager.default.removeItem(at: root)
+        return released
     }
 }
 #endif

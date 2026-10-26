@@ -9,6 +9,48 @@ import Testing
        .enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
 @MainActor
 struct SettingsLocalizationCoverageTests {
+    @Test("Code0 service controls alone authorize actions; displaying Services and detail remains passive in all languages")
+    func code0ExplicitServiceControlsAndPassiveDetail() async throws {
+        let cases: [(Code0ServiceAction, Code0SessionState, [String])] = [
+            (.connect, .disconnected, ["Connect Code0", "连接 Code0", "連接 Code0"]),
+            (.loginCompleted, .connecting, ["I've finished signing in", "我已完成登录", "我已完成登入"]),
+            (.syncNow, .paused, ["Sync Code0", "同步 Code0", "同步 Code0"]),
+            (.disconnect, .paused, ["Disconnect Code0", "断开 Code0", "中斷 Code0"]),
+        ]
+        for (action, state, titles) in cases {
+            for (index, language) in AppLanguage.allCases.enumerated() {
+                let context = try Code0AppTestContext()
+                defer { context.clean() }
+                let session = AppCode0SessionDouble(snapshot: state == .disconnected ? nil : code0AppSnapshot(2, cached: true), state: state)
+                let model = context.model(session: session)
+                defer { model.stop() }
+                model.setAppLanguage(language)
+                let services = NSHostingView(rootView: AppLanguageRoot(model: model) {
+                    ServicesSettingsView(model: model, pendingAPIKey: .constant(""))
+                })
+                let detail = NSHostingView(rootView: AppLanguageRoot(model: model) {
+                    FloatingDetailView(model: model, provider: .code0, onClaudeSetup: {}, onOpenServicesSettings: {}, onInteractionChange: { _ in })
+                })
+                let serviceWindow = localizationTestWindow(services, height: 2000)
+                let detailWindow = localizationTestWindow(detail, height: 800)
+                defer { serviceWindow.close(); detailWindow.close() }
+                try await settleLocalizationHost(services)
+                try await settleLocalizationHost(detail)
+                #expect(session.actions.isEmpty, "Appearance, language and detail must not authorize Code0")
+                let buttons = serviceButtons(in: services, title: titles[index])
+                #expect(buttons.count == 1, "One actual Code0 control must expose \(titles[index]); state=\(state), language=\(language.rawValue)")
+                if let button = buttons.first {
+                    let pressed = try #require(hostedAccessibilityAttribute(button, "accessibilityPerformPress") as? Bool)
+                    #expect(pressed)
+                    try await settleLocalizationHost(services)
+                }
+                #expect(session.actions == [action], "The actual control must call only its explicit Code0 operation once")
+                #expect(serviceWindow.contentView === services)
+                #expect(detailWindow.contentView === detail)
+            }
+        }
+    }
+
     @Test("Services and floating detail replace the one-time action with the same explicit resume in all languages")
     func antigravityExplicitResumeUsesBothExistingSurfaces() async throws {
         for language in AppLanguage.allCases {

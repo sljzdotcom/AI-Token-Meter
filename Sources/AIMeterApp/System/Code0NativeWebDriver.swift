@@ -483,7 +483,7 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         function stage(value){window.webkit.messageHandlers.code0FixtureResult.postMessage('stage-'+value);}
         function result(promise){promise.then(stream=>{stream?.getTracks?.().forEach(t=>t.stop());done('resolved');},()=>done('rejected'));}
         function mediaResult(promise){promise.then(stream=>{done('resolved');stream?.getTracks?.().forEach(t=>t.stop());},e=>{
-          done(e.name==='NotAllowedError'?'notAllowed':(e.name==='SecurityError'?'securityError':(e.name==='NotFoundError'?'notFound':(e.name==='NotReadableError'?'notReadable':(e.name==='AbortError'?'abortError':'otherError')))));
+          done(e.name==='NotAllowedError'?'notAllowed':(e.name==='SecurityError'?'securityError':(e.name==='NotFoundError'?'notFound':(e.name==='NotReadableError'?'notReadable':(e.name==='AbortError'?'abortError':(e.name==='OverconstrainedError'?'overconstrained':(e.name==='InvalidStateError'?'invalidState':(e.name==='TypeError'?'typeError':'otherError'))))))));
         });}
         function visibility(){stage(document.visibilityState==='hidden'?'visibility-hidden':(document.visibilityState==='visible'?'visibility-visible':'visibility-other'));}
         document.addEventListener('visibilitychange',visibility);
@@ -527,6 +527,7 @@ enum Code0NativePageOutcome: String, Equatable, Sendable {
     case rejected, unsupported, resolved, timedOut, defaultResult
     case permissionDenied, positionUnavailable, positionTimedOut
     case notAllowed, securityError, notFound, notReadable, abortError, otherError
+    case overconstrained, invalidState, typeError
 }
 enum Code0NativePageStage: String, Sendable {
     case scriptStarted = "stage-script-started"

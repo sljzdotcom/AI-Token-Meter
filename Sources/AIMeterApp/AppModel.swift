@@ -3,6 +3,10 @@ import AppKit
 import Foundation
 import Observation
 
+enum Code0ServiceAction: CaseIterable, Equatable, Sendable {
+    case connect, loginCompleted, syncNow, disconnect
+}
+
 @MainActor
 @Observable
 final class AppModel {
@@ -101,6 +105,12 @@ final class AppModel {
     private var isRefreshingServiceAccounts = false
 
     let deepSeekWebSession: DeepSeekWebSession
+    private let code0WebSession: (any Code0WebSessionProviding)?
+
+    // Compilable RED boundary; composition and explicit routing follow actual RED.
+    var code0SessionState: Code0SessionState { .disconnected }
+    @discardableResult
+    func performCode0ServiceAction(_ action: Code0ServiceAction) -> Code0SessionActionResult { .denied }
 
     private(set) var snapshots: [UsageSnapshot] = [.geminiUnavailable]
     private(set) var isRefreshing = false
@@ -160,6 +170,7 @@ final class AppModel {
         isDemoMode: Bool? = nil,
         geminiDiagnosticStore: GeminiDiagnosticStore? = nil,
         refreshCoordinator: RefreshCoordinator? = nil,
+        code0WebSession: (any Code0WebSessionProviding)? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         geminiPauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
         geminiRecoveryBeginOperation: (@Sendable (String) async -> Bool)? = nil,
@@ -189,6 +200,7 @@ final class AppModel {
         }
     ) {
         self.defaults = defaults
+        self.code0WebSession = code0WebSession
         let storedInterval = defaults.object(forKey: DefaultsKey.refreshIntervalSeconds) as? NSNumber
         let storedSeconds = storedInterval?.doubleValue ?? 300
         self.refreshIntervalSeconds = storedSeconds.isFinite && storedSeconds.rounded() == storedSeconds
