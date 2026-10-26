@@ -605,7 +605,7 @@ private final class TemporaryFullFlowPTY {
     private var output = Data()
 
     private enum DiagnosticStage: String {
-        case initialization, normalLoop, staleReadiness, cleanupGroup, cleanupCLI, cleanupWatchdog, wrapperCleanup
+        case initialization, normalLoop, staleReadiness, cleanupGroup, cleanupCLI, cleanupWatchdog, cleanupAggregate, wrapperCleanup
     }
     private enum LoopExit: String {
         case deadline, wrapperReaped, ownershipUnknown, preserved, inputWriteFailed, readinessDeadline, staleReadinessWriteFailed, unclassified
@@ -626,6 +626,7 @@ private final class TemporaryFullFlowPTY {
     private var trackedChecks = 0
     private var processQueries = 0
     private var trackedObservations: [[String: Any]] = []
+    private var firstQueryFailureRecorded = false
     private var postQueryObservedPIDs = Set<pid_t>() // Internal association only, never exported.
     private var postQueryProbeCount = 0
 
@@ -732,7 +733,10 @@ private final class TemporaryFullFlowPTY {
             if cleanupSucceeded { break }
             try? await Task.sleep(for: .milliseconds(20))
         }
-        if !cleanupSucceeded { preserve("Synthetic CLI, watchdog or group is live or ownership is unknown") }
+        if !cleanupSucceeded {
+            diagnosticStage = .cleanupAggregate
+            preserve("Synthetic CLI, watchdog or group is live or ownership is unknown")
+        }
         emitObserverDiagnostic(loopExit: loopExit, loopElapsedMilliseconds: loopElapsedMilliseconds,
             loopIterations: normalLoopIterations, loopFlags: loopFlags, staleReadinessRequested: synthesizeStaleReadiness,
             staleReadinessSent: staleReadinessSent, inputSent: inputSent, runningReadyReleased: runningReadyReleased,
@@ -850,7 +854,7 @@ private final class TemporaryFullFlowPTY {
                 "postProbe": afterResult == nil ? "notRepeated" : "observedSameRecordedPID",
                 "afterResult": afterResult.map { $0 as Any } ?? NSNull(), "afterErrno": afterErrno.map { $0 as Any } ?? NSNull(),
                 "afterKernelAbsent": afterResult.map { ($0 == -1 && afterErrno == ESRCH) as Any } ?? NSNull(),
-                "returned": false])
+                "returned": false], isQueryFailure: true)
             preserve("Tracked child observation unknown")
             return false
         }
@@ -892,8 +896,16 @@ private final class TemporaryFullFlowPTY {
         if !condition { normalLoopExitCondition = reason }
         return condition
     }
-    private func recordTracked(_ observation: [String: Any]) {
-        if trackedObservations.count < 16 { trackedObservations.append(observation) }
+    private func recordTracked(_ observation: [String: Any], isQueryFailure: Bool = false) {
+        var indexedObservation = observation
+        indexedObservation["observationIndex"] = trackedChecks
+        if isQueryFailure && !firstQueryFailureRecorded {
+            // Normal observations cannot consume the first query failure's slot.
+            firstQueryFailureRecorded = true
+            trackedObservations.append(indexedObservation)
+        } else if trackedObservations.count < (firstQueryFailureRecorded ? 16 : 15) {
+            trackedObservations.append(indexedObservation)
+        }
     }
     private static func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Double {
         let duration = start.duration(to: .now).components
@@ -920,7 +932,8 @@ private final class TemporaryFullFlowPTY {
             "wrapperCleanupCalls": wrapperCleanupCalls, "emergencyCleanupEntered": emergencyCleanupEntered,
             "finished": finished, "cleanupSucceeded": cleanupSucceeded, "cleanupIterations": cleanupIterations,
             "cleanupComponents": cleanupComponents, "trackedChecks": trackedChecks, "processQueries": processQueries,
-            "postQueryProbeCount": postQueryProbeCount, "trackedObservations": trackedObservations,
+            "postQueryProbeCount": postQueryProbeCount, "firstQueryFailureRetained": firstQueryFailureRecorded,
+            "trackedObservations": trackedObservations,
             "observationsTruncated": trackedChecks > trackedObservations.count,
             "observationsOmitted": max(0, trackedChecks - trackedObservations.count)]
         let prefix = "G11_FIXTURE_OBSERVER_DIAGNOSTIC "
