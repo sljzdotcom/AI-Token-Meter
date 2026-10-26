@@ -401,7 +401,11 @@ mod tests {
             vec![ProviderId::DeepSeek, ProviderId::Claude, ProviderId::Codex]
         );
 
-        preferences.hidden_providers.clear();
+        let order_before_restore = preferences.ordered_providers.clone();
+        assert!(preferences.hidden_providers.iter().any(|id| id == "code0"));
+        preferences.hidden_providers.retain(|id| id != "gemini");
+        assert!(preferences.hidden_providers.iter().any(|id| id == "code0"));
+        assert_eq!(preferences.ordered_providers, order_before_restore);
         assert_eq!(
             summary_provider_ids(&preferences),
             vec![
@@ -409,6 +413,34 @@ mod tests {
                 ProviderId::Claude,
                 ProviderId::Gemini,
                 ProviderId::Codex,
+            ]
+        );
+    }
+
+    #[test]
+    fn explicitly_enabling_all_five_restores_code0_summary_in_order() {
+        let mut preferences = StripPreferences {
+            ordered_providers: vec![
+                "deepseek".into(),
+                "claude".into(),
+                "gemini".into(),
+                "codex".into(),
+                "code0".into(),
+            ],
+            hidden_providers: vec![],
+            ..StripPreferences::default()
+        };
+        preferences.normalize();
+
+        assert!(preferences.hidden_providers.is_empty());
+        assert_eq!(
+            summary_provider_ids(&preferences),
+            vec![
+                ProviderId::DeepSeek,
+                ProviderId::Claude,
+                ProviderId::Gemini,
+                ProviderId::Codex,
+                ProviderId::Code0,
             ]
         );
     }

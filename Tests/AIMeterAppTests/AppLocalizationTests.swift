@@ -137,6 +137,7 @@ struct AppLocalizationTests {
             "%@ account connected.": ["Claude Code account connected.", "Claude Code 账户已连接。", "Claude Code 帳戶已連線。"],
             "%@ tokens": ["Claude Code tokens", "Claude Code 个 Token", "Claude Code 個 Token"],
             "%@ requests": ["Claude Code requests", "Claude Code 次请求", "Claude Code 次請求"],
+            "%@ site credits": ["Claude Code site credits", "Claude Code 站内额度", "Claude Code 站內額度"],
             "Updated %@": ["Updated Claude Code", "更新于 Claude Code", "更新於 Claude Code"],
             "Quit %@": ["Quit Claude Code", "退出 Claude Code", "結束 Claude Code"],
             "%@, vertical position %lld percent": ["Claude Code, vertical position 70 percent", "Claude Code，垂直位置百分之 70", "Claude Code，垂直位置百分之 70"],
