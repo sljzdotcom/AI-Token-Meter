@@ -557,6 +557,70 @@ struct Code0WebSessionTests {
         #expect(!fixture.session.isAutomaticallySyncing)
     }
 
+
+    // I1: a failed read is not proof that the account cache is absent on disk.
+    @Test(arguments: [false, true])
+    func failedStartupReadCannotPreserveOldAccountAcrossExplicitConnect(removeFails: Bool) throws {
+        let fixture = SessionFixture()
+        try fixture.activate()
+        fixture.session.stop()
+        let oldAccount = try #require(fixture.store.cached)
+        fixture.timeline.events.removeAll()
+        fixture.store.failNextLoad = true
+        fixture.store.failRemove = removeFails
+        let driver = TestCode0Driver(timeline: fixture.timeline)
+        let restarted = Code0WebSession(clock: fixture.clock, driver: driver, store: fixture.store)
+        #expect(restarted.state == .paused)
+        #expect(restarted.failure == .storageFailed)
+        #expect(restarted.snapshot == nil)
+        #expect(fixture.store.cached == oldAccount)
+
+        #expect(restarted.connect() == (removeFails ? .denied : .started))
+        #expect(driver.leaseAcquisitions == 1)
+        #expect(fixture.store.removals == 1)
+        #expect(restarted.snapshot == nil)
+        #expect(!restarted.isAutomaticallySyncing)
+        if removeFails {
+            #expect(fixture.timeline.events == ["lease.acquire", "store.remove"])
+            #expect(driver.requests.isEmpty)
+            #expect(restarted.state == .cleanupPending)
+            #expect(restarted.failure == .storageFailed)
+            #expect(driver.leaseReleases == 0)
+            #expect(fixture.store.cached == oldAccount)
+            #expect(restarted.connect() == .busy)
+        } else {
+            #expect(fixture.timeline.events == ["lease.acquire", "store.remove", "create.login"])
+            #expect(driver.requests.map(\.mode) == [.login])
+            #expect(fixture.store.cached == nil)
+        }
+
+        // Stop before a new capture; the successful boundary must survive restart.
+        restarted.stop()
+        if let login = driver.requests.first { driver.release(login) }
+        if !removeFails {
+            let next = Code0WebSession(clock: fixture.clock,
+                driver: TestCode0Driver(timeline: SessionTimeline()), store: fixture.store)
+            #expect(next.snapshot == nil)
+            #expect(next.state == .disconnected)
+            #expect(!next.isAutomaticallySyncing)
+        }
+    }
+
+    @Test func rejectedStoredSnapshotIsInvalidatedBeforeExplicitNewLogin() {
+        let fixture = SessionFixture()
+        fixture.store.cached = UsageSnapshot(provider: .code0,
+            fetchedAt: Date(timeIntervalSince1970: 1_793_016_000), collectionStatus: .fresh)
+        let restarted = Code0WebSession(clock: fixture.clock, driver: fixture.driver, store: fixture.store)
+        #expect(restarted.state == .paused)
+        #expect(restarted.failure == .storageFailed)
+        #expect(restarted.snapshot == nil)
+        #expect(restarted.connect() == .started)
+        #expect(fixture.timeline.events == ["lease.acquire", "store.remove", "create.login"])
+        #expect(fixture.store.cached == nil)
+        restarted.stop()
+        if let login = fixture.driver.requests.first { fixture.driver.release(login) }
+    }
+
 }
 
 @MainActor
@@ -640,8 +704,15 @@ private final class MemoryCode0Store: Code0SnapshotStoring {
     var removals = 0
     var failSave = false
     var failRemove = false
+    var failNextLoad = false
     init(timeline: SessionTimeline) { self.timeline = timeline }
-    func load() throws -> UsageSnapshot? { cached }
+    func load() throws -> UsageSnapshot? {
+        if failNextLoad {
+            failNextLoad = false
+            throw Code0SnapshotStoreError.persistenceFailed
+        }
+        return cached
+    }
     func save(_ snapshot: UsageSnapshot) throws {
         timeline.events.append("store.save")
         if failSave { throw Code0SnapshotStoreError.persistenceFailed }
