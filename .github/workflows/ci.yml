@@ -10,6 +10,19 @@ permissions:
   contents: read
 
 jobs:
+  code0-bridge:
+    name: Code0 passive bridge contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Test passive website bridge with synthetic responses
+        run: node --test web/code0-bridge.test.mjs
   test:
     name: Swift tests and public-release checks
     runs-on: macos-15
