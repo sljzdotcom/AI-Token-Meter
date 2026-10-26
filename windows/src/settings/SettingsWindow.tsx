@@ -10,6 +10,7 @@ import { deepSeekCredentialPresentation } from "./deepSeekCredentialPresentation
 import { GEMINI_INSTALL_COMMAND, GEMINI_INSTALLATION_GUIDE_LABEL, geminiInstallationInstructions } from "./geminiInstallationGuide"
 import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
 import appLogo from "../../src-tauri/icons/128x128.png"
+import type { Code0Action, Code0ActionResult, Code0SessionDTO } from "../state/code0Session"
 
 const tabs = ["Appearance", "Floating Strip", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
@@ -17,6 +18,8 @@ export type DisplayInfo = { id: string; name: string; isPrimary: boolean }
 export type DisplayPreferences = { version: number; mode: "primary" | "selected" | "all"; selectedId: string | null; placements: Record<string, {edge: "left" | "right"; verticalPerMille: number}> }
 
 type SettingsWindowProps = {
+  code0Session?: Code0SessionDTO
+  onCode0Action?: (action: Code0Action) => Promise<Code0ActionResult>
   onLocaleChange?: (locale: Locale) => void
   displays?: DisplayPreferences
   availableDisplays?: DisplayInfo[]

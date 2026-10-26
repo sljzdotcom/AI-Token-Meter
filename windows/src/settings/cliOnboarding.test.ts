@@ -151,3 +151,23 @@ it('a Gemini snapshot event supersedes an older status read without retrying quo
   expect(retries).toEqual([true, false])
   expect(controller.isBusy('gemini')).toBe(false)
 })
+
+it.each([
+  {retry: false, replace: false}, {retry: true, replace: false},
+  {retry: false, replace: true}, {retry: true, replace: true},
+])("Code0 checks never invoke the ordinary reader or publish checking (retry=$retry replace=$replace)", async ({retry, replace}) => {
+  const commands: string[] = []
+  const statuses: ServiceAccountStatus[] = []
+  const messages: string[] = []
+  let changes = 0
+  const controller = new CLIOnboarding(async command => {
+    commands.push(command)
+    return {providerId: "code0", connectionState: "connected"}
+  }, status => statuses.push(status), message => messages.push(message), () => { changes++ })
+  await controller.check("code0", retry, replace)
+  expect(commands).toEqual([])
+  expect(statuses).toEqual([])
+  expect(messages).toEqual([])
+  expect(changes).toBe(0)
+  expect(controller.isBusy("code0")).toBe(false)
+})

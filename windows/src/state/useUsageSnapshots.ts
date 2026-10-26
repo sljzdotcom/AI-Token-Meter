@@ -3,8 +3,9 @@ import { useEffect, useState } from "react"
 import type { UsageSnapshot } from "./usage"
 import { unavailableSnapshots } from "./usage"
 import type { UsageBridge } from "./usageBridge"
+import type { Code0SessionDTO } from "./code0Session"
 
-export function useUsageSnapshots(bridge: UsageBridge, initialSnapshots?: UsageSnapshot[]) {
+export function useUsageSnapshots(bridge: UsageBridge, initialSnapshots?: UsageSnapshot[], _code0Session?: Code0SessionDTO) {
   const [snapshots, setSnapshots] = useState(initialSnapshots ?? unavailableSnapshots)
 
   useEffect(() => {

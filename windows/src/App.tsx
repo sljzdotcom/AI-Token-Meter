@@ -7,15 +7,19 @@ import type { ProviderId, UsageSnapshot } from "./state/usage"
 import type { UsageBridge } from "./state/usageBridge"
 import { TauriUsageBridge } from "./state/usageBridge"
 import { useUsageSnapshots } from "./state/useUsageSnapshots"
+import type { Code0SessionBridge } from "./state/code0Session"
+import type { StripPreferences } from "./state/stripPreferences"
 
 type AppProps = {
   initialSnapshots?: UsageSnapshot[]
   detailAutoHideSeconds?: number
   usageBridge?: UsageBridge
+  code0Bridge?: Code0SessionBridge
+  stripPreferences?: StripPreferences
   onDeepSeekHistorySync?: () => void
 }
 
-export function App({ initialSnapshots, detailAutoHideSeconds = 8, usageBridge, onDeepSeekHistorySync }: AppProps) {
+export function App({ initialSnapshots, detailAutoHideSeconds = 8, usageBridge, stripPreferences, onDeepSeekHistorySync }: AppProps) {
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null)
   const [interactionPaused, setInteractionPaused] = useState(false)
   const detailRef = useRef<HTMLDivElement>(null)
@@ -41,6 +45,7 @@ export function App({ initialSnapshots, detailAutoHideSeconds = 8, usageBridge, 
   return (
     <main className="meter-stage" style={{ "--display-font": "Antonio, 'Segoe UI Variable', sans-serif" } as CSSProperties}>
       <FloatingStrip
+        preferences={stripPreferences}
         activeProvider={activeProvider}
         onProviderActivate={(provider) => {
           setInteractionPaused(false)

@@ -23,6 +23,9 @@ import { setLocale, type Locale } from "./localization"
 import { CLIOnboarding } from "./settings/cliOnboarding"
 import { deepSeekCredentialPresentation } from "./settings/deepSeekCredentialPresentation"
 import { displayFontStack } from "./displayFonts"
+import type { Code0SessionBridge } from "./state/code0Session"
+
+type Code0SurfaceProps = {code0Bridge?: Code0SessionBridge}
 
 type RuntimeSettings = {
   locale: Locale
@@ -156,7 +159,7 @@ function MeterSurface() {
   )
 }
 
-export function DetailSurface() {
+export function DetailSurface(_props: Code0SurfaceProps = {}) {
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
   const [paused, setPaused] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
@@ -363,7 +366,7 @@ export function DetailSurface() {
   )
 }
 
-export function SettingsSurface() {
+export function SettingsSurface(_props: Code0SurfaceProps = {}) {
   const settings = useRuntimeSettings()
   const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.5.0" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
