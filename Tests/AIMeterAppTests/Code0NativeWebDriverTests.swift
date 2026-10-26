@@ -4,6 +4,7 @@ import AppKit
 import Foundation
 import Testing
 @preconcurrency import WebKit
+@preconcurrency import Network
 @testable import AIMeterApp
 
 @Suite("Code0 actual owned native driver", .serialized,
@@ -138,6 +139,25 @@ struct Code0NativeDriverFixtureTests {
         }
     }
 
+    @Test func controlledHTTPListenerChallengesOnlyItsExactGETPath() async throws {
+        let server = Code0AuthenticationFixtureServer()
+        defer { server.stop() }
+        var ready = false
+        var endpoint: URL?
+        try server.start { url in endpoint = url; ready = true }
+        let becameReady = await nativeWait(seconds: 2) { ready }
+        try #require(becameReady, "The controlled listener must become ready within its bounded fixture lifetime")
+        let url = try #require(endpoint)
+        let exact = await NativeHTTPRouteExchange().exchange(url: url, requestLine: "GET \(url.path) HTTP/1.1")
+        #expect(exact == .status(401), "The one native-owned GET path must exercise the real challenge server")
+        for requestLine in ["GET /unrelated HTTP/1.1", "POST \(url.path) HTTP/1.1", "not-http"] {
+            let status = await NativeHTTPRouteExchange().exchange(url: url, requestLine: requestLine)
+            #expect(status == .closed || status == .status(404), "Unrelated paths/methods/non-HTTP input must never receive an authentication challenge")
+        }
+        // No CODE0_NATIVE_DRIVER marker: the original17-case evidence set stays
+        // exact. This additional regression observes the same server's route.
+    }
+
     private func run(_ fixture: NativeDriverFixture, caseID: String,
                      body: @MainActor (NativeDriverFixture) async -> Void) async {
         let created = fixture.createUnloaded()
@@ -160,6 +180,69 @@ private func nativeWait(seconds: Int, condition: @MainActor () -> Bool) async ->
         do { try await Task.sleep(for: .milliseconds(10)) } catch { return condition() }
     }
     return condition()
+}
+
+/// A bounded raw loopback client reads only the fixed HTTP status line. It
+/// sends no header, credential, cookie or body and never uses a website URL.
+@MainActor
+private final class NativeHTTPRouteExchange {
+    enum Outcome: Equatable, Sendable { case status(Int), closed, timedOut }
+    private var connection: NWConnection?
+    private var continuation: CheckedContinuation<Outcome, Never>?
+    private var timeout: Task<Void, Never>?
+    private var bytes = Data()
+
+    func exchange(url: URL, requestLine: String) async -> Outcome {
+        defer { withExtendedLifetime(self) {} }
+        guard url.host == "127.0.0.1", let value = url.port, value > 0, value <= 65535,
+              let port = NWEndpoint.Port(rawValue: UInt16(value)) else { return .closed }
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            let connection = NWConnection(host: "127.0.0.1", port: port, using: .tcp)
+            self.connection = connection
+            timeout = Task { @MainActor [weak self] in
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                self?.finish(.timedOut)
+            }
+            connection.stateUpdateHandler = { [weak self] state in
+                Task { @MainActor in
+                    guard let self, self.connection === connection else { return }
+                    switch state {
+                    case .ready:
+                        connection.send(content: Data((requestLine + "\r\n\r\n").utf8), completion: .contentProcessed { _ in })
+                        self.receive(connection)
+                    case .failed, .cancelled: self.finish(.closed)
+                    default: break
+                    }
+                }
+            }
+            connection.start(queue: DispatchQueue(label: "Code0.synthetic-route-client"))
+        }
+    }
+    private func receive(_ connection: NWConnection) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 256) { [weak self] data, _, complete, error in
+            Task { @MainActor in
+                guard let self, self.connection === connection else { return }
+                if let data { self.bytes.append(data.prefix(max(0, 256 - self.bytes.count))) }
+                if let end = self.bytes.range(of: Data([13, 10])) {
+                    let line = String(decoding: self.bytes[..<end.lowerBound], as: UTF8.self)
+                    let fields = line.split(separator: " ")
+                    if fields.count >= 2, fields[0] == "HTTP/1.1", let status = Int(fields[1]) { self.finish(.status(status)) }
+                    else { self.finish(.closed) }
+                } else if complete || error != nil || self.bytes.count >= 256 { self.finish(.closed) }
+                else { self.receive(connection) }
+            }
+        }
+    }
+    private func finish(_ result: Outcome) {
+        guard let continuation else { return }
+        self.continuation = nil
+        timeout?.cancel(); timeout = nil
+        connection?.stateUpdateHandler = nil
+        connection?.cancel(); connection = nil
+        bytes = Data()
+        continuation.resume(returning: result)
+    }
 }
 
 @MainActor

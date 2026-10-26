@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Testing
 @testable import AIMeterCore
@@ -106,6 +107,35 @@ struct Code0SnapshotStoreTests {
         #expect(removed, "Held-lease Disconnect must remove only the dedicated snapshot")
         #expect(!FileManager.default.fileExists(atPath: fixture.location.snapshotURL.path))
         #expect(try Data(contentsOf: sibling) == Data("keep-other-service".utf8))
+    }
+
+    @Test func directorySyncFailureAfterRenameCannotRestoreCandidateAsSuccessfulCache() throws {
+        let fixture = try StoreFixture()
+        defer { fixture.clean() }
+        let old = storeSnapshot(balance: 2.5)
+        try fixture.store.save(old)
+        let candidate = UsageSnapshot(provider: .code0,
+            primaryMetric: UsageMetric(label: "Balance", current: 99, limit: nil, unit: .siteCredits, kind: .balance),
+            secondaryMetric: UsageMetric(label: "Cumulative usage", current: 2, limit: nil, unit: .siteCredits, kind: .cumulativeUsage),
+            fetchedAt: old.fetchedAt.addingTimeInterval(300), sourceVersion: "website")
+        var directorySyncCalls = 0
+        let failingStore = Code0SnapshotStore(profile: fixture.lease, synchronizeDirectory: { descriptor in
+            directorySyncCalls += 1
+            if directorySyncCalls == 1 { errno = EIO; return -1 }
+            return Darwin.fsync(descriptor)
+        })
+        #expect(throws: Code0SnapshotStoreError.persistenceFailed) { try failingStore.save(candidate) }
+        #expect(directorySyncCalls >= 1, "The real post-rename directory sync must reach the one-shot EIO seam")
+        // A fresh store represents restart recovery, with no in-memory knowledge
+        // of the failed save. Throwing or no cache is safe; a success must be A/T.
+        let restartedStore = Code0SnapshotStore(profile: fixture.lease)
+        do {
+            if let restored = try restartedStore.load() {
+                #expect(restored.primaryMetric?.current == old.primaryMetric?.current)
+                #expect(restored.fetchedAt == old.fetchedAt)
+                #expect(restored.fetchedAt != candidate.fetchedAt)
+            }
+        } catch { /* An explicitly unreadable/uncertain cache is not success B/T+300. */ }
     }
 
     @Test func absentReadDoesNotCreateOwnedDirectoriesAndProjectionRejectsResetFields() throws {

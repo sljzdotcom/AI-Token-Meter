@@ -14,6 +14,7 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
     static let websiteDataStoreIdentifier = UUID(uuidString: "3292F126-DB63-49B5-9315-42C06E6CA289")!
     private static let handler = "code0Capture"
     private let profile: any Code0ProfileLeasing
+    private let canonicalSourceLoader: @MainActor () throws -> String
     private var owned: Owned?
     private var store: WKWebsiteDataStore?
     private var clearing = false
@@ -41,7 +42,22 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         }
     }
 
-    init(profile: any Code0ProfileLeasing) { self.profile = profile; super.init() }
+    init(profile: any Code0ProfileLeasing) {
+        self.profile = profile
+        self.canonicalSourceLoader = Self.readCanonicalSource
+        super.init()
+    }
+    /// Resource-failure injection before any WebKit or window object exists.
+    init(profile: any Code0ProfileLeasing, canonicalSourceLoader: @escaping @MainActor () throws -> String) {
+        self.profile = profile
+        self.canonicalSourceLoader = canonicalSourceLoader
+        super.init()
+    }
+    private static func readCanonicalSource() throws -> String {
+        guard let resource = AppResourceLocator.url(forResource: "code0-bridge", withExtension: "js", subdirectory: "Code0"),
+              let canonical = try? String(contentsOf: resource, encoding: .utf8) else { throw Code0SessionFailure.validationRequired }
+        return canonical
+    }
     func acquireProfileLease() throws {
         guard !clearing else { throw Code0SessionFailure.cleanupFailed }
         do { try profile.acquire() }
@@ -55,8 +71,7 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
     }
     func createUnloaded(_ request: Code0WindowRequest, events: @escaping @MainActor (Code0WindowEvent) -> Void) throws {
         guard profile.isHeld, owned == nil, !clearing else { throw Code0SessionFailure.profileBusy }
-        guard let resource = AppResourceLocator.url(forResource: "code0-bridge", withExtension: "js", subdirectory: "Code0"),
-              let canonical = try? String(contentsOf: resource, encoding: .utf8) else { throw Code0SessionFailure.validationRequired }
+        let canonical = try canonicalSourceLoader()
         let instance = Owned(request: request, events: events)
         let controller = WKUserContentController()
         let proxy = Code0NativeMessageProxy(owner: self, instanceID: request.instanceID)
@@ -233,14 +248,20 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         }
         #endif
         guard message.name == Self.handler, instance.request.mode == .sync,
-              let payload = message.body as? [String: Any], payload.count <= 12,
-              payload.values.allSatisfy({ value in
-                  if let text = value as? String { return text.utf8.count <= 128 }
-                  return value is NSNumber
-              }), JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload), data.count <= 2048,
+              let payload = message.body as? [String: Any], let data = encodeBridgePayload(payload),
               let source = message.frameInfo.request.url?.absoluteString else { fail(instance, .invalidResponse); return }
         instance.events(.message(payload: data, sourceURL: source, isMainFrame: true))
+    }
+    /// The same native envelope path, with an observable serialization boundary.
+    /// This checkpoint preserves the current validation behavior for actual RED.
+    func encodeBridgePayload(_ payload: [String: Any],
+        serialize: ([String: Any]) throws -> Data = { try JSONSerialization.data(withJSONObject: $0) }) -> Data? {
+        guard payload.count <= 12, payload.values.allSatisfy({ value in
+            if let text = value as? String { return text.utf8.count <= 128 }
+            return value is NSNumber
+        }), JSONSerialization.isValidJSONObject(payload),
+              let data = try? serialize(payload), data.count <= 2048 else { return nil }
+        return data
     }
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
@@ -463,7 +484,7 @@ enum Code0NativeFixtureObservation: Sendable {
 /// Only fixture-compiled code can bind a loopback listener. The one native-owned
 /// URL serves a fixed 401; no account data, TLS exception or production URL flag.
 @MainActor
-private final class Code0AuthenticationFixtureServer {
+final class Code0AuthenticationFixtureServer {
     private var listener: NWListener?
     private var ready: (@MainActor (URL?) -> Void)?
     private(set) var url: URL?

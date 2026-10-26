@@ -90,3 +90,11 @@ Task2独立规格与质量审查无关键/重要发现，第一阶段数值覆�
 `2b0eb9e` 加入拒绝型原子store、OS profile lease和真实网页驱动入口；新增11个Core测试方法、17个原生参数case，独立任务要求全部case记录齐全并验证隐藏和释放。隔离执行边界独审无阻断项，但不代表具体实现完成。
 
 [macOS 40332596811](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40332596811)在编译阶段失败：store测试两处throwing load放进require宏后缺少内部try，另一个测试构造缺少必填limit参数。普通和原生两任务均未执行行为测试，此次不是有效RED。原probe的alert回调仍有optional签名不匹配告警，当前编译器给出的completion隔离要求与上一诊断不同；保留实际selector断言，继续校正接口，不靠移动extension或关闭告警门禁处理。
+
+`ef0f32e` 的[macOS 40333978112](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40333978112)已编译并实际运行：主组728项/111套件只有新增store与lease出现29个issue（24+5），其余主组通过；原生驱动17个case记录齐全，cold负例通过，16个正向case均因拒绝创建/无策略安装确认产生32个issue。这些成为底层实现的实际RED，后续常规分组与窗口回归未运行。
+
+原生来源探针另有4个issue，原因是alert selector没有注册；confirm及deprecatedTLS selector为true。alert completion注解的诊断再次反转，不能继续盲目往返或把它归入预期driver失败。[Apple公开接口](https://developer.apple.com/documentation/webkit/wkuidelegate/webview(_:runjavascriptalertpanelwithmessage:initiatedbyframe:completionhandler:))同时提供async形式，下一实现候选采用该明确接口并保留真实selector与编译告警门禁。当前尚未证明修复成功。底层GREEN实现已获授权，真实存储/窗口和界面验收仍未完成。
+
+同一 `ef0f32e` 的[Windows 40333978105](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40333978105)完整通过前端138、Rust300、密度浏览器及debug NSIS/GUI检查。前一检查点Windows任务被更新提交替代而取消，未计为通过；本轮仍不代表Windows Code0会话已经实现。
+
+`49041dd` 为实际store/lease/WK驱动候选，尚未运行GREEN。完整源码独审发现5项需修正的问题：持有期间锁或目录替代后权威失效、rename后目录同步失败的候选恢复、受控401服务精确路径、创建资源失败的零对象释放，以及消息序列化前的键界限。另记录测试连接随服务停止统一清理的建议。先在同一候选增加针对性行为回归，再用隔离CI确认缺口，随后集中修正；不以源码审查或语法解析替代实际通过。

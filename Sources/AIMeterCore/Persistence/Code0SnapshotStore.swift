@@ -18,8 +18,17 @@ public protocol Code0SnapshotStoring: AnyObject {
 @MainActor
 public final class Code0SnapshotStore: Code0SnapshotStoring {
     private let profile: any Code0ProfileLeasing
+    private let synchronizeDirectory: (Int32) -> Int32
     private static let maximumBytes = 4096
-    public init(profile: any Code0ProfileLeasing) { self.profile = profile }
+    public init(profile: any Code0ProfileLeasing) {
+        self.profile = profile
+        self.synchronizeDirectory = { Darwin.fsync($0) }
+    }
+    /// Fault injection for the existing post-rename syscall; default behavior is unchanged.
+    init(profile: any Code0ProfileLeasing, synchronizeDirectory: @escaping (Int32) -> Int32) {
+        self.profile = profile
+        self.synchronizeDirectory = synchronizeDirectory
+    }
     public func load() throws -> UsageSnapshot? {
         let directory: Int32
         do { directory = try Code0SafeFiles.openDirectory(profile.location, create: false) }
@@ -75,7 +84,7 @@ public final class Code0SnapshotStore: Code0SnapshotStoring {
         guard renameat(directory, name, directory, "snapshot.json") == 0 else { throw Code0SnapshotStoreError.persistenceFailed }
         // A directory-sync failure is an uncertain persistence outcome, not a
         // successful save. The session retains its cache-cleanup obligation.
-        guard fsync(directory) == 0 else { throw Code0SnapshotStoreError.persistenceFailed }
+        guard synchronizeDirectory(directory) == 0 else { throw Code0SnapshotStoreError.persistenceFailed }
     }
     public func remove() throws {
         guard profile.isHeld else { throw Code0SnapshotStoreError.leaseRequired }

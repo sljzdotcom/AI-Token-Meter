@@ -36,6 +36,56 @@ struct Code0ProfileLeaseTests {
         #expect(second.isHeld)
     }
 
+    @Test(arguments: [false, true])
+    func replacementWhileHeldRevokesOldAuthorityAndCannotTouchReplacement(replaceDirectory: Bool) throws {
+        let root = temporaryLeaseRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let oldLease = Code0ProfileLease(location: location)
+        let newLease = Code0ProfileLease(location: location)
+        defer { oldLease.release(); newLease.release() }
+        try oldLease.acquire()
+        let oldStore = Code0SnapshotStore(profile: oldLease)
+        let retained = root.appendingPathComponent(replaceDirectory ? "retained-directory" : "retained-lock")
+        if replaceDirectory {
+            try FileManager.default.moveItem(at: location.directoryURL, to: retained)
+            try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700])
+        } else {
+            try FileManager.default.moveItem(at: location.lockURL, to: retained)
+        }
+        try newLease.acquire()
+        #expect(newLease.isHeld)
+        #expect(!oldLease.isHeld, "The old locked inode is no longer authority for this fixed profile path")
+        var reacquireFailed = false
+        do { try oldLease.acquire() } catch { reacquireFailed = true }
+        #expect(reacquireFailed, "Re-acquire must not silently accept an already-invalid old lock")
+        #expect(!(oldLease.isHeld && newLease.isHeld))
+        let sentinel = Data("replacement-owned-by-new-lease".utf8)
+        try sentinel.write(to: location.snapshotURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: location.snapshotURL.path)
+        let candidate = UsageSnapshot(provider: .code0,
+            primaryMetric: UsageMetric(label: "Balance", current: 9, limit: nil, unit: .siteCredits, kind: .balance),
+            secondaryMetric: UsageMetric(label: "Cumulative usage", current: 1, limit: nil, unit: .siteCredits, kind: .cumulativeUsage),
+            fetchedAt: Date(timeIntervalSince1970: 1_793_016_000), sourceVersion: "website")
+        var saveFailed = false
+        do { try oldStore.save(candidate) } catch { saveFailed = true }
+        #expect(saveFailed)
+        #expect(try Data(contentsOf: location.snapshotURL) == sentinel)
+        // Reset only the test's sentinel so the two mutation oracles are independent.
+        try sentinel.write(to: location.snapshotURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: location.snapshotURL.path)
+        var removalFailed = false
+        do { try oldStore.remove() } catch { removalFailed = true }
+        #expect(removalFailed)
+        #expect(FileManager.default.fileExists(atPath: location.snapshotURL.path))
+        if FileManager.default.fileExists(atPath: location.snapshotURL.path) {
+            #expect(try Data(contentsOf: location.snapshotURL) == sentinel)
+        }
+        oldLease.release()
+        #expect(newLease.isHeld, "Releasing the stale inode must not release its successor")
+    }
+
     @Test func existingKernelFlockIsBusyWithoutDeletingOrChangingTheOwnerFile() throws {
         let root = temporaryLeaseRoot()
         defer { try? FileManager.default.removeItem(at: root) }
