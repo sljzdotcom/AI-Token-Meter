@@ -2018,6 +2018,7 @@ struct CLIAuthenticationScriptBuilderTests {
         let cliGroupCheckIsKnown = cliGroupHasMembers != nil || !cliStartRequired
         guard supervisorExited && cliExited && watchdogExited && additionalChildrenExited
                 && cliGroupCheckIsKnown && cliGroupHasMembers != true else {
+            print("PTY_CLEANUP_UNKNOWN supervisor=\(supervisorExited) cli=\(cliExited) watchdog=\(watchdogExited) additional=\(additionalChildrenExited) groupKnown=\(cliGroupCheckIsKnown) groupHasMembers=\(String(describing: cliGroupHasMembers)) root=\(root.path)")
             preserveTemporaryDirectory(root, reason: "synthetic CLI, descendant, watchdog, or CLI process group remained live or had unknown identity")
             return IsolatedPTYLoginResult(
                 cleanupSucceeded: false,
@@ -2116,7 +2117,11 @@ struct CLIAuthenticationScriptBuilderTests {
         // Never signal a recorded numeric child PID: it could exit and that PID
         // could be reused. The shell's HUP path owns cleanup; if it leaves a
         // child behind, fail and preserve this test root.
-        return observeTrackedChild(pid: pid, in: root) == .gone
+        let finalObservation = observeTrackedChild(pid: pid, in: root)
+        if finalObservation != .gone {
+            print("TRACKED_CHILD_NOT_EXITED pid=\(pid) observation=\(finalObservation) file=\(pidFile.lastPathComponent)")
+        }
+        return finalObservation == .gone
     }
 
     private func syntheticCLIProcessGroupHasMembers(groupID: pid_t) -> Bool {
@@ -2142,10 +2147,17 @@ struct CLIAuthenticationScriptBuilderTests {
     }
 
     private func observeTrackedChild(pid: pid_t, in root: URL) -> TrackedProcessObservation {
-        guard Darwin.kill(pid, 0) == 0 else { return errno == ESRCH ? .gone : .unknown }
-        guard let output = FixtureProcessQuery.run(
+        guard Darwin.kill(pid, 0) == 0 else {
+            let probeErrno = errno
+            if probeErrno != ESRCH { print("TRACKED_CHILD_PROBE_UNKNOWN pid=\(pid) errno=\(probeErrno)") }
+            return probeErrno == ESRCH ? .gone : .unknown
+        }
+        let queryStarted = ContinuousClock.now
+        let queryOutput = FixtureProcessQuery.run(
             executable: URL(fileURLWithPath: "/bin/ps"), arguments: ["-o", "stat=", "-p", String(pid)], in: root
-        ), output.exitStatus == 0 else {
+        )
+        guard let output = queryOutput, output.exitStatus == 0 else {
+            print("TRACKED_CHILD_QUERY_UNKNOWN pid=\(pid) query=\(String(reflecting: queryOutput)) elapsed=\(queryStarted.duration(to: .now))")
             preserveTemporaryDirectory(root, reason: "Tracked child query unknown")
             return .unknown
         }
