@@ -60,3 +60,9 @@ Code0默认隐藏，保留旧四服务设置和小组件三项默认。仅用户
 `c97ddf7` 的[独立网页桥任务](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40313485799/job/121540175377)实际24/24通过，资源逐字节一致性通过。原生Swift主组684项只在3个新增协议正向测试出现14个issue，均因拒绝型入口未接收合法控制或capture；[Windows 40313485613](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40313485613)成功编译和lint，协议10项中7项负例通过、3项正向失败，具体返回均为ValidationRequired。后续套件与安装器未执行，不计入通过。
 
 两端实际行为RED经逐条核对后，开始原生来源/epoch/attempt/nonce/document、序号、refresh集合和一次消费校验；Task2尚未完成。共享桥24项通过不代表原生窗口、登录或真实账户已验收。
+
+## Task2完整验证通过
+
+`3695590` 的[macOS 40316850370](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40316850370)全部通过：687+3+18+50+16=774项常规测试、8项窗口测试、26项网页桥测试，以及合同/文档/公开扫描。[Windows 40316850218](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40316850218)前端138、Rust300（含原生协议13项）、密度浏览器、debug NSIS与GUI子系统检查全部通过。原生合法完整trace、重叠refresh后新self及终止控制从预期失败转为通过；原负例保留，新增数值上限、重复解码键、撤销后迟到事件测试也通过。
+
+Task2独立规格与质量审查无关键/重要发现，第一阶段数值覆盖建议已补并实际运行通过。macOS现有5处AX弃用告警与先前基线一致，Windows仍为既有PDB输出名冲突及上游Action运行时提示，未新增本任务告警。Task2完成；实际官网窗口、独立profile/lease、保存事务、登录后同步、定时调度及Services/detail仍由Task3/4继续，未宣称完整Code0或真实账户验收完成。

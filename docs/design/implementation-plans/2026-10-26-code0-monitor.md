@@ -39,10 +39,10 @@ assert!(capture_with_invalid_divisor.is_err());
 
 文件：新增 `web/code0-bridge.js`、`web/code0-bridge.test.mjs`，生成/一致性检查脚本和两端资源接入；各平台纯消息验证器。源脚本以显式 native 配置 nonce/document ID/transport 初始化，不暴露生产测试origin例外。
 
-- [ ] 先写行为 fixture，装入拒绝型桥，确认有效配对没有输出导致 RED；随后实现 fetch/XHR包装与严格URL、GET、响应最终URL、content-type/success、64KiB处理。
-- [ ] 测试页面自己的请求才触发捕获；安装桥后请求计数仍0。原fetch返回/异常和XHR事件一致；非目标请求不 clone/read。只发固定control和三个数，token/email/id/header/body不出桥。
-- [ ] 覆盖status/self先后，self2先发/self1晚到，解析时revision变化，重叠refresh各request ID完成，refresh结束前已发self不得被接受；明确login/logout清旧值，网络失败/409暂停。200refresh不直接发布，必须后续新self。
-- [ ] 生成资源同源检查纳入两端CI；native拒绝大于2KiB、额外字段、非法数、旧epoch/nonce/document/revision/sequence与第二次成功。捕获拒绝原因使用固定枚举，不记录原body。
+- [x] 先写行为 fixture，装入拒绝型桥，确认有效配对没有输出导致 RED；随后实现 fetch/XHR包装与严格URL、GET、响应最终URL、content-type/success、64KiB处理。
+- [x] 测试页面自己的请求才触发捕获；安装桥后请求计数仍0。原fetch返回/异常和XHR事件一致；非目标请求不 clone/read。只发固定control和三个数，token/email/id/header/body不出桥。
+- [x] 覆盖status/self先后，self2先发/self1晚到，解析时revision变化，重叠refresh各request ID完成，refresh结束前已发self不得被接受；明确login/logout清旧值，网络失败/409暂停。200refresh不直接发布，必须后续新self。
+- [x] 生成资源同源检查纳入两端CI；native拒绝大于2KiB、额外字段、非法数、旧epoch/nonce/document/revision/sequence与第二次成功。捕获拒绝原因使用固定枚举，不记录原body。
 
 具体序列：`self1.start → refresh1.start → refresh2.start → refresh1.end → self2.start → refresh2.end → self2.end` 输出0；再 `self3.start → self3.end` 与同文档合法status输出恰1。数值相同的两次请求也按序号隔离。
 
