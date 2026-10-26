@@ -79,7 +79,7 @@ function harness({ subframe = false } = {}) {
     const result = scope.fetch(input, init);
     return { result, call: calls.at(-1) };
   }
-  function reply(call, body, { url, code = 200, redirected = false, contentType = "application/json" } = {}) {
+  function reply(call, body, { url, code = 200, redirected = false, type = "basic", contentType = "application/json" } = {}) {
     const input = call.args[0];
     const requested = input instanceof Request ? input.url : String(input);
     const response = new Response(typeof body === "string" ? body : JSON.stringify(body), {
@@ -87,6 +87,7 @@ function harness({ subframe = false } = {}) {
     });
     Object.defineProperty(response, "url", { value: url ?? new URL(requested, origin).href });
     Object.defineProperty(response, "redirected", { value: redirected });
+    Object.defineProperty(response, "type", { value: type });
     const clone = response.clone.bind(response);
     call.clones = 0;
     response.clone = () => { call.clones++; return clone(); };
@@ -221,6 +222,10 @@ test("exact request and response allowlists reject method, query, origin and red
     ["http://console.code0.ai/api/user/self", {}, {}],
     ["/api/user/self", {}, { url: "https://other.invalid/api/user/self" }],
     ["/api/user/self", {}, { redirected: true }],
+    ["/api/user/self", {}, { type: "opaque" }],
+    ["/api/user/self", {}, { type: "opaqueredirect" }],
+    ["/api/user/self", {}, { url: `${origin}/api/status` }],
+    ["/api/user/self", {}, { url: "" }],
     ["/api/user/self", {}, { code: 401 }],
     ["/api/user/self", {}, { contentType: "text/html" }],
   ];
@@ -258,6 +263,16 @@ test("XHR supports a complete pair and preserves caller load events", async () =
   assert.equal(loads, 1);
   assert.deepEqual(JSON.parse(b.responseText), self);
   assert.equal(h.captures().length, 1);
+});
+
+test("XHR final URL must match the original exact endpoint, without claiming visibility of intermediate hops", async () => {
+  for (const url of ["", `${origin}/api/status`, `${origin}/api/user/self?extra=1`, "https://other.invalid/api/user/self"]) {
+    const h = harness();
+    await h.complete("/api/status", status);
+    const xhr = new h.scope.XMLHttpRequest(); xhr.open("GET", "/api/user/self"); xhr.send();
+    xhr.reply(self, { url }); await settle();
+    assert.equal(h.captures().length, 0, url);
+  }
 });
 
 test("invalid quota and missing or invalid divisors never emit numeric values", async () => {

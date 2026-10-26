@@ -33,7 +33,7 @@ Swift 与 Windows 的原四项 HTTP/CLI collector 保持原范围。Code0 快照
 
 只在 owned WebView 主框架 document-start 注入。共享桥逻辑由一份可测试源生成两端资源，检查资源一致性；不复制 DeepSeek 的宽泛整段响应桥。
 
-1. 观察 fetch/XHR，保留原返回对象、异常和事件语义；自身不发网络请求。请求与最终响应均须是 HTTPS、无 userinfo、官方精确同源 `https://console.code0.ai`、默认 443 端口、无 query/hash、精确 GET `/api/status` 或 `/api/user/self`。拒绝重定向、非成功 HTTP、非 JSON 和业务失败。
+1. 观察 fetch/XHR，保留原返回对象、异常和事件语义；自身不发网络请求。请求与最终响应均须是 HTTPS、无 userinfo、官方精确同源 `https://console.code0.ai`、默认 443 端口、无 query/hash、精确 GET `/api/status` 或 `/api/user/self`。最终 URL 必须匹配原请求的同一端点，不能仅要求两者分别位于允许集合。fetch 另拒绝 `redirected` 为 true、opaque/opaqueredirect 或缺失可验证URL的响应；XHR 拒绝空或可观察不匹配的 responseURL，但其公开接口不暴露中间跳转链，无法排除跳转后回到同一允许URL。这些检查只约束数值采集，不阻断官网原请求。拒绝非成功 HTTP、非 JSON 和业务失败。
 2. 响应处理设 64 KiB 上限；fetch clone 以有界读取终止副本流，XHR 已收到的 body 先检查长度，再解析。只选择规定的数值，不将整个 data/响应字符串交给 native。
 3. 每次新同步使用 native 生成的 nonce、connection epoch、attempt ID；每个文档/请求有单调序号。控制消息是固定枚举及序号；数值消息只含协议版本、nonce、document/auth/self 序号与三个数。native 拒绝未知字段、超过 2 KiB、错误类型/来源、旧序号、重放或失效实例。
 4. 桥不能读取 cookies、localStorage、sessionStorage、凭据/账户字段，不能导出 headers/body。官方脚本在网页中照常使用自己的登录数据不等于应用读取这些数据。

@@ -4,6 +4,7 @@
 - [Provider presentation](presentation/providers.json): shared identity, order, colors and semantics.
 - [Feature parity](parity/features.yml): platform delivery evidence and limits.
 - Snapshot fixtures: [Gemini unavailable](fixtures/gemini-unavailable.json), [Gemini fresh](fixtures/gemini-fresh.json), plus the existing Claude, Codex, DeepSeek and authentication examples under `fixtures/`.
+- [Code0 site credits](fixtures/code0-site-credits.json): synthetic balance and cumulative usage, with no currency, ratio, budget limit, identity or credentials; seventh shared fixture for the optional provider.
 - [Antigravity CLI 1.1.28 usage contract](antigravity-cli/1.1.28/README.md): synthetic, account-free upstream `/usage` output; production validates the full shape and publishes Gemini and Claude/GPT shared windows separately. The shared pool is detail-only and never drives Gemini summaries or reminders.
 - [Legacy Gemini CLI 0.58.0 terminal transcripts](gemini-cli/0.58.0/README.md): historical 0.6.0 release evidence; no longer used by production collection.
 
