@@ -121,7 +121,15 @@ struct Code0SnapshotStoreTests {
         var directorySyncCalls = 0
         let failingStore = Code0SnapshotStore(profile: fixture.lease, synchronizeDirectory: { descriptor in
             directorySyncCalls += 1
-            if directorySyncCalls == 1 { errno = EIO; return -1 }
+            if directorySyncCalls == 1 {
+                let bytes = try? Data(contentsOf: fixture.location.snapshotURL)
+                let object = bytes.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                #expect(object?["balance"] as? Double == 99)
+                #expect(object?["fetchedAt"] as? Double == candidate.fetchedAt.timeIntervalSince1970)
+                #expect(throws: Code0SnapshotStoreError.persistenceFailed) { try fixture.store.load() }
+                errno = EIO
+                return -1
+            }
             return Darwin.fsync(descriptor)
         })
         #expect(throws: Code0SnapshotStoreError.persistenceFailed) { try failingStore.save(candidate) }
@@ -136,6 +144,27 @@ struct Code0SnapshotStoreTests {
                 #expect(restored.fetchedAt != candidate.fetchedAt)
             }
         } catch { /* An explicitly unreadable/uncertain cache is not success B/T+300. */ }
+    }
+
+    @Test func failedRestorationLeavesPendingUnreadableUntilExplicitRemoval() throws {
+        let fixture = try StoreFixture()
+        defer { fixture.clean() }
+        try fixture.store.save(storeSnapshot())
+        let failing = Code0SnapshotStore(profile: fixture.lease, synchronizeDirectory: { _ in
+            // The candidate is already renamed. Deny only the subsequent
+            // restoration writes, retaining the on-disk visibility barrier.
+            try? FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: fixture.location.directoryURL.path)
+            errno = EIO
+            return -1
+        })
+        #expect(throws: Code0SnapshotStoreError.persistenceFailed) { try failing.save(storeSnapshot(balance: 99)) }
+        #expect(FileManager.default.fileExists(atPath: fixture.location.directoryURL.appendingPathComponent("snapshot.pending").path))
+        let restarted = Code0SnapshotStore(profile: fixture.lease)
+        #expect(throws: Code0SnapshotStoreError.persistenceFailed) { try restarted.load() }
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fixture.location.directoryURL.path)
+        try restarted.remove()
+        #expect(try restarted.load() == nil)
+        #expect(!FileManager.default.fileExists(atPath: fixture.location.directoryURL.appendingPathComponent("snapshot.pending").path))
     }
 
     @Test func absentReadDoesNotCreateOwnedDirectoriesAndProjectionRejectsResetFields() throws {

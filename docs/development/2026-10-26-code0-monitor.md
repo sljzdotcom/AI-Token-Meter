@@ -104,3 +104,11 @@ Task2独立规格与质量审查无关键/重要发现，第一阶段数值覆�
 同轮原生任务实际运行10个方法/19个展开case，出现6个issue：capture已通过真实桥得到1个结果，但持久化失败；媒体与定位未在限时内得到delegate或页面终结结果，保持未验证；精确HTTP路径回归3个issue按预期复现。弹窗、确认/输入框、新窗口、文件选择、外部导航、下载及HTTP身份拒绝均实际观察到delegate；17个原有driver记录的隐藏与双weak释放成立，来源探针也通过。confirm/deprecatedTLS仍有两种optional签名告警，后续采用已核实的公开async接口并保留告警门禁；不能用其他成功分支覆盖媒体/定位缺口。
 
 同提交的[Windows 40342273070](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40342273070)通过前端138、Rust300、密度浏览器与debug NSIS/GUI检查。当前尚未开始Windows Code0会话，保留这个兼容基线。
+
+`a293ce2` 的[macOS 40345979787](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40345979787)证明前置修正有效：普通主组734项仅剩目标回归23个issue（持有期间替代14、rename后失败恢复3、零资源释放3、消息键3），旧正常路径通过；原生capture持久化及来源探针通过，nearly-matches告警清零，仍有精确HTTP路径3个预期issue及媒体/定位未终结2个issue。前置源码独审无新增问题。五项行为缺口已实际复现，开始集中修复。
+
+新增阶段证明媒体/定位API已调用、页面timer执行、文档hidden且无focus，仍没有权限终结。独立核对[WebKit媒体可见性等待](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/Modules/mediastream/MediaDevices.cpp)与[定位等待](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/Modules/geolocation/GeolocationController.cpp)后，明确拆分两种测试证据：隐藏请求由真实会话期限撤销；另一个明确可见的合成登录实例测试实际拒绝。生产隐藏约束不变，timeout不改记deny，细则已同步规格。新测试已随集中修复候选形成，实际隔离运行仍待完成。
+
+同一 `a293ce2` 的[Windows 40345979802](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40345979802)通过前端138、Rust300、密度浏览器、debug NSIS与GUI检查。认证取消的实际夹具覆盖HTTP401；客户端证书、服务器信任与旧TLS的真实握手仍未观察，其公开handler及系统正常验证策略纳入源码审查，不额外安装测试信任或接受证书例外。最终报告保留这一覆盖边界。
+
+集中修复候选绑定已持有目录与锁的身份，增加未确认写入屏障和一次恢复，补齐零对象创建失败释放、序列化前键限制及HTTP精确路径/连接清理。候选保留既有失败断言，新增恢复再次失败与隐藏请求会话撤销、明确可见登录拒绝的原生用例；静态解析通过，尚不代表实际测试通过，进入独立复审与双平台CI。

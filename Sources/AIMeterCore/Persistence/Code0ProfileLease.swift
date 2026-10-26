@@ -1,8 +1,8 @@
 import Darwin
 import Foundation
 
-/// Native-derived paths. Resolving the caller's anchor preserves system aliases
-/// such as /var, while the owned descendants are always opened without symlinks.
+/// Canonicalizes only the trusted native anchor. Owned descendants are always
+/// opened without symlinks, including when the anchor was a system alias.
 public struct Code0StorageLocation: Equatable, Sendable {
     public let directoryURL: URL
     public var snapshotURL: URL { directoryURL.appendingPathComponent("snapshot.json") }
@@ -52,21 +52,51 @@ public protocol Code0ProfileLeasing: AnyObject {
     var isHeld: Bool { get }
     func acquire() throws
     func release()
+    /// Caller owns the returned descriptor and must close it. Real OS leases
+    /// return a duplicate of the directory bound to their locked inode.
+    func duplicateHeldDirectory() throws -> Int32
+}
+
+public extension Code0ProfileLeasing {
+    func duplicateHeldDirectory() throws -> Int32 {
+        guard isHeld else { throw Code0ProfileLeaseError.unsafePath }
+        return try Code0SafeFiles.openDirectory(location, create: false)
+    }
 }
 
 @MainActor
 public final class Code0ProfileLease: Code0ProfileLeasing {
     public let location: Code0StorageLocation
     private var descriptor: Int32 = -1
-    public var isHeld: Bool { descriptor >= 0 }
+    private var directoryDescriptor: Int32 = -1
+    private var authorityLost = false
+    public var isHeld: Bool {
+        guard descriptor >= 0, directoryDescriptor >= 0, !authorityLost else { return false }
+        guard let current = try? Code0SafeFiles.openDirectory(location, create: false) else {
+            authorityLost = true; return false
+        }
+        defer { _ = Darwin.close(current) }
+        var bound = stat(), path = stat()
+        let valid = fstat(directoryDescriptor, &bound) == 0 && fstat(current, &path) == 0 &&
+            bound.st_dev == path.st_dev && bound.st_ino == path.st_ino &&
+            (try? Code0SafeFiles.validateRegular(descriptor, maximumSize: nil)) != nil &&
+            Code0SafeFiles.matches(current, name: "profile.lock", descriptor: descriptor)
+        if !valid { authorityLost = true }
+        return valid
+    }
     public init(location: Code0StorageLocation) { self.location = location }
     public func acquire() throws {
-        guard !isHeld else { return }
+        if descriptor >= 0 {
+            guard isHeld else { throw Code0ProfileLeaseError.unsafePath }
+            return
+        }
+        guard !authorityLost else { throw Code0ProfileLeaseError.unsafePath }
         let directory: Int32
         do { directory = try Code0SafeFiles.openDirectory(location, create: true) }
         catch Code0SafeFiles.Failure.unsafe { throw Code0ProfileLeaseError.unsafePath }
         catch { throw Code0ProfileLeaseError.unavailable }
-        defer { _ = Darwin.close(directory) }
+        var keepDirectory = false
+        defer { if !keepDirectory { _ = Darwin.close(directory) } }
         let fd = openat(directory, "profile.lock", O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, mode_t(0o600))
         guard fd >= 0 else {
             throw errno == ELOOP || errno == EISDIR ? Code0ProfileLeaseError.unsafePath : .unavailable
@@ -84,15 +114,28 @@ public final class Code0ProfileLease: Code0ProfileLeasing {
             throw Code0ProfileLeaseError.unsafePath
         }
         descriptor = fd
-        keep = true
+        directoryDescriptor = directory
+        keep = true; keepDirectory = true
+        guard isHeld else {
+            release()
+            throw Code0ProfileLeaseError.unsafePath
+        }
+    }
+    public func duplicateHeldDirectory() throws -> Int32 {
+        guard isHeld else { throw Code0ProfileLeaseError.unsafePath }
+        let duplicate = fcntl(directoryDescriptor, F_DUPFD_CLOEXEC, 0)
+        guard duplicate >= 0 else { throw Code0ProfileLeaseError.unavailable }
+        return duplicate
     }
     public func release() {
-        guard descriptor >= 0 else { return }
-        _ = flock(descriptor, LOCK_UN)
-        _ = Darwin.close(descriptor)
-        descriptor = -1
+        if descriptor >= 0 { _ = flock(descriptor, LOCK_UN); _ = Darwin.close(descriptor) }
+        if directoryDescriptor >= 0 { _ = Darwin.close(directoryDescriptor) }
+        descriptor = -1; directoryDescriptor = -1; authorityLost = false
     }
-    deinit { if descriptor >= 0 { _ = Darwin.close(descriptor) } }
+    deinit {
+        if descriptor >= 0 { _ = Darwin.close(descriptor) }
+        if directoryDescriptor >= 0 { _ = Darwin.close(directoryDescriptor) }
+    }
 }
 
 /// Descriptor-relative operations prevent a replaced descendant/symlink from

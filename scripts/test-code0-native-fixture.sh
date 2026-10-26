@@ -44,7 +44,9 @@ expected_cases = {
     "cold-driver", "unloaded-policies", "capture", "retain-window", "retain-view",
     "alert", "confirm", "prompt", "popup", "file-panel", "external-navigation",
     "download", "media", "geolocation", "notification", "hidden-display", "http-auth",
+    "visible-media-denial", "visible-geolocation-denial",
 }
+visible_cases = {"visible-media-denial", "visible-geolocation-denial"}
 if len(driver_records) != len(expected_cases) or {row.get("case") for row in driver_records} != expected_cases:
     raise SystemExit("Expected exactly one native driver record for every required case")
 for row in driver_records:
@@ -53,7 +55,21 @@ for row in driver_records:
     if row["case"] == "cold-driver":
         if row.get("outcome") != "cold-no-browser" or row.get("policiesInstalled") is not False:
             raise SystemExit("Cold driver unexpectedly initialized a browser")
-    elif row.get("outcome") != "driver-observation" or any(row.get(key) is not True for key in ("policiesInstalled", "hiddenBefore", "unfocusedBefore", "releasedAck")):
-        raise SystemExit("Required native driver case did not observe an owned hidden browser and its release")
+    else:
+        if row.get("outcome") != "driver-observation" or any(row.get(key) is not True for key in ("policiesInstalled", "releasedAck")):
+            raise SystemExit("Required native driver case did not observe installed policies and actual release")
+        if row["case"] in visible_cases:
+            if row.get("displayMode") != "explicit-login" or row.get("visibleObserved") is not True or row.get("captureInactive") is not True:
+                raise SystemExit("Visible permission evidence must come from an explicit synthetic login with inactive capture")
+            if row.get("denialEvidence") not in {"native-delegate-deny", "page-permission-denied"}:
+                raise SystemExit("Visible permission case did not observe an actual denial")
+        elif any(row.get(key) is not True for key in ("hiddenBefore", "unfocusedBefore")):
+            raise SystemExit("A hidden native case was shown or focused")
+        if row["case"] in {"media", "geolocation"}:
+            if (row.get("permissionEvidence") != "pending-before-permission" or
+                    row.get("sessionTermination") != "cancelled-by-session" or
+                    row.get("deadline") != "injected-monotonic-45s" or
+                    row.get("requestStarted") is not True or row.get("captureInactive") is not True):
+                raise SystemExit("Hidden permission wait lacks actual request and session-deadline cancellation evidence")
 print("Native origin and all required driver cases executed; real website account acceptance is separate.")
 PYTHON
