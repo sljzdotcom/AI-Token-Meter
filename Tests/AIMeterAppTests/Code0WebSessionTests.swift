@@ -331,6 +331,232 @@ struct Code0WebSessionTests {
         fixture.session.processScheduledWork()
         #expect(fixture.driver.requests.count == 3)
     }
+
+    @Test(arguments: [false, true])
+    func explicitConnectFromCacheClearsOldAccountAndRemoveFailureBlocksLogin(removeFails: Bool) throws {
+        let fixture = SessionFixture()
+        try fixture.activate()
+        let cached = try #require(fixture.store.cached)
+        let driver = TestCode0Driver(timeline: fixture.timeline)
+        fixture.store.failRemove = removeFails
+        let restarted = Code0WebSession(clock: fixture.clock, driver: driver, store: fixture.store)
+        var cleared = false
+        restarted.onSnapshotChange = { value in if value == nil { cleared = true } }
+        #expect(restarted.snapshot?.primaryMetric == cached.primaryMetric)
+        #expect(restarted.connect() == (removeFails ? .denied : .started))
+        #expect(restarted.snapshot == nil)
+        #expect(cleared)
+        #expect(driver.leaseAcquisitions == 1)
+        #expect(driver.requests.count == (removeFails ? 0 : 1))
+        if removeFails {
+            #expect(restarted.state == .cleanupPending)
+            #expect(restarted.failure == .storageFailed)
+            #expect(driver.leaseReleases == 0)
+            #expect(restarted.connect() == .busy)
+        } else {
+            #expect(fixture.store.cached == nil)
+            #expect(driver.requests.first?.mode == .login)
+            #expect(restarted.state == .connecting)
+        }
+        #expect(!restarted.isAutomaticallySyncing)
+    }
+
+    @Test func disconnectFromCachedRestartAcquiresLeaseBeforeClearingOwnedData() throws {
+        let fixture = SessionFixture()
+        try fixture.activate()
+        let driver = TestCode0Driver(timeline: fixture.timeline)
+        let restarted = Code0WebSession(clock: fixture.clock, driver: driver, store: fixture.store)
+        #expect(restarted.disconnect() == .started)
+        #expect(restarted.state == .disconnected)
+        #expect(driver.leaseAcquisitions == 1)
+        #expect(driver.websiteClears == 1)
+        #expect(driver.leaseReleases == 1)
+        #expect(fixture.store.cached == nil)
+        #expect(driver.requests.isEmpty)
+    }
+
+    @Test func synchronousDriverCallbacksAndRepeatedAcknowledgmentsAreSerialized() {
+        let fixture = SessionFixture()
+        fixture.driver.installDuringCreate = true
+        fixture.driver.releaseDuringClose = true
+        fixture.driver.onNavigate = { [weak fixture] request in
+            guard let fixture, request.mode == .sync else { return }
+            fixture.driver.emit(.policiesInstalled, for: request) // duplicate ack
+            fixture.deliverCapture(to: request)
+            fixture.deliverCapture(to: request) // consumed/closing instance
+        }
+        #expect(fixture.session.connect() == .started)
+        #expect(fixture.session.loginCompleted() == .started)
+        #expect(fixture.driver.requests.map(\.mode) == [.login, .sync])
+        #expect(fixture.driver.navigated.count == 2)
+        #expect(fixture.store.saved.count == 1)
+        #expect(fixture.published.count == 1)
+        #expect(fixture.driver.closing.count == 2)
+        #expect(fixture.session.state == .active)
+        #expect(fixture.session.isAutomaticallySyncing)
+    }
+
+    @Test(arguments: [false, true])
+    func snapshotObserverCanRevokeBeforeReleaseWithoutReauthorizing(disconnect: Bool) throws {
+        let fixture = SessionFixture()
+        let sync = try fixture.startSync()
+        let session = fixture.session
+        fixture.driver.releaseDuringClose = true
+        session.onSnapshotChange = { [weak session] value in
+            guard value != nil, let session else { return }
+            if disconnect { #expect(session.disconnect() == .started) }
+            else { session.stop() }
+        }
+        fixture.deliverCapture(to: sync)
+        #expect(!session.isAutomaticallySyncing)
+        #expect(session.state == (disconnect ? .disconnected : .paused))
+        #expect(fixture.driver.leaseReleases == 1)
+        #expect(fixture.store.saved.count == 1)
+        #expect(fixture.store.removals == (disconnect ? 1 : 0))
+        fixture.clock.advance(1_000)
+        session.processScheduledWork()
+        #expect(fixture.driver.requests.count == 2)
+    }
+
+    @Test func captureAtDeadlineIsRejectedEvenBeforeScheduledPoll() throws {
+        let fixture = SessionFixture()
+        let sync = try fixture.startSync()
+        fixture.clock.advance(45)
+        fixture.deliverCapture(to: sync)
+        #expect(fixture.store.saved.isEmpty)
+        #expect(fixture.session.snapshot == nil)
+        fixture.driver.release(sync)
+        #expect(fixture.session.state == .paused)
+        #expect(fixture.session.failure == .syncTimedOut)
+    }
+
+    @Test(arguments: [false, true])
+    func releaseAtDeadlineCannotStartSyncOrAuthorizeWithoutScheduledPoll(saved: Bool) throws {
+        let fixture = SessionFixture()
+        let request: Code0WindowRequest
+        if saved {
+            request = try fixture.startSync()
+            fixture.deliverCapture(to: request)
+        } else {
+            #expect(fixture.session.connect() == .started)
+            request = try #require(fixture.driver.requests.first)
+            fixture.driver.emit(.policiesInstalled, for: request)
+            #expect(fixture.session.loginCompleted() == .started)
+        }
+        fixture.clock.advance(10)
+        fixture.driver.release(request)
+        #expect(fixture.driver.requests.count == (saved ? 2 : 1))
+        #expect(!fixture.session.isAutomaticallySyncing)
+        #expect(fixture.session.state == .paused)
+        #expect(fixture.session.failure == .cleanupFailed)
+    }
+
+    @Test func loginCompletionAtDeadlineDoesNotGrantFreshSync() throws {
+        let fixture = SessionFixture()
+        #expect(fixture.session.connect() == .started)
+        let login = try #require(fixture.driver.requests.first)
+        fixture.driver.emit(.policiesInstalled, for: login)
+        fixture.clock.advance(600)
+        #expect(fixture.session.loginCompleted() == .denied)
+        fixture.driver.release(login)
+        #expect(fixture.driver.requests.count == 1)
+        #expect(fixture.session.state == .paused)
+        #expect(fixture.session.failure == .loginTimedOut)
+    }
+
+    @Test func duplicateCleanupCompletionCannotChangeANewerConnection() throws {
+        let fixture = SessionFixture()
+        try fixture.activate()
+        fixture.driver.deferWebsiteCleanup = true
+        #expect(fixture.session.disconnect() == .started)
+        #expect(fixture.session.state == .closing)
+        #expect(fixture.session.connect() == .busy)
+        fixture.driver.completeWebsiteCleanup(.success(()))
+        #expect(fixture.session.state == .disconnected)
+        #expect(fixture.session.connect() == .started)
+        let login = try #require(fixture.driver.requests.last)
+        fixture.driver.completeWebsiteCleanup(.failure(.cleanupFailed))
+        #expect(fixture.session.state == .connecting)
+        #expect(fixture.session.failure == nil)
+        #expect(fixture.driver.requests.count == 3)
+        #expect(fixture.driver.requests.last == login)
+        #expect(fixture.driver.leaseReleases == 1)
+    }
+
+
+    @Test func stopRetainsLeaseUntilLateReleaseAfterCloseDeadline() throws {
+        let fixture = SessionFixture()
+        let sync = try fixture.startSync()
+        fixture.session.stop()
+        fixture.clock.advance(10)
+        fixture.session.processScheduledWork()
+        #expect(fixture.session.state == .cleanupPending)
+        #expect(fixture.driver.leaseReleases == 0)
+        fixture.driver.release(sync)
+        #expect(fixture.driver.leaseReleases == 1)
+        #expect(!fixture.session.isAutomaticallySyncing)
+        #expect(fixture.driver.requests.count == 2)
+    }
+
+    @Test func failedAuthenticationCacheRemovalCannotBeHiddenByReentrantStop() throws {
+        let fixture = SessionFixture()
+        try fixture.activate()
+        fixture.clock.advance(300)
+        #expect(fixture.session.syncNow() == .started)
+        let sync = try #require(fixture.driver.requests.last)
+        fixture.driver.emit(.policiesInstalled, for: sync)
+        fixture.store.failRemove = true
+        let session = fixture.session
+        session.onSnapshotChange = { [weak session] value in if value == nil { session?.stop() } }
+        fixture.send(to: sync, sequence: 1, body: "\"kind\":\"ready\"")
+        fixture.send(to: sync, sequence: 2, body: "\"kind\":\"invalidate\",\"reason\":\"authenticationChanged\"")
+        fixture.driver.release(sync)
+        #expect(session.snapshot == nil)
+        #expect(fixture.store.cached != nil) // failed removal must not be reported as success
+        #expect(session.state == .cleanupPending)
+        #expect(session.failure == .storageFailed)
+        #expect(fixture.driver.leaseReleases == 0)
+        #expect(!session.isAutomaticallySyncing)
+    }
+
+    @Test func partiallyCreatedThrowingDriverStillRequiresReleaseProof() throws {
+        let fixture = SessionFixture()
+        fixture.driver.failCreate = true
+        #expect(fixture.session.connect() == .started)
+        let login = try #require(fixture.driver.requests.first)
+        #expect(fixture.session.state == .closing)
+        #expect(fixture.driver.closing == [login.instanceID])
+        #expect(fixture.session.failure == .navigationFailed)
+        fixture.clock.advance(10)
+        fixture.session.processScheduledWork()
+        #expect(fixture.session.state == .cleanupPending)
+        #expect(fixture.driver.leaseReleases == 0)
+        #expect(fixture.session.connect() == .busy)
+        fixture.driver.release(login)
+        #expect(fixture.driver.requests.count == 1)
+        #expect(!fixture.session.isAutomaticallySyncing)
+        #expect(fixture.session.disconnect() == .started)
+        #expect(fixture.session.state == .disconnected)
+        #expect(fixture.driver.leaseReleases == 1)
+    }
+
+
+    @Test(arguments: [Code0SessionFailure.policyRejected, .cleanupFailed])
+    func nativeFailureDuringClosingCannotAuthorizeAutomaticSync(reason: Code0SessionFailure) throws {
+        let fixture = SessionFixture()
+        let sync = try fixture.startSync()
+        fixture.deliverCapture(to: sync)
+        fixture.driver.emit(.failed(reason), for: sync)
+        #expect(!fixture.session.isAutomaticallySyncing)
+        #expect(fixture.session.state == (reason == .cleanupFailed ? .cleanupPending : .closing))
+        #expect(fixture.driver.leaseReleases == 0)
+        fixture.driver.release(sync)
+        #expect(fixture.session.state == .paused)
+        #expect(fixture.session.failure == reason)
+        #expect(fixture.store.saved.count == 1)
+        #expect(!fixture.session.isAutomaticallySyncing)
+    }
+
 }
 
 @MainActor
@@ -413,6 +639,7 @@ private final class MemoryCode0Store: Code0SnapshotStoring {
     var saved: [UsageSnapshot] = []
     var removals = 0
     var failSave = false
+    var failRemove = false
     init(timeline: SessionTimeline) { self.timeline = timeline }
     func load() throws -> UsageSnapshot? { cached }
     func save(_ snapshot: UsageSnapshot) throws {
@@ -424,6 +651,7 @@ private final class MemoryCode0Store: Code0SnapshotStoring {
     func remove() throws {
         timeline.events.append("store.remove")
         removals += 1
+        if failRemove { throw Code0SnapshotStoreError.persistenceFailed }
         cached = nil
     }
 }
@@ -438,7 +666,13 @@ private final class TestCode0Driver: Code0WindowDriving {
     var leaseReleases = 0
     var websiteClears = 0
     var failLease = false
+    var failCreate = false
     var failWebsiteCleanup = false
+    var installDuringCreate = false
+    var releaseDuringClose = false
+    var deferWebsiteCleanup = false
+    var onNavigate: (@MainActor (Code0WindowRequest) -> Void)?
+    private var websiteCompletion: (@MainActor (Result<Void, Code0SessionFailure>) -> Void)?
     private var owned: Set<UUID> = []
     private var handlers: [UUID: @MainActor (Code0WindowEvent) -> Void] = [:]
     init(timeline: SessionTimeline) { self.timeline = timeline }
@@ -455,24 +689,30 @@ private final class TestCode0Driver: Code0WindowDriving {
         handlers[request.instanceID] = events
         requests.append(request)
         timeline.events.append("create.\(request.mode.rawValue)")
+        if failCreate { throw Code0SessionFailure.navigationFailed }
+        if installDuringCreate { events(.policiesInstalled) }
     }
     func navigate(_ instanceID: UUID) throws {
         navigated.append(instanceID)
         if let request = requests.first(where: { $0.instanceID == instanceID }) {
             timeline.events.append("navigate.\(request.mode.rawValue)")
+            onNavigate?(request)
         }
     }
     func close(_ instanceID: UUID) {
         closing.append(instanceID)
         if let request = requests.first(where: { $0.instanceID == instanceID }) {
             timeline.events.append("close.\(request.mode.rawValue)")
+            if releaseDuringClose { release(request) }
         }
     }
     func clearWebsiteData(completion: @escaping @MainActor (Result<Void, Code0SessionFailure>) -> Void) {
         websiteClears += 1
         timeline.events.append("website.clear")
-        completion(failWebsiteCleanup ? .failure(.cleanupFailed) : .success(()))
+        websiteCompletion = completion
+        if !deferWebsiteCleanup { completion(failWebsiteCleanup ? .failure(.cleanupFailed) : .success(())) }
     }
+    func completeWebsiteCleanup(_ result: Result<Void, Code0SessionFailure>) { websiteCompletion?(result) }
     func emit(_ event: Code0WindowEvent, for request: Code0WindowRequest) { handlers[request.instanceID]?(event) }
     func release(_ request: Code0WindowRequest) {
         owned.remove(request.instanceID)
