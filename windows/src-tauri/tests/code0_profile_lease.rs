@@ -12,7 +12,7 @@ use ai_token_meter_windows::platform::windows::code0_profile_lease::{
 };
 use tempfile::tempdir;
 use windows_sys::Win32::Storage::FileSystem::{
-    GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
 };
 
 const CHILD_ROOT: &str = "AI_METER_REQ004_LEASE_ROOT";
