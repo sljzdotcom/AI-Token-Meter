@@ -48,3 +48,9 @@ Code0默认隐藏，保留旧四服务设置和小组件三项默认。仅用户
 只读追踪锁定Tauri2.11.5源码后确认：无remote capability会拒绝远程自定义命令，但内部channel fetch有ACL例外，因此不能用该配置宣称远程页完全没有内部IPC。Task4改为owned bare Window加直接WebView2 COM controller，仅安装过滤额度桥，不构造Tauri/Wry WebView。公开gated WindowBuilder、HWND及环境/controller完成回调已有源码依据，实际编译、双平台策略与销毁夹具仍待实现；不以接口研究冒充运行结果。
 
 第二轮 `3cf9bb8` 原生结果：mac主组675项仅新增单位缺动态模板样例导致2个issue；Windows前端138项通过，Rust首组43通过/1旧托盘恢复测试失败。`a838d60` 仅补三语言样例及明确单服务恢复/全五项选择测试，定向独审通过，未放宽旧断言；新隔离检查仍待结果。
+
+## Task1完整验证通过
+
+`a838d60` 的[macOS原生任务](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40311436159/job/121533318008)完成675+3+18+50+16=762项常规测试、8项窗口测试及合同/文档/公开扫描；此前诊断代码也实际编译运行。独立网页桥任务仍为拒绝型预期RED，所以该workflow总状态不能误写为全绿。[Windows 40311436139](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40311436139)完成前端138、Rust287、密度生命周期/浏览器检查、debug NSIS与GUI子系统检查。两次Cargo PDB输出名冲突告警与已发布基线相同，保留为既有非阻断噪声，不冒称无告警。完整Task1及两轮修复均独立审查，无未关闭关键/重要发现；Task1完成，004整体继续进行。
+
+`c97ddf7` 新增共享桥行为候选、24项合成测试、两端原生拒绝型协议及字节一致性门禁。阶段独审无阻断发现，记录一项额外数值边界测试建议；当前实现仍不能接收原生消息。下一隔离检查验证JS候选并取得原生trace实际RED，之后实现native验证；官网窗口、专用存储、生命周期/保存事务和最终发布门禁尚未完成。

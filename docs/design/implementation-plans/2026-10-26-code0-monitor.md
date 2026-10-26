@@ -14,11 +14,11 @@
 
 文件：Swift `Domain/UsageModels.swift`、新增 `Code0/Code0WebsiteCapture.swift`、现有 presentation/preferences/widget/CLI exhaustive switch；Rust `domain/usage.rs`、`domain/presentation.rs`、新增 `collectors/code0_capture.rs`；TS `state/usage.ts`；共享 schema/providers/fixture/checker；两端现有偏好及布局测试。
 
-- [ ] 先加两端可编译严格拒绝 capture 入口和测试：`quota=1250000, usedQuota=750000, divisor=500000` 应为余额2.5、累计1.5；0合法，缺除数/字符串/Bool/负数/超安全整数/非有限/未知字段不接受；现有实现返回拒绝使正例行为 RED。
-- [ ] 用现有 raw ID/JSON 解码入口验证 `code0/siteCredits/cumulativeUsage`，不把缺枚举导致的编译错误算 RED。先保留原六共享fixture；新增第七额度fixture及断言。
-- [ ] RED后实现最小类型、无比例转换和格式化；Swift raw deepSeek及旧JSON兼容保留。类型新增涉及 exhaustive switch 的修改只增加明确 Code0 分支，不接入 CLI 或网络。
-- [ ] 默认 provider 集与服务目录分开；旧记录缺 Code0 时追加隐藏，schema Swift6/Windows5；新版本显式选择保留。覆盖旧四服务排列/子集、三可见迁移和五行高度，不把原测试简单常量4改5。
-- [ ] `Code0WebsiteCapture` 只接收过滤后的三个数并生成两指标；不接收原始账户JSON。命名在Swift/Rust各自规范下对应同一fixture。任务报告列实际 API 与所有改动文件供后续集成。
+- [x] 先加两端可编译严格拒绝 capture 入口和测试：`quota=1250000, usedQuota=750000, divisor=500000` 应为余额2.5、累计1.5；0合法，缺除数/字符串/Bool/负数/超安全整数/非有限/未知字段不接受；现有实现返回拒绝使正例行为 RED。
+- [x] 用现有 raw ID/JSON 解码入口验证 `code0/siteCredits/cumulativeUsage`，不把缺枚举导致的编译错误算 RED。先保留原六共享fixture；新增第七额度fixture及断言。
+- [x] RED后实现最小类型、无比例转换和格式化；Swift raw deepSeek及旧JSON兼容保留。类型新增涉及 exhaustive switch 的修改只增加明确 Code0 分支，不接入 CLI 或网络。
+- [x] 默认 provider 集与服务目录分开；旧记录缺 Code0 时追加隐藏，schema Swift6/Windows5；新版本显式选择保留。覆盖旧四服务排列/子集、三可见迁移和五行高度，不把原测试简单常量4改5。
+- [x] `Code0WebsiteCapture` 只接收过滤后的三个数并生成两指标；不接收原始账户JSON。命名在Swift/Rust各自规范下对应同一fixture。任务报告列实际 API 与所有改动文件供后续集成。
 
 具体断言示例：
 
