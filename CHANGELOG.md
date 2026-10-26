@@ -4,7 +4,7 @@
 
 ## 0.10.11 - 2026-10-26
 
-Antigravity 显式恢复自动刷新；macOS build39，Windows 同步版本号。发布候选，等待最终门禁。
+Antigravity 显式恢复自动刷新；macOS build39，Windows 同步版本号。已正式发布，双平台签名资产和三个更新源验收通过。
 
 ### Fixed
 
