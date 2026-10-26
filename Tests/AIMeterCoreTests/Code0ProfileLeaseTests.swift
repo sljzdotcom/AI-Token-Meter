@@ -1,0 +1,102 @@
+import Darwin
+import Foundation
+import Testing
+@testable import AIMeterCore
+
+@Suite("Code0 owned OS profile lease", .serialized)
+@MainActor
+struct Code0ProfileLeaseTests {
+    @Test func independentLeaseHandlesContendAndReleaseWithoutUnlinkingLock() throws {
+        let root = temporaryLeaseRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let first = Code0ProfileLease(location: location)
+        let second = Code0ProfileLease(location: location)
+        defer { first.release(); second.release() }
+        var acquired = false
+        do { try first.acquire(); acquired = true } catch {}
+        try #require(acquired, "A safe owned profile must acquire its real non-blocking flock")
+        #expect(first.isHeld)
+        #expect(throws: Code0ProfileLeaseError.busy) { try second.acquire() }
+        #expect(!second.isHeld)
+        var before = stat()
+        #expect(lstat(location.lockURL.path, &before) == 0)
+        #expect(before.st_uid == getuid())
+        #expect(before.st_nlink == 1)
+        #expect(before.st_mode & 0o777 == 0o600)
+        first.release()
+        first.release()
+        var after = stat()
+        #expect(lstat(location.lockURL.path, &after) == 0)
+        #expect(before.st_ino == after.st_ino)
+        #expect(before.st_dev == after.st_dev)
+        var secondAcquired = false
+        do { try second.acquire(); secondAcquired = true } catch {}
+        #expect(secondAcquired)
+        #expect(second.isHeld)
+    }
+
+    @Test func existingKernelFlockIsBusyWithoutDeletingOrChangingTheOwnerFile() throws {
+        let root = temporaryLeaseRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let location = Code0StorageLocation(applicationSupportRoot: root)
+        try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let descriptor = open(location.lockURL.path, O_CREAT | O_EXCL | O_RDWR | O_NOFOLLOW, mode_t(0o600))
+        try #require(descriptor >= 0)
+        defer { _ = flock(descriptor, LOCK_UN); _ = close(descriptor) }
+        try #require(flock(descriptor, LOCK_EX | LOCK_NB) == 0)
+        let owned = Data("owned-lock-sentinel".utf8)
+        try owned.write(to: location.lockURL)
+        let lease = Code0ProfileLease(location: location)
+        defer { lease.release() }
+        #expect(throws: Code0ProfileLeaseError.busy) { try lease.acquire() }
+        #expect(!lease.isHeld)
+        #expect(try Data(contentsOf: location.lockURL) == owned)
+    }
+
+    @Test func symbolicLinkDirectoryAndLockAreRejectedWithoutTouchingTargets() throws {
+        for linkDirectory in [true, false] {
+            let root = temporaryLeaseRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let location = Code0StorageLocation(applicationSupportRoot: root)
+            let target = root.appendingPathComponent("external")
+            try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+            if linkDirectory {
+                try FileManager.default.createDirectory(at: location.directoryURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try FileManager.default.createSymbolicLink(at: location.directoryURL, withDestinationURL: target)
+            } else {
+                try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                let file = target.appendingPathComponent("lock")
+                try Data("do-not-change".utf8).write(to: file)
+                try FileManager.default.createSymbolicLink(at: location.lockURL, withDestinationURL: file)
+            }
+            let lease = Code0ProfileLease(location: location)
+            defer { lease.release() }
+            #expect(throws: Code0ProfileLeaseError.unsafePath) { try lease.acquire() }
+            #expect(!lease.isHeld)
+            if !linkDirectory { #expect(try Data(contentsOf: target.appendingPathComponent("lock")) == Data("do-not-change".utf8)) }
+        }
+    }
+
+    @Test func nonRegularOrMultiplyLinkedLockCannotBecomeAProfileLease() throws {
+        for hardLink in [false, true] {
+            let root = temporaryLeaseRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let location = Code0StorageLocation(applicationSupportRoot: root)
+            try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            if hardLink {
+                let external = root.appendingPathComponent("linked-file")
+                try Data("keep".utf8).write(to: external)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: external.path)
+                try FileManager.default.linkItem(at: external, to: location.lockURL)
+            } else { try FileManager.default.createDirectory(at: location.lockURL, withIntermediateDirectories: false) }
+            let lease = Code0ProfileLease(location: location)
+            #expect(throws: Code0ProfileLeaseError.unsafePath) { try lease.acquire() }
+            #expect(!lease.isHeld)
+        }
+    }
+}
+
+private func temporaryLeaseRoot() -> URL {
+    FileManager.default.temporaryDirectory.appendingPathComponent("Code0Lease-\(UUID())")
+}

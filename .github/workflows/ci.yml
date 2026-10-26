@@ -26,7 +26,7 @@ jobs:
       - name: Test passive website bridge with synthetic responses
         run: node --test web/code0-bridge.test.mjs
   code0-native-fixture:
-    name: Code0 native WebKit origin fixture
+    name: Code0 native WebKit session fixtures
     runs-on: macos-15
     timeout-minutes: 10
     env:
@@ -39,7 +39,7 @@ jobs:
           fetch-depth: 0
       - name: Install secret scanner
         run: brew install gitleaks
-      - name: Observe actual WebKit origin and hidden object release
+      - name: Verify actual WebKit origin, policies and object release
         run: bash scripts/test-code0-native-fixture.sh
       - name: Preserve fixture run output
         if: always()

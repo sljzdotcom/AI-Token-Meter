@@ -17,6 +17,15 @@ struct Code0NativeWebKitFixtureTests {
         let owner = Code0OriginProbeOwner(evidence: evidence, weakObjects: weakObjects)
         defer { owner.tearDown() }
 
+        evidence.alertSelector = owner.responds(to: NSSelectorFromString("webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:"))
+        evidence.confirmSelector = owner.responds(to: NSSelectorFromString("webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:"))
+        evidence.deprecatedTLSSelector = owner.responds(to: NSSelectorFromString("webView:authenticationChallenge:shouldAllowDeprecatedTLS:"))
+        #expect(evidence.alertSelector)
+        #expect(evidence.confirmSelector)
+        #expect(evidence.deprecatedTLSSelector)
+        if !evidence.alertSelector || !evidence.confirmSelector || !evidence.deprecatedTLSSelector {
+            evidence.fail("selector-missing")
+        }
         owner.recordVisibility(before: true)
         owner.loadInlineHTML()
         let finished = await waitForProbe(seconds: 15) { evidence.received || evidence.failure != nil }
@@ -83,6 +92,9 @@ private final class Code0OriginProbeEvidence {
     var viewReleased = false
     var windowReleased = false
     var unexpectedPolicyCallback = false
+    var alertSelector = false
+    var confirmSelector = false
+    var deprecatedTLSSelector = false
 
     func fail(_ fixedReason: String) { if failure == nil { failure = fixedReason } }
 
@@ -94,7 +106,8 @@ private final class Code0OriginProbeEvidence {
     }
 
     func emit() {
-        let complete = received && allowedInitialNavigation && failure == nil && hiddenBefore && hiddenAfter &&
+        let complete = received && allowedInitialNavigation && failure == nil &&
+            alertSelector && confirmSelector && deprecatedTLSSelector && hiddenBefore && hiddenAfter &&
             unfocusedBefore && unfocusedAfter && viewReleased && windowReleased
         var fields: [String: Any] = [
             "schema": 1, "result": complete ? "completed-observation" : "failed-observation",
@@ -108,6 +121,8 @@ private final class Code0OriginProbeEvidence {
             "unfocusedBefore": unfocusedBefore, "unfocusedAfter": unfocusedAfter,
             "viewReleased": viewReleased, "windowReleased": windowReleased,
             "unexpectedPolicyCallback": unexpectedPolicyCallback,
+            "alertSelector": alertSelector, "confirmSelector": confirmSelector,
+            "deprecatedTLSSelector": deprecatedTLSSelector,
         ]
         for key in ["secure", "geolocation", "notification", "mediaDevices", "userMedia", "displayMedia"] {
             fields[key] = api[key].map { $0 as Any } ?? NSNull()
@@ -293,11 +308,11 @@ private final class Code0OriginProbeOwner: NSObject, WKNavigationDelegate, WKUID
         return nil
     }
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void) {
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @Sendable () -> Void) {
         refuseUnexpectedPolicy(); completionHandler()
     }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor (Bool) -> Void) {
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @Sendable (Bool) -> Void) {
         refuseUnexpectedPolicy(); completionHandler(false)
     }
     func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
@@ -320,7 +335,7 @@ private final class Code0OriginProbeOwner: NSObject, WKNavigationDelegate, WKUID
             ? .performDefaultHandling : .cancelAuthenticationChallenge, nil)
     }
     func webView(_ webView: WKWebView, authenticationChallenge challenge: URLAuthenticationChallenge,
-                 shouldAllowDeprecatedTLS decisionHandler: @escaping @MainActor (Bool) -> Void) {
+                 shouldAllowDeprecatedTLS decisionHandler: @escaping @Sendable (Bool) -> Void) {
         refuseUnexpectedPolicy(); decisionHandler(false)
     }
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
