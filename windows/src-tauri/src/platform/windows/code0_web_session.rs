@@ -309,7 +309,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         {
             return Code0SessionActionResult::Denied;
         }
-        if let seconds_remaining = self.remaining_interval() {
+        if let Some(seconds_remaining) = self.remaining_interval() {
             return Code0SessionActionResult::Throttled { seconds_remaining };
         }
         if let Err(reason) = self.ensure_epoch() {
