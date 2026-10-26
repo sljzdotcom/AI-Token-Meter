@@ -11,7 +11,6 @@ export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$TEST_BUILD_DIR/clang
 cd "$PROJECT_DIR"
 run_swift_tests() {
     swift test \
-        --disable-sandbox \
         --cache-path "$SWIFTPM_STATE_DIR/cache" \
         --config-path "$SWIFTPM_STATE_DIR/config" \
         --security-path "$SWIFTPM_STATE_DIR/security" \

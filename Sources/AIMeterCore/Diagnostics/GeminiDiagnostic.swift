@@ -7,6 +7,7 @@ public enum GeminiDiagnosticStage: String, CaseIterable, Codable, Sendable {
     case usage
     case model
     case catalog
+    case launch
     case login
 }
 
@@ -26,6 +27,7 @@ public enum GeminiDiagnosticCategory: String, CaseIterable, Codable, Sendable {
     case unknown
     case loginFailed
     case loginCancelled
+    case execConfirmed
 }
 
 public enum GeminiPauseReason: String, CaseIterable, Codable, Sendable {

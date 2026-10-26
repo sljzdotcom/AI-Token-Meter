@@ -9,6 +9,7 @@ final class AppModel {
     enum GeminiOneTimeRecoveryState: Equatable {
         case idle
         case awaitingLogin
+        case stoppingLogin
         case checkingQuota
         case succeeded
         case loginFailed
@@ -29,6 +30,7 @@ final class AppModel {
     private let coordinator: RefreshCoordinator
     private let secretStore: any SecretStore
     private let launchAtLoginService: LaunchAtLoginService
+    private let launchAtLoginStatusOperation: () -> Bool
     private let claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher
     private let systemActionPolicy: SystemActionPolicy
     private let defaults: UserDefaults
@@ -47,8 +49,10 @@ final class AppModel {
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
     private let geminiAuthenticationOpenOperation: (String) throws -> Void
     private let geminiAuthenticationCancelOperation: (String) -> Void
-    private let geminiAuthenticationStopOperation: (String) -> Void
+    private let geminiAuthenticationStopOperation: (String) -> Task<Bool, Never>
     private let geminiAuthenticationFailureOperation: (String) -> Bool
+    private let geminiAuthenticationCleanupUncertainOperation: (String) -> Bool
+    private let geminiAuthenticationExecConfirmedOperation: (String) -> Bool
     private let geminiRecoveryTimeout: Duration
     private let installationOpenOperation: (UsageProvider) throws -> Bool
     private let codexInstallGuideOpenOperation: () -> Bool
@@ -66,9 +70,10 @@ final class AppModel {
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
     private var signInTokens: [UsageProvider: UUID] = [:]
     private var pendingGeminiLoginToken: String?
+    private var activeGeminiRecoveryToken: String?
+    private var geminiExecConfirmationRecordedTokens: Set<String> = []
     private var geminiRecoveryStartedAt: Date?
     private var geminiRecoveryTimeoutTask: Task<Void, Never>?
-    private var geminiRecoveryCallbackMonitorTask: Task<Void, Never>?
     private var geminiQuotaTask: Task<Void, Never>?
     private var geminiQuotaTaskID: UUID?
     private var geminiQuotaSnapshotGeneration: UInt64 = 0
@@ -77,7 +82,9 @@ final class AppModel {
     var isAuthenticating: Bool { !signInTokens.isEmpty }
     private(set) var geminiOneTimeRecoveryState: GeminiOneTimeRecoveryState = .idle
     var isGeminiOneTimeRecoveryInProgress: Bool {
-        geminiOneTimeRecoveryState == .awaitingLogin || geminiOneTimeRecoveryState == .checkingQuota
+        geminiOneTimeRecoveryState == .awaitingLogin
+            || geminiOneTimeRecoveryState == .stoppingLogin
+            || geminiOneTimeRecoveryState == .checkingQuota
     }
     private var isRefreshingServiceAccounts = false
 
@@ -133,11 +140,13 @@ final class AppModel {
         applicationSupportDirectoryURL: URL? = nil,
         secretStore: any SecretStore = KeychainStore(),
         launchAtLoginService: LaunchAtLoginService = LaunchAtLoginService(),
+        launchAtLoginStatusOperation: (() -> Bool)? = nil,
         claudeWorkspaceSetupLauncher: ClaudeWorkspaceSetupLauncher = ClaudeWorkspaceSetupLauncher(),
         authenticationLauncher: CLIAuthenticationLauncher? = nil,
         systemActionPolicy: SystemActionPolicy = .current,
         widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
         isDemoMode: Bool? = nil,
+        geminiDiagnosticStore: GeminiDiagnosticStore? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         geminiPauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
         geminiRecoveryBeginOperation: (@Sendable (String) async -> Bool)? = nil,
@@ -147,14 +156,17 @@ final class AppModel {
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
         geminiAuthenticationOpenOperation: ((String) throws -> Void)? = nil,
         geminiAuthenticationCancelOperation: ((String) -> Void)? = nil,
-        geminiAuthenticationStopOperation: ((String) -> Void)? = nil,
+        geminiAuthenticationStopOperation: ((String) -> Task<Bool, Never>)? = nil,
         geminiAuthenticationFailureOperation: ((String) -> Bool)? = nil,
+        geminiAuthenticationCleanupUncertainOperation: ((String) -> Bool)? = nil,
+        geminiAuthenticationExecConfirmedOperation: ((String) -> Bool)? = nil,
         installationOpenOperation: ((UsageProvider) throws -> Bool)? = nil,
         codexInstallGuideOpenOperation: (() -> Bool)? = nil,
         deepSeekReplaceOperation: (@Sendable (String) async throws -> ServiceAccountStatus)? = nil,
         signInPollAttempts: Int = 40,
         signInPollInterval: Duration = .seconds(3),
         geminiRecoveryTimeout: Duration = .seconds(310),
+        cacheDirectoryURL: URL? = nil,
         refreshSleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         signInSleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
             try await Task.sleep(for: duration)
@@ -167,6 +179,7 @@ final class AppModel {
             && (30...86400).contains(storedSeconds) ? Int(storedSeconds) : 300
         self.secretStore = secretStore
         self.launchAtLoginService = launchAtLoginService
+        self.launchAtLoginStatusOperation = launchAtLoginStatusOperation ?? { launchAtLoginService.isEnabled }
         self.claudeWorkspaceSetupLauncher = claudeWorkspaceSetupLauncher
         self.systemActionPolicy = systemActionPolicy
         self.detailAutoHidePreferenceStore = DetailAutoHidePreferenceStore(defaults: defaults)
@@ -213,10 +226,18 @@ final class AppModel {
         self.geminiAuthenticationCancelOperation = geminiAuthenticationCancelOperation ?? { token in
             authenticationLauncher.cancelPendingGeminiLogin(token: token)
         }
-        self.geminiAuthenticationStopOperation = geminiAuthenticationStopOperation
-            ?? { token in authenticationLauncher.requestGeminiLoginStop(token: token) }
-        self.geminiAuthenticationFailureOperation = geminiAuthenticationFailureOperation
-            ?? { token in authenticationLauncher.hasGeminiTerminalFailure(token: token) }
+        self.geminiAuthenticationStopOperation = geminiAuthenticationStopOperation ?? { token in
+            authenticationLauncher.requestGeminiLoginStop(token: token)
+        }
+        self.geminiAuthenticationFailureOperation = geminiAuthenticationFailureOperation ?? { token in
+            authenticationLauncher.hasGeminiTerminalFailure(token: token)
+        }
+        self.geminiAuthenticationCleanupUncertainOperation = geminiAuthenticationCleanupUncertainOperation ?? { token in
+            authenticationLauncher.hasGeminiCleanupUncertainty(token: token)
+        }
+        self.geminiAuthenticationExecConfirmedOperation = geminiAuthenticationExecConfirmedOperation ?? { token in
+            authenticationLauncher.hasGeminiCLIExecConfirmed(token: token)
+        }
         let codexInstallationGuideLauncher = CodexInstallationGuideLauncher(systemActionPolicy: systemActionPolicy)
         self.codexInstallGuideOpenOperation = codexInstallGuideOpenOperation ?? {
             guard systemActionPolicy.allowsExternalOpen else { return false }
@@ -257,11 +278,13 @@ final class AppModel {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0]
-        let cacheDirectory = applicationSupportDirectory.appendingPathComponent("AI Meter", isDirectory: true)
+        let cacheDirectory = cacheDirectoryURL
+            ?? applicationSupportDirectory.appendingPathComponent("AI Meter", isDirectory: true)
         deepSeekWebSession = DeepSeekWebSession(
             historyStore: DeepSeekHistoryStore(directoryURL: cacheDirectory)
         )
-        let diagnosticStore = GeminiDiagnosticStore(fileURL: cacheDirectory.appendingPathComponent("antigravity-diagnostics.json"))
+        let diagnosticStore = geminiDiagnosticStore
+            ?? GeminiDiagnosticStore(fileURL: cacheDirectory.appendingPathComponent("antigravity-diagnostics.json"))
         let coordinator = RefreshCoordinator(
             collectors: self.isDemoMode
                 ? []
@@ -280,7 +303,7 @@ final class AppModel {
             try await coordinator.collectGeminiQuotaOnce(authorization: $0)
         }
         apiKeyConfigured = false
-        launchAtLoginEnabled = launchAtLoginService.isEnabled
+        launchAtLoginEnabled = self.launchAtLoginStatusOperation()
     }
 
     var presentations: [ProviderPresentation] {
@@ -365,7 +388,9 @@ final class AppModel {
         }
     }
 
-    func stop() {
+    @discardableResult
+    func stop() -> Task<Void, Never>? {
+        let stoppedGeminiRecoveryTask = geminiRecoveryTimeoutTask
         refreshRunID = nil
         refreshWaitID = nil
         refreshWait?.cancel()
@@ -376,18 +401,18 @@ final class AppModel {
         signInTasks.removeAll()
         signInTokens.removeAll()
         if let pendingGeminiLoginToken {
-            geminiAuthenticationStopOperation(pendingGeminiLoginToken)
+            _ = geminiAuthenticationStopOperation(pendingGeminiLoginToken)
         }
-        geminiRecoveryCallbackMonitorTask?.cancel()
-        geminiRecoveryCallbackMonitorTask = nil
         geminiRecoveryTimeoutTask?.cancel()
         geminiRecoveryTimeoutTask = nil
         geminiQuotaTask?.cancel()
         geminiQuotaTask = nil
         geminiQuotaTaskID = nil
         pendingGeminiLoginToken = nil
+        activeGeminiRecoveryToken = nil
         geminiRecoveryStartedAt = nil
         geminiOneTimeRecoveryState = .idle
+        return stoppedGeminiRecoveryTask
     }
 
     func refresh(manual: Bool = true) async {
@@ -834,16 +859,20 @@ final class AppModel {
               !isGeminiOneTimeRecoveryInProgress else { return }
         let token = UUID().uuidString
         pendingGeminiLoginToken = token
+        activeGeminiRecoveryToken = token
         geminiRecoveryStartedAt = Date()
         geminiOneTimeRecoveryState = .awaitingLogin
         guard await geminiRecoveryBeginOperation(token) else {
             if pendingGeminiLoginToken == token {
                 pendingGeminiLoginToken = nil
+                activeGeminiRecoveryToken = nil
+                geminiExecConfirmationRecordedTokens.remove(token)
                 geminiRecoveryStartedAt = nil
                 geminiOneTimeRecoveryState = .idle
             }
             return
         }
+        guard pendingGeminiLoginToken == token else { return }
         settingsMessageKind = .antigravityRecovery
         settingsNotice = .recoveryLoginStarted
         do {
@@ -851,38 +880,54 @@ final class AppModel {
             geminiRecoveryTimeoutTask?.cancel()
             geminiRecoveryTimeoutTask = Task { [weak self] in
                 guard let self else { return }
-                do { try await signInSleep(geminiRecoveryTimeout) } catch { return }
-                guard !Task.isCancelled, pendingGeminiLoginToken == token else { return }
-                geminiAuthenticationStopOperation(token)
-                pendingGeminiLoginToken = nil
-                geminiRecoveryTimeoutTask = nil
-                geminiRecoveryCallbackMonitorTask?.cancel()
-                geminiRecoveryCallbackMonitorTask = nil
-                geminiOneTimeRecoveryState = .loginExpired
-                recordGeminiRecovery(.timedOut)
-                settingsNotice = .recoveryLoginExpired
-            }
-            geminiRecoveryCallbackMonitorTask?.cancel()
-            geminiRecoveryCallbackMonitorTask = Task { [weak self] in
-                guard let self else { return }
-                while !Task.isCancelled, pendingGeminiLoginToken == token {
+                let deadline = ContinuousClock.now.advanced(by: geminiRecoveryTimeout)
+                while true {
+                    guard !Task.isCancelled, pendingGeminiLoginToken == token else { return }
+                    recordGeminiExecConfirmationIfNeeded(token: token)
                     if geminiAuthenticationFailureOperation(token) {
-                        geminiAuthenticationCancelOperation(token)
+                        // A failure response may precede the helper's cleanup result.
+                        // Keep launcher coordination until its stop operation settles.
+                        geminiOneTimeRecoveryState = .stoppingLogin
+                        _ = await geminiAuthenticationStopOperation(token).value
+                        guard !Task.isCancelled,
+                              pendingGeminiLoginToken == token,
+                              activeGeminiRecoveryToken == token,
+                              geminiOneTimeRecoveryState == .stoppingLogin else { return }
                         pendingGeminiLoginToken = nil
-                        geminiRecoveryTimeoutTask?.cancel()
+                        activeGeminiRecoveryToken = nil
+                        geminiExecConfirmationRecordedTokens.remove(token)
                         geminiRecoveryTimeoutTask = nil
-                        geminiRecoveryCallbackMonitorTask = nil
                         geminiOneTimeRecoveryState = .loginFailed
                         recordGeminiRecovery(.transportFailure)
                         settingsNotice = .recoveryLoginFailed
                         return
                     }
-                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                    let now = ContinuousClock.now
+                    guard now < deadline else { break }
+                    let remaining = now.duration(to: deadline)
+                    do { try await signInSleep(min(remaining, .milliseconds(100))) } catch { return }
+                }
+                guard !Task.isCancelled, pendingGeminiLoginToken == token else { return }
+                pendingGeminiLoginToken = nil
+                activeGeminiRecoveryToken = nil
+                geminiOneTimeRecoveryState = .stoppingLogin
+                let stopAcknowledged = await geminiAuthenticationStopOperation(token).value
+                guard !Task.isCancelled, geminiOneTimeRecoveryState == .stoppingLogin else { return }
+                geminiExecConfirmationRecordedTokens.remove(token)
+                geminiRecoveryTimeoutTask = nil
+                if stopAcknowledged {
+                    geminiOneTimeRecoveryState = .loginExpired
+                    recordGeminiRecovery(.timedOut)
+                    settingsNotice = .recoveryLoginExpired
+                } else {
+                    geminiOneTimeRecoveryState = .loginFailed
+                    recordGeminiRecovery(.transportFailure, stage: .login)
+                    settingsNotice = .recoveryLoginFailed
                 }
             }
         } catch {
-            geminiRecoveryCallbackMonitorTask?.cancel()
-            geminiRecoveryCallbackMonitorTask = nil
+            activeGeminiRecoveryToken = nil
+            geminiExecConfirmationRecordedTokens.remove(token)
             pendingGeminiLoginToken = nil
             geminiOneTimeRecoveryState = .loginFailed
             recordGeminiRecovery(.transportFailure)
@@ -893,24 +938,43 @@ final class AppModel {
     func completeGeminiInteractiveSignIn(token: String, result: GeminiLoginResult) async {
         guard !isDemoMode, geminiOneTimeRecoveryState == .awaitingLogin,
               pendingGeminiLoginToken == token, UUID(uuidString: token) != nil else { return }
+        if case .success = result,
+           !geminiAuthenticationExecConfirmedOperation(token) {
+            pendingGeminiLoginToken = nil
+            geminiRecoveryTimeoutTask?.cancel()
+            geminiRecoveryTimeoutTask = nil
+            geminiOneTimeRecoveryState = .stoppingLogin
+            _ = await geminiAuthenticationStopOperation(token).value
+            guard activeGeminiRecoveryToken == token,
+                  geminiOneTimeRecoveryState == .stoppingLogin else { return }
+            activeGeminiRecoveryToken = nil
+            geminiExecConfirmationRecordedTokens.remove(token)
+            geminiOneTimeRecoveryState = .loginFailed
+            recordGeminiRecovery(.transportFailure, stage: .launch)
+            settingsNotice = .recoveryLoginFailed
+            return
+        }
+        recordGeminiExecConfirmationIfNeeded(token: token)
         geminiAuthenticationCancelOperation(token)
+        geminiExecConfirmationRecordedTokens.remove(token)
         pendingGeminiLoginToken = nil
         geminiRecoveryTimeoutTask?.cancel()
         geminiRecoveryTimeoutTask = nil
-        geminiRecoveryCallbackMonitorTask?.cancel()
-        geminiRecoveryCallbackMonitorTask = nil
         switch result {
         case .failure:
+            activeGeminiRecoveryToken = nil
             geminiOneTimeRecoveryState = .loginFailed
             recordGeminiRecovery(.loginFailed)
             settingsNotice = .recoveryLoginFailed
             return
         case .cancelled:
+            activeGeminiRecoveryToken = nil
             geminiOneTimeRecoveryState = .loginCancelled
             recordGeminiRecovery(.loginCancelled)
             settingsNotice = .recoveryLoginCancelled
             return
         case .timedOut:
+            activeGeminiRecoveryToken = nil
             geminiOneTimeRecoveryState = .loginExpired
             recordGeminiRecovery(.timedOut)
             settingsNotice = .recoveryLoginExpired
@@ -920,11 +984,17 @@ final class AppModel {
             break
         }
         guard let authorization = await geminiRecoveryAuthorizeOperation(token) else {
+            guard activeGeminiRecoveryToken == token,
+                  geminiOneTimeRecoveryState == .awaitingLogin else { return }
+            activeGeminiRecoveryToken = nil
             geminiOneTimeRecoveryState = .loginFailed
             recordGeminiRecovery(.loginFailed)
             settingsNotice = .recoveryLoginFailed
             return
         }
+        guard activeGeminiRecoveryToken == token,
+              geminiOneTimeRecoveryState == .awaitingLogin else { return }
+        activeGeminiRecoveryToken = nil
         geminiOneTimeRecoveryState = .checkingQuota
         settingsNotice = .recoveryCheckingQuota
         let operation = geminiQuotaCheckOperation
@@ -990,6 +1060,13 @@ final class AppModel {
                 outputTruncated: false
             ))
         }
+    }
+
+    private func recordGeminiExecConfirmationIfNeeded(token: String) {
+        guard !geminiExecConfirmationRecordedTokens.contains(token),
+              geminiAuthenticationExecConfirmedOperation(token) else { return }
+        geminiExecConfirmationRecordedTokens.insert(token)
+        recordGeminiRecovery(.execConfirmed, stage: .launch)
     }
 
     func replaceDeepSeekAPIKey(_ apiKey: String) async -> Bool {

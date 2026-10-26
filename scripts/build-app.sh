@@ -24,7 +24,6 @@ SHOULD_BUILD_WIDGET=0
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$BUILD_DIR/clang-module-cache}"
 SWIFT_BUILD_ARGS=(
     -c release
-    --disable-sandbox
     --cache-path "$SWIFTPM_STATE_DIR/cache"
     --config-path "$SWIFTPM_STATE_DIR/config"
     --security-path "$SWIFTPM_STATE_DIR/security"

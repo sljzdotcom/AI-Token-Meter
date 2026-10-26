@@ -61,12 +61,16 @@ struct CLICollectorTests {
             localActivityTimeout: .milliseconds(50)
         )
         let startedAt = Date()
+        let monotonicStart = ContinuousClock.now
 
         let snapshot = try await collector.collect()
 
-        #expect(Date().timeIntervalSince(startedAt) < 0.4)
+        let wallElapsed = Date().timeIntervalSince(startedAt)
+        let monotonicElapsed = monotonicStart.duration(to: .now)
+        #expect(wallElapsed < 0.4)
         #expect(snapshot.primaryMetric?.usedFraction == 0.73)
         #expect(snapshot.claudeLocalActivity == nil)
+        print("CLAUDE_LOCAL_TIMEOUT_DIAG wall_seconds=\(wallElapsed) monotonic=\(monotonicElapsed)")
     }
 
     @Test("Claude local activity timeout cancels the underlying scan")

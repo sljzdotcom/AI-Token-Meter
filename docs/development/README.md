@@ -12,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-10-26](2026-10-26-antigravity-login-ownership.md) | Antigravity 登录执行与清理确认 | 隔离原生 717 项通过；窗口、最终 CI 与发布门禁继续验证，尚未发布 |
 | [2026-10-10](2026-10-10-v0.10.9-release.md) | 0.10.9/build37 双平台稳定发布 | PR #61、macOS/Windows 签名资产及三个匿名更新源验收完成；自动刷新暂停边界保留 |
 | [2026-10-10](2026-10-10-antigravity-login-startup-recovery.md) | Antigravity单次恢复启动与共享额度诊断 | 合成登录回执、FIFO与共享额度回归；真实CLI和账号现场未验证 |
 | [2026-10-09](2026-10-09-v0.10.8-release.md) | 0.10.8/build36 双平台稳定发布 | Antigravity共享Claude/GPT额度详情；签名资产与三个更新源匿名验收通过，自动刷新暂停边界保留 |
