@@ -222,7 +222,7 @@ public struct GeminiCollector: OneTimeGeminiQuotaCollecting {
         }
     }
 
-    private static func supports(version: String) -> Bool {
+    static func supports(version: String) -> Bool {
         let parts = version.split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count == 3,
               let major = Int(parts[0]), let minor = Int(parts[1]), let patch = Int(parts[2]),

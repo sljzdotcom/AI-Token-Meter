@@ -1,4 +1,4 @@
-import AIMeterCore
+@testable import AIMeterCore
 import AppKit
 import Foundation
 import SwiftUI
@@ -9,6 +9,114 @@ import Testing
        .enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
 @MainActor
 struct SettingsLocalizationCoverageTests {
+    @Test("Services and floating detail replace the one-time action with the same explicit resume in all languages")
+    func antigravityExplicitResumeUsesBothExistingSurfaces() async throws {
+        for language in AppLanguage.allCases {
+            let name = "AntigravityResumeControls.\(UUID())"
+            let defaults = try #require(UserDefaults(suiteName: name))
+            let directory = FileManager.default.temporaryDirectory.appending(path: name)
+            defer {
+                defaults.removePersistentDomain(forName: name)
+                try? FileManager.default.removeItem(at: directory)
+            }
+            let metric = UsageMetric(label: "Gemini · Weekly", current: 22, limit: 100, unit: .percent)
+            let quota = UsageSnapshot(provider: .gemini, primaryMetric: metric, sourceVersion: "1.1.28", geminiQuotaMetrics: [metric])
+            let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+            let gate = LocalizedResumeGate()
+            defer { Task { await gate.release() } }
+            var token: String?
+            let model = AppModel(
+                defaults: defaults, secretStore: LocalizationSecretStore(),
+                launchAtLoginStatusOperation: { false }, widgetSnapshotPublisher: nil, isDemoMode: false,
+                geminiDiagnosticStore: GeminiDiagnosticStore(fileURL: nil), refreshOperation: { [quota] },
+                geminiPauseReasonOperation: { .unknown }, geminiRecoveryBeginOperation: { _ in true },
+                geminiRecoveryAuthorizeOperation: { _ in GeminiQuotaRecoveryAuthorization(id: UUID()) },
+                geminiQuotaCheckOperation: { _ in quota },
+                geminiResumeAuthorizationOperation: { _ in authorization },
+                geminiAutomaticRefreshResumeOperation: { _ in await gate.hold(); return quota },
+                geminiResumeInvalidationOperation: {}, geminiAuthenticationOpenOperation: { token = $0 },
+                geminiAuthenticationCancelOperation: { _ in }, geminiAuthenticationStopOperation: { _ in Task { true } },
+                geminiAuthenticationFailureOperation: { _ in false }, geminiAuthenticationExecConfirmedOperation: { _ in true },
+                cacheDirectoryURL: directory
+            )
+            defer { model.stop() }
+            model.setAppLanguage(language)
+            await model.refresh()
+            let services = NSHostingView(rootView: AppLanguageRoot(model: model) {
+                ServicesSettingsView(model: model, pendingAPIKey: .constant(""))
+            })
+            let detail = NSHostingView(rootView: AppLanguageRoot(model: model) {
+                FloatingDetailView(model: model, provider: .gemini, onClaudeSetup: {}, onOpenServicesSettings: {}, onInteractionChange: { _ in })
+            })
+            let servicesWindow = localizationTestWindow(services)
+            let detailWindow = localizationTestWindow(detail, width: 440, height: 680)
+            defer { servicesWindow.close(); detailWindow.close() }
+            let localizer = AppLocalizer(language: language)
+            let checkTitle = localizer.text("One-time quota check")
+            let resumeTitle = localizer.text("Resume automatic refresh")
+            let diagnosticsTitle = localizer.text("Copy diagnostic info")
+            for host in [services as NSView, detail as NSView] {
+                try await settleLocalizationHost(host)
+                #expect(serviceButtons(in: host, title: checkTitle).count == 1)
+                #expect(serviceButtons(in: host, title: resumeTitle).isEmpty)
+                #expect(serviceButtons(in: host, title: diagnosticsTitle).count == 1)
+            }
+            let check = try #require(serviceButtons(in: services, title: checkTitle).first)
+            #expect(hostedAccessibilityAttribute(check, "accessibilityPerformPress") as? Bool == true)
+            let loginDeadline = ContinuousClock.now.advanced(by: .seconds(2))
+            while token == nil, ContinuousClock.now < loginDeadline { await Task.yield() }
+            await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+            for host in [services as NSView, detail as NSView] {
+                try await settleLocalizationHost(host)
+                #expect(serviceButtons(in: host, title: checkTitle).isEmpty)
+                let resume = try #require(serviceButtons(in: host, title: resumeTitle).first)
+                #expect(hostedAccessibilityAttribute(resume, "isAccessibilityEnabled") as? Bool == true)
+                #expect(serviceButtons(in: host, title: resumeTitle).count == 1)
+                #expect(serviceButtons(in: host, title: diagnosticsTitle).count == 1)
+            }
+            let resume = try #require(serviceButtons(in: detail, title: resumeTitle).first)
+            #expect(hostedAccessibilityAttribute(resume, "accessibilityPerformPress") as? Bool == true)
+            let started = await gate.waitUntilStarted(timeout: .seconds(2))
+            if !started { await gate.release() }
+            try #require(started)
+            for host in [services as NSView, detail as NSView] {
+                try await settleLocalizationHost(host)
+                let busyResume = try #require(serviceButtons(in: host, title: resumeTitle).first)
+                #expect(hostedAccessibilityAttribute(busyResume, "isAccessibilityEnabled") as? Bool == false)
+                #expect(serviceButtons(in: host, title: checkTitle).isEmpty)
+            }
+            #expect(model.isGeminiRefreshPaused)
+            await gate.release()
+            let completionDeadline = ContinuousClock.now.advanced(by: .seconds(2))
+            while model.isGeminiAutomaticRefreshResumeInProgress, ContinuousClock.now < completionDeadline { await Task.yield() }
+            #expect(!model.isGeminiRefreshPaused)
+            #expect(model.settingsNotice == .recoveryResumeSucceeded)
+            #expect(await gate.calls == 1)
+            for host in [services as NSView, detail as NSView] {
+                try await settleLocalizationHost(host)
+                #expect(serviceButtons(in: host, title: resumeTitle).isEmpty)
+                #expect(serviceButtons(in: host, title: checkTitle).isEmpty)
+            }
+        }
+    }
+
+    @Test("Resume notices translate fixed outcomes without implying a new quota check or repaired cause")
+    func antigravityResumeNoticesUseAllThreeLanguages() {
+        let notices: [SettingsNotice] = [.recoveryQuotaReadyToResume, .recoveryResumeStarted, .recoveryResumeBusy,
+                                        .recoveryResumeValidationRequired, .recoveryResumePersistenceFailed, .recoveryResumeSucceeded]
+        for notice in notices {
+            let english = notice.text(using: AppLocalizer(language: .english))
+            #expect(!english.isEmpty)
+            for language in [AppLanguage.simplifiedChinese, .traditionalChinese] {
+                let translated = notice.text(using: AppLocalizer(language: language))
+                #expect(!translated.isEmpty)
+                #expect(translated != english)
+            }
+        }
+        #expect(SettingsNotice.recoveryResumeSucceeded.text(using: AppLocalizer(language: .english))
+            == "Antigravity automatic refresh is enabled. Quota will be checked at the next scheduled refresh.")
+    }
+
     // Removing a Section logo, swapping its provider, using white in light mode,
     // or clipping its calibrated silhouette must fail against the real form pixels.
     @Test("Services renders all four matching decorative logos in light and dark appearances")
@@ -206,7 +314,7 @@ struct SettingsLocalizationCoverageTests {
             (.connected, ["Sign in again", "重新登录", "重新登入"]),
             (.unavailable, ["Check Status", "检查状态", "檢查狀態"]),
             (.signInRequired, ["Sign in", "登录", "登入"]),
-            (.checking, ["Sign in", "登录", "登入"]),
+            (.checking, ["Checking account…", "正在检查账户…", "正在檢查帳戶…"]),
         ] {
             let name = "ServiceLanguage.\(UUID())"
             let defaults = try #require(UserDefaults(suiteName: name))
@@ -217,6 +325,10 @@ struct SettingsLocalizationCoverageTests {
                 authenticationOpenOperation: { authenticated.append($0) }, signInSleep: { _ in try await Task.sleep(for: .seconds(30)) })
             defer { model.stop() }
             if state != .checking { await model.refreshServiceAccounts() }
+            #expect(model.serviceAccounts[.claude]?.connectionState == state)
+            #expect(model.serviceAccounts[.codex]?.connectionState == state)
+            #expect(model.serviceAction(for: .claude).title == expected[0])
+            #expect(model.serviceAction(for: .codex).title == expected[0])
             let host = NSHostingView(rootView: AppLanguageRoot(model: model) { ServicesSettingsView(model: model, pendingAPIKey: .constant("")) })
             let window = localizationTestWindow(host)
             defer { window.close() }
@@ -224,7 +336,15 @@ struct SettingsLocalizationCoverageTests {
                 model.setAppLanguage(language)
                 try await settleLocalizationHost(host)
                 let buttons = serviceButtons(in: host, title: expected[index])
-                #expect(buttons.count == 2, "Both CLI controls must expose \(expected[index])")
+                let actualButtons = hostedAccessibilityObjects(host).filter {
+                    hostedAccessibilityAttribute($0, "accessibilityRole") as? String == "AXButton"
+                }.map { button in
+                    ["accessibilityLabel", "accessibilityTitle", "accessibilityValue", "isAccessibilityEnabled"]
+                        .map { "\($0)=\(String(describing: hostedAccessibilityAttribute(button, $0) ?? "<nil>"))" }
+                        .joined(separator: ", ")
+                }
+                #expect(buttons.count == 2,
+                    "Both CLI controls must expose \(expected[index]); state=\(state), language=\(language.rawValue), AX buttons=\(actualButtons)")
                 #expect(buttons.allSatisfy { (hostedAccessibilityAttribute($0, "isAccessibilityEnabled") as? Bool) == (state != .checking) })
                 #expect(model.serviceAction(for: .claude).isEnabled == (state != .checking))
                 #expect(model.serviceAction(for: .codex).isEnabled == (state != .checking))
@@ -294,6 +414,30 @@ struct SettingsLocalizationCoverageTests {
             hostedAccessibilityAttribute(object, "accessibilityRole") as? String == "AXButton"
                 && hostedAccessibilityAttribute(object, "accessibilityLabel") as? String == title
         }
+    }
+}
+
+private actor LocalizedResumeGate {
+    private(set) var calls = 0
+    private var isReleased = false
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+    func hold() async {
+        calls += 1
+        if !isReleased { await withCheckedContinuation { continuations.append($0) } }
+    }
+    func waitUntilStarted(timeout: Duration) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while calls == 0 {
+            guard !Task.isCancelled, ContinuousClock.now < deadline else { return false }
+            await Task.yield()
+        }
+        return true
+    }
+    func release() {
+        isReleased = true
+        let waiting = continuations
+        continuations.removeAll()
+        waiting.forEach { $0.resume() }
     }
 }
 

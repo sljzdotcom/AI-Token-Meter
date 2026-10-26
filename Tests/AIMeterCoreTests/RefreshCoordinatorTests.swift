@@ -136,6 +136,453 @@ struct RefreshCoordinatorTests {
         #expect(quotaCollector.oneTimeCalls == 1)
     }
 
+    @Test("Fresh supported quota requires explicit resume before automatic refresh becomes durable")
+    func freshQuotaAllowsExplicitDurableResumeWithoutClearingOtherProviderBackoff() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = SnapshotCache(directoryURL: directory)
+        let backoffURL = directory.appendingPathComponent("backoff.json")
+        let gemini = ExplicitResumeGeminiCollector()
+        let other = ControlledCollector(provider: .deepSeek, result: .failure(.authenticationRequired))
+        let collectors: [any UsageCollector] = [gemini, other]
+        let coordinator = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
+
+        _ = await coordinator.refresh(manual: true)
+        let originalBackoffs = try JSONDecoder().decode(
+            [UsageProvider: RefreshBackoffState].self,
+            from: Data(contentsOf: backoffURL)
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let otherBefore = try encoder.encode(#require(originalBackoffs[.deepSeek]))
+        let quotaAuthorization = try await authorizeRecovery(on: coordinator)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: quotaAuthorization) == nil)
+        let recovered = try await coordinator.collectGeminiQuotaOnce(authorization: quotaAuthorization)
+
+        #expect(recovered.collectionStatus == .fresh)
+        #expect(recovered.sourceVersion == "1.3.1")
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(await coordinator.providersRequiringAction() == [.gemini, .deepSeek])
+        let beforeResumeRestart = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
+        #expect(await beforeResumeRestart.providersRequiringAction() == [.gemini, .deepSeek])
+        #expect(await beforeResumeRestart.geminiAutomaticRefreshResumeAuthorization(for: quotaAuthorization) == nil)
+
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: quotaAuthorization))
+        let resumed = try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+
+        #expect(resumed == recovered)
+        #expect(await coordinator.geminiPauseReason() == nil)
+        #expect(await coordinator.providersRequiringAction() == [.deepSeek])
+        #expect(gemini.normalCalls == 1)
+        #expect(gemini.quotaCalls == 1)
+        #expect(other.callCount == 1)
+        #expect(try cache.load().first(where: { $0.provider == .gemini }) == recovered)
+        let resumedBackoffs = try JSONDecoder().decode(
+            [UsageProvider: RefreshBackoffState].self,
+            from: Data(contentsOf: backoffURL)
+        )
+        #expect(resumedBackoffs[.gemini] == nil)
+        #expect(try encoder.encode(#require(resumedBackoffs[.deepSeek])) == otherBefore)
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+
+        let restarted = RefreshCoordinator(collectors: collectors, cache: cache, backoffURL: backoffURL)
+        #expect(await restarted.geminiAutomaticRefreshResumeAuthorization(for: quotaAuthorization) == nil)
+        let automatic = await restarted.refresh(manual: false)
+        #expect(automatic.first(where: { $0.provider == .gemini })?.collectionStatus == .fresh)
+        #expect(await restarted.providersRequiringAction() == [.deepSeek])
+        #expect(gemini.normalCalls + gemini.quotaCalls == 3)
+        #expect(other.callCount == 1)
+    }
+
+    @Test("Resume without a validated quota capability preserves the persistent pause")
+    func automaticResumeWithoutValidatedQuotaIsDenied() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let backoffURL = directory.appendingPathComponent("backoff.json")
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(
+            collectors: [collector], cache: SnapshotCache(directoryURL: directory), backoffURL: backoffURL
+        )
+        _ = await coordinator.refresh(manual: true)
+        let persistedPause = try Data(contentsOf: backoffURL)
+
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(
+                authorization: GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+            )
+        }
+
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(await coordinator.providersRequiringAction() == [.gemini])
+        #expect(try Data(contentsOf: backoffURL) == persistedPause)
+        #expect(collector.normalCalls == 1)
+        #expect(collector.quotaCalls == 0)
+    }
+
+    @Test("Resume capabilities match only their completed recovery and are revoked by a new session")
+    func resumeCapabilityAssociationAndSessionInvalidation() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: directory))
+        _ = await coordinator.refresh()
+        let first = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: first)
+        let old = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: first))
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: GeminiQuotaRecoveryAuthorization(id: UUID())) == nil)
+
+        let second = try await authorizeRecovery(on: coordinator)
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: old)
+        }
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: first) == nil)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: second)
+        let current = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: second))
+        #expect(current.id != old.id)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: first) == nil)
+        await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: current)
+        }
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+    }
+
+    @Test("The five-minute continuous deadline and backwards clock deny resume", arguments: [299, 300, 301, -1])
+    func resumeCapabilityContinuousDeadline(_ seconds: Int) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = ResumeTestClock()
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(
+            collectors: [collector], cache: SnapshotCache(directoryURL: directory), geminiResumeClock: { clock.now() }
+        )
+        _ = await coordinator.refresh()
+        let auth = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        #expect(permit.expiresAt == clock.origin.advanced(by: .seconds(300)))
+        clock.setOffset(.seconds(seconds))
+        if seconds == 299 {
+            #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth) == permit)
+            _ = try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+            #expect(await coordinator.geminiPauseReason() == nil)
+        } else {
+            // A caller cannot extend the coordinator's deadline by copying its capability ID.
+            let forgedDeadline = GeminiAutomaticRefreshResumeAuthorization(
+                id: permit.id, expiresAt: clock.origin.advanced(by: .seconds(999))
+            )
+            await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+                try await coordinator.resumeGeminiAutomaticRefresh(authorization: forgedDeadline)
+            }
+            #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth) == nil)
+            clock.setOffset(.seconds(1))
+            await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+                try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+            }
+            #expect(await coordinator.geminiPauseReason() == .timeout)
+        }
+        #expect(collector.normalCalls == 1)
+        #expect(collector.quotaCalls == 1)
+    }
+
+    @Test("Cached, unsupported, missing-version, or invalid quotas never issue resume authority", arguments: ["cached", "unsupported", "missing", "wrong-provider", "empty", "malformed"])
+    func unvalidatedQuotaCannotIssueResumeCapability(_ kind: String) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ExplicitResumeGeminiCollector()
+        let cache = SnapshotCache(directoryURL: directory)
+        // A supported old cache is not current recovery authority.
+        try cache.save([resumeQuota()])
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await coordinator.refresh()
+        let authorization = try await authorizeRecovery(on: coordinator)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: authorization) == nil)
+        collector.setQuotaResult(.success(resumeQuota(
+            provider: kind == "wrong-provider" ? .claude : .gemini,
+            status: kind == "cached" ? .cached : .fresh,
+            version: kind == "unsupported" ? "2.0.0" : kind == "missing" ? nil : "1.3.1",
+            metrics: kind != "empty", malformed: kind == "malformed"
+        )))
+        if kind == "wrong-provider" || kind == "empty" {
+            await #expect(throws: UsageCollectionError.invalidResponse) {
+                try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
+            }
+        } else {
+            _ = try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
+        }
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: authorization) == nil)
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+    }
+
+    @Test("Resume persistence failure consumes authority while preserving pause and quota")
+    func resumePersistenceFailureConsumesCapability() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = SnapshotCache(directoryURL: directory)
+        let stateDirectory = directory.appendingPathComponent("state")
+        let backupDirectory = directory.appendingPathComponent("state-preserved")
+        let backoffURL = stateDirectory.appendingPathComponent("backoff.json")
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: backoffURL)
+        _ = await coordinator.refresh()
+        let auth = try await authorizeRecovery(on: coordinator)
+        let quota = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        let originalPause = try Data(contentsOf: backoffURL)
+        // Block only this temporary persistence path, preserving the original file for restart.
+        try FileManager.default.moveItem(at: stateDirectory, to: backupDirectory)
+        try Data("occupied".utf8).write(to: stateDirectory)
+
+        await #expect(throws: GeminiAutomaticRefreshResumeError.persistenceFailed) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(await coordinator.providersRequiringAction() == [.gemini])
+        #expect(try cache.load().first == quota)
+        #expect(try Data(contentsOf: backupDirectory.appendingPathComponent("backoff.json")) == originalPause)
+        try FileManager.default.removeItem(at: stateDirectory)
+        try FileManager.default.moveItem(at: backupDirectory, to: stateDirectory)
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache, backoffURL: backoffURL)
+        #expect(await restarted.geminiPauseReason() == .timeout)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth) == nil)
+        #expect(collector.normalCalls == 1)
+        #expect(collector.quotaCalls == 1)
+    }
+
+    @Test("An entire concurrent refresh must finish before the same capability can be explicitly retried")
+    func busyResumeRetainsCapabilityForExplicitRetryAfterFullRefresh() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let gemini = ExplicitResumeGeminiCollector()
+        let gate = ResumeCollectionGate()
+        let coordinator = RefreshCoordinator(
+            collectors: [gemini, GatedResumeOtherCollector(gate: gate)], cache: SnapshotCache(directoryURL: directory)
+        )
+        _ = await coordinator.refresh()
+        let auth = try await authorizeRecovery(on: coordinator)
+        let quota = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        await gate.block()
+        let refresh = Task { await coordinator.refresh(manual: false) }
+        let entered = await waitForGate(gate)
+        #expect(entered)
+        await #expect(throws: GeminiAutomaticRefreshResumeError.alreadyRunning) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth) == permit)
+        #expect(gemini.normalCalls == 1)
+        #expect(gemini.quotaCalls == 1)
+        await gate.release()
+        let fullResult = await refresh.value
+        #expect(fullResult.first(where: { $0.provider == .gemini })?.collectionStatus == .cached)
+        #expect(fullResult.first(where: { $0.provider == .gemini })?.fetchedAt == quota.fetchedAt)
+        #expect(try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit) == quota)
+        #expect(await coordinator.geminiPauseReason() == nil)
+        let next = await coordinator.refresh(manual: false)
+        #expect(next.first(where: { $0.provider == .gemini })?.statusMessage == nil)
+        #expect(gemini.normalCalls == 1)
+        #expect(gemini.quotaCalls == 2)
+    }
+
+    @Test("Cancellation or epoch invalidation before entry denies resume; a committed choice remains durable")
+    func resumeCancellationAndCommitLifecycleOrdering() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = SnapshotCache(directoryURL: directory)
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await coordinator.refresh()
+        var auth = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        var permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        let cancelledPermit = permit
+        let gate = ResumeCollectionGate()
+        await gate.block()
+        let pending = Task {
+            await gate.waitIfBlocked()
+            return try await coordinator.resumeGeminiAutomaticRefresh(authorization: cancelledPermit)
+        }
+        #expect(await waitForGate(gate))
+        pending.cancel()
+        await gate.release()
+        await #expect(throws: CancellationError.self) { try await pending.value }
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth) == nil)
+
+        auth = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+        auth = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        _ = try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache)
+        #expect(await restarted.geminiPauseReason() == nil)
+        #expect(await restarted.geminiAutomaticRefreshResumeAuthorization(for: auth) == nil)
+    }
+
+    @Test("An in-progress quota cannot commit a capability after cancellation or session invalidation", arguments: [false, true])
+    func quotaCancellationAndInvalidationCannotIssueCapability(_ invalidate: Bool) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = SnapshotCache(directoryURL: directory)
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await coordinator.refresh()
+        let auth = try await authorizeRecovery(on: coordinator)
+        await collector.gate.block()
+        let quota = Task { try await coordinator.collectGeminiQuotaOnce(authorization: auth) }
+        #expect(await waitForGate(collector.gate))
+        if invalidate { await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization() }
+        else { quota.cancel() }
+        await collector.gate.release()
+        if invalidate {
+            await #expect(throws: GeminiOneTimeQuotaError.unauthorized) { try await quota.value }
+        } else {
+            await #expect(throws: CancellationError.self) { try await quota.value }
+        }
+        #expect(try cache.load().isEmpty)
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth) == nil)
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+    }
+
+    @Test("A failed supported quota cache commit issues no resume capability")
+    func failedSupportedQuotaCacheCommitCannotIssueCapability() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let blockedCache = directory.appendingPathComponent("occupied")
+        try Data("occupied".utf8).write(to: blockedCache)
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(
+            collectors: [collector], cache: SnapshotCache(directoryURL: blockedCache),
+            backoffURL: directory.appendingPathComponent("backoff.json")
+        )
+        _ = await coordinator.refresh()
+        let authorization = try await authorizeRecovery(on: coordinator)
+        await #expect(throws: (any Error).self) {
+            try await coordinator.collectGeminiQuotaOnce(authorization: authorization)
+        }
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: authorization) == nil)
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+    }
+
+    @Test("Failed recovery and stop invalidate login and quota authorization without enabling refresh")
+    func recoveryErrorsAndInvalidatedLoginCannotGrantResume() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ExplicitResumeGeminiCollector()
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: directory))
+        _ = await coordinator.refresh()
+        let first = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: first)
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: first))
+        let token = UUID().uuidString
+        #expect(await coordinator.beginGeminiQuotaRecovery(token: token))
+        #expect(await coordinator.authorizeGeminiQuotaRecoveryAfterSignIn(token: "wrong") == nil)
+        await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
+        #expect(await coordinator.authorizeGeminiQuotaRecoveryAfterSignIn(token: token) == nil)
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+        let stoppedQuota = try await authorizeRecovery(on: coordinator)
+        await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
+        await #expect(throws: GeminiOneTimeQuotaError.unauthorized) {
+            try await coordinator.collectGeminiQuotaOnce(authorization: stoppedQuota)
+        }
+        let failure = try await authorizeRecovery(on: coordinator)
+        collector.setQuotaResult(.failure(.transportFailure))
+        await #expect(throws: UsageCollectionError.transportFailure) {
+            try await coordinator.collectGeminiQuotaOnce(authorization: failure)
+        }
+        #expect(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: failure) == nil)
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(collector.quotaCalls == 2)
+    }
+
+    @Test("Cancelling the next automatic quota after resume persists a new cancellation pause")
+    func cancelledAutomaticQuotaAfterResumePersistsPauseAgain() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ExplicitResumeGeminiCollector()
+        let cache = SnapshotCache(directoryURL: directory)
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await coordinator.refresh()
+        let auth = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        _ = try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        await collector.gate.block()
+        let automatic = Task { await coordinator.refresh(manual: false) }
+        #expect(await waitForGate(collector.gate))
+        automatic.cancel()
+        await collector.gate.release()
+        _ = await automatic.value
+        #expect(await coordinator.geminiPauseReason() == .cancelled)
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache)
+        #expect(await restarted.geminiPauseReason() == .cancelled)
+        _ = await restarted.refresh(manual: false)
+        #expect(collector.normalCalls == 1)
+        #expect(collector.quotaCalls == 2)
+    }
+
+    @Test("Automatic Gemini refresh requires the quota-only protocol and never falls back to collect")
+    func automaticGeminiWithoutQuotaProtocolFailsClosed() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = FullOnlyGeminiCollector()
+        let cache = SnapshotCache(directoryURL: directory)
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await coordinator.refresh(manual: false)
+        #expect(collector.callCount == 0)
+        #expect(await coordinator.geminiPauseReason() == .invalidResponse)
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await restarted.refresh(manual: false)
+        #expect(collector.callCount == 0)
+        #expect(await restarted.providersRequiringAction() == [.gemini])
+        let manual = RefreshCoordinator(
+            collectors: [collector], cache: cache, backoffURL: directory.appendingPathComponent("manual-backoff.json")
+        )
+        _ = await manual.refresh(manual: true)
+        #expect(collector.callCount == 1)
+    }
+
+    @Test("Automatic quota errors after explicit resume suspend again and revoke the old capability", arguments: [UsageCollectionError.authenticationRequired, .transportFailure, .timedOut, .unsupportedVersion, .environmentRejected])
+    func laterAutomaticFailurePersistsPauseAgain(_ error: UsageCollectionError) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ExplicitResumeGeminiCollector()
+        let cache = SnapshotCache(directoryURL: directory)
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await coordinator.refresh()
+        let auth = try await authorizeRecovery(on: coordinator)
+        _ = try await coordinator.collectGeminiQuotaOnce(authorization: auth)
+        let permit = try #require(await coordinator.geminiAutomaticRefreshResumeAuthorization(for: auth))
+        _ = try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        collector.setQuotaResult(.failure(error))
+        _ = await coordinator.refresh(manual: false)
+        #expect(await coordinator.providersRequiringAction() == [.gemini])
+        await #expect(throws: GeminiAutomaticRefreshResumeError.validationRequired) {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: permit)
+        }
+        let restarted = RefreshCoordinator(collectors: [collector], cache: cache)
+        _ = await restarted.refresh(manual: false)
+        #expect(await restarted.providersRequiringAction() == [.gemini])
+        #expect(collector.normalCalls == 1)
+        #expect(collector.quotaCalls == 2)
+    }
+
     @Test("A failed one-time quota check leaves every cached snapshot untouched")
     func failedOneTimeGeminiCheckPreservesCache() async throws {
         let directory = temporaryDirectory()
@@ -503,6 +950,34 @@ struct RefreshCoordinatorTests {
             .appendingPathComponent("AI-Meter-RefreshTests-\(UUID().uuidString)", isDirectory: true)
     }
 
+    private func waitForGate(_ gate: ResumeCollectionGate) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while ContinuousClock.now < deadline {
+            if await gate.hasEntered() { return true }
+            await Task.yield()
+        }
+        return false
+    }
+
+    private func resumeQuota(
+        provider: UsageProvider = .gemini, status: CollectionStatus = .fresh,
+        version: String? = "1.3.1", metrics: Bool = true, malformed: Bool = false
+    ) -> UsageSnapshot {
+        let fiveHour = UsageMetric(
+            label: "Gemini · Five hour", current: 60, limit: 100,
+            unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
+        let weekly = UsageMetric(
+            label: "Gemini · Weekly", current: 77, limit: 100,
+            unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
+        return UsageSnapshot(
+            provider: provider, primaryMetric: weekly, secondaryMetric: fiveHour,
+            fetchedAt: Date(timeIntervalSince1970: 800), sourceVersion: version,
+            collectionStatus: status, geminiQuotaMetrics: metrics ? malformed ? [weekly] : [fiveHour, weekly] : []
+        )
+    }
+
     private func snapshot(for provider: UsageProvider) -> UsageSnapshot {
         UsageSnapshot(
             provider: provider,
@@ -524,7 +999,7 @@ struct RefreshCoordinatorTests {
     }
 }
 
-private final class ControlledCollector: UsageCollector, @unchecked Sendable {
+private final class ControlledCollector: OneTimeGeminiQuotaCollecting, @unchecked Sendable {
     let provider: UsageProvider
     let delay: TimeInterval
     let result: Result<UsageSnapshot, UsageCollectionError>
@@ -556,6 +1031,9 @@ private final class ControlledCollector: UsageCollector, @unchecked Sendable {
         }
         return try result.get()
     }
+
+    // Preserve each existing synthetic outcome when Gemini uses the reduced automatic route.
+    func collectQuotaOnce() async throws -> UsageSnapshot { try await collect() }
 }
 
 private final class OneTimeGeminiCollector: OneTimeGeminiQuotaCollecting, @unchecked Sendable {
@@ -577,6 +1055,7 @@ private final class OneTimeGeminiCollector: OneTimeGeminiQuotaCollecting, @unche
     }
 
     func collectQuotaOnce() async throws -> UsageSnapshot {
+        if normalCalls == 0 { return try await collect() }
         lock.withLock { oneTime += 1 }
         if oneTimeDelay > 0 { try await Task.sleep(for: .seconds(oneTimeDelay)) }
         return quotaSnapshot(value: 77)
@@ -610,6 +1089,99 @@ private final class OneTimeGeminiCollector: OneTimeGeminiQuotaCollecting, @unche
     }
 }
 
+/// Synthetic-only fixture: the initial full refresh pauses, then quota reads are fresh and supported.
+private final class ExplicitResumeGeminiCollector: OneTimeGeminiQuotaCollecting, @unchecked Sendable {
+    let provider = UsageProvider.gemini
+    private let lock = NSLock()
+    private var normal = 0
+    private var quota = 0
+    private var quotaResult: Result<UsageSnapshot, UsageCollectionError>?
+    let gate = ResumeCollectionGate()
+
+    var normalCalls: Int { lock.withLock { normal } }
+    var quotaCalls: Int { lock.withLock { quota } }
+
+    func setQuotaResult(_ result: Result<UsageSnapshot, UsageCollectionError>) {
+        lock.withLock { quotaResult = result }
+    }
+
+    func collect() async throws -> UsageSnapshot {
+        let call = lock.withLock { normal += 1; return normal }
+        guard call > 1 else { throw UsageCollectionError.timedOut }
+        return freshQuota()
+    }
+
+    func collectQuotaOnce() async throws -> UsageSnapshot {
+        lock.withLock { quota += 1 }
+        await gate.waitIfBlocked()
+        return try lock.withLock { quotaResult ?? .success(freshQuota()) }.get()
+    }
+
+    private func freshQuota() -> UsageSnapshot {
+        let fiveHour = UsageMetric(
+            label: "Gemini · Five hour", current: 60, limit: 100,
+            unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
+        let quota = UsageMetric(
+            label: "Gemini · Weekly", current: 77, limit: 100,
+            unit: .percent, kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
+        return UsageSnapshot(
+            provider: .gemini, primaryMetric: quota, secondaryMetric: fiveHour,
+            fetchedAt: Date(timeIntervalSince1970: 800), sourceVersion: "1.3.1",
+            collectionStatus: .fresh, geminiQuotaMetrics: [fiveHour, quota]
+        )
+    }
+}
+
+private final class ResumeTestClock: @unchecked Sendable {
+    let origin = ContinuousClock.now
+    private let lock = NSLock()
+    private var offset: Duration = .zero
+
+    func now() -> ContinuousClock.Instant { lock.withLock { origin.advanced(by: offset) } }
+    func setOffset(_ value: Duration) { lock.withLock { offset = value } }
+}
+
+private actor ResumeCollectionGate {
+    private var blocked = false
+    private var entered = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func block() { blocked = true; entered = false }
+    func hasEntered() -> Bool { entered }
+    func waitIfBlocked() async {
+        guard blocked else { return }
+        entered = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func release() {
+        blocked = false
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+private struct GatedResumeOtherCollector: UsageCollector {
+    let provider = UsageProvider.claude
+    let gate: ResumeCollectionGate
+    func collect() async throws -> UsageSnapshot {
+        await gate.waitIfBlocked()
+        return UsageSnapshot(provider: provider)
+    }
+}
+
+private final class FullOnlyGeminiCollector: UsageCollector, @unchecked Sendable {
+    let provider = UsageProvider.gemini
+    private let lock = NSLock()
+    private var calls = 0
+    var callCount: Int { lock.withLock { calls } }
+    func collect() async throws -> UsageSnapshot {
+        lock.withLock { calls += 1 }
+        return UsageSnapshot(provider: provider)
+    }
+}
+
 private struct FailingOneTimeGeminiCollector: OneTimeGeminiQuotaCollecting {
     let provider = UsageProvider.gemini
 
@@ -621,11 +1193,16 @@ private final class InvalidOneTimeGeminiCollector: OneTimeGeminiQuotaCollecting,
     let provider = UsageProvider.gemini
     private let lock = NSLock()
     private var oneTime = 0
+    private var initialFailureRecorded = false
 
     var oneTimeCalls: Int { lock.withLock { oneTime } }
 
-    func collect() async throws -> UsageSnapshot { throw UsageCollectionError.timedOut }
+    func collect() async throws -> UsageSnapshot {
+        lock.withLock { initialFailureRecorded = true }
+        throw UsageCollectionError.timedOut
+    }
     func collectQuotaOnce() async throws -> UsageSnapshot {
+        if !lock.withLock({ initialFailureRecorded }) { return try await collect() }
         lock.withLock { oneTime += 1 }
         return UsageSnapshot(provider: .gemini)
     }

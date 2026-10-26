@@ -45,6 +45,9 @@ final class AppModel {
     private let geminiRecoveryBeginOperation: @Sendable (String) async -> Bool
     private let geminiRecoveryAuthorizeOperation: @Sendable (String) async -> GeminiQuotaRecoveryAuthorization?
     private let geminiQuotaCheckOperation: @Sendable (GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot
+    private let geminiResumeAuthorizationOperation: @Sendable (GeminiQuotaRecoveryAuthorization) async -> GeminiAutomaticRefreshResumeAuthorization?
+    private let geminiAutomaticRefreshResumeOperation: @Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot
+    private let geminiResumeInvalidationOperation: @Sendable () async -> Void
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
     private let geminiAuthenticationOpenOperation: (String) throws -> Void
@@ -77,6 +80,15 @@ final class AppModel {
     private var geminiQuotaTask: Task<Void, Never>?
     private var geminiQuotaTaskID: UUID?
     private var geminiQuotaSnapshotGeneration: UInt64 = 0
+    private var geminiLifecycleID = UUID()
+    private var geminiRecoverySessionID = UUID()
+    private var geminiPresentationRevision: UInt64 = 0
+    private var geminiResumeAuthorization: GeminiAutomaticRefreshResumeAuthorization?
+    private var geminiResumeQuotaAuthorization: GeminiQuotaRecoveryAuthorization?
+    private var geminiResumeTask: Task<Void, Never>?
+    private var geminiResumeTaskID: UUID?
+    private var geminiResumeExpiryTask: Task<Void, Never>?
+    private var geminiResumeInvalidationTask: Task<Void, Never>?
     private var providersRequiringAction: Set<UsageProvider> = []
     private(set) var geminiPauseReason: GeminiPauseReason?
     var isAuthenticating: Bool { !signInTokens.isEmpty }
@@ -147,11 +159,15 @@ final class AppModel {
         widgetSnapshotPublisher: WidgetSnapshotPublisher? = WidgetSnapshotPublisher.production(),
         isDemoMode: Bool? = nil,
         geminiDiagnosticStore: GeminiDiagnosticStore? = nil,
+        refreshCoordinator: RefreshCoordinator? = nil,
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         geminiPauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
         geminiRecoveryBeginOperation: (@Sendable (String) async -> Bool)? = nil,
         geminiRecoveryAuthorizeOperation: (@Sendable (String) async -> GeminiQuotaRecoveryAuthorization?)? = nil,
         geminiQuotaCheckOperation: (@Sendable (GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot)? = nil,
+        geminiResumeAuthorizationOperation: (@Sendable (GeminiQuotaRecoveryAuthorization) async -> GeminiAutomaticRefreshResumeAuthorization?)? = nil,
+        geminiAutomaticRefreshResumeOperation: (@Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot)? = nil,
+        geminiResumeInvalidationOperation: (@Sendable () async -> Void)? = nil,
         serviceAccountRefreshOperation: (@Sendable (UsageProvider?) async -> [ServiceAccountStatus])? = nil,
         authenticationOpenOperation: ((UsageProvider) throws -> Void)? = nil,
         geminiAuthenticationOpenOperation: ((String) throws -> Void)? = nil,
@@ -285,7 +301,7 @@ final class AppModel {
         )
         let diagnosticStore = geminiDiagnosticStore
             ?? GeminiDiagnosticStore(fileURL: cacheDirectory.appendingPathComponent("antigravity-diagnostics.json"))
-        let coordinator = RefreshCoordinator(
+        let coordinator = refreshCoordinator ?? RefreshCoordinator(
             collectors: self.isDemoMode
                 ? []
                 : [ClaudeCollector(), CodexCollector(), DeepSeekCollector(secretStore: secretStore), GeminiCollector(diagnostics: diagnosticStore)],
@@ -301,6 +317,15 @@ final class AppModel {
         }
         self.geminiQuotaCheckOperation = geminiQuotaCheckOperation ?? {
             try await coordinator.collectGeminiQuotaOnce(authorization: $0)
+        }
+        self.geminiResumeAuthorizationOperation = geminiResumeAuthorizationOperation ?? {
+            await coordinator.geminiAutomaticRefreshResumeAuthorization(for: $0)
+        }
+        self.geminiAutomaticRefreshResumeOperation = geminiAutomaticRefreshResumeOperation ?? {
+            try await coordinator.resumeGeminiAutomaticRefresh(authorization: $0)
+        }
+        self.geminiResumeInvalidationOperation = geminiResumeInvalidationOperation ?? {
+            await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization()
         }
         apiKeyConfigured = false
         launchAtLoginEnabled = self.launchAtLoginStatusOperation()
@@ -323,6 +348,162 @@ final class AppModel {
     var isRunningDemoMode: Bool { isDemoMode }
     var isGeminiRefreshPaused: Bool { geminiPauseReason != nil || providersRequiringAction.contains(.gemini) }
     var isGeminiSignInPending: Bool { geminiOneTimeRecoveryState == .awaitingLogin }
+
+    var isGeminiAutomaticRefreshResumeInProgress: Bool { geminiResumeTaskID != nil }
+    var canResumeGeminiAutomaticRefresh: Bool {
+        guard let authorization = geminiResumeAuthorization else { return false }
+        return authorization.expiresAt > ContinuousClock.now
+            && isGeminiRefreshPaused
+            && !isGeminiOneTimeRecoveryInProgress
+            && !isGeminiAutomaticRefreshResumeInProgress
+    }
+
+    func resumeGeminiAutomaticRefresh() async {
+        guard !isDemoMode, isGeminiRefreshPaused,
+              !isGeminiOneTimeRecoveryInProgress,
+              !isGeminiAutomaticRefreshResumeInProgress else { return }
+        settingsMessageKind = .antigravityRecovery
+        guard let authorization = geminiResumeAuthorization,
+              authorization.expiresAt > ContinuousClock.now else {
+            clearGeminiResumeOffer()
+            settingsNotice = .recoveryResumeValidationRequired
+            return
+        }
+        // Injected refreshes can bypass Core's inFlight guard. Keep their entire
+        // presentation tail busy too, without queuing a later automatic retry.
+        guard !isRefreshing, !isRefreshingServiceAccounts else {
+            settingsNotice = .recoveryResumeBusy
+            return
+        }
+        let sessionID = geminiRecoverySessionID
+        let presentationRevision = geminiPresentationRevision
+        let quotaAuthorization = geminiResumeQuotaAuthorization
+        let taskID = UUID()
+        let operation = geminiAutomaticRefreshResumeOperation
+        let resumeAuthorizationOperation = geminiResumeAuthorizationOperation
+        geminiResumeTaskID = taskID
+        settingsNotice = .recoveryResumeStarted
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if geminiResumeTaskID == taskID {
+                    geminiResumeTaskID = nil
+                    geminiResumeTask = nil
+                }
+            }
+            do {
+                try Task.checkCancellation()
+                let quota = try await operation(authorization)
+                guard geminiRecoverySessionID == sessionID, geminiResumeTaskID == taskID else { return }
+                // The operation may have committed before the local TTL task ran.
+                // Its captured task identity, rather than a still-held offer, owns
+                // this result. A newer refresh still owns its newer presentation.
+                clearGeminiResumeOffer()
+                guard geminiPresentationRevision == presentationRevision else {
+                    finishSupersededGeminiResumeNotice()
+                    return
+                }
+                guard quota.provider == .gemini, quota.geminiQuotaMetrics?.isEmpty == false else {
+                    settingsNotice = .recoveryResumeValidationRequired
+                    return
+                }
+                geminiPauseReason = nil
+                providersRequiringAction.remove(.gemini)
+                if let index = snapshots.firstIndex(where: { $0.provider == .gemini }) {
+                    snapshots[index] = applyingLocalBudget(to: quota)
+                } else {
+                    snapshots.append(applyingLocalBudget(to: quota))
+                }
+                geminiQuotaSnapshotGeneration &+= 1
+                geminiPresentationRevision &+= 1
+                updateGeminiAccountStatus()
+                publishWidgetSnapshot()
+                settingsNotice = .recoveryResumeSucceeded
+            } catch {
+                guard geminiRecoverySessionID == sessionID, geminiResumeTaskID == taskID else { return }
+                if error as? GeminiAutomaticRefreshResumeError == .alreadyRunning {
+                    // A harmless account/other-provider publication can advance
+                    // the UI revision while Core still retains the original permit.
+                    // Revalidate only the exact quota/permit pair; never replace it
+                    // with a newer recovery's authority or extend its deadline.
+                    if let quotaAuthorization,
+                       authorization.expiresAt > ContinuousClock.now,
+                       geminiResumeAuthorization == authorization,
+                       isGeminiRefreshPaused {
+                        let currentAuthorization = await resumeAuthorizationOperation(quotaAuthorization)
+                        guard geminiRecoverySessionID == sessionID, geminiResumeTaskID == taskID else { return }
+                        if currentAuthorization == authorization,
+                           authorization.expiresAt > ContinuousClock.now,
+                           geminiResumeAuthorization == authorization,
+                           isGeminiRefreshPaused {
+                            settingsNotice = .recoveryResumeBusy
+                            return
+                        }
+                    }
+                    clearGeminiResumeOffer()
+                    settingsNotice = .recoveryResumeValidationRequired
+                    return
+                }
+                guard geminiPresentationRevision == presentationRevision else {
+                    clearGeminiResumeOffer()
+                    finishSupersededGeminiResumeNotice()
+                    return
+                }
+                clearGeminiResumeOffer()
+                settingsNotice = error as? GeminiAutomaticRefreshResumeError == .persistenceFailed
+                    ? .recoveryResumePersistenceFailed : .recoveryResumeValidationRequired
+            }
+        }
+        geminiResumeTask = task
+        await task.value
+    }
+
+    private func finishSupersededGeminiResumeNotice() {
+        guard settingsNotice == .recoveryResumeStarted else { return }
+        settingsNotice = isGeminiRefreshPaused ? .recoveryResumeValidationRequired : .recoveryResumeSucceeded
+    }
+
+    private func discardGeminiResumeOfferIfPauseChanged(to reason: GeminiPauseReason?) {
+        guard reason != geminiPauseReason, geminiResumeAuthorization != nil else { return }
+        clearGeminiResumeOffer()
+        if reason != nil, !isGeminiAutomaticRefreshResumeInProgress {
+            settingsMessageKind = .antigravityRecovery
+            settingsNotice = .recoveryResumeValidationRequired
+        }
+    }
+
+    private func clearGeminiResumeOffer() {
+        geminiResumeAuthorization = nil
+        geminiResumeQuotaAuthorization = nil
+        geminiResumeExpiryTask?.cancel()
+        geminiResumeExpiryTask = nil
+    }
+
+    private func offerGeminiAutomaticRefreshResume(
+        _ authorization: GeminiAutomaticRefreshResumeAuthorization,
+        quotaAuthorization: GeminiQuotaRecoveryAuthorization,
+        sessionID: UUID
+    ) {
+        clearGeminiResumeOffer()
+        guard authorization.expiresAt > ContinuousClock.now else {
+            settingsNotice = .recoveryResumeValidationRequired
+            return
+        }
+        geminiResumeAuthorization = authorization
+        geminiResumeQuotaAuthorization = quotaAuthorization
+        settingsNotice = .recoveryQuotaReadyToResume
+        geminiResumeExpiryTask = Task { [weak self] in
+            do {
+                try await Task.sleep(until: authorization.expiresAt, clock: .continuous)
+            } catch { return }
+            guard let self, geminiRecoverySessionID == sessionID,
+                  geminiResumeAuthorization == authorization else { return }
+            clearGeminiResumeOffer()
+            if !isGeminiAutomaticRefreshResumeInProgress {
+                settingsNotice = .recoveryResumeValidationRequired
+            }
+        }
+    }
 
     @discardableResult
     func setRefreshInterval(_ text: String) -> Bool {
@@ -391,6 +572,18 @@ final class AppModel {
     @discardableResult
     func stop() -> Task<Void, Never>? {
         let stoppedGeminiRecoveryTask = geminiRecoveryTimeoutTask
+        geminiLifecycleID = UUID()
+        geminiRecoverySessionID = UUID()
+        geminiResumeTask?.cancel()
+        geminiResumeTask = nil
+        geminiResumeTaskID = nil
+        clearGeminiResumeOffer()
+        let previousInvalidation = geminiResumeInvalidationTask
+        let invalidate = geminiResumeInvalidationOperation
+        geminiResumeInvalidationTask = Task {
+            await previousInvalidation?.value
+            await invalidate()
+        }
         refreshRunID = nil
         refreshWaitID = nil
         refreshWait?.cancel()
@@ -424,6 +617,7 @@ final class AppModel {
         }
         guard !isRefreshing else { return }
         isRefreshing = true
+        let lifecycleID = geminiLifecycleID
         let geminiQuotaGenerationAtStart = geminiQuotaSnapshotGeneration
         defer { isRefreshing = false; refreshingProviders.removeAll() }
 
@@ -436,9 +630,19 @@ final class AppModel {
                 await self?.setProviderRefreshing(provider, active: active)
             }
         }
-        guard !Task.isCancelled else { return }
-        providersRequiringAction = await coordinator.providersRequiringAction()
-        geminiPauseReason = await geminiPauseReasonOperation()
+        guard !Task.isCancelled, geminiLifecycleID == lifecycleID else { return }
+        let actionProviders = await coordinator.providersRequiringAction()
+        guard !Task.isCancelled, geminiLifecycleID == lifecycleID else { return }
+        let pauseReason = await geminiPauseReasonOperation()
+        guard !Task.isCancelled, geminiLifecycleID == lifecycleID else { return }
+        geminiPresentationRevision &+= 1
+        providersRequiringAction = actionProviders
+        // These actor reads can straddle a resume commit. Gemini's latest pause
+        // reason also authoritatively determines its action-set membership.
+        if pauseReason == nil { providersRequiringAction.remove(.gemini) }
+        else { providersRequiringAction.insert(.gemini) }
+        discardGeminiResumeOfferIfPauseChanged(to: pauseReason)
+        geminiPauseReason = pauseReason
         updateAPIKeyConfiguration(from: collected)
         var presentedSnapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         if geminiQuotaSnapshotGeneration != geminiQuotaGenerationAtStart,
@@ -665,13 +869,24 @@ final class AppModel {
         }
         guard !isRefreshingServiceAccounts, !isAuthenticating else { return }
         isRefreshingServiceAccounts = true
+        let lifecycleID = geminiLifecycleID
         defer { isRefreshingServiceAccounts = false }
 
         UsageProvider.allCases.forEach {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
-        geminiPauseReason = await geminiPauseReasonOperation()
+        guard !Task.isCancelled, geminiLifecycleID == lifecycleID else { return }
+        let actionProviders = await coordinator.providersRequiringAction()
+        guard !Task.isCancelled, geminiLifecycleID == lifecycleID else { return }
+        let pauseReason = await geminiPauseReasonOperation()
+        guard !Task.isCancelled, geminiLifecycleID == lifecycleID else { return }
+        geminiPresentationRevision &+= 1
+        providersRequiringAction = actionProviders
+        if pauseReason == nil { providersRequiringAction.remove(.gemini) }
+        else { providersRequiringAction.insert(.gemini) }
+        discardGeminiResumeOfferIfPauseChanged(to: pauseReason)
+        geminiPauseReason = pauseReason
         for status in statuses where status.provider != .gemini {
             serviceAccounts[status.provider] = status
         }
@@ -856,12 +1071,21 @@ final class AppModel {
     func beginGeminiOneTimeRecovery() async {
         guard !isDemoMode, isGeminiRefreshPaused,
               pendingGeminiLoginToken == nil,
-              !isGeminiOneTimeRecoveryInProgress else { return }
+              !isGeminiOneTimeRecoveryInProgress,
+              !isGeminiAutomaticRefreshResumeInProgress else { return }
+        clearGeminiResumeOffer()
+        geminiRecoverySessionID = UUID()
+        let sessionID = geminiRecoverySessionID
         let token = UUID().uuidString
         pendingGeminiLoginToken = token
         activeGeminiRecoveryToken = token
         geminiRecoveryStartedAt = Date()
         geminiOneTimeRecoveryState = .awaitingLogin
+        // A queued stop must finish revoking its old Core generation before a
+        // new login can register a token in the same coordinator.
+        await geminiResumeInvalidationTask?.value
+        guard !Task.isCancelled, geminiRecoverySessionID == sessionID,
+              pendingGeminiLoginToken == token else { return }
         guard await geminiRecoveryBeginOperation(token) else {
             if pendingGeminiLoginToken == token {
                 pendingGeminiLoginToken = nil
@@ -872,7 +1096,8 @@ final class AppModel {
             }
             return
         }
-        guard pendingGeminiLoginToken == token else { return }
+        guard !Task.isCancelled, geminiRecoverySessionID == sessionID,
+              pendingGeminiLoginToken == token else { return }
         settingsMessageKind = .antigravityRecovery
         settingsNotice = .recoveryLoginStarted
         do {
@@ -998,6 +1223,8 @@ final class AppModel {
         geminiOneTimeRecoveryState = .checkingQuota
         settingsNotice = .recoveryCheckingQuota
         let operation = geminiQuotaCheckOperation
+        let resumeAuthorizationOperation = geminiResumeAuthorizationOperation
+        let sessionID = geminiRecoverySessionID
         let taskID = UUID()
         geminiQuotaTaskID = taskID
         geminiQuotaTask = Task { [weak self] in
@@ -1013,7 +1240,7 @@ final class AppModel {
                 // A successful coordinator return means the cache and persisted
                 // suspension already committed. Finish the matching UI update even
                 // if cancellation arrived after that commit boundary.
-                guard geminiQuotaTaskID == taskID else { return }
+                guard geminiQuotaTaskID == taskID, geminiRecoverySessionID == sessionID else { return }
                 guard quota.provider == .gemini,
                       let metrics = quota.geminiQuotaMetrics, !metrics.isEmpty else {
                     geminiOneTimeRecoveryState = .quotaFailed
@@ -1021,6 +1248,8 @@ final class AppModel {
                     settingsNotice = .recoveryQuotaFailed
                     return
                 }
+                let resumeAuthorization = await resumeAuthorizationOperation(authorization)
+                guard geminiQuotaTaskID == taskID, geminiRecoverySessionID == sessionID else { return }
                 if let index = snapshots.firstIndex(where: { $0.provider == .gemini }) {
                     snapshots[index] = applyingLocalBudget(to: quota)
                 } else {
@@ -1032,6 +1261,9 @@ final class AppModel {
                 publishWidgetSnapshot()
                 geminiOneTimeRecoveryState = .succeeded
                 settingsNotice = .recoveryQuotaUpdated
+                if let resumeAuthorization {
+                    offerGeminiAutomaticRefreshResume(resumeAuthorization, quotaAuthorization: authorization, sessionID: sessionID)
+                }
             } catch is CancellationError {
                 return
             } catch {

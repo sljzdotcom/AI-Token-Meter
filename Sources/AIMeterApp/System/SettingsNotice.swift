@@ -33,6 +33,12 @@ enum SettingsNotice: Equatable {
     case recoveryCheckingQuota
     case recoveryQuotaFailed
     case recoveryQuotaUpdated
+    case recoveryQuotaReadyToResume
+    case recoveryResumeStarted
+    case recoveryResumeBusy
+    case recoveryResumeValidationRequired
+    case recoveryResumePersistenceFailed
+    case recoveryResumeSucceeded
 
     func text(using localizer: AppLocalizer) -> String {
         switch self {
@@ -78,6 +84,18 @@ enum SettingsNotice: Equatable {
             localizer.text("The one-time quota check failed. Refresh remains paused and the previous quota is kept.")
         case .recoveryQuotaUpdated:
             localizer.text("Antigravity quota updated. Automatic refresh remains paused.")
+        case .recoveryQuotaReadyToResume:
+            localizer.text("Antigravity quota updated. Automatic refresh remains paused until you choose Resume automatic refresh.")
+        case .recoveryResumeStarted:
+            localizer.text("Saving your automatic refresh choice…")
+        case .recoveryResumeBusy:
+            localizer.text("Another check is still running. Automatic refresh remains paused. Choose Resume automatic refresh again when it finishes; the original five-minute limit still applies.")
+        case .recoveryResumeValidationRequired:
+            localizer.text("This check expired or is no longer valid for resuming. Automatic refresh remains paused. Run a new one-time quota check.")
+        case .recoveryResumePersistenceFailed:
+            localizer.text("Your automatic refresh choice could not be saved. Automatic refresh remains paused. Run a new one-time quota check before trying again.")
+        case .recoveryResumeSucceeded:
+            localizer.text("Antigravity automatic refresh is enabled. Quota will be checked at the next scheduled refresh.")
         }
     }
 }

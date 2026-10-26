@@ -36,9 +36,12 @@ struct GeminiDetailView: View {
     let pauseReason: GeminiPauseReason?
     let isPaused: Bool
     let isRecoveryInProgress: Bool
+    let canResumeAutomaticRefresh: Bool
+    let isResumeInProgress: Bool
     let recoveryMessage: String?
     let onRetry: () -> Void
     let onSignIn: () -> Void
+    let onResumeAutomaticRefresh: () -> Void
     let onCopyDiagnostics: () -> Void
 
     init(
@@ -46,18 +49,24 @@ struct GeminiDetailView: View {
         pauseReason: GeminiPauseReason? = nil,
         isPaused: Bool = false,
         isRecoveryInProgress: Bool = false,
+        canResumeAutomaticRefresh: Bool = false,
+        isResumeInProgress: Bool = false,
         recoveryMessage: String? = nil,
         onRetry: @escaping () -> Void,
         onSignIn: @escaping () -> Void = {},
+        onResumeAutomaticRefresh: @escaping () -> Void = {},
         onCopyDiagnostics: @escaping () -> Void = {}
     ) {
         self.snapshot = snapshot
         self.pauseReason = pauseReason
         self.isPaused = isPaused
         self.isRecoveryInProgress = isRecoveryInProgress
+        self.canResumeAutomaticRefresh = canResumeAutomaticRefresh
+        self.isResumeInProgress = isResumeInProgress
         self.recoveryMessage = recoveryMessage
         self.onRetry = onRetry
         self.onSignIn = onSignIn
+        self.onResumeAutomaticRefresh = onResumeAutomaticRefresh
         self.onCopyDiagnostics = onCopyDiagnostics
     }
 
@@ -166,7 +175,9 @@ struct GeminiDetailView: View {
                 let accountStatus = ServiceAccountStatus.fromGeminiSnapshot(snapshot, pauseReason: pauseReason)
                 GeminiInstallationHelp(state: accountStatus.connectionState, pauseReason: pauseReason)
                 if isPaused {
-                    Text(localizer.text("Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
+                    Text(localizer.text(canResumeAutomaticRefresh || isResumeInProgress
+                        ? "Your one-time check succeeded. Choose Resume automatic refresh to enable future scheduled checks."
+                        : "Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -180,13 +191,14 @@ struct GeminiDetailView: View {
                     }
                     Spacer()
                     if isPaused {
-                        Button(localizer.text("Copy diagnostic info"), action: onCopyDiagnostics)
-                            .buttonStyle(.bordered)
-                        Button(localizer.text("One-time quota check"), action: onSignIn)
-                            .disabled(isRecoveryInProgress)
-                        if isRecoveryInProgress {
-                            ProgressView().controlSize(.small)
-                        }
+                        GeminiRecoveryActions(
+                            canResume: canResumeAutomaticRefresh,
+                            isChecking: isRecoveryInProgress,
+                            isResuming: isResumeInProgress,
+                            onCheck: onSignIn,
+                            onResume: onResumeAutomaticRefresh,
+                            onCopyDiagnostics: onCopyDiagnostics
+                        )
                     } else {
                         Button(localizer.text("Retry"), action: onRetry)
                     }
@@ -196,6 +208,35 @@ struct GeminiDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .aiMeterDetailSurface()
+    }
+}
+
+/// Details and Services share one primary action and its progress/disable rules.
+struct GeminiRecoveryActions: View {
+    @Environment(\.locale) private var locale
+    private var localizer: AppLocalizer { AppLocalizer(locale: locale) }
+    let canResume: Bool
+    let isChecking: Bool
+    let isResuming: Bool
+    let onCheck: () -> Void
+    let onResume: () -> Void
+    let onCopyDiagnostics: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(localizer.text("Copy diagnostic info"), action: onCopyDiagnostics)
+                .buttonStyle(.bordered)
+            if canResume || isResuming {
+                Button(localizer.text("Resume automatic refresh"), action: onResume)
+                    .disabled(isChecking || isResuming)
+            } else {
+                Button(localizer.text("One-time quota check"), action: onCheck)
+                    .disabled(isChecking || isResuming)
+            }
+            if isChecking || isResuming {
+                ProgressView().controlSize(.small)
+            }
+        }
     }
 }
 

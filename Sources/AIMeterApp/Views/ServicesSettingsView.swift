@@ -129,7 +129,9 @@ struct ServicesSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
                 if model.isGeminiRefreshPaused {
-                    Text(localizer.text("Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
+                    Text(localizer.text(model.canResumeGeminiAutomaticRefresh || model.isGeminiAutomaticRefreshResumeInProgress
+                        ? "Your one-time check succeeded. Choose Resume automatic refresh to enable future scheduled checks."
+                        : "Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused."))
                         .aiMeterFont(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -142,12 +144,14 @@ struct ServicesSettingsView: View {
                         Link(localizer.text("Antigravity CLI installation guide"), destination: GeminiInstallationGuide.url)
                     }
                     if model.isGeminiRefreshPaused {
-                        Button(localizer.text("One-time quota check")) { Task { await model.beginGeminiOneTimeRecovery() } }
-                            .disabled(model.isGeminiOneTimeRecoveryInProgress)
-                        if model.isGeminiOneTimeRecoveryInProgress {
-                            ProgressView().controlSize(.small)
-                        }
-                        Button(localizer.text("Copy diagnostic info")) { Task { await model.copyGeminiDiagnosticSummary() } }
+                        GeminiRecoveryActions(
+                            canResume: model.canResumeGeminiAutomaticRefresh,
+                            isChecking: model.isGeminiOneTimeRecoveryInProgress,
+                            isResuming: model.isGeminiAutomaticRefreshResumeInProgress,
+                            onCheck: { Task { await model.beginGeminiOneTimeRecovery() } },
+                            onResume: { Task { await model.resumeGeminiAutomaticRefresh() } },
+                            onCopyDiagnostics: { Task { await model.copyGeminiDiagnosticSummary() } }
+                        )
                     } else {
                         Button(localizer.text("Retry")) { Task { await model.checkServiceAccount(.gemini) } }
                     }
