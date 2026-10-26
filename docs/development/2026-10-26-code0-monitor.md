@@ -42,3 +42,9 @@ Code0默认隐藏，保留旧四服务设置和小组件三项默认。仅用户
 ## 首个实现候选检查
 
 `60691d9` 提交数值解析、可选第五项和偏好兼容候选。静态合同7份、文档373份及公开扫描通过；完整Task1源码独审无关键/重要发现，交接清单范围需补说明。实际隔离检查尚未GREEN：macOS [40308014742](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40308014742) 被之前诊断辅助函数的同作用域变量重名阻断，行为测试未运行；Windows [40308014721](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40308014721) 前端138项中137通过，旧设置测试仍按四服务目录计算总控件数，后续Rust及安装器未运行。两处进入窄修复，既有行为断言和诊断边界保留。
+
+## Windows原生入口选择
+
+只读追踪锁定Tauri2.11.5源码后确认：无remote capability会拒绝远程自定义命令，但内部channel fetch有ACL例外，因此不能用该配置宣称远程页完全没有内部IPC。Task4改为owned bare Window加直接WebView2 COM controller，仅安装过滤额度桥，不构造Tauri/Wry WebView。公开gated WindowBuilder、HWND及环境/controller完成回调已有源码依据，实际编译、双平台策略与销毁夹具仍待实现；不以接口研究冒充运行结果。
+
+第二轮 `3cf9bb8` 原生结果：mac主组675项仅新增单位缺动态模板样例导致2个issue；Windows前端138项通过，Rust首组43通过/1旧托盘恢复测试失败。`a838d60` 仅补三语言样例及明确单服务恢复/全五项选择测试，定向独审通过，未放宽旧断言；新隔离检查仍待结果。
