@@ -19,10 +19,12 @@ run_swift_tests() {
 }
 
 if [[ "$#" -eq 0 ]]; then
-    # Keep main-actor scheduling and real terminal resource tests outside the parallel main run.
-    run_swift_tests --skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests'
+    # Keep scheduling, terminal and CLI process suites outside the parallel main run.
+    run_swift_tests --skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests|CLIAuthenticationScriptBuilderTests|GeminiCollectorTests'
     run_swift_tests --skip-build --filter 'RefreshIntervalSchedulingTests'
     run_swift_tests --skip-build --filter 'PTYCommandRunnerTests'
+    run_swift_tests --skip-build --filter 'CLIAuthenticationScriptBuilderTests'
+    run_swift_tests --skip-build --filter 'GeminiCollectorTests'
 else
     run_swift_tests "$@"
 fi
