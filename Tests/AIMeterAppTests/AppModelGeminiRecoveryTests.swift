@@ -111,9 +111,461 @@ struct AppModelGeminiRecoveryTests {
         #expect(model.geminiPauseReason == (commitSucceeds ? nil : .unknown))
         #expect(!model.canResumeGeminiAutomaticRefresh)
         #expect(model.snapshots.first(where: { $0.provider == .gemini }) == freshQuota)
+        #expect(model.settingsNotice == (commitSucceeds ? .recoveryResumeSucceeded : .recoveryResumePersistenceFailed))
         #expect(await resumeProbe.resumeAuthorizations == [resumeAuthorization])
         #expect(await counters.quotaCalls == 1)
         #expect(await counters.globalRefreshCalls == 1)
+    }
+
+    @Test("Busy resume keeps the same expiring offer for a later explicit retry")
+    @MainActor
+    func busyResumeRequiresAnotherExplicitTap() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        let quota = recoverySnapshot(value: 22, sourceVersion: "1.1.28")
+        var token: String?
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(quota), openLogin: { token = $0 },
+            authorizeResume: { await probe.authorize(for: $0) },
+            resumeAutomaticRefresh: {
+                if await probe.recordResume($0) == 1 { throw GeminiAutomaticRefreshResumeError.alreadyRunning }
+                return quota
+            }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(model.isGeminiRefreshPaused)
+        #expect(model.canResumeGeminiAutomaticRefresh)
+        #expect(model.settingsNotice == .recoveryResumeBusy)
+        #expect(await probe.resumeAuthorizations == [authorization])
+        await Task.yield()
+        #expect(await probe.resumeAuthorizations.count == 1)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(!model.isGeminiRefreshPaused)
+        #expect(model.settingsNotice == .recoveryResumeSucceeded)
+        #expect(await probe.resumeAuthorizations == [authorization, authorization])
+        #expect(await counters.quotaCalls == 1)
+        #expect(await counters.globalRefreshCalls == 1)
+    }
+
+    @Test("An in-flight App refresh denies resume through its presentation tail without queuing it")
+    @MainActor
+    func appRefreshBusyPreservesOfferForExplicitRetry() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        let refreshGate = RecoveryAsyncGate()
+        defer { Task { await refreshGate.release() } }
+        let quota = recoverySnapshot(value: 22, sourceVersion: "1.1.28")
+        var token: String?
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(quota), openLogin: { token = $0 },
+            authorizeResume: { await probe.authorize(for: $0) },
+            resumeAutomaticRefresh: { await probe.recordResume($0); return quota },
+            refreshOperation: {
+                await counters.incrementGlobalRefresh()
+                if await counters.globalRefreshCalls > 1 { await refreshGate.hold() }
+                return [quota]
+            }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        let refresh = Task { await model.refresh(manual: false) }
+        let started = await refreshGate.waitUntilStarted(timeout: .seconds(2))
+        if !started { await refreshGate.release(); await refresh.value }
+        try #require(started)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(model.isGeminiRefreshPaused)
+        #expect(model.canResumeGeminiAutomaticRefresh)
+        #expect(model.settingsNotice == .recoveryResumeBusy)
+        #expect(await probe.resumeAuthorizations.isEmpty)
+        await refreshGate.release()
+        await refresh.value
+        #expect(await probe.resumeAuthorizations.isEmpty)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(!model.isGeminiRefreshPaused)
+        #expect(await probe.resumeAuthorizations == [authorization])
+        #expect(await counters.globalRefreshCalls == 2)
+    }
+
+    @Test("An expired offer returns to the check action while the panel remains open")
+    @MainActor
+    func expiryClearsOfferWithoutSubmittingOrRevokingAnotherGeneration() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(
+            id: UUID(), expiresAt: ContinuousClock.now.advanced(by: .seconds(1))
+        )
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        var token: String?
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(recoverySnapshot(value: 22, sourceVersion: "1.1.28")),
+            openLogin: { token = $0 }, authorizeResume: { await probe.authorize(for: $0) },
+            resumeInvalidation: { Issue.record("Local expiry must not revoke a newer Core generation") }
+        )
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        #expect(model.canResumeGeminiAutomaticRefresh)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while model.settingsNotice != .recoveryResumeValidationRequired, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        #expect(model.settingsNotice == .recoveryResumeValidationRequired)
+        #expect(model.isGeminiRefreshPaused)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(await probe.resumeAuthorizations.isEmpty)
+        #expect(await counters.quotaCalls == 1)
+        #expect(await counters.globalRefreshCalls == 1)
+    }
+
+    @Test("A committed resume may publish after its local offer deadline passes")
+    @MainActor
+    func committedResumeDoesNotDependOnStillHeldLocalOffer() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(
+            id: UUID(), expiresAt: ContinuousClock.now.advanced(by: .seconds(1))
+        )
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        defer { Task { await probe.release() } }
+        let quota = recoverySnapshot(value: 22, sourceVersion: "1.1.28")
+        var token: String?
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(quota), openLogin: { token = $0 },
+            authorizeResume: { await probe.authorize(for: $0) },
+            resumeAutomaticRefresh: { await probe.submitAndWait($0); return quota }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        let resume = Task { await model.resumeGeminiAutomaticRefresh() }
+        let started = await probe.waitUntilStarted(timeout: .seconds(2))
+        if !started { await probe.release(); await resume.value }
+        try #require(started)
+        // The injected operation represents a commit that already won; only its
+        // UI callback is delayed beyond the local offer's deadline.
+        do {
+            try await Task.sleep(until: authorization.expiresAt, clock: .continuous)
+        } catch {
+            await probe.release()
+            await resume.value
+            throw error
+        }
+        await Task.yield()
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        await probe.release()
+        await resume.value
+        #expect(!model.isGeminiRefreshPaused)
+        #expect(model.settingsNotice == .recoveryResumeSucceeded)
+    }
+
+    @Test("Rejected resume clears its offer and keeps pause without exposing raw errors", arguments: [GeminiAutomaticRefreshResumeError.validationRequired, .notPaused])
+    @MainActor
+    func rejectedResumeRequiresNewQuotaCheck(error: GeminiAutomaticRefreshResumeError) async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        var token: String?
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(recoverySnapshot(value: 22)), openLogin: { token = $0 },
+            authorizeResume: { await probe.authorize(for: $0) },
+            resumeAutomaticRefresh: { await probe.recordResume($0); throw error }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        await model.resumeGeminiAutomaticRefresh()
+        #expect(model.isGeminiRefreshPaused)
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        #expect(model.settingsNotice == .recoveryResumeValidationRequired)
+        #expect(await probe.resumeAuthorizations == [authorization])
+        #expect(await counters.quotaCalls == 1)
+        #expect(await counters.globalRefreshCalls == 1)
+    }
+
+    @Test("Stop rejects a late resume result, including after a newer recovery begins", arguments: [true, false], [true, false])
+    @MainActor
+    func stoppedResumeCannotPublishIntoAnotherSession(commitSucceeds: Bool, beginNewRecovery: Bool) async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        defer { Task { await probe.release() } }
+        let quota = recoverySnapshot(value: 22, sourceVersion: "1.1.28")
+        var tokens: [String] = []
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(quota), openLogin: { tokens.append($0) },
+            authorizeResume: { await probe.authorize(for: $0) },
+            resumeAutomaticRefresh: {
+                await probe.submitAndWait($0)
+                await counters.recordResumeCancellation(Task.isCancelled)
+                if !commitSucceeds { throw GeminiAutomaticRefreshResumeError.persistenceFailed }
+                return quota
+            }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(tokens.first), result: .success)
+        let resume = Task { await model.resumeGeminiAutomaticRefresh() }
+        let started = await probe.waitUntilStarted(timeout: .seconds(2))
+        if !started { await probe.release(); await resume.value }
+        try #require(started)
+        model.stop()
+        if beginNewRecovery { await model.beginGeminiOneTimeRecovery() }
+        let stateAfterStop = model.geminiOneTimeRecoveryState
+        let noticeAfterStop = model.settingsNotice
+        await probe.release()
+        await resume.value
+        #expect(model.geminiOneTimeRecoveryState == stateAfterStop)
+        #expect(model.settingsNotice == noticeAfterStop)
+        #expect(model.isGeminiRefreshPaused)
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        #expect(!model.isGeminiAutomaticRefreshResumeInProgress)
+        #expect(tokens.count == (beginNewRecovery ? 2 : 1))
+        #expect(await counters.resumeCancellations == [true])
+    }
+
+    @Test("A new recovery waits for a queued stop revocation before registering its token")
+    @MainActor
+    func newRecoveryWaitsForStoppedSessionRevocation() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let invalidation = RecoveryAsyncGate()
+        defer { Task { await invalidation.release() } }
+        var tokens: [String] = []
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(recoverySnapshot(value: 22)), openLogin: { tokens.append($0) },
+            resumeInvalidation: { await invalidation.hold() },
+            recoveryBegin: { await counters.incrementRecoveryBegin(); return true }
+        )
+        await model.refresh()
+        model.stop()
+        let started = await invalidation.waitUntilStarted(timeout: .seconds(2))
+        if !started { await invalidation.release() }
+        try #require(started)
+        let begin = Task { await model.beginGeminiOneTimeRecovery() }
+        await Task.yield()
+        #expect(await counters.recoveryBeginCalls == 0)
+        #expect(tokens.isEmpty)
+        await invalidation.release()
+        await begin.value
+        #expect(await counters.recoveryBeginCalls == 1)
+        #expect(tokens.count == 1)
+        model.stop()
+    }
+
+    @Test("A late capability lookup cannot offer resume in a newer recovery")
+    @MainActor
+    func lateCapabilityLookupCannotPublishIntoNewRecovery() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let gate = RecoveryAsyncGate()
+        defer { Task { await gate.release() } }
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        var tokens: [String] = []
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(recoverySnapshot(value: 22)), openLogin: { tokens.append($0) },
+            authorizeResume: { _ in await gate.hold(); return authorization }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        let token = try #require(tokens.first)
+        let quota = Task { await model.completeGeminiInteractiveSignIn(token: token, result: .success) }
+        let started = await gate.waitUntilStarted(timeout: .seconds(2))
+        if !started { await gate.release(); await quota.value }
+        try #require(started)
+        model.stop()
+        await model.beginGeminiOneTimeRecovery()
+        await gate.release()
+        await quota.value
+        #expect(model.geminiOneTimeRecoveryState == .awaitingLogin)
+        #expect(model.settingsNotice == .recoveryLoginStarted)
+        #expect(model.isGeminiRefreshPaused)
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+    }
+
+    @Test("A newer regular refresh failure wins over a late successful resume publication")
+    @MainActor
+    func newerRefreshFailureCannotBeClearedByLateResumeSuccess() async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let counters = RecoveryCounters()
+        let authorization = GeminiAutomaticRefreshResumeAuthorization(id: UUID())
+        let probe = RecoveryResumeProbe(authorization: authorization)
+        defer { Task { await probe.release() } }
+        let pause = RecoveryPauseState(.unknown)
+        let fresh = recoverySnapshot(value: 22, sourceVersion: "1.1.28")
+        let later = recoverySnapshot(value: 49)
+        var token: String?
+        let model = makeModel(
+            context: context, counters: counters, pauseReason: .unknown,
+            quota: .success(fresh), openLogin: { token = $0 },
+            authorizeResume: { await probe.authorize(for: $0) },
+            resumeAutomaticRefresh: { await probe.submitAndWait($0); return fresh },
+            pauseReasonOperation: { await pause.reason },
+            refreshOperation: { await counters.incrementGlobalRefresh(); return [later] }
+        )
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        let resume = Task { await model.resumeGeminiAutomaticRefresh() }
+        let started = await probe.waitUntilStarted(timeout: .seconds(2))
+        if !started { await probe.release(); await resume.value }
+        try #require(started)
+        await pause.set(.unsupportedVersion)
+        await model.refresh(manual: false)
+        await probe.release()
+        await resume.value
+        #expect(model.geminiPauseReason == .unsupportedVersion)
+        #expect(model.isGeminiRefreshPaused)
+        #expect(model.snapshots.first(where: { $0.provider == .gemini }) == later)
+        #expect(model.settingsNotice != .recoveryResumeSucceeded)
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        #expect(await counters.globalRefreshCalls == 2)
+    }
+
+    @Test("Account publication uses committed coordinator actions before a delayed resume callback", arguments: [false, true])
+    @MainActor
+    func accountRefreshPublishesRealResumeActionSet(newerFailure: Bool) async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let quota = resumeIntegrationSnapshot()
+        #expect(quota.normalizedAntigravityQuota().geminiQuotaMetrics?.count == 2)
+        let collector = ResumeIntegrationCollector(quota: quota)
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: context.cacheDirectoryURL))
+        let callback = RecoveryAsyncGate()
+        defer { Task { await callback.release() } }
+        var token: String?
+        let model = makeCoordinatorModel(context: context, coordinator: coordinator, openLogin: { token = $0 }) {
+            let committed = try await coordinator.resumeGeminiAutomaticRefresh(authorization: $0)
+            await callback.hold()
+            return committed
+        }
+        defer { model.stop() }
+        await model.refresh()
+        #expect(await coordinator.providersRequiringAction().contains(.gemini))
+        #expect(model.geminiPauseReason == .timeout)
+        #expect(model.isGeminiRefreshPaused)
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        try #require(model.canResumeGeminiAutomaticRefresh)
+        let resume = Task { await model.resumeGeminiAutomaticRefresh() }
+        let started = await callback.waitUntilStarted(timeout: .seconds(2))
+        if !started { await callback.release(); await resume.value }
+        try #require(started)
+        #expect(!(await coordinator.providersRequiringAction().contains(.gemini)))
+        #expect(await coordinator.geminiPauseReason() == nil)
+        if newerFailure {
+            await collector.failQuota()
+            _ = await coordinator.refresh(manual: false)
+            #expect(await coordinator.providersRequiringAction().contains(.gemini))
+            #expect(await coordinator.geminiPauseReason() == .unsupportedVersion)
+        }
+        await model.refreshServiceAccounts()
+        #expect(model.isGeminiRefreshPaused == newerFailure)
+        #expect(model.geminiPauseReason == (newerFailure ? .unsupportedVersion : nil))
+        await callback.release()
+        await resume.value
+        #expect(model.isGeminiRefreshPaused == newerFailure)
+        #expect(model.geminiPauseReason == (newerFailure ? .unsupportedVersion : nil))
+        #expect(!model.canResumeGeminiAutomaticRefresh)
+        #expect(model.settingsNotice == (newerFailure ? .recoveryResumeValidationRequired : .recoveryResumeSucceeded))
+        #expect(model.serviceAccounts[.gemini]?.refreshPauseReason == (newerFailure ? .unsupportedVersion : nil))
+    }
+
+    @Test("A delayed busy callback keeps the original real permit after a harmless account publication", arguments: [false, true])
+    @MainActor
+    func busyCallbackRevalidatesMatchingPermitAfterAccountPublication(revokeBeforeCallback: Bool) async throws {
+        let context = makeRecoveryContext()
+        defer { clean(context) }
+        let quota = resumeIntegrationSnapshot()
+        #expect(quota.normalizedAntigravityQuota().geminiQuotaMetrics?.count == 2)
+        let collector = ResumeIntegrationCollector(quota: quota)
+        let otherCollector = ResumeIntegrationOtherCollector()
+        let coordinator = RefreshCoordinator(collectors: [collector, otherCollector], cache: SnapshotCache(directoryURL: context.cacheDirectoryURL))
+        let callback = RecoveryAsyncGate()
+        let otherRefreshGate = RecoveryAsyncGate()
+        let attempts = ResumeIntegrationAttempts()
+        defer { Task { await callback.release() } }
+        defer { Task { await otherRefreshGate.release() } }
+        var token: String?
+        let model = makeCoordinatorModel(context: context, coordinator: coordinator, openLogin: { token = $0 }) {
+            let attempt = await attempts.record($0)
+            do {
+                return try await coordinator.resumeGeminiAutomaticRefresh(authorization: $0)
+            } catch {
+                if attempt == 1, error as? GeminiAutomaticRefreshResumeError == .alreadyRunning {
+                    await callback.hold()
+                }
+                throw error
+            }
+        }
+        defer { model.stop() }
+        await model.refresh()
+        await model.beginGeminiOneTimeRecovery()
+        await model.completeGeminiInteractiveSignIn(token: try #require(token), result: .success)
+        try #require(model.canResumeGeminiAutomaticRefresh)
+        await otherCollector.holdNextRefresh(otherRefreshGate)
+        let backgroundRefresh = Task { await coordinator.refresh(manual: false) }
+        let otherStarted = await otherRefreshGate.waitUntilStarted(timeout: .seconds(2))
+        if !otherStarted { await otherRefreshGate.release(); _ = await backgroundRefresh.value }
+        try #require(otherStarted)
+        let resume = Task { await model.resumeGeminiAutomaticRefresh() }
+        let started = await callback.waitUntilStarted(timeout: .seconds(2))
+        await otherRefreshGate.release()
+        _ = await backgroundRefresh.value
+        if !started { await callback.release(); await resume.value }
+        try #require(started)
+        if revokeBeforeCallback { await coordinator.invalidateGeminiAutomaticRefreshResumeAuthorization() }
+        await model.refreshServiceAccounts()
+        #expect(await coordinator.geminiPauseReason() == .timeout)
+        #expect(await coordinator.providersRequiringAction().contains(.gemini))
+        await callback.release()
+        await resume.value
+        #expect(model.canResumeGeminiAutomaticRefresh == !revokeBeforeCallback)
+        #expect(model.isGeminiRefreshPaused)
+        #expect(await attempts.authorizations.count == 1)
+        #expect(model.settingsNotice == (revokeBeforeCallback ? .recoveryResumeValidationRequired : .recoveryResumeBusy))
+        if !revokeBeforeCallback {
+            await model.resumeGeminiAutomaticRefresh()
+            #expect(!model.isGeminiRefreshPaused)
+            let authorizations = await attempts.authorizations
+            #expect(authorizations.count == 2)
+            #expect(authorizations.first == authorizations.last)
+            #expect(!(await coordinator.providersRequiringAction().contains(.gemini)))
+        }
     }
 
     @Test("Unknown pause exposes one login token and accepts only one success receipt")
@@ -859,6 +1311,24 @@ struct AppModelGeminiRecoveryTests {
     }
 
     @MainActor
+    private func makeCoordinatorModel(
+        context: (suiteName: String, defaults: UserDefaults, cacheDirectoryURL: URL),
+        coordinator: RefreshCoordinator,
+        openLogin: @escaping (String) -> Void,
+        resume: @escaping @Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot
+    ) -> AppModel {
+        AppModel(
+            defaults: context.defaults, secretStore: RecoverySecretStore(), launchAtLoginStatusOperation: { false },
+            widgetSnapshotPublisher: nil, isDemoMode: false, geminiDiagnosticStore: GeminiDiagnosticStore(fileURL: nil),
+            refreshCoordinator: coordinator, geminiAutomaticRefreshResumeOperation: resume,
+            serviceAccountRefreshOperation: { _ in [] }, geminiAuthenticationOpenOperation: openLogin,
+            geminiAuthenticationCancelOperation: { _ in }, geminiAuthenticationStopOperation: { _ in Task { true } },
+            geminiAuthenticationFailureOperation: { _ in false }, geminiAuthenticationExecConfirmedOperation: { _ in true },
+            cacheDirectoryURL: context.cacheDirectoryURL
+        )
+    }
+
+    @MainActor
     private func makeModel(
         context: (suiteName: String, defaults: UserDefaults, cacheDirectoryURL: URL),
         counters: RecoveryCounters,
@@ -879,6 +1349,8 @@ struct AppModelGeminiRecoveryTests {
         resumeAutomaticRefresh: @escaping @Sendable (GeminiAutomaticRefreshResumeAuthorization) async throws -> UsageSnapshot = { _ in
             throw GeminiAutomaticRefreshResumeError.validationRequired
         },
+        resumeInvalidation: @escaping @Sendable () async -> Void = {},
+        pauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
         diagnosticStore: GeminiDiagnosticStore = GeminiDiagnosticStore(fileURL: nil),
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         recoveryBegin: (@Sendable () async -> Bool)? = nil,
@@ -894,7 +1366,7 @@ struct AppModelGeminiRecoveryTests {
                 await counters.incrementGlobalRefresh()
                 return []
             },
-            geminiPauseReasonOperation: { pauseReason },
+            geminiPauseReasonOperation: pauseReasonOperation ?? { pauseReason },
             geminiRecoveryBeginOperation: { _ in
                 if let recoveryBegin { return await recoveryBegin() }
                 return true
@@ -906,6 +1378,7 @@ struct AppModelGeminiRecoveryTests {
             },
             geminiResumeAuthorizationOperation: authorizeResume,
             geminiAutomaticRefreshResumeOperation: resumeAutomaticRefresh,
+            geminiResumeInvalidationOperation: resumeInvalidation,
             geminiAuthenticationOpenOperation: { token in
                 if openShouldFail { throw CocoaError(.fileWriteUnknown) }
                 openLogin(token)
@@ -923,6 +1396,22 @@ struct AppModelGeminiRecoveryTests {
             geminiRecoveryTimeout: recoveryTimeout,
             cacheDirectoryURL: context.cacheDirectoryURL,
             signInSleep: signInSleep ?? { try await Task.sleep(for: $0) }
+        )
+    }
+
+    private func resumeIntegrationSnapshot() -> UsageSnapshot {
+        let fiveHour = UsageMetric(
+            label: "Gemini · Five hour", current: 22, limit: 100, unit: .percent,
+            kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 900)
+        )
+        let weekly = UsageMetric(
+            label: "Gemini · Weekly", current: 35, limit: 100, unit: .percent,
+            kind: .officialLimit, resetAt: Date(timeIntervalSince1970: 1_000)
+        )
+        return UsageSnapshot(
+            provider: .gemini, primaryMetric: weekly, secondaryMetric: fiveHour,
+            fetchedAt: Date(timeIntervalSince1970: 800), sourceVersion: "1.1.28",
+            collectionStatus: .fresh, geminiQuotaMetrics: [fiveHour, weekly]
         )
     }
 
@@ -952,6 +1441,46 @@ struct AppModelGeminiRecoveryTests {
     }
 }
 
+private struct RecoverySecretStore: SecretStore {
+    func read() throws -> String? { nil }
+    func save(_ secret: String) throws {}
+    func delete() throws {}
+}
+
+private actor ResumeIntegrationCollector: UsageCollector, OneTimeGeminiQuotaCollecting {
+    nonisolated let provider = UsageProvider.gemini
+    private let quota: UsageSnapshot
+    private var shouldFailQuota = false
+    init(quota: UsageSnapshot) { self.quota = quota }
+    func collect() async throws -> UsageSnapshot { throw UsageCollectionError.timedOut }
+    func collectQuotaOnce() async throws -> UsageSnapshot {
+        if shouldFailQuota { throw UsageCollectionError.unsupportedVersion }
+        return quota
+    }
+    func failQuota() { shouldFailQuota = true }
+}
+
+private actor ResumeIntegrationAttempts {
+    private(set) var authorizations: [GeminiAutomaticRefreshResumeAuthorization] = []
+    func record(_ authorization: GeminiAutomaticRefreshResumeAuthorization) -> Int {
+        authorizations.append(authorization)
+        return authorizations.count
+    }
+}
+
+private actor ResumeIntegrationOtherCollector: UsageCollector {
+    nonisolated let provider = UsageProvider.claude
+    private var nextGate: RecoveryAsyncGate?
+    func holdNextRefresh(_ gate: RecoveryAsyncGate) { nextGate = gate }
+    func collect() async throws -> UsageSnapshot {
+        if let gate = nextGate {
+            nextGate = nil
+            await gate.hold()
+        }
+        return UsageSnapshot(provider: .claude, primaryMetric: UsageMetric(label: "Fixture", current: 1, limit: 100, unit: .percent))
+    }
+}
+
 private actor RecoveryResumeProbe {
     let authorization: GeminiAutomaticRefreshResumeAuthorization
     private(set) var quotaAuthorizations: [GeminiQuotaRecoveryAuthorization] = []
@@ -969,8 +1498,10 @@ private actor RecoveryResumeProbe {
         return authorization
     }
 
-    func recordResume(_ authorization: GeminiAutomaticRefreshResumeAuthorization) {
+    @discardableResult
+    func recordResume(_ authorization: GeminiAutomaticRefreshResumeAuthorization) -> Int {
         resumeAuthorizations.append(authorization)
+        return resumeAuthorizations.count
     }
 
     func submitAndWait(_ authorization: GeminiAutomaticRefreshResumeAuthorization) async {
@@ -1069,9 +1600,46 @@ private actor RecoveryStopGate {
 private actor RecoveryCounters {
     private(set) var quotaCalls = 0
     private(set) var globalRefreshCalls = 0
+    private(set) var recoveryBeginCalls = 0
+    private(set) var resumeCancellations: [Bool] = []
 
     func incrementQuota() { quotaCalls += 1 }
     func incrementGlobalRefresh() { globalRefreshCalls += 1 }
+    func incrementRecoveryBegin() { recoveryBeginCalls += 1 }
+    func recordResumeCancellation(_ isCancelled: Bool) { resumeCancellations.append(isCancelled) }
+}
+
+private actor RecoveryPauseState {
+    private(set) var reason: GeminiPauseReason?
+    init(_ reason: GeminiPauseReason?) { self.reason = reason }
+    func set(_ reason: GeminiPauseReason?) { self.reason = reason }
+}
+
+private actor RecoveryAsyncGate {
+    private var hasStarted = false
+    private var isReleased = false
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func hold() async {
+        hasStarted = true
+        if !isReleased { await withCheckedContinuation { continuations.append($0) } }
+    }
+
+    func waitUntilStarted(timeout: Duration) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while !hasStarted {
+            guard !Task.isCancelled, ContinuousClock.now < deadline else { return false }
+            await Task.yield()
+        }
+        return true
+    }
+
+    func release() {
+        isReleased = true
+        let waiting = continuations
+        continuations.removeAll()
+        waiting.forEach { $0.resume() }
+    }
 }
 
 private actor RecoveryTimeoutGate {

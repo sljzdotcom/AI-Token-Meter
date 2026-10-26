@@ -351,6 +351,14 @@
 "Antigravity refresh paused because the CLI environment is unsupported" = "Antigravity 因 CLI 环境不受支持已暂停刷新";
 "Antigravity refresh paused; the previous failure reason is unknown" = "Antigravity 已暂停刷新；此前失败原因未知";
 "One-time quota check" = "单次检查额度";
+"Resume automatic refresh" = "恢复自动刷新";
+"Your one-time check succeeded. Choose Resume automatic refresh to enable future scheduled checks." = "单次额度检查已成功。选择“恢复自动刷新”后，才会启用后续定时检查。";
+"Antigravity quota updated. Automatic refresh remains paused until you choose Resume automatic refresh." = "Antigravity 额度已更新。选择“恢复自动刷新”前，自动刷新仍保持暂停。";
+"Saving your automatic refresh choice…" = "正在保存自动刷新选择…";
+"Another check is still running. Automatic refresh remains paused. Choose Resume automatic refresh again when it finishes; the original five-minute limit still applies." = "其他检查仍在进行，自动刷新保持暂停。检查结束后，请再次选择“恢复自动刷新”；本次检查原有的五分钟有效期不变。";
+"This check expired or is no longer valid for resuming. Automatic refresh remains paused. Run a new one-time quota check." = "本次检查已过期或已无法用于恢复。自动刷新保持暂停，请重新执行单次额度检查。";
+"Your automatic refresh choice could not be saved. Automatic refresh remains paused. Run a new one-time quota check before trying again." = "无法保存自动刷新选择。自动刷新保持暂停，请重新执行单次额度检查后再试。";
+"Antigravity automatic refresh is enabled. Quota will be checked at the next scheduled refresh." = "Antigravity 自动刷新已启用，将在下一次定时刷新时检查额度。";
 "Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused." = "完成官方 CLI 登录后可单次检查额度；自动刷新仍保持暂停。";
 "Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This checks quota once; automatic refresh remains paused." = "请在终端完成官方 Antigravity CLI 登录。系统可能会打开浏览器授权页面。此操作只检查一次额度，自动刷新仍保持暂停。";
 "Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept." = "Antigravity 登录未完成。刷新仍保持暂停，保留之前的额度数据。";

@@ -82,6 +82,70 @@ struct GeminiCollectorTests {
         #expect(requests[1].timeout == 30)
     }
 
+    @Test("Automatic coordinator collection is exactly version plus bounded quota usage")
+    func automaticCoordinatorUsesQuotaOnlyRequestContract() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let runner = RecordingAntigravityRunner(version: "1.3.1")
+        let collector = GeminiCollector(
+            runner: runner, locator: AntigravityTestLocator(), environment: context.environment
+        )
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: context.root))
+        let snapshots = await coordinator.refresh(manual: false)
+        #expect(snapshots.first?.collectionStatus == .fresh)
+        let requests = await runner.requests
+        #expect(requests.count == 2)
+        let version = try #require(requests.first)
+        let usage = try #require(requests.last)
+        let logPath = try #require(usage.currentDirectoryURL).appendingPathComponent("agy.log").path
+        #expect(version.arguments == ["--version", "--log-file", logPath])
+        #expect(usage.arguments == ["-p", "/usage", "--print-timeout", "20s", "--log-file", logPath])
+        #expect(version.timeout == 8)
+        #expect(usage.timeout == 30)
+        #expect(version.currentDirectoryURL == usage.currentDirectoryURL)
+        #expect(requests.allSatisfy { $0.inputLines.isEmpty && $0.maxOutputBytes == 64 * 1024 })
+        #expect(requests.allSatisfy { $0.environment?["NO_BROWSER"] == nil && $0.environment?["GEMINI_API_KEY"] == nil })
+        #expect(!FileManager.default.fileExists(atPath: try #require(usage.currentDirectoryURL).path))
+    }
+
+    @Test("Automatic unauthenticated fake CLI has no TTY and never runs interactive or model commands")
+    func automaticUnauthenticatedCLIHasNoTTYOrSupplementalCommands() async throws {
+        let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
+        let executable = context.root.appendingPathComponent("agy")
+        let calls = context.root.appendingPathComponent("synthetic-calls.txt")
+        let script = """
+        #!/bin/sh
+        if [ -t 0 ] || [ -t 1 ] || [ -t 2 ]; then
+          printf 'unexpected-tty\\n' >> '\(calls.path)'
+          exit 9
+        fi
+        if [ "$1" = "--version" ] && [ "$#" -eq 3 ] && [ "$2" = "--log-file" ]; then
+          printf 'version\\n' >> '\(calls.path)'
+          printf '1.3.1\\n'
+          exit 0
+        fi
+        if [ "$#" -eq 6 ] && [ "$1" = "-p" ] && [ "$2" = "/usage" ] && [ "$3" = "--print-timeout" ] && [ "$4" = "20s" ] && [ "$5" = "--log-file" ]; then
+          printf 'quota-no-tty\\n' >> '\(calls.path)'
+          printf 'authentication required\\n'
+          exit 2
+        fi
+        printf 'unexpected-command\\n' >> '\(calls.path)'
+        exit 8
+        """
+        try Data(script.utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+        let collector = GeminiCollector(
+            locator: AntigravityTestLocator(discovery: .found(executable)), environment: context.environment
+        )
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: context.root))
+        _ = await coordinator.refresh(manual: false)
+        #expect(await coordinator.geminiPauseReason() == .authenticationRequired)
+        #expect(try String(contentsOf: calls, encoding: .utf8) == "version\nquota-no-tty\n")
+        // A persisted failure suppresses a subsequent automatic call as well.
+        let restarted = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: context.root))
+        _ = await restarted.refresh(manual: false)
+        #expect(try String(contentsOf: calls, encoding: .utf8) == "version\nquota-no-tty\n")
+    }
+
     @Test func supplementalFailuresNeverDowngradeFreshQuota() async throws {
         let context = try context(); defer { try? FileManager.default.removeItem(at: context.root) }
         let snapshot = try await GeminiCollector(

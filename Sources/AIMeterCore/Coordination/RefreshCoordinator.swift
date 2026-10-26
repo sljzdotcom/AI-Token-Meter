@@ -17,8 +17,13 @@ public struct GeminiQuotaRecoveryAuthorization: Equatable, Sendable {
 /// In-memory capability for a separate, explicit automatic-refresh resume action.
 public struct GeminiAutomaticRefreshResumeAuthorization: Equatable, Sendable {
     let id: UUID
+    /// Display hint only. The coordinator's stored deadline remains authoritative.
+    public let expiresAt: ContinuousClock.Instant
 
-    init(id: UUID) { self.id = id }
+    init(id: UUID, expiresAt: ContinuousClock.Instant = ContinuousClock.now.advanced(by: .seconds(300))) {
+        self.id = id
+        self.expiresAt = expiresAt
+    }
 }
 
 public enum GeminiAutomaticRefreshResumeError: Error, Equatable, Sendable {
@@ -38,14 +43,27 @@ public actor RefreshCoordinator {
     private var isGeminiQuotaOnceRunning = false
     private var pendingGeminiLoginToken: String?
     private var pendingGeminiQuotaAuthorization: UUID?
+    private let geminiResumeClock: @Sendable () -> ContinuousClock.Instant
+    private var geminiRecoveryEpoch = UUID()
+    private var geminiResumePermit: GeminiResumePermit?
+
+    private struct GeminiResumePermit {
+        let authorization: GeminiAutomaticRefreshResumeAuthorization
+        let quotaAuthorizationID: UUID
+        let epoch: UUID
+        let issuedAt: ContinuousClock.Instant
+        let snapshot: UsageSnapshot
+    }
 
     public init(
         collectors: [any UsageCollector],
         cache: SnapshotCache,
-        backoffURL: URL? = nil
+        backoffURL: URL? = nil,
+        geminiResumeClock: @escaping @Sendable () -> ContinuousClock.Instant = { ContinuousClock.now }
     ) {
         self.collectors = collectors
         self.cache = cache
+        self.geminiResumeClock = geminiResumeClock
         let url = backoffURL ?? cache.fileURL.deletingLastPathComponent().appendingPathComponent("refresh-backoff.json")
         self.backoffURL = url
         self.backoffs = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode([UsageProvider: RefreshBackoffState].self, from: $0) } ?? [:]
@@ -69,7 +87,7 @@ public actor RefreshCoordinator {
         saveBackoffs()
         let eligible = collectors.filter { backoffs[$0.provider]?.isEligible(now: now, manual: manual) ?? true }
         let task = Task {
-            await self.performRefresh(collectors: eligible, cache: self.cache, onOperation: onOperation)
+            await self.performRefresh(collectors: eligible, cache: self.cache, manual: manual, onOperation: onOperation)
         }
         inFlight = task
         let refreshed = await withTaskCancellationHandler {
@@ -108,6 +126,7 @@ public actor RefreshCoordinator {
         guard backoffs[.gemini]?.failureKind == .suspended,
               UUID(uuidString: token) != nil,
               !isGeminiQuotaOnceRunning else { return false }
+        invalidateGeminiAutomaticRefreshResumeAuthorization()
         pendingGeminiLoginToken = token
         pendingGeminiQuotaAuthorization = nil
         return true
@@ -124,54 +143,116 @@ public actor RefreshCoordinator {
     }
 
     public func collectGeminiQuotaOnce(authorization: GeminiQuotaRecoveryAuthorization) async throws -> UsageSnapshot {
-        guard backoffs[.gemini]?.failureKind == .suspended else {
-            throw GeminiOneTimeQuotaError.notPaused
-        }
-        guard !isGeminiQuotaOnceRunning else {
-            throw GeminiOneTimeQuotaError.alreadyRunning
-        }
-        guard pendingGeminiQuotaAuthorization == authorization.id else {
-            throw GeminiOneTimeQuotaError.unauthorized
-        }
-        guard let collector = collectors.first(where: { $0.provider == .gemini }) as? any OneTimeGeminiQuotaCollecting else {
-            throw GeminiOneTimeQuotaError.collectorUnavailable
-        }
+        guard !isGeminiQuotaOnceRunning else { throw GeminiOneTimeQuotaError.alreadyRunning }
+        let epoch = geminiRecoveryEpoch
+        do {
+            guard backoffs[.gemini]?.failureKind == .suspended else {
+                throw GeminiOneTimeQuotaError.notPaused
+            }
+            guard pendingGeminiQuotaAuthorization == authorization.id else {
+                throw GeminiOneTimeQuotaError.unauthorized
+            }
+            guard let collector = collectors.first(where: { $0.provider == .gemini }) as? any OneTimeGeminiQuotaCollecting else {
+                throw GeminiOneTimeQuotaError.collectorUnavailable
+            }
 
-        isGeminiQuotaOnceRunning = true
-        pendingGeminiQuotaAuthorization = nil
-        defer { isGeminiQuotaOnceRunning = false }
-        if let inFlight { _ = await inFlight.value }
-        try Task.checkCancellation()
-        guard backoffs[.gemini]?.failureKind == .suspended else {
-            throw GeminiOneTimeQuotaError.notPaused
-        }
+            isGeminiQuotaOnceRunning = true
+            pendingGeminiQuotaAuthorization = nil
+            defer { isGeminiQuotaOnceRunning = false }
+            if let inFlight { _ = await inFlight.value }
+            try Task.checkCancellation()
+            guard epoch == geminiRecoveryEpoch else { throw GeminiOneTimeQuotaError.unauthorized }
+            guard backoffs[.gemini]?.failureKind == .suspended else {
+                throw GeminiOneTimeQuotaError.notPaused
+            }
 
-        let snapshot = try await collector.collectQuotaOnce()
-        try Task.checkCancellation()
-        guard snapshot.provider == .gemini, snapshot.geminiQuotaMetrics?.isEmpty == false else {
-            throw UsageCollectionError.invalidResponse
+            let snapshot = try await collector.collectQuotaOnce()
+            try Task.checkCancellation()
+            guard epoch == geminiRecoveryEpoch else { throw GeminiOneTimeQuotaError.unauthorized }
+            guard snapshot.provider == .gemini, snapshot.geminiQuotaMetrics?.isEmpty == false else {
+                throw UsageCollectionError.invalidResponse
+            }
+            try Task.checkCancellation()
+            try cache.saveReplacing(snapshot)
+            try Task.checkCancellation()
+            guard epoch == geminiRecoveryEpoch else { throw GeminiOneTimeQuotaError.unauthorized }
+            if snapshot.collectionStatus == .fresh,
+               snapshot.normalizedAntigravityQuota().geminiQuotaMetrics?.isEmpty == false,
+               let version = snapshot.sourceVersion,
+               GeminiCollector.supports(version: version) {
+                let now = geminiResumeClock()
+                geminiResumePermit = GeminiResumePermit(
+                    authorization: GeminiAutomaticRefreshResumeAuthorization(id: UUID(), expiresAt: now.advanced(by: .seconds(300))),
+                    quotaAuthorizationID: authorization.id, epoch: epoch, issuedAt: now, snapshot: snapshot
+                )
+            }
+            // A successful user-initiated read refreshes the cached quota only.
+            // Automatic refresh requires a separate explicit, validated resume.
+            return snapshot
+        } catch {
+            if epoch == geminiRecoveryEpoch { invalidateGeminiAutomaticRefreshResumeAuthorization() }
+            throw error
         }
-        try Task.checkCancellation()
-        try cache.saveReplacing(snapshot)
-        // A successful user-initiated read refreshes the cached quota only.
-        // Keep the persistent suspension until the CLI's future background
-        // authentication behavior is covered by a reliable no-browser boundary.
-        return snapshot
     }
 
     public func geminiAutomaticRefreshResumeAuthorization(
         for authorization: GeminiQuotaRecoveryAuthorization
     ) -> GeminiAutomaticRefreshResumeAuthorization? {
-        nil
+        guard let permit = currentGeminiResumePermit(),
+              permit.quotaAuthorizationID == authorization.id else { return nil }
+        return permit.authorization
     }
 
     public func resumeGeminiAutomaticRefresh(
         authorization: GeminiAutomaticRefreshResumeAuthorization
     ) throws -> UsageSnapshot {
-        throw GeminiAutomaticRefreshResumeError.validationRequired
+        do { try Task.checkCancellation() } catch {
+            invalidateGeminiAutomaticRefreshResumeAuthorization()
+            throw error
+        }
+        guard let permit = currentGeminiResumePermit(), permit.authorization.id == authorization.id else {
+            throw GeminiAutomaticRefreshResumeError.validationRequired
+        }
+        guard inFlight == nil, !isGeminiQuotaOnceRunning,
+              pendingGeminiLoginToken == nil, pendingGeminiQuotaAuthorization == nil else {
+            throw GeminiAutomaticRefreshResumeError.alreadyRunning
+        }
+        guard backoffs[.gemini]?.failureKind == .suspended else {
+            invalidateGeminiAutomaticRefreshResumeAuthorization()
+            throw GeminiAutomaticRefreshResumeError.notPaused
+        }
+        do { try Task.checkCancellation() } catch {
+            invalidateGeminiAutomaticRefreshResumeAuthorization()
+            throw error
+        }
+        geminiResumePermit = nil
+        var candidate = backoffs
+        candidate.removeValue(forKey: .gemini)
+        guard persistBackoffs(candidate) else {
+            throw GeminiAutomaticRefreshResumeError.persistenceFailed
+        }
+        backoffs = candidate
+        lastPresented[.gemini] = permit.snapshot
+        return permit.snapshot
     }
 
-    public func invalidateGeminiAutomaticRefreshResumeAuthorization() {}
+    public func invalidateGeminiAutomaticRefreshResumeAuthorization() {
+        geminiRecoveryEpoch = UUID()
+        geminiResumePermit = nil
+        pendingGeminiLoginToken = nil
+        pendingGeminiQuotaAuthorization = nil
+    }
+
+    private func currentGeminiResumePermit() -> GeminiResumePermit? {
+        guard let permit = geminiResumePermit else { return nil }
+        let now = geminiResumeClock()
+        guard permit.epoch == geminiRecoveryEpoch,
+              now >= permit.issuedAt, now < permit.authorization.expiresAt else {
+            invalidateGeminiAutomaticRefreshResumeAuthorization()
+            return nil
+        }
+        return permit
+    }
 
     public func providersRequiringAction() -> Set<UsageProvider> {
         Set(backoffs.filter { [.authentication, .suspended].contains($0.value.failureKind) }.map(\.key))
@@ -201,6 +282,7 @@ public actor RefreshCoordinator {
     private func performRefresh(
         collectors: [any UsageCollector],
         cache: SnapshotCache,
+        manual: Bool,
         onOperation: @escaping @Sendable (UsageProvider, Bool) async -> Void
     ) async -> [UsageSnapshot] {
         let cachedSnapshots = (try? cache.load()) ?? []
@@ -214,7 +296,15 @@ public actor RefreshCoordinator {
                 group.addTask {
                     await onOperation(collector.provider, true)
                     do {
-                        let value = try await collector.collect()
+                        let value: UsageSnapshot
+                        if collector.provider == .gemini && !manual {
+                            guard let quotaCollector = collector as? any OneTimeGeminiQuotaCollecting else {
+                                throw UsageCollectionError.invalidResponse
+                            }
+                            value = try await quotaCollector.collectQuotaOnce()
+                        } else {
+                            value = try await collector.collect()
+                        }
                         await onOperation(collector.provider, false)
                         return RefreshOutcome(
                             provider: collector.provider,
@@ -245,6 +335,7 @@ public actor RefreshCoordinator {
         // cancellation behavior and do not receive a retry penalty.
         guard !Task.isCancelled else {
             if collectors.contains(where: { $0.provider == .gemini }) {
+                invalidateGeminiAutomaticRefreshResumeAuthorization()
                 var backoff = backoffs[.gemini] ?? RefreshBackoffState()
                 backoff.record(.suspended, now: Date().timeIntervalSince1970, pauseReason: .cancelled)
                 backoffs[.gemini] = backoff
@@ -268,6 +359,7 @@ public actor RefreshCoordinator {
                     let kind: RefreshFailureKind
                     var delay: TimeInterval = 0
                     if outcome.provider == .gemini {
+                        invalidateGeminiAutomaticRefreshResumeAuthorization()
                         kind = .suspended
                         backoff.record(kind, now: Date().timeIntervalSince1970, pauseReason: Self.pauseReason(for: error))
                     } else {

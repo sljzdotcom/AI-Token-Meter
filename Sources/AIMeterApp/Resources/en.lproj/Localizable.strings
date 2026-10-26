@@ -351,6 +351,14 @@
 "CLI version" = "CLI version";
 "%lld models · %lld families" = "%lld models · %lld families";
 "One-time quota check" = "One-time quota check";
+"Resume automatic refresh" = "Resume automatic refresh";
+"Your one-time check succeeded. Choose Resume automatic refresh to enable future scheduled checks." = "Your one-time check succeeded. Choose Resume automatic refresh to enable future scheduled checks.";
+"Antigravity quota updated. Automatic refresh remains paused until you choose Resume automatic refresh." = "Antigravity quota updated. Automatic refresh remains paused until you choose Resume automatic refresh.";
+"Saving your automatic refresh choice…" = "Saving your automatic refresh choice…";
+"Another check is still running. Automatic refresh remains paused. Choose Resume automatic refresh again when it finishes; the original five-minute limit still applies." = "Another check is still running. Automatic refresh remains paused. Choose Resume automatic refresh again when it finishes; the original five-minute limit still applies.";
+"This check expired or is no longer valid for resuming. Automatic refresh remains paused. Run a new one-time quota check." = "This check expired or is no longer valid for resuming. Automatic refresh remains paused. Run a new one-time quota check.";
+"Your automatic refresh choice could not be saved. Automatic refresh remains paused. Run a new one-time quota check before trying again." = "Your automatic refresh choice could not be saved. Automatic refresh remains paused. Run a new one-time quota check before trying again.";
+"Antigravity automatic refresh is enabled. Quota will be checked at the next scheduled refresh." = "Antigravity automatic refresh is enabled. Quota will be checked at the next scheduled refresh.";
 "Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused." = "Complete the official CLI sign-in and run one quota check. Automatic refresh remains paused.";
 "Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This checks quota once; automatic refresh remains paused." = "Complete the official Antigravity CLI sign-in in Terminal. A browser authorization page may open. This checks quota once; automatic refresh remains paused.";
 "Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept." = "Antigravity sign-in did not complete. Refresh remains paused and the previous quota is kept.";
