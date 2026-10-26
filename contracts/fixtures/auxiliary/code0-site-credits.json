@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "providerId": "code0",
+  "displayName": "Code0",
+  "status": "fresh",
+  "usedRatio": null,
+  "primaryMetric": {
+    "label": "Balance",
+    "current": 2.5,
+    "limit": null,
+    "unit": "siteCredits",
+    "kind": "balance",
+    "resetAt": null,
+    "resetDescription": null
+  },
+  "secondaryMetric": {
+    "label": "Cumulative usage",
+    "current": 1.5,
+    "limit": null,
+    "unit": "siteCredits",
+    "kind": "cumulativeUsage",
+    "resetAt": null,
+    "resetDescription": null
+  },
+  "fetchedAt": "2026-10-26T12:00:00Z",
+  "staleAfterSeconds": 300,
+  "sourceVersion": "synthetic"
+}
