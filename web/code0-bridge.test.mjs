@@ -288,6 +288,31 @@ test("oversize response fails the attempt without exporting the body", async () 
   assert.ok(h.messages.every((message) => Buffer.byteLength(JSON.stringify(message)) <= 2048));
 });
 
+test("raw JSON numbers cannot round a fractional or oversized quota into an accepted integer", async () => {
+  for (const raw of ["9007199254740991.1", "9007199254740990.9", "1.00000000000000001", "-1e-999"]) {
+    const h = harness();
+    await h.complete("/api/status", status);
+    await h.complete("/api/user/self", `{"success":true,"data":{"quota":${raw},"used_quota":0}}`);
+    assert.equal(h.captures().length, 0, raw);
+  }
+});
+
+test("zero quota and a fractional positive divisor remain valid site-credit values", async () => {
+  const h = harness();
+  await h.complete("/api/status", { success: true, data: { quota_per_unit: 0.5 } });
+  await h.complete("/api/user/self", { success: true, data: { quota: 0, used_quota: 1 } });
+  assert.equal(h.captures().length, 1);
+  assert.deepEqual([h.captures()[0].quota, h.captures()[0].usedQuota, h.captures()[0].divisor], [0, 1, 0.5]);
+});
+
+test("UTF-8 byte limits apply even when the response has fewer than 64KiB characters", async () => {
+  const h = harness();
+  await h.complete("/api/status", status);
+  await h.complete("/api/user/self", { ...self, padding: "额".repeat(24000) });
+  assert.equal(h.captures().length, 0);
+  assert.ok(h.messages.some((message) => message.kind === "failure"));
+});
+
 test("refresh transport failure and rejected fetch pause without changing caller errors", async () => {
   const rejected = harness();
   const error = new Error("synthetic-network-failure-do-not-export");
