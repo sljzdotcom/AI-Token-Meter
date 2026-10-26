@@ -202,4 +202,51 @@ struct Code0BridgeProtocolTests {
             #expect(rejected(subject.receive(Data(raw.utf8), context: context)))
         }
     }
+
+    @Test("Counter gaps, MAX request and page routes remain valid; zero and fractional divisor survive")
+    func validBoundaryTrace() throws {
+        var subject = validator()
+        let routed = Code0BridgeContext(connectionEpoch: epoch, attemptID: attempt,
+            sourceURL: "https://console.code0.ai:443/console?tab=usage#quota", isMainFrame: true)
+        #expect(subject.receive(try message("ready", 7), context: routed) == .control)
+        #expect(subject.receive(try message("selfStart", 10, ["request": 9_007_199_254_740_991, "revision": 0]), context: routed) == .control)
+        let payload = try message("capture", 11, ["request": 9_007_199_254_740_991, "revision": 0,
+            "quota": 0, "usedQuota": 1, "divisor": 0.5])
+        let expected = try Code0WebsiteCapture.decode(filteredPayload: Data(#"{"quota":0,"usedQuota":1,"divisor":0.5}"#.utf8))
+        #expect(subject.receive(payload, context: routed) == .capture(expected))
+        #expect(subject.receive(payload, context: routed) == .rejected(.disposed))
+    }
+
+    @Test("Decoded duplicate keys and raw fractional counters revoke even if Double would round them")
+    func strictEnvelopeLexemesRevoke() throws {
+        let normal = String(decoding: try message("ready", 1), as: UTF8.self)
+        let variants = [
+            "{\"sequen\\u0063e\":1," + String(normal.dropFirst()),
+            normal.replacingOccurrences(of: "\"sequence\":1", with: "\"sequence\":1.00000000000000001"),
+            normal.replacingOccurrences(of: "\"sequence\":1", with: "\"sequence\":9007199254740991.1"),
+            normal.replacingOccurrences(of: "\"sequence\":1", with: "\"sequence\":null"),
+            normal.replacingOccurrences(of: "\"sequence\":1", with: "\"sequence\":\"1\""),
+            normal + "{}",
+        ]
+        for raw in variants {
+            var subject = validator()
+            #expect(rejected(subject.receive(Data(raw.utf8), context: context)))
+            #expect(subject.receive(try message("ready", 2), context: context) == .rejected(.disposed))
+        }
+    }
+
+    @Test("Every dispose and rejection boundary denies later otherwise valid messages")
+    func rejectionAndContextBoundariesAreTerminal() throws {
+        for source in ["https://@console.code0.ai/console", "https://console.code0.ai\\console", " https://console.code0.ai/console"] {
+            var subject = validator()
+            let untrusted = Code0BridgeContext(connectionEpoch: epoch, attemptID: attempt, sourceURL: source, isMainFrame: true)
+            #expect(subject.receive(try message("ready", 1), context: untrusted) == .rejected(.invalidContext))
+            #expect(subject.receive(try message("ready", 2), context: context) == .rejected(.disposed))
+        }
+        var subject = validator()
+        #expect(subject.receive(try message("ready", 1), context: context) == .control)
+        #expect(subject.receive(try message("ready", 2), context: context) == .rejected(.invalidState))
+        #expect(subject.receive(try message("selfStart", 3, ["request": 1, "revision": 0]), context: context) == .rejected(.disposed))
+    }
+
 }

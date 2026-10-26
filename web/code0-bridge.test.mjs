@@ -429,3 +429,21 @@ test("dispose restores only owned hooks and late XHR completion cannot send", as
   xhr.reply(self); await settle();
   assert.equal(h.messages.length, before);
 });
+
+test("raw divisor overflow, underflow and non-finite quotient boundaries fail closed", async () => {
+  for (const raw of ["9007199254740991.1", "1e-999", "1e-320"]) {
+    const h = harness();
+    await h.complete("/api/status", `{"success":true,"data":{"quota_per_unit":${raw}}}`);
+    await h.complete("/api/user/self", self);
+    assert.equal(h.captures().length, 0, raw);
+    assert.ok(h.messages.some((message) => message.kind === "failure"), raw);
+  }
+});
+
+test("MAX mathematical integers and MAX divisor produce finite site-credit values", async () => {
+  const h = harness();
+  await h.complete("/api/status", '{"success":true,"data":{"quota_per_unit":9007199254740991}}');
+  await h.complete("/api/user/self", '{"success":true,"data":{"quota":9007199254740991,"used_quota":9007199254740991}}');
+  assert.equal(h.captures().length, 1);
+  assert.deepEqual([h.captures()[0].quota, h.captures()[0].usedQuota, h.captures()[0].divisor], [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]);
+});

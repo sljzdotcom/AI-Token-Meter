@@ -328,3 +328,109 @@ fn control_kinds_reject_mixed_fields_and_invalid_fixed_reasons() {
         assert!(rejected(receive(&mut subject, kind, 2, fields)));
     }
 }
+
+#[test]
+fn counter_gaps_max_request_and_page_routes_accept_zero_fractional_values() {
+    let mut subject = validator();
+    let mut routed = context();
+    routed.source_url = "https://console.code0.ai:443/console?tab=usage#quota".into();
+    assert_eq!(
+        subject.receive(&message("ready", 7, json!({})), &routed),
+        Code0BridgeEvent::Control
+    );
+    assert_eq!(
+        subject.receive(
+            &message(
+                "selfStart",
+                10,
+                json!({"request":9007199254740991_u64,"revision":0})
+            ),
+            &routed
+        ),
+        Code0BridgeEvent::Control
+    );
+    let payload = message(
+        "capture",
+        11,
+        json!({"request":9007199254740991_u64,"revision":0,"quota":0,"usedQuota":1,"divisor":0.5}),
+    );
+    let event = subject.receive(&payload, &routed);
+    match event {
+        Code0BridgeEvent::Capture(value) => {
+            assert_eq!((value.balance, value.cumulative_usage), (0.0, 2.0))
+        }
+        _ => panic!("valid boundary capture: {event:?}"),
+    }
+    assert_eq!(
+        subject.receive(&payload, &routed),
+        Code0BridgeEvent::Rejected(
+            ai_token_meter_windows::collectors::code0_bridge::Code0BridgeRejection::Disposed
+        )
+    );
+}
+
+#[test]
+fn decoded_duplicate_keys_and_raw_fractional_counters_revoke() {
+    use ai_token_meter_windows::collectors::code0_bridge::Code0BridgeRejection;
+    let normal = String::from_utf8(message("ready", 1, json!({}))).unwrap();
+    for raw in [
+        format!("{{\"sequen\\u0063e\":1,{}", &normal[1..]),
+        normal.replace("\"sequence\":1", "\"sequence\":1.00000000000000001"),
+        normal.replace("\"sequence\":1", "\"sequence\":9007199254740991.1"),
+        normal.replace("\"sequence\":1", "\"sequence\":null"),
+        normal.replace("\"sequence\":1", "\"sequence\":\"1\""),
+        format!("{normal}{{}}"),
+    ] {
+        let mut subject = validator();
+        assert!(rejected(subject.receive(raw.as_bytes(), &context())));
+        assert_eq!(
+            receive(&mut subject, "ready", 2, json!({})),
+            Code0BridgeEvent::Rejected(Code0BridgeRejection::Disposed)
+        );
+    }
+}
+
+#[test]
+fn rejection_dispose_and_bad_configuration_cannot_be_reused() {
+    use ai_token_meter_windows::collectors::code0_bridge::Code0BridgeRejection;
+    for source in [
+        "https://@console.code0.ai/console",
+        "https://console.code0.ai\\console",
+        " https://console.code0.ai/console",
+    ] {
+        let mut subject = validator();
+        let mut untrusted = context();
+        untrusted.source_url = source.into();
+        assert_eq!(
+            subject.receive(&message("ready", 1, json!({})), &untrusted),
+            Code0BridgeEvent::Rejected(Code0BridgeRejection::InvalidContext)
+        );
+        assert_eq!(
+            receive(&mut subject, "ready", 2, json!({})),
+            Code0BridgeEvent::Rejected(Code0BridgeRejection::Disposed)
+        );
+    }
+    let mut subject = validator();
+    assert_eq!(
+        receive(&mut subject, "ready", 1, json!({})),
+        Code0BridgeEvent::Control
+    );
+    assert_eq!(
+        receive(&mut subject, "ready", 2, json!({})),
+        Code0BridgeEvent::Rejected(Code0BridgeRejection::InvalidState)
+    );
+    assert_eq!(
+        receive(
+            &mut subject,
+            "selfStart",
+            3,
+            json!({"request":1,"revision":0})
+        ),
+        Code0BridgeEvent::Rejected(Code0BridgeRejection::Disposed)
+    );
+    let mut invalid = Code0BridgeValidator::new(EPOCH, ATTEMPT, "not-a-uuid", DOCUMENT);
+    assert_eq!(
+        receive(&mut invalid, "ready", 1, json!({})),
+        Code0BridgeEvent::Rejected(Code0BridgeRejection::ValidationRequired)
+    );
+}
