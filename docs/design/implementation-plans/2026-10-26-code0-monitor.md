@@ -63,7 +63,7 @@ assert!(capture_with_invalid_divisor.is_err());
 - [ ] 先按同一状态/失败时序写RED，数值缓存先保存后发布；不要复用现有忽略保存错误的普通complete_success路径。
 - [ ] 原生exclusive profile lease、唯一owned窗口与destroy回调，remote窗口无Tauri capabilities。初始化前注册navigation/new-window/download及WebView2 permission/dialog/auth等必要拒绝handler；正常TLS不绕过。
 - [ ] 受控fixture验证真实native拒绝/隐藏/销毁，组件测试验证仅点击明确动作才invoke；独立scheduler遵循300秒、sleep合并、busy和paused门禁。
-- [ ] 普通collector继续四项，由独立会话合成Code0；旧普通刷新/Disconnect迟到结果不能复活。三语言、无币种/比例、最后成功时间和可选第五项同macOS。
+- [ ] 普通collector继续四项，由独立会话合成Code0；旧普通刷新/Disconnect迟到结果不能复活。Windows既有英语/简体中文、无币种/比例、最后成功时间和可选第五项与macOS相应行为一致；macOS继续既有三语言，不新增Windows语言系统。
 
 ### Task 5: 跨平台验收与已授权发布
 
