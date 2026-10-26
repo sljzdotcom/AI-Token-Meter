@@ -308,8 +308,8 @@ private final class Code0OriginProbeOwner: NSObject, WKNavigationDelegate, WKUID
         return nil
     }
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable () -> Void) {
-        refuseUnexpectedPolicy(); completionHandler()
+                 initiatedByFrame frame: WKFrameInfo) async {
+        refuseUnexpectedPolicy()
     }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @Sendable (Bool) -> Void) {

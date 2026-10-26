@@ -24,6 +24,7 @@ struct Code0NativeDriverFixtureTests {
                 #expect(window?.isVisible == false)
                 #expect(window?.isKeyWindow == false)
                 #expect(view?.url == nil || view?.url?.absoluteString == "about:blank")
+                #expect(view?.configuration.websiteDataStore.isPersistent == false)
                 let selectors = [
                     "webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:",
                     "webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:",
@@ -68,6 +69,9 @@ struct Code0NativeDriverFixtureTests {
             var secondCreated = false
             do { try fixture.driver.createUnloaded(next) { _ in }; secondCreated = true } catch {}
             #expect(!secondCreated, "A retained owned object must block the next instance")
+            fixture.driver.releaseProfileLease()
+            #expect(fixture.profile.isHeld, "Uncertain owned-object release must retain the profile lease")
+            withExtendedLifetime((retainedWindow, retainedView)) {}
             retainedWindow = nil
             retainedView = nil
             let released = await nativeWait(seconds: 4) { fixture.record.released.contains(fixture.request.instanceID) }

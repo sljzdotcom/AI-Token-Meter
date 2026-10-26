@@ -108,6 +108,26 @@ struct Code0SnapshotStoreTests {
         #expect(try Data(contentsOf: sibling) == Data("keep-other-service".utf8))
     }
 
+    @Test func absentReadDoesNotCreateOwnedDirectoriesAndProjectionRejectsResetFields() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("Code0Absent-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let profile = StoreTestLease(location: location)
+        profile.isHeld = false
+        let store = Code0SnapshotStore(profile: profile)
+        #expect(try store.load() == nil)
+        #expect(!FileManager.default.fileExists(atPath: root.path))
+        let fixture = try StoreFixture()
+        defer { fixture.clean() }
+        let input = UsageSnapshot(provider: .code0,
+            primaryMetric: UsageMetric(label: "Balance", current: 1, limit: nil, unit: .siteCredits,
+                kind: .balance, resetAt: Date(timeIntervalSince1970: 1_793_016_000)),
+            secondaryMetric: UsageMetric(label: "Cumulative usage", current: 0, limit: nil, unit: .siteCredits, kind: .cumulativeUsage),
+            sourceVersion: "website")
+        #expect(throws: Code0SnapshotStoreError.invalidSnapshot) { try fixture.store.save(input) }
+        #expect(!FileManager.default.fileExists(atPath: fixture.location.snapshotURL.path))
+    }
+
     @Test func symbolicLinkCacheIsRejectedForReadWriteAndRemoveWithoutTouchingTarget() throws {
         let fixture = try StoreFixture()
         defer { fixture.clean() }
