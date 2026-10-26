@@ -268,10 +268,22 @@ private final class Code0OriginProbeOwner: NSObject, WKNavigationDelegate, WKUID
         decisionHandler(allowed ? .allow : .cancel)
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { evidence.navigationFinished = true }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) { evidence.fail("navigation-failed") }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) { evidence.fail("navigation-failed") }
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { evidence.fail("content-terminated") }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard active, webView === self.webView else { return }
+        evidence.navigationFinished = true
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        guard active, webView === self.webView else { return }
+        evidence.fail("navigation-failed")
+    }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        guard active, webView === self.webView else { return }
+        evidence.fail("navigation-failed")
+    }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard active, webView === self.webView else { return }
+        evidence.fail("content-terminated")
+    }
 
     private func refuseUnexpectedPolicy() { evidence.unexpectedPolicyCallback = true; evidence.fail("unexpected-policy-callback") }
 

@@ -103,6 +103,8 @@ final class Code0WebSession: Code0WebSessionProviding {
     private var closeRequested = false
     private var leaseHeld = false
     private var hasConnection = false
+    // A failed/invalid read does not prove the persistent account cache is absent.
+    private var cacheMayExist = false
     private var stopped = false
     private var lastSyncStart: ContinuousClock.Instant?
     private var attemptDeadline: ContinuousClock.Instant?
@@ -124,6 +126,7 @@ final class Code0WebSession: Code0WebSessionProviding {
         self.store = store
         do {
             if let cached = try store.load() {
+                cacheMayExist = true
                 guard Self.validCache(cached) else {
                     state = .paused
                     failure = .storageFailed
@@ -136,6 +139,7 @@ final class Code0WebSession: Code0WebSessionProviding {
                 state = .paused
             }
         } catch {
+            cacheMayExist = true
             state = .paused
             failure = .storageFailed
         }
@@ -152,10 +156,10 @@ final class Code0WebSession: Code0WebSessionProviding {
             isAutomaticallySyncing = false
             guard acquireLease() else { return .denied }
             // A new explicit connection is an account boundary, unlike a retry.
-            if snapshot != nil {
+            if cacheMayExist {
                 snapshot = nil
                 let currentEpoch = epoch
-                do { try store.remove() }
+                do { try invalidateCache() }
                 catch {
                     failCleanup(.storageFailed)
                     onSnapshotChange?(nil)
@@ -359,7 +363,7 @@ final class Code0WebSession: Code0WebSessionProviding {
                 isAutomaticallySyncing = false
                 failure = .authenticationChanged
                 let currentEpoch = epoch
-                do { try store.remove() }
+                do { try invalidateCache() }
                 catch {
                     if epoch == currentEpoch {
                         failure = .storageFailed
@@ -393,6 +397,7 @@ final class Code0WebSession: Code0WebSessionProviding {
     private func accept(_ capture: Code0WebsiteCapture, request: Code0WindowRequest) {
         do {
             let candidate = try capture.makeSnapshot(fetchedAt: clock.wallNow)
+            cacheMayExist = true
             try store.save(candidate)
             guard owned?.instanceID == request.instanceID, epoch == request.connectionEpoch,
                   !stopped, state == .syncing else { return }
@@ -480,7 +485,7 @@ final class Code0WebSession: Code0WebSessionProviding {
         cleanupID = id
         closePlan = .disconnect
         state = .closing
-        do { try store.remove() }
+        do { try invalidateCache() }
         catch { cleanupID = nil; failCleanup(.storageFailed); return }
         driver.clearWebsiteData { [weak self] result in self?.enqueue(.cleanup(result, id)) }
     }
@@ -506,6 +511,11 @@ final class Code0WebSession: Code0WebSessionProviding {
         validator = nil
         isAutomaticallySyncing = false
         state = .cleanupPending
+    }
+
+    private func invalidateCache() throws {
+        try store.remove()
+        cacheMayExist = false
     }
 
     private func releaseLease() {
