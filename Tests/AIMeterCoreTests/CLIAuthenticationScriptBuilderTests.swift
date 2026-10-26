@@ -2240,6 +2240,89 @@ struct CLIAuthenticationScriptBuilderTests {
         case unknown
     }
 
+    // Test-only fallback classification. A nonnil FixtureProcessQuery.Output is
+    // evidence that its owned query was normally reaped, fully drained, and its
+    // setup/reader/FIFO teardown completed; nil includes timeout or any incomplete
+    // lifecycle. PID arguments bind the post-query kernel observation to the
+    // recorded child, rather than accepting absence observed for another PID.
+    // RED scaffold: preserve the current unknown classification until actual RED.
+    private func classifyTrackedChildAfterFailedQuery(
+        recordedPID: pid_t,
+        completedQuery: FixtureProcessQuery.Output?,
+        afterQueryPID: pid_t,
+        afterQueryResult: Int32,
+        afterQueryErrno: Int32
+    ) -> TrackedProcessObservation {
+        .unknown
+    }
+
+    @Test("A complete exit-one empty query and the same recorded PID's later ESRCH establish gone")
+    func trackedChildCompleteEmptyExitOneAndMatchingPostQueryESRCHIsGone() {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12345, afterQueryResult: -1, afterQueryErrno: ESRCH) == .gone)
+    }
+
+    @Test("Unknown query lifecycle remains unknown even when the same PID is later absent")
+    func trackedChildNilTimedOutOrIncompleteQueryRemainsUnknown() {
+        // run() reports every timeout, missing reap/EOF, or incomplete teardown
+        // as nil. No partial result may be promoted into a completed query here.
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: nil,
+            afterQueryPID: 12345, afterQueryResult: -1, afterQueryErrno: ESRCH) == .unknown)
+    }
+
+    @Test("Other completed query exits cannot establish absence", arguments: [Int32(0), 2, 42, 255, -1])
+    func trackedChildOtherCompletedQueryExitRemainsUnknown(exitStatus: Int32) {
+        let completed = FixtureProcessQuery.Output(exitStatus: exitStatus, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12345, afterQueryResult: -1, afterQueryErrno: ESRCH) == .unknown)
+    }
+
+    @Test("Exit-one output must be strictly empty, including whitespace and control bytes",
+          arguments: [" ", "\n", "\t", "Z\n", "S\n", "\0", "\u{FFFD}"])
+    func trackedChildAnyCompletedQueryOutputRemainsUnknown(text: String) {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: text)
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12345, afterQueryResult: -1, afterQueryErrno: ESRCH) == .unknown)
+    }
+
+    @Test("A successful post-query kernel probe remains present even with a stale ESRCH errno",
+          arguments: [Int32(0), ESRCH])
+    func trackedChildPostQueryKernelPresenceRemainsUnknown(staleErrno: Int32) {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12345, afterQueryResult: 0, afterQueryErrno: staleErrno) == .unknown)
+    }
+
+    @Test("Permission and other post-query kernel errors do not establish absence",
+          arguments: [EPERM, EACCES, EIO, Int32(0)])
+    func trackedChildPostQueryNonESRCHRemainsUnknown(probeErrno: Int32) {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12345, afterQueryResult: -1, afterQueryErrno: probeErrno) == .unknown)
+    }
+
+    @Test("Absence for a different PID cannot classify the recorded child as gone")
+    func trackedChildPostQueryDifferentPIDRemainsUnknown() {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12346, afterQueryResult: -1, afterQueryErrno: ESRCH) == .unknown)
+    }
+
+    @Test("Only an exact failed-kernel-probe result can carry ESRCH", arguments: [Int32(1), -2])
+    func trackedChildUnexpectedKernelResultRemainsUnknown(probeResult: Int32) {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: 12345, completedQuery: completed,
+            afterQueryPID: 12345, afterQueryResult: probeResult, afterQueryErrno: ESRCH) == .unknown)
+    }
+
+    @Test("A nonpositive recorded PID is not an individual child", arguments: [pid_t(0), -1])
+    func trackedChildInvalidRecordedPIDRemainsUnknown(recordedPID: pid_t) {
+        let completed = FixtureProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(classifyTrackedChildAfterFailedQuery(recordedPID: recordedPID, completedQuery: completed,
+            afterQueryPID: recordedPID, afterQueryResult: -1, afterQueryErrno: ESRCH) == .unknown)
+    }
+
     private func observeTrackedChild(pid: pid_t, in root: URL) -> TrackedProcessObservation {
         let beforeQueryResult = Darwin.kill(pid, 0)
         let beforeQueryErrno = beforeQueryResult == 0 ? 0 : errno

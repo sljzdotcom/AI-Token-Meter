@@ -136,3 +136,5 @@ App接线的第一测试候选已形成：11个普通方法覆盖当前值/断�
 `9ffdd3b`的[macOS 40368964764](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40368964764)已完成实际编译：主组报告756/114套件通过（含既有条件跳过），Code0原11项及新6方法通过；调度3和PTY18通过。窗口12方法仅新暂停无快照六组合产生12个预期issue，原11方法包含异步状态重绘及节流到期控件恢复均通过；原生12方法/2套件及完整19条driver/探针门禁通过。最小UI修正只移动Disconnect显示条件，保留全部测试与会话权威，待复审和实际GREEN。
 
 同轮CLI50组另有1个非预期失败：`Antigravity preserves state when the owned process-group probe fails`的`cleanupSucceeded`为false；测试诊断仅supervisor=false，cli/watchdog/additional均true、groupKnown=true且groupHasMembers=false，后续16项分组未执行。关联REQ-20261027-001，只读诊断测试清理确认边界，不把合成故障触发的产品保护提示当已证产品缺陷；不降低断言、不原样盲跑。
+
+REQ-20261027-001只读诊断确认：真实测试`/bin/ps`查询已完整回收并排空，返回1且输出严格为空，之后同一记录PID的内核探测明确ESRCH，但测试观察器仍固定返回unknown，导致supervisor分项失败。这与产品中刻意注入的组查询失败不同；保留guardian、不发回执的产品断言符合预期。只为测试侧增加严格后置缺失分类回归，再依据实际RED修正；未知生命周期、其他退出码、非空输出、权限错误或仍存在均保持unknown。其他清理true含可选PID文件/空集合分支，不夸大为全部后代已独立回收。
