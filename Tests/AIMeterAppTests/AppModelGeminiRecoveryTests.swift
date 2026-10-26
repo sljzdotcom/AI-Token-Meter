@@ -351,7 +351,11 @@ struct AppModelGeminiRecoveryTests {
         await model.refresh()
         await model.beginGeminiOneTimeRecovery()
         let token = try #require(openedToken)
-        try await Task.sleep(for: .milliseconds(25))
+        let stopDeadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while model.isGeminiOneTimeRecoveryInProgress, ContinuousClock.now < stopDeadline {
+            await Task.yield()
+        }
+        try #require(!model.isGeminiOneTimeRecoveryInProgress)
 
         #expect(model.geminiOneTimeRecoveryState == .loginFailed)
         #expect(model.settingsNotice == .recoveryLoginFailed)
