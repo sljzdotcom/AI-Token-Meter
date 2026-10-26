@@ -314,7 +314,7 @@ struct SettingsLocalizationCoverageTests {
             (.connected, ["Sign in again", "重新登录", "重新登入"]),
             (.unavailable, ["Check Status", "检查状态", "檢查狀態"]),
             (.signInRequired, ["Sign in", "登录", "登入"]),
-            (.checking, ["Sign in", "登录", "登入"]),
+            (.checking, ["Checking account…", "正在检查账户…", "正在檢查帳戶…"]),
         ] {
             let name = "ServiceLanguage.\(UUID())"
             let defaults = try #require(UserDefaults(suiteName: name))
@@ -325,6 +325,10 @@ struct SettingsLocalizationCoverageTests {
                 authenticationOpenOperation: { authenticated.append($0) }, signInSleep: { _ in try await Task.sleep(for: .seconds(30)) })
             defer { model.stop() }
             if state != .checking { await model.refreshServiceAccounts() }
+            #expect(model.serviceAccounts[.claude]?.connectionState == state)
+            #expect(model.serviceAccounts[.codex]?.connectionState == state)
+            #expect(model.serviceAction(for: .claude).title == expected[0])
+            #expect(model.serviceAction(for: .codex).title == expected[0])
             let host = NSHostingView(rootView: AppLanguageRoot(model: model) { ServicesSettingsView(model: model, pendingAPIKey: .constant("")) })
             let window = localizationTestWindow(host)
             defer { window.close() }
@@ -332,7 +336,15 @@ struct SettingsLocalizationCoverageTests {
                 model.setAppLanguage(language)
                 try await settleLocalizationHost(host)
                 let buttons = serviceButtons(in: host, title: expected[index])
-                #expect(buttons.count == 2, "Both CLI controls must expose \(expected[index])")
+                let actualButtons = hostedAccessibilityObjects(host).filter {
+                    hostedAccessibilityAttribute($0, "accessibilityRole") as? String == "AXButton"
+                }.map { button in
+                    ["accessibilityLabel", "accessibilityTitle", "accessibilityValue", "isAccessibilityEnabled"]
+                        .map { "\($0)=\(String(describing: hostedAccessibilityAttribute(button, $0) ?? "<nil>"))" }
+                        .joined(separator: ", ")
+                }
+                #expect(buttons.count == 2,
+                    "Both CLI controls must expose \(expected[index]); state=\(state), language=\(language.rawValue), AX buttons=\(actualButtons)")
                 #expect(buttons.allSatisfy { (hostedAccessibilityAttribute($0, "isAccessibilityEnabled") as? Bool) == (state != .checking) })
                 #expect(model.serviceAction(for: .claude).isEnabled == (state != .checking))
                 #expect(model.serviceAction(for: .codex).isEnabled == (state != .checking))

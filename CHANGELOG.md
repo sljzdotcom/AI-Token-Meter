@@ -2,6 +2,16 @@
 
 本文件记录 AI Token Meter 面向使用者的主要变化。格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，版本号遵循语义化版本思路。
 
+## 0.10.11 - 2026-10-26
+
+Antigravity 显式恢复自动刷新；macOS build39，Windows 同步版本号。发布候选，等待最终门禁。
+
+### Fixed
+
+- 单次额度检查成功后，可在五分钟内明确选择恢复自动刷新；保存失败、过期或取消继续保持暂停。
+- 后续定时刷新只查询额度；恢复操作本身不调用 CLI，不立即再检查额度。
+- 详情与 Services 共用恢复操作及三语言提示，修正并发账户刷新和迟到回调造成的暂停标记不一致。
+
 ## 0.10.10 - 2026-10-26
 
 Antigravity 单次登录恢复修复；macOS build38，Windows 同步版本号。

@@ -4,7 +4,7 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.10](https://img.shields.io/badge/version-0.10.10-3b82f6)
+![Version 0.10.11](https://img.shields.io/badge/version-0.10.11-3b82f6)
 ![Tests 653](https://img.shields.io/badge/tests-653%20passing-brightgreen)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -22,6 +22,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | ![AI Token Meter floating strip](docs/assets/screenshots/floating-strip.png) | ![OpenAI Codex detail using deterministic demo data](docs/assets/screenshots/provider-detail.png) | ![AI Token Meter Appearance Settings](docs/assets/screenshots/settings.png) |
 
 ## 主要功能
+
+> 源码候选 `0.10.11` / build `39`：Antigravity 单次额度检查成功后，可明确恢复后续定时刷新。完整发布门禁进行中，公开下载仍为上面的稳定版。[Release Notes](docs/releases/v0.10.11.md)。
 
 > `0.10.10` / build `38`：加强 Antigravity 单次登录的启动与清理确认，拒绝不确定状态下的晚到成功回执。更新不清除旧暂停；周期刷新保持暂停。[Release Notes](docs/releases/v0.10.10.md)。
 
