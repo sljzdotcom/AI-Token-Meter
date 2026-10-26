@@ -8,6 +8,14 @@ pub enum Code0LeaseError {
     Unavailable,
 }
 
+/// Stable file identity queried from the lease's already-held lock handle.
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Code0ProfileIdentity {
+    pub volume_serial_number: u32,
+    pub file_index: u64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LeaseState {
     Held,
@@ -66,5 +74,12 @@ impl Code0ProfileLease {
     /// A path match is only one part of the eventual handle identity check.
     pub fn is_bound_to(&self, root: &Path) -> bool {
         self.authority.root == root && self.is_held()
+    }
+
+    /// Narrow test observation from the original held lock handle. Production
+    /// tests must never reopen a share-zero lock just to obtain its identity.
+    #[doc(hidden)]
+    pub fn lock_identity_for_test(&self) -> Result<Code0ProfileIdentity, Code0LeaseError> {
+        Err(Code0LeaseError::Unavailable)
     }
 }

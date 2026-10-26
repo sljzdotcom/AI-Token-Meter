@@ -2,10 +2,13 @@
 
 use std::collections::BTreeSet;
 use std::fs;
+use std::time::Duration;
 
 use ai_token_meter_windows::collectors::code0_capture::Code0WebsiteCapture;
 use ai_token_meter_windows::domain::{UsageSnapshot, UsageStatus};
-use ai_token_meter_windows::persistence::{Code0SnapshotFailurePoint, Code0SnapshotStore};
+use ai_token_meter_windows::persistence::{
+    Code0SnapshotFailurePoint, Code0SnapshotStore, Code0SnapshotTestGate,
+};
 use ai_token_meter_windows::platform::windows::code0_profile_lease::Code0ProfileLease;
 use ai_token_meter_windows::platform::windows::code0_web_session::{
     Code0SnapshotStoring, Code0StoreError,
@@ -30,6 +33,25 @@ fn candidate_snapshot() -> UsageSnapshot {
     .expect("valid synthetic candidate capture")
     .make_snapshot("2026-10-27T04:06:06Z")
     .expect("native candidate fetched time")
+}
+
+fn observe_blocked_candidate(root: &std::path::Path) -> Result<serde_json::Value, String> {
+    if !root.join("snapshot.pending").exists() {
+        return Err("pending barrier is absent while candidate gate is held".to_owned());
+    }
+    let bytes = fs::read(root.join("snapshot.json")).map_err(|error| error.to_string())?;
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    if value["balance"] != 124.0 || value["cumulativeUsage"] != 457.5 {
+        return Err("the actual installed projection is not candidate B".to_owned());
+    }
+    if !matches!(
+        Code0SnapshotStore::new(root, None).load(),
+        Err(Code0StoreError::Unavailable)
+    ) {
+        return Err("the pending barrier did not reject a cold load as unavailable".to_owned());
+    }
+    Ok(value)
 }
 
 #[test]
@@ -168,37 +190,53 @@ fn post_replace_failure_restores_previous_snapshot_before_any_new_load_can_accep
         .save_atomic(&expected_snapshot())
         .expect("save initial snapshot A");
 
-    let mut failing = Code0SnapshotStore::with_failure_points(
-        &root,
-        Some(lease),
-        [Code0SnapshotFailurePoint::AfterCandidateReplace],
+    let previous_projection: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join("snapshot.json")).expect("initial A projection"),
+    )
+    .expect("valid initial projection");
+    let gate = Code0SnapshotTestGate::new();
+    let worker_gate = gate.clone();
+    let worker_root = root.clone();
+    let worker = std::thread::spawn(move || {
+        let mut failing = Code0SnapshotStore::with_failure_gate(
+            worker_root,
+            Some(lease),
+            [Code0SnapshotFailurePoint::AfterCandidateReplace],
+            worker_gate,
+        );
+        failing.save_atomic(&candidate_snapshot())
+    });
+    let reached = gate.wait_until_after_replace(Duration::from_secs(5));
+    let observation = if reached {
+        observe_blocked_candidate(&root)
+    } else {
+        Err("candidate replace gate was not reached".to_owned())
+    };
+    gate.release();
+    let save_result = worker.join().expect("save worker exits after gate release");
+
+    assert!(
+        reached,
+        "fault injection must occur after candidate replacement"
     );
-    assert_eq!(
-        failing.save_atomic(&candidate_snapshot()),
-        Err(Code0StoreError::Unavailable)
+    let candidate_projection = observation.expect("candidate B and pending barrier are visible");
+    assert_ne!(
+        candidate_projection["fetchedAt"], previous_projection["fetchedAt"],
+        "the blocked file is the newer candidate, not old A"
     );
+    assert_eq!(save_result, Err(Code0StoreError::Unavailable));
     assert!(!root.join("snapshot.pending").exists());
 
-    let loaded = failing
+    let loaded = Code0SnapshotStore::new(&root, None)
         .load()
         .expect("recovered A is readable")
         .expect("A remains present");
     assert_eq!(loaded.status, UsageStatus::Cached);
+    assert_eq!(loaded.fetched_at, FETCHED_AT, "A keeps its old native time");
     assert_eq!(loaded.primary_metric.expect("balance").current, 123.5);
     assert_eq!(
         loaded.secondary_metric.expect("cumulative usage").current,
         456.75
-    );
-    let reopened = Code0SnapshotStore::new(&root, None);
-    assert_eq!(
-        reopened
-            .load()
-            .expect("reopened A is readable")
-            .expect("A remains after reopen")
-            .primary_metric
-            .expect("balance")
-            .current,
-        123.5
     );
 }
 
@@ -212,28 +250,44 @@ fn failed_restore_keeps_pending_barrier_and_cannot_publish_candidate_on_reopen()
         .save_atomic(&expected_snapshot())
         .expect("save initial snapshot A");
 
-    let mut failing = Code0SnapshotStore::with_failure_points(
-        &root,
-        Some(lease),
-        [
-            Code0SnapshotFailurePoint::AfterCandidateReplace,
-            Code0SnapshotFailurePoint::RestorePreviousSnapshot,
-        ],
+    let gate = Code0SnapshotTestGate::new();
+    let worker_gate = gate.clone();
+    let worker_root = root.clone();
+    let worker = std::thread::spawn(move || {
+        let mut failing = Code0SnapshotStore::with_failure_gate(
+            worker_root,
+            Some(lease),
+            [
+                Code0SnapshotFailurePoint::AfterCandidateReplace,
+                Code0SnapshotFailurePoint::RestorePreviousSnapshot,
+            ],
+            worker_gate,
+        );
+        failing.save_atomic(&candidate_snapshot())
+    });
+    let reached = gate.wait_until_after_replace(Duration::from_secs(5));
+    let observation = if reached {
+        observe_blocked_candidate(&root)
+    } else {
+        Err("candidate replace gate was not reached".to_owned())
+    };
+    gate.release();
+    let save_result = worker.join().expect("save worker exits after gate release");
+
+    assert!(
+        reached,
+        "fault injection must occur after candidate replacement"
     );
-    assert_eq!(
-        failing.save_atomic(&candidate_snapshot()),
-        Err(Code0StoreError::Unavailable)
-    );
+    let candidate_projection = observation.expect("candidate B and pending barrier are visible");
+    assert_eq!(candidate_projection["balance"], 124.0);
+    assert_eq!(save_result, Err(Code0StoreError::Unavailable));
     assert!(
         root.join("snapshot.pending").exists(),
         "failed restoration leaves the visibility barrier"
     );
-    assert!(
-        failing.load().is_err(),
-        "pending state blocks this instance"
-    );
-    assert!(
-        Code0SnapshotStore::new(&root, None).load().is_err(),
+    assert_eq!(
+        Code0SnapshotStore::new(&root, None).load(),
+        Err(Code0StoreError::Unavailable),
         "pending state blocks a reopened store too"
     );
 }
@@ -243,18 +297,36 @@ fn post_replace_failure_from_absent_state_removes_candidate_before_next_load() {
     let temporary = tempdir().expect("isolated temporary directory");
     let root = temporary.path().join("Code0");
     let lease = Code0ProfileLease::acquire(&root).expect("acquire profile lease");
-    let mut failing = Code0SnapshotStore::with_failure_points(
-        &root,
-        Some(lease),
-        [Code0SnapshotFailurePoint::AfterCandidateReplace],
-    );
+    let gate = Code0SnapshotTestGate::new();
+    let worker_gate = gate.clone();
+    let worker_root = root.clone();
+    let worker = std::thread::spawn(move || {
+        let mut failing = Code0SnapshotStore::with_failure_gate(
+            worker_root,
+            Some(lease),
+            [Code0SnapshotFailurePoint::AfterCandidateReplace],
+            worker_gate,
+        );
+        failing.save_atomic(&candidate_snapshot())
+    });
+    let reached = gate.wait_until_after_replace(Duration::from_secs(5));
+    let observation = if reached {
+        observe_blocked_candidate(&root)
+    } else {
+        Err("candidate replace gate was not reached".to_owned())
+    };
+    gate.release();
+    let save_result = worker.join().expect("save worker exits after gate release");
 
-    assert_eq!(
-        failing.save_atomic(&candidate_snapshot()),
-        Err(Code0StoreError::Unavailable)
+    assert!(
+        reached,
+        "fault injection must occur after candidate replacement"
     );
+    let candidate_projection = observation.expect("candidate B and pending barrier are visible");
+    assert_ne!(candidate_projection["balance"], 0.0);
+    assert_eq!(save_result, Err(Code0StoreError::Unavailable));
     assert!(!root.join("snapshot.pending").exists());
-    assert!(matches!(failing.load(), Ok(None)));
+    assert!(!root.join("snapshot.json").exists());
     assert!(matches!(
         Code0SnapshotStore::new(&root, None).load(),
         Ok(None)
