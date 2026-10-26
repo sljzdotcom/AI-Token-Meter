@@ -10,6 +10,44 @@ import Testing
        .enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
 @MainActor
 struct SettingsLocalizationCoverageTests {
+    @Test("Code0 paused failures without a snapshot retain an explicit Disconnect in every language")
+    func code0PausedWithoutSnapshotRetainsExplicitDisconnect() async throws {
+        let failures: [Code0SessionFailure] = [.loginTimedOut, .authenticationChanged]
+        let titles = ["Disconnect Code0", "断开 Code0", "中斷 Code0"]
+        for failure in failures {
+            for (index, language) in AppLanguage.allCases.enumerated() {
+                let context = try Code0AppTestContext()
+                defer { context.clean() }
+                let session = AppCode0SessionDouble(snapshot: nil, state: .paused)
+                session.failure = failure
+                let model = context.model(session: session)
+                defer { model.stop() }
+                model.setAppLanguage(language)
+                #expect(model.code0SessionState == .paused)
+                #expect(model.snapshots.allSatisfy { $0.provider != .code0 })
+                #expect(model.canPerformCode0Action(.disconnect))
+                #expect(session.actions.isEmpty)
+                let host = NSHostingView(rootView: AppLanguageRoot(model: model) {
+                    ServicesSettingsView(model: model, pendingAPIKey: .constant(""))
+                })
+                let window = localizationTestWindow(host, height: 2000)
+                defer { window.close() }
+                try await settleLocalizationHost(host)
+                #expect(session.actions.isEmpty, "Displaying the paused failure must not connect or sync")
+                let buttons = serviceButtons(in: host, title: titles[index])
+                #expect(buttons.count == 1, "Paused nil-snapshot failure must retain one explicit Disconnect; failure=\(failure), language=\(language.rawValue)")
+                if let button = buttons.first {
+                    let pressed = try #require(hostedAccessibilityAttribute(button, "accessibilityPerformPress") as? Bool)
+                    #expect(pressed)
+                    try await settleLocalizationHost(host)
+                }
+                #expect(session.actions == [.disconnect], "Disconnect must not require or trigger another connect/sync")
+                #expect(session.snapshot == nil)
+                #expect(window.contentView === host)
+            }
+        }
+    }
+
     @Test("Code0 throttle expires on the presentation timeline without another action or automatic retry")
     func code0ThrottleDeadlineReenablesTheHostedControlWithoutAnotherAction() async throws {
         let context = try Code0AppTestContext()
@@ -598,7 +636,7 @@ private final class Code0ThrottledUISession: Code0WebSessionProviding {
     private(set) var scheduledCalls = 0
     func connect() -> Code0SessionActionResult { .denied }
     func loginCompleted() -> Code0SessionActionResult { .denied }
-    func syncNow() -> Code0SessionActionResult { syncCalls += 1; return .throttled(300) }
+    func syncNow() -> Code0SessionActionResult { syncCalls += 1; return .throttled(secondsRemaining: 300) }
     func disconnect() -> Code0SessionActionResult { .denied }
     func processScheduledWork() { scheduledCalls += 1 }
     func stop() { isAutomaticallySyncing = false }

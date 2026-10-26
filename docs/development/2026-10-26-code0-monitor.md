@@ -126,3 +126,7 @@ App接线的第一测试候选已形成：11个普通方法覆盖当前值/断�
 同轮原生12方法/2suite用19.622秒通过，19条driver记录与来源探针完整，optional签名告警为零。可见媒体实际得到OverconstrainedError，唯一同步边界内有唯一0视频设备诊断；request计数1、无采集、真实释放均满足，wrapper按明确设备前置分支通过，未声称media delegate/TCC已测。两份本轮源码审查无新增发现，开始App/UI GREEN接线；Task4仍未开始。
 
 同一 `9bd45db` 的[Windows 40359784985](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40359784985)通过前端138项、Rust300项、608角色密度、debug NSIS及GUI检查。上述普通主组总数采用框架汇总口径，含既有条件跳过；真实账号及未启用的屏幕专用场景仍不冒充执行通过。
+
+`300ac94`接入macOS冷会话、独立调度、Services四个明确动作、只读详情及三语言文案，保留原App/hosted失败断言并补6个运行时方法和2个窗口方法。独审发现无快照的暂停状态隐藏了仍可执行的断开入口，需修正；另记录停止tick测试仅等待sleep返回、未确认任务终结的非阻断测试弱点，留给最终审查核实。
+
+[macOS 40367382853](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40367382853)在编译时发现新增窗口测试调用缺少`secondsRemaining:`参数名；normal/native未执行，hosted没有构建产物，本轮不能记为行为RED或GREEN。共享网页桥检查通过。先修编译前置并为暂停无快照的断开入口增加实际窗口失败回归，随后修正界面，不改原成功/失败断言或放宽门禁。
