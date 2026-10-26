@@ -138,3 +138,7 @@ App接线的第一测试候选已形成：11个普通方法覆盖当前值/断�
 同轮CLI50组另有1个非预期失败：`Antigravity preserves state when the owned process-group probe fails`的`cleanupSucceeded`为false；测试诊断仅supervisor=false，cli/watchdog/additional均true、groupKnown=true且groupHasMembers=false，后续16项分组未执行。关联REQ-20261027-001，只读诊断测试清理确认边界，不把合成故障触发的产品保护提示当已证产品缺陷；不降低断言、不原样盲跑。
 
 REQ-20261027-001只读诊断确认：真实测试`/bin/ps`查询已完整回收并排空，返回1且输出严格为空，之后同一记录PID的内核探测明确ESRCH，但测试观察器仍固定返回unknown，导致supervisor分项失败。这与产品中刻意注入的组查询失败不同；保留guardian、不发回执的产品断言符合预期。只为测试侧增加严格后置缺失分类回归，再依据实际RED修正；未知生命周期、其他退出码、非空输出、权限错误或仍存在均保持unknown。其他清理true含可选PID文件/空集合分支，不夸大为全部后代已独立回收。
+
+`4838bbc`的[macOS 40371667785](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40371667785)已编译并确认测试分类器实际RED：主组756/114套件、调度3、PTY18通过，CLI59方法只有新增正例unknown不等于gone及原probe-failure清理断言两项失败；24个新增负case及原其余49方法通过，后16组未运行。真实查询再次出现完整exit1/空输出/同PID后置ESRCH。窗口12方法全部通过，包括断开入口六组合；原生12方法及全部记录门禁通过。Task3功能层已完成，非阻断tick测试终结观察项交最终宽审；整体发布仍被终端门禁阻断，不能以组件通过代替完整验收。
+
+观察器最小修正只在测试文件中严格分类完整查询后的同PID缺失，并复用已取得的后置内核结果，无额外探测、信号、查询或延时；保留所有59方法与未知结果拒绝条件。待定向复审及实际GREEN。与此独立的Task4开始Windows纯会话失败先行准备，尚未实现实际WebView2或存储，不影响终端修复所有权。

@@ -53,10 +53,10 @@ assert!(capture_with_invalid_divisor.is_err());
 - [x] 以注入时钟、窗口驱动、store先写测试：未连接零创建；busy不重复；299秒拒绝/300允许；保存失败不发布；关闭确认晚到不建新窗口；断开后旧callback不能写；重启缓存不恢复授权。
 - [x] 实现 dedicated WKWebsiteDataStore 与 OS profile lease，串行状态机/nonce/attempt，主框架来源检查，成功先save后发布再关闭。定义独立WebSession协议，App测试可注入，不把实际网页登录作为单元测试前置。
 - [x] 首次load前配置 WKUI/导航/下载/挑战的明确拒绝；隐藏模式不show/focus。用CI受控页面验证实际window.open/下载/协议/对话框/权限/认证取消和owned对象释放，不能以源码字符串测试替代行为。
-- [ ] 登录完成按钮先关闭登录实例再创建新隐藏验证。普通成功300秒后调度；任何错误暂停，重新启动需明确恢复。Disconnect仅清Code0，失败保留cleanupPending。
-- [ ] App四项refresh与Code0回调合成使用当前状态；Services账户读取不覆盖它。三语言Connect/登录完成/同步/恢复/断开、时间、旧缓存、忙/暂停清楚；无API Key/CLI入口；详情纯展示无onAppear加载。
+- [x] 登录完成按钮先关闭登录实例再创建新隐藏验证。普通成功300秒后调度；任何错误暂停，重新启动需明确恢复。Disconnect仅清Code0，失败保留cleanupPending。
+- [x] App四项refresh与Code0回调合成使用当前状态；Services账户读取不覆盖它。三语言Connect/登录完成/同步/恢复/断开、时间、旧缓存、忙/暂停清楚；无API Key/CLI入口；详情纯展示无onAppear加载。
 
-Task3底层受控夹具已在 `9bd45db` 通过；媒体设备前置分支有明确引擎证据，真实媒体权限委托/TCC与证书/TLS握手的未观察边界仍保留，不视为真实账户验收。App接线与界面尚待完成。
+Task3底层受控夹具已在 `9bd45db` 通过；媒体设备前置分支有明确引擎证据，真实媒体权限委托/TCC与证书/TLS握手的未观察边界仍保留，不视为真实账户验收。App接线与界面已在`4838bbc`完成实际定向验收，12项窗口回归通过；原有终端测试观察器的失败由REQ-20261027-001修正，整体完整测试和发布仍待Task5，不以组件通过覆盖该门禁。
 
 ### Task 4: Windows 原生会话及 Services/detail
 

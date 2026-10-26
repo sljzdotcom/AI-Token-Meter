@@ -2245,7 +2245,6 @@ struct CLIAuthenticationScriptBuilderTests {
     // setup/reader/FIFO teardown completed; nil includes timeout or any incomplete
     // lifecycle. PID arguments bind the post-query kernel observation to the
     // recorded child, rather than accepting absence observed for another PID.
-    // RED scaffold: preserve the current unknown classification until actual RED.
     private func classifyTrackedChildAfterFailedQuery(
         recordedPID: pid_t,
         completedQuery: FixtureProcessQuery.Output?,
@@ -2253,7 +2252,10 @@ struct CLIAuthenticationScriptBuilderTests {
         afterQueryResult: Int32,
         afterQueryErrno: Int32
     ) -> TrackedProcessObservation {
-        .unknown
+        guard recordedPID > 0, afterQueryPID == recordedPID,
+              let completedQuery, completedQuery.exitStatus == 1, completedQuery.text.isEmpty,
+              afterQueryResult == -1, afterQueryErrno == ESRCH else { return .unknown }
+        return .gone
     }
 
     @Test("A complete exit-one empty query and the same recorded PID's later ESRCH establish gone")
@@ -2343,10 +2345,15 @@ struct CLIAuthenticationScriptBuilderTests {
             let exitStatus = queryOutput.map { String($0.exitStatus) } ?? "unknown"
             let outputBytes = queryOutput.map { String($0.text.utf8.count) } ?? "unknown"
             let emptyOutput = queryOutput.map { String($0.text.isEmpty) } ?? "unknown"
-            let afterKernelAbsent = afterQueryResult != 0 && afterQueryErrno == ESRCH
-            print("TRACKED_CHILD_QUERY_UNKNOWN pid=\(pid) beforeResult=\(beforeQueryResult) beforeErrno=\(beforeQueryErrno) completion=\(completion) exit=\(exitStatus) outputBytes=\(outputBytes) emptyOutput=\(emptyOutput) elapsed=\(elapsed) afterResult=\(afterQueryResult) afterErrno=\(afterQueryErrno) afterKernelAbsent=\(afterKernelAbsent) classification=unknown")
-            preserveTemporaryDirectory(root, reason: "Tracked child query unknown")
-            return .unknown
+            let afterKernelAbsent = afterQueryResult == -1 && afterQueryErrno == ESRCH
+            let classification = classifyTrackedChildAfterFailedQuery(
+                recordedPID: pid, completedQuery: queryOutput, afterQueryPID: pid,
+                afterQueryResult: afterQueryResult, afterQueryErrno: afterQueryErrno)
+            let classificationName = classification == .gone ? "gone" : "unknown"
+            let diagnosticStage = classification == .gone ? "TRACKED_CHILD_QUERY_GONE" : "TRACKED_CHILD_QUERY_UNKNOWN"
+            print("\(diagnosticStage) pid=\(pid) beforeResult=\(beforeQueryResult) beforeErrno=\(beforeQueryErrno) completion=\(completion) exit=\(exitStatus) outputBytes=\(outputBytes) emptyOutput=\(emptyOutput) elapsed=\(elapsed) afterResult=\(afterQueryResult) afterErrno=\(afterQueryErrno) afterKernelAbsent=\(afterKernelAbsent) classification=\(classificationName)")
+            if classification == .unknown { preserveTemporaryDirectory(root, reason: "Tracked child query unknown") }
+            return classification
         }
         let state = output.text.trimmingCharacters(in: .whitespacesAndNewlines)
         return state.isEmpty || state.contains("Z") ? .gone : .running
