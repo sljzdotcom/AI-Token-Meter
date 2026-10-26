@@ -12,7 +12,7 @@ use ai_token_meter_windows::platform::windows::code0_profile_lease::{
 };
 use tempfile::tempdir;
 use windows_sys::Win32::Storage::FileSystem::{
-    BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+    GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
 };
 
 const CHILD_ROOT: &str = "AI_METER_REQ004_LEASE_ROOT";
@@ -158,11 +158,13 @@ fn child_holds_lease_until_released(root: std::path::PathBuf) {
     let identity = lease
         .lock_identity_for_test()
         .expect("read identity from the already-held lock handle");
+    let staging = ready.with_extension("staging");
     fs::write(
-        ready,
+        &staging,
         format!("{}:{}", identity.volume_serial_number, identity.file_index),
     )
-    .expect("signal ready with held-handle identity");
+    .expect("write complete held-handle identity to staging marker");
+    fs::rename(staging, ready).expect("publish complete identity as ready marker");
 
     let deadline = Instant::now() + Duration::from_secs(12);
     while !release.exists() && Instant::now() < deadline {
