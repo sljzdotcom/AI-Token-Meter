@@ -174,3 +174,10 @@ REQ-20261027-002的`6c600cc`仅为私有测试夹具增加有界诊断：记录�
 `32a7ae2`的[Windows 40389151543](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40389151543)前端和格式通过，但Clippy编译发现纯会话节流分支将Option整体传给u64字段。Rust行为未运行，未取得存储RED；`99bb0e6`只增加Some模式匹配，保持None后原权限/lease门控，无强制解包；独审无新增发现，等待实际验证。
 
 同提交[macOS 40389151680](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40389151680)普通756、调度3、PTY18通过，G11再次实际注入且清理成功；CLI59组另一原有取消用例在CLIAuthenticationScriptBuilderTests.swift:705得到退出127而非130，后16组未运行。窗口12、原生12/2和共享桥通过。已登记REQ-20261027-003并保留日志1391713B/SHA-256 `a63b05cb99aa3df376aebd59e40c7c078c1d3acf870078159b037a5faf20c048`，先定位这次独立门禁失败，不认定002复现或现场初始故障。
+
+
+`c49b0dd`的[Windows 40390902166](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40390902166)通过前端236项、类型/构建/格式及严格Clippy。测试实际编译后，纯会话20项与原Rust300项全部通过；两个新存储目标的12个父级测试在Busy/Unavailable拒绝桩处按预期失败。子进程夹具自身失败不重复计为第13项，后替换深层断言尚未触达。原有其余目标因no-fail-fast继续完成；NSIS及GUI未运行。该有效行为RED支持开始存储实现。完整日志255250B/SHA-256 `e971a8ac1a8fc09d8d4c69651777a5a2cde9798a8cbb16e53e56be137615d719`。
+
+同提交[macOS 40390902855](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40390902855)完整通过主组756/114套件（含条件跳过）、调度3、PTY18、CLI59、后16组、窗口12及原生12/2。此前取消门控用例本轮通过，但没有新阶段诊断，不能关闭REQ-20261027-003；G11仍为实际注入、正常退出及清理成功，查询数0，不能关闭002。日志1410434B/SHA-256 `5d099d5eff4d3f0e6d7e5b6a45eb0a088111647e45b9f000895fd2b27cbf96d0`。
+
+`75f0bd2`仅在取消测试增加有界固定字段诊断，保留原动作顺序、三个断言与期限；不增加查询、信号或等待，独立审查无关键、重要或次要发现。读到handoff并不能证明已经到达受争用的启动门控，现有127结果仍有多个可能分支，需实际证据裁决。`b308b73`另增加Windows生产前端接入契约：固定两命令/一事件传输、最后合成时排除普通Code0旧值、Services与两详情、账户分流。54个新参数化case为静态预期，原236项保留；本阶段只含拒绝接缝，真实接入尚未实现。测试清空成功时间的审查缺口已修正并复审通过；等待下一轮实际编译和行为RED，不以源码审查替代。
