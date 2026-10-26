@@ -25,6 +25,29 @@ jobs:
         run: python3 scripts/sync-code0-bridge.py --check
       - name: Test passive website bridge with synthetic responses
         run: node --test web/code0-bridge.test.mjs
+  code0-native-fixture:
+    name: Code0 native WebKit origin fixture
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install secret scanner
+        run: brew install gitleaks
+      - name: Observe actual WebKit origin and hidden object release
+        run: bash scripts/test-code0-native-fixture.sh
+      - name: Preserve fixture run output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-native-origin-fixture
+          path: ${{ runner.temp }}/aimeter-code0-native-fixtures/fixture-output.log
+          if-no-files-found: warn
   test:
     name: Swift tests and public-release checks
     runs-on: macos-15

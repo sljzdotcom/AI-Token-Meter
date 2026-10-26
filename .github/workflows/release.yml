@@ -55,6 +55,8 @@ jobs:
         run: |
           bash scripts/test.sh
           ruby scripts/check-cross-platform-contracts.rb .
+      - name: Verify native Code0 fixture in a separate test-only build
+        run: bash scripts/test-code0-native-fixture.sh
       - name: Verify signed macOS assets in the draft or public recovery release
         shell: bash
         run: |
