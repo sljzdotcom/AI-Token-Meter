@@ -9,10 +9,17 @@ function StatefulSettings() {
   return <SettingsWindow displayFont="System Default" onDisplayFontChange={() => {}} requestedTab="Floating Strip" stripPreferences={preferences} onStripPreferencesChange={setPreferences} />
 }
 
-it("fourth provider is named and can move while only the last visible provider is protected", () => {
+it("optional fifth provider preserves the original four choices and last-visible protection", () => {
   render(<StatefulSettings />)
-  expect(screen.getAllByRole("checkbox")).toHaveLength(5)
-  expect(screen.getByLabelText("Move Google Antigravity down")).toBeDisabled()
+  expect(screen.getAllByRole("checkbox")).toHaveLength(6)
+  expect(screen.getAllByRole("checkbox", {name: /^(Claude Code|OpenAI Codex|DeepSeek|Google Antigravity|Code0)$/})).toHaveLength(5)
+  for (const name of ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]) {
+    expect(screen.getByLabelText(name)).toBeChecked()
+  }
+  expect(screen.getByLabelText("Code0")).not.toBeChecked()
+  expect(screen.getByLabelText("Code0")).toBeEnabled()
+  expect(screen.getByLabelText("Move Google Antigravity down")).toBeEnabled()
+  expect(screen.getByLabelText("Move Code0 down")).toBeDisabled()
   expect(screen.getByLabelText("Move DeepSeek down")).toBeEnabled()
   fireEvent.click(screen.getByLabelText("Move Google Antigravity up"))
   expect(screen.getAllByRole("checkbox", {name: /Claude Code|OpenAI Codex|DeepSeek|Google Antigravity/}).map(input => input.parentElement?.textContent)).toEqual(["Claude Code", "OpenAI Codex", "Google Antigravity", "DeepSeek"])
@@ -22,11 +29,22 @@ it("fourth provider is named and can move while only the last visible provider i
   fireEvent.click(screen.getByLabelText("DeepSeek"))
   expect(screen.getByLabelText("Google Antigravity")).toBeChecked()
   expect(screen.getByLabelText("Google Antigravity")).toBeDisabled()
+  expect(screen.getByLabelText("Code0")).not.toBeChecked()
+  fireEvent.click(screen.getByLabelText("Code0"))
+  expect(screen.getByLabelText("Code0")).toBeChecked()
+  expect(screen.getByLabelText("Google Antigravity")).toBeEnabled()
+  fireEvent.click(screen.getByLabelText("Code0"))
+  expect(screen.getByLabelText("Google Antigravity")).toBeDisabled()
   fireEvent.click(screen.getByLabelText("Claude Code"))
   expect(screen.getByLabelText("Google Antigravity")).toBeEnabled()
+  fireEvent.click(screen.getByLabelText("Code0"))
+  expect(screen.getByLabelText("Code0")).toBeChecked()
   fireEvent.click(screen.getByRole("button", {name:"Restore default order"}))
   expect(screen.getAllByRole("checkbox", {name: /usage$|Claude Code|OpenAI Codex|DeepSeek|Google Antigravity/}).every(input => (input as HTMLInputElement).checked)).toBe(true)
-  expect(screen.getByLabelText("Move Google Antigravity down")).toBeDisabled()
+  expect(screen.getByLabelText("Code0")).not.toBeChecked()
+  expect(screen.getAllByRole("checkbox", {name: /^(Claude Code|OpenAI Codex|DeepSeek|Google Antigravity|Code0)$/}).map(input => input.parentElement?.textContent)).toEqual(["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity", "Code0"])
+  expect(screen.getByLabelText("Move Google Antigravity down")).toBeEnabled()
+  expect(screen.getByLabelText("Move Code0 down")).toBeDisabled()
 })
 
 it("edits independent bounded show and hide delays", () => {

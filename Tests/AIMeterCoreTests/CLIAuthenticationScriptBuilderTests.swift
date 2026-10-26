@@ -1658,8 +1658,8 @@ struct CLIAuthenticationScriptBuilderTests {
         guard count <= 128, let value = String(bytes: bytes.prefix(count), encoding: .utf8) else {
             return "\(metadata) value=unrecognized"
         }
-        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "\(metadata) value=\(allowedValues.contains(value) ? value : "unrecognized")"
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(metadata) value=\(allowedValues.contains(trimmedValue) ? trimmedValue : "unrecognized")"
     }
 
     @Test("Timeout cleanup rejects malformed and unrelated process group markers")
