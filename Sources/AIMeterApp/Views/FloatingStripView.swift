@@ -142,7 +142,10 @@ struct FloatingDetailView: View {
     @ViewBuilder
     var body: some View {
         Group {
-            if let snapshot = model.snapshots.first(where: { $0.provider == provider }) {
+            if provider == .code0 {
+                Code0DetailView(snapshot: model.snapshots.first(where: { $0.provider == .code0 }), statusKey: model.code0StatusKey)
+                    .onHover(perform: onInteractionChange)
+            } else if let snapshot = model.snapshots.first(where: { $0.provider == provider }) {
                 if provider == .deepSeek {
                     DeepSeekAnalyticsView(
                         snapshot: snapshot,

@@ -373,3 +373,32 @@
 "Cumulative usage" = "累计已用";
 
 "%@ site credits" = "%@ 站内额度";
+
+/* Code0 website connection */
+"Connect Code0" = "连接 Code0";
+"I've finished signing in" = "我已完成登录";
+"Sync Code0" = "同步 Code0";
+"Disconnect Code0" = "断开 Code0";
+"Code0 connection could not be prepared." = "无法准备 Code0 连接。";
+"Code0 cleanup is not confirmed. New connections are blocked." = "Code0 清理尚未确认，暂不能建立新连接。";
+"Code0 connection is unavailable or already in use. Close any other Code0 session, then try again." = "Code0 连接不可用或已被占用。请关闭其他 Code0 会话后重试。";
+"Code0 storage could not be confirmed. Automatic sync is paused." = "无法确认 Code0 存储状态，自动同步已暂停。";
+"Code0 authentication changed. Connect again to validate the current account." = "Code0 登录状态已改变，请重新连接以验证当前账户。";
+"Code0 sign-in timed out. Connect again." = "Code0 登录已超时，请重新连接。";
+"Code0 sync timed out. Previous data and success time are unchanged." = "Code0 同步已超时，原有数据和成功时间保持不变。";
+"The Code0 page requested an unsupported action. Sync is paused." = "Code0 网页请求了不受支持的操作，同步已暂停。";
+"Code0 sync did not complete. Automatic sync is paused." = "Code0 同步未完成，自动同步已暂停。";
+"Code0 is not connected." = "Code0 尚未连接。";
+"Finish signing in in the Code0 window, then confirm below." = "请在 Code0 窗口完成登录，然后在下方确认。";
+"Checking Code0 website usage…" = "正在检查 Code0 网站用量…";
+"Closing the Code0 window…" = "正在关闭 Code0 窗口…";
+"Code0 automatic sync is enabled for this run." = "Code0 自动同步已在本次运行中启用。";
+"Showing cached Code0 data. Choose Sync Code0 to validate this connection." = "当前显示 Code0 缓存数据。请选择“同步 Code0”验证连接。";
+"Code0 can sync again in %@ seconds." = "再过 %@ 秒即可同步 Code0。";
+"Code0 is busy. Wait for the current operation to finish." = "Code0 正忙，请等待当前操作完成。";
+"The Code0 action could not start." = "无法开始 Code0 操作。";
+"Last successful sync: %@" = "上次成功同步：%@";
+"Sync attempts are at least five minutes apart. A failed attempt pauses automatic sync." = "每次同步至少间隔五分钟。某次尝试失败后将暂停自动同步。";
+"Code0 shows website balance and cumulative site credits. No API Key is needed." = "Code0 显示网站余额和累计站内用量，无需 API Key。";
+"Website usage" = "网站用量";
+"Connect Code0 in Services to view website usage." = "请先在服务设置中连接 Code0，再查看网站用量。";

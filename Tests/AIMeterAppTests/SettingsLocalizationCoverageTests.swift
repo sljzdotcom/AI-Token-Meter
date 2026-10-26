@@ -1,6 +1,7 @@
 @testable import AIMeterCore
 import AppKit
 import Foundation
+import Observation
 import SwiftUI
 import Testing
 @testable import AIMeterApp
@@ -9,6 +10,86 @@ import Testing
        .enabled(if: ProcessInfo.processInfo.environment["AI_METER_SCREEN_TESTS"] == "1"))
 @MainActor
 struct SettingsLocalizationCoverageTests {
+    @Test("Code0 throttle expires on the presentation timeline without another action or automatic retry")
+    func code0ThrottleDeadlineReenablesTheHostedControlWithoutAnotherAction() async throws {
+        let context = try Code0AppTestContext()
+        defer { context.clean() }
+        let clock = Code0PresentationClock()
+        let session = Code0ThrottledUISession()
+        let model = AppModel(defaults: context.defaults, applicationSupportDirectoryURL: context.root,
+            secretStore: Code0AppSecretStore(), systemActionPolicy: SystemActionPolicy(environment: [:], isXCTestBundle: true),
+            widgetSnapshotPublisher: nil, isDemoMode: false, code0WebSession: session,
+            code0MonotonicNow: { clock.now }, refreshOperation: { [] }, geminiPauseReasonOperation: { nil },
+            geminiResumeInvalidationOperation: {}, serviceAccountRefreshOperation: { _ in [] }, cacheDirectoryURL: context.root)
+        defer { model.stop() }
+        model.setAppLanguage(.english)
+        let host = NSHostingView(rootView: AppLanguageRoot(model: model) { Code0ServicesView(model: model) })
+        let window = localizationTestWindow(host, height: 600)
+        defer { window.close() }
+        try await settleLocalizationHost(host)
+        let initialButtons = serviceButtons(in: host, title: "Sync Code0")
+        #expect(initialButtons.count == 1)
+        let initial = try #require(initialButtons.first)
+        #expect(hostedAccessibilityAttribute(initial, "isAccessibilityEnabled") as? Bool == true)
+        #expect(hostedAccessibilityAttribute(initial, "accessibilityPerformPress") as? Bool == true)
+        try await settleLocalizationHost(host)
+        let throttledButtons = serviceButtons(in: host, title: "Sync Code0")
+        #expect(throttledButtons.count == 1)
+        let throttled = try #require(throttledButtons.first)
+        #expect(hostedAccessibilityAttribute(throttled, "isAccessibilityEnabled") as? Bool == false)
+        #expect(hostedAccessibilityStrings(host).contains("Code0 can sync again in 300 seconds."))
+        #expect(session.syncCalls == 1)
+        // This clock is deliberately not observable: only TimelineView may
+        // redraw after the deadline. No second user action publishes state.
+        clock.now = clock.now.advanced(by: .seconds(300))
+        let observationDeadline = ContinuousClock.now.advanced(by: .seconds(3))
+        var enabled = false
+        while ContinuousClock.now < observationDeadline {
+            let current = serviceButtons(in: host, title: "Sync Code0")
+            enabled = current.count == 1 && hostedAccessibilityAttribute(current[0], "isAccessibilityEnabled") as? Bool == true
+            if enabled { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(enabled, "The actual paused Sync control must re-enable after its deadline without another action")
+        #expect(!hostedAccessibilityStrings(host).contains("Code0 can sync again in 300 seconds."))
+        #expect(session.syncCalls == 1)
+        #expect(session.scheduledCalls == 0)
+        #expect(!session.isAutomaticallySyncing)
+    }
+
+    @Test("Code0 asynchronous state and failure redraw without changing the successful snapshot")
+    func code0StateChangesRedrawWithoutSnapshotPublication() async throws {
+        let messages = ["Code0 storage could not be confirmed. Automatic sync is paused.",
+            "无法确认 Code0 存储状态，自动同步已暂停。", "無法確認 Code0 儲存狀態，自動同步已暫停。"]
+        for (index, language) in AppLanguage.allCases.enumerated() {
+            let context = try Code0AppTestContext()
+            defer { context.clean() }
+            let cached = code0AppSnapshot(2, cached: true)
+            let session = AppCode0SessionDouble(snapshot: cached)
+            let model = context.model(session: session)
+            defer { model.stop() }
+            model.setAppLanguage(language)
+            let host = NSHostingView(rootView: AppLanguageRoot(model: model) { Code0ServicesView(model: model) })
+            let window = localizationTestWindow(host, height: 600)
+            defer { window.close() }
+            try await settleLocalizationHost(host)
+            let original = model.snapshots.first { $0.provider == .code0 }
+            session.state = .syncing
+            try await settleLocalizationHost(host)
+            let sync = ["Sync Code0", "同步 Code0", "同步 Code0"][index]
+            let buttons = serviceButtons(in: host, title: sync)
+            #expect(buttons.count == 1)
+            #expect(buttons.allSatisfy { (hostedAccessibilityAttribute($0, "isAccessibilityEnabled") as? Bool) == false })
+            session.state = .paused
+            session.failure = .storageFailed
+            try await settleLocalizationHost(host)
+            #expect(hostedAccessibilityStrings(host).contains(messages[index]))
+            #expect(model.snapshots.first { $0.provider == .code0 } == original)
+            #expect(session.snapshot == cached)
+            #expect(session.actions.isEmpty)
+        }
+    }
+
     @Test("Code0 service controls alone authorize actions; displaying Services and detail remains passive in all languages")
     func code0ExplicitServiceControlsAndPassiveDetail() async throws {
         let cases: [(Code0ServiceAction, Code0SessionState, [String])] = [
@@ -497,4 +578,28 @@ private final class CoverageUpdateEngine: SoftwareUpdateEngine {
     func checkForUpdateInformation() {}
     func presentAvailableUpdate() {}
     func stop() {}
+}
+
+// Intentionally non-observable so advancing time cannot itself redraw SwiftUI.
+@MainActor
+private final class Code0PresentationClock {
+    var now = ContinuousClock.now
+}
+
+@MainActor
+@Observable
+private final class Code0ThrottledUISession: Code0WebSessionProviding {
+    var state: Code0SessionState = .paused
+    var snapshot: UsageSnapshot? = code0AppSnapshot(2, cached: true)
+    var failure: Code0SessionFailure?
+    var isAutomaticallySyncing = false
+    var onSnapshotChange: (@MainActor (UsageSnapshot?) -> Void)?
+    private(set) var syncCalls = 0
+    private(set) var scheduledCalls = 0
+    func connect() -> Code0SessionActionResult { .denied }
+    func loginCompleted() -> Code0SessionActionResult { .denied }
+    func syncNow() -> Code0SessionActionResult { syncCalls += 1; return .throttled(300) }
+    func disconnect() -> Code0SessionActionResult { .denied }
+    func processScheduledWork() { scheduledCalls += 1 }
+    func stop() { isAutomaticallySyncing = false }
 }
