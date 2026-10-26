@@ -28,6 +28,13 @@
       "logoKey": "gemini",
       "accentColor": "#3ED6B2",
       "progressSemantics": "usedQuota"
+    },
+    {
+      "id": "code0",
+      "displayName": "Code0",
+      "logoKey": "code0",
+      "accentColor": "#2CB67D",
+      "progressSemantics": "valueOnly"
     }
   ]
 }

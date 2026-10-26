@@ -51,6 +51,9 @@ struct Code0WebsiteCaptureTests {
         let upperBound = try Code0WebsiteCapture.decode(filteredPayload: Data(#"{"quota":9007199254740991,"usedQuota":9007199254740991,"divisor":9007199254740991}"#.utf8))
         #expect(upperBound.balance == 1)
         #expect(upperBound.cumulativeUsage == 1)
+        let scientific = try Code0WebsiteCapture.decode(filteredPayload: Data(#"{"quota":1.25e6,"usedQuota":750000.0,"divisor":5e5}"#.utf8))
+        #expect(scientific.balance == 2.5)
+        #expect(scientific.cumulativeUsage == 1.5)
     }
 
     @Test("Filtered payload rejects missing, coerced, unsafe and extra fields", arguments: [
@@ -79,10 +82,26 @@ struct Code0WebsiteCaptureTests {
         #"{"quota":1,"usedQuota":2,"divisor":1,"identity":"synthetic-do-not-export"}"#,
         #"{"quota":1,"usedQuota":2,"divisor":1,"data":{}}"#,
         #"{"quota":1,"quota":3,"usedQuota":2,"divisor":1}"#,
+        #"{"quota":9007199254740991.1,"usedQuota":0,"divisor":1}"#,
+        #"{"quota":0,"usedQuota":9007199254740991.1,"divisor":1}"#,
+        #"{"quota":1,"usedQuota":2,"divisor":1} trailing"#,
+        #"{"quota":01,"usedQuota":2,"divisor":1}"#,
+        #"{"quota ":1,"usedQuota":2,"divisor":1}"#,
+        #"{"quota":1,"usedQuota":2,"divisor":9007199254740991.1}"#,
     ])
     func rejectsUnfilteredOrInvalidQuota(_ payload: String) {
         #expect(throws: Code0WebsiteCaptureError.invalidPayload) {
             try Code0WebsiteCapture.decode(filteredPayload: Data(payload.utf8))
+        }
+    }
+
+    @Test func rejectsOversizedFilteredPayloadAndInvalidNativeTimestamp() throws {
+        #expect(throws: Code0WebsiteCaptureError.invalidPayload) {
+            try Code0WebsiteCapture.decode(filteredPayload: Data(repeating: 32, count: 2049))
+        }
+        let capture = try Code0WebsiteCapture.decode(filteredPayload: Data(#"{"quota":1,"usedQuota":2,"divisor":1}"#.utf8))
+        #expect(throws: Code0WebsiteCaptureError.invalidPayload) {
+            try capture.makeSnapshot(fetchedAt: Date(timeIntervalSince1970: .infinity))
         }
     }
 
@@ -101,7 +120,7 @@ struct Code0WebsiteCaptureTests {
     func dedicatedCode0FixtureHasNoCurrencyRatioOrAccountData() throws {
         let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("contracts/fixtures/auxiliary/code0-site-credits.json")
+            .appendingPathComponent("contracts/fixtures/code0-site-credits.json")
         let data = try Data(contentsOf: fixtureURL)
         let fixture = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let providerID = try #require(fixture["providerId"] as? String)

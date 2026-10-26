@@ -58,7 +58,7 @@ struct FloatingStripSettingsView: View {
                 Button(localizer.text("Restore default order")) {
                     var value = model.stripPreferences
                     value.orderedProviders = UsageProvider.allCases
-                    value.hiddenProviders = []
+                    value.hiddenProviders = UsageProvider.allCases.filter { !UsageProvider.defaultVisibleProviders.contains($0) }
                     model.setStripPreferences(value)
                 }
             }

@@ -17,6 +17,7 @@ pub enum ProviderId {
     Codex,
     DeepSeek,
     Gemini,
+    Code0,
 }
 
 impl ProviderId {
@@ -26,6 +27,7 @@ impl ProviderId {
             Self::Codex => "codex",
             Self::DeepSeek => "deepseek",
             Self::Gemini => "gemini",
+            Self::Code0 => "code0",
         }
     }
 }
@@ -150,6 +152,7 @@ pub enum MetricUnit {
     Usd,
     Tokens,
     Requests,
+    SiteCredits,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -158,6 +161,7 @@ pub enum MetricKind {
     OfficialLimit,
     Balance,
     LocalBudget,
+    CumulativeUsage,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -350,6 +354,36 @@ impl UsageSnapshot {
             return Err(UsageDecodeError::new(
                 "staleAfterSeconds must be greater than zero",
             ));
+        }
+        if snapshot.provider_id == ProviderId::Code0 {
+            let valid_metric = |metric: &UsageMetric, label: &str, kind: MetricKind| {
+                metric.label == label
+                    && metric.unit == MetricUnit::SiteCredits
+                    && metric.kind == kind
+                    && metric.current.is_finite()
+                    && metric.current >= 0.0
+                    && metric.limit.is_none()
+                    && metric.reset_at.is_none()
+                    && metric.reset_description.is_none()
+            };
+            let metrics_valid = match (&snapshot.primary_metric, &snapshot.secondary_metric) {
+                (Some(balance), Some(used)) => {
+                    valid_metric(balance, "Balance", MetricKind::Balance)
+                        && valid_metric(used, "Cumulative usage", MetricKind::CumulativeUsage)
+                }
+                (None, None) => snapshot.status != UsageStatus::Fresh,
+                _ => false,
+            };
+            if snapshot.display_name != "Code0"
+                || snapshot.used_ratio.is_some()
+                || !metrics_valid
+                || !snapshot.reset_credits.is_empty()
+                || snapshot.local_activity.is_some()
+                || !snapshot.daily_history.is_empty()
+                || snapshot.history_fetched_at.is_some()
+            {
+                return Err(UsageDecodeError::new("invalid Code0 site-credit snapshot"));
+            }
         }
         let mut tier_names = std::collections::HashSet::new();
         let legacy_shared_count = snapshot

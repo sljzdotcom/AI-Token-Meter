@@ -367,3 +367,9 @@
 "Sign-in completed. Checking Antigravity quota once…" = "Sign-in completed. Checking Antigravity quota once…";
 "The one-time quota check failed. Refresh remains paused and the previous quota is kept." = "The one-time quota check failed. Refresh remains paused and the previous quota is kept.";
 "Antigravity quota updated. Automatic refresh remains paused." = "Antigravity quota updated. Automatic refresh remains paused.";
+
+"Balance" = "Balance";
+
+"Cumulative usage" = "Cumulative usage";
+
+"%@ site credits" = "%@ site credits";

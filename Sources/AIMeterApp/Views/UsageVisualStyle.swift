@@ -20,6 +20,7 @@ extension UsageProvider {
         case .codex: "terminal"
         case .deepSeek: "wave.3.right.circle"
         case .gemini: "sparkle"
+        case .code0: "square.grid.2x2.fill"
         }
     }
 }

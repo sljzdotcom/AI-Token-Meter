@@ -12,7 +12,7 @@ struct ProviderLogo: View {
             if let image = Self.image(for: provider) {
                 Image(nsImage: image)
                     .resizable()
-                    .renderingMode(.template)
+                    .renderingMode(provider == .code0 ? .original : .template)
                     .scaledToFit()
             } else {
                 Image(systemName: provider.symbolName)
@@ -49,10 +49,11 @@ private extension UsageProvider {
         case .codex: "codex"
         case .deepSeek: "deepseek"
         case .gemini: "gemini"
+        case .code0: "code0"
         }
     }
 
     var logoResourceExtension: String {
-        self == .claude ? "png" : "svg"
+        self == .claude || self == .code0 ? "png" : "svg"
     }
 }

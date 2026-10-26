@@ -801,7 +801,7 @@ struct RefreshCoordinatorTests {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let concurrencyProbe = ConcurrentCollectionProbe()
-        let collectors = UsageProvider.allCases.reversed().map {
+        let collectors = UsageProvider.refreshProviders.reversed().map {
             ControlledCollector(
                 provider: $0,
                 delay: 0.2,

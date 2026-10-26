@@ -28,7 +28,7 @@ describe("compact floating strip interactions", () => {
     try {
       const { container } = render(<div className={`meter-edge--${edge}`}>
         <FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={activate}
-          preferences={{...defaultStripPreferences, density, hiddenProviders: ["gemini"]}} />
+          preferences={{...defaultStripPreferences, density, hiddenProviders: [...defaultStripPreferences.hiddenProviders, "gemini"]}} />
       </div>)
       const strip = screen.getByRole("navigation")
       expect(strip.style.getPropertyValue("--strip-width")).toBe(`${width}px`)
@@ -51,7 +51,7 @@ describe("compact floating strip interactions", () => {
   })
   it.each(behavior.densities)("matches shared $id dimensions", density => {
     render(<FloatingStrip snapshots={unavailableSnapshots} activeProvider={null} onProviderActivate={() => {}}
-      preferences={{...defaultStripPreferences, density: density.id as "compact" | "comfortable", hiddenProviders: ["gemini"]}} />)
+      preferences={{...defaultStripPreferences, density: density.id as "compact" | "comfortable", hiddenProviders: [...defaultStripPreferences.hiddenProviders, "gemini"]}} />)
     const style = screen.getByRole("navigation").style
     expect(style.getPropertyValue("--strip-width")).toBe(`${density.width}px`)
     expect(style.getPropertyValue("--strip-height")).toBe(`${density.height}px`)

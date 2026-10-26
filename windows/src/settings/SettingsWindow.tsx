@@ -200,7 +200,7 @@ export function SettingsWindow({
               <div>
                 {stripPreferences.orderedProviders.map((id, index) => {
                   const visible = !stripPreferences.hiddenProviders.includes(id)
-                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Google Antigravity" : "DeepSeek"
+                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Google Antigravity" : id === "code0" ? "Code0" : "DeepSeek"
                   const move = (offset: number) => {
                     const order = [...stripPreferences.orderedProviders]
                     ;[order[index], order[index+offset]] = [order[index+offset], order[index]]
@@ -226,7 +226,7 @@ export function SettingsWindow({
                   </div>
                 })}
                 <button type="button" onClick={() => onStripPreferencesChange({...stripPreferences,
-                  orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: []})}>{t("Restore default order")}</button>
+                  orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: defaultStripPreferences.hiddenProviders})}>{t("Restore default order")}</button>
               </div>
             </SettingRow>
             <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable or Compact.")}>

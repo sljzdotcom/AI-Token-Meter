@@ -386,6 +386,7 @@ fn status_snapshot(provider: ProviderId, status: UsageStatus, fetched_at: &str) 
             ProviderId::Codex => "OpenAI Codex",
             ProviderId::DeepSeek => "DeepSeek",
             ProviderId::Gemini => "Google Antigravity",
+            ProviderId::Code0 => "Code0",
         }
         .to_owned(),
         status,

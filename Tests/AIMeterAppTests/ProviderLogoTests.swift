@@ -9,7 +9,7 @@ import Testing
 struct ProviderLogoTests {
     @Test("Settings tint resolves to the primary foreground color in light appearance")
     func settingsTintUsesPrimaryForegroundInLightAppearance() throws {
-        for provider in UsageProvider.allCases {
+        for provider in UsageProvider.refreshProviders {
             let bitmap = try render(
                 ProviderLogo(provider: provider, size: 18, tint: .primary),
                 colorScheme: .light
@@ -26,7 +26,7 @@ struct ProviderLogoTests {
 
     @Test("Default logos remain white in light appearance")
     func defaultLogosRemainWhiteInLightAppearance() throws {
-        for provider in UsageProvider.allCases {
+        for provider in UsageProvider.refreshProviders {
             let bitmap = try render(ProviderLogo(provider: provider, size: 18), colorScheme: .light)
 
             let opaquePixels = try opaquePixels(in: bitmap)
@@ -40,7 +40,7 @@ struct ProviderLogoTests {
 
     @Test("Settings primary tint remains visible in dark appearance")
     func settingsTintRemainsVisibleInDarkAppearance() throws {
-        for provider in UsageProvider.allCases {
+        for provider in UsageProvider.refreshProviders {
             let bitmap = try render(
                 ProviderLogo(provider: provider, size: 18, tint: .primary),
                 colorScheme: .dark
@@ -62,6 +62,7 @@ struct ProviderLogoTests {
             (.codex, "codex.svg", "svg"),
             (.deepSeek, "deepseek.svg", "svg"),
             (.gemini, "gemini.svg", "svg"),
+            (.code0, "code0.png", "png"),
         ]
 
         for (provider, expectedFilename, expectedExtension) in expectedAssets {
@@ -80,6 +81,7 @@ struct ProviderLogoTests {
             (.codex, 1.0),
             (.deepSeek, 0.92),
             (.gemini, 1.0),
+            (.code0, 1.0),
         ]
 
         for (provider, expectedScale) in expectedScales {
@@ -93,7 +95,7 @@ struct ProviderLogoTests {
 
     @Test("Tint leaves the existing 18pt logo alpha masks unchanged")
     func tintKeepsExistingLogoGeometry() throws {
-        for provider in UsageProvider.allCases {
+        for provider in UsageProvider.refreshProviders {
             let existing = try render(ProviderLogo(provider: provider, size: 18), colorScheme: .dark)
             let tinted = try render(ProviderLogo(provider: provider, size: 18, tint: .white), colorScheme: .dark)
 
@@ -104,6 +106,14 @@ struct ProviderLogoTests {
             #expect(try opaquePixels(in: existing).allSatisfy { luminance(of: $0) > 0.8 },
                     "\(provider.rawValue) no longer defaults to the existing white rendering")
         }
+    }
+
+    @Test("Code0 uses its official original-color asset without changing the old template logos")
+    func code0LogoKeepsOfficialColors() throws {
+        let bitmap = try render(ProviderLogo(provider: .code0, size: 18), colorScheme: .light)
+        let pixels = try opaquePixels(in: bitmap)
+        #expect(!pixels.isEmpty)
+        #expect(pixels.contains { $0.greenComponent > $0.redComponent && $0.greenComponent > $0.blueComponent })
     }
 
     private func render<V: View>(_ view: V, colorScheme: ColorScheme) throws -> NSBitmapImageRep {

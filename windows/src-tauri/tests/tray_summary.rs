@@ -28,6 +28,7 @@ fn tray_brand_header_rejects_malformed_rgba_without_a_tauri_runtime() {
 fn tray_summary_uses_provider_semantics_without_inventing_usage() {
     let claude = fixture("claude-fresh.json");
     let deepseek = fixture("deepseek-balance.json");
+    let code0 = fixture("code0-site-credits.json");
     let mut unavailable = claude.clone();
     unavailable.status = UsageStatus::Unavailable;
     unavailable.used_ratio = None;
@@ -35,6 +36,7 @@ fn tray_summary_uses_provider_semantics_without_inventing_usage() {
 
     assert_eq!(format_summary(&claude), "Claude Code · 23% used");
     assert_eq!(format_summary(&deepseek), "DeepSeek · ¥77.99 available");
+    assert_eq!(format_summary(&code0), "Code0 · 2.50 site credits");
     assert_eq!(format_summary(&unavailable), "Claude Code · Unavailable");
 }
 

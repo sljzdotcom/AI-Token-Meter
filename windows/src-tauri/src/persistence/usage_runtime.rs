@@ -270,12 +270,13 @@ impl UsageRuntime {
     }
 }
 
-fn providers() -> [ProviderId; 4] {
+fn providers() -> [ProviderId; 5] {
     [
         ProviderId::Claude,
         ProviderId::Codex,
         ProviderId::DeepSeek,
         ProviderId::Gemini,
+        ProviderId::Code0,
     ]
 }
 
@@ -336,6 +337,7 @@ fn status_snapshot(
             ProviderId::Codex => "OpenAI Codex",
             ProviderId::DeepSeek => "DeepSeek",
             ProviderId::Gemini => "Google Antigravity",
+            ProviderId::Code0 => "Code0",
         }
         .to_owned(),
         status,

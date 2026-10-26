@@ -367,3 +367,9 @@
 "Sign-in completed. Checking Antigravity quota once…" = "登入完成，正在單次檢查 Antigravity 額度…";
 "The one-time quota check failed. Refresh remains paused and the previous quota is kept." = "單次額度檢查失敗。重新整理仍保持暫停，並保留先前的額度資料。";
 "Antigravity quota updated. Automatic refresh remains paused." = "Antigravity 額度已更新，自動重新整理仍保持暫停。";
+
+"Balance" = "餘額";
+
+"Cumulative usage" = "累計已用";
+
+"%@ site credits" = "%@ 站內額度";

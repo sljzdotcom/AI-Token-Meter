@@ -900,7 +900,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               exit "$agy_exit_code"
             fi
             """
-        case .deepSeek:
+        case .deepSeek, .code0:
             throw CLIAuthenticationScriptError.unsupportedProvider
         }
 

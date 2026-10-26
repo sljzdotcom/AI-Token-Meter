@@ -54,6 +54,12 @@ fn zero_fractional_divisor_and_safe_integer_upper_bound_are_valid() {
     .expect("inclusive safe integer bound");
     assert_eq!(upper_bound.balance, 1.0);
     assert_eq!(upper_bound.cumulative_usage, 1.0);
+    let scientific = Code0WebsiteCapture::decode_filtered_json(
+        br#"{"quota":1.25e6,"usedQuota":750000.0,"divisor":5e5}"#,
+    )
+    .expect("integer-valued scientific and decimal JSON numbers");
+    assert_eq!(scientific.balance, 2.5);
+    assert_eq!(scientific.cumulative_usage, 1.5);
 }
 
 #[test]
@@ -84,11 +90,46 @@ fn filtered_payload_rejects_missing_coerced_unsafe_and_extra_fields() {
         r#"{"quota":1,"usedQuota":2,"divisor":1,"identity":"synthetic-do-not-export"}"#,
         r#"{"quota":1,"usedQuota":2,"divisor":1,"data":{}}"#,
         r#"{"quota":1,"quota":3,"usedQuota":2,"divisor":1}"#,
+        r#"{"quota":9007199254740991.1,"usedQuota":0,"divisor":1}"#,
+        r#"{"quota":0,"usedQuota":9007199254740991.1,"divisor":1}"#,
+        r#"{"quota":1,"usedQuota":2,"divisor":1} trailing"#,
+        r#"{"quota":01,"usedQuota":2,"divisor":1}"#,
+        r#"{"quota ":1,"usedQuota":2,"divisor":1}"#,
+        r#"{"quota":1,"usedQuota":2,"divisor":9007199254740991.1}"#,
     ] {
         assert_eq!(
             Code0WebsiteCapture::decode_filtered_json(payload.as_bytes()),
             Err(Code0CaptureError::InvalidPayload),
             "invalid synthetic payload must be rejected: {payload}",
+        );
+    }
+}
+
+#[test]
+fn modified_capture_values_and_invalid_native_timestamps_cannot_make_a_snapshot() {
+    assert_eq!(
+        Code0WebsiteCapture::decode_filtered_json(&[b' '; 2049]),
+        Err(Code0CaptureError::InvalidPayload)
+    );
+    let original =
+        Code0WebsiteCapture::decode_filtered_json(br#"{"quota":1,"usedQuota":2,"divisor":1}"#)
+            .unwrap();
+    assert_eq!(
+        original.make_snapshot("not-a-date"),
+        Err(Code0CaptureError::InvalidPayload)
+    );
+    for invalid in [f64::NAN, f64::INFINITY, -1.0] {
+        let mut balance = original;
+        balance.balance = invalid;
+        assert_eq!(
+            balance.make_snapshot("2026-10-26T12:00:00Z"),
+            Err(Code0CaptureError::InvalidPayload)
+        );
+        let mut used = original;
+        used.cumulative_usage = invalid;
+        assert_eq!(
+            used.make_snapshot("2026-10-26T12:00:00Z"),
+            Err(Code0CaptureError::InvalidPayload)
         );
     }
 }
@@ -109,7 +150,7 @@ fn code0_identity_and_metric_semantics_decode_through_existing_json_entrypoints(
 #[test]
 fn dedicated_seventh_fixture_decodes_without_currency_ratio_or_account_data() {
     let value: Value = serde_json::from_slice(include_bytes!(
-        "../../../contracts/fixtures/auxiliary/code0-site-credits.json"
+        "../../../contracts/fixtures/code0-site-credits.json"
     ))
     .expect("dedicated synthetic fixture json");
     let snapshot = UsageSnapshot::decode_compatible(&value).expect("Code0 fixture must decode");

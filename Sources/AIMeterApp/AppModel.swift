@@ -623,7 +623,7 @@ final class AppModel {
 
         let collected: [UsageSnapshot]
         if let refreshOperation {
-            refreshingProviders = Set(UsageProvider.allCases)
+            refreshingProviders = Set(UsageProvider.refreshProviders)
             collected = await refreshOperation()
         } else {
             collected = await coordinator.refresh(manual: manual) { [weak self] provider, active in
@@ -872,7 +872,7 @@ final class AppModel {
         let lifecycleID = geminiLifecycleID
         defer { isRefreshingServiceAccounts = false }
 
-        UsageProvider.allCases.forEach {
+        UsageProvider.refreshProviders.forEach {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
@@ -891,7 +891,7 @@ final class AppModel {
             serviceAccounts[status.provider] = status
         }
         updateGeminiAccountStatus()
-        for provider in UsageProvider.allCases where serviceAccounts[provider]?.connectionState == .checking {
+        for provider in UsageProvider.refreshProviders where serviceAccounts[provider]?.connectionState == .checking {
             serviceAccounts[provider] = ServiceAccountStatus(
                 provider: provider,
                 connectionState: .unavailable

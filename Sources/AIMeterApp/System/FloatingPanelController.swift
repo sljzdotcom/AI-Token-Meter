@@ -508,6 +508,7 @@ final class FloatingPanelController: NSObject, NSMenuDelegate, FloatingStripWind
         let detailSize: NSSize
         switch session.selectedProvider {
         case .deepSeek: detailSize = NSSize(width: 620, height: 520)
+        case .code0: detailSize = NSSize(width: 420, height: 400)
         case .gemini:
             let snapshot = model.snapshots.first(where: { $0.provider == .gemini })
             let tierCount = snapshot?.geminiQuotaMetrics?.count ?? 0
