@@ -21,7 +21,8 @@ struct Code0SnapshotStoreTests {
         #expect(object["fetchedAt"] as? Double == 1_793_016_000)
         #expect(object["sourceVersion"] as? String == "website")
         #expect(!String(decoding: data, as: UTF8.self).contains("synthetic-do-not-persist"))
-        let loaded = try #require(fixture.store.load())
+        let storedValue = try fixture.store.load()
+        let loaded = try #require(storedValue)
         #expect(loaded.provider == .code0)
         #expect(loaded.primaryMetric?.current == 2.5)
         #expect(loaded.secondaryMetric?.current == 1.5)
@@ -38,7 +39,8 @@ struct Code0SnapshotStoreTests {
         defer { fixture.clean() }
         try fixture.write(#"{"schemaVersion":1,"balance":0,"cumulativeUsage":0,"fetchedAt":1793016000,"sourceVersion":"website"}"#)
         fixture.lease.isHeld = false
-        let loaded = try #require(fixture.store.load(), "Loading a prior committed cache must not authorize a browser")
+        let storedValue = try fixture.store.load()
+        let loaded = try #require(storedValue, "Loading a prior committed cache must not authorize a browser")
         #expect(loaded.primaryMetric?.current == 0)
         #expect(loaded.secondaryMetric?.current == 0)
         #expect(!fixture.lease.isHeld)
@@ -157,6 +159,6 @@ private func storeSnapshot(provider: UsageProvider = .code0, balance: Double = 2
                            limit: Double? = nil, statusMessage: String? = nil) -> UsageSnapshot {
     UsageSnapshot(provider: provider,
         primaryMetric: UsageMetric(label: "Balance", current: balance, limit: limit, unit: unit, kind: kind),
-        secondaryMetric: UsageMetric(label: "Cumulative usage", current: used, unit: .siteCredits, kind: .cumulativeUsage),
+        secondaryMetric: UsageMetric(label: "Cumulative usage", current: used, limit: nil, unit: .siteCredits, kind: .cumulativeUsage),
         fetchedAt: Date(timeIntervalSince1970: 1_793_016_000), sourceVersion: "website", statusMessage: statusMessage)
 }

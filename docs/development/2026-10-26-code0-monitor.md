@@ -84,3 +84,9 @@ Task2独立规格与质量审查无关键/重要发现，第一阶段数值覆�
 本次原生编译另外暴露探针三个optional delegate签名的nearly-matches告警：alert、confirm与deprecatedTLS回调的completion类型和当前SDK不一致。这不否定已观察到的来源、隐藏和对象释放，也不能被解释为这三个策略已验证；下一必要原生检查点修正签名并补选择器/实际事件证据，不靠压制告警或手调delegate冒称真实覆盖。
 
 同提交的[Windows 40327279102](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40327279102)也已完整通过：前端138项、Rust300项、密度浏览器检查、debug NSIS和GUI子系统检查；本次Windows产品源码未改，验证未出现新失败。
+
+## Task3实际存储与窗口契约检查点
+
+`2b0eb9e` 加入拒绝型原子store、OS profile lease和真实网页驱动入口；新增11个Core测试方法、17个原生参数case，独立任务要求全部case记录齐全并验证隐藏和释放。隔离执行边界独审无阻断项，但不代表具体实现完成。
+
+[macOS 40332596811](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40332596811)在编译阶段失败：store测试两处throwing load放进require宏后缺少内部try，另一个测试构造缺少必填limit参数。普通和原生两任务均未执行行为测试，此次不是有效RED。原probe的alert回调仍有optional签名不匹配告警，当前编译器给出的completion隔离要求与上一诊断不同；保留实际selector断言，继续校正接口，不靠移动extension或关闭告警门禁处理。
