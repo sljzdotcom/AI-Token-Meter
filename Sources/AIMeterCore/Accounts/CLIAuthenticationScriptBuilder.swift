@@ -9,13 +9,120 @@ public enum CLIAuthenticationScriptError: Error, Equatable {
 public struct CLIAuthenticationScriptBuilder: Sendable {
     public init() {}
 
+    static let boundedProcessStateProbeSubroutine = #"""
+    sub bounded_process_state {
+      return bounded_process_state_with_completion(undef, @_);
+    }
+    sub bounded_process_state_with_completion {
+      my ($completion, $probe_path, @probe_args) = @_;
+      $$completion = undef if defined($completion);
+      return undef unless defined($probe_path) && length($probe_path);
+      pipe(my $reader, my $writer) or return undef;
+      my $flags = fcntl($reader, F_GETFL, 0);
+      if (!defined($flags) || !defined(fcntl($reader, F_SETFL, $flags | O_NONBLOCK))) {
+        close $reader;
+        close $writer;
+        return undef;
+      }
+      my $probe_pid = fork();
+      if (!defined($probe_pid)) { close $reader; close $writer; return undef; }
+      if ($probe_pid == 0) {
+        close $reader;
+        open STDOUT, ">&", $writer or _exit(127);
+        close $writer;
+        open STDERR, ">", "/dev/null";
+        exec { $probe_path } $probe_path, @probe_args;
+        _exit(127);
+      }
+      close $writer;
+      my $deadline = clock_gettime(CLOCK_MONOTONIC) + 0.25;
+      my $output = "";
+      my ($eof, $child_done, $child_owned, $child_status, $read_failed) = (0, 0, 1, 0, 0);
+      while (clock_gettime(CLOCK_MONOTONIC) < $deadline) {
+        while (!$eof) {
+          my $count = sysread($reader, my $chunk, 1024);
+          if (!defined($count)) {
+            next if $! == EINTR && clock_gettime(CLOCK_MONOTONIC) < $deadline;
+            last if $! == EAGAIN || $! == EWOULDBLOCK;
+            $read_failed = 1;
+            last;
+          }
+          if ($count == 0) { $eof = 1; last; }
+          $output .= $chunk;
+          if (length($output) > 4096) { $read_failed = 1; last; }
+        }
+        last if $read_failed;
+        if (!$child_done) {
+          my $waited = waitpid($probe_pid, WNOHANG);
+          if ($waited == $probe_pid) { $child_done = 1; $child_status = $?; }
+          elsif ($waited == -1 && $! != EINTR) { $read_failed = 1; $child_owned = 0; last; }
+        }
+        last if $child_done && $eof;
+        select undef, undef, undef, 0.01;
+      }
+      if ($child_done && $eof && !$read_failed && $child_status == 0) {
+        close $reader;
+        # List callers may identify the exact query child after it was reaped.
+        # Scalar callers retain the original process-state text contract.
+        return wantarray ? ($output, $probe_pid) : $output;
+      }
+      # Only a timely, fully drained and reaped empty exit1 is confirmed absence.
+      # Mark before cleanup so timeout/read/ownership/cancellation failures stay unknown.
+      if (defined($completion) && $child_done && $child_owned && $eof && !$read_failed
+          && $child_status == (1 << 8) && length($output) == 0
+          && clock_gettime(CLOCK_MONOTONIC) < $deadline) {
+        $$completion = 1;
+      }
+      close $reader;
+      if (!$child_done && $child_owned) {
+        kill "TERM", $probe_pid;
+        my $term_deadline = clock_gettime(CLOCK_MONOTONIC) + 0.05;
+        while (clock_gettime(CLOCK_MONOTONIC) < $term_deadline) {
+          my $waited = waitpid($probe_pid, WNOHANG);
+          if ($waited == $probe_pid) { $child_done = 1; last; }
+          if ($waited == -1 && $! != EINTR) { $child_owned = 0; last; }
+          select undef, undef, undef, 0.01;
+        }
+        if (!$child_done && $child_owned) {
+          kill "KILL", $probe_pid;
+          my $kill_deadline = clock_gettime(CLOCK_MONOTONIC) + 0.1;
+          while (clock_gettime(CLOCK_MONOTONIC) < $kill_deadline) {
+            my $waited = waitpid($probe_pid, WNOHANG);
+            if ($waited == $probe_pid) { $child_done = 1; last; }
+            if ($waited == -1 && $! != EINTR) { $child_owned = 0; last; }
+            select undef, undef, undef, 0.01;
+          }
+        }
+      }
+      return undef;
+    }
+    """#
+
+    static let boundedProcessStateProbeProgram = #"""
+    use strict; use warnings; use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK); use POSIX qw(_exit waitpid WNOHANG); use Errno qw(EINTR EAGAIN EWOULDBLOCK); use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC);
+    \#(boundedProcessStateProbeSubroutine)
+    my ($probe_path, @probe_args) = @ARGV;
+    my $owned_query = @probe_args && $probe_args[0] eq "--owned-query-completion";
+    shift @probe_args if $owned_query;
+    my $completion;
+    my $output = $owned_query
+      ? bounded_process_state_with_completion(\$completion, $probe_path, @probe_args)
+      : bounded_process_state($probe_path, @probe_args);
+    defined($output) or exit($owned_query && defined($completion) && $completion == 1 ? 1 : 2);
+    print $output;
+    exit 0;
+    """#
+
     public func build(
         provider: UsageProvider,
         executableURL: URL,
         completionTokenPipeURL: URL? = nil,
         completionStatusFileURL: URL? = nil,
+        completionExecStatusFileURL: URL? = nil,
+        cancellationRequestFileURL: URL? = nil,
         completionOpenExecutableURL: URL = URL(fileURLWithPath: "/usr/bin/open"),
         watchdogExecutableURL: URL = URL(fileURLWithPath: "/usr/bin/perl"),
+        processStateExecutableURL: URL = URL(fileURLWithPath: "/bin/ps"),
         loginTimeoutSeconds: Int = 300
     ) throws -> String {
         let command: String
@@ -38,29 +145,330 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
             let completionStatusPath = completionStatusFileURL?.path
                 ?? completionTokenPipeURL.appendingPathExtension("status").path
+            let completionExecStatusPath = completionExecStatusFileURL?.path
+                ?? completionStatusPath + ".exec"
+            if let completionExecStatusFileURL,
+               (!completionExecStatusFileURL.isFileURL || completionExecStatusFileURL.path.isEmpty) {
+                throw CLIAuthenticationScriptError.invalidCompletionTokenPipe
+            }
+            let cancellationRequestPath = cancellationRequestFileURL?.path ?? completionStatusPath + ".cancel"
+            if let cancellationRequestFileURL,
+               (!cancellationRequestFileURL.isFileURL || cancellationRequestFileURL.path.isEmpty) {
+                throw CLIAuthenticationScriptError.invalidCompletionTokenPipe
+            }
+            let coordinationPaths = [completionTokenPipeURL.path, completionStatusPath, completionExecStatusPath,
+                                     cancellationRequestPath] + ["lock", "ready", "process-group", "guardian", "guardian-stop"]
+                .map { completionStatusPath + "." + $0 }
+            let standardizedPaths = coordinationPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+            guard Set(standardizedPaths).count == standardizedPaths.count else {
+                throw CLIAuthenticationScriptError.invalidCompletionTokenPipe
+            }
+            guard processStateExecutableURL.isFileURL, !processStateExecutableURL.path.isEmpty else {
+                throw CLIAuthenticationScriptError.invalidCompletionTokenPipe
+            }
+            let supervisorProgram = #"""
+            use strict; use warnings; use Fcntl qw(:DEFAULT O_NONBLOCK); use POSIX qw(setpgid getpgrp waitpid WNOHANG WUNTRACED WIFSTOPPED _exit); use Errno qw(EINTR EAGAIN EWOULDBLOCK EACCES); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC);
+            \#(Self.boundedProcessStateProbeSubroutine)
+            my ($gate_path, $status_path, $cancel_request_path, $exec_status_path, $process_group_file, $guardian_state_file, $guardian_stop_file, $process_state_path, $parent_pid, @command) = @ARGV;
+            my $publish_launch_stage = sub {
+              my ($stage) = @_;
+              open my $handle, ">", $exec_status_path or _exit(127);
+              chmod 0600, $exec_status_path or _exit(127);
+              print {$handle} "$stage\n" or _exit(127);
+              close $handle or _exit(127);
+            };
+            # Establish the actual owner before any potentially contended gate.
+            setpgid(0, 0) == 0 or _exit(127);
+            open my $random, "<", "/dev/urandom" or _exit(127); read($random, my $nonce_bytes, 16) == 16 or _exit(127); close $random; my $nonce = unpack("H*", $nonce_bytes);
+            open my $identity_handle, ">", $guardian_state_file or _exit(127); chmod 0600, $guardian_state_file or _exit(127); print {$identity_handle} "$$ $nonce\n" or _exit(127); close $identity_handle or _exit(127);
+            my $stopping = 0;
+            sub group_peers {
+              my ($process_rows, $query_pid) = bounded_process_state($process_state_path, "-o", "pid=,stat=", "-g", "$$");
+              return undef unless defined($process_rows) && defined($query_pid) && $query_pid > 0 && $query_pid != $$;
+              my $found = 0;
+              my $self_seen = 0;
+              my $query_seen = 0;
+              for my $line (split /\n/, $process_rows) {
+                my ($pid, $state) = $line =~ /^\s*([0-9]+)\s+(\S+)\s*$/;
+                return undef unless defined($pid) && defined($state) && $pid > 0;
+                if ($pid == $$) {
+                  return undef if $self_seen || $state =~ /Z/;
+                  $self_seen = 1;
+                  next;
+                }
+                # /bin/ps was part of this group in its own snapshot, but the
+                # bounded probe has already reaped this exact child. Every
+                # other live PID still prevents a clean completion receipt.
+                if ($pid == $query_pid) { return undef if $query_seen++; next; }
+                if ($state !~ /Z/) { $found = 1; last; }
+              }
+              return undef unless $self_seen;
+              return $found;
+            }
+            my $stop_requested = sub {
+              return 1 if getppid() != $parent_pid;
+              my $cancel = ""; if (open my $handle, "<", $cancel_request_path) { $cancel = <$handle> // ""; close $handle; chomp $cancel; }
+              return 1 if $cancel eq "cancelled";
+              my $request = ""; if (open my $handle, "<", $guardian_stop_file) { $request = <$handle> // ""; close $handle; }
+              my $identity = ""; if (open my $handle, "<", $guardian_state_file) { $identity = <$handle> // ""; close $handle; }
+              return $$ == getpgrp() && $request eq $identity && $identity =~ /^$$ [0-9a-f]{32}\n$/;
+            };
+            my $mark_cleanup_unconfirmed = sub {
+              if (open my $handle, ">", $status_path) {
+                chmod 0600, $status_path;
+                print {$handle} "helper_stop_unconfirmed\n";
+                close $handle;
+              }
+            };
+            my ($resume_reader, $resume_writer, $pre_exec_child);
+            my $clean_group = sub {
+              my ($signal) = @_; return if $stopping; $stopping = 1; $SIG{TERM} = "IGNORE"; $SIG{INT} = "IGNORE"; $SIG{HUP} = "IGNORE";
+              if (defined($resume_writer)) { close $resume_writer; undef $resume_writer; }
+              if (defined($pre_exec_child)) {
+                # This exact child was observed stopped and has not been reaped.
+                # Reap it before the guardian's group-wide shutdown can orphan it.
+                kill "KILL", $pre_exec_child;
+                my $reap_deadline = clock_gettime(CLOCK_MONOTONIC) + 0.25;
+                while (clock_gettime(CLOCK_MONOTONIC) < $reap_deadline) {
+                  my $waited = waitpid($pre_exec_child, WNOHANG);
+                  if ($waited == $pre_exec_child) { undef $pre_exec_child; last; }
+                  last if $waited == -1 && $! != EINTR;
+                  sleep 0.01;
+                }
+              }
+              my $identity = ""; if (open my $handle, "<", $guardian_state_file) { $identity = <$handle> // ""; close $handle; }
+              if ($$ == getpgrp() && $identity eq "$$ $nonce\n") {
+                # Do not fork /bin/ps from a Perl signal handler. TERM gets a
+                # fixed grace period, then the still-owned group is killed.
+                # Perl expresses process-group delivery with a negative signal
+                # and a positive process-group ID.
+                kill "-TERM", $$; sleep 1.0;
+                kill "-KILL", $$;
+              }
+              _exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);
+            };
+            $SIG{TERM} = sub { $clean_group->("TERM"); }; $SIG{INT} = sub { $clean_group->("INT"); }; $SIG{HUP} = sub { $clean_group->("HUP"); };
+            open my $gate, "+<", $gate_path or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            my $flags = fcntl($gate, F_GETFD, 0); defined($flags) && defined(fcntl($gate, F_SETFD, $flags | FD_CLOEXEC)) or do { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET);
+            my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
+            while (1) {
+              if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+              if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
+              last if defined(fcntl($gate, F_SETLK, $record_lock));
+              if ($! != EINTR && $! != EACCES && $! != EAGAIN && $! != EWOULDBLOCK) { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); }
+              sleep 0.05;
+            }
+            my $status = ""; if (open my $handle, "<", $status_path) { $status = <$handle> // ""; close $handle; chomp $status; }
+            if ($status ne "ready" || $stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            close $gate;
+            open STDIN, "<", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            open STDOUT, ">", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            open STDERR, ">", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            pipe(my $exec_status_reader, my $exec_status_writer) or do { open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
+            my $reader_flags = fcntl($exec_status_reader, F_GETFL, 0); defined($reader_flags) && defined(fcntl($exec_status_reader, F_SETFL, $reader_flags | O_NONBLOCK)) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
+            my $exec_flags = fcntl($exec_status_writer, F_GETFD, 0); defined($exec_flags) && defined(fcntl($exec_status_writer, F_SETFD, $exec_flags | FD_CLOEXEC)) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
+            my $guardian_pid = $$;
+            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            pipe($resume_reader, $resume_writer) or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            for my $handle ($resume_reader, $resume_writer) {
+              my $flags = fcntl($handle, F_GETFD, 0);
+              defined($flags) && defined(fcntl($handle, F_SETFD, $flags | FD_CLOEXEC)) or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            }
+            my $resume_flags = fcntl($resume_reader, F_GETFL, 0);
+            defined($resume_flags) && defined(fcntl($resume_reader, F_SETFL, $resume_flags | O_NONBLOCK)) or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
+            my $child = fork(); defined($child) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
+            if ($child == 0) {
+              close $exec_status_reader; close $resume_writer; undef $resume_writer;
+              $SIG{TERM} = "DEFAULT"; $SIG{INT} = "DEFAULT"; $SIG{HUP} = "DEFAULT";
+              kill "STOP", $$ or _exit(127);
+              # A resumed process still needs its guardian's private permission.
+              # An incidental CONT during shutdown must never authorize exec.
+              my $permission = "";
+              my $permission_deadline = clock_gettime(CLOCK_MONOTONIC) + 12;
+              while (clock_gettime(CLOCK_MONOTONIC) < $permission_deadline) {
+                my $cancel = ""; if (open my $handle, "<", $cancel_request_path) { $cancel = <$handle> // ""; close $handle; chomp $cancel; }
+                if ($cancel eq "cancelled" || getppid() != $guardian_pid) { close $resume_reader; syswrite($exec_status_writer, "cancelled\n"); _exit(130); }
+                my $count = sysread($resume_reader, $permission, 1);
+                if (defined($count)) { last; }
+                last unless $! == EINTR || $! == EAGAIN || $! == EWOULDBLOCK;
+                sleep 0.02;
+              }
+              close $resume_reader;
+              if ($permission ne "1") { syswrite($exec_status_writer, "not_authorized\n"); _exit(127); }
+              my $cancel = ""; if (open my $handle, "<", $cancel_request_path) { $cancel = <$handle> // ""; close $handle; chomp $cancel; }
+              if ($cancel eq "cancelled" || getppid() != $guardian_pid) { syswrite($exec_status_writer, "cancelled\n"); _exit(130); }
+              my $status = ""; if (open my $handle, "<", $status_path) { $status = <$handle> // ""; close $handle; chomp $status; }
+              if ($status ne "ready") { syswrite($exec_status_writer, "not_authorized\n"); _exit(127); }
+              exec @command;
+              my $exec_error = "$!\n"; my $write_offset = 0;
+              while ($write_offset < length($exec_error)) {
+                my $written = syswrite($exec_status_writer, $exec_error, length($exec_error) - $write_offset, $write_offset);
+                if (!defined($written)) { next if $! == EINTR; last; }
+                last if $written == 0;
+                $write_offset += $written;
+              }
+              _exit(127);
+            }
+            close $exec_status_writer; close $resume_reader; undef $resume_reader;
+            my $child_stopped = 0; my $stop_deadline = time + 2;
+            while (time < $stop_deadline) {
+              if ($stop_requested->()) { $clean_group->("TERM"); }
+              my $waited = waitpid($child, WNOHANG | WUNTRACED);
+              if ($waited == $child) { $child_stopped = WIFSTOPPED(${^CHILD_ERROR_NATIVE}) ? 1 : 0; last; }
+              if ($waited == -1 && $! != EINTR) { last; }
+              sleep 0.02;
+            }
+            if (!$child_stopped) {
+              open my $failed_exec_status, ">", $exec_status_path;
+              if ($failed_exec_status) { print {$failed_exec_status} "launch_indeterminate\n"; close $failed_exec_status; }
+              $clean_group->("TERM");
+              _exit(127);
+            }
+            $pre_exec_child = $child;
+            open my $group_handle, ">", $process_group_file or do { $clean_group->("TERM"); _exit(127); };
+            chmod 0600, $process_group_file or do { close $group_handle; $clean_group->("TERM"); _exit(127); };
+            print {$group_handle} "$$\n" or do { close $group_handle; $clean_group->("TERM"); _exit(127); };
+            close $group_handle or do { $clean_group->("TERM"); _exit(127); };
+            # Only the stopped CLI needs CONT. Sending it to the running
+            # guardian can overwrite zsh's saved wait status on macOS.
+            my $foreground_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
+            while (1) {
+              if ($stop_requested->()) { $clean_group->("TERM"); }
+              if (clock_gettime(CLOCK_MONOTONIC) >= $foreground_deadline) {
+                $mark_cleanup_unconfirmed->(); $clean_group->("TERM");
+              }
+              my $foreground_group = POSIX::tcgetpgrp(fileno(STDIN));
+              if (!defined($foreground_group) || $foreground_group <= 0) {
+                next if $! == EINTR;
+                $mark_cleanup_unconfirmed->(); $clean_group->("TERM");
+              }
+              last if $foreground_group == $$;
+              sleep 0.02;
+            }
+            if ($stop_requested->()) { $clean_group->("TERM"); }
+            kill "CONT", $child or do { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); };
+            my $permission_written;
+            {
+              local $SIG{PIPE} = "IGNORE";
+              my $write_deadline = clock_gettime(CLOCK_MONOTONIC) + 1;
+              while (clock_gettime(CLOCK_MONOTONIC) < $write_deadline) {
+                $permission_written = syswrite($resume_writer, "1", 1);
+                last if defined($permission_written) || $! != EINTR;
+              }
+            }
+            if (!defined($permission_written) || $permission_written != 1) { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); }
+            close $resume_writer; undef $resume_writer; undef $pre_exec_child;
+            my $exec_error = ""; my $exec_pipe_closed = 0;
+            while (!$exec_pipe_closed) {
+              if ($stop_requested->()) { $clean_group->("TERM"); }
+              my $read_count = sysread($exec_status_reader, my $chunk, 256);
+              if (!defined($read_count)) { next if $! == EINTR; if ($! == EAGAIN || $! == EWOULDBLOCK) { sleep 0.02; next; } $exec_error = "indeterminate"; last; }
+              if ($read_count == 0) { $exec_pipe_closed = 1; last; }
+              $exec_error .= $chunk;
+            }
+            close $exec_status_reader;
+            my $exec_state = "exec_confirmed";
+            my $child_status = 0; my $child_done = 0;
+            if (length($exec_error)) { $exec_state = $exec_error eq "cancelled\n" ? "pre_exec_cancelled" : $exec_error =~ /\n\z/ ? "exec_failed" : "launch_indeterminate"; }
+            else { my $probe = waitpid($child, WNOHANG); if ($probe == $child) { $child_status = $?; $child_done = 1; $exec_state = "launch_indeterminate" if ($child_status & 127); } elsif ($probe == -1 && $! != EINTR) { $exec_state = "launch_indeterminate"; } }
+            my $exec_status_ok = 0;
+            if (open my $exec_status, ">", $exec_status_path) {
+              $exec_status_ok = chmod(0600, $exec_status_path)
+                && print({$exec_status} "$exec_state\n")
+                && close($exec_status);
+              close $exec_status if !$exec_status_ok;
+            }
+            if (!$exec_status_ok) { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(127); }
+            if ($exec_state ne "exec_confirmed") {
+              if ($exec_state eq "pre_exec_cancelled") { $clean_group->("TERM"); _exit(130); }
+              if ($exec_state eq "launch_indeterminate") { $clean_group->("TERM"); _exit(127); }
+              waitpid($child, 0); my $failed_status = $?; my $failed_exit = ($failed_status & 127) ? 128 + ($failed_status & 127) : ($failed_status >> 8); _exit($failed_exit || 127);
+            }
+            while (!$child_done) {
+              if ($stop_requested->()) { $clean_group->("TERM"); }
+              my $waited = waitpid($child, WNOHANG);
+              if ($waited == $child) { $child_status = $?; $child_done = 1; next; }
+              if ($waited == -1 && $! != EINTR) { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(125); }
+              sleep 0.05;
+            }
+            my $exit_code = ($child_status & 127) ? 128 + ($child_status & 127) : ($child_status >> 8);
+            while (1) {
+              if ($stop_requested->()) { $clean_group->("TERM"); }
+              my $has_peers = group_peers();
+              if (!defined($has_peers)) {
+                if (open my $status_handle, ">", $status_path) { print {$status_handle} "process_state_unavailable\n"; close $status_handle; }
+                $clean_group->("TERM");
+                _exit(127);
+              }
+              last unless $has_peers;
+              sleep 0.1;
+            }
+            _exit($exit_code & 255);
+            """#
             command = """
             token_pipe=\(shellQuote(completionTokenPipeURL.path))
             status_file=\(shellQuote(completionStatusPath))
+            cancel_request_file=\(shellQuote(cancellationRequestPath))
+            process_state_executable=\(shellQuote(processStateExecutableURL.path))
             launch_gate="${status_file}.lock"
             watchdog_ready_file="${status_file}.ready"
             process_group_file="${status_file}.process-group"
+            guardian_state_file="${status_file}.guardian"
+            guardian_stop_file="${status_file}.guardian-stop"
             rm -f -- "$process_group_file"
+            rm -f -- "$guardian_state_file"
+            rm -f -- "$guardian_stop_file"
             rm -f -- "$watchdog_ready_file"
-            trap 'rm -f -- "$watchdog_ready_file"' EXIT
+            cleanup_ack_file="${status_file}.stopped"
             completion_token=""
             report_status() { print -r -- "$1" >| "$status_file"; }
+            publish_completed_failure() {
+              local failure
+              [[ -r "$status_file" ]] || return 1
+              failure="$(<"$status_file")"
+              case "$failure" in
+                missing_pipe|pipe_open_failed|handoff_timeout|invalid_handoff|callback_failed|watchdog_start_failed|terminal_foreground_failed) ;;
+                *) return 1 ;;
+              esac
+              # Private per-attempt pathname + original failure bind this ACK.
+              # No later handler/owner may write after this atomic publication.
+              local temporary_ack="${cleanup_ack_file}.tmp"
+              (umask 077; setopt noclobber; print -r -- "helper_stopped_v1:${status_file:t}:${failure}" > "$temporary_ack") || return 1
+              /bin/mv -f -- "$temporary_ack" "$cleanup_ack_file"
+            }
+            cleanup_before_launch() {
+              # This EXIT handler is replaced before the first child is spawned.
+              # No CLI, supervisor or watchdog has existed in this phase.
+              rm -f -- "$watchdog_ready_file"
+              trap - EXIT
+              publish_completed_failure || true
+            }
+            trap 'cleanup_before_launch' EXIT
+            stop_requested() { [[ -r "$cancel_request_file" ]] && [[ "$(<"$cancel_request_file")" == cancelled ]]; }
+            acknowledge_pre_exec_stop() {
+              if [[ -r "$status_file" && "$(<"$status_file")" == ready ]] && stop_requested; then
+                exec 3>&-
+                rm -f -- "$token_pipe" "$watchdog_ready_file"
+                trap - EXIT
+                report_status helper_cancelled
+              fi
+            }
             print -r -- "AI Token Meter: Antigravity login helper started; waiting for the app handoff."
-            if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]]; then
-              if [[ -r "$status_file" ]] && [[ "$(<"$status_file")" == cancelled ]]; then report_status helper_cancelled; fi
+            if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]] || stop_requested; then
+              acknowledge_pre_exec_stop
               exit 130
             fi
             if [[ ! -p "$token_pipe" ]]; then
+              if stop_requested; then acknowledge_pre_exec_stop; exit 130; fi
               print -u2 -r -- "AI Token Meter: handoff pipe is missing. Close this window and start a new one-time quota check."
               report_status missing_pipe
               rm -f -- "$token_pipe"
               exit 124
             fi
             if ! exec 3<> "$token_pipe"; then
+              if stop_requested; then acknowledge_pre_exec_stop; exit 130; fi
               print -u2 -r -- "AI Token Meter: could not open the app handoff pipe. Close this window and start a new one-time quota check."
               report_status pipe_open_failed
               rm -f -- "$token_pipe"
@@ -73,8 +481,8 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
                 handoff_received=1
                 break
               fi
-              if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]]; then
-                if [[ -r "$status_file" ]] && [[ "$(<"$status_file")" == cancelled ]]; then report_status helper_cancelled; fi
+              if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]] || stop_requested; then
+                acknowledge_pre_exec_stop
                 exec 3>&-
                 rm -f -- "$token_pipe"
                 exit 130
@@ -95,17 +503,39 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               report_status invalid_handoff
               exit 127
             fi
-            if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]]; then
-              if [[ -r "$status_file" ]] && [[ "$(<"$status_file")" == cancelled ]]; then report_status helper_cancelled; fi
+            if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]] || stop_requested; then
+              acknowledge_pre_exec_stop
               exit 130
             fi
-            print -r -- "AI Token Meter: handoff received. Starting Antigravity CLI sign-in in this window."
+            print -r -- "AI Token Meter: handoff received. Waiting for the Antigravity CLI process to start."
             callback_base="aitokenmeter://antigravity-login-complete?token=${completion_token}"
             open_command=\(shellQuote(completionOpenExecutableURL.path))
             agy_pid=""
             agy_child_reaped=0
             watchdog_pid=""
+            launch_critical=0
+            deferred_app_cancel=0
+            deferred_cancel_exit=0
+            cleanup_uncertain=0
+            guardian_state_preserved=0
+            timeout_cleanup_confirmed=0
             timed_out=0
+            terminal_shell_pgid=$(/usr/bin/perl -MPOSIX -e 'print POSIX::getpgrp()')
+            terminal_foreground_transferred=0
+
+            set_terminal_foreground() {
+              /usr/bin/perl -MPOSIX -e 'my ($pgid) = @ARGV; open my $tty, "<", "/dev/tty" or exit 1; exit(POSIX::tcsetpgrp(fileno($tty), $pgid) == 0 ? 0 : 1);' "$1"
+            }
+
+            restore_terminal_foreground() {
+              for _ in {1..3}; do
+                if /usr/bin/perl -MPOSIX -e 'my ($pgid) = @ARGV; open my $tty, "<", "/dev/tty" or exit 1; local $SIG{TTOU} = "IGNORE"; exit(POSIX::tcsetpgrp(fileno($tty), $pgid) == 0 ? 0 : 1);' "$terminal_shell_pgid"; then
+                  return 0
+                fi
+                /bin/sleep 0.1 || true
+              done
+              return 1
+            }
 
             send_receipt() {
               local result="$1"
@@ -118,87 +548,223 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               return 0
             }
 
-            owned_group_exists() {
-              [[ -n "$agy_pid" ]] && /usr/bin/perl -e 'exit(kill(0, -$ARGV[0]) ? 0 : 1)' "$agy_pid"
+            process_state() {
+              /usr/bin/perl -e \(shellQuote(Self.boundedProcessStateProbeProgram)) "$process_state_executable" "$@" 2>/dev/null
+            }
+
+            owned_supervisor_state() {
+              local observed_state query_status
+              if observed_state="$(process_state --owned-query-completion -o stat= -p "$agy_pid")"; then
+                print -r -- "$observed_state"
+                return 0
+              else
+                query_status=$?
+              fi
+              # Only the complete, empty exit1 query may use kernel absence for our child.
+              # Unknown query lifecycle, timeout and every other failure stay unsafe.
+              [[ "$query_status" == 1 ]] || return 1
+              /usr/bin/perl -MErrno=ESRCH -e 'my ($pid) = @ARGV; exit 1 unless $pid =~ /^[1-9][0-9]*$/; local $SIG{ALRM} = sub { exit 1 }; alarm 1; local $! = 0; my $matched = kill 0, $pid; my $errno = 0 + $!; exit 1 if $matched; exit($errno == ESRCH ? 0 : 1);' "$agy_pid"
+            }
+
+            process_group_is_empty() {
+              # ps exits nonzero for a nonexistent group. The kernel's ESRCH
+              # is the positive absence proof; every other result stays unsafe.
+              /usr/bin/perl -MErrno=ESRCH -e 'my ($pgid) = @ARGV; exit 1 unless $pgid =~ /^[1-9][0-9]*$/; my $matched = kill "-0", $pgid; exit 1 if $matched; exit($! == ESRCH ? 0 : 1);' "$agy_pid"
             }
 
             watchdog_is_running() {
               [[ -n "$watchdog_pid" ]] && kill -0 "$watchdog_pid" 2>/dev/null || return 1
               local watchdog_state
-              watchdog_state=$(/bin/ps -o stat= -p "$watchdog_pid" 2>/dev/null)
+              watchdog_state="$(process_state -o stat= -p "$watchdog_pid")" || return 1
               [[ -n "$watchdog_state" && "$watchdog_state" != *Z* ]]
             }
 
-            stop_owned_processes() {
-              if [[ -n "$agy_pid" ]]; then
-                # Before the bootstrapper calls setpgid, only its unreaped
-                # direct PID is guaranteed to be ours. After wait returns,
-                # never signal that PID again; it may have been reused.
-                if owned_group_exists; then
-                  /usr/bin/perl -e 'kill "TERM", -$ARGV[0]' "$agy_pid" 2>/dev/null || true
-                fi
-                if (( ! agy_child_reaped )); then
-                  /usr/bin/perl -e 'kill "TERM", $ARGV[0]' "$agy_pid" 2>/dev/null || true
-                fi
-                /bin/sleep 1
-                if owned_group_exists; then
-                  /usr/bin/perl -e 'kill "KILL", -$ARGV[0]' "$agy_pid" 2>/dev/null || true
-                fi
-                if (( ! agy_child_reaped )); then
-                  /usr/bin/perl -e 'kill "KILL", $ARGV[0]' "$agy_pid" 2>/dev/null || true
-                fi
-              fi
-              if [[ -n "$agy_pid" ]] && (( ! agy_child_reaped )); then
-                wait "$agy_pid" 2>/dev/null || true
-                agy_child_reaped=1
-              fi
-              if [[ -n "$watchdog_pid" ]] && kill -0 "$watchdog_pid" 2>/dev/null; then
+            stop_watchdog() {
+              [[ -n "$watchdog_pid" ]] || return 0
+              # The watchdog is our unreaped direct child. Ignore a late timeout
+              # signal once shutdown begins, then reap it with a bounded TERM/KILL.
+              trap '' USR1
+              if kill -0 "$watchdog_pid" 2>/dev/null; then
                 kill -TERM "$watchdog_pid" 2>/dev/null || true
-                wait "$watchdog_pid" 2>/dev/null || true
+                for _ in {1..10}; do
+                  if ! kill -0 "$watchdog_pid" 2>/dev/null; then break; fi
+                  local watchdog_state
+                  if watchdog_state="$(process_state -o stat= -p "$watchdog_pid")"; then
+                    if [[ -z "$watchdog_state" || "$watchdog_state" == *Z* ]]; then break; fi
+                  fi
+                  /bin/sleep 0.1 || true
+                done
+                if kill -0 "$watchdog_pid" 2>/dev/null; then
+                  kill -KILL "$watchdog_pid" 2>/dev/null || true
+                fi
+              fi
+              wait "$watchdog_pid" 2>/dev/null || true
+              watchdog_pid=""
+            }
+
+            stop_owned_processes() {
+              cleanup_uncertain=0
+              if [[ -n "$agy_pid" ]]; then
+                if (( ! agy_child_reaped )); then
+                  local supervisor_stopped=0
+                  local identity_requested=0
+                  for _ in {1..35}; do
+                    local supervisor_state
+                    if ! supervisor_state="$(owned_supervisor_state)"; then
+                      cleanup_uncertain=1
+                      break
+                    fi
+                    if [[ -z "$supervisor_state" || "$supervisor_state" == *Z* ]]; then supervisor_stopped=1; break; fi
+                    if (( !identity_requested )) && [[ -r "$guardian_state_file" ]]; then
+                      guardian_identity="$(<"$guardian_state_file")"
+                      guardian_identity_pid="${guardian_identity%% *}"
+                      if [[ "$guardian_identity_pid" == "$agy_pid" ]]; then
+                        print -r -- "$guardian_identity" >| "$guardian_stop_file"
+                        identity_requested=1
+                      else
+                        report_status guardian_identity_mismatch
+                        cleanup_uncertain=1
+                        break
+                      fi
+                    fi
+                    # .cancel and parent-loss are also observed by the actual
+                    # owner. No identity means no arbitrary PID/PGID signal.
+                    /bin/sleep 0.1 || true
+                  done
+                  if (( !supervisor_stopped )); then cleanup_uncertain=1; fi
+                  if (( cleanup_uncertain )); then
+                    guardian_state_preserved=1
+                    report_status helper_stop_unconfirmed
+                    print -u2 -r -- "AI Token Meter: Antigravity cleanup is unconfirmed; preserving guardian state."
+                    return 1
+                  fi
+                  wait "$agy_pid" 2>/dev/null || true
+                  agy_child_reaped=1
+                  if [[ -r "$status_file" && "$(<"$status_file")" == helper_stop_unconfirmed ]]; then
+                    cleanup_uncertain=1
+                  fi
+                fi
+                if ! process_group_is_empty; then
+                  cleanup_uncertain=1
+                fi
+                if (( cleanup_uncertain )); then
+                  guardian_state_preserved=1
+                  report_status helper_stop_unconfirmed
+                  print -u2 -r -- "AI Token Meter: the Antigravity process group may still be running; preserving guardian state."
+                  return 1
+                fi
+              fi
+              stop_watchdog
+              if (( terminal_foreground_transferred )); then
+                if restore_terminal_foreground; then
+                  terminal_foreground_transferred=0
+                else
+                  print -u2 -r -- "AI Token Meter: could not restore the Terminal foreground process group."
+                  report_status terminal_foreground_restore_failed
+                  guardian_state_preserved=1
+                  return 1
+                fi
               fi
               agy_pid=""
               agy_child_reaped=0
               watchdog_pid=""
+              return 0
             }
 
             cleanup_watchdog() {
-              if [[ -n "$watchdog_pid" ]] && kill -0 "$watchdog_pid" 2>/dev/null; then
-                kill -TERM "$watchdog_pid" 2>/dev/null || true
-                wait "$watchdog_pid" 2>/dev/null || true
+              stop_watchdog
+              if (( terminal_foreground_transferred )); then
+                if restore_terminal_foreground; then
+                  terminal_foreground_transferred=0
+                else
+                  print -u2 -r -- "AI Token Meter: could not restore the Terminal foreground process group during cleanup."
+                  report_status terminal_foreground_restore_failed
+                  guardian_state_preserved=1
+                  return 1
+                fi
               fi
               watchdog_pid=""
               rm -f -- "$watchdog_ready_file"
-              rm -f -- "$process_group_file"
+              if (( !guardian_state_preserved )); then
+                rm -f -- "$process_group_file"
+                rm -f -- "$guardian_state_file"
+                rm -f -- "$guardian_stop_file"
+              fi
+              return 0
+            }
+
+            finalize_helper_exit() {
+              trap '' HUP INT TERM USR1 USR2
+              cleanup_watchdog || return 1
+              trap - EXIT
+              # Every successful owned-process shutdown clears agy_pid. An
+              # unreaped/unknown guardian or failed foreground restore cannot ACK.
+              (( !guardian_state_preserved && !terminal_foreground_transferred )) || return 1
+              [[ -z "$agy_pid" && -z "$watchdog_pid" ]] || return 1
+              publish_completed_failure || true
             }
 
             cancel_login() {
               local exit_code="$1"
-              trap - HUP INT TERM USR1
-              stop_owned_processes
-              send_receipt cancelled "$exit_code"
+              trap '' HUP INT TERM USR1 USR2
+              if stop_owned_processes && cleanup_watchdog; then
+                trap - EXIT
+                send_receipt cancelled "$exit_code"
+              else
+                cleanup_watchdog || true
+                trap - EXIT
+                report_status helper_stop_unconfirmed
+              fi
               exit "$exit_code"
             }
 
             cancel_from_app() {
-              trap - HUP INT TERM USR1 USR2
-              stop_owned_processes
-              if [[ -r "$status_file" ]] && [[ "$(<"$status_file")" == cancelled ]]; then
+              trap '' HUP INT TERM USR1 USR2
+              if stop_owned_processes && cleanup_watchdog; then
+                # All direct owners are reaped and EXIT cleanup is complete.
+                # No supervisor or EXIT handler can publish a later response.
+                trap - EXIT
                 report_status helper_cancelled
+              else
+                cleanup_watchdog || true
+                trap - EXIT
+                report_status helper_stop_unconfirmed
               fi
               exit 130
             }
 
+            request_terminal_cancel() {
+              if (( launch_critical )); then
+                if (( deferred_cancel_exit == 0 )); then deferred_cancel_exit="$1"; fi
+                return
+              fi
+              if stop_requested; then cancel_from_app; else cancel_login "$1"; fi
+            }
+
+            request_app_cancel() {
+              if (( launch_critical )); then deferred_app_cancel=1; return; fi
+              cancel_from_app
+            }
+
+            finish_launch_claim() {
+              launch_critical=0
+              if (( deferred_app_cancel )) || stop_requested; then cancel_from_app; fi
+              if (( deferred_cancel_exit )); then cancel_login "$deferred_cancel_exit"; fi
+            }
+
             mark_timeout() { timed_out=1; }
 
-            trap 'cancel_login 129' HUP
-            trap 'cancel_login 130' INT
-            trap 'cancel_login 143' TERM
+            trap 'request_terminal_cancel 129' HUP
+            trap 'request_terminal_cancel 130' INT
+            trap 'request_terminal_cancel 143' TERM
             trap 'mark_timeout' USR1
-            trap 'cancel_from_app' USR2
-            trap 'cleanup_watchdog' EXIT
+            trap 'request_app_cancel' USR2
+            trap 'finalize_helper_exit' EXIT
 
-            \(shellQuote(watchdogExecutableURL.path)) -e 'use Fcntl qw(:DEFAULT); use Time::HiRes qw(time); my ($parent_pid, $seconds, $status_file, $ready_file, $process_group_file, $launch_gate) = @ARGV; my $read_status = sub { my $value = ""; if (open my $handle, "<", $status_file) { $value = <$handle> // ""; close $handle; chomp $value; } return $value; }; my $finish_deadline = sub { return if getppid() != $parent_pid; open my $gate, "+<", $launch_gate or do { kill "USR2", $parent_pid; return; }; my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET); my $locked = 0; for (1..20) { if (defined(fcntl($gate, F_SETLK, $record_lock))) { $locked = 1; last; } if ($read_status->() ne "ready") { close $gate; kill "USR2", $parent_pid; return; } select undef, undef, undef, 0.05; } if (!$locked) { close $gate; kill "USR1", $parent_pid if getppid() == $parent_pid; return; } if ($read_status->() ne "ready") { kill "USR2", $parent_pid; } else { kill "USR1", $parent_pid if getppid() == $parent_pid; } close $gate; }; my $launch_deadline = time + 10; while (1) { exit 0 if getppid() != $parent_pid; if ($read_status->() ne "ready") { kill "USR2", $parent_pid; exit 0; } if (!-e $ready_file) { open my $ready_handle, ">", $ready_file or die "watchdog ready file unavailable"; close $ready_handle; } last if -e $process_group_file; if (time >= $launch_deadline) { $finish_deadline->(); exit 0; } select undef, undef, undef, 0.1; } my $deadline = time + $seconds; while (time < $deadline) { exit 0 if getppid() != $parent_pid; if ($read_status->() ne "ready") { kill "USR2", $parent_pid; exit 0; } select undef, undef, undef, 0.1; } $finish_deadline->();' "$$" \(loginTimeoutSeconds) "$status_file" "$watchdog_ready_file" "$process_group_file" "$launch_gate" &
+            launch_critical=1
+            \(shellQuote(watchdogExecutableURL.path)) -e 'use Fcntl qw(:DEFAULT); use Time::HiRes qw(time); my ($parent_pid, $seconds, $status_file, $cancel_request_file, $ready_file, $process_group_file, $launch_gate) = @ARGV; my $read_status = sub { my $request = ""; if (open my $request_handle, "<", $cancel_request_file) { $request = <$request_handle> // ""; close $request_handle; chomp $request; } return "cancelled" if $request eq "cancelled"; my $value = ""; if (open my $handle, "<", $status_file) { $value = <$handle> // ""; close $handle; chomp $value; } return $value; }; my $finish_deadline = sub { return if getppid() != $parent_pid; open my $gate, "+<", $launch_gate or do { my $state = $read_status->(); kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed"; return; }; my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET); my $locked = 0; for (1..20) { if (defined(fcntl($gate, F_SETLK, $record_lock))) { $locked = 1; last; } my $state = $read_status->(); if ($state ne "ready") { close $gate; kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed"; return; } select undef, undef, undef, 0.05; } if (!$locked) { close $gate; kill "USR1", $parent_pid if getppid() == $parent_pid; return; } my $state = $read_status->(); if ($state ne "ready") { kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed"; } else { kill "USR1", $parent_pid if getppid() == $parent_pid; } close $gate; }; my $launch_deadline = time + 10; while (1) { exit 0 if getppid() != $parent_pid; my $state = $read_status->(); if ($state ne "ready") { kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed"; exit 0; } if (!-e $ready_file) { open my $ready_handle, ">", $ready_file or die "watchdog ready file unavailable"; close $ready_handle; } last if -e $process_group_file; if (time >= $launch_deadline) { $finish_deadline->(); exit 0; } select undef, undef, undef, 0.1; } my $deadline = time + $seconds; while (time < $deadline) { exit 0 if getppid() != $parent_pid; my $state = $read_status->(); if ($state ne "ready") { kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed"; exit 0; } select undef, undef, undef, 0.1; } $finish_deadline->();' "$$" \(loginTimeoutSeconds) "$status_file" "$cancel_request_file" "$watchdog_ready_file" "$process_group_file" "$launch_gate" &
             watchdog_pid=$!
+            finish_launch_claim
             watchdog_ready=0
             for _ in {1..50}; do
               if [[ -f "$watchdog_ready_file" ]] && watchdog_is_running; then
@@ -215,47 +781,114 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               exit 127
             fi
 
-            if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]]; then
-              if [[ -r "$status_file" ]] && [[ "$(<"$status_file")" == cancelled ]]; then report_status helper_cancelled; fi
-              stop_owned_processes
+            if [[ ! -r "$status_file" ]] || [[ "$(<"$status_file")" != ready ]] || stop_requested; then
+              if stop_requested; then cancel_from_app; fi
+              stop_owned_processes || true
               exit 130
             fi
 
-            /usr/bin/perl -MFcntl=:DEFAULT -MPOSIX -e 'my ($gate_path, $status_path, $process_group_file, @command) = @ARGV; open my $gate, "+<", $gate_path or exit 130; my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET); defined(fcntl($gate, F_SETLKW, $record_lock)) or exit 130; my $status = ""; if (open my $status_handle, "<", $status_path) { $status = <$status_handle> // ""; close $status_handle; chomp $status; } if ($status ne "ready") { if ($status eq "cancelled" && open my $ack, ">", $status_path) { print {$ack} "helper_cancelled\\n"; close $ack; } exit 130; } POSIX::setpgid(0, 0) == 0 or die "setpgid failed"; open my $group_handle, ">", $process_group_file or die "process group marker unavailable"; chmod 0600, $process_group_file or die "process group marker permissions unavailable"; print {$group_handle} "$$\\n" or die "process group marker write failed"; close $group_handle or die "process group marker close failed"; my $flags = fcntl($gate, F_GETFD, 0); defined($flags) && defined(fcntl($gate, F_SETFD, $flags | FD_CLOEXEC)) or die "gate close-on-exec failed"; exec @command or die $!;' "$launch_gate" "$status_file" "$process_group_file" \(shellQuote(executableURL.path)) &
+            exec_status_file=\(shellQuote(completionExecStatusPath))
+            print -r -- "pending" >| "$exec_status_file"
+            chmod 600 "$exec_status_file"
+            launch_critical=1
+            /usr/bin/perl -MFcntl=:DEFAULT -MPOSIX -MTime::HiRes=time,sleep -e \(shellQuote(supervisorProgram)) "$launch_gate" "$status_file" "$cancel_request_file" "$exec_status_file" "$process_group_file" "$guardian_state_file" "$guardian_stop_file" "$process_state_executable" "$$" \(shellQuote(executableURL.path)) </dev/tty >/dev/tty 2>/dev/tty &
             agy_pid=$!
+            finish_launch_claim
 
             agy_exit_code=0
             while (( ! timed_out )); do
-              agy_state=$(/bin/ps -o stat= -p "$agy_pid" 2>/dev/null)
+              if (( !terminal_foreground_transferred )) && [[ -r "$process_group_file" ]]; then
+                process_group_id="$(<"$process_group_file")"
+                terminal_foreground_transferred=1
+                if [[ "$process_group_id" != "$agy_pid" ]] || ! set_terminal_foreground "$process_group_id"; then
+                  print -u2 -r -- "AI Token Meter: could not give the Antigravity CLI the Terminal foreground."
+                  report_status terminal_foreground_failed
+                  stop_owned_processes
+                  exit 127
+                fi
+                terminal_foreground_transferred=1
+                for _ in {1..50}; do
+                  exec_status="$(<"$exec_status_file")"
+                  [[ "$exec_status" == exec_confirmed || "$exec_status" == exec_failed || "$exec_status" == launch_indeterminate ]] && break
+                  /bin/sleep 0.02 || true
+                done
+                if [[ "$exec_status" == exec_confirmed ]]; then
+                  print -r -- "AI Token Meter: Antigravity CLI process started; sign-in may still be in progress."
+                elif [[ "$exec_status" == exec_failed ]]; then
+                  print -u2 -r -- "AI Token Meter: the Antigravity CLI could not be started."
+                elif [[ "$exec_status" == launch_indeterminate ]]; then
+                  print -u2 -r -- "AI Token Meter: Antigravity CLI startup could not be confirmed."
+                fi
+              fi
+              if [[ -r "$status_file" && ( "$(<"$status_file")" == process_state_unavailable || "$(<"$status_file")" == helper_stop_unconfirmed ) ]]; then
+                guardian_state_preserved=1
+                if [[ "$(<"$status_file")" == helper_stop_unconfirmed ]]; then
+                  # Give our unreaped guardian its bounded owned cleanup before
+                  # exiting can orphan a still-stopped pre-exec child.
+                  stop_owned_processes || true
+                fi
+                print -u2 -r -- "AI Token Meter: process cleanup could not be confirmed; preserving guardian state."
+                exit 127
+              fi
+              if ! agy_state="$(owned_supervisor_state)"; then
+                print -u2 -r -- "AI Token Meter: could not confirm the Antigravity process state."
+                if stop_owned_processes; then
+                  report_status process_state_unavailable
+                  send_receipt failure 127
+                else
+                  report_status helper_stop_unconfirmed
+                fi
+                exit 127
+              fi
               if [[ -z "$agy_state" || "$agy_state" == *Z* ]]; then
                 wait "$agy_pid"
                 agy_exit_code=$?
                 agy_child_reaped=1
+                if stop_requested || [[ -r "$exec_status_file" && "$(<"$exec_status_file")" == pre_exec_cancelled ]]; then cancel_from_app; fi
+                if [[ -r "$exec_status_file" && "$(<"$exec_status_file")" == launch_gate_timeout ]]; then timed_out=1; fi
+                if [[ -r "$status_file" && "$(<"$status_file")" == helper_stop_unconfirmed ]] || ! process_group_is_empty; then
+                  guardian_state_preserved=1
+                  report_status helper_stop_unconfirmed
+                  print -u2 -r -- "AI Token Meter: process cleanup could not be confirmed; preserving guardian state."
+                  exit 127
+                fi
                 break
               fi
               /bin/sleep 0.1 || true
             done
-            # The CLI can exit while descendants remain in its process group.
-            # Keep the watchdog alive until that whole owned group is gone.
-            while owned_group_exists && (( ! timed_out )); do
-              /bin/sleep 0.1 || true
-            done
+            # The supervisor remains the live process-group guardian until the
+            # CLI and every same-group descendant have exited.
             if (( timed_out )); then
               # USR1 may interrupt wait before the watchdog's delayed KILL. Finish
               # process-group cleanup before stopping the watchdog.
-              stop_owned_processes
+              if stop_owned_processes; then
+                timeout_cleanup_confirmed=1
+              else
+                timeout_cleanup_confirmed=0
+              fi
             else
+              if (( terminal_foreground_transferred )); then
+                if restore_terminal_foreground; then
+                  terminal_foreground_transferred=0
+                else
+                  print -u2 -r -- "AI Token Meter: could not restore the Terminal foreground process group."
+                  report_status terminal_foreground_restore_failed
+                  send_receipt failure 127
+                  exit 127
+                fi
+              fi
               agy_pid=""
             fi
-            if [[ -n "$watchdog_pid" ]] && kill -0 "$watchdog_pid" 2>/dev/null; then
-              kill -TERM "$watchdog_pid" 2>/dev/null || true
-              wait "$watchdog_pid" 2>/dev/null || true
-              watchdog_pid=""
-            fi
+            stop_watchdog
 
             if (( timed_out )); then
-              print -u2 -r -- "AI Token Meter: Antigravity sign-in timed out and its login process was stopped."
-              send_receipt timeout 124
+              if (( timeout_cleanup_confirmed )); then
+                print -u2 -r -- "AI Token Meter: Antigravity sign-in timed out and its login process was stopped."
+                send_receipt timeout 124
+              else
+                print -u2 -r -- "AI Token Meter: Antigravity sign-in timed out; process cleanup is unconfirmed."
+                report_status helper_stop_unconfirmed
+              fi
               exit 124
             elif (( agy_exit_code == 0 )); then
               print -r -- "AI Token Meter: Antigravity CLI sign-in finished. Sending the result to the app."

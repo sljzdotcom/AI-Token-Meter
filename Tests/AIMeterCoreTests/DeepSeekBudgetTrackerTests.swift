@@ -22,8 +22,9 @@ struct DeepSeekBudgetTrackerTests {
         let defaults = isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let tracker = DeepSeekBudgetTracker(defaults: defaults, keyPrefix: "test")
-        let august = Date(timeIntervalSince1970: 1_787_875_200)
-        let september = Date(timeIntervalSince1970: 1_788_220_800)
+        // Both observations must be in distinct local months, including west of UTC.
+        let august = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 28, hour: 12))!
+        let september = Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 1, hour: 12))!
 
         _ = tracker.record(balance: 100, currency: .cny, at: august)
         #expect(tracker.record(balance: 90, currency: .cny, at: august) == 10)

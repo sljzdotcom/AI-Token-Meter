@@ -1,0 +1,206 @@
+[
+  {
+    "id": "startup-diagnostic",
+    "phase": "startup",
+    "input": "diagnostic",
+    "expected_signals": []
+  },
+  {
+    "id": "startup-stop-unconfirmed",
+    "phase": "startup",
+    "input": "stop-unconfirmed",
+    "expected_signals": []
+  },
+  {
+    "id": "startup-cancel",
+    "phase": "startup",
+    "input": "cancel",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "startup-empty",
+    "phase": "startup",
+    "input": "empty",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "startup-unknown",
+    "phase": "startup",
+    "input": "unknown",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "running-diagnostic",
+    "phase": "running",
+    "input": "diagnostic",
+    "expected_signals": []
+  },
+  {
+    "id": "running-stop-unconfirmed",
+    "phase": "running",
+    "input": "stop-unconfirmed",
+    "expected_signals": []
+  },
+  {
+    "id": "running-cancel",
+    "phase": "running",
+    "input": "cancel",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "running-empty",
+    "phase": "running",
+    "input": "empty",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "running-unknown",
+    "phase": "running",
+    "input": "unknown",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-unlocked-diagnostic",
+    "phase": "deadline-unlocked",
+    "input": "diagnostic",
+    "expected_signals": []
+  },
+  {
+    "id": "deadline-unlocked-stop-unconfirmed",
+    "phase": "deadline-unlocked",
+    "input": "stop-unconfirmed",
+    "expected_signals": []
+  },
+  {
+    "id": "deadline-unlocked-cancel",
+    "phase": "deadline-unlocked",
+    "input": "cancel",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-unlocked-empty",
+    "phase": "deadline-unlocked",
+    "input": "empty",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-unlocked-unknown",
+    "phase": "deadline-unlocked",
+    "input": "unknown",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-contended-diagnostic",
+    "phase": "deadline-contended",
+    "input": "diagnostic",
+    "expected_signals": []
+  },
+  {
+    "id": "deadline-contended-stop-unconfirmed",
+    "phase": "deadline-contended",
+    "input": "stop-unconfirmed",
+    "expected_signals": []
+  },
+  {
+    "id": "deadline-contended-cancel",
+    "phase": "deadline-contended",
+    "input": "cancel",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-contended-empty",
+    "phase": "deadline-contended",
+    "input": "empty",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-contended-unknown",
+    "phase": "deadline-contended",
+    "input": "unknown",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-missing-gate-diagnostic",
+    "phase": "deadline-missing-gate",
+    "input": "diagnostic",
+    "expected_signals": []
+  },
+  {
+    "id": "deadline-missing-gate-stop-unconfirmed",
+    "phase": "deadline-missing-gate",
+    "input": "stop-unconfirmed",
+    "expected_signals": []
+  },
+  {
+    "id": "deadline-missing-gate-cancel",
+    "phase": "deadline-missing-gate",
+    "input": "cancel",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-missing-gate-empty",
+    "phase": "deadline-missing-gate",
+    "input": "empty",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-missing-gate-unknown",
+    "phase": "deadline-missing-gate",
+    "input": "unknown",
+    "expected_signals": [
+      "USR2"
+    ]
+  },
+  {
+    "id": "deadline-unlocked-ready",
+    "phase": "deadline-unlocked",
+    "input": "ready",
+    "expected_signals": [
+      "USR1"
+    ]
+  },
+  {
+    "id": "deadline-contended-ready",
+    "phase": "deadline-contended",
+    "input": "ready",
+    "expected_signals": [
+      "USR1"
+    ]
+  },
+  {
+    "id": "deadline-missing-gate-ready",
+    "phase": "deadline-missing-gate",
+    "input": "ready",
+    "expected_signals": [
+      "USR2"
+    ]
+  }
+]

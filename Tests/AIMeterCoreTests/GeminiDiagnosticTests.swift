@@ -66,6 +66,23 @@ struct GeminiDiagnosticTests {
         #expect(!summary.contains("https://"))
     }
 
+    @Test func summarySeparatesCLIExecConfirmationFromLoginSuccess() async {
+        let store = GeminiDiagnosticStore(fileURL: nil)
+        await store.record(GeminiDiagnosticRecord(
+            recordedAt: Date(timeIntervalSince1970: 1_236),
+            stage: .launch,
+            category: .execConfirmed,
+            durationMilliseconds: 0,
+            outputTruncated: false
+        ))
+
+        let summary = await store.summary(pauseReason: .unknown, lastQuotaAt: nil)
+
+        #expect(summary.contains("stage=launch result=execConfirmed"))
+        #expect(summary.contains("refreshPaused=true reason=unknown"))
+        #expect(!summary.contains("stage=login result=succeeded"))
+    }
+
     @Test func summarySanitizesBuildMetadataBeforeCopying() async {
         let store = GeminiDiagnosticStore(fileURL: nil)
 

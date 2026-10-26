@@ -25,7 +25,24 @@ final class DeepSeekWebSession: NSObject, WKNavigationDelegate, WKScriptMessageH
     private(set) var state: SyncState
     private(set) var history: DeepSeekUsageHistory?
     @ObservationIgnored var onHistoryChange: ((DeepSeekUsageHistory) -> Void)?
-    @ObservationIgnored let webView: WKWebView
+    @ObservationIgnored private var webViewStorage: WKWebView?
+    var webView: WKWebView {
+        if let webViewStorage { return webViewStorage }
+        let controller = WKUserContentController()
+        controller.addUserScript(WKUserScript(
+            source: Self.responseBridgeScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        configuration.userContentController = controller
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        controller.add(self, name: "deepSeekUsage")
+        view.navigationDelegate = self
+        webViewStorage = view
+        return view
+    }
 
     var shouldPauseAutoHide: Bool {
         switch state {
@@ -41,25 +58,13 @@ final class DeepSeekWebSession: NSObject, WKNavigationDelegate, WKScriptMessageH
         history = cached
         state = cached == nil ? .signedOut : .stale("Showing cached usage")
 
-        let controller = WKUserContentController()
-        controller.addUserScript(WKUserScript(
-            source: Self.responseBridgeScript,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        ))
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        configuration.userContentController = controller
-        webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
-        controller.add(self, name: "deepSeekUsage")
-        webView.navigationDelegate = self
     }
 
     isolated deinit {
         staleTask?.cancel()
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: "deepSeekUsage")
-        webView.navigationDelegate = nil
+        webViewStorage?.configuration.userContentController.removeScriptMessageHandler(forName: "deepSeekUsage")
+        webViewStorage?.navigationDelegate = nil
     }
 
     func syncIfNeeded(force: Bool = false) {

@@ -119,6 +119,8 @@
 | [显示字体目录扩充](development/2026-09-01-display-font-catalog-expansion.md) | 八项字体、安装检测、别名、回退与真实 Settings 验收 |
 | [贡献指南](../CONTRIBUTING.md) | 分支、提交、测试、文档和评审要求 |
 | [安全报告](../SECURITY.md) | 私下报告漏洞的要求与范围 |
+| [v0.10.10 Release notes](releases/v0.10.10.md) | Antigravity 单次登录启动与清理确认修复 |
+| [登录启动与清理开发记录](development/2026-10-26-antigravity-login-ownership.md) | 717 项隔离原生验证及剩余发布门禁 |
 | [版本变更](../CHANGELOG.md) | 已发布版本和未发布改动 |
 
 ## 历史设计记录
