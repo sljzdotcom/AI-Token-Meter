@@ -11,12 +11,36 @@ public struct Code0StorageLocation: Equatable, Sendable {
         guard let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             throw Code0ProfileLeaseError.unavailable
         }
-        return Self(applicationSupportRoot: root)
+        return try Self(applicationSupportRoot: root)
     }
-    public init(applicationSupportRoot: URL) {
-        directoryURL = applicationSupportRoot.resolvingSymlinksInPath()
-            .appendingPathComponent("com.millerpan.aitokenmeter", isDirectory: true)
-            .appendingPathComponent("Code0", isDirectory: true)
+    public init(applicationSupportRoot: URL) throws {
+        guard applicationSupportRoot.isFileURL, applicationSupportRoot.path.hasPrefix("/"),
+              !applicationSupportRoot.path.utf8.contains(0) else { throw Code0ProfileLeaseError.unsafePath }
+        var ancestor = applicationSupportRoot.standardizedFileURL
+        var missing: [String] = []
+        while true {
+            if let resolved = realpath(ancestor.path, nil) {
+                let physicalPath = String(cString: resolved)
+                free(resolved)
+                var info = stat()
+                guard lstat(physicalPath, &info) == 0,
+                      info.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR) else { throw Code0ProfileLeaseError.unsafePath }
+                var anchor = URL(fileURLWithPath: physicalPath, isDirectory: true)
+                for component in missing.reversed() { anchor.appendPathComponent(component, isDirectory: true) }
+                directoryURL = anchor.appendingPathComponent("com.millerpan.aitokenmeter", isDirectory: true)
+                    .appendingPathComponent("Code0", isDirectory: true)
+                return
+            }
+            // Only missing suffixes may be appended to a verified physical
+            // ancestor. Permission, non-directory and all other errors fail closed.
+            guard errno == ENOENT else { throw Code0ProfileLeaseError.unsafePath }
+            let parent = ancestor.deletingLastPathComponent()
+            let component = ancestor.lastPathComponent
+            guard parent.path != ancestor.path, !component.isEmpty,
+                  component != ".", component != ".." else { throw Code0ProfileLeaseError.unsafePath }
+            missing.append(component)
+            ancestor = parent
+        }
     }
 }
 

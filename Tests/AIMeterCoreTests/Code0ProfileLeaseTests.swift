@@ -6,10 +6,32 @@ import Testing
 @Suite("Code0 owned OS profile lease", .serialized)
 @MainActor
 struct Code0ProfileLeaseTests {
+    @Test func missingAnchorUsesVerifiedPhysicalAncestorWithoutCreatingDirectories() throws {
+        let root = temporaryLeaseRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let ancestor = root.deletingLastPathComponent()
+        let physical = try #require(realpath(ancestor.path, nil))
+        let physicalPath = String(cString: physical)
+        free(physical)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
+        let expected = URL(fileURLWithPath: physicalPath, isDirectory: true)
+            .appendingPathComponent(root.lastPathComponent, isDirectory: true)
+            .appendingPathComponent("com.millerpan.aitokenmeter", isDirectory: true)
+            .appendingPathComponent("Code0", isDirectory: true)
+        #expect(location.directoryURL.path == expected.path)
+        #expect(!FileManager.default.fileExists(atPath: root.path))
+        let regular = FileManager.default.temporaryDirectory.appendingPathComponent("Code0AnchorFile-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: regular) }
+        try Data("file-not-directory".utf8).write(to: regular)
+        #expect(throws: Code0ProfileLeaseError.unsafePath) {
+            _ = try Code0StorageLocation(applicationSupportRoot: regular.appendingPathComponent("missing"))
+        }
+    }
+
     @Test func independentLeaseHandlesContendAndReleaseWithoutUnlinkingLock() throws {
         let root = temporaryLeaseRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
         let first = Code0ProfileLease(location: location)
         let second = Code0ProfileLease(location: location)
         defer { first.release(); second.release() }
@@ -40,7 +62,7 @@ struct Code0ProfileLeaseTests {
     func replacementWhileHeldRevokesOldAuthorityAndCannotTouchReplacement(replaceDirectory: Bool) throws {
         let root = temporaryLeaseRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
         let oldLease = Code0ProfileLease(location: location)
         let newLease = Code0ProfileLease(location: location)
         defer { oldLease.release(); newLease.release() }
@@ -89,7 +111,7 @@ struct Code0ProfileLeaseTests {
     @Test func existingKernelFlockIsBusyWithoutDeletingOrChangingTheOwnerFile() throws {
         let root = temporaryLeaseRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
         try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let descriptor = open(location.lockURL.path, O_CREAT | O_EXCL | O_RDWR | O_NOFOLLOW, mode_t(0o600))
         try #require(descriptor >= 0)
@@ -108,7 +130,7 @@ struct Code0ProfileLeaseTests {
         for linkDirectory in [true, false] {
             let root = temporaryLeaseRoot()
             defer { try? FileManager.default.removeItem(at: root) }
-            let location = Code0StorageLocation(applicationSupportRoot: root)
+            let location = try Code0StorageLocation(applicationSupportRoot: root)
             let target = root.appendingPathComponent("external")
             try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
             if linkDirectory {
@@ -132,7 +154,7 @@ struct Code0ProfileLeaseTests {
         for hardLink in [false, true] {
             let root = temporaryLeaseRoot()
             defer { try? FileManager.default.removeItem(at: root) }
-            let location = Code0StorageLocation(applicationSupportRoot: root)
+            let location = try Code0StorageLocation(applicationSupportRoot: root)
             try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             if hardLink {
                 let external = root.appendingPathComponent("linked-file")

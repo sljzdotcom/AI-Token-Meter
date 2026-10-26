@@ -312,8 +312,8 @@ private final class Code0OriginProbeOwner: NSObject, WKNavigationDelegate, WKUID
         refuseUnexpectedPolicy()
     }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @Sendable (Bool) -> Void) {
-        refuseUnexpectedPolicy(); completionHandler(false)
+                 initiatedByFrame frame: WKFrameInfo) async -> Bool {
+        refuseUnexpectedPolicy(); return false
     }
     func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor (String?) -> Void) {
@@ -334,9 +334,8 @@ private final class Code0OriginProbeOwner: NSObject, WKNavigationDelegate, WKUID
         completionHandler(challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust
             ? .performDefaultHandling : .cancelAuthenticationChallenge, nil)
     }
-    func webView(_ webView: WKWebView, authenticationChallenge challenge: URLAuthenticationChallenge,
-                 shouldAllowDeprecatedTLS decisionHandler: @escaping @Sendable (Bool) -> Void) {
-        refuseUnexpectedPolicy(); decisionHandler(false)
+    func webView(_ webView: WKWebView, shouldAllowDeprecatedTLSFor challenge: URLAuthenticationChallenge) async -> Bool {
+        refuseUnexpectedPolicy(); return false
     }
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
         refuseUnexpectedPolicy(); download.delegate = self; download.cancel(nil)

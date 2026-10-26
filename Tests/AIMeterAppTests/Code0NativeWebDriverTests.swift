@@ -306,7 +306,7 @@ private final class NativeDriverFixture {
     init(page: Code0NativeFixturePage) throws {
         _ = NSApplication.shared
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Code0Native-\(UUID())")
-        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
         try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let profile = NativeDriverProfile(location: location)
         let request = Code0WindowRequest(instanceID: UUID(), connectionEpoch: UUID(), nonce: UUID(), documentID: UUID(), mode: .sync)
@@ -381,6 +381,9 @@ private final class NativeDriverFixture {
         let fields: [String: Any] = [
             "schema": 1, "case": caseID, "outcome": outcome,
             "delegates": Array(Set(delegates)).sorted(), "page": pageOutcome?.rawValue ?? "unobserved",
+            "stages": Array(Set(driver.fixtureObservations.compactMap { observation -> String? in
+                if case .stage(let value) = observation { return value.rawValue }; return nil
+            })).sorted(),
             "policiesInstalled": record.policiesInstalled, "messages": min(record.messages, 16),
             "captureCount": min(record.captureCount, 2),
             "officialMainFrame": record.messages > 0 ? record.onlyOfficialMainFrame as Any : NSNull(),

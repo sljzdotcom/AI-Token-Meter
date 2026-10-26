@@ -141,7 +141,7 @@ struct Code0SnapshotStoreTests {
     @Test func absentReadDoesNotCreateOwnedDirectoriesAndProjectionRejectsResetFields() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Code0Absent-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
-        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
         let profile = StoreTestLease(location: location)
         profile.isHeld = false
         let store = Code0SnapshotStore(profile: profile)
@@ -188,7 +188,7 @@ private struct StoreFixture {
     let store: Code0SnapshotStore
     init() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Code0Store-\(UUID())")
-        let location = Code0StorageLocation(applicationSupportRoot: root)
+        let location = try Code0StorageLocation(applicationSupportRoot: root)
         try FileManager.default.createDirectory(at: location.directoryURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         self.root = root; self.location = location
         let lease = StoreTestLease(location: location)

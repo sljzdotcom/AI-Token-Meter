@@ -9,7 +9,7 @@ struct Code0NativeFailureBoundaryTests {
     @Test func zeroResourceCreationFailureReleasesActualSessionAndLeaseWithoutBrowser() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Code0NoResource-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
-        let profile = Code0ProfileLease(location: Code0StorageLocation(applicationSupportRoot: root))
+        let profile = try Code0ProfileLease(location: Code0StorageLocation(applicationSupportRoot: root))
         defer { profile.release() }
         var resourceReads = 0
         let driver = Code0NativeWebDriver(profile: profile, canonicalSourceLoader: {
@@ -39,8 +39,8 @@ struct Code0NativeFailureBoundaryTests {
         driver.releaseProfileLease() // bounded test cleanup even on the known RED path
     }
 
-    @Test func unknownAndLongKeysAreRejectedBeforeEnvelopeSerialization() {
-        let profile = Code0ProfileLease(location: Code0StorageLocation(applicationSupportRoot:
+    @Test func unknownAndLongKeysAreRejectedBeforeEnvelopeSerialization() throws {
+        let profile = try Code0ProfileLease(location: Code0StorageLocation(applicationSupportRoot:
             FileManager.default.temporaryDirectory.appendingPathComponent("Code0Keys-\(UUID())")))
         let driver = Code0NativeWebDriver(profile: profile)
         for key in ["unknownField", String(repeating: "k", count: 4096)] {

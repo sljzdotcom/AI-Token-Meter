@@ -98,3 +98,9 @@ Task2独立规格与质量审查无关键/重要发现，第一阶段数值覆�
 同一 `ef0f32e` 的[Windows 40333978105](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40333978105)完整通过前端138、Rust300、密度浏览器及debug NSIS/GUI检查。前一检查点Windows任务被更新提交替代而取消，未计为通过；本轮仍不代表Windows Code0会话已经实现。
 
 `49041dd` 为实际store/lease/WK驱动候选，尚未运行GREEN。完整源码独审发现5项需修正的问题：持有期间锁或目录替代后权威失效、rename后目录同步失败的候选恢复、受控401服务精确路径、创建资源失败的零对象释放，以及消息序列化前的键界限。另记录测试连接随服务停止统一清理的建议。先在同一候选增加针对性行为回归，再用隔离CI确认缺口，随后集中修正；不以源码审查或语法解析替代实际通过。
+
+`fd50f11` 的[macOS 40342272565](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40342272565)实际编译成功，常规主组733项/112套件出现24个issue：消息键序列化回归的3个issue已复现，其他存储与零资源回归被更早的路径检查失败挡住，不能算对应的有效RED。构造后的临时路径仍带系统别名，严格逐级nofollow在进入专用目录前拒绝；修正可信anchor的物理路径解析，保留专用子目录的nofollow约束。
+
+同轮原生任务实际运行10个方法/19个展开case，出现6个issue：capture已通过真实桥得到1个结果，但持久化失败；媒体与定位未在限时内得到delegate或页面终结结果，保持未验证；精确HTTP路径回归3个issue按预期复现。弹窗、确认/输入框、新窗口、文件选择、外部导航、下载及HTTP身份拒绝均实际观察到delegate；17个原有driver记录的隐藏与双weak释放成立，来源探针也通过。confirm/deprecatedTLS仍有两种optional签名告警，后续采用已核实的公开async接口并保留告警门禁；不能用其他成功分支覆盖媒体/定位缺口。
+
+同提交的[Windows 40342273070](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40342273070)通过前端138、Rust300、密度浏览器与debug NSIS/GUI检查。当前尚未开始Windows Code0会话，保留这个兼容基线。

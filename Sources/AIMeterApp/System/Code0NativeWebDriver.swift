@@ -241,8 +241,9 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
               [0, 443].contains(message.frameInfo.securityOrigin.port) else { return }
         #if AI_METER_NATIVE_FIXTURES
         if message.name == "code0FixtureResult" {
-            if let raw = message.body as? String, let result = Code0NativePageOutcome(rawValue: raw), fixtureObservations.count < 64 {
-                fixtureObservations.append(.page(result))
+            if let raw = message.body as? String, raw.utf8.count <= 64, fixtureObservations.count < 64 {
+                if let result = Code0NativePageOutcome(rawValue: raw) { fixtureObservations.append(.page(result)) }
+                else if let stage = Code0NativePageStage(rawValue: raw) { fixtureObservations.append(.stage(stage)) }
             }
             return
         }
@@ -318,9 +319,9 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         if let instance = current(webView) { observeAlert(); fail(instance, .policyRejected) }
     }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @Sendable (Bool) -> Void) {
+                 initiatedByFrame frame: WKFrameInfo) async -> Bool {
         if let instance = current(webView) { observeConfirm(); fail(instance, .policyRejected) }
-        completionHandler(false)
+        return false
     }
     func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor (String?) -> Void) {
@@ -347,8 +348,7 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         }
         completionHandler(serverTrust && current(webView) != nil ? .performDefaultHandling : .cancelAuthenticationChallenge, nil)
     }
-    func webView(_ webView: WKWebView, authenticationChallenge challenge: URLAuthenticationChallenge,
-                 shouldAllowDeprecatedTLS decisionHandler: @escaping @Sendable (Bool) -> Void) { decisionHandler(false) }
+    func webView(_ webView: WKWebView, shouldAllowDeprecatedTLSFor challenge: URLAuthenticationChallenge) async -> Bool { false }
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
         refuseDownload(webView, download: download)
     }
@@ -433,8 +433,8 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         case .filePanel: script = ""
         case .externalNavigation: script = "location.href='https://invalid.example/';"
         case .download: script = "const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['fixture'],{type:'application/octet-stream'}));a.download='fixture.txt';a.click();"
-        case .media: script = "if(!navigator.mediaDevices?.getUserMedia) done('unsupported');else result(navigator.mediaDevices.getUserMedia({video:true,audio:true}));"
-        case .geolocation: script = "if(!navigator.geolocation)done('unsupported');else navigator.geolocation.getCurrentPosition(()=>done('resolved'),()=>done('rejected'),{timeout:2000});"
+        case .media: script = "if(!navigator.mediaDevices?.getUserMedia) done('unsupported');else { stage('request-started');setTimeout(()=>stage('page-timer-fired'),1000);result(navigator.mediaDevices.getUserMedia({video:true,audio:true})); }"
+        case .geolocation: script = "if(!navigator.geolocation)done('unsupported');else { stage('request-started');setTimeout(()=>stage('page-timer-fired'),1000);navigator.geolocation.getCurrentPosition(()=>done('resolved'),()=>done('rejected'),{timeout:2000}); }"
         case .notification: script = "if(typeof Notification==='undefined')done('unsupported');else Notification.requestPermission().then(v=>done(v==='granted'?'resolved':'defaultResult'),()=>done('rejected'));"
         case .hiddenDisplay: script = "if(!navigator.mediaDevices?.getDisplayMedia)done('unsupported');else result(navigator.mediaDevices.getDisplayMedia({video:true}));"
         case .httpAuthentication: script = ""
@@ -443,7 +443,13 @@ final class Code0NativeWebDriver: NSObject, Code0WindowDriving, WKNavigationDele
         <!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';connect-src 'none';media-src 'none'">
         <input type="file" id="file"><script>
         function done(value){window.webkit.messageHandlers.code0FixtureResult.postMessage(value);}
+        function stage(value){window.webkit.messageHandlers.code0FixtureResult.postMessage('stage-'+value);}
         function result(promise){promise.then(stream=>{stream?.getTracks?.().forEach(t=>t.stop());done('resolved');},()=>done('rejected'));}
+        window.addEventListener('error',()=>stage('script-error'));
+        window.addEventListener('unhandledrejection',()=>stage('promise-error'));
+        stage('script-started');
+        stage(document.visibilityState==='hidden'?'visibility-hidden':(document.visibilityState==='visible'?'visibility-visible':'visibility-other'));
+        stage(document.hasFocus()?'focus-present':'focus-absent');
         \(script)
         </script>
         """
@@ -476,9 +482,22 @@ enum Code0NativePolicyCallback: String, Equatable, Sendable {
     case navigation, download, httpAuthentication, clientCertificate, serverTrust
 }
 enum Code0NativePageOutcome: String, Equatable, Sendable { case rejected, unsupported, resolved, timedOut, defaultResult }
+enum Code0NativePageStage: String, Sendable {
+    case scriptStarted = "stage-script-started"
+    case requestStarted = "stage-request-started"
+    case pageTimerFired = "stage-page-timer-fired"
+    case scriptError = "stage-script-error"
+    case promiseError = "stage-promise-error"
+    case visibilityHidden = "stage-visibility-hidden"
+    case visibilityVisible = "stage-visibility-visible"
+    case visibilityOther = "stage-visibility-other"
+    case focusPresent = "stage-focus-present"
+    case focusAbsent = "stage-focus-absent"
+}
 enum Code0NativeFixtureObservation: Sendable {
     case delegate(Code0NativePolicyCallback)
     case page(Code0NativePageOutcome)
+    case stage(Code0NativePageStage)
 }
 
 /// Only fixture-compiled code can bind a loopback listener. The one native-owned
