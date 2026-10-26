@@ -120,6 +120,8 @@
 | [贡献指南](../CONTRIBUTING.md) | 分支、提交、测试、文档和评审要求 |
 | [安全报告](../SECURITY.md) | 私下报告漏洞的要求与范围 |
 | [v0.10.10 Release notes](releases/v0.10.10.md) | Antigravity 单次登录启动与清理确认修复 |
+| [Antigravity 显式恢复自动刷新](design/specifications/2026-10-26-antigravity-explicit-resume-design.md) | 检查后显式恢复、单次凭证与失败继续暂停 |
+| [显式恢复实施计划](design/implementation-plans/2026-10-26-antigravity-explicit-resume.md) | 失败先行、Core事务、App生命周期与发布门禁 |
 | [0.10.10 发布验收](development/2026-10-26-v0.10.10-release.md) | 双平台签名资产、匿名下载和三个更新源验证 |
 | [登录启动与清理开发记录](development/2026-10-26-antigravity-login-ownership.md) | 717 项隔离原生验证及剩余发布门禁 |
 | [版本变更](../CHANGELOG.md) | 已发布版本和未发布改动 |
