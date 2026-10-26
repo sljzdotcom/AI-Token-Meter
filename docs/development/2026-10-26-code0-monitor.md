@@ -66,3 +66,9 @@ Code0默认隐藏，保留旧四服务设置和小组件三项默认。仅用户
 `3695590` 的[macOS 40316850370](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40316850370)全部通过：687+3+18+50+16=774项常规测试、8项窗口测试、26项网页桥测试，以及合同/文档/公开扫描。[Windows 40316850218](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40316850218)前端138、Rust300（含原生协议13项）、密度浏览器、debug NSIS与GUI子系统检查全部通过。原生合法完整trace、重叠refresh后新self及终止控制从预期失败转为通过；原负例保留，新增数值上限、重复解码键、撤销后迟到事件测试也通过。
 
 Task2独立规格与质量审查无关键/重要发现，第一阶段数值覆盖建议已补并实际运行通过。macOS现有5处AX弃用告警与先前基线一致，Windows仍为既有PDB输出名冲突及上游Action运行时提示，未新增本任务告警。Task2完成；实际官网窗口、独立profile/lease、保存事务、登录后同步、定时调度及Services/detail仍由Task3/4继续，未宣称完整Code0或真实账户验收完成。
+
+## Task3生命周期行为RED
+
+`665cffa` 引入可注入时钟、窗口驱动和独立store协议的拒绝型会话，以及16项生命周期测试。[macOS 40319952295](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40319952295)实际编译成功，主组703项/109套件仅新增会话测试15项失败、24个issue：Connect固定拒绝、没有owned实例、缓存未加载、profile忙原因未提供；未连接零创建的负例通过。其他主组没有失败，后续分组/hosted未运行。
+
+这确认了可执行的行为缺口，现继续纯会话状态机实现，随后再接具体磁盘存储、WebKit驱动、实际窗口夹具和UI。当前三个新增文件没有创建浏览器、使用用户账号或启用自动网络。
