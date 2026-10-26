@@ -50,7 +50,7 @@ assert!(capture_with_invalid_divisor.is_err());
 
 文件：新增 `System/Code0WebSession.swift`、`Core/Persistence/Code0SnapshotStore.swift`、`Views/Code0DetailView.swift`；`AppModel.swift`、`ServicesSettingsView.swift`、`FloatingStripView.swift`、provider样式/三语言资源；新增纯生命周期/App合成/实际WKWebView夹具测试。
 
-- [ ] 以注入时钟、窗口驱动、store先写测试：未连接零创建；busy不重复；299秒拒绝/300允许；保存失败不发布；关闭确认晚到不建新窗口；断开后旧callback不能写；重启缓存不恢复授权。
+- [x] 以注入时钟、窗口驱动、store先写测试：未连接零创建；busy不重复；299秒拒绝/300允许；保存失败不发布；关闭确认晚到不建新窗口；断开后旧callback不能写；重启缓存不恢复授权。
 - [ ] 实现 dedicated WKWebsiteDataStore 与 OS profile lease，串行状态机/nonce/attempt，主框架来源检查，成功先save后发布再关闭。定义独立WebSession协议，App测试可注入，不把实际网页登录作为单元测试前置。
 - [ ] 首次load前配置 WKUI/导航/下载/挑战的明确拒绝；隐藏模式不show/focus。用CI受控页面验证实际window.open/下载/协议/对话框/权限/认证取消和owned对象释放，不能以源码字符串测试替代行为。
 - [ ] 登录完成按钮先关闭登录实例再创建新隐藏验证。普通成功300秒后调度；任何错误暂停，重新启动需明确恢复。Disconnect仅清Code0，失败保留cleanupPending。
