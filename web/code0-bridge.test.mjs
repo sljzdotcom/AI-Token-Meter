@@ -226,6 +226,7 @@ test("exact request and response allowlists reject method, query, origin and red
     ["/api/user/self", {}, { type: "opaqueredirect" }],
     ["/api/user/self", {}, { url: `${origin}/api/status` }],
     ["/api/user/self", {}, { url: "" }],
+    ["/api/user/self", {}, { url: "/api/user/self" }],
     ["/api/user/self", {}, { code: 401 }],
     ["/api/user/self", {}, { contentType: "text/html" }],
   ];
@@ -266,7 +267,7 @@ test("XHR supports a complete pair and preserves caller load events", async () =
 });
 
 test("XHR final URL must match the original exact endpoint, without claiming visibility of intermediate hops", async () => {
-  for (const url of ["", `${origin}/api/status`, `${origin}/api/user/self?extra=1`, "https://other.invalid/api/user/self"]) {
+  for (const url of ["", "/api/user/self", `${origin}/api/status`, `${origin}/api/user/self?extra=1`, "https://other.invalid/api/user/self"]) {
     const h = harness();
     await h.complete("/api/status", status);
     const xhr = new h.scope.XMLHttpRequest(); xhr.open("GET", "/api/user/self"); xhr.send();
@@ -366,4 +367,65 @@ test("subframes and disposed documents cannot publish", async () => {
   h.controller.dispose();
   h.reply(pending.call, self); await pending.result; await settle();
   assert.equal(h.captures().length, 0);
+});
+
+test("cross-transport pairing and newer XHR self win over an older fetch response", async () => {
+  const h = harness();
+  const statusXHR = new h.scope.XMLHttpRequest(); statusXHR.open("GET", "/api/status"); statusXHR.send(); statusXHR.reply(status);
+  const old = h.request("/api/user/self");
+  const current = new h.scope.XMLHttpRequest(); current.open("GET", "/api/user/self"); current.send();
+  h.reply(old.call, self); await old.result; await settle();
+  assert.equal(h.captures().length, 0);
+  current.reply({ success: true, data: { quota: 7, used_quota: 3 } }); await settle();
+  assert.equal(h.captures().length, 1);
+  assert.deepEqual([h.captures()[0].quota, h.captures()[0].usedQuota], [7, 3]);
+});
+
+test("refresh while a self clone is being read prevents the pending parse from publishing", async () => {
+  const h = harness(); await h.complete("/api/status", status);
+  const pending = h.request("/api/user/self");
+  const response = h.reply(pending.call, self);
+  let release;
+  const delayed = new Promise((resolve) => { release = resolve; });
+  let reads = 0;
+  response.clone = () => ({ body: { getReader: () => ({
+    read() { return reads++ === 0 ? delayed : Promise.resolve({ done: true }); },
+    cancel() { return Promise.resolve(); }, releaseLock() {},
+  }) } });
+  await pending.result; await settle();
+  await h.complete("/api/user/auth/refresh", {}, { method: "POST" });
+  release({ value: new TextEncoder().encode(JSON.stringify(self)), done: false }); await settle();
+  assert.equal(h.captures().length, 0);
+  await h.complete("/api/user/self", self);
+  assert.equal(h.captures().length, 1);
+});
+
+test("XHR parsed JSON mode is refused because original numeric lexemes are unavailable", async () => {
+  const h = harness(); await h.complete("/api/status", status);
+  const xhr = new h.scope.XMLHttpRequest(); xhr.open("GET", "/api/user/self"); xhr.responseType = "json"; xhr.send();
+  xhr.reply(self); await settle();
+  assert.equal(h.captures().length, 0);
+  assert.ok(h.messages.some((message) => message.kind === "failure"));
+});
+
+test("duplicate and dotted JSON keys cannot spoof the selected field paths", async () => {
+  for (const body of [
+    '{"success":true,"data":{"quota":1,"quota":2,"used_quota":0}}',
+    '{"success":true,"data":{"quota":1,"qu\\u006fta":2,"used_quota":0}}',
+    '{"success":true,"data.quota":1,"data.used_quota":0}',
+  ]) {
+    const h = harness(); await h.complete("/api/status", status); await h.complete("/api/user/self", body);
+    assert.equal(h.captures().length, 0);
+  }
+});
+
+test("dispose restores only owned hooks and late XHR completion cannot send", async () => {
+  const h = harness(); await h.complete("/api/status", status);
+  const xhr = new h.scope.XMLHttpRequest(); xhr.open("GET", "/api/user/self"); xhr.send();
+  const replacement = () => "page replacement";
+  h.scope.fetch = replacement;
+  const before = h.messages.length; h.controller.dispose();
+  assert.equal(h.scope.fetch, replacement);
+  xhr.reply(self); await settle();
+  assert.equal(h.messages.length, before);
 });

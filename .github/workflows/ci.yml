@@ -21,6 +21,8 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
+      - name: Verify native bridge resource matches shared source
+        run: python3 scripts/sync-code0-bridge.py --check
       - name: Test passive website bridge with synthetic responses
         run: node --test web/code0-bridge.test.mjs
   test:

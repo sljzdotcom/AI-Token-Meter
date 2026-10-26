@@ -39,6 +39,8 @@ jobs:
       - name: Test frontend
         working-directory: windows
         run: npm test
+      - name: Verify native bridge resource matches shared source
+        run: python scripts/sync-code0-bridge.py --check
       - name: Verify browser density styles
         working-directory: windows
         run: npm run test:density

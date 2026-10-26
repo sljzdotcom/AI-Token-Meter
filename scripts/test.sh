@@ -9,6 +9,7 @@ SWIFTPM_STATE_DIR="$TEST_BUILD_DIR/swiftpm-state"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$TEST_BUILD_DIR/clang-module-cache}"
 
 cd "$PROJECT_DIR"
+python3 "$PROJECT_DIR/scripts/sync-code0-bridge.py" --check
 run_swift_tests() {
     swift test \
         --cache-path "$SWIFTPM_STATE_DIR/cache" \
