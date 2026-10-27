@@ -272,3 +272,64 @@ fn held_profile_root_cannot_be_replaced_or_its_authority_is_invalidated() {
         assert!(lease.is_bound_to(&root));
     }
 }
+
+// Regression oracle: revocation must deny work without releasing exclusion.
+#[test]
+fn invalidated_clones_retain_exclusion_until_explicit_owned_release() {
+    let temporary = tempdir().expect("isolated temporary directory");
+    let root = temporary.path().join("Code0");
+    let lease = Code0ProfileLease::acquire(&root).expect("acquire real lease");
+    let owned_instance = lease.clone();
+    let identity = lease.lock_identity_for_test().expect("held lock identity");
+    lease.invalidate();
+    assert!(!owned_instance.is_bound_to(&root));
+    assert!(matches!(
+        Code0ProfileLease::acquire(&root),
+        Err(Code0LeaseError::Busy)
+    ));
+    owned_instance.release();
+    let next = Code0ProfileLease::acquire(&root).expect("release permits next instance");
+    assert_eq!(next.lock_identity_for_test().unwrap(), identity);
+}
+
+// Regression oracle: SID lookup failure must not pass an empty SID into Win32,
+// and automatic revocation must retain the same lifecycle exclusion as above.
+#[test]
+fn sid_lookup_failure_revokes_work_but_keeps_original_handles_until_release() {
+    let temporary = tempdir().expect("isolated temporary directory");
+    let root = temporary.path().join("Code0");
+    let lease = Code0ProfileLease::acquire(&root).expect("acquire real lease");
+    let clone = lease.clone();
+    lease.fail_next_sid_lookup_for_test();
+    assert!(!lease.is_held());
+    assert!(!clone.is_held());
+    assert!(matches!(
+        Code0ProfileLease::acquire(&root),
+        Err(Code0LeaseError::Busy)
+    ));
+    clone.release();
+    assert!(Code0ProfileLease::acquire(&root).is_ok());
+}
+
+#[test]
+fn held_product_ancestor_cannot_be_retargeted_before_owned_release() {
+    let temporary = tempdir().expect("isolated temporary directory");
+    let product = temporary.path().join("product");
+    fs::create_dir(&product).expect("product ancestor fixture");
+    let root = product.join("Code0");
+    let lease = Code0ProfileLease::acquire(&root).expect("acquire real lease");
+    let moved = temporary.path().join("retargeted");
+    let attempted = fs::rename(&product, &moved);
+    if attempted.is_ok() {
+        assert!(
+            !lease.is_held(),
+            "retargeting must revoke the old authority"
+        );
+    } else {
+        assert!(
+            lease.is_held(),
+            "OS ancestor guard keeps original authority"
+        );
+    }
+    lease.release();
+}
