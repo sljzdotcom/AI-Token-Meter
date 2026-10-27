@@ -35,6 +35,160 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+      - name: Record exact dispatcher checkout bytes
+        shell: python {0}
+        run: |
+          import hashlib, json, os, re, stat, subprocess, time
+          from pathlib import Path
+
+          expected = {
+              'scripts/test-code0-dispatcher-mutations.py': 'ee12ab416110c3f04f62a8fba584993c92e44f09974bfb2f1d31d6023018e2af',
+              'windows/src-tauri/src/platform/windows/code0_dispatcher.rs': 'e83882b31e1ee7ce7e9e999e70c2733822a488d5e01dc0ca0ec82b0cd98eb9ab',
+              'windows/src-tauri/tests/code0_dispatcher.rs': 'b736e324815a8e838881e0592c79c74f422bb872534b44248813088863921305',
+          }
+          def plain(path, directory=False):
+              for item in (path, *path.parents):
+                  info = item.lstat()
+                  if info.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                      raise ValueError('linked diagnostic input')
+              if not (path.is_dir() if directory else path.is_file()):
+                  raise ValueError('diagnostic path kind')
+              return path
+
+          def bounded(path, limit):
+              plain(path)
+              with path.open('rb') as source:
+                  raw = source.read(limit + 1)
+              if len(raw) > limit:
+                  raise ValueError('diagnostic input exceeds bound')
+              return raw
+
+          def git(args, limit=16384):
+              if runtime['processUnreaped']:
+                  raise ValueError('git_not_reaped_no_next_command')
+              if time.monotonic() >= deadline:
+                  raise ValueError('diagnostic_total_deadline')
+              runtime['commandsStarted'] += 1
+              if runtime['commandsStarted'] > 20:
+                  raise ValueError('diagnostic_command_limit')
+              label = f"git-{runtime['commandsStarted']:02d}"
+              stdout_path, stderr_path = tools / (label + '.stdout'), tools / (label + '.stderr')
+              end = min(deadline, time.monotonic() + 30)
+              with stdout_path.open('xb') as stdout, stderr_path.open('xb') as stderr:
+                  child = subprocess.Popen(['git', *args], stdin=subprocess.DEVNULL,
+                                           stdout=stdout, stderr=stderr, shell=False)
+                  runtime['processUnreaped'] = True
+                  while child.poll() is None:
+                      if (time.monotonic() >= end or stdout_path.stat().st_size > limit
+                              or stderr_path.stat().st_size > 16384):
+                          raise ValueError('active_git_deadline_or_overflow')
+                      time.sleep(0.05)
+                  result = child.wait()
+                  runtime['processUnreaped'] = False
+              if time.monotonic() >= end:
+                  raise ValueError('git_completed_after_deadline')
+              # Read only after observed exit, explicit reap and closure; never signal or
+              # digest active files. A blocked spawn/FS or unknown child can exceed a bound.
+              output, error = bounded(stdout_path, limit), bounded(stderr_path, 16384)
+              if time.monotonic() >= deadline:
+                  raise ValueError('diagnostic_total_deadline')
+              if result not in (0, 1):
+                  raise ValueError('diagnostic_git_command_failed')
+              return result, output
+
+          def identity(raw):
+              return dict(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(),
+                          lf=raw.count(bytes([10])), crlf=raw.count(bytes([13, 10])),
+                          loneCr=raw.count(bytes([13]))-raw.count(bytes([13, 10])))
+
+          if (os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true'
+                  or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'):
+              raise SystemExit('Checkout-byte diagnostics require the ephemeral Windows job')
+          run = os.environ.get('GITHUB_RUN_ID', '')
+          attempt = os.environ.get('GITHUB_RUN_ATTEMPT', '')
+          if not re.fullmatch(r'[0-9]{1,20}', run) or not re.fullmatch(r'[0-9]{1,6}', attempt):
+              raise SystemExit('Invalid diagnostic run identity')
+          root = plain(Path(os.environ['GITHUB_WORKSPACE']), directory=True)
+          if Path.cwd() != root:
+              raise SystemExit('Unexpected diagnostic workspace')
+          temporary = plain(Path(os.environ['RUNNER_TEMP']), directory=True)
+          destination = temporary / f'code0-dispatcher-checkout-{run}-{attempt}.json'
+          if destination.exists() or destination.is_symlink():
+              raise SystemExit('Refusing existing checkout diagnostic')
+          tools = temporary / f'code0-dispatcher-checkout-tools-{run}-{attempt}'
+          if tools.exists() or tools.is_symlink():
+              raise SystemExit('Refusing existing diagnostic tool directory')
+          tools.mkdir(mode=0o700)
+          runtime = dict(processUnreaped=False, commandsStarted=0)
+          deadline = time.monotonic() + 120
+          evidence = dict(schema=1, kind='checkout_bytes_only', runId=run, runAttempt=attempt,
+                          githubSha=os.environ.get('GITHUB_SHA'), actualHead=None, actualParents=[],
+                          prHeadSha=None, prMergeSha=None, status='incomplete', files=[], config=[], attributes=None,
+                          mutationBaseline='unrun', semanticKills=0)
+          try:
+              code, raw = git(['rev-parse', '--verify', 'HEAD'])
+              head = raw.decode('ascii').strip()
+              if code or not re.fullmatch(r'[0-9a-f]{40}', head):
+                  raise ValueError('Invalid checkout HEAD')
+              evidence['actualHead'] = head
+              code, size = git(['cat-file', '-s', head])
+              if code or not size.strip().isdigit() or int(size) > 65536:
+                  raise ValueError('Raw commit exceeds metadata bound')
+              code, commit = git(['cat-file', 'commit', head], 65536)
+              if code or len(commit) != int(size):
+                  raise ValueError('Raw commit metadata incomplete')
+              # Literal object headers retain real parents even at a shallow boundary.
+              header = commit.split(bytes([10, 10]), 1)[0]
+              parents = [line[7:].decode('ascii') for line in header.splitlines() if line.startswith(b'parent ')]
+              if len(parents) > 8 or any(re.fullmatch(r'[0-9a-f]{40}', parent) is None for parent in parents):
+                  raise ValueError('Raw parent metadata invalid')
+              evidence['actualParents'] = parents
+              evidence['actualParentsSource'] = 'literal_raw_commit_headers'
+              event = json.loads(bounded(Path(os.environ['GITHUB_EVENT_PATH']), 1048576))
+              pr = event.get('pull_request', {})
+              for key, value in (('prHeadSha', pr.get('head', {}).get('sha')),
+                                 ('prMergeSha', pr.get('merge_commit_sha'))):
+                  if isinstance(value, str) and re.fullmatch(r'[0-9a-f]{40}', value):
+                      evidence[key] = value
+              matches = True
+              for name, accepted in expected.items():
+                  working = bounded(root / name, 1048576)
+                  code, size = git(['cat-file', '-s', f'{head}:{name}'])
+                  if code or not size.strip().isdigit() or int(size) > 1048576:
+                      raise ValueError('Committed diagnostic input exceeds bound')
+                  code, committed = git(['cat-file', 'blob', f'{head}:{name}'], 1048576)
+                  if code or len(committed) != int(size):
+                      raise ValueError('Committed diagnostic input incomplete')
+                  row = dict(path=name, acceptedSha256=accepted, working=identity(working), committed=identity(committed))
+                  row['exactMatch'] = row['working']['sha256'] == accepted == row['committed']['sha256']
+                  evidence['files'].append(row)
+                  matches = matches and row['exactMatch']
+              for key in ('core.autocrlf', 'core.eol', 'core.attributesfile'):
+                  code, value = git(['config', '--show-origin', '--show-scope', '--get', key])
+                  evidence['config'].append(dict(key=key, present=code == 0, value=value.decode('utf-8', 'strict').strip() if code == 0 else None))
+              code, attrs = git(['check-attr', '-z', 'text', 'eol', 'filter', 'working-tree-encoding', 'export-ignore', 'export-subst', '--', *expected])
+              if code:
+                  raise ValueError('Effective source attributes unavailable')
+              evidence['attributes'] = attrs.decode('utf-8', 'strict').split(chr(0))
+              evidence['status'] = 'exact_bytes_match' if matches else 'raw_byte_mismatch'
+          except Exception as error:
+              evidence['errorType'] = type(error).__name__
+          evidence['processUnreaped'] = runtime['processUnreaped']
+          evidence['commandsStarted'] = runtime['commandsStarted']
+          evidence['limits'] = dict(totalCooperativeSeconds=120, gitCooperativeSeconds=30,
+                                    stderrBytes=16384, maximumStdoutBytes=1048576,
+                                    privateToolFilesNotUploaded=True,
+                                    unknownActiveProcessDiskGrowthBounded=False)
+          if runtime['processUnreaped'] or time.monotonic() >= deadline:
+              evidence['status'] = 'incomplete'
+          raw = (json.dumps(evidence, indent=2) + chr(10)).encode('utf-8')
+          if len(raw) > 262144:
+              raise SystemExit('Checkout diagnostic output exceeds bound')
+          with destination.open('xb') as output:
+              output.write(raw)
+          print('Checkout-byte metadata retained; no baseline or mutation acceptance implied.')
+          if evidence['status'] != 'exact_bytes_match' or time.monotonic() >= deadline:
+              raise SystemExit('Checkout bytes are not the reviewed committed source; mutation opt-in refused')
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -110,5 +264,13 @@ jobs:
             ${{ runner.temp }}/code0-dispatcher-mutations-*/summary.json
             ${{ runner.temp }}/code0-dispatcher-mutations-*/*.log
             ${{ runner.temp }}/code0-dispatcher-mutations-*/M*.patch
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve dispatcher checkout-byte diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-dispatcher-checkout-bytes
+          path: ${{ runner.temp }}/code0-dispatcher-checkout-${{ github.run_id }}-${{ github.run_attempt }}.json
           if-no-files-found: warn
           retention-days: 7
