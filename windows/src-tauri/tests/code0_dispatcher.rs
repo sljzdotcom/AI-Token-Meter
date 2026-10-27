@@ -558,6 +558,63 @@ fn committed_b_and_null_outrank_late_read_without_ordinary_cache_fallback() {
     assert_eq!(f.emitted.borrow().last(), Some(&revoked));
 }
 
+// Mutation: the reserved release overtakes an earlier accepted current auth
+// revocation, activating saved B and making the revocation stale to the session.
+#[test]
+fn queued_authentication_revocation_is_applied_before_matching_release() {
+    let f = Fixture::new(Seed::Syncing);
+    let current = f.window();
+    for event in capture_events(&current) {
+        f.event(&current, event);
+    }
+    let captured = read(&f.proxy);
+    let captured_json = serde_json::to_value(&captured).unwrap();
+    assert_eq!(captured_json["state"], "closing");
+    assert_eq!(captured_json["snapshot"]["primaryMetric"]["current"], 4.5);
+    let removals_before = f
+        .trace
+        .borrow()
+        .iter()
+        .filter(|event| **event == "remove")
+        .count();
+    f.hold();
+    assert_eq!(
+        f.proxy.window(
+            BINDING,
+            current.clone(),
+            Event::Failed(Failure::AuthenticationChanged)
+        ),
+        Ok(())
+    );
+    assert_eq!(f.proxy.window(BINDING, current, Event::Released), Ok(()));
+    f.flush();
+    let revoked = read(&f.proxy);
+    assert!(revoked.revision > captured.revision);
+    assert_eq!(
+        f.trace
+            .borrow()
+            .iter()
+            .filter(|event| **event == "remove")
+            .count(),
+        removals_before + 1,
+        "accepted authentication revocation must remove the cached B"
+    );
+    let revoked_json = serde_json::to_value(&revoked).unwrap();
+    assert_eq!(revoked_json["snapshot"], Value::Null);
+    assert_eq!(revoked_json["state"], "paused");
+    assert_eq!(revoked_json["failure"], "authenticationChanged");
+    assert_eq!(revoked_json["isAutomaticallySyncing"], false);
+    assert_eq!(f.emitted.borrow().last(), Some(&revoked));
+    let windows_before = f.native.borrow().windows.len();
+    f.tick(300);
+    assert_eq!(
+        f.native.borrow().windows.len(),
+        windows_before,
+        "revoked session must not automatically capture at 300"
+    );
+    assert_eq!(read(&f.proxy), revoked);
+}
+
 // Mutation: wrapping the JS safe integer revision authorizes an unpublished
 // action, or an invalid initial revision reaches the frontend.
 #[test]
@@ -817,6 +874,161 @@ fn scheduling_failure_replies_unavailable_and_never_runs_native_work() {
         .fail
         .store(false, std::sync::atomic::Ordering::SeqCst);
     assert_eq!(action(&f.proxy, Code0Action::Connect), Action::Started);
+}
+
+// Mutation: overflowing the general inbox rejects the RPC but leaves the
+// current capture authorized, or loses its later physical release reservation.
+#[test]
+fn general_overflow_rejects_rpc_and_closes_the_current_capture() {
+    let f = Fixture::new(Seed::Syncing);
+    let current = f.window();
+    f.hold();
+    for _ in 0..64 {
+        f.proxy.read(Box::new(|_| {}));
+    }
+    let (result, reply) = pending();
+    f.proxy.read(reply);
+    assert_eq!(take(&result), Err(Error::QueueFull));
+    f.flush();
+    let view = serde_json::to_value(read(&f.proxy)).unwrap();
+    assert_eq!(view["state"], "closing");
+    assert_eq!(view["failure"], "policyRejected");
+    assert_eq!(
+        f.trace
+            .borrow()
+            .iter()
+            .filter(|event| **event == "close-request")
+            .count(),
+        1
+    );
+    for event in capture_events(&current) {
+        f.event(&current, event);
+    }
+    assert!(!f.trace.borrow().contains(&"save"));
+    f.event(&current, Event::Released);
+    assert_eq!(
+        serde_json::to_value(read(&f.proxy)).unwrap()["state"],
+        "paused"
+    );
+}
+
+// Mutation: pending Stop replies grow without limit or a repeated Stop moves
+// the first owned close deadline forward, granting false/late exit permission.
+#[test]
+fn repeated_stop_is_bounded_and_does_not_restart_the_close_deadline() {
+    let f = Fixture::new(Seed::Syncing);
+    let current = f.window();
+    let mut waiting = Vec::new();
+    let (first, reply) = pending();
+    let reentrant = Arc::new(Mutex::new(Vec::new()));
+    let outcomes = reentrant.clone();
+    let proxy = f.proxy.clone();
+    f.proxy.stop(Box::new(move |value| {
+        // While the other 63 old replies remain undelivered, only the single
+        // just-completed admission may be reused, even from this callback.
+        for _ in 0..64 {
+            let outcomes = outcomes.clone();
+            proxy.stop(Box::new(move |value| outcomes.lock().unwrap().push(value)));
+        }
+        reply(value);
+    }));
+    waiting.push(first);
+    f.clock.0.set(9);
+    for _ in 0..63 {
+        let (result, reply) = pending();
+        f.proxy.stop(reply);
+        assert!(result.lock().unwrap().is_none());
+        waiting.push(result);
+    }
+    let (overflow, reply) = pending();
+    f.proxy.stop(reply);
+    assert_eq!(take(&overflow), Err(Error::QueueFull));
+    f.tick(10);
+    assert_eq!(
+        serde_json::to_value(read(&f.proxy)).unwrap()["state"],
+        "cleanupPending"
+    );
+    assert!(
+        waiting
+            .iter()
+            .all(|result| result.lock().unwrap().is_none())
+    );
+    assert_eq!(
+        f.trace
+            .borrow()
+            .iter()
+            .filter(|event| **event == "close-request")
+            .count(),
+        1
+    );
+    f.event(&current, Event::Released);
+    for result in waiting {
+        assert_eq!(take(&result), Ok(Code0Reply::Stopped));
+    }
+    let outcomes = reentrant.lock().unwrap();
+    assert_eq!(outcomes.len(), 64);
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|value| **value == Err(Error::QueueFull))
+            .count(),
+        63
+    );
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|value| **value == Ok(Code0Reply::Stopped))
+            .count(),
+        1
+    );
+    assert!(!f.native.borrow().held);
+    assert_eq!(action(&f.proxy, Code0Action::Connect), Action::Denied);
+}
+
+// Mutation: exhausting the revision wraps or publishes changed same-revision
+// content, discards cleanup evidence, or replies Stop-safe before cleanup.
+#[test]
+fn revision_exhaustion_freezes_view_but_still_waits_for_cleanup_stop_proof() {
+    let f = Fixture::with_revision(Seed::Syncing, SAFE_MAX - 2);
+    let current = f.window();
+    assert_eq!(action(&f.proxy, Code0Action::Disconnect), Action::Started);
+    let frozen = read(&f.proxy);
+    assert_eq!(frozen.revision, SAFE_MAX);
+    assert_eq!(
+        serde_json::to_value(&frozen).unwrap()["snapshot"],
+        Value::Null
+    );
+    let (stopped, reply) = pending();
+    f.proxy.stop(reply);
+    assert!(stopped.lock().unwrap().is_none());
+    f.event(&current, Event::Released);
+    assert!(stopped.lock().unwrap().is_none());
+    assert!(f.native.borrow().held);
+    let cleanup = f.native.borrow().cleanup.last().unwrap().clone();
+    f.proxy.cleanup(BINDING, cleanup, Ok(())).unwrap();
+    assert_eq!(take(&stopped), Ok(Code0Reply::Stopped));
+    assert!(!f.native.borrow().held);
+    assert_eq!(read(&f.proxy), frozen);
+    let (denied, reply) = pending();
+    f.proxy.action(Code0Action::Connect, reply);
+    assert_eq!(take(&denied), Err(Error::RevisionExhausted));
+    assert_eq!(f.native.borrow().windows.len(), 1);
+}
+
+// Mutation: an Active projection at the last safe revision is used as network
+// authority, allowing the next tick to create a window that cannot be published.
+#[test]
+fn last_revision_tick_cannot_authorize_another_automatic_capture() {
+    let f = Fixture::with_revision(Seed::Active, SAFE_MAX - 1);
+    let frozen = read(&f.proxy);
+    assert_eq!(frozen.revision, SAFE_MAX);
+    f.tick(300);
+    assert_eq!(f.native.borrow().windows.len(), 1);
+    assert!(!f.native.borrow().held);
+    assert_eq!(read(&f.proxy), frozen);
+    let (result, reply) = pending();
+    f.proxy.stop(reply);
+    assert_eq!(take(&result), Ok(Code0Reply::Stopped));
 }
 
 // Compile-time transport contract, not proof of a real STA or COM callback.

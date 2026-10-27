@@ -1,10 +1,10 @@
-//! RED checkpoint: bounded transport and a narrow read projection only.
-//! Actions/native completions/ticks/Stop deliberately do not drive the session.
+//! UI-local coordinator for the single pure Code0 session authority.
 //! No product command, UI registry, native adapter or scheduler is installed.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize, Serializer};
@@ -155,6 +155,8 @@ enum Message {
     Cleanup(u64, Code0CleanupRequest, Result<(), Code0SessionFailure>),
     Tick(u64, u64),
     Stop(Code0ReplySink),
+    StopSignal,
+    Overflow,
 }
 impl Message {
     fn reject(self, error: Code0DispatchError) {
@@ -168,6 +170,13 @@ impl Message {
 #[derive(Default)]
 struct Inbox {
     general: VecDeque<Message>,
+    stops: VecDeque<Code0ReplySink>,
+    stop_pending: usize,
+    stopping: bool,
+    stop_signal: bool,
+    overflow: bool,
+    terminal_error: Option<Code0DispatchError>,
+    binding: Option<(u64, u64)>,
     tick: Option<Message>,
     released: Option<Message>,
     cleanup: Option<Message>,
@@ -178,11 +187,24 @@ struct Inbox {
 }
 impl Inbox {
     fn pop(&mut self) -> Option<Message> {
-        self.general
-            .pop_front()
-            .or_else(|| self.released.take())
-            .or_else(|| self.cleanup.take())
-            .or_else(|| self.tick.take())
+        if std::mem::take(&mut self.stop_signal) {
+            return Some(Message::StopSignal);
+        }
+        if let Some(reply) = self.stops.pop_front() {
+            return Some(Message::Stop(reply));
+        }
+        if std::mem::take(&mut self.overflow) {
+            return Some(Message::Overflow);
+        }
+        if let Some(message) = self.released.take() {
+            self.expected_window = None;
+            return Some(message);
+        }
+        if let Some(message) = self.cleanup.take() {
+            self.expected_cleanup = None;
+            return Some(message);
+        }
+        self.tick.take().or_else(|| self.general.pop_front())
     }
 }
 
@@ -239,6 +261,9 @@ impl Code0Proxy {
         request: Code0WindowRequest,
     ) -> Result<(), Code0DispatchError> {
         let mut inbox = self.inbox.lock().unwrap();
+        if inbox.binding.map(|value| value.0) != Some(binding) {
+            return Err(Code0DispatchError::Unavailable);
+        }
         inbox.expected_window = Some((binding, request));
         inbox.released = None;
         Ok(())
@@ -249,35 +274,82 @@ impl Code0Proxy {
         request: Code0CleanupRequest,
     ) -> Result<(), Code0DispatchError> {
         let mut inbox = self.inbox.lock().unwrap();
+        if inbox.binding.map(|value| value.0) != Some(binding) {
+            return Err(Code0DispatchError::Unavailable);
+        }
         inbox.expected_cleanup = Some((binding, request));
         inbox.cleanup = None;
         Ok(())
     }
 
     fn enqueue(&self, message: Message) -> Result<(), Code0DispatchError> {
+        let mut rejected = None;
         let needs_schedule = {
             let mut inbox = self.inbox.lock().unwrap();
+            // Correlation filtering precedes coalescing/reservation changes.
+            // Only the real UI driver registers identities; the session still
+            // checks every epoch/attempt/document before granting anything.
             match &message {
-                Message::Tick(_, _) => inbox.tick = Some(message),
-                Message::Window(binding, request, Code0WindowEvent::Released) => {
+                Message::Tick(binding, tick) => {
+                    if inbox.binding != Some((*binding, *tick)) {
+                        return Ok(());
+                    }
+                }
+                Message::Window(binding, request, _) => {
                     if inbox.expected_window.as_ref() != Some(&(*binding, request.clone())) {
                         return Ok(());
                     }
-                    inbox.released = Some(message);
                 }
                 Message::Cleanup(binding, request, _) => {
                     if inbox.expected_cleanup.as_ref() != Some(&(*binding, request.clone())) {
                         return Ok(());
                     }
-                    inbox.cleanup = Some(message);
                 }
-                _ => {
-                    if inbox.general.len() >= GENERAL_CAPACITY {
-                        drop(inbox);
-                        message.reject(Code0DispatchError::QueueFull);
-                        return Err(Code0DispatchError::QueueFull);
+                Message::Action(_, _) if inbox.stopping => {
+                    let error = inbox.terminal_error;
+                    drop(inbox);
+                    if let Message::Action(_, reply) = message {
+                        reply(match error {
+                            Some(error) => Err(error),
+                            None => Ok(Code0Reply::Action(Code0SessionActionResult::Denied)),
+                        });
                     }
-                    inbox.general.push_back(message);
+                    return Ok(());
+                }
+                _ => {}
+            }
+            match message {
+                Message::Tick(binding, tick) => inbox.tick = Some(Message::Tick(binding, tick)),
+                Message::Window(binding, request, Code0WindowEvent::Released) => {
+                    inbox.released = Some(Message::Window(
+                        binding,
+                        request,
+                        Code0WindowEvent::Released,
+                    ));
+                }
+                Message::Cleanup(binding, request, result) => {
+                    // Keep the first physical completion for this reservation.
+                    if inbox.cleanup.is_none() {
+                        inbox.cleanup = Some(Message::Cleanup(binding, request, result));
+                    }
+                }
+                Message::Stop(reply) => {
+                    inbox.stopping = true;
+                    inbox.stop_signal = true;
+                    if inbox.stop_pending >= GENERAL_CAPACITY {
+                        rejected = Some(Message::Stop(reply));
+                    } else {
+                        inbox.stop_pending += 1;
+                        inbox.stops.push_back(reply);
+                    }
+                }
+                message => {
+                    if inbox.general.len() >= GENERAL_CAPACITY {
+                        inbox.overflow = true;
+                        rejected = Some(message);
+                    } else {
+                        inbox.general.push_back(message);
+                    }
                 }
             }
             if inbox.scheduled {
@@ -287,35 +359,49 @@ impl Code0Proxy {
                 true
             }
         };
+        let full = rejected.is_some();
+        if let Some(message) = rejected {
+            message.reject(Code0DispatchError::QueueFull);
+        }
         if needs_schedule && self.schedule.schedule().is_err() {
             let rejected = {
                 let mut inbox = self.inbox.lock().unwrap();
-                let mut messages = Vec::new();
-                while let Some(message) = inbox.pop() {
-                    messages.push(message);
-                }
+                let mut messages: Vec<_> = inbox.general.drain(..).collect();
+                let stops: Vec<_> = inbox.stops.drain(..).collect();
+                messages.extend(stops.into_iter().map(Message::Stop));
+                // Physical acknowledgements and fail-closed control signals
+                // survive a scheduling failure; no false release is reported.
                 inbox.scheduled = false;
                 messages
             };
             for message in rejected {
+                if matches!(message, Message::Stop(_)) {
+                    self.inbox.lock().unwrap().stop_pending -= 1;
+                }
                 message.reject(Code0DispatchError::Unavailable);
             }
             return Err(Code0DispatchError::Unavailable);
         }
-        Ok(())
+        if full {
+            Err(Code0DispatchError::QueueFull)
+        } else {
+            Ok(())
+        }
     }
 }
 
 /// The actual pure session remains the only authorization authority, retained
-/// locally even in this intentionally deny-only RED implementation. This type
+/// locally. The only extra deadline is presentation-only throttling. This type
 /// has no Send bound and is not stored in Tauri managed state.
 pub struct Code0Dispatcher<C, D, S> {
     session: RefCell<Code0WebSession<C, D, S>>,
-    _clock: C,
+    clock: C,
     binding: u64,
     tick_id: u64,
     proxy: Code0Proxy,
-    _emit: Box<dyn FnMut(&Code0SessionDto)>,
+    emit: RefCell<Box<dyn FnMut(&Code0SessionDto)>>,
+    retry_deadline: Cell<Option<Duration>>,
+    stop_waiters: RefCell<Vec<Code0ReplySink>>,
 }
 impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
     Code0Dispatcher<C, D, S>
@@ -333,14 +419,23 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         if view != old {
             view.revision = Code0Revision::new(old.revision)?.next()?.0;
         }
+        {
+            let mut inbox = proxy.inbox.lock().unwrap();
+            if inbox.binding.is_some() {
+                return Err(Code0DispatchError::Unavailable);
+            }
+            inbox.binding = Some((binding, tick_id));
+        }
         *proxy.view.lock().unwrap() = view;
         Ok(Self {
             session: RefCell::new(session),
-            _clock: clock,
+            clock,
             binding,
             tick_id,
             proxy,
-            _emit: emit,
+            emit: RefCell::new(emit),
+            retry_deadline: Cell::new(None),
+            stop_waiters: RefCell::new(Vec::new()),
         })
     }
     pub fn drain(&self) {
@@ -355,34 +450,150 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
                     }
                 }
             };
-            // No queue/view lock spans the owner borrow, scheduling or reply.
-            // RED: no action, callback, timer or Stop is applied to this session.
-            let reply = {
-                let _session = self.session.borrow_mut();
-                match message {
-                    Message::Read(reply) => Some((
-                        reply,
-                        Ok(Code0Reply::View(Box::new(self.proxy.committed()))),
-                    )),
-                    Message::Action(_action, reply) => Some((
-                        reply,
-                        Ok(Code0Reply::Action(Code0SessionActionResult::Denied)),
-                    )),
-                    Message::Stop(reply) => Some((reply, Err(Code0DispatchError::Unavailable))),
-                    Message::Window(binding, _request, _event) if binding == self.binding => None,
-                    Message::Cleanup(binding, _request, _result) if binding == self.binding => None,
-                    Message::Tick(binding, tick)
-                        if binding == self.binding && tick == self.tick_id =>
-                    {
-                        None
-                    }
-                    _ => None,
+            self.apply(message);
+        }
+    }
+
+    fn apply(&self, message: Message) {
+        if let Message::Read(reply) = message {
+            reply(Ok(Code0Reply::View(Box::new(self.proxy.committed()))));
+            return;
+        }
+        let old = self.proxy.committed();
+        let (stopping, terminal, window) = {
+            let inbox = self.proxy.inbox.lock().unwrap();
+            (
+                inbox.stopping,
+                inbox.terminal_error,
+                inbox.expected_window.clone(),
+            )
+        };
+        let exhausted = old.revision == MAX_REVISION;
+        if exhausted {
+            self.fail_closed(Code0DispatchError::RevisionExhausted);
+        }
+        let mut action_reply = None;
+        let candidate = {
+            // No inbox/view lock spans this unique borrow, driver calls or
+            // callbacks. Driver callbacks only enqueue while scheduled=true.
+            let mut session = self.session.borrow_mut();
+            if exhausted {
+                session.stop();
+            }
+            match message {
+                Message::Action(action, reply) => {
+                    let value =
+                        if exhausted || terminal.is_some() {
+                            Err(terminal.unwrap_or(Code0DispatchError::RevisionExhausted))
+                        } else if stopping {
+                            Ok(Code0Reply::Action(Code0SessionActionResult::Denied))
+                        } else {
+                            let result = match action {
+                                Code0Action::Connect => session.connect(),
+                                Code0Action::LoginCompleted => session.login_completed(),
+                                Code0Action::SyncNow => session.sync_now(),
+                                Code0Action::Disconnect => session.disconnect(),
+                            };
+                            match result {
+                                Code0SessionActionResult::Throttled { seconds_remaining } => {
+                                    self.retry_deadline.set(self.clock.now().checked_add(
+                                        Duration::from_secs(seconds_remaining.min(300)),
+                                    ));
+                                }
+                                Code0SessionActionResult::Started => self.retry_deadline.set(None),
+                                _ => {}
+                            }
+                            Ok(Code0Reply::Action(result))
+                        };
+                    action_reply = Some((reply, value));
                 }
-            };
-            if let Some((reply, value)) = reply {
-                reply(value);
+                Message::Window(binding, request, event) if binding == self.binding => {
+                    session.receive_window_event(&request, event)
+                }
+                Message::Cleanup(binding, request, result) if binding == self.binding => {
+                    session.receive_cleanup_result(&request, result)
+                }
+                Message::Tick(binding, tick) if binding == self.binding && tick == self.tick_id => {
+                    session.process_scheduled_work()
+                }
+                Message::Stop(reply) => {
+                    self.stop_waiters.borrow_mut().push(reply);
+                    self.retry_deadline.set(None);
+                    session.stop();
+                }
+                Message::StopSignal => {
+                    self.retry_deadline.set(None);
+                    session.stop();
+                }
+                Message::Overflow => {
+                    if let Some((binding, request)) = window
+                        && binding == self.binding
+                    {
+                        session.receive_window_event(
+                            &request,
+                            Code0WindowEvent::Failed(Code0SessionFailure::PolicyRejected),
+                        );
+                    }
+                }
+                _ => {}
+            }
+            projection(&session, old.revision).map(|mut view| {
+                view.retry_after_seconds = self.retry_remaining();
+                view
+            })
+        }; // The session RefMut is dropped BEFORE commit, emit, and reply.
+        let publication = candidate.and_then(|mut view| {
+            if view != old {
+                view.revision = Code0Revision::new(old.revision)?.next()?.0;
+                *self.proxy.view.lock().unwrap() = view.clone();
+                (self.emit.borrow_mut())(&view);
+            }
+            Ok(())
+        });
+        if let Err(error) = publication {
+            self.fail_closed(error);
+            self.session.borrow_mut().stop();
+            if let Some((_, value)) = action_reply.as_mut() {
+                *value = Err(error);
             }
         }
+        if let Some((reply, value)) = action_reply {
+            reply(value);
+        }
+        // Only actual pure-session Stop completion permits exit: Closing and
+        // CleanupPending cannot supply this proof. Late owned acknowledgements
+        // still reach the session even when no revision can be published.
+        let safe = matches!(
+            self.session.borrow().state(),
+            Code0SessionState::Paused | Code0SessionState::Disconnected
+        );
+        if safe {
+            let replies = std::mem::take(&mut *self.stop_waiters.borrow_mut());
+            for reply in replies {
+                // Release one admission immediately before its callback. A
+                // callback can synchronously request another Stop; the other
+                // undelivered replies must still count toward the bound.
+                self.proxy.inbox.lock().unwrap().stop_pending -= 1;
+                reply(Ok(Code0Reply::Stopped));
+            }
+        }
+    }
+
+    fn retry_remaining(&self) -> Option<u16> {
+        let end = self.retry_deadline.get()?;
+        let remaining = end.saturating_sub(self.clock.now());
+        if remaining.is_zero() {
+            self.retry_deadline.set(None);
+            None
+        } else {
+            Some((remaining.as_secs() + u64::from(remaining.subsec_nanos() != 0)).min(300) as u16)
+        }
+    }
+
+    fn fail_closed(&self, error: Code0DispatchError) {
+        let mut inbox = self.proxy.inbox.lock().unwrap();
+        inbox.terminal_error = Some(error);
+        inbox.stopping = true;
     }
 }
 
