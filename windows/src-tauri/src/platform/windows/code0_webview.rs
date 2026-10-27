@@ -97,7 +97,7 @@ pub mod fixture {
         /// creation. The fixture derives identity and initial state from this
         /// handle and installs sticky native focus observation before returning.
         /// EngineReady may never stand in for or precede this receipt.
-        WindowConstructed { window: tauri::Window },
+        WindowConstructed { window: Box<tauri::Window> },
         /// Only after actual non-null environment/controller/core completion.
         /// user_data_folder is queried from the environment, not copied input.
         EngineReady {
