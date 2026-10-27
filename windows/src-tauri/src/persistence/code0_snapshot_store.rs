@@ -20,6 +20,97 @@ pub enum Code0SnapshotFailurePoint {
     RestoreFlush,
 }
 
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DiagnosticPhase {
+    AuthorityEntered,
+    RootValidation,
+    PendingCheck,
+    CandidateSlotsCheck,
+    RetiredCleanup,
+    PriorSnapshotRead,
+    PendingCreate,
+    PendingValidate,
+    PendingWrite,
+    PendingFlush,
+    PendingIdentity,
+    CandidateCreate,
+    CandidateCreatePathCheck,
+    CandidateSlotsExhausted,
+    CandidateValidate,
+    ReceiptIdentity,
+    ReceiptWrite,
+    ReceiptFlush,
+    CandidateWritePrefix,
+    CandidateWriteRest,
+    CandidateFlush,
+    CandidateRename,
+    AfterReplaceReached,
+    CandidateVisible,
+    CommitFlush,
+    CommitRootValidation,
+    PendingRetirement,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+enum DiagnosticStatus {
+    Success,
+    PredicateRejected,
+    Win32Error(u32),
+    SecurityStatus(u32),
+    NativeUnavailable,
+    OperationUnavailable,
+}
+
+#[cfg(windows)]
+impl std::fmt::Debug for DiagnosticStatus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Success => formatter.write_str("Success"),
+            Self::PredicateRejected => formatter.write_str("PredicateRejected"),
+            Self::Win32Error(error) => formatter.debug_tuple("Win32Error").field(error).finish(),
+            Self::SecurityStatus(status) => formatter
+                .debug_tuple("SecurityStatus")
+                .field(status)
+                .finish(),
+            Self::NativeUnavailable => formatter.write_str("NativeUnavailable"),
+            Self::OperationUnavailable => formatter.write_str("OperationUnavailable"),
+        }
+    }
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+struct DiagnosticRecord {
+    phase: DiagnosticPhase,
+    status: DiagnosticStatus,
+    handled: bool,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy, Default)]
+struct DiagnosticSummary {
+    records: [Option<DiagnosticRecord>; 32],
+    used: usize,
+    first_failure_index: Option<usize>,
+    observer_unavailable: bool,
+}
+
+#[cfg(windows)]
+impl std::fmt::Debug for DiagnosticSummary {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // At most 32 fixed phase/status pairs; no caller-supplied text or data.
+        let mut summary = formatter.debug_struct("Code0StorageDiagnostics");
+        summary.field("observer_unavailable", &self.observer_unavailable);
+        summary.field("first_failure_index", &self.first_failure_index);
+        for record in self.records[..self.used].iter().flatten() {
+            summary.field("record", &(record.phase, record.status, record.handled));
+        }
+        summary.finish()
+    }
+}
+
 #[doc(hidden)]
 #[derive(Default)]
 struct Code0SnapshotGateState {
@@ -32,6 +123,8 @@ struct Code0SnapshotGateState {
 struct Code0SnapshotGateInner {
     state: Mutex<Code0SnapshotGateState>,
     changed: Condvar,
+    #[cfg(windows)]
+    diagnostics: Mutex<DiagnosticSummary>,
 }
 
 impl Default for Code0SnapshotGateInner {
@@ -39,6 +132,8 @@ impl Default for Code0SnapshotGateInner {
         Self {
             state: Mutex::new(Code0SnapshotGateState::default()),
             changed: Condvar::new(),
+            #[cfg(windows)]
+            diagnostics: Mutex::new(DiagnosticSummary::default()),
         }
     }
 }
@@ -54,6 +149,56 @@ pub struct Code0SnapshotTestGate {
 impl Code0SnapshotTestGate {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Fixed enum/numeric observations only; independent of wait/release state.
+    #[cfg(windows)]
+    #[doc(hidden)]
+    pub fn diagnostic_summary(&self) -> impl std::fmt::Debug {
+        self.inner
+            .diagnostics
+            .lock()
+            .map(|summary| *summary)
+            .unwrap_or(DiagnosticSummary {
+                observer_unavailable: true,
+                ..DiagnosticSummary::default()
+            })
+    }
+
+    #[cfg(windows)]
+    fn record(&self, phase: DiagnosticPhase, status: DiagnosticStatus) {
+        self.record_classified(phase, status, false);
+    }
+
+    #[cfg(windows)]
+    fn record_handled(&self, phase: DiagnosticPhase, status: DiagnosticStatus) {
+        self.record_classified(phase, status, true);
+    }
+
+    #[cfg(windows)]
+    fn record_classified(&self, phase: DiagnosticPhase, status: DiagnosticStatus, handled: bool) {
+        if let Ok(mut summary) = self.inner.diagnostics.lock() {
+            let record = DiagnosticRecord {
+                phase,
+                status,
+                handled,
+            };
+            // Handled slot errors belong to bounded history, never the
+            // reserved first-terminal-failure record.
+            if !handled
+                && !matches!(status, DiagnosticStatus::Success)
+                && summary.first_failure_index.is_none()
+            {
+                let index = summary.used;
+                summary.records[index] = Some(record);
+                summary.used += 1;
+                summary.first_failure_index = Some(index);
+            } else if summary.used < 31 {
+                let index = summary.used;
+                summary.records[index] = Some(record);
+                summary.used += 1;
+            }
+        }
     }
 
     pub fn wait_until_after_replace(&self, timeout: Duration) -> bool {
@@ -124,6 +269,72 @@ impl Code0SnapshotTestGate {
     }
 }
 
+#[cfg(all(test, windows))]
+mod diagnostic_tests {
+    use super::{Code0SnapshotTestGate, DiagnosticPhase, DiagnosticStatus};
+
+    #[test]
+    fn handled_slot_collisions_cannot_displace_a_later_terminal_diagnostic() {
+        use DiagnosticPhase::*;
+        let phases = [
+            AuthorityEntered,
+            RootValidation,
+            PendingCheck,
+            CandidateSlotsCheck,
+            RetiredCleanup,
+            PriorSnapshotRead,
+            PendingCreate,
+            PendingValidate,
+            PendingWrite,
+            PendingFlush,
+            PendingIdentity,
+            CandidateCreate,
+            CandidateValidate,
+            ReceiptIdentity,
+            ReceiptWrite,
+            ReceiptFlush,
+            CandidateWritePrefix,
+            CandidateWriteRest,
+            CandidateFlush,
+            CandidateRename,
+            AfterReplaceReached,
+            CandidateVisible,
+            CommitFlush,
+            CommitRootValidation,
+            PendingRetirement,
+        ];
+        for (collisions, terminal) in [(7, PendingRetirement), (15, CandidateWritePrefix)] {
+            let observer = Code0SnapshotTestGate::new();
+            for phase in phases {
+                if phase == CandidateCreate {
+                    for _ in 0..collisions {
+                        observer.record_handled(CandidateCreate, DiagnosticStatus::Win32Error(183));
+                    }
+                }
+                if phase == terminal {
+                    observer.record(phase, DiagnosticStatus::Win32Error(32));
+                    break;
+                }
+                observer.record(phase, DiagnosticStatus::Success);
+            }
+            // Later observations must neither grow the history nor replace
+            // the first terminal failure after the 31-record prefix fills.
+            observer.record(PendingRetirement, DiagnosticStatus::Win32Error(5));
+            observer.record(PendingRetirement, DiagnosticStatus::Success);
+            let summary = *observer.inner.diagnostics.lock().unwrap();
+            assert_eq!(summary.used, 32);
+            assert_eq!(summary.first_failure_index, Some(31));
+            let retained = summary.records[31].unwrap();
+            assert_eq!(retained.phase, terminal);
+            assert!(matches!(retained.status, DiagnosticStatus::Win32Error(32)));
+            assert!(!retained.handled);
+            assert!(summary.records[..31].iter().flatten().any(|record| {
+                record.handled && matches!(record.status, DiagnosticStatus::Win32Error(183))
+            }));
+        }
+    }
+}
+
 /// Independent strict five-field projection, protected by the Code0 profile
 /// lease. It never shares the ordinary provider cache.
 pub struct Code0SnapshotStore {
@@ -132,6 +343,8 @@ pub struct Code0SnapshotStore {
     failure_points: Vec<Code0SnapshotFailurePoint>,
     after_replace_gate: Option<Code0SnapshotTestGate>,
     after_path_validation_gate: Option<Code0SnapshotTestGate>,
+    #[cfg(windows)]
+    diagnostic_observer: Option<Code0SnapshotTestGate>,
 }
 
 impl Code0SnapshotStore {
@@ -142,6 +355,8 @@ impl Code0SnapshotStore {
             failure_points: Vec::new(),
             after_replace_gate: None,
             after_path_validation_gate: None,
+            #[cfg(windows)]
+            diagnostic_observer: None,
         }
     }
 
@@ -158,6 +373,8 @@ impl Code0SnapshotStore {
             failure_points: failure_points.into_iter().collect(),
             after_replace_gate: None,
             after_path_validation_gate: None,
+            #[cfg(windows)]
+            diagnostic_observer: None,
         }
     }
 
@@ -175,6 +392,8 @@ impl Code0SnapshotStore {
             failure_points: failure_points.into_iter().collect(),
             after_replace_gate: Some(gate),
             after_path_validation_gate: None,
+            #[cfg(windows)]
+            diagnostic_observer: None,
         }
     }
 
@@ -192,7 +411,17 @@ impl Code0SnapshotStore {
             failure_points: Vec::new(),
             after_replace_gate: None,
             after_path_validation_gate: Some(gate),
+            #[cfg(windows)]
+            diagnostic_observer: None,
         }
+    }
+
+    /// Observe only this store's existing save operations without enabling a gate.
+    #[cfg(windows)]
+    #[doc(hidden)]
+    pub fn with_diagnostic_observer(mut self, observer: Code0SnapshotTestGate) -> Self {
+        self.diagnostic_observer = Some(observer);
+        self
     }
 
     #[cfg(windows)]
@@ -236,6 +465,10 @@ impl Code0SnapshotStoring for Code0SnapshotStore {
                 serde_json::to_vec(&projection).map_err(|_| Code0StoreError::InvalidSnapshot)?;
             lease
                 .with_root_handle(&self.root, |root_handle, _lock_handle| {
+                    if let Some(observer) = &self.diagnostic_observer {
+                        observer
+                            .record(DiagnosticPhase::AuthorityEntered, DiagnosticStatus::Success);
+                    }
                     Self::path_validation_ready(self.after_path_validation_gate.as_ref())?;
                     windows_impl::save_projection(
                         &self.root,
@@ -244,6 +477,7 @@ impl Code0SnapshotStoring for Code0SnapshotStore {
                         &bytes,
                         &mut self.failure_points,
                         self.after_replace_gate.as_ref(),
+                        self.diagnostic_observer.as_ref(),
                     )
                 })
                 .map_err(|_| Code0StoreError::Unavailable)?
@@ -275,11 +509,14 @@ impl Code0SnapshotStoring for Code0SnapshotStore {
 
 #[cfg(windows)]
 mod windows_impl {
-    use super::{Code0SnapshotFailurePoint, Code0SnapshotTestGate};
+    use super::{
+        Code0SnapshotFailurePoint, Code0SnapshotTestGate, DiagnosticPhase, DiagnosticStatus,
+    };
     use crate::collectors::code0_capture::Code0WebsiteCapture;
     use crate::domain::{MetricKind, MetricUnit, UsageSnapshot, UsageStatus};
     use crate::platform::windows::code0_profile_lease::{
-        guard_code0_read_path, validate_code0_handle, with_code0_security,
+        Code0ValidationDiagnostic, guard_code0_read_path, validate_code0_handle,
+        validate_code0_handle_observed, with_code0_security,
     };
     use crate::platform::windows::code0_web_session::Code0StoreError;
     use serde::{Deserialize, Serialize};
@@ -326,6 +563,84 @@ mod windows_impl {
         Err(Code0StoreError::Unavailable)
     }
 
+    fn observe(
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
+        status: DiagnosticStatus,
+    ) {
+        if let Some(observer) = observer {
+            observer.record(phase, status);
+        }
+    }
+
+    fn observe_result<T>(
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
+        result: Result<T, Code0StoreError>,
+    ) -> Result<T, Code0StoreError> {
+        observe(
+            observer,
+            phase,
+            if result.is_ok() {
+                DiagnosticStatus::Success
+            } else {
+                DiagnosticStatus::OperationUnavailable
+            },
+        );
+        result
+    }
+
+    fn observe_io<T>(
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
+        result: std::io::Result<T>,
+    ) -> Result<T, Code0StoreError> {
+        match result {
+            Ok(value) => {
+                observe(observer, phase, DiagnosticStatus::Success);
+                Ok(value)
+            }
+            Err(error) => {
+                let status = error
+                    .raw_os_error()
+                    .and_then(|error| u32::try_from(error).ok())
+                    .map_or(
+                        DiagnosticStatus::NativeUnavailable,
+                        DiagnosticStatus::Win32Error,
+                    );
+                observe(observer, phase, status);
+                Err(Code0StoreError::Unavailable)
+            }
+        }
+    }
+
+    fn validate_observed(
+        handle: HANDLE,
+        directory: bool,
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
+    ) -> Result<(), Code0StoreError> {
+        let Some(observer) = observer else {
+            return validate_code0_handle(handle, directory)
+                .map_err(|_| Code0StoreError::Unavailable);
+        };
+        let result = validate_code0_handle_observed(handle, directory, &mut |diagnostic| {
+            let status = match diagnostic {
+                Code0ValidationDiagnostic::Win32Error(error) => DiagnosticStatus::Win32Error(error),
+                Code0ValidationDiagnostic::SecurityStatus(status) => {
+                    DiagnosticStatus::SecurityStatus(status)
+                }
+                Code0ValidationDiagnostic::PredicateRejected => DiagnosticStatus::PredicateRejected,
+                Code0ValidationDiagnostic::NativeUnavailable => DiagnosticStatus::NativeUnavailable,
+            };
+            observer.record(phase, status);
+        });
+        if result.is_ok() {
+            observer.record(phase, DiagnosticStatus::Success);
+        }
+        result.map_err(|_| Code0StoreError::Unavailable)
+    }
+
     fn wide(path: &Path) -> Result<Vec<u16>, Code0StoreError> {
         if !path.is_absolute()
             || path.components().any(|component| {
@@ -370,28 +685,62 @@ mod windows_impl {
         Ok(unsafe { OwnedHandle::from_raw_handle(handle) })
     }
 
-    fn open_owned_file(
+    fn open_owned_file_observed(
         path: &Path,
         access: u32,
         disposition: u32,
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
     ) -> Result<OwnedHandle, Code0StoreError> {
-        let path_wide = wide(path)?;
-        let result = with_code0_security(false, |attributes| unsafe {
-            CreateFileW(
-                path_wide.as_ptr(),
-                access,
-                FILE_SHARE_READ | FILE_SHARE_DELETE,
-                attributes,
-                disposition,
-                FILE_FLAG_OPEN_REPARSE_POINT | FILE_ATTRIBUTE_NORMAL,
-                null_mut(),
-            )
-        })
-        .map_err(|_| Code0StoreError::Unavailable)?;
+        let (result, status) =
+            open_owned_file_captured(path, access, disposition, observer.is_some());
+        observe(observer, phase, status);
+        result
+    }
+
+    fn open_owned_file_captured(
+        path: &Path,
+        access: u32,
+        disposition: u32,
+        capture: bool,
+    ) -> (Result<OwnedHandle, Code0StoreError>, DiagnosticStatus) {
+        let path_wide = match wide(path) {
+            Ok(path) => path,
+            Err(error) => return (Err(error), DiagnosticStatus::PredicateRejected),
+        };
+        let mut status = DiagnosticStatus::NativeUnavailable;
+        let result = with_code0_security(false, |attributes| {
+            let handle = unsafe {
+                CreateFileW(
+                    path_wide.as_ptr(),
+                    access,
+                    FILE_SHARE_READ | FILE_SHARE_DELETE,
+                    attributes,
+                    disposition,
+                    FILE_FLAG_OPEN_REPARSE_POINT | FILE_ATTRIBUTE_NORMAL,
+                    null_mut(),
+                )
+            };
+            if handle == INVALID_HANDLE_VALUE || handle.is_null() {
+                if capture {
+                    // Read while still inside the security callback, before
+                    // its descriptor is freed and can overwrite last error.
+                    let error = unsafe { GetLastError() };
+                    status = DiagnosticStatus::Win32Error(error);
+                }
+            } else {
+                status = DiagnosticStatus::Success;
+            }
+            handle
+        });
+        let result = match result {
+            Ok(handle) => handle,
+            Err(_) => return (unavailable(), DiagnosticStatus::NativeUnavailable),
+        };
         if result == INVALID_HANDLE_VALUE || result.is_null() {
-            return unavailable();
+            return (unavailable(), status);
         }
-        Ok(unsafe { OwnedHandle::from_raw_handle(result) })
+        (Ok(unsafe { OwnedHandle::from_raw_handle(result) }), status)
     }
 
     fn path_is_absent(path: &Path) -> Result<bool, Code0StoreError> {
@@ -559,6 +908,14 @@ mod windows_impl {
     }
 
     fn file_identity(handle: HANDLE) -> Result<SnapshotFileIdentity, Code0StoreError> {
+        file_identity_observed(handle, None, DiagnosticPhase::ReceiptIdentity)
+    }
+
+    fn file_identity_observed(
+        handle: HANDLE,
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
+    ) -> Result<SnapshotFileIdentity, Code0StoreError> {
         let mut info = FILE_ID_INFO::default();
         if unsafe {
             windows_sys::Win32::Storage::FileSystem::GetFileInformationByHandleEx(
@@ -568,10 +925,18 @@ mod windows_impl {
                 std::mem::size_of::<FILE_ID_INFO>() as u32,
             )
         } == 0
-            || info.FileId.Identifier.iter().all(|byte| *byte == 0)
         {
+            if let Some(observer) = observer {
+                let error = unsafe { GetLastError() };
+                observer.record(phase, DiagnosticStatus::Win32Error(error));
+            }
             return unavailable();
         }
+        if info.FileId.Identifier.iter().all(|byte| *byte == 0) {
+            observe(observer, phase, DiagnosticStatus::PredicateRejected);
+            return unavailable();
+        }
+        observe(observer, phase, DiagnosticStatus::Success);
         Ok((info.VolumeSerialNumber, info.FileId.Identifier))
     }
 
@@ -644,21 +1009,38 @@ mod windows_impl {
         })
     }
 
-    fn create_pending(root: &Path) -> Result<File, Code0StoreError> {
+    fn create_pending(
+        root: &Path,
+        observer: Option<&Code0SnapshotTestGate>,
+    ) -> Result<File, Code0StoreError> {
         let path = root.join("snapshot.pending");
-        let handle = open_owned_file(
+        let handle = open_owned_file_observed(
             &path,
             GENERIC_READ | GENERIC_WRITE | DELETE | READ_CONTROL,
             CREATE_NEW,
+            observer,
+            DiagnosticPhase::PendingCreate,
         )?;
-        object_is_single_regular_file(handle.as_raw_handle())?;
+        validate_observed(
+            handle.as_raw_handle(),
+            false,
+            observer,
+            DiagnosticPhase::PendingValidate,
+        )?;
         let mut file = unsafe { File::from_raw_handle(handle.into_raw_handle()) };
         // A partially written marker still blocks cold readers and may be
         // removed by explicit secure cleanup; never infer absence from failure.
-        file.write_all(PENDING_BYTES)
-            .map_err(|_| Code0StoreError::Unavailable)?;
-        file.sync_all().map_err(|_| Code0StoreError::Unavailable)?;
-        file_identity(file.as_raw_handle())?;
+        observe_io(
+            observer,
+            DiagnosticPhase::PendingWrite,
+            file.write_all(PENDING_BYTES),
+        )?;
+        observe_io(observer, DiagnosticPhase::PendingFlush, file.sync_all())?;
+        file_identity_observed(
+            file.as_raw_handle(),
+            observer,
+            DiagnosticPhase::PendingIdentity,
+        )?;
         Ok(file)
     }
 
@@ -666,18 +1048,22 @@ mod windows_impl {
         pending: &mut File,
         slot: usize,
         handle: HANDLE,
+        observer: Option<&Code0SnapshotTestGate>,
     ) -> Result<(), Code0StoreError> {
-        let (volume, id) = file_identity(handle)?;
+        let (volume, id) =
+            file_identity_observed(handle, observer, DiagnosticPhase::ReceiptIdentity)?;
         let mut receipt = [0u8; RECEIPT_BYTES];
         receipt[0] = u8::try_from(slot).map_err(|_| Code0StoreError::Unavailable)?;
         receipt[1..9].copy_from_slice(&volume.to_le_bytes());
         receipt[9..].copy_from_slice(&id);
-        pending
-            .write_all(&receipt)
-            .map_err(|_| Code0StoreError::Unavailable)?;
+        observe_io(
+            observer,
+            DiagnosticPhase::ReceiptWrite,
+            pending.write_all(&receipt),
+        )?;
         // Numeric bytes may only be written after this ownership receipt is
         // durable. A crash before receipt completion leaves no numeric bytes.
-        pending.sync_all().map_err(|_| Code0StoreError::Unavailable)
+        observe_io(observer, DiagnosticPhase::ReceiptFlush, pending.sync_all())
     }
 
     fn read_candidate_receipts(root: &Path) -> Result<Vec<CandidateReceipt>, Code0StoreError> {
@@ -734,19 +1120,54 @@ mod windows_impl {
         failure_points: &mut Vec<Code0SnapshotFailurePoint>,
         restoring: bool,
         pending: &mut File,
+        observer: Option<&Code0SnapshotTestGate>,
     ) -> Result<(PathBuf, File), Code0StoreError> {
         for slot in 0..CANDIDATE_SLOTS {
             let path = candidate_path(root, slot);
-            let handle = match open_owned_file(
+            let (opened, status) = open_owned_file_captured(
                 &path,
                 GENERIC_READ | GENERIC_WRITE | DELETE | READ_CONTROL,
                 CREATE_NEW,
-            ) {
-                Ok(handle) => handle,
-                Err(Code0StoreError::Unavailable) if !path_is_absent(&path)? => continue,
-                Err(error) => return Err(error),
+                observer.is_some(),
+            );
+            let handle = match opened {
+                Ok(handle) => {
+                    observe(observer, DiagnosticPhase::CandidateCreate, status);
+                    handle
+                }
+                Err(Code0StoreError::Unavailable) => match path_is_absent(&path) {
+                    Ok(false) => {
+                        if let Some(observer) = observer {
+                            observer.record_handled(DiagnosticPhase::CandidateCreate, status);
+                        }
+                        continue;
+                    }
+                    Ok(true) => {
+                        observe(observer, DiagnosticPhase::CandidateCreate, status);
+                        return unavailable();
+                    }
+                    Err(error) => {
+                        if let Some(observer) = observer {
+                            observer.record_handled(DiagnosticPhase::CandidateCreate, status);
+                            observer.record(
+                                DiagnosticPhase::CandidateCreatePathCheck,
+                                DiagnosticStatus::OperationUnavailable,
+                            );
+                        }
+                        return Err(error);
+                    }
+                },
+                Err(error) => {
+                    observe(observer, DiagnosticPhase::CandidateCreate, status);
+                    return Err(error);
+                }
             };
-            object_is_single_regular_file(handle.as_raw_handle())?;
+            validate_observed(
+                handle.as_raw_handle(),
+                false,
+                observer,
+                DiagnosticPhase::CandidateValidate,
+            )?;
             let mut file = unsafe { File::from_raw_handle(handle.into_raw_handle()) };
             let write_point = if restoring {
                 Code0SnapshotFailurePoint::RestoreWrite
@@ -761,18 +1182,24 @@ mod windows_impl {
             // Inject after an actual partial write/file creation, not before
             // ownership exists, so residue handling is exercised.
             let result = (|| {
-                record_candidate(pending, slot, file.as_raw_handle())?;
-                file.write_all(&bytes[..bytes.len().min(8)])
-                    .map_err(|_| Code0StoreError::Unavailable)?;
+                record_candidate(pending, slot, file.as_raw_handle(), observer)?;
+                observe_io(
+                    observer,
+                    DiagnosticPhase::CandidateWritePrefix,
+                    file.write_all(&bytes[..bytes.len().min(8)]),
+                )?;
                 if take_failure(failure_points, write_point) {
                     return unavailable();
                 }
-                file.write_all(&bytes[bytes.len().min(8)..])
-                    .map_err(|_| Code0StoreError::Unavailable)?;
+                observe_io(
+                    observer,
+                    DiagnosticPhase::CandidateWriteRest,
+                    file.write_all(&bytes[bytes.len().min(8)..]),
+                )?;
                 if take_failure(failure_points, flush_point) {
                     return unavailable();
                 }
-                file.sync_all().map_err(|_| Code0StoreError::Unavailable)
+                observe_io(observer, DiagnosticPhase::CandidateFlush, file.sync_all())
             })();
             if let Err(error) = result {
                 let handle = unsafe { OwnedHandle::from_raw_handle(file.into_raw_handle()) };
@@ -785,6 +1212,11 @@ mod windows_impl {
             }
             return Ok((path, file));
         }
+        observe(
+            observer,
+            DiagnosticPhase::CandidateSlotsExhausted,
+            DiagnosticStatus::OperationUnavailable,
+        );
         unavailable()
     }
 
@@ -792,6 +1224,22 @@ mod windows_impl {
         handle: HANDLE,
         root_handle: HANDLE,
         leaf_name: &str,
+    ) -> Result<(), Code0StoreError> {
+        rename_handle_observed(
+            handle,
+            root_handle,
+            leaf_name,
+            None,
+            DiagnosticPhase::CandidateRename,
+        )
+    }
+
+    fn rename_handle_observed(
+        handle: HANDLE,
+        root_handle: HANDLE,
+        leaf_name: &str,
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
     ) -> Result<(), Code0StoreError> {
         let name = leaf_name.encode_utf16().collect::<Vec<_>>();
         let name_bytes = name
@@ -821,8 +1269,13 @@ mod windows_impl {
             SetFileInformationByHandle(handle, FileRenameInfo, info.cast(), buffer_len as u32)
         } == 0
         {
+            if let Some(observer) = observer {
+                let error = unsafe { GetLastError() };
+                observer.record(phase, DiagnosticStatus::Win32Error(error));
+            }
             return unavailable();
         }
+        observe(observer, phase, DiagnosticStatus::Success);
         Ok(())
     }
 
@@ -901,7 +1354,7 @@ mod windows_impl {
             Some(old) => {
                 let bytes = serde_json::to_vec(old).map_err(|_| Code0StoreError::Unavailable)?;
                 let (temporary_path, file) =
-                    create_candidate(root, &bytes, failure_points, true, pending)?;
+                    create_candidate(root, &bytes, failure_points, true, pending, None)?;
                 if let Err(error) =
                     rename_handle(file.as_raw_handle(), root_handle, "snapshot.json")
                 {
@@ -934,37 +1387,64 @@ mod windows_impl {
         candidate_bytes: &[u8],
         failure_points: &mut Vec<Code0SnapshotFailurePoint>,
         gate: Option<&Code0SnapshotTestGate>,
+        observer: Option<&Code0SnapshotTestGate>,
     ) -> Result<(), Code0StoreError> {
-        validate_code0_handle(root_handle, true).map_err(|_| Code0StoreError::Unavailable)?;
-        no_pending(root)?;
+        validate_observed(root_handle, true, observer, DiagnosticPhase::RootValidation)?;
+        observe_result(observer, DiagnosticPhase::PendingCheck, no_pending(root))?;
         // Any inability to clear the previous nonnumeric retirement object is
         // resolved before installing B or creating this transaction's marker.
-        no_occupied_candidates(root)?;
-        remove_fixed_owned_file(root, "snapshot.retired")?;
-        let old = read_projection_held(root, root_handle)?
-            .map(|(_, bytes)| {
-                serde_json::from_slice::<Projection>(&bytes)
-                    .map_err(|_| Code0StoreError::Unavailable)
-            })
-            .transpose()?;
-        let mut pending = create_pending(root)?;
-        let (candidate_path, candidate_file) =
-            match create_candidate(root, candidate_bytes, failure_points, false, &mut pending) {
-                Ok(candidate) => candidate,
-                Err(error) => {
-                    let _ = retire_pending(root_handle, pending);
-                    return Err(error);
-                }
-            };
-        if let Err(error) =
-            rename_handle(candidate_file.as_raw_handle(), root_handle, "snapshot.json")
-        {
+        observe_result(
+            observer,
+            DiagnosticPhase::CandidateSlotsCheck,
+            no_occupied_candidates(root),
+        )?;
+        observe_result(
+            observer,
+            DiagnosticPhase::RetiredCleanup,
+            remove_fixed_owned_file(root, "snapshot.retired"),
+        )?;
+        let old = observe_result(
+            observer,
+            DiagnosticPhase::PriorSnapshotRead,
+            read_projection_held(root, root_handle),
+        )?
+        .map(|(_, bytes)| {
+            serde_json::from_slice::<Projection>(&bytes).map_err(|_| Code0StoreError::Unavailable)
+        })
+        .transpose()?;
+        let mut pending = create_pending(root, observer)?;
+        let (candidate_path, candidate_file) = match create_candidate(
+            root,
+            candidate_bytes,
+            failure_points,
+            false,
+            &mut pending,
+            observer,
+        ) {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                let _ = retire_pending(root_handle, pending);
+                return Err(error);
+            }
+        };
+        if let Err(error) = rename_handle_observed(
+            candidate_file.as_raw_handle(),
+            root_handle,
+            "snapshot.json",
+            observer,
+            DiagnosticPhase::CandidateRename,
+        ) {
             let owned = unsafe { OwnedHandle::from_raw_handle(candidate_file.into_raw_handle()) };
             let _ = delete_handle_and_confirm(&candidate_path, owned);
             let _ = retire_pending(root_handle, pending);
             return Err(error);
         }
 
+        observe(
+            observer,
+            DiagnosticPhase::AfterReplaceReached,
+            DiagnosticStatus::Success,
+        );
         let gate_released =
             gate.is_none_or(|gate| gate.pause_after_replace(Duration::from_secs(10)));
         let forced_failure = take_failure(
@@ -979,11 +1459,26 @@ mod windows_impl {
                     .map(|visible| visible == identity)
             })
             .unwrap_or(false);
+        observe(
+            observer,
+            DiagnosticPhase::CandidateVisible,
+            if candidate_visible {
+                DiagnosticStatus::Success
+            } else {
+                DiagnosticStatus::OperationUnavailable
+            },
+        );
         let precommit = gate_released
             && !forced_failure
             && candidate_visible
-            && candidate.sync_all().is_ok()
-            && validate_code0_handle(root_handle, true).is_ok()
+            && observe_io(observer, DiagnosticPhase::CommitFlush, candidate.sync_all()).is_ok()
+            && validate_observed(
+                root_handle,
+                true,
+                observer,
+                DiagnosticPhase::CommitRootValidation,
+            )
+            .is_ok()
             && serde_json::from_slice::<Projection>(candidate_bytes)
                 .ok()
                 .as_ref()
@@ -995,7 +1490,14 @@ mod windows_impl {
         // Keep the original marker handle available on failed retirement; it
         // has not been marked delete-pending and cannot disappear on reader close.
         if precommit
-            && rename_handle(pending.as_raw_handle(), root_handle, "snapshot.retired").is_ok()
+            && rename_handle_observed(
+                pending.as_raw_handle(),
+                root_handle,
+                "snapshot.retired",
+                observer,
+                DiagnosticPhase::PendingRetirement,
+            )
+            .is_ok()
         {
             return Ok(()); // Exact final commit; no fallible post-close observation.
         }

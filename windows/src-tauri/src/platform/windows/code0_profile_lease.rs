@@ -83,6 +83,39 @@ pub(crate) fn validate_code0_handle(
     windows_impl::validate_secure_object(handle, directory, &windows_impl::current_user_sid()?)
 }
 
+#[cfg(windows)]
+pub(crate) enum Code0ValidationDiagnostic {
+    Win32Error(u32),
+    SecurityStatus(u32),
+    PredicateRejected,
+    NativeUnavailable,
+}
+
+#[cfg(windows)]
+pub(crate) fn validate_code0_handle_observed(
+    handle: windows_sys::Win32::Foundation::HANDLE,
+    directory: bool,
+    observer: &mut dyn FnMut(Code0ValidationDiagnostic),
+) -> Result<(), Code0LeaseError> {
+    let user_sid = windows_impl::current_user_sid().inspect_err(|_| {
+        observer(Code0ValidationDiagnostic::NativeUnavailable);
+    })?;
+    let mut native_failure = false;
+    let result = windows_impl::validate_secure_object_observed(
+        handle,
+        directory,
+        &user_sid,
+        &mut Some(&mut |diagnostic| {
+            native_failure = true;
+            observer(diagnostic);
+        }),
+    );
+    if result.is_err() && !native_failure {
+        observer(Code0ValidationDiagnostic::PredicateRejected);
+    }
+    result
+}
+
 /// Retained no-follow guards for every existing component of a cold-read path.
 /// FILE_LIST_DIRECTORY makes their restrictive sharing an actual access
 /// reservation; they never create a directory. Short identity probes below
@@ -586,6 +619,20 @@ mod windows_impl {
     }
 
     fn object_info(handle: *mut c_void) -> Result<ObjectInfo, Code0LeaseError> {
+        object_info_observed(handle, &mut None)
+    }
+
+    fn observe_last_error(observer: &mut Option<&mut dyn FnMut(super::Code0ValidationDiagnostic)>) {
+        if let Some(observer) = observer.as_deref_mut() {
+            let error = last_error();
+            observer(super::Code0ValidationDiagnostic::Win32Error(error));
+        }
+    }
+
+    fn object_info_observed(
+        handle: *mut c_void,
+        observer: &mut Option<&mut dyn FnMut(super::Code0ValidationDiagnostic)>,
+    ) -> Result<ObjectInfo, Code0LeaseError> {
         let mut tag = FILE_ATTRIBUTE_TAG_INFO::default();
         if unsafe {
             GetFileInformationByHandleEx(
@@ -595,8 +642,11 @@ mod windows_impl {
                 std::mem::size_of::<FILE_ATTRIBUTE_TAG_INFO>() as u32,
             )
         } == 0
-            || tag.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
         {
+            observe_last_error(observer);
+            return Err(Code0LeaseError::Unavailable);
+        }
+        if tag.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
             return Err(Code0LeaseError::Unavailable);
         }
         let mut standard = FILE_STANDARD_INFO::default();
@@ -608,8 +658,11 @@ mod windows_impl {
                 std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
             )
         } == 0
-            || standard.DeletePending
         {
+            observe_last_error(observer);
+            return Err(Code0LeaseError::Unavailable);
+        }
+        if standard.DeletePending {
             return Err(Code0LeaseError::Unavailable);
         }
         let mut id = FILE_ID_INFO::default();
@@ -621,8 +674,11 @@ mod windows_impl {
                 std::mem::size_of::<FILE_ID_INFO>() as u32,
             )
         } == 0
-            || id.FileId.Identifier.iter().all(|byte| *byte == 0)
         {
+            observe_last_error(observer);
+            return Err(Code0LeaseError::Unavailable);
+        }
+        if id.FileId.Identifier.iter().all(|byte| *byte == 0) {
             return Err(Code0LeaseError::Unavailable);
         }
         let is_directory = tag.FileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0;
@@ -643,7 +699,16 @@ mod windows_impl {
         directory: bool,
         user_sid: &[u8],
     ) -> Result<(), Code0LeaseError> {
-        if object_info(handle)?.is_directory != directory {
+        validate_secure_object_observed(handle, directory, user_sid, &mut None)
+    }
+
+    pub(super) fn validate_secure_object_observed(
+        handle: *mut c_void,
+        directory: bool,
+        user_sid: &[u8],
+        observer: &mut Option<&mut dyn FnMut(super::Code0ValidationDiagnostic)>,
+    ) -> Result<(), Code0LeaseError> {
+        if object_info_observed(handle, observer)?.is_directory != directory {
             return Err(Code0LeaseError::Unavailable);
         }
         let mut owner = null_mut();
@@ -661,7 +726,13 @@ mod windows_impl {
                 &mut descriptor,
             )
         };
-        if status != 0 || descriptor.is_null() {
+        if status != 0 {
+            if let Some(observer) = observer.as_deref_mut() {
+                observer(super::Code0ValidationDiagnostic::SecurityStatus(status));
+            }
+            return Err(Code0LeaseError::Unavailable);
+        }
+        if descriptor.is_null() {
             return Err(Code0LeaseError::Unavailable);
         }
         let allocation = LocalAlloc(descriptor.cast());
@@ -679,9 +750,11 @@ mod windows_impl {
         }
         let mut control = 0u16;
         let mut revision = 0u32;
-        if unsafe { GetSecurityDescriptorControl(descriptor, &mut control, &mut revision) } == 0
-            || control & SE_DACL_PROTECTED == 0
-        {
+        if unsafe { GetSecurityDescriptorControl(descriptor, &mut control, &mut revision) } == 0 {
+            observe_last_error(observer);
+            return Err(Code0LeaseError::Unavailable);
+        }
+        if control & SE_DACL_PROTECTED == 0 {
             return Err(Code0LeaseError::Unavailable);
         }
         let mut present = 0;
@@ -690,9 +763,11 @@ mod windows_impl {
         if unsafe {
             GetSecurityDescriptorDacl(descriptor, &mut present, &mut actual_dacl, &mut defaulted)
         } == 0
-            || present == 0
-            || actual_dacl.is_null()
         {
+            observe_last_error(observer);
+            return Err(Code0LeaseError::Unavailable);
+        }
+        if present == 0 || actual_dacl.is_null() {
             return Err(Code0LeaseError::Unavailable);
         }
         let mut size = ACL_SIZE_INFORMATION::default();
@@ -704,17 +779,27 @@ mod windows_impl {
                 windows_sys::Win32::Security::AclSizeInformation,
             )
         } == 0
-            || size.AceCount != 2
         {
+            observe_last_error(observer);
             return Err(Code0LeaseError::Unavailable);
         }
-        let expected_system = system_sid()?;
+        if size.AceCount != 2 {
+            return Err(Code0LeaseError::Unavailable);
+        }
+        let expected_system = system_sid().inspect_err(|_| {
+            if let Some(observer) = observer.as_deref_mut() {
+                observer(super::Code0ValidationDiagnostic::NativeUnavailable);
+            }
+        })?;
         let mut seen_user = false;
         let mut seen_system = false;
         for index in 0..size.AceCount {
             let mut ace_pointer = null_mut();
-            if unsafe { GetAce(actual_dacl, index, &mut ace_pointer) } == 0 || ace_pointer.is_null()
-            {
+            if unsafe { GetAce(actual_dacl, index, &mut ace_pointer) } == 0 {
+                observe_last_error(observer);
+                return Err(Code0LeaseError::Unavailable);
+            }
+            if ace_pointer.is_null() {
                 return Err(Code0LeaseError::Unavailable);
             }
             let ace = unsafe { &*ace_pointer.cast::<ACCESS_ALLOWED_ACE>() };

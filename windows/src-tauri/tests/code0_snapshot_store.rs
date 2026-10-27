@@ -72,12 +72,17 @@ fn save_round_trip_persists_only_the_five_field_projection_and_loads_cached() {
     let temporary = tempdir().expect("isolated temporary directory");
     let root = temporary.path().join("Code0");
     let lease = Code0ProfileLease::acquire(&root).expect("acquire real profile lease");
-    let mut store = Code0SnapshotStore::new(&root, Some(lease));
+    let diagnostic_observer = Code0SnapshotTestGate::new();
+    let mut store = Code0SnapshotStore::new(&root, Some(lease))
+        .with_diagnostic_observer(diagnostic_observer.clone());
     let snapshot = expected_snapshot();
 
-    store
-        .save_atomic(&snapshot)
-        .expect("persist before publishing snapshot");
+    let save_result = store.save_atomic(&snapshot);
+    eprintln!(
+        "Code0StorageRoundTrip {:?}",
+        diagnostic_observer.diagnostic_summary()
+    );
+    save_result.expect("persist before publishing snapshot");
     let path = root.join("snapshot.json");
     let value: serde_json::Value =
         serde_json::from_slice(&fs::read(path).expect("snapshot bytes")).expect("snapshot JSON");
@@ -404,13 +409,16 @@ fn post_replace_failure_from_absent_state_removes_candidate_before_next_load() {
     let gate = Code0SnapshotTestGate::new();
     let worker_gate = gate.clone();
     let worker_root = root.clone();
+    let diagnostic_observer = Code0SnapshotTestGate::new();
+    let worker_observer = diagnostic_observer.clone();
     let worker = std::thread::spawn(move || {
         let mut failing = Code0SnapshotStore::with_failure_gate(
             worker_root,
             Some(lease),
             [Code0SnapshotFailurePoint::AfterCandidateReplace],
             worker_gate,
-        );
+        )
+        .with_diagnostic_observer(worker_observer);
         failing.save_atomic(&candidate_snapshot())
     });
     let reached = gate.wait_until_after_replace(Duration::from_secs(5));
@@ -421,6 +429,10 @@ fn post_replace_failure_from_absent_state_removes_candidate_before_next_load() {
     };
     gate.release();
     let save_result = worker.join().expect("save worker exits after gate release");
+    eprintln!(
+        "Code0StorageAbsent {:?}",
+        diagnostic_observer.diagnostic_summary()
+    );
 
     assert!(
         reached,
