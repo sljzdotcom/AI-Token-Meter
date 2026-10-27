@@ -509,6 +509,11 @@ impl Code0SnapshotStoring for Code0SnapshotStore {
 
 #[cfg(windows)]
 mod windows_impl {
+    #[cfg(all(test, windows))]
+    mod native_rename_probe {
+        include!("code0_snapshot_store_rename_probe.rs");
+    }
+
     use super::{
         Code0SnapshotFailurePoint, Code0SnapshotTestGate, DiagnosticPhase, DiagnosticStatus,
     };
