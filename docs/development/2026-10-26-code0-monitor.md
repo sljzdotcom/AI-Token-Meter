@@ -383,3 +383,16 @@ af87独立40596223295随后完整成功，独立实际续审C0I0M0：单轮25基
 同提交Mac40600556125全部成功：767/3/18/60/16、hosted12、native12项/2套件、bridge/文档/公开检查；raw1416662B/SHA-256 7b596fd6579bb638900396e91ac39e4de602780dc90f323662179fc0eb2eccd9。Windows信息诊断待独立实际复核；BrowserProcessExited方案已交新鲜R4候选只读核对，尚未实施。官方同步边界缺失是源码合同缺口，不是已证本轮IO原因。未来候选须真实观察事件，保持实际TempDir成功门槛、原21字段/45-10-75及R3锁存；四项未提交Minor准备不在本轮HEAD。
 
 清理信息诊断已完成独立实际续审C0I0M0并由root全文核读：精确测试merge的driver/fixture/workflow Git blob与获审字节一致，实际编译/严格检查和一新一旧两条诊断交付成立；仅该信息保留范围获验收，完整smoke仍FAIL。255与七步事实不提供OS/浏览器退出证明，不放宽后续门槛。
+
+root全文核读新鲜R4可行性报告后决定验证一个窄假设：补齐官方BrowserProcessExited同步边界，分阶段释放控件与环境；这不是断言已找到实际IO原因。只授权原driver/fixture两文件，真实回调关联与计数、实际Destroyed/全库存归零/真实TempDir成功均须成立；原21字段/45-10-75、R3锁存与诊断保留。未知或失败事件不生成成功释放。新编译、严格检查与运行待验，源码须先独审。
+
+同轮独立40600556022完整成功并获独立实际续审C0I0M0（root全文核读）：单轮23+2基线、四个严格编译后唯一语义kill和清理通过。实际checkout833d3a6，事件prMergeSha e1d7d91为旧元数据，不替代实际检出；raw140952B/SHA-256 35c4d5dc42ea36d36e1ecb3bfaaa4f5fc0bd1d53d3f654e52389e3a5947b2208，summary15233B/SHA-256 2e2417061680be4aa0d799eb450eb00dec70d97cbd2df66ed91d70f8a39fcf46。21份留存日志/补丁重哈希一致；空stderr未上传、退出101与副本不变通过精确runner、非整个后代树清理的边界保持。此前48/af87完整轮和取消198部分轮各自保留，本轮仅dispatcher验收，不覆盖native失败。
+
+
+## 浏览器退出同步R4候选与独立源码审查
+
+新鲜执行者仅改原driver/fixture，driver74614B/SHA-256 974ca8274f0038eb172289a9c4aeec7ba477e253c7a3ec6bd2cce2c5cc5ad177、fixture32231B/SHA-256 a055795997769c15de45bdb0f8841aa0ba0064a265d2e859b776f8dad695fc89。候选在控制器提交前注册并保留Environment5退出事件；关闭前取得实际core PID，真实回调核对canonical IUnknown/request/PID/NORMAL，分阶段先释放控件，再移除精确token并释放环境，最后保留全handler/引用/实际Destroyed归零要求。唯一真实回调收据须在close之后、匹配Released之前恰一次，纳入原有观察，不能由注册或诊断位代替。
+
+新鲜独立规格/质量源码审查C0I0M0，root全文核读报告与作者完整可行性/实现报告，源码/完整25263B补丁和冻结哈希一致。原21字段/单case/45-10-75、R3一次终态退出、同一次实际TempDir.close与七步租约观察保留，旧诊断编号和固定格式不改、仅追加新阶段/里程碑/库存位。新引用/监听全部计入真实库存；未知/早到/重复/失败事件不生成成功释放，可保留至原watchdog。未改变ACL/共享/依赖、未重试/探测/控制进程。原四项Minor WIP和其他源码保持。
+
+这是单一同步边界假设的源码候选，不是已证明实际IO根因；新字节编译、严格Clippy、真实事件交付与handler释放、正常返回和真实清理均尚未运行。下一步只有精确源码绑定CI，实际TempDir仍失败就保持FAIL；生产策略/官网桥/数据清理/应用接线及Task5仍未完成，不合并发布。
