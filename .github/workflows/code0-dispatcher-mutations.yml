@@ -1,0 +1,114 @@
+name: Code0 dispatcher mutation contracts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/code0-dispatcher-mutations.yml
+      - scripts/test-code0-dispatcher-mutations.py
+      - windows/src-tauri/src/platform/windows/code0_dispatcher.rs
+      - windows/src-tauri/tests/code0_dispatcher.rs
+      - windows/src-tauri/Cargo.toml
+      - windows/src-tauri/Cargo.lock
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/code0-dispatcher-mutations.yml
+      - scripts/test-code0-dispatcher-mutations.py
+      - windows/src-tauri/src/platform/windows/code0_dispatcher.rs
+      - windows/src-tauri/tests/code0_dispatcher.rs
+      - windows/src-tauri/Cargo.toml
+      - windows/src-tauri/Cargo.lock
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code0-dispatcher-mutations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutations:
+    name: Four Code0 dispatcher semantic mutations
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy
+      - name: Select Rust toolchain
+        shell: pwsh
+        run: rustup default 1.88.0
+      - name: Install frontend dependencies
+        working-directory: windows
+        run: npm ci
+      - name: Build frontend resources for isolated copies
+        working-directory: windows
+        run: npm run build
+      - name: Fetch locked dependencies before offline mutation checks
+        working-directory: windows/src-tauri
+        run: cargo fetch --locked --target x86_64-pc-windows-msvc
+      - name: Verify baseline and four fixed semantic mutations
+        shell: pwsh
+        run: |
+          $reviewedHash = 'ee12ab416110c3f04f62a8fba584993c92e44f09974bfb2f1d31d6023018e2af'
+          if ((Get-FileHash scripts/test-code0-dispatcher-mutations.py -Algorithm SHA256).Hash.ToLowerInvariant() -ne $reviewedHash) { throw 'Unreviewed dispatcher mutation runner' }
+          $env:CODE0_DISPATCHER_MUTATIONS_APPROVED = 'otherwise-GREEN25'
+          python scripts/test-code0-dispatcher-mutations.py
+      - name: Verify complete mutation evidence
+        shell: python {0}
+        run: |
+          import hashlib, json, os
+          from pathlib import Path
+
+          script = Path('scripts/test-code0-dispatcher-mutations.py')
+          if hashlib.sha256(script.read_bytes()).hexdigest() != 'ee12ab416110c3f04f62a8fba584993c92e44f09974bfb2f1d31d6023018e2af':
+              raise SystemExit('Unreviewed dispatcher mutation runner')
+          candidates = list(Path(os.environ['RUNNER_TEMP']).glob('code0-dispatcher-mutations-*/summary.json'))
+          if len(candidates) != 1:
+              raise SystemExit('Expected one fresh dispatcher mutation summary')
+          with candidates[0].open('rb') as source:
+              raw = source.read(524289)
+          if len(raw) > 524288:
+              raise SystemExit('Mutation summary exceeds bound')
+          evidence = json.loads(raw)
+          baseline = evidence.get('baseline', {})
+          mutants = evidence.get('mutants', [])
+          if (type(evidence.get('schema')) is not int or evidence['schema'] != 1
+                  or evidence.get('status') != 'passed' or evidence.get('error') != 'none'
+                  or evidence.get('checkoutSha') != os.environ['GITHUB_SHA']
+                  or evidence.get('githubSha') != os.environ['GITHUB_SHA']
+                  or evidence.get('feature') != 'code0-native-fixture'
+                  or evidence.get('baselineGreen') is not True
+                  or evidence.get('processUnreaped') is not False
+                  or evidence.get('cleanup') != 'passed'
+                  or evidence.get('enumerationErrorOracle') != 'passed'
+                  or any(baseline.get(p) != 'passed' for p in ('clippy', 'compile', 'integration', 'private', 'cleanup'))
+                  or baseline.get('validatedIntegrationTests') != 23 or baseline.get('validatedPrivateTests') != 2
+                  or [m.get('id') for m in mutants] != ['M1', 'M2', 'M3', 'M4']
+                  or any(m.get('status') != 'killed' or m.get('clippy') != 'passed'
+                         or m.get('compile') != 'passed' or m.get('test') != 'semantic_failure'
+                         or m.get('semanticAssertionMatch') is not True or m.get('cleanup') != 'passed'
+                         or m.get('validatedSelectedTests') != 1 or m.get('validatedFailedTests') != 1
+                         for m in mutants)):
+              raise SystemExit('Dispatcher mutation evidence incomplete or not GREEN')
+          print('Dispatcher baseline25 and four semantic mutation kills verified; no native acceptance implied.')
+      - name: Preserve bounded mutation summaries and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-dispatcher-mutation-evidence
+          path: |
+            ${{ runner.temp }}/code0-dispatcher-mutations-*/summary.json
+            ${{ runner.temp }}/code0-dispatcher-mutations-*/*.log
+            ${{ runner.temp }}/code0-dispatcher-mutations-*/M*.patch
+          if-no-files-found: warn
+          retention-days: 7
