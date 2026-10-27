@@ -25,6 +25,7 @@ const CHILD_TEST: &str = "persistence::code0_snapshot_store::windows_impl::nativ
 const MANIFEST: &[u8] = b"AI-METER-REQ004-NATIVE-RENAME-v1\nA\nB\nC\nD\nE\n";
 const LEAF: &str = "snapshot.json";
 const MAX_RECORD_BYTES: u64 = 8192;
+const RECORD_PREFIX: &[u8] = b"Code0NativeRenameProbe ";
 const CHILD_WAIT: Duration = Duration::from_secs(15);
 const WHOLE_WAIT: Duration = Duration::from_secs(70);
 const WATCHDOG_WAIT: Duration = Duration::from_secs(10);
@@ -308,6 +309,72 @@ fn native_rename_probe_has_five_observed_arms() {
     );
 }
 
+#[test]
+fn native_rename_probe_output_failures_are_terminal() {
+    // This exercises only the actual output boundary, never a fabricated
+    // complete matrix or native result. Ignoring either a write failure
+    // (including after a partial write) or a flush failure must fail this test.
+    struct FailingOutput {
+        remaining: usize,
+        fail_flush: bool,
+    }
+
+    impl Write for FailingOutput {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.remaining == 0 {
+                return Err(std::io::ErrorKind::BrokenPipe.into());
+            }
+            let count = self.remaining.min(bytes.len());
+            self.remaining -= count;
+            Ok(count)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            if self.fail_flush {
+                Err(std::io::ErrorKind::BrokenPipe.into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    for (remaining, fail_flush) in [(0, false), (3, false), (usize::MAX, true)] {
+        let mut output = FailingOutput {
+            remaining,
+            fail_flush,
+        };
+        assert!(
+            write_evidence(&mut output, b"output-error-oracle\n").is_err(),
+            "Code0NativeRenameProbe output failure was accepted"
+        );
+    }
+}
+
+fn framed_evidence(records: &[Record]) -> ProbeResult<Vec<u8>> {
+    require(records.len() == Arm::ALL.len())?;
+    let mut batch = Vec::new();
+    for (record, expected) in records.iter().zip(Arm::ALL) {
+        require(record.valid_complete(expected))?;
+        let json = serde_json::to_vec(record).map_err(failed)?;
+        let framed_len = RECORD_PREFIX
+            .len()
+            .checked_add(json.len())
+            .and_then(|length| length.checked_add(1))
+            .ok_or(ProbeFailure::Failed)?;
+        require(framed_len as u64 <= MAX_RECORD_BYTES)?;
+        batch.extend_from_slice(RECORD_PREFIX);
+        batch.extend_from_slice(&json);
+        batch.push(b'\n');
+    }
+    require(batch.len() as u64 <= MAX_RECORD_BYTES * Arm::ALL.len() as u64)?;
+    Ok(batch)
+}
+
+fn write_evidence(output: &mut impl Write, batch: &[u8]) -> ProbeResult<()> {
+    output.write_all(batch).map_err(failed)?;
+    output.flush().map_err(failed)
+}
+
 fn run_matrix() -> ProbeResult<()> {
     let deadline = Instant::now() + WHOLE_WAIT;
     let temp = fs::canonicalize(std::env::temp_dir()).map_err(failed)?;
@@ -392,14 +459,12 @@ fn run_owned_matrix(base: &Path, deadline: Instant) -> ProbeResult<()> {
         records.push(record);
     }
     require(records.len() == 5 && Instant::now() < deadline)?;
-    // Emit only our parsed fixed schema after every arm completed. Never dump
-    // child output, marker bytes, path-valued assertions or raw I/O errors.
-    for record in records {
-        let line = serde_json::to_string(&record).map_err(failed)?;
-        require(line.len() as u64 <= MAX_RECORD_BYTES)?;
-        eprintln!("Code0NativeRenameProbe {line}");
-    }
-    Ok(())
+    // Validate and frame the entire finite batch before any output. Direct
+    // stderr Write bypasses libtest's successful-test print-macro capture.
+    // Errors remain opaque and propagate through run_matrix's normal cleanup.
+    let batch = framed_evidence(&records)?;
+    let stderr = std::io::stderr();
+    write_evidence(&mut stderr.lock(), &batch)
 }
 
 #[test]
