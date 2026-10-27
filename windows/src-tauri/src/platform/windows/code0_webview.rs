@@ -274,7 +274,7 @@ mod native {
         events: Code0NativeEventSink,
         instance: Option<Instance>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-        diagnostics: Option<Arc<Diagnostics>>,
+        pub(super) diagnostics: Option<Arc<Diagnostics>>,
     }
 
     struct Instance {
