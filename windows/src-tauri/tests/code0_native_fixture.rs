@@ -357,6 +357,7 @@ mod smoke {
         let mut terminal_exit_requested = false;
         let mut ready_count = 0;
         let mut message_count = 0;
+        let mut browser_exit_count = 0;
         let live_construction = Arc::clone(&construction);
         let ui_diagnostics = Arc::clone(&diagnostics);
         diagnostics.phase(DP::RunReturn, false);
@@ -541,6 +542,20 @@ mod smoke {
                             ui_diagnostics.observed(DM::RendererMessage);
                         }
                     }
+                    Observation::Native(
+                        NativeSmokeObservation::BrowserProcessExited,
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        browser_exit_count += 1;
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if browser_exit_count != 1
+                            || closing_since.is_none()
+                            || state.owned_references_released
+                        {
+                            state.failure = "browserExitReceiptInvalid";
+                        }
+                    }
                     Observation::Session(
                         owned,
                         Code0WindowEvent::Released,
@@ -548,7 +563,8 @@ mod smoke {
                         callback_sta,
                     ) => {
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
-                        state.owned_references_released = owned == request;
+                        state.owned_references_released =
+                            owned == request && browser_exit_count == 1;
                         if state.owned_references_released {
                             ui_diagnostics.observed(DM::Released);
                         }

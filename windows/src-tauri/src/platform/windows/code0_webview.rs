@@ -172,14 +172,15 @@ mod native {
     use tauri::Manager;
     use webview2_com::Microsoft::Web::WebView2::Win32::*;
     use webview2_com::{
-        CoTaskMemPWSTR, CreateCoreWebView2ControllerCompletedHandler,
+        BrowserProcessExitedEventHandler, CoTaskMemPWSTR,
+        CreateCoreWebView2ControllerCompletedHandler,
         CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
     };
     use windows::Win32::Foundation::{E_FAIL, HWND, RECT};
     use windows::Win32::System::Com::{
         APTTYPE, APTTYPE_MAINSTA, APTTYPE_STA, APTTYPEQUALIFIER, CoGetApartmentType,
     };
-    use windows::core::{Interface, PCWSTR, PWSTR};
+    use windows::core::{IUnknown, Interface, PCWSTR, PWSTR};
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     use super::fixture::{
@@ -310,6 +311,17 @@ mod native {
         pub(super) diagnostics: Option<Arc<Diagnostics>>,
     }
 
+    #[derive(Clone, Copy)]
+    enum BrowserExitState {
+        // Only the existing failed-before-build path can be object-free without
+        // a browser witness. Starting native construction creates an obligation.
+        NotStarted,
+        Unarmed,
+        Armed(u32),
+        Observed,
+        Unknown,
+    }
+
     struct Instance {
         request: Code0WindowRequest,
         callbacks: Arc<Callbacks>,
@@ -319,6 +331,11 @@ mod native {
         build_started: bool,
         destroyed: bool,
         environment: Option<ICoreWebView2Environment>,
+        environment5: Option<ICoreWebView2Environment5>,
+        exit_token: Option<i64>,
+        exit_remove_attempted: bool,
+        browser_exit: BrowserExitState,
+        controls_disposed: bool,
         controller: Option<ICoreWebView2Controller>,
         core: Option<ICoreWebView2>,
         message_token: Option<i64>,
@@ -393,6 +410,13 @@ mod native {
         instance.window.is_none()
             && (!instance.had_window || instance.destroyed)
             && instance.environment.is_none()
+            && instance.environment5.is_none()
+            && instance.exit_token.is_none()
+            && (instance.controls_disposed || !instance.build_started)
+            && (matches!(instance.browser_exit, BrowserExitState::Observed)
+                && instance.exit_remove_attempted
+                || !instance.build_started
+                    && matches!(instance.browser_exit, BrowserExitState::NotStarted))
             && instance.controller.is_none()
             && instance.core.is_none()
             && instance.message_token.is_none()
@@ -480,6 +504,11 @@ mod native {
             build_started: false,
             destroyed: false,
             environment: None,
+            environment5: None,
+            exit_token: None,
+            exit_remove_attempted: false,
+            browser_exit: BrowserExitState::NotStarted,
+            controls_disposed: false,
             controller: None,
             core: None,
             message_token: None,
@@ -507,9 +536,12 @@ mod native {
             failed(owner, &request);
             return Err(Code0SessionFailure::PolicyRejected);
         }
-        matching(&mut owner.borrow_mut(), &request)
-            .unwrap()
-            .build_started = true;
+        {
+            let mut state = owner.borrow_mut();
+            let instance = matching(&mut state, &request).unwrap();
+            instance.build_started = true;
+            instance.browser_exit = BrowserExitState::Unarmed;
+        }
         let built = observed_call!(
             owner,
             WindowBuild,
@@ -618,6 +650,192 @@ mod native {
         Ok(())
     }
 
+    fn browser_exit_unknown(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) {
+        let mut state = owner.borrow_mut();
+        if let Some(instance) = matching(&mut state, request) {
+            instance.browser_exit = BrowserExitState::Unknown;
+            instance.failed = true;
+            instance.closing = true;
+        } else {
+            state.unmatched = true;
+        }
+    }
+
+    fn install_browser_exit_handler(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> windows::core::Result<()> {
+        // The environment completion's Active guard covers every registration,
+        // callback, interface and action local until this function returns.
+        let (environment, ui, callbacks) = {
+            let state = owner.borrow();
+            let instance = state.instance.as_ref().ok_or(E_FAIL)?;
+            if &instance.request != request || instance.environment5.is_some() {
+                return Err(E_FAIL.into());
+            }
+            (
+                instance.environment.clone().ok_or(E_FAIL)?,
+                state.ui_thread,
+                Arc::clone(&instance.callbacks),
+            )
+        };
+        let environment5: ICoreWebView2Environment5 =
+            native_call!(owner, ExitCast, environment.cast())?;
+        {
+            let mut state = owner.borrow_mut();
+            let instance = matching(&mut state, request).ok_or(E_FAIL)?;
+            instance.environment5 = Some(environment5.clone());
+        }
+        let weak = Rc::downgrade(owner);
+        let owned_request = request.clone();
+        let lifetime = HandlerLifetime::new(&callbacks);
+        let handler = BrowserProcessExitedEventHandler::create(Box::new(move |sender, args| {
+            let _lifetime = &lifetime;
+            let active = Active::enter(&callbacks);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                diagnostic.phase(DP::ExitCallback, false);
+            }
+            if callback_on_ui(ui, &callbacks)
+                && let Some(owner) = weak.upgrade()
+                && browser_process_exited(&owner, &owned_request, sender.as_ref(), args.as_ref())
+                    .is_err()
+            {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                    diagnostic.failure(DP::ExitCallback, E_FAIL.0);
+                }
+                browser_exit_unknown(&owner, &owned_request);
+            }
+            // The wrapper supplies owned interface clones. They must end while
+            // Active still prevents any reentrant poll from certifying release.
+            drop(args);
+            drop(sender);
+            drop(active);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                diagnostic.phase(DP::ExitCallback, true);
+            }
+            Ok(())
+        }));
+        let mut token = 0;
+        let registered = native_call!(owner, ExitAdd, unsafe {
+            environment5.add_BrowserProcessExited(&handler, &mut token)
+        });
+        drop(handler);
+        registered?;
+        {
+            let mut state = owner.borrow_mut();
+            let instance = matching(&mut state, request).ok_or(E_FAIL)?;
+            // Token zero is valid. Reentrant failure/closing remains sticky; the
+            // successful registration must still be retained for exact removal.
+            instance.exit_token = Some(token);
+        }
+        milestone!(owner, ExitRegistered);
+        Ok(())
+    }
+
+    fn browser_process_exited(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        sender: Option<&ICoreWebView2Environment>,
+        args: Option<&ICoreWebView2BrowserProcessExitedEventArgs>,
+    ) -> windows::core::Result<()> {
+        let environment = {
+            let state = owner.borrow();
+            let instance = state.instance.as_ref().ok_or(E_FAIL)?;
+            if &instance.request != request {
+                return Err(E_FAIL.into());
+            }
+            instance.environment.clone().ok_or(E_FAIL)?
+        };
+        let sender = sender.ok_or(E_FAIL)?;
+        let args = args.ok_or(E_FAIL)?;
+        // Compare only canonical IUnknown pointers after fallible QI. Do not use
+        // IUnknown::eq: its cached implementation can perform QI with unwrap.
+        let expected_identity: IUnknown = native_call!(owner, ExitIdentity, environment.cast())?;
+        let sender_identity: IUnknown = native_call!(owner, ExitIdentity, sender.cast())?;
+        if expected_identity.as_raw() != sender_identity.as_raw() {
+            return Err(E_FAIL.into());
+        }
+        let mut pid = 0;
+        let mut kind = COREWEBVIEW2_BROWSER_PROCESS_EXIT_KIND::default();
+        native_call!(owner, ExitPidGetter, unsafe {
+            args.BrowserProcessId(&mut pid)
+        })?;
+        native_call!(owner, ExitKindGetter, unsafe {
+            args.BrowserProcessExitKind(&mut kind)
+        })?;
+        {
+            let mut state = owner.borrow_mut();
+            let instance = matching(&mut state, request).ok_or(E_FAIL)?;
+            if !instance.closing
+                || !matches!(instance.browser_exit, BrowserExitState::Armed(expected) if expected == pid && pid != 0)
+                || kind != COREWEBVIEW2_BROWSER_PROCESS_EXIT_KIND_NORMAL
+            {
+                return Err(E_FAIL.into());
+            }
+            // This is only a candidate witnessed by the actual callback. Poll
+            // must still dispose controls, unregister, and drop all references.
+            instance.browser_exit = BrowserExitState::Observed;
+        }
+        milestone!(owner, ExitObserved);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        {
+            let observer = owner.borrow().instance.as_ref().unwrap().observer.clone();
+            if let Some(observer) = observer {
+                observer(NativeSmokeObservation::BrowserProcessExited);
+            }
+        }
+        Ok(())
+    }
+
+    fn arm_browser_exit(owner: &Rc<RefCell<Owner>>) {
+        let candidate = {
+            let state = owner.borrow();
+            let instance = state.instance.as_ref().unwrap();
+            if !matches!(instance.browser_exit, BrowserExitState::Unarmed) {
+                return;
+            }
+            (
+                instance.request.clone(),
+                instance.core.clone(),
+                instance.environment5.is_some() && instance.exit_token.is_some(),
+            )
+        };
+        let (request, core, registered) = candidate;
+        let Some(core) = core.filter(|_| registered) else {
+            browser_exit_unknown(owner, &request);
+            return;
+        };
+        let mut pid = 0;
+        let result = native_call!(owner, BrowserPid, unsafe {
+            core.BrowserProcessId(&mut pid)
+        });
+        drop(core);
+        if result.is_err() || pid == 0 {
+            browser_exit_unknown(owner, &request);
+            return;
+        }
+        let armed = {
+            let mut state = owner.borrow_mut();
+            let instance = matching(&mut state, &request).unwrap();
+            if matches!(instance.browser_exit, BrowserExitState::Unarmed) {
+                instance.browser_exit = BrowserExitState::Armed(pid);
+                true
+            } else {
+                // A callback can reenter the PID getter before arming. Its
+                // unknown disposition must never be overwritten by this result.
+                false
+            }
+        };
+        if armed {
+            milestone!(owner, ExitArmed);
+        } else {
+            browser_exit_unknown(owner, &request);
+        }
+    }
+
     fn environment_completed(
         weak: &Weak<RefCell<Owner>>,
         request: &Code0WindowRequest,
@@ -627,9 +845,8 @@ mod native {
         let Some(owner) = weak.upgrade() else {
             return;
         };
-        let (start_controller, ui, callbacks, hwnd) = {
+        let has_environment = {
             let mut state = owner.borrow_mut();
-            let ui = state.ui_thread;
             let Some(instance) = matching(&mut state, request) else {
                 state.unmatched = true;
                 if let Some(environment) = environment {
@@ -644,16 +861,28 @@ mod native {
                 instance.failed = true;
                 instance.closing = true;
             }
-            (
-                !instance.closing,
-                ui,
-                Arc::clone(&instance.callbacks),
-                instance.hwnd,
-            )
+            instance.environment.is_some()
         };
-        if !start_controller {
+        if !has_environment || install_browser_exit_handler(&owner, request).is_err() {
+            browser_exit_unknown(&owner, request);
             return;
         }
+        let (ui, callbacks, hwnd) = {
+            let mut state = owner.borrow_mut();
+            let ui = state.ui_thread;
+            let Some(instance) = matching(&mut state, request) else {
+                state.unmatched = true;
+                return;
+            };
+            if instance.closing
+                || instance.failed
+                || instance.exit_token.is_none()
+                || !matches!(instance.browser_exit, BrowserExitState::Unarmed)
+            {
+                return;
+            }
+            (ui, Arc::clone(&instance.callbacks), instance.hwnd)
+        };
         let Some(hwnd) = hwnd else {
             failed(&owner, request);
             return;
@@ -979,7 +1208,19 @@ mod native {
                 | (u32::from(instance.remove_attempted) << 12)
                 | (u32::from(instance.stop_attempted) << 13)
                 | (u32::from(instance.close_attempted) << 14)
-                | (u32::from(instance.destroy_attempted) << 15);
+                | (u32::from(instance.destroy_attempted) << 15)
+                | (u32::from(instance.environment5.is_some()) << 16)
+                | (u32::from(instance.exit_token.is_some()) << 17)
+                | (u32::from(matches!(
+                    instance.browser_exit,
+                    BrowserExitState::Unarmed
+                        | BrowserExitState::Armed(_)
+                        | BrowserExitState::Unknown
+                )) << 18)
+                | (u32::from(matches!(instance.browser_exit, BrowserExitState::Observed)) << 19)
+                | (u32::from(instance.controls_disposed) << 20)
+                | (u32::from(instance.exit_remove_attempted) << 21)
+                | (u32::from(matches!(instance.browser_exit, BrowserExitState::Unknown)) << 22);
             diagnostic.publish_inventory(
                 instance.callbacks.pending.load(Ordering::SeqCst),
                 instance.callbacks.active.load(Ordering::SeqCst),
@@ -1031,10 +1272,16 @@ mod native {
                 instance.closing = true;
                 instance.cleanup_blocked = true;
             }
-            if !instance.closing || instance.callbacks.active.load(Ordering::SeqCst) != 0 {
+            if !instance.closing
+                || instance.callbacks.active.load(Ordering::SeqCst) != 0
+                || instance.callbacks.pending.load(Ordering::SeqCst) != 0
+            {
                 return;
             }
         }
+        // Bind the actual core's process before Stop/Close can synchronously
+        // deliver exit. PollGuard covers this getter's action-local interface.
+        arm_browser_exit(owner);
         let remove = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1083,25 +1330,100 @@ mod native {
                 native_call!(owner, ControllerClose, unsafe { controller.Close() }),
             );
         }
-        let references = {
+        let controls = {
             let mut state = owner.borrow_mut();
+            let unmatched = state.unmatched;
             let instance = state.instance.as_mut().unwrap();
-            if !instance.cleanup_blocked
+            if !unmatched
+                && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
+                && !instance.controls_disposed
+                && !instance.cleanup_blocked
                 && instance.message_token.is_none()
+                && (instance.core.is_none() || instance.stop_attempted)
+                && (instance.controller.is_none() || instance.close_attempted)
                 && instance.callbacks.pending.load(Ordering::SeqCst) == 0
                 && instance.callbacks.active.load(Ordering::SeqCst) == 0
-                && instance.callbacks.handlers.load(Ordering::SeqCst) == 0
             {
-                Some((
-                    instance.core.take(),
-                    instance.controller.take(),
-                    instance.environment.take(),
-                ))
+                // Intentionally do not require aggregate handlers0 here: the
+                // registered exit handler/environment must survive control drop.
+                Some((instance.core.take(), instance.controller.take()))
             } else {
                 None
             }
         };
-        drop(references);
+        if let Some(controls) = controls {
+            phase!(owner, ControlDrop, false);
+            drop(controls);
+            // Drop can reenter. Only after all actual control locals end may a
+            // later stage consume a synchronously recorded exit observation.
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .controls_disposed = true;
+            phase!(owner, ControlDrop, true);
+            milestone!(owner, ControlsDisposed);
+        }
+        let exit_registration = {
+            let mut state = owner.borrow_mut();
+            let unmatched = state.unmatched;
+            let instance = state.instance.as_mut().unwrap();
+            if !unmatched
+                && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
+                && instance.controls_disposed
+                && matches!(instance.browser_exit, BrowserExitState::Observed)
+                && !instance.cleanup_blocked
+                && !instance.exit_remove_attempted
+                && instance.callbacks.pending.load(Ordering::SeqCst) == 0
+                && instance.callbacks.active.load(Ordering::SeqCst) == 0
+            {
+                instance.exit_remove_attempted = true;
+                instance.environment5.clone().zip(instance.exit_token)
+            } else {
+                None
+            }
+        };
+        if let Some((environment5, token)) = exit_registration {
+            let result = native_call!(owner, ExitRemove, unsafe {
+                environment5.remove_BrowserProcessExited(token)
+            });
+            if result.is_ok() {
+                owner.borrow_mut().instance.as_mut().unwrap().exit_token = None;
+                milestone!(owner, ExitRemoved);
+            }
+            cleanup_result(owner, result);
+        }
+        let environments = {
+            let mut state = owner.borrow_mut();
+            let unmatched = state.unmatched;
+            let instance = state.instance.as_mut().unwrap();
+            if !unmatched
+                && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
+                && instance.controls_disposed
+                && instance.core.is_none()
+                && instance.controller.is_none()
+                && matches!(instance.browser_exit, BrowserExitState::Observed)
+                && !instance.cleanup_blocked
+                && instance.exit_remove_attempted
+                && instance.exit_token.is_none()
+                && instance.callbacks.pending.load(Ordering::SeqCst) == 0
+                && instance.callbacks.active.load(Ordering::SeqCst) == 0
+                && (instance.environment.is_some() || instance.environment5.is_some())
+            {
+                Some((instance.environment5.take(), instance.environment.take()))
+            } else {
+                None
+            }
+        };
+        if let Some(environments) = environments {
+            phase!(owner, EnvironmentDrop, false);
+            // A removed handler may remain retained until its emitter drops.
+            // Its real HandlerLifetime still gates final inventory_empty.
+            drop(environments);
+            phase!(owner, EnvironmentDrop, true);
+            milestone!(owner, EnvironmentDropped);
+        }
         let destroy = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1125,6 +1447,7 @@ mod native {
         }
         let notification = {
             let mut state = owner.borrow_mut();
+            let unmatched = state.unmatched;
             let events = Rc::clone(&state.events);
             let instance = state.instance.as_mut().unwrap();
             if instance.failed && !instance.failure_sent {
@@ -1132,13 +1455,17 @@ mod native {
                 Some((
                     events,
                     instance.request.clone(),
-                    Code0WindowEvent::Failed(if instance.cleanup_blocked {
-                        Code0SessionFailure::CleanupFailed
-                    } else {
-                        Code0SessionFailure::PolicyRejected
-                    }),
+                    Code0WindowEvent::Failed(
+                        if instance.cleanup_blocked
+                            || matches!(instance.browser_exit, BrowserExitState::Unknown)
+                        {
+                            Code0SessionFailure::CleanupFailed
+                        } else {
+                            Code0SessionFailure::PolicyRejected
+                        },
+                    ),
                 ))
-            } else if !instance.released && inventory_empty(instance) {
+            } else if !unmatched && !instance.released && inventory_empty(instance) {
                 instance.released = true;
                 Some((events, instance.request.clone(), Code0WindowEvent::Released))
             } else {
@@ -1248,6 +1575,9 @@ pub mod fixture {
         },
         /// Actual bounded renderer object JSON; not production bridge evidence.
         RendererMessage { payload: Vec<u8> },
+        /// Actual registered event, validated against the owned environment,
+        /// armed core PID and normal exit kind. Contains no native references.
+        BrowserProcessExited,
     }
 
     pub type Observer = Rc<dyn Fn(NativeSmokeObservation)>;
@@ -1301,6 +1631,16 @@ pub mod fixture {
         TempClose,
         FinalSummary,
         WatchdogJoin,
+        ExitCast,
+        ExitAdd,
+        BrowserPid,
+        ExitCallback,
+        ExitIdentity,
+        ExitKindGetter,
+        ExitPidGetter,
+        ExitRemove,
+        ControlDrop,
+        EnvironmentDrop,
     }
 
     #[derive(Clone, Copy)]
@@ -1330,6 +1670,12 @@ pub mod fixture {
         WakeJoined,
         TempClosed,
         ProfileMatched,
+        ExitRegistered,
+        ExitArmed,
+        ExitObserved,
+        ControlsDisposed,
+        ExitRemoved,
+        EnvironmentDropped,
     }
 
     #[derive(Default)]
