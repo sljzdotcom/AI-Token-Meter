@@ -312,3 +312,13 @@ Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经�
 独立变异[40573959390](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40573959390)三个源码工作字节与实际HEAD的LF blob精确相同，检出修正实际生效；runner已进入且枚举错误oracle通过，随后全归档路径规则拦截仓库已跟踪的两份历史审查文档。完整日志131865B/SHA-256 09474bfdd7e96aae4f1f7c836d34e9147930d315bf1be5fc0eebffb8d206727c；baseline/Cargo/mutants仍未运行、零kills。R2/fix1窄修经独审C0I0M0，仅精确接纳两regular文件与三父目录并检查类型，历史内容继续进入全源码等价比对，原四变异和限额未改。路径oracle只验证标准tar解析后的名称与类型，不声称拒绝解析器已规范化的原始目录终止斜杠；不使用extractall或宽泛前缀许可。新runner与三处精确pin共同更新，待实际运行。
 
 存储最终功能R5/5候选经fresh独立规格/质量审查C0I0M0。产品仅在old=Some且恢复A的候选已完整准备后关闭本流程ownB，然后原样执行一次restore/flush/identity及仅成功后retire，old=None exact-handle和所有guards/barrier保持。三项test-only helper使用真实同父typed rename/link与实际Volume/FileID/linkCount证明，原28断言与诊断保留。所有本候选编译/Clippy/原生行为仍未运行，不宣称五失败解决；不自动开启R6。真实引擎候选另由唯一作者开发，未审查部分不进入这一提交。
+
+
+`886b614`的[Windows40576683116](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40576683116)已实际通过严格feature Clippy/编译及父级380项Rust（子进程另打印helper1项，不重复计）；原28存储全部通过，三项已有诊断oracle通过。五旧失败均转绿，PostReplaceOldA/BeforeRetire均实际restore及retire Ok，后者读者关闭前后Some/Some；额外强制restore失败轮实际保持Unavailable/Unavailable与不retire，原保护断言全部到达。完整日志284154B/SHA-256 b7a46d2882361816cdd98ae18b7b65a449aa4c740dd45042caaeebb4daa26910。该job仍因尚未接入引擎的正常nativeCreateDenied失败，NSIS/GUI未运行；不能称完整Windows GREEN。最终功能R5无需启动R6，真实OS内部唯一拒绝分支仍不由成功结果反推。
+
+同一[macOS40576683105](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40576683105)完整成功，日志1415871B/SHA-256 533d4c669a008ce1326a05dad442dc38d0259beac377e1092db29416f29b9bfe；独立变异40576683283仍运行，不提前统计baseline或kills。真实COM/固定inline候选首次独审C0I1M0：外层create/inline动作持有局部native引用时，重入poll可能先报告Released；原作者R1只补现有Active库存的完整动作保护，保留原独立21字段/构造/焦点/销毁断言及45/10/75秒限额，所有本候选编译/运行仍未验。
+
+
+最终R5的实际独立复核C0I0M0已完成：CI测试的是merge `96825f7fa4e08c93ec9959b2b56b39d894d57510`，其两个完整Git blob与已审冻结store/test逐字相同；不将metadata head886与实际merge混同，也不虚构未记录的runner落盘字节SHA。真实hardlink的ID/count2、不安全symlink及unknown-slot的正反向身份、原拒绝/字节保留/unlink/恢复/cleanup均由无条件原assertions加实际case PASS闭合。此次局部存储可验收，整体Code0仍进行中。
+
+最小真实Windows引擎候选的独审I1已以R1关闭，定向复审C0I0M0：create和固定inline的外层同步动作复用现有Active库存，覆盖所有局部Window/COM/handler及返回路径，防止重入UI poll抢先报告Released。原四文件候选提供同一UI/STA裸Window与直接COM环境/控制器/核心、实际profile/version查询、固定inline renderer对象、真实Destroyed与释放库存；部分创建错误、10秒关闭失败保持owner/lease并继续等待真实释放，不能以timeout或Close成功冒充清理。原21字段/构造焦点销毁判据、45/10/75秒及严格正常CI保留。仅使用已锁定直接依赖，release中不暴露fixture接口；正式官网导航、生产拒绝策略和数据清理仍保持拒绝，实际编译/Clippy/引擎GREEN与后续完整接线尚未验证，不因源审通过称已完成或发布。
