@@ -654,7 +654,7 @@ struct CLIAuthenticationScriptBuilderTests {
         try createTokenPipe(at: tokenPipe)
         let gateHolder = isolatedProcess(
             executable: URL(fileURLWithPath: "/usr/bin/perl"),
-            arguments: ["-e", "use Fcntl qw(:DEFAULT); my ($path, $locked, $release) = @ARGV; open my $gate, '+<', $path or die $!; my $record_lock = pack('qqiss', 0, 0, 0, F_WRLCK, SEEK_SET); defined(fcntl($gate, F_SETLKW, $record_lock)) or die $!; open my $ready, '>', $locked or die $!; close $ready; sleep 0.01 until -e $release; my $unlock = pack('qqiss', 0, 0, 0, F_UNLCK, SEEK_SET); defined(fcntl($gate, F_SETLK, $unlock)) or die $!;", launchGate.path, gateLocked.path, releaseGate.path],
+            arguments: ["-e", "use Fcntl qw(:DEFAULT); my ($path, $locked, $release) = @ARGV; open my $gate, '+<', $path or die $!; my $record_lock = pack('qqiss', 0, 0, 0, F_WRLCK, SEEK_SET); defined(fcntl($gate, F_SETLKW, $record_lock)) or die $!; open my $ready, '>', $locked or die $!; close $ready; select undef,undef,undef,0.01 until -e $release; my $unlock = pack('qqiss', 0, 0, 0, F_UNLCK, SEEK_SET); defined(fcntl($gate, F_SETLK, $unlock)) or die $!;", launchGate.path, gateLocked.path, releaseGate.path],
             in: root
         )
         try gateHolder.run()
@@ -756,6 +756,90 @@ struct CLIAuthenticationScriptBuilderTests {
             inputAfterOutput: "handoff received.", cliStartRequired: false, supervisorStartRequired: true,
             onGuardianReady: { try Data("cancelled\n".utf8).write(to: status.appendingPathExtension("cancel"), options: .atomic) }, in: root
         )
+        #expect(result.cleanupSucceeded)
+        #expect(result.terminationStatus == 130)
+        #expect(!FileManager.default.fileExists(atPath: release.path))
+        #expect(!FileManager.default.fileExists(atPath: cliMarker.path))
+        #expect(try String(contentsOf: status, encoding: .utf8) == "helper_cancelled\n")
+    }
+
+    @Test("Cancellation after an observed record-lock conflict reaps the supervisor before gate release")
+    func contendedSupervisorCancellationReapsBeforeGateRelease() throws {
+        let root = temporaryDirectory()
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: tokenPipe)
+        let status = tokenPipe.appendingPathExtension("status")
+        let locked = root.appendingPathComponent("gate-locked")
+        let release = root.appendingPathComponent("release-gate")
+        let holder = isolatedProcess(executable: URL(fileURLWithPath: "/usr/bin/perl"), arguments: [
+            "-e", "use Fcntl qw(:DEFAULT); my ($p,$l,$r)=@ARGV; open my $g,'+<',$p or die $!; my $f=pack('qqiss',0,0,0,F_WRLCK,SEEK_SET); defined(fcntl($g,F_SETLKW,$f)) or die $!; open my $m,'>',$l or die $!; close $m; select undef,undef,undef,0.01 until -e $r;",
+            status.appendingPathExtension("lock").path, locked.path, release.path
+        ], in: root)
+        try holder.run()
+        defer { try? Data().write(to: release); if holder.isRunning { holder.terminate() }; holder.waitUntilExit() }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while !FileManager.default.fileExists(atPath: locked.path), ContinuousClock.now < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        try #require(FileManager.default.fileExists(atPath: locked.path))
+        let cliMarker = root.appendingPathComponent("cli-started")
+        let cli = try writeExecutable("#!/bin/sh\ntouch '\(cliMarker.path)'\nexit 0\n", named: "agy", in: root)
+        let watchdogPID = root.appendingPathComponent("watchdog.pid")
+        let watchdog = try writeTrackedPerlWatchdog(pidFile: watchdogPID, in: root)
+        var script = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: cli,
+            completionTokenPipeURL: tokenPipe, completionOpenExecutableURL: URL(fileURLWithPath: "/usr/bin/false"), watchdogExecutableURL: watchdog)
+        let uninstrumentedScript = script
+        let contentionMarker = "fixture-lock-contended"
+        let originalGate = #"""
+        my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
+        while (1) {
+          if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+          if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
+          last if defined(fcntl($gate, F_SETLK, $record_lock));
+          if ($! != EINTR && $! != EACCES && $! != EAGAIN && $! != EWOULDBLOCK) { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); }
+          sleep 0.05;
+        }
+        """#
+        let observedGate = #"""
+        my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
+        my $fixture_lock_contention_reported = 0;
+        while (1) {
+          if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+          if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
+          last if defined(fcntl($gate, F_SETLK, $record_lock));
+          my $fixture_lock_error = 0 + $!;
+          if ($fixture_lock_error != EINTR && $fixture_lock_error != EACCES && $fixture_lock_error != EAGAIN && $fixture_lock_error != EWOULDBLOCK) { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); }
+          if (!$fixture_lock_contention_reported && $fixture_lock_error != EINTR && ($fixture_lock_error == EACCES || $fixture_lock_error == EAGAIN || $fixture_lock_error == EWOULDBLOCK)) {
+            my $fixture_marker = "fixture-lock-contended\n";
+            my $fixture_written = syswrite(STDOUT, $fixture_marker);
+            defined($fixture_written) && $fixture_written == length($fixture_marker) or _exit(127);
+            $fixture_lock_contention_reported = 1;
+          }
+          sleep 0.05;
+        }
+        """#
+        // Observe the real failed F_SETLK only in this generated synthetic script.
+        // No syscall result, cancellation check, or launch deadline is replaced.
+        try #require(script.components(separatedBy: originalGate).count == 2)
+        try #require(!script.contains(contentionMarker))
+        script = script.replacingOccurrences(of: originalGate, with: observedGate)
+        try #require(script.components(separatedBy: contentionMarker).count == 2)
+        try #require(script.replacingOccurrences(of: observedGate, with: originalGate) == uninstrumentedScript)
+        let url = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: url)
+        var contentionObserved = false
+        var cancelWriteCompleted = false
+        let result = try runIsolatedPTYLogin(
+            scriptURL: url, tokenPipe: tokenPipe, cliPIDFile: root.appendingPathComponent("unused-cli.pid"), watchdogPIDFile: watchdogPID,
+            inputAfterOutput: contentionMarker, cliStartRequired: false, supervisorStartRequired: true,
+            onMarker: { _ in
+                contentionObserved = true
+                try Data("cancelled\n".utf8).write(to: status.appendingPathExtension("cancel"), options: .atomic)
+                cancelWriteCompleted = true
+            }, in: root
+        )
+        #expect(contentionObserved)
+        #expect(cancelWriteCompleted)
+        #expect(result.terminalOutput.components(separatedBy: contentionMarker).count == 2)
         #expect(result.cleanupSucceeded)
         #expect(result.terminationStatus == 130)
         #expect(!FileManager.default.fileExists(atPath: release.path))
