@@ -767,7 +767,7 @@ mod native {
             let Some(instance) = state.instance.as_mut() else {
                 return;
             };
-            if !instance.window.as_ref().is_some_and(|v| v.label() == label) {
+            if instance.window.as_ref().is_none_or(|v| v.label() != label) {
                 return;
             }
             if matches!(event, tauri::WindowEvent::Destroyed) {
