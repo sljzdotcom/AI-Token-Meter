@@ -482,7 +482,7 @@ mod windows_impl {
     }
 
     fn valid_number(value: f64) -> bool {
-        value.is_finite() && value >= 0.0 && value <= 9_007_199_254_740_991.0
+        value.is_finite() && (0.0..=9_007_199_254_740_991.0).contains(&value)
     }
 
     fn open_existing_file(path: &Path) -> Result<OwnedHandle, u32> {
