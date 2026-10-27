@@ -103,8 +103,12 @@ fn second_process_is_busy_until_held_lease_is_released_and_lock_remains() {
 
     let temporary = tempdir().expect("isolated temporary directory");
     let root = temporary.path().join("Code0");
-    let ready = temporary.path().join("ready");
-    let release = temporary.path().join("release");
+    // The lease deliberately reserves every profile ancestor against modifying
+    // directory opens. Publish the complete control record in a separate owned
+    // directory, outside that held chain, while the real lease stays acquired.
+    let control = tempdir().expect("isolated lease control directory");
+    let ready = control.path().join("ready");
+    let release = control.path().join("release");
     let child = Command::new(std::env::current_exe().expect("test executable"))
         .arg("--exact")
         .arg("second_process_is_busy_until_held_lease_is_released_and_lock_remains")

@@ -59,6 +59,7 @@ enum DiagnosticStatus {
     PredicateRejected,
     Win32Error(u32),
     SecurityStatus(u32),
+    NativeRenameError { status: i32, io_status: Option<i32> },
     NativeUnavailable,
     OperationUnavailable,
 }
@@ -73,6 +74,11 @@ impl std::fmt::Debug for DiagnosticStatus {
             Self::SecurityStatus(status) => formatter
                 .debug_tuple("SecurityStatus")
                 .field(status)
+                .finish(),
+            Self::NativeRenameError { status, io_status } => formatter
+                .debug_struct("NativeRenameError")
+                .field("status", status)
+                .field("io_status", io_status)
                 .finish(),
             Self::NativeUnavailable => formatter.write_str("NativeUnavailable"),
             Self::OperationUnavailable => formatter.write_str("OperationUnavailable"),
@@ -533,17 +539,22 @@ mod windows_impl {
     use std::ptr::{null, null_mut};
     use std::time::Duration;
     use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+    use windows_sys::Wdk::Storage::FileSystem::{
+        FILE_RENAME_INFORMATION, FileRenameInformation, NtSetInformationFile,
+    };
     use windows_sys::Win32::Foundation::{
         ERROR_FILE_NOT_FOUND, GENERIC_READ, GENERIC_WRITE, GetLastError, HANDLE,
         INVALID_HANDLE_VALUE,
     };
     use windows_sys::Win32::Storage::FileSystem::{
         CREATE_NEW, CreateFileW, DELETE, FILE_ATTRIBUTE_NORMAL, FILE_DISPOSITION_INFO,
-        FILE_FLAG_OPEN_REPARSE_POINT, FILE_ID_INFO, FILE_READ_ATTRIBUTES, FILE_RENAME_INFO,
-        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO,
-        FileDispositionInfo, FileIdInfo, FileRenameInfo, FileStandardInfo, OPEN_EXISTING,
-        READ_CONTROL, SetFileInformationByHandle,
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_ID_INFO, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE,
+        FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, FileDispositionInfo, FileIdInfo,
+        FileStandardInfo, OPEN_EXISTING, READ_CONTROL, SetFileInformationByHandle,
     };
+    #[cfg(test)]
+    use windows_sys::Win32::Storage::FileSystem::{FILE_RENAME_INFO, FileRenameInfo};
+    use windows_sys::Win32::System::IO::{IO_STATUS_BLOCK, IO_STATUS_BLOCK_0};
 
     const MAX_PROJECTION_BYTES: usize = 4096;
     const PENDING_BYTES: &[u8] = b"AI-METER-CODE0-PENDING-v1";
@@ -1225,20 +1236,87 @@ mod windows_impl {
         unavailable()
     }
 
-    fn rename_handle(
-        handle: HANDLE,
-        root_handle: HANDLE,
-        leaf_name: &str,
-    ) -> Result<(), Code0StoreError> {
-        rename_handle_observed(
-            handle,
-            root_handle,
-            leaf_name,
-            None,
-            DiagnosticPhase::CandidateRename,
-        )
+    fn rename_same_parent(handle: HANDLE, leaf_name: &str) -> Result<(), Code0StoreError> {
+        rename_same_parent_observed(handle, leaf_name, None, DiagnosticPhase::CandidateRename)
     }
 
+    fn rename_same_parent_observed(
+        handle: HANDLE,
+        leaf_name: &str,
+        observer: Option<&Code0SnapshotTestGate>,
+        phase: DiagnosticPhase,
+    ) -> Result<(), Code0StoreError> {
+        // Only our still-owned candidate/pending files, created in the held
+        // profile root under the same authority/mutation lock, reach this seam.
+        // Native NULL-root + simple basename uses that source's existing parent
+        // (MS-FSA Open.Link.ParentFile), independently of the process CWD.
+        if !matches!(leaf_name, "snapshot.json" | "snapshot.retired") {
+            return unavailable();
+        }
+        let name = leaf_name.encode_utf16().collect::<Vec<_>>();
+        let name_bytes = name
+            .len()
+            .checked_mul(std::mem::size_of::<u16>())
+            .ok_or(Code0StoreError::Unavailable)?;
+        let offset = std::mem::offset_of!(FILE_RENAME_INFORMATION, FileName);
+        let buffer_len = offset
+            .checked_add(name_bytes)
+            .ok_or(Code0StoreError::Unavailable)?;
+        let name_bytes = u32::try_from(name_bytes).map_err(|_| Code0StoreError::Unavailable)?;
+        let length = u32::try_from(buffer_len).map_err(|_| Code0StoreError::Unavailable)?;
+        let mut aligned = vec![0u128; buffer_len.div_ceil(std::mem::size_of::<u128>())];
+        let info = aligned.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
+        // An immediate native failure can leave IOSB untouched. Do not invent
+        // a zero completion or substitute thread-local Win32 last-error state.
+        let mut io_status = IO_STATUS_BLOCK {
+            Anonymous: IO_STATUS_BLOCK_0 { Status: i32::MIN },
+            Information: 0,
+        };
+        unsafe {
+            (*info).Anonymous.ReplaceIfExists = true;
+            (*info).RootDirectory = null_mut();
+            (*info).FileNameLength = name_bytes;
+            std::ptr::copy_nonoverlapping(
+                name.as_ptr(),
+                std::ptr::addr_of_mut!((*info).FileName).cast::<u16>(),
+                name.len(),
+            );
+        }
+        // Microsoft IoIsOperationSynchronous explicitly lists
+        // ZwSetInformationFile as always synchronous, including on async file
+        // objects; NtSetInformationFile documents Nt as its user-mode name.
+        // Our source additionally has no FILE_FLAG_OVERLAPPED. Thus the API
+        // completes before returning: buffer/IOSB/source and the caller's
+        // lease/guards remain alive for its whole use, with no pending work
+        // dropped, extra wait, retry, or process-exit completion strategy.
+        let status = unsafe {
+            NtSetInformationFile(
+                handle,
+                &mut io_status,
+                info.cast(),
+                length,
+                FileRenameInformation,
+            )
+        };
+        let completion = unsafe { io_status.Anonymous.Status };
+        if status != 0 || completion != 0 {
+            observe(
+                observer,
+                phase,
+                DiagnosticStatus::NativeRenameError {
+                    status,
+                    io_status: (completion != i32::MIN).then_some(completion),
+                },
+            );
+            return unavailable();
+        }
+        observe(observer, phase, DiagnosticStatus::Success);
+        Ok(())
+    }
+
+    // Keep the controlled A arm's original Win32 operation frozen. Product
+    // transactions use only the native same-parent helper above.
+    #[cfg(test)]
     fn rename_handle_observed(
         handle: HANDLE,
         root_handle: HANDLE,
@@ -1321,13 +1399,13 @@ mod windows_impl {
         delete_handle_and_confirm(&path, handle)
     }
 
-    fn retire_pending(root_handle: HANDLE, pending: File) -> Result<(), Code0StoreError> {
+    fn retire_pending(pending: File) -> Result<(), Code0StoreError> {
         // Final visibility commit: a successful rename removes the pending
         // NAME immediately, even while another compatible handle retains the
         // marker object. Nothing fallible follows this transition. The retired
         // nonnumeric marker is securely removed before the next transaction or
         // explicit cleanup, never treated as an unconfirmed delete/absence.
-        rename_handle(pending.as_raw_handle(), root_handle, "snapshot.retired")
+        rename_same_parent(pending.as_raw_handle(), "snapshot.retired")
     }
 
     fn take_failure(
@@ -1343,7 +1421,6 @@ mod windows_impl {
 
     fn restore_projection(
         root: &Path,
-        root_handle: HANDLE,
         old: Option<&Projection>,
         candidate_file: &mut Option<File>,
         failure_points: &mut Vec<Code0SnapshotFailurePoint>,
@@ -1360,9 +1437,7 @@ mod windows_impl {
                 let bytes = serde_json::to_vec(old).map_err(|_| Code0StoreError::Unavailable)?;
                 let (temporary_path, file) =
                     create_candidate(root, &bytes, failure_points, true, pending, None)?;
-                if let Err(error) =
-                    rename_handle(file.as_raw_handle(), root_handle, "snapshot.json")
-                {
+                if let Err(error) = rename_same_parent(file.as_raw_handle(), "snapshot.json") {
                     let owned = unsafe { OwnedHandle::from_raw_handle(file.into_raw_handle()) };
                     let _ = delete_handle_and_confirm(&temporary_path, owned);
                     return Err(error);
@@ -1428,20 +1503,19 @@ mod windows_impl {
         ) {
             Ok(candidate) => candidate,
             Err(error) => {
-                let _ = retire_pending(root_handle, pending);
+                let _ = retire_pending(pending);
                 return Err(error);
             }
         };
-        if let Err(error) = rename_handle_observed(
+        if let Err(error) = rename_same_parent_observed(
             candidate_file.as_raw_handle(),
-            root_handle,
             "snapshot.json",
             observer,
             DiagnosticPhase::CandidateRename,
         ) {
             let owned = unsafe { OwnedHandle::from_raw_handle(candidate_file.into_raw_handle()) };
             let _ = delete_handle_and_confirm(&candidate_path, owned);
-            let _ = retire_pending(root_handle, pending);
+            let _ = retire_pending(pending);
             return Err(error);
         }
 
@@ -1495,9 +1569,8 @@ mod windows_impl {
         // Keep the original marker handle available on failed retirement; it
         // has not been marked delete-pending and cannot disappear on reader close.
         if precommit
-            && rename_handle_observed(
+            && rename_same_parent_observed(
                 pending.as_raw_handle(),
-                root_handle,
                 "snapshot.retired",
                 observer,
                 DiagnosticPhase::PendingRetirement,
@@ -1511,7 +1584,6 @@ mod windows_impl {
         // A failed restore or retirement leaves pending in place across reopen.
         let restored = restore_projection(
             root,
-            root_handle,
             old.as_ref(),
             &mut candidate_file,
             failure_points,
@@ -1519,7 +1591,7 @@ mod windows_impl {
         );
         drop(candidate_file);
         if restored.is_ok() {
-            let _ = retire_pending(root_handle, pending);
+            let _ = retire_pending(pending);
         }
         unavailable()
     }
