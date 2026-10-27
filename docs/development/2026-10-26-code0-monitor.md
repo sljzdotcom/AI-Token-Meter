@@ -258,3 +258,13 @@ Clippy窄修仅将有限非负安全数的两次比较改为相同闭区间conta
 `abe8497`的[Windows 40543882747](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40543882747)前端302/26、类型/构建/608密度/桥/格式通过，严格Clippy在dispatcher402的嵌套回调字段报告type_complexity，库与库测试停止；23调度器契约、A–E、原28存储均未运行，不能称认证顺序实际RED或原生接口结果。完整日志115405B/SHA-256 `e0bb0365650cb01ef50fbbdcf18a12ee11ba14066b58b52fd441debdb23e2c28`已保留。GREEN修正R1仅加入私有Code0Emitter类型别名并替换字段类型，公开签名、回调顺序、23项断言和产品I1均不变，源码定向复审C0I0M0；实际严格检查与运行时仍待下一隔离候选。
 
 同一[macOS 40543882642](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40543882642)完整成功：756/114套件（既有条件跳过）、调度3、PTY18、CLI60、后16、窗口12、原生12/2、桥26、373文档与公开检查。日志1411029B/SHA-256 `82e9229e33b27f51926456aa1826b70e4b9f155f00ec09f401efe8b6f8ba3c4a`。旧G11查询0/取消旧127首因仍未证明；媒体委托/TCC/TLS与真实账户边界保留，不据重复成功关闭历史根因。
+
+
+`44fa48c`随`61c130d`进入[Windows 40545480770](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40545480770)，严格Clippy与编译通过。原22调度契约全部通过，新认证顺序回归在cache remove计数0应1处实际RED，确认先到认证撤销被Released超越的缺陷；不以其余成功宣称完整GREEN。原300/纯会话20/诊断回归通过，原存储28仍9通过19失败，两例CandidateRename87在19步成功后不变。A–E父级harness通过、helper普通无操作通过，但日志五臂结果行数0：成功的eprintln输出被libtest捕获且临时marker已清理，独立复核确认这是诊断证据传输缺口，不能从harness成功推断任何接口结果。父级374项354通过20失败，不重复计子级失败，NSIS/GUI未运行。完整日志274150B/SHA-256 `50944d207aa9b6e9669a3f3bfb5ea003d7fca25a412acdb111565eda640d6a41`已保留。
+
+同一[macOS 40545480643](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40545480643)完整756/3/18/60/16、窗口12、原生12/2、桥26、373文档和公开检查通过，日志1403228B/SHA-256 `e87b54aab19fd41d5ef0cd29467619608daa3048426b87f7bac9d5741d6c6e66`；旧首因及现场未观察边界不变。下一检查点将修正有界因果顺序与五臂结果输出，并准备原生窗口拒绝型smoke契约；后者源码初审发现初始化期间隐藏/焦点观察缺口，需先补齐，默认feature跳过不是通过，尚不接产品命令或官网。
+
+
+下一候选源码检查点：调度器功能R2通过独立定向复审C0I0M0，以固定有界前缀保留释放前事件的因果顺序，并在调度失败时保留已收到的原生证据；原23契约未改，增2项相关时序/洪泛用例，共25项待实际GREEN。五臂输出R1通过独审C0I0M0，先完整验证/编码五条固定记录，再经有界、可失败的直接stderr写入并flush，补写/部分写/flush错误回归，不重复原生矩阵，不改访问/共享/事务策略。
+
+Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经两轮修正和独审C0I0M0：实际构造句柄身份、构造时隐藏状态与主事件回调焦点锁存须覆盖EngineReady以前，当前适配器仍拒绝创建且不伪造任何原生成功。schema2固定21字段；显式feature启用的正常全量Clippy/test接线经独审C0I0M0，严格检查本次run/attempt的新鲜单例证据、构造已观察且无窗口违规，保留固定JSON；缺失/失败不能放行打包。四个解析负例仅证明校验器，不是原生行为证据。当前候选编译、Clippy、25契约、可见五臂结果和首个nativeCreateDenied行为RED均待下一隔离CI，不称真实引擎GREEN；真实COM创建错误保留lease至物理释放的边界留给后续实现。
