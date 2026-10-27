@@ -273,3 +273,16 @@ Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经�
 `0ee854c`的[Windows 40551463225](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40551463225)前端302/26、类型/构建/密度/格式通过；显式feature严格Clippy在native观察enum报告large_enum_variant（实际Window至少536字节、次大80字节），库与库测试停止。25调度器契约、可见A–E、输出错误回归、原生smoke和原28存储均未运行，不算行为RED。新的Python自定义shell/原始schema2校验器实际接受正例并拒绝数组、错大小写、重复键和违规极性四个负例；缺失本次原生证据仍使门禁失败、安装包跳过，不能将解析器检查当作原生通过。日志131326B/SHA-256 `1726558d28febc9ec17f75ebff50ef717eea73ff74a05462bd3d112dc4d1790a`已保留。原作者R3仅将实际Window字段改为Box，保持同一对象身份、构造时点、焦点锁存和21字段不变，R3定向源码独审C0I0M0，修订后的严格检查与全部运行时仍待必要CI。
 
 同一[macOS 40551463214](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40551463214)完整门禁成功，756/3/18/60/16、窗口12、原生12/2、共享桥26及文档/公开检查均通过；完整日志1411226B/SHA-256 `2221ad12616e79aec1e5c6bb6749f4d67ce1287491cec97a030a380305263457`。旧首因/媒体/TCC/TLS/真实账户未观察边界保持。
+
+
+`ecc4045`的[Windows 40553916957](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40553916957)通过显式feature严格Clippy与编译，调度器23集成加2私有单元全部通过，认证顺序与新增前缀用例实际GREEN。原300、纯会话20、诊断及输出错误回归通过；父级libtest合计377项358通过19失败（不重复计子进程），原28存储仍9通过19失败，NSIS/GUI跳过。五臂完整记录已保留：A/E Win32 held-root失败87；B Win32 NULL-root虽成功但目标落在无关CWD，不能用于产品；C native held-root返回0xC0000043且IOSB未知；D native NULL-root返回直接0/IOSB0，目标位于原父目录、无关CWD无目标，五臂源/root身份和authority均有效。完整日志289434B/SHA-256 `d4c66311052ead2c6febb3123814bd823beb6317f0c21e21d5a40cea0aa621bb`。
+
+同一Windows实际选择了独立native fixture进程，但加载器返回`0xc0000139 / STATUS_ENTRYPOINT_NOT_FOUND`，未进入测试且无本轮摘要，不能算有效nativeCreateDenied行为RED。静态依赖链显示默认CommonControls6 manifest仅链接到bin，而fixture为test目标；实际PE/导入表/解析DLL尚未保留，这只是待验证候选原因，先补下一CI有限元数据，不盲改manifest或追加GUI启动。
+
+同一[macOS 40553916883](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40553916883)主756项中completionExitCode=5参数触发5条断言：finished/cleanup为false、退出129应127、awaitingLogin应loginFailed、状态文件未清理；后续普通分组未运行，窗口12、原生12/2和共享桥通过。日志1095805B/SHA-256 `b39567013136328923246e1d0e77841e021a7c959aadfe8f00289d8a04053a9a`。新登记REQ-20261028-001：首个查询已完整退出/回收并排空，exit1且输出严格空，同记录PID既有后置检查为ESRCH；G11观察器仍归未知、约196ms提前保留，随后应急退出与清理状态错误。新增判定接缝直接用于该真实分支，先保留拒绝实现及28数据例RED候选，等待独审和实际编译行为失败后再修正；不据本轮定位关闭旧002/003。
+
+存储功能R4源候选仅改native同父目录rename与lease测试控制目录位置，保留原28断言，独立规格/质量C0I0M0；具体完成合同依赖官方NtSetInformationFile同步服务语义，来源父目录保证限于已接受的协作lease/私有目录威胁范围，不扩称防任意同用户恶意注入。原28项及严格检查仍待本候选实际CI。四个固定dispatcher语义变异runner经一次遍历错误处理修正后独审C0I0M0，源已冻结；独立副本基线25及四次语义kill均未运行，源接受不等于变异通过。
+
+候选检查点已分开提交：6af3185为存储功能R4；3ff8751为G11真实failed-query判定的RED接缝和28数据例，源码独审C0I0M0，尚未实际编译行为RED；b04d89e为已审固定变异runner及单独Windows工作流，接线独审C0I0M0。后者先下载锁定依赖和生成前端资源，再在独立副本进行offline严格检查、原25基线和四个精确语义失败；只保留摘要、文本日志和固定补丁，不触碰正常窗口测试与打包门禁。所有本候选运行结果仍待隔离CI，不将源码审查或解析自检称为GREEN。
+
+下一Windows正常运行后新增有限加载器元数据收集：只读取同job唯一fixture的PE头、导入、manifest和自有build指定文本，工具/文件缺失或不完整明确保留，未追加fixture/GUI启动或manifest修复。收集脚本经一次工具退出确认与mt暂存隔离修正后独审C0I0M0；所有工具终结未知会停止后续操作，只有确认退出后的有界文本进入上传白名单。正常runtime、schema2原生摘要和NSIS/GUI门禁逐字节保留。PowerShell解析、实际采集、加载缺失符号与原生行为仍待隔离CI，不凭静态manifest候选断言根因。
