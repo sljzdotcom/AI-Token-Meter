@@ -327,3 +327,8 @@ Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经�
 独立变异[40576683283](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40576683283)现已完整保留：25副本基线、严格Clippy/编译、完整源/归档/路径及两个oracle通过；M1/M2均严格编译后精确命中借用跨emit/reply的固定语义断言并清理，为两个有效kill。M3只生成patch、Clippy/test未运行，M4全部未运行，整体在20分钟总预算后失败，processUnreaped=false。完整日志131993B/SHA-256 56885b26d5400de20572dff0c348ca486018e8a41ecd9162946719673935bd9c；摘要11748B/SHA-256 2fbc6100a494ad0f05c194a55e96659154c465f4d32ce3b45bc96d561ce57ee3。完成的Cargo报告时长约476秒，其余时间未按文件扫描/复制/清理等逐项测量，finalizer也可能覆盖早先error，不猜确切第一FS操作。
 
 R3经独立规格/质量审查C0I0M0，仅把独立验证的有限总预算20改40分钟、专用job30改50分钟，并同步三处唯一runner摘要；单Cargo4分钟、Git30秒、所有产品600/300/45/10/75秒及原断言、全量字节/祖先/reparse/类型/路径检查、四变异和清理判定均不变。依据首次实际成本给完整五阶段留预算，不以减校验或推测缓存优化换取通过；新预算能否完成仍待实际运行，不能拿旧两个kill补齐新一轮缺项。真实引擎候选与该已审预算窄修将一并送入下一隔离验证。
+
+
+`3ee9ce6`的[Windows40581092967](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40581092967)在driver770报唯一nonminimal_bool，严格Clippy使lib/lib-test停止，所有本轮Rust与真实引擎行为均未运行；日志134038B/SHA-256 5fa795e9fb45d9b781fd67f2510b6c1c1dd259d9d90d97e9aa364c2800049b04。独立[40581093046](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40581093046)同样在基线严格编译前置失败，25基线/四变异未运行，不是40分钟预算不足的证据。Mac40581093237完整成功，日志1415835B/SHA-256 743718ae51641df58ede29f2fc4f5dbf8f7fc23f6bfc0cbcbde46430981eaa3c。
+
+R2仅将窗口label条件从否定is_some_and改为is_none_or的等价反谓词，None/不同label仍返回、匹配才继续；独立复审C0I0M0，原生命周期库存/fixture判据/依赖/门禁不变。已审的四文件deferred-Minor测试准备保持未提交，后续先取得详情重开真正行为RED再改Shell；这批故意预期失败的测试不混入当前首次引擎验证候选。它们的Swift真实tick-task join和Rust时间戳断言还没有编译/运行证据，不能结项。
