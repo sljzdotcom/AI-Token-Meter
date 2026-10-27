@@ -298,3 +298,10 @@ Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经�
 仅两项old-A回滚取证候选已完成源码独审C0I0M0：默认None观察器保持关闭，在同32槽内区分forward/restore/restore-retire、真实首错误与forced injection/gate/aggregate，固定保留全局及恢复首错误；替换后的物理槽不能称完整时序。仅两原case在原join后和原load之后两阶段direct stderr，原assert优先，保持B句柄drop位置、old=None exact-handle、单restore、原ignored-retire及三个OS32夹具前置不变。新增两项保留规则及一项输出边界oracle，原28没有替换或skip。此轮只补诊断，不实施功能R5，也不将未观察错误码当根因；编译/严格检查、新oracle、实际恢复输出及所有本候选运行仍待下一隔离CI。
 
 下一精确候选分别提交：1c2a31a为G11最小GREEN，3a17110为native manifest R4，40c6c7b为old-A诊断，35e9371为dispatcher原始字节采证。四项源码均独审C0I0M0，文档、公开内容和静态格式/语法检查通过；实际双平台编译/行为、RC/PE、恢复首因和后续变异仍未验证，不能据提交称全绿或发布。
+
+
+`1c14f2f`的[macOS40570972396](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40570972396)完整通过：767/114、独立3/18/60/16、hosted12、原生12/2、桥26与文档/公开检查。结合已确认的正例RED、最小GREEN及独审C0I0M0，REQ-20261028-001于2026-10-28完成；旧002/003仍不据此关闭。完整日志1419617B/SHA-256 `d034915b0c0bf4383bf222422c89128938843f3d5c0ac08fc579fc46f32675c3`。
+
+同一[Windows40570972391](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40570972391)原28存储仍23通过5失败，新增3项诊断oracle通过，父libtest380项375通过5失败（不重复计helper）。两项回滚真实首失败均为RestoreRename，直接NTSTATUS/IOSB均0xC0000022；保留读者BeforeRetire前后load均Unavailable，三个不安全造态夹具仍在OS32前置失败。先据此窄审候选，不把错误码直接等同B句柄根因。原生fixture已正常返回新鲜schema2摘要，失败nativeCreateDenied、STA/回调/正常返回/清理均真实记录；实际PE已嵌入ID1 manifest，尚无引擎GREEN。完整日志288165B/SHA-256 `25ae4e912a36c0d484485dc3a07b88779a80db6a2b7a90f2c02bfafc6cd74273`；NSIS/GUI未运行。
+
+[独立变异40570972473](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40570972473)通过实际三文件字节、blob和配置确认当前checkout把LF转成CRLF，system autocrlf=true；仍在runner前停止，baseline及四变异未运行、零kills。已审C0I0M0的窄修只在该独立job首次checkout前选择临时Git配置，保留全部字节、独立副本、严格编译与语义断言。已精确接线待运行，不回填旧run缺失的落盘字节，不称变异已通过。
