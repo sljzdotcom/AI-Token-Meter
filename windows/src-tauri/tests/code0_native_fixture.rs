@@ -302,7 +302,7 @@ mod smoke {
         let started = Instant::now();
         let mut closing_since = None;
         let mut started_create = false;
-        let mut denied_create = false;
+        let mut object_free_failure = false;
         let mut ready_count = 0;
         let mut message_count = 0;
         let live_construction = Arc::clone(&construction);
@@ -320,26 +320,50 @@ mod smoke {
             ) {
                 live_construction.lock().unwrap().violation = true;
             }
-            let mut state = observed.lock().unwrap();
             if thread::current().id() != main_thread || !is_sta() {
-                state.failure = "uiAffinityFailed";
-                handle.exit(1);
+                observed.lock().unwrap().failure = "uiAffinityFailed";
+                // With partial native ownership, losing the cleanup apartment
+                // must fail via the watchdog rather than drop the owner early.
+                if let RunEvent::ExitRequested {
+                    code: None, api, ..
+                } = &event
+                {
+                    api.prevent_exit();
+                }
                 return;
             }
+            let mut create_failure = None;
             if matches!(event, RunEvent::Ready) && !started_create {
                 started_create = true;
                 if driver.acquire_profile_lease().is_err() {
-                    state.failure = "profileLeaseDenied";
-                    denied_create = true;
+                    create_failure = Some("profileLeaseDenied");
+                    object_free_failure = true;
                 } else if driver.create_unloaded(request.clone()).is_err() {
-                    // Expected first behavioral RED: the SAME native construction path denies.
-                    state.failure = "nativeCreateDenied";
-                    denied_create = true;
+                    create_failure = Some("nativeCreateDenied");
+                    // A failed create can already own a bare Window, COM objects
+                    // or an in-flight completion. Retain the owner and lease and
+                    // keep pumping until actual close evidence arrives.
+                    closing_since = Some(Instant::now());
+                    driver.close(INSTANCE);
+                    object_free_failure = driver.fixture_creation_is_object_free(INSTANCE);
                 }
-                if denied_create {
+                if object_free_failure {
+                    // This separate inventory fact never invents Destroyed.
+                    observed.lock().unwrap().failure = create_failure.unwrap();
                     driver.release_profile_lease();
                     handle.exit(1);
+                    return;
                 }
+            }
+            if let RunEvent::WindowEvent { label, event, .. } = &event {
+                driver.on_window_event(label, event);
+            }
+            // Previous callbacks have returned before this poll. No Send-bound
+            // Tauri listener captures the UI-local Rc/COM owner.
+            driver.poll_cleanup();
+            let mut state = observed.lock().unwrap();
+            if let Some(failure) = create_failure {
+                state.failure = failure;
             }
             let owned_label = live_construction.lock().unwrap().label.clone();
             if let RunEvent::WindowEvent {
@@ -383,7 +407,12 @@ mod smoke {
                                     && actual.starts_with(&temp_root)
                                     && actual != temp_root
                             });
-                        if driver.load_fixture_inline_document(INSTANCE).is_err() {
+                        // No fixture state lock crosses a COM call, which may
+                        // deliver native callbacks before returning.
+                        drop(state);
+                        let loaded = driver.load_fixture_inline_document(INSTANCE);
+                        state = observed.lock().unwrap();
+                        if loaded.is_err() {
                             state.failure = "inlineLoadDenied";
                         }
                     }
@@ -430,28 +459,38 @@ mod smoke {
             if state.bare_window_violation {
                 state.failure = "bareWindowViolation";
             }
-            if !denied_create
+            if !object_free_failure
                 && closing_since.is_none()
                 && (state.renderer_message
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
                 closing_since = Some(Instant::now());
+                drop(state);
                 driver.close(INSTANCE);
+                state = observed.lock().unwrap();
             }
             if let Some(closing) = closing_since {
+                if closing.elapsed() >= Duration::from_secs(10) {
+                    // Check the deadline before newly arrived cleanup evidence:
+                    // cleanup after 10s must still fail, even on this first tick.
+                    // Retain/pump CleanupPending until real cleanup, or the
+                    // original outer process watchdog fails.
+                    state.failure = "closeEvidenceTimeout";
+                }
                 if state.destroyed && state.owned_references_released {
-                    driver.release_profile_lease();
-                    handle.exit(if state.positive() && state.failure == "notCompleted" {
+                    let code = if state.positive() && state.failure == "notCompleted" {
                         0
                     } else {
                         1
-                    });
-                } else if closing.elapsed() >= Duration::from_secs(10) {
-                    state.failure = "closeEvidenceTimeout";
-                    handle.exit(1);
+                    };
+                    drop(state);
+                    driver.release_profile_lease();
+                    handle.exit(code);
+                    return;
                 }
             }
+            drop(state);
             if let RunEvent::ExitRequested {
                 code: None, api, ..
             } = event
