@@ -191,7 +191,7 @@ fn read(proxy: &Code0Proxy) -> Code0SessionDto {
     let (value, reply) = pending();
     proxy.read(reply);
     match take(&value).unwrap() {
-        Code0Reply::View(view) => view,
+        Code0Reply::View(view) => *view,
         other => panic!("wrong read reply: {other:?}"),
     }
 }

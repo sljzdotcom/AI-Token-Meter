@@ -106,7 +106,7 @@ impl Code0SessionDto {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Code0Reply {
-    View(Code0SessionDto),
+    View(Box<Code0SessionDto>),
     Action(Code0SessionActionResult),
     Stopped,
 }
@@ -360,9 +360,10 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
             let reply = {
                 let _session = self.session.borrow_mut();
                 match message {
-                    Message::Read(reply) => {
-                        Some((reply, Ok(Code0Reply::View(self.proxy.committed()))))
-                    }
+                    Message::Read(reply) => Some((
+                        reply,
+                        Ok(Code0Reply::View(Box::new(self.proxy.committed()))),
+                    )),
                     Message::Action(_action, reply) => Some((
                         reply,
                         Ok(Code0Reply::Action(Code0SessionActionResult::Denied)),
