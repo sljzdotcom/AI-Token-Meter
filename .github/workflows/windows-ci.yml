@@ -60,6 +60,21 @@ jobs:
           $env:AI_METER_CODE0_NATIVE_RUN_ID = "code0-native-smoke-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
           $env:AI_METER_CODE0_NATIVE_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID.json"
           cargo test --locked --no-fail-fast --features code0-native-fixture
+      - name: Collect Code0 fixture loader metadata
+        if: always()
+        shell: pwsh
+        run: ./scripts/collect-code0-native-loader.ps1
+      - name: Preserve Code0 fixture loader metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-native-loader-metadata
+          path: |
+            ${{ runner.temp }}/code0-native-loader-${{ github.run_id }}-${{ github.run_attempt }}/*.json
+            ${{ runner.temp }}/code0-native-loader-${{ github.run_id }}-${{ github.run_attempt }}/*.txt
+            ${{ runner.temp }}/code0-native-loader-${{ github.run_id }}-${{ github.run_attempt }}/*.xml
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify Code0 native smoke evidence
         if: always()
         shell: python {0}
