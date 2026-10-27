@@ -141,6 +141,7 @@ impl Serialize for Code0Reply {
     }
 }
 pub type Code0ReplySink = Box<dyn FnOnce(Result<Code0Reply, Code0DispatchError>) + Send>;
+type Code0Emitter = Box<dyn FnMut(&Code0SessionDto)>;
 
 /// Signals a UI-local drain by binding/registry lookup. Implementations may run
 /// inline; they must never capture/move the non-Send session in a Send closure.
@@ -399,7 +400,7 @@ pub struct Code0Dispatcher<C, D, S> {
     binding: u64,
     tick_id: u64,
     proxy: Code0Proxy,
-    emit: RefCell<Box<dyn FnMut(&Code0SessionDto)>>,
+    emit: RefCell<Code0Emitter>,
     retry_deadline: Cell<Option<Duration>>,
     stop_waiters: RefCell<Vec<Code0ReplySink>>,
 }
