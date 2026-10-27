@@ -322,3 +322,8 @@ Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经�
 最终R5的实际独立复核C0I0M0已完成：CI测试的是merge `96825f7fa4e08c93ec9959b2b56b39d894d57510`，其两个完整Git blob与已审冻结store/test逐字相同；不将metadata head886与实际merge混同，也不虚构未记录的runner落盘字节SHA。真实hardlink的ID/count2、不安全symlink及unknown-slot的正反向身份、原拒绝/字节保留/unlink/恢复/cleanup均由无条件原assertions加实际case PASS闭合。此次局部存储可验收，整体Code0仍进行中。
 
 最小真实Windows引擎候选的独审I1已以R1关闭，定向复审C0I0M0：create和固定inline的外层同步动作复用现有Active库存，覆盖所有局部Window/COM/handler及返回路径，防止重入UI poll抢先报告Released。原四文件候选提供同一UI/STA裸Window与直接COM环境/控制器/核心、实际profile/version查询、固定inline renderer对象、真实Destroyed与释放库存；部分创建错误、10秒关闭失败保持owner/lease并继续等待真实释放，不能以timeout或Close成功冒充清理。原21字段/构造焦点销毁判据、45/10/75秒及严格正常CI保留。仅使用已锁定直接依赖，release中不暴露fixture接口；正式官网导航、生产拒绝策略和数据清理仍保持拒绝，实际编译/Clippy/引擎GREEN与后续完整接线尚未验证，不因源审通过称已完成或发布。
+
+
+独立变异[40576683283](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40576683283)现已完整保留：25副本基线、严格Clippy/编译、完整源/归档/路径及两个oracle通过；M1/M2均严格编译后精确命中借用跨emit/reply的固定语义断言并清理，为两个有效kill。M3只生成patch、Clippy/test未运行，M4全部未运行，整体在20分钟总预算后失败，processUnreaped=false。完整日志131993B/SHA-256 56885b26d5400de20572dff0c348ca486018e8a41ecd9162946719673935bd9c；摘要11748B/SHA-256 2fbc6100a494ad0f05c194a55e96659154c465f4d32ce3b45bc96d561ce57ee3。完成的Cargo报告时长约476秒，其余时间未按文件扫描/复制/清理等逐项测量，finalizer也可能覆盖早先error，不猜确切第一FS操作。
+
+R3经独立规格/质量审查C0I0M0，仅把独立验证的有限总预算20改40分钟、专用job30改50分钟，并同步三处唯一runner摘要；单Cargo4分钟、Git30秒、所有产品600/300/45/10/75秒及原断言、全量字节/祖先/reparse/类型/路径检查、四变异和清理判定均不变。依据首次实际成本给完整五阶段留预算，不以减校验或推测缓存优化换取通过；新预算能否完成仍待实际运行，不能拿旧两个kill补齐新一轮缺项。真实引擎候选与该已审预算窄修将一并送入下一隔离验证。
