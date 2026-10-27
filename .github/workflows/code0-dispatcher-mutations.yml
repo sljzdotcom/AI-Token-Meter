@@ -33,6 +33,28 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
+      - name: Select byte-stable Git settings before checkout
+        shell: python {0}
+        run: |
+          import os
+
+          if (os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true'
+                  or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'):
+              raise SystemExit('Byte-stable checkout requires the ephemeral Windows job')
+          if any(key == 'GIT_CONFIG_COUNT' or key == 'GIT_CONFIG_PARAMETERS'
+                 or key.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_'))
+                 for key in os.environ):
+              raise SystemExit('Unexpected inherited Git runtime configuration; refusing replacement')
+          entries = (
+              'GIT_CONFIG_COUNT=2',
+              'GIT_CONFIG_KEY_0=core.autocrlf',
+              'GIT_CONFIG_VALUE_0=false',
+              'GIT_CONFIG_KEY_1=core.eol',
+              'GIT_CONFIG_VALUE_1=lf',
+          )
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8', newline=chr(10)) as output:
+              output.write(chr(10).join(entries) + chr(10))
+          print('Byte-stable Git settings selected for this job; raw source guards remain required.')
       - name: Check out source
         uses: actions/checkout@v5
       - name: Record exact dispatcher checkout bytes
