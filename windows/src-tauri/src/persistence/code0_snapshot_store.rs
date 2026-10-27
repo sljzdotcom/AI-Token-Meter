@@ -50,6 +50,42 @@ enum DiagnosticPhase {
     CommitFlush,
     CommitRootValidation,
     PendingRetirement,
+    ForcedFailure,
+    RestoreSerialize,
+    RestoreRename,
+    RestoreFlush,
+    RestorePathIdentity,
+    RestoreHandleIdentity,
+    RestoreIdentityCompare,
+    RestoreRetirement,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum DiagnosticScope {
+    #[default]
+    Forward,
+    Restore,
+    RestoreRetire,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, Default)]
+enum DiagnosticOutcome {
+    #[default]
+    NotCalled,
+    Ok,
+    Unavailable,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, Default)]
+enum DiagnosticGateOutcome {
+    #[default]
+    NotCalled,
+    NotUsed,
+    Released,
+    NotReleased,
 }
 
 #[cfg(windows)]
@@ -62,6 +98,7 @@ enum DiagnosticStatus {
     NativeRenameError { status: i32, io_status: Option<i32> },
     NativeUnavailable,
     OperationUnavailable,
+    Injected(Code0SnapshotFailurePoint),
 }
 
 #[cfg(windows)]
@@ -82,6 +119,7 @@ impl std::fmt::Debug for DiagnosticStatus {
                 .finish(),
             Self::NativeUnavailable => formatter.write_str("NativeUnavailable"),
             Self::OperationUnavailable => formatter.write_str("OperationUnavailable"),
+            Self::Injected(point) => formatter.debug_tuple("Injected").field(point).finish(),
         }
     }
 }
@@ -89,6 +127,7 @@ impl std::fmt::Debug for DiagnosticStatus {
 #[cfg(windows)]
 #[derive(Clone, Copy)]
 struct DiagnosticRecord {
+    scope: DiagnosticScope,
     phase: DiagnosticPhase,
     status: DiagnosticStatus,
     handled: bool,
@@ -100,6 +139,14 @@ struct DiagnosticSummary {
     records: [Option<DiagnosticRecord>; 32],
     used: usize,
     first_failure_index: Option<usize>,
+    first_recovery_failure_index: Option<usize>,
+    scope: DiagnosticScope,
+    injected_points: u16,
+    gate_outcome: DiagnosticGateOutcome,
+    restore_outcome: DiagnosticOutcome,
+    restore_retire_outcome: DiagnosticOutcome,
+    recovery_failure_unknown: bool,
+    history_truncated: bool,
     observer_unavailable: bool,
 }
 
@@ -110,8 +157,21 @@ impl std::fmt::Debug for DiagnosticSummary {
         let mut summary = formatter.debug_struct("Code0StorageDiagnostics");
         summary.field("observer_unavailable", &self.observer_unavailable);
         summary.field("first_failure_index", &self.first_failure_index);
+        summary.field(
+            "first_recovery_failure_index",
+            &self.first_recovery_failure_index,
+        );
+        summary.field("injected_points", &self.injected_points);
+        summary.field("gate_outcome", &self.gate_outcome);
+        summary.field("restore_outcome", &self.restore_outcome);
+        summary.field("restore_retire_outcome", &self.restore_retire_outcome);
+        summary.field("recovery_failure_unknown", &self.recovery_failure_unknown);
+        summary.field("history_truncated", &self.history_truncated);
         for record in self.records[..self.used].iter().flatten() {
-            summary.field("record", &(record.phase, record.status, record.handled));
+            summary.field(
+                "record",
+                &(record.scope, record.phase, record.status, record.handled),
+            );
         }
         summary.finish()
     }
@@ -182,27 +242,119 @@ impl Code0SnapshotTestGate {
     }
 
     #[cfg(windows)]
+    fn set_scope(&self, scope: DiagnosticScope) {
+        if let Ok(mut summary) = self.inner.diagnostics.lock() {
+            summary.scope = scope;
+        }
+    }
+
+    #[cfg(windows)]
+    fn record_gate(&self, used: bool, released: bool) {
+        if let Ok(mut summary) = self.inner.diagnostics.lock() {
+            summary.gate_outcome = if !used {
+                DiagnosticGateOutcome::NotUsed
+            } else if released {
+                DiagnosticGateOutcome::Released
+            } else {
+                DiagnosticGateOutcome::NotReleased
+            };
+        }
+    }
+
+    #[cfg(windows)]
+    fn record_injected(&self, point: Code0SnapshotFailurePoint) {
+        let bit = match point {
+            Code0SnapshotFailurePoint::AfterCandidateReplace => 0,
+            Code0SnapshotFailurePoint::RestorePreviousSnapshot => 1,
+            Code0SnapshotFailurePoint::BeforePendingRetirement => 2,
+            Code0SnapshotFailurePoint::CandidateWrite => 3,
+            Code0SnapshotFailurePoint::CandidateFlush => 4,
+            Code0SnapshotFailurePoint::CandidateCleanup => 5,
+            Code0SnapshotFailurePoint::RestoreWrite => 6,
+            Code0SnapshotFailurePoint::RestoreFlush => 7,
+        };
+        if let Ok(mut summary) = self.inner.diagnostics.lock() {
+            summary.injected_points |= 1u16 << bit;
+        }
+        self.record_handled(
+            DiagnosticPhase::ForcedFailure,
+            DiagnosticStatus::Injected(point),
+        );
+    }
+
+    #[cfg(windows)]
+    fn record_restore_outcome(&self, ok: bool, retirement: bool) {
+        if let Ok(mut summary) = self.inner.diagnostics.lock() {
+            let outcome = if ok {
+                DiagnosticOutcome::Ok
+            } else {
+                DiagnosticOutcome::Unavailable
+            };
+            if retirement {
+                summary.restore_retire_outcome = outcome;
+            } else {
+                summary.restore_outcome = outcome;
+            }
+            // Aggregate failure is not a fabricated primitive error. In a
+            // branch without inner observations, explicitly retain that gap.
+            let recovery_injected = summary.injected_points & ((1 << 1) | (1 << 6) | (1 << 7)) != 0;
+            if !ok && summary.first_recovery_failure_index.is_none() && !recovery_injected {
+                summary.recovery_failure_unknown = true;
+            }
+        }
+    }
+
+    #[cfg(windows)]
     fn record_classified(&self, phase: DiagnosticPhase, status: DiagnosticStatus, handled: bool) {
         if let Ok(mut summary) = self.inner.diagnostics.lock() {
             let record = DiagnosticRecord {
+                scope: summary.scope,
                 phase,
                 status,
                 handled,
             };
             // Handled slot errors belong to bounded history, never the
             // reserved first-terminal-failure record.
-            if !handled
-                && !matches!(status, DiagnosticStatus::Success)
-                && summary.first_failure_index.is_none()
-            {
+            let failure = !handled
+                && !matches!(
+                    status,
+                    DiagnosticStatus::Success | DiagnosticStatus::Injected(_)
+                );
+            let recovery_failure = failure && summary.scope != DiagnosticScope::Forward;
+            if failure && summary.first_failure_index.is_none() {
                 let index = summary.used;
                 summary.records[index] = Some(record);
                 summary.used += 1;
                 summary.first_failure_index = Some(index);
+                if recovery_failure {
+                    summary.first_recovery_failure_index = Some(index);
+                }
+            } else if recovery_failure && summary.first_recovery_failure_index.is_none() {
+                let index = if summary.used < summary.records.len() {
+                    let index = summary.used;
+                    summary.used += 1;
+                    index
+                } else {
+                    // Only ordinary history may yield to the first recovery
+                    // failure. The original forward/global failure stays pinned.
+                    summary.history_truncated = true;
+                    let Some(index) = (0..summary.used)
+                        .rev()
+                        .find(|index| Some(*index) != summary.first_failure_index)
+                    else {
+                        summary.observer_unavailable = true;
+                        return;
+                    };
+                    index
+                };
+                summary.records[index] = Some(record);
+                summary.first_recovery_failure_index = Some(index);
             } else if summary.used < 31 {
                 let index = summary.used;
                 summary.records[index] = Some(record);
                 summary.used += 1;
+            } else {
+                summary.history_truncated = true;
             }
         }
     }
@@ -277,7 +429,10 @@ impl Code0SnapshotTestGate {
 
 #[cfg(all(test, windows))]
 mod diagnostic_tests {
-    use super::{Code0SnapshotTestGate, DiagnosticPhase, DiagnosticStatus};
+    use super::{
+        Code0SnapshotFailurePoint, Code0SnapshotTestGate, DiagnosticPhase, DiagnosticScope,
+        DiagnosticStatus,
+    };
 
     #[test]
     fn handled_slot_collisions_cannot_displace_a_later_terminal_diagnostic() {
@@ -338,6 +493,79 @@ mod diagnostic_tests {
                 record.handled && matches!(record.status, DiagnosticStatus::Win32Error(183))
             }));
         }
+    }
+
+    #[test]
+    fn recovery_failure_survives_full_history_without_displacing_forward_failure() {
+        let observer = Code0SnapshotTestGate::new();
+        for _ in 0..31 {
+            observer.record(DiagnosticPhase::AuthorityEntered, DiagnosticStatus::Success);
+        }
+        observer.record(
+            DiagnosticPhase::PendingRetirement,
+            DiagnosticStatus::Win32Error(5),
+        );
+        observer.set_scope(DiagnosticScope::Restore);
+        observer.record_injected(Code0SnapshotFailurePoint::AfterCandidateReplace);
+        {
+            let summary = observer.inner.diagnostics.lock().unwrap();
+            assert_eq!(summary.first_failure_index, Some(31));
+            assert_eq!(summary.first_recovery_failure_index, None);
+            assert_ne!(summary.injected_points, 0);
+        }
+        observer.record(
+            DiagnosticPhase::RestoreRename,
+            DiagnosticStatus::Win32Error(32),
+        );
+        for _ in 0..64 {
+            observer.record(DiagnosticPhase::RestoreFlush, DiagnosticStatus::Success);
+            observer.record(
+                DiagnosticPhase::RestoreFlush,
+                DiagnosticStatus::Win32Error(6),
+            );
+        }
+        let summary = observer.inner.diagnostics.lock().unwrap();
+        assert_eq!(summary.used, 32);
+        assert!(summary.history_truncated);
+        let forward = summary.records[summary.first_failure_index.unwrap()].unwrap();
+        let recovery = summary.records[summary.first_recovery_failure_index.unwrap()].unwrap();
+        assert_eq!(forward.scope, DiagnosticScope::Forward);
+        assert_eq!(forward.phase, DiagnosticPhase::PendingRetirement);
+        assert!(matches!(forward.status, DiagnosticStatus::Win32Error(5)));
+        assert_eq!(recovery.scope, DiagnosticScope::Restore);
+        assert_eq!(recovery.phase, DiagnosticPhase::RestoreRename);
+        assert!(matches!(recovery.status, DiagnosticStatus::Win32Error(32)));
+    }
+
+    #[test]
+    fn injected_restore_failure_is_not_a_primitive_error_and_first_real_error_is_shared() {
+        let observer = Code0SnapshotTestGate::new();
+        for _ in 0..31 {
+            observer.record(DiagnosticPhase::AuthorityEntered, DiagnosticStatus::Success);
+        }
+        observer.set_scope(DiagnosticScope::Restore);
+        observer.record_injected(Code0SnapshotFailurePoint::RestorePreviousSnapshot);
+        {
+            let summary = observer.inner.diagnostics.lock().unwrap();
+            assert_eq!(summary.used, 31);
+            assert_eq!(summary.first_failure_index, None);
+            assert_eq!(summary.first_recovery_failure_index, None);
+            assert_ne!(summary.injected_points, 0);
+        }
+        observer.record(
+            DiagnosticPhase::RestorePathIdentity,
+            DiagnosticStatus::OperationUnavailable,
+        );
+        let summary = observer.inner.diagnostics.lock().unwrap();
+        assert_eq!(summary.used, 32);
+        assert_eq!(summary.first_failure_index, Some(31));
+        assert_eq!(summary.first_recovery_failure_index, Some(31));
+        let retained = summary.records[31].unwrap();
+        assert!(!retained.handled);
+        assert!(matches!(
+            retained.status,
+            DiagnosticStatus::OperationUnavailable
+        ));
     }
 }
 
@@ -521,7 +749,8 @@ mod windows_impl {
     }
 
     use super::{
-        Code0SnapshotFailurePoint, Code0SnapshotTestGate, DiagnosticPhase, DiagnosticStatus,
+        Code0SnapshotFailurePoint, Code0SnapshotTestGate, DiagnosticPhase, DiagnosticScope,
+        DiagnosticStatus,
     };
     use crate::collectors::code0_capture::Code0WebsiteCapture;
     use crate::domain::{MetricKind, MetricUnit, UsageSnapshot, UsageStatus};
@@ -1204,7 +1433,7 @@ mod windows_impl {
                     DiagnosticPhase::CandidateWritePrefix,
                     file.write_all(&bytes[..bytes.len().min(8)]),
                 )?;
-                if take_failure(failure_points, write_point) {
+                if take_failure_observed(failure_points, write_point, observer) {
                     return unavailable();
                 }
                 observe_io(
@@ -1212,7 +1441,7 @@ mod windows_impl {
                     DiagnosticPhase::CandidateWriteRest,
                     file.write_all(&bytes[bytes.len().min(8)..]),
                 )?;
-                if take_failure(failure_points, flush_point) {
+                if take_failure_observed(failure_points, flush_point, observer) {
                     return unavailable();
                 }
                 observe_io(observer, DiagnosticPhase::CandidateFlush, file.sync_all())
@@ -1221,7 +1450,11 @@ mod windows_impl {
                 let handle = unsafe { OwnedHandle::from_raw_handle(file.into_raw_handle()) };
                 // A failed delete leaves one of the finite reserved paths;
                 // remove_projection will retry only its exact secure handle.
-                if !take_failure(failure_points, Code0SnapshotFailurePoint::CandidateCleanup) {
+                if !take_failure_observed(
+                    failure_points,
+                    Code0SnapshotFailurePoint::CandidateCleanup,
+                    observer,
+                ) {
                     let _ = delete_handle_and_confirm(&path, handle);
                 }
                 return Err(error);
@@ -1400,12 +1633,28 @@ mod windows_impl {
     }
 
     fn retire_pending(pending: File) -> Result<(), Code0StoreError> {
+        // Final visibility commit; retain the original unobserved entry point.
+        rename_same_parent(pending.as_raw_handle(), "snapshot.retired")
+    }
+
+    fn retire_pending_observed(
+        pending: File,
+        observer: Option<&Code0SnapshotTestGate>,
+    ) -> Result<(), Code0StoreError> {
+        if observer.is_none() {
+            return retire_pending(pending);
+        }
         // Final visibility commit: a successful rename removes the pending
         // NAME immediately, even while another compatible handle retains the
         // marker object. Nothing fallible follows this transition. The retired
         // nonnumeric marker is securely removed before the next transaction or
         // explicit cleanup, never treated as an unconfirmed delete/absence.
-        rename_same_parent(pending.as_raw_handle(), "snapshot.retired")
+        rename_same_parent_observed(
+            pending.as_raw_handle(),
+            "snapshot.retired",
+            observer,
+            DiagnosticPhase::RestoreRetirement,
+        )
     }
 
     fn take_failure(
@@ -1419,35 +1668,76 @@ mod windows_impl {
         true
     }
 
+    fn take_failure_observed(
+        failure_points: &mut Vec<Code0SnapshotFailurePoint>,
+        point: Code0SnapshotFailurePoint,
+        observer: Option<&Code0SnapshotTestGate>,
+    ) -> bool {
+        let taken = take_failure(failure_points, point);
+        if taken && let Some(observer) = observer {
+            observer.record_injected(point);
+        }
+        taken
+    }
+
     fn restore_projection(
         root: &Path,
         old: Option<&Projection>,
         candidate_file: &mut Option<File>,
         failure_points: &mut Vec<Code0SnapshotFailurePoint>,
         pending: &mut File,
+        observer: Option<&Code0SnapshotTestGate>,
     ) -> Result<(), Code0StoreError> {
-        if take_failure(
+        if take_failure_observed(
             failure_points,
             Code0SnapshotFailurePoint::RestorePreviousSnapshot,
+            observer,
         ) {
             return unavailable();
         }
         match old {
             Some(old) => {
-                let bytes = serde_json::to_vec(old).map_err(|_| Code0StoreError::Unavailable)?;
+                let bytes = observe_result(
+                    observer,
+                    DiagnosticPhase::RestoreSerialize,
+                    serde_json::to_vec(old).map_err(|_| Code0StoreError::Unavailable),
+                )?;
                 let (temporary_path, file) =
-                    create_candidate(root, &bytes, failure_points, true, pending, None)?;
-                if let Err(error) = rename_same_parent(file.as_raw_handle(), "snapshot.json") {
+                    create_candidate(root, &bytes, failure_points, true, pending, observer)?;
+                if let Err(error) = rename_same_parent_observed(
+                    file.as_raw_handle(),
+                    "snapshot.json",
+                    observer,
+                    DiagnosticPhase::RestoreRename,
+                ) {
                     let owned = unsafe { OwnedHandle::from_raw_handle(file.into_raw_handle()) };
                     let _ = delete_handle_and_confirm(&temporary_path, owned);
                     return Err(error);
                 }
-                file.sync_all().map_err(|_| Code0StoreError::Unavailable)?;
-                if file_identity_from_path(&root.join("snapshot.json"))?
-                    != file_identity(file.as_raw_handle())?
-                {
+                observe_io(observer, DiagnosticPhase::RestoreFlush, file.sync_all())?;
+                let visible = observe_result(
+                    observer,
+                    DiagnosticPhase::RestorePathIdentity,
+                    file_identity_from_path(&root.join("snapshot.json")),
+                )?;
+                let owned = file_identity_observed(
+                    file.as_raw_handle(),
+                    observer,
+                    DiagnosticPhase::RestoreHandleIdentity,
+                )?;
+                if visible != owned {
+                    observe(
+                        observer,
+                        DiagnosticPhase::RestoreIdentityCompare,
+                        DiagnosticStatus::PredicateRejected,
+                    );
                     return unavailable();
                 }
+                observe(
+                    observer,
+                    DiagnosticPhase::RestoreIdentityCompare,
+                    DiagnosticStatus::Success,
+                );
                 Ok(())
             }
             None => {
@@ -1526,9 +1816,13 @@ mod windows_impl {
         );
         let gate_released =
             gate.is_none_or(|gate| gate.pause_after_replace(Duration::from_secs(10)));
-        let forced_failure = take_failure(
+        if let Some(observer) = observer {
+            observer.record_gate(gate.is_some(), gate_released);
+        }
+        let forced_failure = take_failure_observed(
             failure_points,
             Code0SnapshotFailurePoint::AfterCandidateReplace,
+            observer,
         );
         let mut candidate_file = Some(candidate_file);
         let candidate = candidate_file.as_ref().expect("candidate remains owned");
@@ -1562,9 +1856,10 @@ mod windows_impl {
                 .ok()
                 .as_ref()
                 == Some(projection)
-            && !take_failure(
+            && !take_failure_observed(
                 failure_points,
                 Code0SnapshotFailurePoint::BeforePendingRetirement,
+                observer,
             );
         // Keep the original marker handle available on failed retirement; it
         // has not been marked delete-pending and cannot disappear on reader close.
@@ -1582,16 +1877,33 @@ mod windows_impl {
 
         // Exactly one restoration attempt under the original durable barrier.
         // A failed restore or retirement leaves pending in place across reopen.
+        if let Some(observer) = observer {
+            observer.set_scope(DiagnosticScope::Restore);
+        }
         let restored = restore_projection(
             root,
             old.as_ref(),
             &mut candidate_file,
             failure_points,
             &mut pending,
+            observer,
         );
+        if let Some(observer) = observer {
+            observer.record_restore_outcome(restored.is_ok(), false);
+        }
         drop(candidate_file);
         if restored.is_ok() {
-            let _ = retire_pending(pending);
+            if let Some(observer) = observer {
+                observer.set_scope(DiagnosticScope::RestoreRetire);
+            }
+            let retirement = retire_pending_observed(pending, observer);
+            if let Some(observer) = observer {
+                observer.record_restore_outcome(retirement.is_ok(), true);
+            }
+            let _ = retirement;
+        }
+        if let Some(observer) = observer {
+            observer.set_scope(DiagnosticScope::Forward);
         }
         unavailable()
     }

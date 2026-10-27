@@ -54,6 +54,103 @@ fn observe_blocked_candidate(root: &std::path::Path) -> Result<serde_json::Value
     Ok(value)
 }
 
+// Encode before writing so libtest cannot discard successful evidence and an
+// oversized summary cannot produce a plausible truncated record.
+fn write_rollback_diagnostic(
+    output: &mut impl std::io::Write,
+    arguments: std::fmt::Arguments<'_>,
+) -> std::io::Result<()> {
+    struct Line {
+        bytes: [u8; 8191],
+        used: usize,
+    }
+    impl std::fmt::Write for Line {
+        fn write_str(&mut self, value: &str) -> std::fmt::Result {
+            let end = self.used.checked_add(value.len()).ok_or(std::fmt::Error)?;
+            let target = self.bytes.get_mut(self.used..end).ok_or(std::fmt::Error)?;
+            target.copy_from_slice(value.as_bytes());
+            self.used = end;
+            Ok(())
+        }
+    }
+    let mut line = Line {
+        bytes: [0; 8191],
+        used: 0,
+    };
+    if std::fmt::write(&mut line, arguments).is_err() {
+        output.write_all(b"Code0StorageRollbackEvidence incomplete=EncodingOverflow\n")?;
+        output.flush()?;
+        return Err(std::io::ErrorKind::InvalidData.into());
+    }
+    output.write_all(&line.bytes[..line.used])?;
+    output.flush()
+}
+
+fn emit_rollback_diagnostic(arguments: std::fmt::Arguments<'_>) -> std::io::Result<()> {
+    write_rollback_diagnostic(&mut std::io::stderr().lock(), arguments)
+}
+
+fn save_result_category(result: &Result<(), Code0StoreError>) -> &'static str {
+    match result {
+        Ok(()) => "Ok",
+        Err(Code0StoreError::Unavailable) => "Unavailable",
+        Err(Code0StoreError::InvalidSnapshot) => "InvalidSnapshot",
+    }
+}
+
+fn load_result_category(result: &Result<Option<UsageSnapshot>, Code0StoreError>) -> &'static str {
+    match result {
+        Ok(Some(_)) => "Some",
+        Ok(None) => "None",
+        Err(Code0StoreError::Unavailable) => "Unavailable",
+        Err(Code0StoreError::InvalidSnapshot) => "InvalidSnapshot",
+    }
+}
+
+#[test]
+fn rollback_diagnostic_output_is_bounded_and_does_not_hide_write_or_flush_failure() {
+    struct FailingOutput {
+        allow: usize,
+        flush_fails: bool,
+    }
+    impl std::io::Write for FailingOutput {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.allow == 0 {
+                return Err(std::io::ErrorKind::BrokenPipe.into());
+            }
+            let count = self.allow.min(bytes.len());
+            self.allow -= count;
+            Ok(count)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            if self.flush_fails {
+                Err(std::io::ErrorKind::BrokenPipe.into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+    for (allow, flush_fails) in [(0, false), (3, false), (usize::MAX, true)] {
+        assert!(
+            write_rollback_diagnostic(
+                &mut FailingOutput { allow, flush_fails },
+                format_args!("fixed evidence\n"),
+            )
+            .is_err()
+        );
+    }
+    let mut complete = Vec::new();
+    write_rollback_diagnostic(&mut complete, format_args!("fixed evidence\n")).unwrap();
+    assert_eq!(complete, b"fixed evidence\n");
+    let oversized = "x".repeat(8192);
+    let mut incomplete = Vec::new();
+    assert!(write_rollback_diagnostic(&mut incomplete, format_args!("{oversized}")).is_err());
+    assert_eq!(
+        incomplete,
+        b"Code0StorageRollbackEvidence incomplete=EncodingOverflow\n"
+    );
+}
+
 #[test]
 fn cold_load_returns_none_only_for_a_proven_absent_snapshot_without_creating_profile() {
     let temporary = tempdir().expect("isolated temporary directory");
@@ -306,13 +403,15 @@ fn post_replace_failure_restores_previous_snapshot_before_any_new_load_can_accep
     let gate = Code0SnapshotTestGate::new();
     let worker_gate = gate.clone();
     let worker_root = root.clone();
+    let worker_observer = gate.clone();
     let worker = std::thread::spawn(move || {
         let mut failing = Code0SnapshotStore::with_failure_gate(
             worker_root,
             Some(lease),
             [Code0SnapshotFailurePoint::AfterCandidateReplace],
             worker_gate,
-        );
+        )
+        .with_diagnostic_observer(worker_observer);
         failing.save_atomic(&candidate_snapshot())
     });
     let reached = gate.wait_until_after_replace(Duration::from_secs(5));
@@ -323,6 +422,11 @@ fn post_replace_failure_restores_previous_snapshot_before_any_new_load_can_accep
     };
     gate.release();
     let save_result = worker.join().expect("save worker exits after gate release");
+    let diagnostic_output = emit_rollback_diagnostic(format_args!(
+        "Code0StorageRollbackEvidence case=PostReplaceOldA iteration=0 stage=Joined save={} beforeClose=NotApplicable afterClose=NotApplicable {:?}\n",
+        save_result_category(&save_result),
+        gate.diagnostic_summary(),
+    ));
 
     assert!(
         reached,
@@ -347,6 +451,7 @@ fn post_replace_failure_restores_previous_snapshot_before_any_new_load_can_accep
         loaded.secondary_metric.expect("cumulative usage").current,
         456.75
     );
+    diagnostic_output.expect("complete bounded direct-stderr rollback evidence");
 }
 
 #[test]
@@ -587,14 +692,22 @@ fn open_compatible_marker_reader(path: &std::path::Path) -> std::fs::File {
 // returned Err later expose B when its old delete-pending marker disappears.
 #[test]
 fn marker_reader_retained_past_commit_or_error_never_reveals_a_failed_candidate() {
-    for failures in [
+    for (iteration, failures) in [
         vec![],
         vec![Code0SnapshotFailurePoint::BeforePendingRetirement],
         vec![
             Code0SnapshotFailurePoint::BeforePendingRetirement,
             Code0SnapshotFailurePoint::RestorePreviousSnapshot,
         ],
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let iteration = match iteration {
+            0 => "Nominal",
+            1 => "BeforeRetire",
+            _ => "BeforeRetireAndRestoreFailure",
+        };
         let expects_success = failures.is_empty();
         let expects_barrier =
             failures.contains(&Code0SnapshotFailurePoint::RestorePreviousSnapshot);
@@ -607,6 +720,7 @@ fn marker_reader_retained_past_commit_or_error_never_reveals_a_failed_candidate(
         let worker_gate = gate.clone();
         let worker_root = root.clone();
         let worker_lease = lease.clone();
+        let worker_observer = gate.clone();
         let worker = std::thread::spawn(move || {
             Code0SnapshotStore::with_failure_gate(
                 worker_root,
@@ -614,6 +728,7 @@ fn marker_reader_retained_past_commit_or_error_never_reveals_a_failed_candidate(
                 failures,
                 worker_gate,
             )
+            .with_diagnostic_observer(worker_observer)
             .save_atomic(&candidate_snapshot())
         });
         let reached = gate.wait_until_after_replace(Duration::from_secs(5));
@@ -621,6 +736,12 @@ fn marker_reader_retained_past_commit_or_error_never_reveals_a_failed_candidate(
         let reader = reached.then(|| open_compatible_marker_reader(&root.join("snapshot.pending")));
         gate.release();
         let result = worker.join().expect("bounded worker exit");
+        let joined_output = emit_rollback_diagnostic(format_args!(
+            "Code0StorageRollbackEvidence case=RetainedReader iteration={} stage=Joined save={} beforeClose=NotObserved afterClose=NotObserved {:?}\n",
+            iteration,
+            save_result_category(&result),
+            gate.diagnostic_summary(),
+        ));
         if expects_success {
             assert_eq!(
                 result,
@@ -643,6 +764,13 @@ fn marker_reader_retained_past_commit_or_error_never_reveals_a_failed_candidate(
         let before_close = Code0SnapshotStore::new(&root, None).load();
         drop(reader);
         let after_close = Code0SnapshotStore::new(&root, None).load();
+        let loaded_output = emit_rollback_diagnostic(format_args!(
+            "Code0StorageRollbackEvidence case=RetainedReader iteration={} stage=Loaded save={} beforeClose={} afterClose={}\n",
+            iteration,
+            save_result_category(&result),
+            load_result_category(&before_close),
+            load_result_category(&after_close),
+        ));
         for loaded in [before_close, after_close] {
             if expects_success {
                 assert_eq!(
@@ -659,6 +787,8 @@ fn marker_reader_retained_past_commit_or_error_never_reveals_a_failed_candidate(
                 assert_eq!(snapshot.primary_metric.unwrap().current, 123.5);
             }
         }
+        joined_output.expect("complete bounded direct-stderr join evidence");
+        loaded_output.expect("complete bounded direct-stderr load evidence");
     }
 }
 
