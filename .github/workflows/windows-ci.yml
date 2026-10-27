@@ -59,6 +59,7 @@ jobs:
         run: |
           $env:AI_METER_CODE0_NATIVE_RUN_ID = "code0-native-smoke-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
           $env:AI_METER_CODE0_NATIVE_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID.json"
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
           cargo test --locked --no-fail-fast --features code0-native-fixture
       - name: Collect Code0 fixture loader metadata
         if: always()

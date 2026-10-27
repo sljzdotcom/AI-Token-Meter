@@ -149,8 +149,52 @@ mod native {
     use windows::core::{Interface, PCWSTR, PWSTR};
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-    use super::fixture::{NativeSmokeObservation, Observer};
+    use super::fixture::{
+        DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics, NativeSmokeObservation,
+        Observer,
+    };
     use super::{Code0NativeEventSink, Code0SessionFailure, Code0WindowEvent, Code0WindowRequest};
+
+    macro_rules! phase {
+        ($owner:expr, $phase:ident, $returned:expr) => {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = $owner.borrow().diagnostics.as_ref() {
+                diagnostic.phase(DP::$phase, $returned);
+            }
+        };
+    }
+    macro_rules! milestone {
+        ($owner:expr, $mark:ident) => {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = $owner.borrow().diagnostics.as_ref() {
+                diagnostic.observed(DM::$mark);
+            }
+        };
+    }
+    macro_rules! observed_call {
+        ($owner:expr, $phase:ident, $call:expr) => {{
+            phase!($owner, $phase, false);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let diagnostic = $owner.borrow().diagnostics.clone();
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let _boundary = diagnostic.as_ref().map(|d| d.boundary(DP::$phase));
+            let result = $call;
+            phase!($owner, $phase, true);
+            result
+        }};
+    }
+    macro_rules! native_call {
+        ($owner:expr, $phase:ident, $call:expr) => {{
+            let result = observed_call!($owner, $phase, $call);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = $owner.borrow().diagnostics.as_ref()
+                && let Err(error) = &result
+            {
+                diagnostic.failure(DP::$phase, error.code().0);
+            }
+            result
+        }};
+    }
 
     #[derive(Default)]
     struct Callbacks {
@@ -158,6 +202,8 @@ mod native {
         active: AtomicUsize,
         handlers: AtomicUsize,
         affinity_failed: AtomicBool,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        diagnostics: Option<Arc<Diagnostics>>,
     }
 
     // Only atomics in these guards: even a never-invoked completion's actual
@@ -227,6 +273,8 @@ mod native {
         ui_thread: ThreadId,
         events: Code0NativeEventSink,
         instance: Option<Instance>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        diagnostics: Option<Arc<Diagnostics>>,
     }
 
     struct Instance {
@@ -265,6 +313,8 @@ mod native {
                 ui_thread: thread::current().id(),
                 events,
                 instance: None,
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                diagnostics: None,
             }
         }
     }
@@ -284,6 +334,10 @@ mod native {
         let valid = thread::current().id() == ui && is_sta();
         if !valid {
             callbacks.affinity_failed.store(true, Ordering::SeqCst);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                diagnostic.failure(DP::UiAffinity, 0);
+            }
         }
         valid
     }
@@ -372,6 +426,12 @@ mod native {
         {
             return Err(Code0SessionFailure::PolicyRejected);
         }
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let callbacks = Arc::new(Callbacks {
+            diagnostics: owner.borrow().diagnostics.clone(),
+            ..Callbacks::default()
+        });
+        #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
         let callbacks = Arc::new(Callbacks::default());
         // Encompass the entire outer create action, not only its callbacks.
         // Declared before every Window/handler/interface local so all of those
@@ -417,12 +477,16 @@ mod native {
         matching(&mut owner.borrow_mut(), &request)
             .unwrap()
             .build_started = true;
-        let window = match tauri::WindowBuilder::new(app, label)
-            .visible(false)
-            .focused(false)
-            .focusable(false)
-            .build()
-        {
+        let built = observed_call!(
+            owner,
+            WindowBuild,
+            tauri::WindowBuilder::new(app, label)
+                .visible(false)
+                .focused(false)
+                .focusable(false)
+                .build()
+        );
+        let window = match built {
             Ok(window) => window,
             Err(_) => {
                 // A build error supplies no actual handle/destruction receipt.
@@ -440,6 +504,8 @@ mod native {
             instance.had_window = true;
             instance.window = Some(window.clone());
         }
+        milestone!(owner, WindowBuilt);
+        phase!(owner, ConstructionReceipt, false);
         // Frozen synchronous receipt: no correction, getter or asynchronous
         // environment work precedes this observation of the actual bare Window.
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -448,7 +514,9 @@ mod native {
                 window: Box::new(window.clone()),
             });
         }
-        let hwnd = match window.hwnd() {
+        phase!(owner, ConstructionReceipt, true);
+        let actual_hwnd = observed_call!(owner, WindowHwnd, window.hwnd());
+        let hwnd = match actual_hwnd {
             Ok(hwnd) => hwnd,
             Err(_) => {
                 failed(owner, &request);
@@ -472,6 +540,17 @@ mod native {
         let ticket = Pending::new(&callbacks);
         let handler = CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
             move |result, environment| {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                    diagnostic.phase(DP::EnvironmentCallback, false);
+                    diagnostic.observed(DM::EnvironmentCallback);
+                    if let Err(error) = &result {
+                        diagnostic.failure(DP::EnvironmentCallback, error.code().0);
+                    }
+                    if result.is_ok() && environment.is_some() {
+                        diagnostic.observed(DM::EnvironmentSucceeded);
+                    }
+                }
                 let active = Active::enter(&callbacks);
                 if callback_on_ui(ui, &callbacks) {
                     environment_completed(&weak, &owned_request, result, environment);
@@ -480,17 +559,21 @@ mod native {
                 }
                 drop(active);
                 drop(ticket);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                    diagnostic.phase(DP::EnvironmentCallback, true);
+                }
                 Ok(())
             },
         ));
-        let accepted = unsafe {
+        let accepted = native_call!(owner, EnvironmentFactory, unsafe {
             CreateCoreWebView2EnvironmentWithOptions(
                 PCWSTR::null(),
                 PCWSTR(profile_wide.as_ptr()),
                 None::<&ICoreWebView2EnvironmentOptions>,
                 &handler,
             )
-        };
+        });
         // Do not retain this callback interface. If COM did not retain/invoke it,
         // actual closure destruction discharges the pending ticket. HRESULT alone
         // never supplies that fact, and a COM-held late callback keeps it pending.
@@ -555,6 +638,17 @@ mod native {
         let owned_request = request.clone();
         let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
             move |result, controller| {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                    diagnostic.phase(DP::ControllerCallback, false);
+                    diagnostic.observed(DM::ControllerCallback);
+                    if let Err(error) = &result {
+                        diagnostic.failure(DP::ControllerCallback, error.code().0);
+                    }
+                    if result.is_ok() && controller.is_some() {
+                        diagnostic.observed(DM::ControllerSucceeded);
+                    }
+                }
                 let active = Active::enter(&callbacks);
                 if callback_on_ui(ui, &callbacks) {
                     controller_completed(&weak, &owned_request, result, controller);
@@ -563,10 +657,16 @@ mod native {
                 }
                 drop(active);
                 drop(ticket);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                    diagnostic.phase(DP::ControllerCallback, true);
+                }
                 Ok(())
             },
         ));
-        let accepted = unsafe { environment.CreateCoreWebView2Controller(hwnd, &handler) };
+        let accepted = native_call!(owner, ControllerFactory, unsafe {
+            environment.CreateCoreWebView2Controller(hwnd, &handler)
+        });
         drop(handler);
         drop(environment);
         if accepted.is_err() {
@@ -610,7 +710,14 @@ mod native {
         if !current {
             return;
         }
-        if initialize_core(&owner, request).is_err() {
+        phase!(owner, Configure, false);
+        let configured = initialize_core(&owner, request);
+        phase!(owner, Configure, true);
+        if configured.is_err() {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = owner.borrow().diagnostics.as_ref() {
+                diagnostic.failure(DP::Configure, 0);
+            }
             failed(&owner, request);
         }
     }
@@ -630,37 +737,52 @@ mod native {
                 Arc::clone(&instance.callbacks),
             )
         };
-        unsafe { controller.SetIsVisible(false) }?;
-        let core = unsafe { controller.CoreWebView2() }?;
+        native_call!(owner, ControllerVisibility, unsafe {
+            controller.SetIsVisible(false)
+        })?;
+        let core = native_call!(owner, CoreGetter, unsafe { controller.CoreWebView2() })?;
         // Retain the core before any subsequent operation can fail/reenter.
         matching(&mut owner.borrow_mut(), request).unwrap().core = Some(core.clone());
-        let size = window
-            .inner_size()
-            .map_err(|_| windows::core::Error::from(E_FAIL))?;
+        let size = observed_call!(owner, BoundsGetter, window.inner_size());
+        let size = size.map_err(|_| windows::core::Error::from(E_FAIL))?;
         let right = i32::try_from(size.width).map_err(|_| windows::core::Error::from(E_FAIL))?;
         let bottom = i32::try_from(size.height).map_err(|_| windows::core::Error::from(E_FAIL))?;
-        unsafe {
+        native_call!(owner, BoundsSet, unsafe {
             controller.SetBounds(RECT {
                 left: 0,
                 top: 0,
                 right,
                 bottom,
             })
-        }?;
-        let version =
-            allocated_string(128, |raw| unsafe { environment.BrowserVersionString(raw) })?;
+        })?;
+        let version = allocated_string(128, |raw| {
+            native_call!(owner, VersionGetter, unsafe {
+                environment.BrowserVersionString(raw)
+            })
+        })?;
         if version.is_empty() || !version.bytes().all(|v| v.is_ascii_digit() || v == b'.') {
             return Err(E_FAIL.into());
         }
-        let environment7: ICoreWebView2Environment7 = environment.cast()?;
-        let profile = allocated_string(32767, |raw| unsafe { environment7.UserDataFolder(raw) })?;
+        let environment7: ICoreWebView2Environment7 =
+            native_call!(owner, ProfileCast, environment.cast())?;
+        let profile = allocated_string(32767, |raw| {
+            native_call!(owner, ProfileGetter, unsafe {
+                environment7.UserDataFolder(raw)
+            })
+        })?;
         if profile.is_empty() || !Path::new(&profile).is_absolute() {
             return Err(E_FAIL.into());
         }
+        milestone!(owner, GettersSucceeded);
         let weak = Rc::downgrade(owner);
         let owned_request = request.clone();
         let lifetime = HandlerLifetime::new(&callbacks);
         let handler = WebMessageReceivedEventHandler::create(Box::new(move |sender, args| {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                diagnostic.phase(DP::MessageCallback, false);
+                diagnostic.observed(DM::RendererCallback);
+            }
             // Keep the registration lifetime in the FnMut closure until the real
             // COM handler releases it, including failed add/remove paths.
             let _lifetime = &lifetime;
@@ -673,12 +795,19 @@ mod native {
             drop(args);
             drop(sender);
             drop(active);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                diagnostic.phase(DP::MessageCallback, true);
+            }
             Ok(())
         }));
         let mut token = 0;
-        let registered = unsafe { core.add_WebMessageReceived(&handler, &mut token) };
+        let registered = native_call!(owner, MessageAdd, unsafe {
+            core.add_WebMessageReceived(&handler, &mut token)
+        });
         drop(handler);
         registered?;
+        milestone!(owner, MessageRegistered);
         let ready = {
             let mut state = owner.borrow_mut();
             let instance = matching(&mut state, request).unwrap();
@@ -689,6 +818,7 @@ mod native {
         // not establish refusal handlers, bridge registration or official origin.
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         if ready {
+            milestone!(owner, EngineReady);
             let observer = owner.borrow().instance.as_ref().unwrap().observer.clone();
             if let Some(observer) = observer {
                 observer(NativeSmokeObservation::EngineReady {
@@ -723,7 +853,9 @@ mod native {
             let payload = args
                 .ok_or_else(|| windows::core::Error::from(E_FAIL))
                 .and_then(|args| {
-                    allocated_string(128, |raw| unsafe { args.WebMessageAsJson(raw) })
+                    allocated_string(128, |raw| {
+                        native_call!(owner, MessageGetter, unsafe { args.WebMessageAsJson(raw) })
+                    })
                 });
             match payload {
                 Ok(payload) if payload.len() <= 128 => {
@@ -778,6 +910,9 @@ mod native {
                 None
             }
         };
+        if window.is_some() {
+            milestone!(owner, WindowDestroyed);
+        }
         drop(window);
     }
 
@@ -787,6 +922,37 @@ mod native {
             let instance = state.instance.as_mut().unwrap();
             instance.failed = true;
             instance.cleanup_blocked = true;
+        }
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    fn publish_inventory(owner: &Rc<RefCell<Owner>>) {
+        let state = owner.borrow();
+        if let Some(diagnostic) = state.diagnostics.as_ref()
+            && let Some(instance) = state.instance.as_ref()
+        {
+            let flags = u32::from(instance.window.is_some())
+                | (u32::from(instance.environment.is_some()) << 1)
+                | (u32::from(instance.controller.is_some()) << 2)
+                | (u32::from(instance.core.is_some()) << 3)
+                | (u32::from(instance.message_token.is_some()) << 4)
+                | (u32::from(instance.closing) << 5)
+                | (u32::from(instance.destroyed) << 6)
+                | (u32::from(instance.cleanup_blocked) << 7)
+                | (u32::from(instance.released) << 8)
+                | (u32::from(instance.callbacks.affinity_failed.load(Ordering::SeqCst)) << 9)
+                | (u32::from(state.unmatched) << 10)
+                | (u32::from(state.polling) << 11)
+                | (u32::from(instance.remove_attempted) << 12)
+                | (u32::from(instance.stop_attempted) << 13)
+                | (u32::from(instance.close_attempted) << 14)
+                | (u32::from(instance.destroy_attempted) << 15);
+            diagnostic.publish_inventory(
+                instance.callbacks.pending.load(Ordering::SeqCst),
+                instance.callbacks.active.load(Ordering::SeqCst),
+                instance.callbacks.handlers.load(Ordering::SeqCst),
+                flags,
+            );
         }
     }
 
@@ -802,6 +968,8 @@ mod native {
             state.polling = true;
         }
         let _poll = PollGuard(Rc::clone(owner));
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        publish_inventory(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -845,7 +1013,9 @@ mod native {
             }
         };
         if let Some((core, token)) = remove {
-            let result = unsafe { core.remove_WebMessageReceived(token) };
+            let result = native_call!(owner, MessageRemove, unsafe {
+                core.remove_WebMessageReceived(token)
+            });
             if result.is_ok() {
                 owner.borrow_mut().instance.as_mut().unwrap().message_token = None;
             }
@@ -862,7 +1032,7 @@ mod native {
             }
         };
         if let Some(core) = stop {
-            cleanup_result(owner, unsafe { core.Stop() });
+            cleanup_result(owner, native_call!(owner, Stop, unsafe { core.Stop() }));
         }
         let close = {
             let mut state = owner.borrow_mut();
@@ -875,7 +1045,10 @@ mod native {
             }
         };
         if let Some(controller) = close {
-            cleanup_result(owner, unsafe { controller.Close() });
+            cleanup_result(
+                owner,
+                native_call!(owner, ControllerClose, unsafe { controller.Close() }),
+            );
         }
         let references = {
             let mut state = owner.borrow_mut();
@@ -907,10 +1080,15 @@ mod native {
                 None
             }
         };
-        if let Some(window) = destroy
-            && window.destroy().is_err()
-        {
-            cleanup_result(owner, Err(E_FAIL.into()));
+        if let Some(window) = destroy {
+            let destroyed = observed_call!(owner, WindowDestroy, window.destroy());
+            if destroyed.is_err() {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = owner.borrow().diagnostics.as_ref() {
+                    diagnostic.failure(DP::WindowDestroy, 0);
+                }
+                cleanup_result(owner, Err(E_FAIL.into()));
+            }
         }
         let notification = {
             let mut state = owner.borrow_mut();
@@ -934,8 +1112,20 @@ mod native {
                 None
             }
         };
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        publish_inventory(owner);
         if let Some((events, request, event)) = notification {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let released = matches!(event, Code0WindowEvent::Released);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if released {
+                phase!(owner, ReleasedDispatch, false);
+            }
             events(request, event);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if released {
+                phase!(owner, ReleasedDispatch, true);
+            }
         }
     }
 
@@ -991,7 +1181,12 @@ mod native {
         };
         const HTML: &str = "<!doctype html><meta charset=utf-8><title>Code0 native smoke</title><script>window.chrome.webview.postMessage({kind:'code0NativeSmoke',value:7});</script>";
         let html: Vec<u16> = HTML.encode_utf16().chain(std::iter::once(0)).collect();
-        let result = unsafe { core.NavigateToString(PCWSTR(html.as_ptr())) };
+        let result = native_call!(owner, Inline, unsafe {
+            core.NavigateToString(PCWSTR(html.as_ptr()))
+        });
+        if result.is_ok() {
+            milestone!(owner, InlineAccepted);
+        }
         drop(core);
         result.map_err(|_| {
             failed(owner, &request);
@@ -1024,7 +1219,223 @@ pub mod fixture {
 
     pub type Observer = Rc<dyn Fn(NativeSmokeObservation)>;
 
+    /// Opt-in observations only. No diagnostic value participates in acceptance,
+    /// native ownership, retries, authority or the fixed-schema smoke summary.
+    #[derive(Clone, Copy)]
+    #[repr(u32)]
+    pub enum DiagnosticPhase {
+        FreshSummary = 1,
+        Sta,
+        AppBuild,
+        RunReturn,
+        EventDispatch,
+        UiAffinity,
+        Lease,
+        Create,
+        WindowBuild,
+        ConstructionReceipt,
+        ConstructionQueries,
+        ConstructionLock,
+        WindowHwnd,
+        EnvironmentFactory,
+        EnvironmentCallback,
+        ControllerFactory,
+        ControllerCallback,
+        Configure,
+        ControllerVisibility,
+        CoreGetter,
+        BoundsGetter,
+        BoundsSet,
+        VersionGetter,
+        ProfileCast,
+        ProfileGetter,
+        MessageAdd,
+        Inline,
+        MessageCallback,
+        MessageGetter,
+        Poll,
+        MessageRemove,
+        Stop,
+        ControllerClose,
+        WindowDestroy,
+        WindowEventDispatch,
+        ReleasedDispatch,
+        SummaryLock,
+        LiveWindowQueries,
+        CloseRequest,
+        ExitRequest,
+        WakeJoin,
+        TempClose,
+        FinalSummary,
+        WatchdogJoin,
+    }
+
+    #[derive(Clone, Copy)]
+    #[repr(u32)]
+    pub enum DiagnosticMilestone {
+        Sta = 0,
+        NoOverrides,
+        AppBuilt,
+        Ready,
+        Lease,
+        WindowBuilt,
+        ConstructionSafe,
+        EnvironmentCallback,
+        EnvironmentSucceeded,
+        ControllerCallback,
+        ControllerSucceeded,
+        GettersSucceeded,
+        MessageRegistered,
+        EngineReady,
+        InlineAccepted,
+        RendererCallback,
+        RendererMessage,
+        CloseRequested,
+        WindowDestroyed,
+        Released,
+        RunReturned,
+        WakeJoined,
+        TempClosed,
+        ProfileMatched,
+    }
+
+    #[derive(Default)]
+    pub struct Diagnostics {
+        enabled: bool,
+        emitted: std::sync::atomic::AtomicBool,
+        phase: std::sync::atomic::AtomicU32,
+        boundary: std::sync::atomic::AtomicU32,
+        boundary_depth: std::sync::atomic::AtomicU32,
+        heartbeat: std::sync::atomic::AtomicU64,
+        milestones: std::sync::atomic::AtomicU64,
+        inventory: std::sync::atomic::AtomicU64,
+        first_failure: std::sync::atomic::AtomicU64,
+    }
+
+    /// The outermost outstanding native/getter call survives nested UI phase
+    /// updates. It is not a call stack and never participates in native lifetime.
+    pub struct DiagnosticBoundary {
+        diagnostics: std::sync::Arc<Diagnostics>,
+    }
+    impl Drop for DiagnosticBoundary {
+        fn drop(&mut self) {
+            use std::sync::atomic::Ordering::Relaxed;
+            if self.diagnostics.enabled
+                && self.diagnostics.boundary_depth.fetch_sub(1, Relaxed) == 1
+            {
+                self.diagnostics.boundary.store(0, Relaxed);
+            }
+        }
+    }
+
+    impl Diagnostics {
+        pub fn boundary(self: &std::sync::Arc<Self>, phase: DiagnosticPhase) -> DiagnosticBoundary {
+            use std::sync::atomic::Ordering::Relaxed;
+            if self.enabled && self.boundary_depth.fetch_add(1, Relaxed) == 0 {
+                self.boundary.store((phase as u32) * 2, Relaxed);
+            }
+            DiagnosticBoundary {
+                diagnostics: std::sync::Arc::clone(self),
+            }
+        }
+
+        pub fn from_env() -> Self {
+            Self {
+                enabled: std::env::var_os("AI_METER_CODE0_NATIVE_DIAGNOSTICS").as_deref()
+                    == Some(std::ffi::OsStr::new("1")),
+                ..Self::default()
+            }
+        }
+
+        pub fn phase(&self, phase: DiagnosticPhase, returned: bool) {
+            if self.enabled {
+                self.phase.store(
+                    (phase as u32) * 2 + u32::from(returned),
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+            }
+        }
+
+        pub fn ui_heartbeat(&self) {
+            if self.enabled {
+                self.heartbeat
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        pub fn observed(&self, milestone: DiagnosticMilestone) {
+            if self.enabled {
+                self.milestones.fetch_or(
+                    1 << (milestone as u32),
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+            }
+        }
+
+        pub fn failure(&self, phase: DiagnosticPhase, hresult: i32) {
+            if self.enabled {
+                let code = ((phase as u64) << 32) | u64::from(hresult as u32);
+                let _ = self.first_failure.compare_exchange(
+                    0,
+                    code,
+                    std::sync::atomic::Ordering::Relaxed,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+            }
+        }
+
+        pub fn publish_inventory(
+            &self,
+            pending: usize,
+            active: usize,
+            handlers: usize,
+            flags: u32,
+        ) {
+            if self.enabled {
+                let packed = (pending.min(255) as u64)
+                    | ((active.min(255) as u64) << 8)
+                    | ((handlers.min(255) as u64) << 16)
+                    | (u64::from(flags) << 24);
+                self.inventory
+                    .store(packed, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        /// At most one fixed diagnostic line: terminal1 is watchdog,0 normal.
+        /// Snapshot reads touch only atomics, not UI/native/summary/file locks.
+        /// Values are diagnostic watermarks, never a native stack or acceptance.
+        pub fn emit_once(&self, watchdog: bool) {
+            use std::io::Write as _;
+            use std::sync::atomic::Ordering::Relaxed;
+            if self.enabled && !self.emitted.swap(true, Relaxed) {
+                // Fixed literals plus eight bounded integers; under512bytes even
+                // at their maximum widths. Ignore diagnostic stderr I/O errors.
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "Code0NativeDiagnostics schema=1 terminal={} phase={} boundary={} depth={} heartbeat={} milestones={:016x} inventory={:016x} firstFailure={:016x}",
+                    u8::from(watchdog),
+                    self.phase.load(Relaxed),
+                    self.boundary.load(Relaxed),
+                    self.boundary_depth.load(Relaxed),
+                    self.heartbeat.load(Relaxed),
+                    self.milestones.load(Relaxed),
+                    self.inventory.load(Relaxed),
+                    self.first_failure.load(Relaxed)
+                );
+            }
+        }
+    }
+
     impl Code0NativeDriver {
+        pub fn observe_fixture_diagnostics(&mut self, diagnostics: std::sync::Arc<Diagnostics>) {
+            #[cfg(windows)]
+            {
+                self.owner.borrow_mut().diagnostics = Some(diagnostics);
+            }
+            #[cfg(not(windows))]
+            let _ = diagnostics;
+        }
+
         pub fn observe_fixture(&mut self, observer: Observer) {
             self.fixture_observer = Some(observer);
         }

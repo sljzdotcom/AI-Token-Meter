@@ -17,7 +17,10 @@ mod smoke {
         Code0WindowDriving, Code0WindowEvent, Code0WindowMode, Code0WindowRequest,
     };
     use ai_token_meter_windows::platform::windows::code0_webview::{
-        Code0NativeDriver, fixture::NativeSmokeObservation,
+        Code0NativeDriver,
+        fixture::{
+            DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics, NativeSmokeObservation,
+        },
     };
     use serde::Serialize;
     use tauri::{Manager, RunEvent, WindowEvent};
@@ -153,6 +156,7 @@ mod smoke {
             std::env::var_os("AI_METER_CODE0_NATIVE_SUMMARY")
                 .ok_or("missing fresh summary path")?,
         );
+        let diagnostics = Arc::new(Diagnostics::from_env());
         // Never accept an old report as evidence of this run.
         let mut file = OpenOptions::new()
             .write(true)
@@ -166,13 +170,17 @@ mod smoke {
             failure: "notCompleted",
             ..Summary::default()
         }));
+        diagnostics.phase(DP::FreshSummary, false);
         write_summary(&mut file, &summary.lock().unwrap())?;
+        diagnostics.phase(DP::FreshSummary, true);
         let evidence = Arc::new(Mutex::new(file));
         let (watchdog_done, watchdog_rx) = mpsc::channel();
         let hard_run_id = summary.lock().unwrap().run_id.clone();
         let hard_evidence = Arc::clone(&evidence);
+        let watchdog_diagnostics = Arc::clone(&diagnostics);
         let watchdog = thread::spawn(move || {
             if watchdog_rx.recv_timeout(Duration::from_secs(75)).is_err() {
+                watchdog_diagnostics.emit_once(true);
                 let failed = Summary {
                     schema: 2,
                     run_id: hard_run_id,
@@ -188,41 +196,71 @@ mod smoke {
                 std::process::exit(124);
             }
         });
-        let outcome = run_case(Arc::clone(&summary));
+        let outcome = run_case(Arc::clone(&summary), Arc::clone(&diagnostics));
         if outcome.is_err() {
+            diagnostics.phase(DP::SummaryLock, false);
             summary.lock().unwrap().failure = "fixtureSetupFailed";
+            diagnostics.phase(DP::SummaryLock, true);
         }
+        diagnostics.phase(DP::SummaryLock, false);
         let passed = summary.lock().unwrap().pass;
+        diagnostics.phase(DP::SummaryLock, true);
+        diagnostics.phase(DP::FinalSummary, false);
         let write_result = write_summary(&mut evidence.lock().unwrap(), &summary.lock().unwrap());
+        diagnostics.phase(DP::FinalSummary, true);
         let _ = watchdog_done.send(());
+        diagnostics.phase(DP::WatchdogJoin, false);
         let _ = watchdog.join();
+        diagnostics.phase(DP::WatchdogJoin, true);
+        diagnostics.emit_once(false);
         write_result?;
         outcome?;
         Ok(passed)
     }
 
-    fn run_case(summary: Arc<Mutex<Summary>>) -> Result<(), Box<dyn std::error::Error>> {
+    fn run_case(
+        summary: Arc<Mutex<Summary>>,
+        diagnostics: Arc<Diagnostics>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        diagnostics.phase(DP::Sta, false);
         let _sta = Sta::initialize()?;
+        diagnostics.phase(DP::Sta, true);
+        diagnostics.observed(DM::Sta);
         let main_thread = thread::current().id();
+        diagnostics.phase(DP::SummaryLock, false);
         summary.lock().unwrap().sta_main = true;
+        diagnostics.phase(DP::SummaryLock, true);
+        diagnostics.phase(DP::SummaryLock, false);
         summary.lock().unwrap().callback_affinity = true;
+        diagnostics.phase(DP::SummaryLock, true);
         // Any inherited engine override fails closed; never log values.
         if std::env::vars_os().any(|(key, _)| {
             key.to_string_lossy()
                 .to_ascii_uppercase()
                 .starts_with("WEBVIEW2_")
         }) {
+            diagnostics.phase(DP::SummaryLock, false);
             summary.lock().unwrap().failure = "inheritedWebview2Override";
+            diagnostics.phase(DP::SummaryLock, true);
             return Ok(());
         }
+        diagnostics.phase(DP::SummaryLock, false);
         summary.lock().unwrap().no_inherited_override = true;
+        diagnostics.phase(DP::SummaryLock, true);
+        diagnostics.observed(DM::NoOverrides);
         let temp = tempfile::tempdir()?;
         let temp_root = temp.path().canonicalize()?;
         let profile = temp.path().join("code0");
         let mut context = tauri::generate_context!();
         context.config_mut().app.windows.clear();
         // No product run/setup/RuntimeState, plugins, commands or managed windows.
-        let app = tauri::Builder::default().build(context)?;
+        diagnostics.phase(DP::AppBuild, false);
+        let app = {
+            let _boundary = diagnostics.boundary(DP::AppBuild);
+            tauri::Builder::default().build(context)?
+        };
+        diagnostics.phase(DP::AppBuild, true);
+        diagnostics.observed(DM::AppBuilt);
         let queue = Rc::new(RefCell::new(VecDeque::new()));
         let session_queue = Rc::clone(&queue);
         let mut driver = Code0NativeDriver::new(
@@ -237,6 +275,7 @@ mod smoke {
                 ));
             }),
         );
+        driver.observe_fixture_diagnostics(Arc::clone(&diagnostics));
         let construction = Arc::new(Mutex::new(ConstructionEvidence {
             receipts: 0,
             label: None,
@@ -247,19 +286,29 @@ mod smoke {
         let construction_sink = Arc::clone(&construction);
         let owner_handle = app.handle().clone();
         let native_queue = Rc::clone(&queue);
+        let observer_diagnostics = Arc::clone(&diagnostics);
         driver.observe_fixture(Rc::new(move |event| {
             if let NativeSmokeObservation::WindowConstructed { window } = event {
                 // This receipt is synchronous at actual bare construction, before
                 // any correction/hiding or asynchronous environment/controller work.
                 // Query construction state now. Focus-event latching is already
                 // active in the main RunEvent callback; it needs no queued listener.
+                observer_diagnostics.phase(DP::ConstructionQueries, false);
+                let boundary = observer_diagnostics.boundary(DP::ConstructionQueries);
                 let actual_hwnd = window.hwnd().ok();
                 let identity_matches = actual_hwnd.is_some()
                     && owner_handle
                         .get_window(window.label())
                         .is_some_and(|owned| owned.hwnd().ok() == actual_hwnd);
                 let safe = identity_matches && hidden_bare_window(&owner_handle, &window);
+                drop(boundary);
+                observer_diagnostics.phase(DP::ConstructionQueries, true);
+                if safe {
+                    observer_diagnostics.observed(DM::ConstructionSafe);
+                }
+                observer_diagnostics.phase(DP::ConstructionLock, false);
                 let mut evidence = construction_sink.lock().unwrap();
+                observer_diagnostics.phase(DP::ConstructionLock, true);
                 evidence.receipts = evidence.receipts.saturating_add(1);
                 evidence.violation |= evidence.receipts != 1 || !safe;
                 evidence.callback_affinity &= thread::current().id() == main_thread && is_sta();
@@ -270,7 +319,9 @@ mod smoke {
                 return;
             }
             if let NativeSmokeObservation::EngineReady { window_label, .. } = &event {
+                observer_diagnostics.phase(DP::ConstructionLock, false);
                 let mut evidence = construction_sink.lock().unwrap();
+                observer_diagnostics.phase(DP::ConstructionLock, true);
                 // A late construction receipt cannot retroactively validate engine readiness.
                 evidence.violation |= evidence.receipts != 1
                     || !evidence.identity_matches
@@ -306,11 +357,14 @@ mod smoke {
         let mut ready_count = 0;
         let mut message_count = 0;
         let live_construction = Arc::clone(&construction);
+        let ui_diagnostics = Arc::clone(&diagnostics);
+        diagnostics.phase(DP::RunReturn, false);
         let exit_code = app.run_return(move |handle, event| {
             // These are actual events from this isolated app (initially zero windows,
             // only one hidden/unfocused window is permitted). Latch even before a
             // verified construction label exists, or for an unexpected second window.
             // This runs before any focus query and before queued per-window listeners.
+            ui_diagnostics.phase(DP::EventDispatch, false);
             if matches!(
                 &event,
                 RunEvent::WindowEvent {
@@ -318,10 +372,16 @@ mod smoke {
                     ..
                 }
             ) {
+                ui_diagnostics.phase(DP::ConstructionLock, false);
                 live_construction.lock().unwrap().violation = true;
+                ui_diagnostics.phase(DP::ConstructionLock, true);
             }
+            ui_diagnostics.phase(DP::UiAffinity, false);
             if thread::current().id() != main_thread || !is_sta() {
+                ui_diagnostics.failure(DP::UiAffinity, 0);
+                ui_diagnostics.phase(DP::SummaryLock, false);
                 observed.lock().unwrap().failure = "uiAffinityFailed";
+                ui_diagnostics.phase(DP::SummaryLock, true);
                 // With partial native ownership, losing the cleanup apartment
                 // must fail via the watchdog rather than drop the owner early.
                 if let RunEvent::ExitRequested {
@@ -332,40 +392,68 @@ mod smoke {
                 }
                 return;
             }
+            ui_diagnostics.phase(DP::UiAffinity, true);
+            ui_diagnostics.ui_heartbeat();
             let mut create_failure = None;
             if matches!(event, RunEvent::Ready) && !started_create {
                 started_create = true;
-                if driver.acquire_profile_lease().is_err() {
+                ui_diagnostics.observed(DM::Ready);
+                ui_diagnostics.phase(DP::Lease, false);
+                let leased = driver.acquire_profile_lease();
+                ui_diagnostics.phase(DP::Lease, true);
+                if leased.is_err() {
+                    ui_diagnostics.failure(DP::Lease, 0);
                     create_failure = Some("profileLeaseDenied");
                     object_free_failure = true;
-                } else if driver.create_unloaded(request.clone()).is_err() {
+                } else if {
+                    ui_diagnostics.observed(DM::Lease);
+                    ui_diagnostics.phase(DP::Create, false);
+                    let created = driver.create_unloaded(request.clone());
+                    ui_diagnostics.phase(DP::Create, true);
+                    created.is_err()
+                } {
                     create_failure = Some("nativeCreateDenied");
                     // A failed create can already own a bare Window, COM objects
                     // or an in-flight completion. Retain the owner and lease and
                     // keep pumping until actual close evidence arrives.
                     closing_since = Some(Instant::now());
+                    ui_diagnostics.phase(DP::CloseRequest, false);
                     driver.close(INSTANCE);
+                    ui_diagnostics.phase(DP::CloseRequest, true);
+                    ui_diagnostics.observed(DM::CloseRequested);
                     object_free_failure = driver.fixture_creation_is_object_free(INSTANCE);
                 }
                 if object_free_failure {
                     // This separate inventory fact never invents Destroyed.
+                    ui_diagnostics.phase(DP::SummaryLock, false);
                     observed.lock().unwrap().failure = create_failure.unwrap();
+                    ui_diagnostics.phase(DP::SummaryLock, true);
                     driver.release_profile_lease();
+                    ui_diagnostics.phase(DP::ExitRequest, false);
                     handle.exit(1);
+                    ui_diagnostics.phase(DP::ExitRequest, true);
                     return;
                 }
             }
             if let RunEvent::WindowEvent { label, event, .. } = &event {
+                ui_diagnostics.phase(DP::WindowEventDispatch, false);
                 driver.on_window_event(label, event);
+                ui_diagnostics.phase(DP::WindowEventDispatch, true);
             }
             // Previous callbacks have returned before this poll. No Send-bound
             // Tauri listener captures the UI-local Rc/COM owner.
+            ui_diagnostics.phase(DP::Poll, false);
             driver.poll_cleanup();
+            ui_diagnostics.phase(DP::Poll, true);
+            ui_diagnostics.phase(DP::SummaryLock, false);
             let mut state = observed.lock().unwrap();
+            ui_diagnostics.phase(DP::SummaryLock, true);
             if let Some(failure) = create_failure {
                 state.failure = failure;
             }
+            ui_diagnostics.phase(DP::ConstructionLock, false);
             let owned_label = live_construction.lock().unwrap().label.clone();
+            ui_diagnostics.phase(DP::ConstructionLock, true);
             if let RunEvent::WindowEvent {
                 label,
                 event: WindowEvent::Destroyed,
@@ -407,18 +495,27 @@ mod smoke {
                                     && actual.starts_with(&temp_root)
                                     && actual != temp_root
                             });
+                        if state.profile_isolated {
+                            ui_diagnostics.observed(DM::ProfileMatched);
+                        }
                         // No fixture state lock crosses a COM call, which may
                         // deliver native callbacks before returning.
                         drop(state);
+                        ui_diagnostics.phase(DP::Inline, false);
                         let loaded = driver.load_fixture_inline_document(INSTANCE);
+                        ui_diagnostics.phase(DP::Inline, true);
+                        ui_diagnostics.phase(DP::SummaryLock, false);
                         state = observed.lock().unwrap();
+                        ui_diagnostics.phase(DP::SummaryLock, true);
                         if loaded.is_err() {
                             state.failure = "inlineLoadDenied";
                         }
                     }
                     Observation::Native(NativeSmokeObservation::WindowConstructed { .. }, _, _) => {
                         // Construction receipts are handled synchronously at the sink, never queued.
+                        ui_diagnostics.phase(DP::ConstructionLock, false);
                         live_construction.lock().unwrap().violation = true;
+                        ui_diagnostics.phase(DP::ConstructionLock, true);
                     }
                     Observation::Native(
                         NativeSmokeObservation::RendererMessage { payload },
@@ -431,6 +528,9 @@ mod smoke {
                             && payload.len() <= 128
                             && serde_json::from_slice::<serde_json::Value>(&payload).ok()
                                 == Some(serde_json::json!({"kind":"code0NativeSmoke","value":7}));
+                        if state.renderer_message {
+                            ui_diagnostics.observed(DM::RendererMessage);
+                        }
                     }
                     Observation::Session(
                         owned,
@@ -440,6 +540,9 @@ mod smoke {
                     ) => {
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
                         state.owned_references_released = owned == request;
+                        if state.owned_references_released {
+                            ui_diagnostics.observed(DM::Released);
+                        }
                     }
                     Observation::Session(_, _, _, _) => {
                         // This smoke never installs the production policy set or captures official data.
@@ -450,12 +553,20 @@ mod smoke {
             if let Some(label) = &owned_label
                 && !state.destroyed
             {
+                ui_diagnostics.phase(DP::LiveWindowQueries, false);
+                let boundary = ui_diagnostics.boundary(DP::LiveWindowQueries);
                 let safe = handle
                     .get_window(label)
                     .is_some_and(|window| hidden_bare_window(handle, &window));
+                drop(boundary);
+                ui_diagnostics.phase(DP::LiveWindowQueries, true);
+                ui_diagnostics.phase(DP::ConstructionLock, false);
                 live_construction.lock().unwrap().violation |= !safe;
+                ui_diagnostics.phase(DP::ConstructionLock, true);
             }
+            ui_diagnostics.phase(DP::ConstructionLock, false);
             live_construction.lock().unwrap().apply(&mut state);
+            ui_diagnostics.phase(DP::ConstructionLock, true);
             if state.bare_window_violation {
                 state.failure = "bareWindowViolation";
             }
@@ -467,8 +578,13 @@ mod smoke {
             {
                 closing_since = Some(Instant::now());
                 drop(state);
+                ui_diagnostics.phase(DP::CloseRequest, false);
                 driver.close(INSTANCE);
+                ui_diagnostics.phase(DP::CloseRequest, true);
+                ui_diagnostics.observed(DM::CloseRequested);
+                ui_diagnostics.phase(DP::SummaryLock, false);
                 state = observed.lock().unwrap();
+                ui_diagnostics.phase(DP::SummaryLock, true);
             }
             if let Some(closing) = closing_since {
                 if closing.elapsed() >= Duration::from_secs(10) {
@@ -486,11 +602,14 @@ mod smoke {
                     };
                     drop(state);
                     driver.release_profile_lease();
+                    ui_diagnostics.phase(DP::ExitRequest, false);
                     handle.exit(code);
+                    ui_diagnostics.phase(DP::ExitRequest, true);
                     return;
                 }
             }
             drop(state);
+            ui_diagnostics.phase(DP::EventDispatch, true);
             if let RunEvent::ExitRequested {
                 code: None, api, ..
             } = event
@@ -499,12 +618,32 @@ mod smoke {
                 api.prevent_exit();
             }
         });
+        diagnostics.phase(DP::RunReturn, true);
+        diagnostics.observed(DM::RunReturned);
         let _ = wake_done.send(());
-        let _ = wake.join();
+        diagnostics.phase(DP::WakeJoin, false);
+        {
+            let _boundary = diagnostics.boundary(DP::WakeJoin);
+            let _ = wake.join();
+        }
+        diagnostics.phase(DP::WakeJoin, true);
+        diagnostics.observed(DM::WakeJoined);
         // run_return has dropped its callback and UI-local driver before TempDir cleanup.
-        let cleanup_succeeded = temp.close().is_ok();
+        diagnostics.phase(DP::TempClose, false);
+        let cleanup_succeeded = {
+            let _boundary = diagnostics.boundary(DP::TempClose);
+            temp.close().is_ok()
+        };
+        diagnostics.phase(DP::TempClose, true);
+        if cleanup_succeeded {
+            diagnostics.observed(DM::TempClosed);
+        }
+        diagnostics.phase(DP::SummaryLock, false);
         let mut state = summary.lock().unwrap();
+        diagnostics.phase(DP::SummaryLock, true);
+        diagnostics.phase(DP::ConstructionLock, false);
         construction.lock().unwrap().apply(&mut state);
+        diagnostics.phase(DP::ConstructionLock, true);
         if state.bare_window_violation {
             state.failure = "bareWindowViolation";
         }
