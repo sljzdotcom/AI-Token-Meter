@@ -363,9 +363,12 @@ R2仅将窗口label条件从否定is_some_and改为is_none_or的等价反谓词�
 
 新鲜R4只读调查没有发现已证租约泄漏或权限根因。锁定tempfile3.27.0会把删除错误包进private PathError，仅保留公开ErrorKind，原始OS码经安全公开链不可恢复；不能只改match就承诺拿到Win32码，也不解析/打印带路径的Display。下一步只提议默认关闭的错误类别/原始码是否可得及实际release步骤标记，保留同一次真实TempDir.close及其失败结果，不加重试、等待、权限改动或推测的进程退出等待。源码/实际根因仍待，不把浏览器文件占用当事实。
 
-此前198重复独立检查40592995267已由平台在新推送后取消；原件136292B/SHA-256 af6663c3a4f42e70f31c3030f285d243df29b14d4419dfa88577df4e9b08528b。摘要只有M1/M2有效kill、M3清理未运行为invalid、M4未运行，不能合并成四kill或覆盖旧48单轮完整验收；无手动取消/信号。本轮af87独立检查另在运行。
+此前198重复独立检查40592995267已由平台在新推送后取消；原件136292B/SHA-256 af6663c3a4f42e70f31c3030f285d243df29b14d4419dfa88577df4e9b08528b。摘要只有M1/M2有效kill、M3清理未运行为invalid、M4未运行，不能合并成四kill或覆盖旧48单轮完整验收；无手动取消/信号。该时点af87独立检查仍在运行。
 
 
 仅信息保留的清理诊断候选现已冻结并由新鲜独立规格/质量审查C0I0M0：driver3a664847/fixture f2746e3c，仅借用同一次TempDir.close的Result记录固定ErrorKind、实际raw_os_error是否可得，以及原object_free/take/release/本地drop/slot-empty步骤位。不改lease实现/权限/共享，不调用is_held或增加文件探测；返回错误仍使原21项完整验收失败，R3终态锁存与45/10/75秒保持。新增最多一行93B，原213B诊断行不变，均只在原精确开关启用；不输出路径、错误Display或内容。未恢复不存在的原始OS码，不把本地drop当CloseHandle/浏览器进程退出证明；新编译、Clippy与运行仍待。
 
 root另核读[Microsoft进程事件说明](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/process-related-events)及[Environment5参考](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environment5?view=webview2-1.0.4078.44)：BrowserProcessExited是关闭控件后、UDF资源释放的同步边界，示例保留environment到事件回调并核对对应PID。当前引用清空不等于已证该边界；这是后续生命周期方案的依据，尚不能证明本轮删除错误由它造成。只读分阶段方案已形成，未获功能R4实施授权，先获取当前错误/租约事实。
+
+
+af87独立40596223295随后完整成功，独立实际续审C0I0M0：单轮25基线、四个严格编译后唯一语义kill与清理均通过，原始日志141084B/SHA-256 06ba2895616afc885f937e42793d8fce2869fe2c192b6c75b633e61b995df955，摘要15233B/SHA-256 f37b4ffa009a56d6bedb9178c6a5a44efc3bd743120b88218c454393354e2822，实际checkout e1d7d91。21份留存日志/补丁重哈希匹配，空stderr/副本与退出码通过已绑定runner、非全系统后代清理的边界保持。首次48完整证明不覆盖、不拼接；本次仍只验收dispatcher，不覆盖真实TempDir失败。
