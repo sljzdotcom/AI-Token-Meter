@@ -52,10 +52,86 @@ jobs:
         run: cargo fmt --check
       - name: Lint Rust
         working-directory: windows/src-tauri
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets --features code0-native-fixture -- -D warnings
       - name: Test Windows runtime
         working-directory: windows/src-tauri
-        run: cargo test --locked --no-fail-fast
+        shell: pwsh
+        run: |
+          $env:AI_METER_CODE0_NATIVE_RUN_ID = "code0-native-smoke-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_NATIVE_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID.json"
+          cargo test --locked --no-fail-fast --features code0-native-fixture
+      - name: Verify Code0 native smoke evidence
+        if: always()
+        shell: python {0}
+        run: |
+          import json, os, re
+          from pathlib import Path
+
+          fields = {'schema', 'runId', 'requiredCase', 'selectedCases', 'completedCases', 'pass', 'failure', 'staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady', 'rendererMessage', 'bareHiddenUnfocused', 'profileIsolated', 'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded', 'runtimeVersion', 'constructionObserved', 'bareWindowViolation'}
+          positive = ('pass', 'staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady', 'rendererMessage', 'bareHiddenUnfocused', 'profileIsolated', 'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded', 'constructionObserved')
+
+          def unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate evidence member')
+                  result[key] = value
+              return result
+
+          def invalid_constant(_):
+              raise ValueError('non-JSON evidence number')
+
+          def validate(raw, expected_run):
+              if len(raw) > 8192:
+                  raise ValueError('evidence exceeds limit')
+              evidence = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+              if type(evidence) is not dict or set(evidence) != fields:
+                  raise ValueError('evidence object schema mismatch')
+              if type(evidence['schema']) is not int or evidence['schema'] != 2:
+                  raise ValueError('evidence schema version mismatch')
+              for field in ('selectedCases', 'completedCases'):
+                  if type(evidence[field]) is not int or evidence[field] != 1:
+                      raise ValueError('evidence case count mismatch')
+              for field, expected in (('runId', expected_run), ('requiredCase', 'hidden_bare_inline_engine_release'), ('failure', 'none')):
+                  if type(evidence[field]) is not str or evidence[field] != expected:
+                      raise ValueError('evidence identity or completion mismatch')
+              if any(evidence[field] is not True for field in positive) or evidence['bareWindowViolation'] is not False:
+                  raise ValueError('positive native evidence missing')
+              version = evidence['runtimeVersion']
+              if type(version) is not str or re.fullmatch(r'[0-9.]{1,128}', version) is None:
+                  raise ValueError('native version evidence invalid')
+
+          # These validate only the evidence parser, never native behavior.
+          canary = dict.fromkeys(positive, True)
+          canary.update(schema=2, runId='validator-canary', requiredCase='hidden_bare_inline_engine_release', selectedCases=1, completedCases=1, failure='none', runtimeVersion='1.2.3.4', bareWindowViolation=False)
+          valid = json.dumps(canary).encode('utf-8')
+          validate(valid, 'validator-canary')
+          bad_polarity = dict(canary, bareWindowViolation=True)
+          for malformed in (b'[' + valid + b']', valid.replace(b'"schema"', b'"Schema"', 1), b'{"schema":2,' + valid[1:], json.dumps(bad_polarity).encode('utf-8')):
+              try:
+                  validate(malformed, 'validator-canary')
+              except ValueError:
+                  continue
+              raise SystemExit('Code0 evidence validator self-check failed')
+          print('Code0 evidence parser self-checks passed; no native acceptance implied.')
+
+          expected_run = f"code0-native-smoke-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          path = Path(os.environ['RUNNER_TEMP']) / f'{expected_run}.json'
+          try:
+              with path.open('rb') as source:
+                  raw = source.read(8193)
+              validate(raw, expected_run)
+          except (OSError, ValueError, TypeError, UnicodeError):
+              raise SystemExit('Code0 native smoke evidence missing, malformed, or not GREEN') from None
+          print('Code0 native smoke evidence passed: one required case.')
+      - name: Preserve Code0 native smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-native-smoke
+          path: ${{ runner.temp }}/code0-native-smoke-${{ github.run_id }}-${{ github.run_attempt }}.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug
