@@ -23,6 +23,7 @@ version = "0.10.11"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
+ "embed-resource",
  "futures-util",
  "getrandom 0.3.4",
  "minisign-verify",

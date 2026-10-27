@@ -33,6 +33,7 @@ harness = false
 required-features = ["code0-native-fixture"]
 
 [build-dependencies]
+embed-resource = "=3.0.11"
 tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
