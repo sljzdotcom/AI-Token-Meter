@@ -24,6 +24,16 @@ DISPATCHER = "windows/src-tauri/src/platform/windows/code0_dispatcher.rs"
 TESTS = "windows/src-tauri/tests/code0_dispatcher.rs"
 DISPATCHER_SHA = "e83882b31e1ee7ce7e9e999e70c2733822a488d5e01dc0ca0ec82b0cd98eb9ab"
 TESTS_SHA = "b736e324815a8e838881e0592c79c74f422bb872534b44248813088863921305"
+# Already-tracked historical reports remain byte-compared source inputs. Only
+# these exact files and their directory entries may use the reserved prefix.
+HISTORICAL_REPORT_FILES = frozenset((
+    ".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/task-3-report.md",
+    ".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/task-4-report.md",
+))
+HISTORICAL_REPORT_DIRS = frozenset((
+    ".superpowers", ".superpowers/sdd",
+    ".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density",
+))
 PRIVATE = "platform::windows::code0_dispatcher::tests::"
 CHANGED = "disconnect_reply_observes_new_null_revision_after_matching_emit"
 COMMIT = b"                *self.proxy.view.lock().unwrap() = view.clone();\n"
@@ -104,19 +114,100 @@ def bounded(path: Path, limit: int) -> bytes:
     return raw
 
 
-def safe_name(name: str) -> str:
+def safe_name(name: str, *, directory: bool = False) -> str:
     path = PurePosixPath(name)
     if (not name or any(c in name for c in '\\:<>"|?*') or path.is_absolute()
             or any(p in ("", ".", "..") for p in name.split("/"))
-            or any(p.lower() in (".git", "node_modules", ".superpowers") for p in path.parts)
+            or any(p.lower() in (".git", "node_modules") for p in path.parts)
             or any(ord(c) < 32 for c in name)):
         raise Incomplete("unsafe_source_path")
+    if any(p.lower() == ".superpowers" for p in path.parts):
+        allowed = HISTORICAL_REPORT_DIRS if directory else HISTORICAL_REPORT_FILES
+        if name not in allowed:
+            raise Incomplete("unsafe_source_path")
     # Avoid Windows path aliases and device names during tar materialization.
     for part in path.parts:
         if part.endswith((".", " ")) or re.fullmatch(
                 r"(?i)(con|prn|aux|nul|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³])(?:\..*)?", part):
             raise Incomplete("unsafe_windows_path")
     return name
+
+
+def safe_archive_name(member: tarfile.TarInfo) -> str:
+    if member.isdir():
+        # Validate the parsed member name, not the original tar header spelling.
+        # tarfile may already trim directory terminators. If still present here,
+        # remove one; repeated parsed separators remain a lexical rejection.
+        name = member.name[:-1] if member.name.endswith("/") else member.name
+        return safe_name(name, directory=True)
+    if not member.isfile():
+        raise Incomplete("unsafe_archive_member")
+    return safe_name(member.name)
+
+
+def check_historical_paths(run: Run) -> None:
+    # Pure fixed-name boundary oracle, still behind the hosted CI opt-in.
+    for directory, names in ((False, HISTORICAL_REPORT_FILES), (True, HISTORICAL_REPORT_DIRS)):
+        for name in names:
+            run.check()
+            if safe_name(name, directory=directory) != name:
+                raise Incomplete("historical_path_oracle_rejected_input")
+    denied = (
+        (".superpowers", False),
+        (".superpowers/sdd", False),
+        (".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density", False),
+        (".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/task-3-report.md", True),
+        (".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/task-4-report.md", True),
+        (".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/task-5-report.md", False),
+        (".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/extra", True),
+        (".superpowers/sdd/2026-10-26-code0-monitor/task-3-report.md", False),
+        (".SUPERPOWERS/sdd/2026-09-04-windows-deepseek-history-and-density/task-3-report.md", False),
+        (".superpowers/sdd/2026-09-04-windows-deepseek-history-and-density/task-3-report.md/extra", False),
+        (".superpowers/sdd/../task-3-report.md", False),
+        (".superpowers//sdd", True),
+        (".superpowers/sdd/.", True),
+        ("/.superpowers/sdd", True),
+        (".superpowers/sdd ", True),
+        (".git/config", False),
+        ("node_modules/package.json", False),
+        ("source/con.txt", False),
+        ("source/file.", False),
+        ("source/file ", False),
+        ("source/file:stream", False),
+        ("source\\file", False),
+        ("source/\x00file", False),
+    )
+    for name, directory in denied:
+        run.check()
+        try:
+            safe_name(name, directory=directory)
+        except Incomplete:
+            continue
+        raise Incomplete("historical_path_oracle_missed_rejection")
+    for name in HISTORICAL_REPORT_FILES:
+        for kind in (tarfile.SYMTYPE, tarfile.LNKTYPE, tarfile.FIFOTYPE):
+            run.check()
+            member = tarfile.TarInfo(name)
+            member.type = kind
+            try:
+                safe_archive_name(member)
+            except Incomplete:
+                continue
+            raise Incomplete("historical_path_oracle_missed_member_type")
+    # These are direct parsed-name oracle inputs, not a raw-header parser test.
+    for name in HISTORICAL_REPORT_DIRS:
+        for suffix in ("", "/"):
+            member = tarfile.TarInfo(name + suffix)
+            member.type = tarfile.DIRTYPE
+            if safe_archive_name(member) != name:
+                raise Incomplete("historical_path_oracle_rejected_directory")
+        member = tarfile.TarInfo(name + "//")
+        member.type = tarfile.DIRTYPE
+        try:
+            safe_archive_name(member)
+        except Incomplete:
+            continue
+        raise Incomplete("historical_path_oracle_missed_slash_alias")
 
 
 def enumeration_error(_error: OSError) -> None:
@@ -135,7 +226,8 @@ def manifest(run: Run, root: Path) -> dict[str, str]:
             raise Incomplete("source_file_count_overflow")
         for name in dirs:
             run.check()
-            safe_path(Path(directory) / name, directory=True)
+            relative = safe_name((Path(directory) / name).relative_to(root).as_posix(), directory=True)
+            safe_path(root / relative, directory=True)
         for name in files:
             path = Path(directory) / name
             relative = safe_name(path.relative_to(root).as_posix())
@@ -324,7 +416,7 @@ def baseline_tree(run: Run, checkout: Path, summary: dict) -> dict[str, bytes]:
     with tarfile.open(run.output / "source.tar", "r:") as archive:
         for member in archive:
             run.check()
-            name = safe_name(member.name.rstrip("/") if member.isdir() else member.name)
+            name = safe_archive_name(member)
             folded = name.casefold()
             if folded in names:
                 raise Incomplete("duplicate_archive_path")
@@ -348,6 +440,8 @@ def baseline_tree(run: Run, checkout: Path, summary: dict) -> dict[str, bytes]:
             if name not in GENERATED and checkout_data != data:
                 raise Incomplete("tracked_checkout_differs_from_head")
             files[name] = data
+    if not HISTORICAL_REPORT_FILES.issubset(files) or not HISTORICAL_REPORT_DIRS.issubset(names):
+        raise Incomplete("historical_archive_entries_missing")
     if digest(files.get(DISPATCHER, b"")) != DISPATCHER_SHA or digest(files.get(TESTS, b"")) != TESTS_SHA:
         raise Incomplete("unaccepted_source_hash")
     for name in sorted(GENERATED):
@@ -437,6 +531,9 @@ def check_enumeration_error(run: Run) -> None:
 
 
 def execute(run: Run, checkout: Path, summary: dict) -> None:
+    summary["historicalPathOracle"] = "started"
+    check_historical_paths(run)
+    summary["historicalPathOracle"] = "passed"
     summary["enumerationErrorOracle"] = "started"
     check_enumeration_error(run)
     summary["enumerationErrorOracle"] = "passed"
@@ -566,6 +663,7 @@ def main() -> int:
                     for r in RECIPES],
         "cleanup": "unrun", "processUnreaped": False, "artifacts": [],
         "enumerationErrorOracle": "unrun",
+        "historicalPathOracle": "unrun",
     }
     run = Run(output, deadline)
     try:
