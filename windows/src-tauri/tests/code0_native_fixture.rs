@@ -354,6 +354,7 @@ mod smoke {
         let mut closing_since = None;
         let mut started_create = false;
         let mut object_free_failure = false;
+        let mut terminal_exit_requested = false;
         let mut ready_count = 0;
         let mut message_count = 0;
         let live_construction = Arc::clone(&construction);
@@ -384,9 +385,10 @@ mod smoke {
                 ui_diagnostics.phase(DP::SummaryLock, true);
                 // With partial native ownership, losing the cleanup apartment
                 // must fail via the watchdog rather than drop the owner early.
-                if let RunEvent::ExitRequested {
-                    code: None, api, ..
-                } = &event
+                if !terminal_exit_requested
+                    && let RunEvent::ExitRequested {
+                        code: None, api, ..
+                    } = &event
                 {
                     api.prevent_exit();
                 }
@@ -394,6 +396,12 @@ mod smoke {
             }
             ui_diagnostics.phase(DP::UiAffinity, true);
             ui_diagnostics.ui_heartbeat();
+            // An authorized own exit is terminal. Keep the focus/affinity
+            // observations above, then let ExitRequested/Exit finish without
+            // re-posting or re-evaluating native work/deadlines/verdicts.
+            if terminal_exit_requested {
+                return;
+            }
             let mut create_failure = None;
             if matches!(event, RunEvent::Ready) && !started_create {
                 started_create = true;
@@ -428,6 +436,7 @@ mod smoke {
                     ui_diagnostics.phase(DP::SummaryLock, false);
                     observed.lock().unwrap().failure = create_failure.unwrap();
                     ui_diagnostics.phase(DP::SummaryLock, true);
+                    terminal_exit_requested = true;
                     driver.release_profile_lease();
                     ui_diagnostics.phase(DP::ExitRequest, false);
                     handle.exit(1);
@@ -600,6 +609,9 @@ mod smoke {
                     } else {
                         1
                     };
+                    // Latch only after the original actual-cleanup/deadline/
+                    // verdict gates, before release or the queued exit request.
+                    terminal_exit_requested = true;
                     drop(state);
                     driver.release_profile_lease();
                     ui_diagnostics.phase(DP::ExitRequest, false);
