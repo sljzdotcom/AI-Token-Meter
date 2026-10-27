@@ -210,3 +210,12 @@ REQ-20261027-004只读定位确认一个可自持续的源码循环：hook将初
 `011c286`以两处hook改动消除受控初始数组的effect→state镜像，保留当前输入内容变化、独立Code0 B/null及普通订阅排序；原301断言保留，新增有限render/受控rerender回归，静态预期302。独立定向源码审查无关键、重要或次要发现，实际验证待下一轮Windows；不以改测试数组身份、增加内存或超时修正。
 
 `e1b06b4`纳入Windows存储实现候选及28项测试。首轮8项重要发现经两轮修正和定向复审，源码层面已处理：绑定与严格告警前置、互相冲突的共享打开、保留目录访问权及真实操作间隙保护、失效后保持排他直到明确释放、最终pending→非数值retired名称提交、损坏缓存清理、有界候选身份回执与安全删除、SID失败传播。最终复审无关键或重要发现；原12个行为RED与两项负例保留，增加14项正向与故障/交错控制。这里只是源码候选，真实Windows编译、Clippy和28项尚未运行。独立Windows缓存明确采用规范UTC RFC3339成功时间，仍为五字段；pre-epoch/offset定向测试作为Minor交最终审查。WebView2、调度及原生窗口接线继续后续任务，不能从存储源码审查推定完成。
+
+
+2026-10-27用户重启后明确恢复原执行任务。旧临时工作区及共享Git目录已清除；从持久备份校验manifest、两归档、1069工作文件及24附加材料，bundle verify通过，在新隔离目录恢复同一`codex/code0-monitor`/`32c0f8d`，原未提交暂停台账和忽略报告完整保留，未覆盖协调入口新增需求。恢复不重做此前发布或已完成阶段。
+
+重启前既有[Windows 40500339889](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40500339889)原始日志现已读取：**302项/26文件全部通过**，useUsageSnapshots原七项和新增有界回归共八项完成（121ms），此前OOM修正`011c286`取得实际验证，REQ-20261027-004结项。类型检查、生产构建、608文字角色密度、桥一致性和Rust格式亦通过；严格Clippy唯一阻塞为`code0_snapshot_store.rs:485`的manual_range_contains（-D warnings），运行时测试、NSIS及GUI步骤未运行。此为源码lint前置失败，不能算28项存储已通过。完整日志115124B/SHA-256 `e763d10cf4bf20fcad0ffdedfda9cc559c63f9d11a491acecd6985dc32e994e3`，已交唯一Sol执行者作等价范围表达式窄修，不放宽lint。
+
+同一HEAD的[macOS 40500339942](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40500339942)完整成功：主组756/114套件（含既有条件跳过）、调度3、PTY18、CLI60、后16组、窗口12、原生12/2、共享桥26、373文档及公开检查。19driver case和1probe均记录window/view实际释放，nearly-matches告警0；媒体无设备/权限委托与TCC、TLS握手未观察边界保留。G11旧就绪实际注入但查询0，取消诊断本轮ready=false/guardian=false、最终130/清理确认，无旧失败首因新增证据；REQ-20261027-002/003继续进行中。完整日志1240660B/SHA-256 `593daa1438fc8b69ad2c9c53bc56a8a2e1ca8f44fbca5fd7ea4e40e88196bb79`。没有重跑该CI或触碰宿主产品、VM、真实账号。
+
+Clippy窄修仅将有限非负安全数的两次比较改为相同闭区间contains，保留is_finite与两个端点；一行变更，未加allow、未改测试。静态格式及定向独立审查C0I0M0通过，真实Clippy/28存储仍待必要Windows验证。与此同时下一单作者仅准备dispatcher行为RED，不接COM/产品命令；必须实际编译后方能判断RED。
