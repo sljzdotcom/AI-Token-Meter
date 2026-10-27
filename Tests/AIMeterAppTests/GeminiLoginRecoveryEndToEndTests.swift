@@ -22,6 +22,108 @@ struct GeminiLoginRecoveryEndToEndTests {
         try await runProductionLauncherHandshake(completionExitCode: 3, watchdogDelaySeconds: 3, cancelBeforeExec: true)
     }
 
+    @Test("G11 accepts a complete empty exit-one query and the same recorded PID's later ESRCH without preservation")
+    func failedQueryCompleteAbsenceDoesNotRequirePreservation() {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .gone)
+    }
+
+    @Test("G11 preserves an incomplete query lifecycle even when the recorded PID is later absent")
+    func failedQueryIncompleteLifecycleRequiresPreservation() {
+        // The real runner returns nil for every incomplete lifecycle, including
+        // timeout, missing reap/EOF, and failed setup or FIFO teardown.
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: nil, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves completed queries with other exit codes", arguments: [Int32(0), 2, 42, 255, -1])
+    func failedQueryOtherExitRequiresPreservation(exitStatus: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: exitStatus, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 requires byte-strict empty exit-one output, including whitespace and control bytes",
+          arguments: [" ", "\n", "\t", "Z\n", "S\n", "\0", "\u{FFFD}"])
+    func failedQueryNonemptyOutputRequiresPreservation(text: String) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: text)
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves a still-present PID despite a stale ESRCH errno", arguments: [Int32(0), ESRCH])
+    func failedQueryPresentPIDRequiresPreservation(staleErrno: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: 0, afterQueryErrno: staleErrno
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves permission errors and other non-ESRCH observations",
+          arguments: [EPERM, EACCES, EIO, Int32(0)])
+    func failedQueryOtherErrnoRequiresPreservation(probeErrno: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: probeErrno
+        ) == .preserve)
+    }
+
+    @Test("G11 cannot use absence for another PID to release preservation")
+    func failedQueryMismatchedPIDRequiresPreservation() {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12346,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves unexpected kernel probe return values", arguments: [Int32(1), -2])
+    func failedQueryUnexpectedProbeResultRequiresPreservation(probeResult: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: probeResult, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves invalid recorded process IDs", arguments: [pid_t(0), -1])
+    func failedQueryInvalidRecordedPIDRequiresPreservation(recordedPID: pid_t) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: recordedPID, completedQuery: completed, afterQueryPID: recordedPID,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves an absent or invalid post-query PID association", arguments: [pid_t(0), -1])
+    func failedQueryInvalidPostQueryPIDRequiresPreservation(afterQueryPID: pid_t) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: afterQueryPID,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves a failed query without an existing post-query observation")
+    func failedQueryMissingPostQueryObservationRequiresPreservation() {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: nil,
+            afterQueryResult: nil, afterQueryErrno: nil
+        ) == .preserve)
+    }
+
     private func runProductionLauncherHandshake(
         completionExitCode: Int, watchdogDelaySeconds: Int = 0, cancelBeforeExec: Bool = false
     ) async throws {
@@ -844,6 +946,11 @@ private final class TemporaryFullFlowPTY {
                 postQueryObservedPIDs.insert(pid)
                 postQueryProbeCount += 1
             }
+            let decision = Self.failedQueryDecision(
+                recordedPID: pid, completedQuery: query,
+                afterQueryPID: afterResult == nil ? nil : pid,
+                afterQueryResult: afterResult, afterQueryErrno: afterErrno
+            )
             recordTracked(["stage": stage.rawValue, "pidRecord": "validated", "required": required,
                 "query": query == nil ? "nilNoCompleteResult" : "completeReapedDrainedTeardown",
                 "exit": query.map { Int($0.exitStatus) as Any } ?? NSNull(),
@@ -854,7 +961,8 @@ private final class TemporaryFullFlowPTY {
                 "postProbe": afterResult == nil ? "notRepeated" : "observedSameRecordedPID",
                 "afterResult": afterResult.map { $0 as Any } ?? NSNull(), "afterErrno": afterErrno.map { $0 as Any } ?? NSNull(),
                 "afterKernelAbsent": afterResult.map { ($0 == -1 && afterErrno == ESRCH) as Any } ?? NSNull(),
-                "returned": false], isQueryFailure: true)
+                "returned": decision == .gone], isQueryFailure: true)
+            if decision == .gone { return true }
             preserve("Tracked child observation unknown")
             return false
         }
@@ -865,6 +973,24 @@ private final class TemporaryFullFlowPTY {
             "outputUTF8Bytes": query.text.utf8.count, "elapsedMilliseconds": Self.elapsedMilliseconds(since: queryStarted),
             "beforeResult": beforeResult, "beforeErrno": beforeErrno, "postProbe": "notAddedForExitZero", "returned": gone])
         return gone
+    }
+
+    enum FailedQueryDecision: Equatable {
+        case gone
+        case preserve
+    }
+
+    // RED checkpoint: retain the actual failed-query branch's original denial.
+    // A nonnil Output already encodes normal reap, EOF and complete teardown;
+    // nil must never acquire a second, contradictory completion flag.
+    static func failedQueryDecision(
+        recordedPID: pid_t,
+        completedQuery: FullFlowProcessQuery.Output?,
+        afterQueryPID: pid_t?,
+        afterQueryResult: Int32?,
+        afterQueryErrno: Int32?
+    ) -> FailedQueryDecision {
+        .preserve
     }
 
     static func queryProcessState(executable: URL, arguments: [String], in root: URL) async -> FullFlowProcessQuery.Output? {
