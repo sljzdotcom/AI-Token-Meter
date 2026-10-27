@@ -642,11 +642,14 @@ mod smoke {
         diagnostics.observed(DM::WakeJoined);
         // run_return has dropped its callback and UI-local driver before TempDir cleanup.
         diagnostics.phase(DP::TempClose, false);
-        let cleanup_succeeded = {
+        let cleanup_result = {
             let _boundary = diagnostics.boundary(DP::TempClose);
-            temp.close().is_ok()
+            temp.close()
         };
         diagnostics.phase(DP::TempClose, true);
+        let cleanup_succeeded = cleanup_result.is_ok();
+        diagnostics.emit_temp_close_once(&cleanup_result);
+        drop(cleanup_result);
         if cleanup_succeeded {
             diagnostics.observed(DM::TempClosed);
         }

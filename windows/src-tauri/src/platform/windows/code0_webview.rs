@@ -72,12 +72,45 @@ impl Code0WindowDriving for Code0NativeDriver {
     }
 
     fn release_profile_lease(&mut self) {
-        #[cfg(windows)]
-        if !native::object_free(&self.owner, None) {
-            return;
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        let diagnostics = self.owner.borrow().diagnostics.clone();
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        if let Some(diagnostic) = &diagnostics {
+            diagnostic.lease_fact(1 << 0);
         }
+        #[cfg(windows)]
+        {
+            let object_free = native::object_free(&self.owner, None);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = &diagnostics {
+                diagnostic.lease_fact((1 << 1) | (u32::from(object_free) << 2));
+            }
+            if !object_free {
+                return;
+            }
+        }
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        let mut lease_taken = false;
         if let Some(lease) = self.lease.take() {
+            #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+            {
+                lease_taken = true;
+                if let Some(diagnostic) = &diagnostics {
+                    diagnostic.lease_fact(1 << 3);
+                }
+            }
             lease.release();
+            #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = &diagnostics {
+                diagnostic.lease_fact(1 << 4);
+            }
+        }
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        if let Some(diagnostic) = &diagnostics {
+            // The original local lease scope has ended. This is not an OS
+            // handle-close result or a browser-process exit observation.
+            diagnostic
+                .lease_fact((u32::from(lease_taken) << 5) | (u32::from(self.lease.is_none()) << 6));
         }
     }
 
@@ -1303,6 +1336,8 @@ pub mod fixture {
     pub struct Diagnostics {
         enabled: bool,
         emitted: std::sync::atomic::AtomicBool,
+        temp_close_emitted: std::sync::atomic::AtomicBool,
+        lease_facts: std::sync::atomic::AtomicU32,
         phase: std::sync::atomic::AtomicU32,
         boundary: std::sync::atomic::AtomicU32,
         boundary_depth: std::sync::atomic::AtomicU32,
@@ -1398,6 +1433,52 @@ pub mod fixture {
                     | (u64::from(flags) << 24);
                 self.inventory
                     .store(packed, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        /// Monotonic facts from the existing release invocation, never a gate.
+        /// Bits: reached/evaluated/object-free/taken/release-returned/local-drop/
+        /// slot-empty. Local drop does not certify OS handle closure.
+        #[cfg(windows)]
+        pub(super) fn lease_fact(&self, facts: u32) {
+            if self.enabled {
+                self.lease_facts
+                    .fetch_or(facts, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        /// One additional bounded line, borrowing the actual one-shot close
+        /// result. Never format its path-bearing error or infer an OS code.
+        pub fn emit_temp_close_once(&self, result: &std::io::Result<()>) {
+            use std::io::{ErrorKind, Write as _};
+            use std::sync::atomic::Ordering::Relaxed;
+            if self.enabled && !self.temp_close_emitted.swap(true, Relaxed) {
+                let (kind, raw) = result.as_ref().err().map_or((0u8, None), |error| {
+                    let kind = match error.kind() {
+                        ErrorKind::NotFound => 1,
+                        ErrorKind::PermissionDenied => 2,
+                        ErrorKind::AlreadyExists => 3,
+                        ErrorKind::DirectoryNotEmpty => 4,
+                        ErrorKind::InvalidInput => 5,
+                        ErrorKind::Interrupted => 6,
+                        ErrorKind::Unsupported => 7,
+                        ErrorKind::Other => 8,
+                        _ => 255,
+                    };
+                    (kind, error.raw_os_error())
+                });
+                // Under256bytes even for u8::MAX, i32::MIN and u32::MAX.
+                // tempfile3.27 wraps OS errors: rawPresent0 is unavailable,
+                // not native error0. The unchanged Result controls acceptance.
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "Code0NativeTempClose schema=1 ok={} kind={} rawPresent={} raw={} leaseFacts={:08x}",
+                    u8::from(result.is_ok()),
+                    kind,
+                    u8::from(raw.is_some()),
+                    raw.unwrap_or(0),
+                    self.lease_facts.load(Relaxed)
+                );
             }
         }
 
