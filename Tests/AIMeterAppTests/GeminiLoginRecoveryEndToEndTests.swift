@@ -937,8 +937,8 @@ private final class TemporaryFullFlowPTY {
             var afterResult: Int32?
             var afterErrno: Int32?
             if !postQueryObservedPIDs.contains(pid) {
-                // Diagnostic only, once per validated recorded PID in this fixture.
-                // Capture errno immediately; this never changes the false return.
+                // Sample once per validated recorded PID in this fixture.
+                // Capture errno immediately for the strict decision and diagnosis.
                 let result = Darwin.kill(pid, 0)
                 let error = result == 0 ? 0 : errno
                 afterResult = result
@@ -980,9 +980,8 @@ private final class TemporaryFullFlowPTY {
         case preserve
     }
 
-    // RED checkpoint: retain the actual failed-query branch's original denial.
     // A nonnil Output already encodes normal reap, EOF and complete teardown;
-    // nil must never acquire a second, contradictory completion flag.
+    // only strict empty exit-one output and the same PID's ESRCH prove absence.
     static func failedQueryDecision(
         recordedPID: pid_t,
         completedQuery: FullFlowProcessQuery.Output?,
@@ -990,7 +989,10 @@ private final class TemporaryFullFlowPTY {
         afterQueryResult: Int32?,
         afterQueryErrno: Int32?
     ) -> FailedQueryDecision {
-        .preserve
+        guard recordedPID > 0, afterQueryPID == recordedPID,
+              let completedQuery, completedQuery.exitStatus == 1, completedQuery.text.isEmpty,
+              afterQueryResult == -1, afterQueryErrno == ESRCH else { return .preserve }
+        return .gone
     }
 
     static func queryProcessState(executable: URL, arguments: [String], in root: URL) async -> FullFlowProcessQuery.Output? {
