@@ -405,23 +405,23 @@ mod smoke {
                     ui_diagnostics.failure(DP::Lease, 0);
                     create_failure = Some("profileLeaseDenied");
                     object_free_failure = true;
-                } else if {
+                } else {
                     ui_diagnostics.observed(DM::Lease);
                     ui_diagnostics.phase(DP::Create, false);
                     let created = driver.create_unloaded(request.clone());
                     ui_diagnostics.phase(DP::Create, true);
-                    created.is_err()
-                } {
-                    create_failure = Some("nativeCreateDenied");
-                    // A failed create can already own a bare Window, COM objects
-                    // or an in-flight completion. Retain the owner and lease and
-                    // keep pumping until actual close evidence arrives.
-                    closing_since = Some(Instant::now());
-                    ui_diagnostics.phase(DP::CloseRequest, false);
-                    driver.close(INSTANCE);
-                    ui_diagnostics.phase(DP::CloseRequest, true);
-                    ui_diagnostics.observed(DM::CloseRequested);
-                    object_free_failure = driver.fixture_creation_is_object_free(INSTANCE);
+                    if created.is_err() {
+                        create_failure = Some("nativeCreateDenied");
+                        // A failed create can already own a bare Window, COM objects
+                        // or an in-flight completion. Retain the owner and lease and
+                        // keep pumping until actual close evidence arrives.
+                        closing_since = Some(Instant::now());
+                        ui_diagnostics.phase(DP::CloseRequest, false);
+                        driver.close(INSTANCE);
+                        ui_diagnostics.phase(DP::CloseRequest, true);
+                        ui_diagnostics.observed(DM::CloseRequested);
+                        object_free_failure = driver.fixture_creation_is_object_free(INSTANCE);
+                    }
                 }
                 if object_free_failure {
                     // This separate inventory fact never invents Destroyed.
