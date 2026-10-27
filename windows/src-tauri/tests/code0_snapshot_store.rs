@@ -35,6 +35,339 @@ fn candidate_snapshot() -> UsageSnapshot {
     .expect("native candidate fetched time")
 }
 
+// These three fixture entry points accept an owned TempDir, never an arbitrary
+// source path. Callers acquired their still-held lease at this exact Code0 root.
+mod native_snapshot_fixtures {
+    use std::ffi::OsStr;
+    use std::fs;
+    use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use std::path::{Component, Path};
+    use std::ptr::null_mut;
+
+    use super::Code0ProfileLease;
+    use tempfile::TempDir;
+    use windows_sys::Wdk::Storage::FileSystem::{
+        FILE_LINK_INFORMATION, FILE_RENAME_INFORMATION, FileLinkInformation, FileRenameInformation,
+        NtSetInformationFile,
+    };
+    use windows_sys::Win32::Foundation::{
+        ERROR_FILE_NOT_FOUND, GetLastError, HANDLE, INVALID_HANDLE_VALUE,
+    };
+    use windows_sys::Win32::Storage::FileSystem::{
+        CreateFileW, DELETE, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+        FILE_ATTRIBUTE_TAG_INFO, FILE_FLAG_OPEN_REPARSE_POINT, FILE_ID_INFO, FILE_READ_ATTRIBUTES,
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_STANDARD_INFO, FileAttributeTagInfo, FileIdInfo,
+        FileStandardInfo, GetFileInformationByHandleEx, OPEN_EXISTING, READ_CONTROL,
+    };
+    use windows_sys::Win32::System::IO::{IO_STATUS_BLOCK, IO_STATUS_BLOCK_0};
+
+    pub(super) enum FixtureError {
+        Predicate,
+        Win32(u32),
+        Native { status: i32, io_status: Option<i32> },
+    }
+
+    impl std::fmt::Debug for FixtureError {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Predicate => formatter.write_str("FixturePredicateRejected"),
+                Self::Win32(code) => formatter
+                    .debug_tuple("FixtureWin32Error")
+                    .field(code)
+                    .finish(),
+                Self::Native { status, io_status } => formatter
+                    .debug_struct("FixtureNativeError")
+                    .field("status", status)
+                    .field("io_status", io_status)
+                    .finish(),
+            }
+        }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    struct Identity {
+        volume: u64,
+        id: [u8; 16],
+    }
+
+    #[derive(Clone, Copy)]
+    enum Change {
+        HardLink,
+        Rename,
+    }
+
+    pub(super) enum Direction {
+        Forward,
+        Restore,
+    }
+
+    fn require(value: bool) -> Result<(), FixtureError> {
+        value.then_some(()).ok_or(FixtureError::Predicate)
+    }
+
+    fn absent(path: &Path) -> Result<(), FixtureError> {
+        match fs::symlink_metadata(path) {
+            Err(error) if error.raw_os_error() == Some(ERROR_FILE_NOT_FOUND as i32) => Ok(()),
+            _ => Err(FixtureError::Predicate),
+        }
+    }
+
+    fn open(path: &Path, access: u32) -> Result<OwnedHandle, FixtureError> {
+        let name = path.as_os_str().encode_wide().collect::<Vec<_>>();
+        require(!name.contains(&0))?;
+        let name = name.into_iter().chain(Some(0)).collect::<Vec<_>>();
+        let handle = unsafe {
+            CreateFileW(
+                name.as_ptr(),
+                access,
+                FILE_SHARE_READ | FILE_SHARE_DELETE,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT,
+                null_mut(),
+            )
+        };
+        if handle == INVALID_HANDLE_VALUE || handle.is_null() {
+            return Err(FixtureError::Win32(unsafe { GetLastError() }));
+        }
+        Ok(unsafe { OwnedHandle::from_raw_handle(handle) })
+    }
+
+    fn identity(handle: HANDLE, expected_links: u32) -> Result<Identity, FixtureError> {
+        let mut tag = FILE_ATTRIBUTE_TAG_INFO::default();
+        if unsafe {
+            GetFileInformationByHandleEx(
+                handle,
+                FileAttributeTagInfo,
+                (&mut tag as *mut FILE_ATTRIBUTE_TAG_INFO).cast(),
+                std::mem::size_of::<FILE_ATTRIBUTE_TAG_INFO>() as u32,
+            )
+        } == 0
+        {
+            return Err(FixtureError::Win32(unsafe { GetLastError() }));
+        }
+        require(
+            tag.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) == 0,
+        )?;
+        let mut standard = FILE_STANDARD_INFO::default();
+        if unsafe {
+            GetFileInformationByHandleEx(
+                handle,
+                FileStandardInfo,
+                (&mut standard as *mut FILE_STANDARD_INFO).cast(),
+                std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
+            )
+        } == 0
+        {
+            return Err(FixtureError::Win32(unsafe { GetLastError() }));
+        }
+        require(
+            !standard.Directory
+                && !standard.DeletePending
+                && standard.NumberOfLinks == expected_links,
+        )?;
+        let mut id = FILE_ID_INFO::default();
+        if unsafe {
+            GetFileInformationByHandleEx(
+                handle,
+                FileIdInfo,
+                (&mut id as *mut FILE_ID_INFO).cast(),
+                std::mem::size_of::<FILE_ID_INFO>() as u32,
+            )
+        } == 0
+        {
+            return Err(FixtureError::Win32(unsafe { GetLastError() }));
+        }
+        require(id.VolumeSerialNumber != 0 && id.FileId.Identifier.iter().any(|byte| *byte != 0))?;
+        Ok(Identity {
+            volume: id.VolumeSerialNumber,
+            id: id.FileId.Identifier,
+        })
+    }
+
+    fn submit(handle: HANDLE, leaf: &'static str, change: Change) -> Result<(), FixtureError> {
+        require(
+            !leaf.is_empty() && !leaf.contains(['\0', '/', '\\']) && !matches!(leaf, "." | ".."),
+        )?;
+        let name = leaf.encode_utf16().collect::<Vec<_>>();
+        let name_bytes = name
+            .len()
+            .checked_mul(std::mem::size_of::<u16>())
+            .ok_or(FixtureError::Predicate)?;
+        let (size, offset, alignment, class) = match change {
+            Change::HardLink => (
+                std::mem::size_of::<FILE_LINK_INFORMATION>(),
+                std::mem::offset_of!(FILE_LINK_INFORMATION, FileName),
+                std::mem::align_of::<FILE_LINK_INFORMATION>(),
+                FileLinkInformation,
+            ),
+            Change::Rename => (
+                std::mem::size_of::<FILE_RENAME_INFORMATION>(),
+                std::mem::offset_of!(FILE_RENAME_INFORMATION, FileName),
+                std::mem::align_of::<FILE_RENAME_INFORMATION>(),
+                FileRenameInformation,
+            ),
+        };
+        // New fixture buffers deliberately satisfy the stricter DDI sizeof +
+        // name formulation. The product's accepted counted buffer is unchanged.
+        let length = size
+            .checked_add(name_bytes)
+            .ok_or(FixtureError::Predicate)?;
+        require(std::mem::align_of::<u128>() >= alignment.max(std::mem::align_of::<i32>()))?;
+        require(
+            offset
+                .checked_add(name_bytes)
+                .is_some_and(|end| end <= length),
+        )?;
+        let submitted = u32::try_from(length).map_err(|_| FixtureError::Predicate)?;
+        let name_bytes = u32::try_from(name_bytes).map_err(|_| FixtureError::Predicate)?;
+        let mut buffer = vec![0u128; length.div_ceil(std::mem::size_of::<u128>())];
+        unsafe {
+            match change {
+                Change::HardLink => {
+                    let info = buffer.as_mut_ptr().cast::<FILE_LINK_INFORMATION>();
+                    (*info).Anonymous.ReplaceIfExists = false;
+                    (*info).RootDirectory = null_mut();
+                    (*info).FileNameLength = name_bytes;
+                    std::ptr::copy_nonoverlapping(
+                        name.as_ptr(),
+                        std::ptr::addr_of_mut!((*info).FileName).cast::<u16>(),
+                        name.len(),
+                    );
+                }
+                Change::Rename => {
+                    let info = buffer.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
+                    (*info).Anonymous.ReplaceIfExists = false;
+                    (*info).RootDirectory = null_mut();
+                    (*info).FileNameLength = name_bytes;
+                    std::ptr::copy_nonoverlapping(
+                        name.as_ptr(),
+                        std::ptr::addr_of_mut!((*info).FileName).cast::<u16>(),
+                        name.len(),
+                    );
+                }
+            }
+        }
+        let mut io_status = IO_STATUS_BLOCK {
+            Anonymous: IO_STATUS_BLOCK_0 { Status: i32::MIN },
+            Information: 0,
+        };
+        // Nt/ZwSetInformationFile is a synchronous service. Source, IOSB,
+        // stationary aligned buffer and caller's original lease all outlive it.
+        let status = unsafe {
+            NtSetInformationFile(
+                handle,
+                &mut io_status,
+                buffer.as_ptr().cast(),
+                submitted,
+                class,
+            )
+        };
+        let completion = unsafe { io_status.Anonymous.Status };
+        if status != 0 || completion != 0 {
+            return Err(FixtureError::Native {
+                status,
+                io_status: (completion != i32::MIN).then_some(completion),
+            });
+        }
+        Ok(())
+    }
+
+    fn change_owned_link(
+        temporary: &TempDir,
+        lease: &Code0ProfileLease,
+        source_leaf: &'static str,
+        target_leaf: &'static str,
+        change: Change,
+    ) -> Result<(), FixtureError> {
+        require(matches!(
+            (change, source_leaf, target_leaf),
+            (Change::HardLink, "snapshot.json", "unexpected-link")
+                | (Change::Rename, "snapshot.json", "unrelated-target")
+                | (Change::Rename, "unrelated-target", "snapshot.json")
+                | (Change::Rename, "snapshot.json", "snapshot-candidate-7.tmp")
+                | (Change::Rename, "snapshot-candidate-7.tmp", "snapshot.json")
+        ))?;
+        let root = temporary.path().join("Code0");
+        require(
+            root.is_absolute()
+                && root.file_name() == Some(OsStr::new("Code0"))
+                && !root
+                    .components()
+                    .any(|part| matches!(part, Component::CurDir | Component::ParentDir)),
+        )?;
+        require(lease.is_held())?;
+        let source_path = root.join(source_leaf);
+        let target_path = root.join(target_leaf);
+        absent(&target_path)?;
+        let access = FILE_READ_ATTRIBUTES
+            | READ_CONTROL
+            | match change {
+                Change::HardLink => 0,
+                Change::Rename => DELETE,
+            };
+        let source = open(&source_path, access)?;
+        let before = identity(source.as_raw_handle(), 1)?;
+        submit(source.as_raw_handle(), target_leaf, change)?;
+        let links = match change {
+            Change::HardLink => 2,
+            Change::Rename => 1,
+        };
+        require(identity(source.as_raw_handle(), links)? == before)?;
+        let target = open(&target_path, FILE_READ_ATTRIBUTES | READ_CONTROL)?;
+        require(identity(target.as_raw_handle(), links)? == before)?;
+        match change {
+            Change::HardLink => {
+                let original = open(&source_path, FILE_READ_ATTRIBUTES | READ_CONTROL)?;
+                require(identity(original.as_raw_handle(), 2)? == before)?;
+                drop(original);
+            }
+            Change::Rename => absent(&source_path)?,
+        }
+        drop(target);
+        drop(source);
+        require(lease.is_held())
+    }
+
+    pub(super) fn hard_link_snapshot(
+        temporary: &TempDir,
+        lease: &Code0ProfileLease,
+    ) -> Result<(), FixtureError> {
+        change_owned_link(
+            temporary,
+            lease,
+            "snapshot.json",
+            "unexpected-link",
+            Change::HardLink,
+        )
+    }
+
+    pub(super) fn move_for_unsafe_link(
+        temporary: &TempDir,
+        lease: &Code0ProfileLease,
+        direction: Direction,
+    ) -> Result<(), FixtureError> {
+        let (source, target) = match direction {
+            Direction::Forward => ("snapshot.json", "unrelated-target"),
+            Direction::Restore => ("unrelated-target", "snapshot.json"),
+        };
+        change_owned_link(temporary, lease, source, target, Change::Rename)
+    }
+
+    pub(super) fn move_for_unknown_slot(
+        temporary: &TempDir,
+        lease: &Code0ProfileLease,
+        direction: Direction,
+    ) -> Result<(), FixtureError> {
+        let (source, target) = match direction {
+            Direction::Forward => ("snapshot.json", "snapshot-candidate-7.tmp"),
+            Direction::Restore => ("snapshot-candidate-7.tmp", "snapshot.json"),
+        };
+        change_owned_link(temporary, lease, source, target, Change::Rename)
+    }
+}
+
 fn observe_blocked_candidate(root: &std::path::Path) -> Result<serde_json::Value, String> {
     if !root.join("snapshot.pending").exists() {
         return Err("pending barrier is absent while candidate gate is held".to_owned());
@@ -353,7 +686,7 @@ fn load_rejects_a_hard_linked_snapshot_file() {
     let temporary = tempdir().expect("isolated temporary directory");
     let root = temporary.path().join("Code0");
     let lease = Code0ProfileLease::acquire(&root).expect("acquire profile lease");
-    let mut store = Code0SnapshotStore::new(&root, Some(lease));
+    let mut store = Code0SnapshotStore::new(&root, Some(lease.clone()));
     store
         .save_atomic(&expected_snapshot())
         .expect("save projection before linking");
@@ -364,7 +697,7 @@ fn load_rejects_a_hard_linked_snapshot_file() {
             .unwrap()
             .is_some()
     );
-    fs::hard_link(root.join("snapshot.json"), root.join("unexpected-link"))
+    native_snapshot_fixtures::hard_link_snapshot(&temporary, &lease)
         .expect("create isolated hard-link fixture");
 
     assert_eq!(
@@ -905,7 +1238,12 @@ fn unsafe_snapshot_link_is_rejected_by_load_and_explicit_cleanup() {
     let mut store = Code0SnapshotStore::new(&root, Some(lease.clone()));
     store.save_atomic(&expected_snapshot()).unwrap();
     let target = root.join("unrelated-target");
-    fs::rename(root.join("snapshot.json"), &target).unwrap();
+    native_snapshot_fixtures::move_for_unsafe_link(
+        &temporary,
+        &lease,
+        native_snapshot_fixtures::Direction::Forward,
+    )
+    .expect("create exact same-parent unsafe-link fixture");
     let target_bytes = fs::read(&target).unwrap();
     std::os::windows::fs::symlink_file(&target, root.join("snapshot.json"))
         .expect("real file-reparse fixture creation is required; no silent skip");
@@ -914,7 +1252,12 @@ fn unsafe_snapshot_link_is_rejected_by_load_and_explicit_cleanup() {
     assert_eq!(fs::read(&target).unwrap(), target_bytes);
     assert!(lease.is_held());
     fs::remove_file(root.join("snapshot.json")).unwrap();
-    fs::rename(&target, root.join("snapshot.json")).unwrap();
+    native_snapshot_fixtures::move_for_unsafe_link(
+        &temporary,
+        &lease,
+        native_snapshot_fixtures::Direction::Restore,
+    )
+    .expect("restore exact same-parent snapshot identity");
     assert!(store.load().unwrap().is_some());
     store.remove().unwrap();
 }
@@ -929,7 +1272,12 @@ fn a_secure_unknown_file_in_a_reserved_candidate_slot_is_preserved_and_blocks_cl
     let unknown = root.join("snapshot-candidate-7.tmp");
     // Exact restricted DACL and reserved name are insufficient without this
     // candidate's volume/file-ID receipt in an owned pending/retired marker.
-    fs::rename(root.join("snapshot.json"), &unknown).unwrap();
+    native_snapshot_fixtures::move_for_unknown_slot(
+        &temporary,
+        &lease,
+        native_snapshot_fixtures::Direction::Forward,
+    )
+    .expect("create exact unknown same-parent reserved candidate");
     let before = fs::read(&unknown).unwrap();
     assert_eq!(store.remove(), Err(Code0StoreError::Unavailable));
     assert_eq!(fs::read(&unknown).unwrap(), before);
@@ -939,7 +1287,12 @@ fn a_secure_unknown_file_in_a_reserved_candidate_slot_is_preserved_and_blocks_cl
     );
     assert_eq!(fs::read(&unknown).unwrap(), before);
     assert!(lease.is_held());
-    fs::rename(&unknown, root.join("snapshot.json")).unwrap();
+    native_snapshot_fixtures::move_for_unknown_slot(
+        &temporary,
+        &lease,
+        native_snapshot_fixtures::Direction::Restore,
+    )
+    .expect("restore exact unknown-candidate source identity");
     store.remove().unwrap();
 }
 

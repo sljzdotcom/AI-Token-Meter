@@ -1704,6 +1704,11 @@ mod windows_impl {
                 )?;
                 let (temporary_path, file) =
                     create_candidate(root, &bytes, failure_points, true, pending, observer)?;
+                // Classic replacement rejects our still-open target B despite
+                // DELETE sharing. A is now fully prepared; close only
+                // our B data handle while the durable pending barrier and all
+                // authority/ancestor/root/lock guards remain continuously held.
+                drop(candidate_file.take());
                 if let Err(error) = rename_same_parent_observed(
                     file.as_raw_handle(),
                     "snapshot.json",
