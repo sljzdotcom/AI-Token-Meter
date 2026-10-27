@@ -615,6 +615,112 @@ fn queued_authentication_revocation_is_applied_before_matching_release() {
     assert_eq!(read(&f.proxy), revoked);
 }
 
+// A general failure must demote activation through the session too. Duplicate
+// releases and traffic arriving later must not expand the finite old prefix.
+#[test]
+fn pre_release_failure_precedes_ack_but_later_read_flood_does_not() {
+    let f = Fixture::new(Seed::Syncing);
+    let current = f.window();
+    for event in capture_events(&current) {
+        f.event(&current, event);
+    }
+    let later_reads = Arc::new(Mutex::new(Vec::new()));
+    let observations = later_reads.clone();
+    let proxy = f.proxy.clone();
+    let duplicate = current.clone();
+    f.hold();
+    f.proxy.read(Box::new(move |value| {
+        let initial = match value.unwrap() {
+            Code0Reply::View(view) => view,
+            other => panic!("wrong read reply {other:?}"),
+        };
+        assert_eq!(serde_json::to_value(initial).unwrap()["state"], "closing");
+        // The failure is still queued, so these 63 fit the general bound.
+        for _ in 0..63 {
+            let observations = observations.clone();
+            proxy.read(Box::new(move |value| {
+                let view = match value.unwrap() {
+                    Code0Reply::View(view) => view,
+                    other => panic!("wrong read reply {other:?}"),
+                };
+                observations
+                    .lock()
+                    .unwrap()
+                    .push(serde_json::to_value(view).unwrap()["state"].clone());
+            }));
+        }
+        for _ in 0..1000 {
+            proxy
+                .window(BINDING, duplicate.clone(), Event::Released)
+                .unwrap();
+        }
+    }));
+    assert_eq!(
+        f.proxy.window(
+            BINDING,
+            current.clone(),
+            Event::Failed(Failure::NavigationFailed)
+        ),
+        Ok(())
+    );
+    assert_eq!(f.proxy.window(BINDING, current, Event::Released), Ok(()));
+    f.flush();
+    let states = later_reads.lock().unwrap();
+    assert_eq!(states.len(), 63);
+    assert!(
+        states.iter().all(|state| *state == "paused"),
+        "later reads must follow the protected ack, not extend its prefix"
+    );
+    let view = serde_json::to_value(read(&f.proxy)).unwrap();
+    assert_eq!(view["state"], "paused");
+    assert_eq!(view["failure"], "navigationFailed");
+    assert_eq!(view["snapshot"]["primaryMetric"]["current"], 4.5);
+    assert_eq!(view["isAutomaticallySyncing"], false);
+    f.tick(300);
+    assert_eq!(f.native.borrow().windows.len(), 1);
+}
+
+// Transport scheduling failure may reject RPCs, but it cannot silently discard
+// queued native evidence and then activate B when physical release is retried.
+#[test]
+fn scheduling_failure_retains_native_revocation_before_later_release() {
+    let f = Fixture::new(Seed::Syncing);
+    let current = f.window();
+    for event in capture_events(&current) {
+        f.event(&current, event);
+    }
+    f.executor
+        .fail
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    assert_eq!(
+        f.proxy.window(
+            BINDING,
+            current.clone(),
+            Event::Failed(Failure::AuthenticationChanged)
+        ),
+        Err(Error::Unavailable)
+    );
+    f.executor
+        .fail
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    assert_eq!(f.proxy.window(BINDING, current, Event::Released), Ok(()));
+    let view = serde_json::to_value(read(&f.proxy)).unwrap();
+    assert_eq!(view["state"], "paused");
+    assert_eq!(view["snapshot"], Value::Null);
+    assert_eq!(view["failure"], "authenticationChanged");
+    assert_eq!(view["isAutomaticallySyncing"], false);
+    assert_eq!(
+        f.trace
+            .borrow()
+            .iter()
+            .filter(|event| **event == "remove")
+            .count(),
+        1
+    );
+    f.tick(300);
+    assert_eq!(f.native.borrow().windows.len(), 1);
+}
+
 // Mutation: wrapping the JS safe integer revision authorizes an unpublished
 // action, or an invalid initial revision reaches the frontend.
 #[test]

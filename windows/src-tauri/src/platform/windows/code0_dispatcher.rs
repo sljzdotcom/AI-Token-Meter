@@ -180,6 +180,9 @@ struct Inbox {
     binding: Option<(u64, u64)>,
     tick: Option<Message>,
     released: Option<Message>,
+    // First matching Released fences at most the 64 general messages already
+    // accepted. Later traffic and duplicate acknowledgements cannot extend it.
+    release_prefix: usize,
     cleanup: Option<Message>,
     // Transport correlation/reservations only; these never grant authority.
     expected_window: Option<(u64, Code0WindowRequest)>,
@@ -197,7 +200,15 @@ impl Inbox {
         if std::mem::take(&mut self.overflow) {
             return Some(Message::Overflow);
         }
+        if self.released.is_some() && self.release_prefix > 0 {
+            self.release_prefix -= 1;
+            if let Some(message) = self.general.pop_front() {
+                return Some(message);
+            }
+            self.release_prefix = 0;
+        }
         if let Some(message) = self.released.take() {
+            self.release_prefix = 0;
             self.expected_window = None;
             return Some(message);
         }
@@ -267,6 +278,7 @@ impl Code0Proxy {
         }
         inbox.expected_window = Some((binding, request));
         inbox.released = None;
+        inbox.release_prefix = 0;
         Ok(())
     }
     pub fn expect_cleanup(
@@ -322,11 +334,14 @@ impl Code0Proxy {
             match message {
                 Message::Tick(binding, tick) => inbox.tick = Some(Message::Tick(binding, tick)),
                 Message::Window(binding, request, Code0WindowEvent::Released) => {
-                    inbox.released = Some(Message::Window(
-                        binding,
-                        request,
-                        Code0WindowEvent::Released,
-                    ));
+                    if inbox.released.is_none() {
+                        inbox.release_prefix = inbox.general.len();
+                        inbox.released = Some(Message::Window(
+                            binding,
+                            request,
+                            Code0WindowEvent::Released,
+                        ));
+                    }
                 }
                 Message::Cleanup(binding, request, result) => {
                     // Keep the first physical completion for this reservation.
@@ -367,7 +382,25 @@ impl Code0Proxy {
         if needs_schedule && self.schedule.schedule().is_err() {
             let rejected = {
                 let mut inbox = self.inbox.lock().unwrap();
-                let mut messages: Vec<_> = inbox.general.drain(..).collect();
+                let prefix = inbox.release_prefix;
+                let mut retained_prefix = 0;
+                let mut retained = VecDeque::new();
+                let mut messages = Vec::new();
+                for (index, message) in inbox.general.drain(..).enumerate() {
+                    if matches!(message, Message::Window(..)) {
+                        // Native evidence already queued remains meaningful
+                        // even if the UI scheduling signal failed. Reject RPCs
+                        // without losing/reordering a pre-release revocation.
+                        if index < prefix {
+                            retained_prefix += 1;
+                        }
+                        retained.push_back(message);
+                    } else {
+                        messages.push(message);
+                    }
+                }
+                inbox.general = retained;
+                inbox.release_prefix = retained_prefix;
                 let stops: Vec<_> = inbox.stops.drain(..).collect();
                 messages.extend(stops.into_iter().map(Message::Stop));
                 // Physical acknowledgements and fail-closed control signals
