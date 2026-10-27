@@ -305,3 +305,10 @@ Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经�
 同一[Windows40570972391](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40570972391)原28存储仍23通过5失败，新增3项诊断oracle通过，父libtest380项375通过5失败（不重复计helper）。两项回滚真实首失败均为RestoreRename，直接NTSTATUS/IOSB均0xC0000022；保留读者BeforeRetire前后load均Unavailable，三个不安全造态夹具仍在OS32前置失败。先据此窄审候选，不把错误码直接等同B句柄根因。原生fixture已正常返回新鲜schema2摘要，失败nativeCreateDenied、STA/回调/正常返回/清理均真实记录；实际PE已嵌入ID1 manifest，尚无引擎GREEN。完整日志288165B/SHA-256 `25ae4e912a36c0d484485dc3a07b88779a80db6a2b7a90f2c02bfafc6cd74273`；NSIS/GUI未运行。
 
 [独立变异40570972473](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40570972473)通过实际三文件字节、blob和配置确认当前checkout把LF转成CRLF，system autocrlf=true；仍在runner前停止，baseline及四变异未运行、零kills。已审C0I0M0的窄修只在该独立job首次checkout前选择临时Git配置，保留全部字节、独立副本、严格编译与语义断言。已精确接线待运行，不回填旧run缺失的落盘字节，不称变异已通过。
+
+
+`77f40f4`对应[macOS40573959423](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40573959423)完整成功（日志1416938B/SHA-256 bd259797582114006ba165349a46f46931414501f0a58ec7843f5071fe76067b）；[Windows40573959480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40573959480)仍为修正前五个存储失败及正常nativeCreateDenied，日志287946B/SHA-256 d2fd1000e03eda0f5713599b5cdb230169d69c891a198e554f93b910d98df961。未原样重跑，现存独立结果不因下一源码候选被覆盖。
+
+独立变异[40573959390](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40573959390)三个源码工作字节与实际HEAD的LF blob精确相同，检出修正实际生效；runner已进入且枚举错误oracle通过，随后全归档路径规则拦截仓库已跟踪的两份历史审查文档。完整日志131865B/SHA-256 09474bfdd7e96aae4f1f7c836d34e9147930d315bf1be5fc0eebffb8d206727c；baseline/Cargo/mutants仍未运行、零kills。R2/fix1窄修经独审C0I0M0，仅精确接纳两regular文件与三父目录并检查类型，历史内容继续进入全源码等价比对，原四变异和限额未改。路径oracle只验证标准tar解析后的名称与类型，不声称拒绝解析器已规范化的原始目录终止斜杠；不使用extractall或宽泛前缀许可。新runner与三处精确pin共同更新，待实际运行。
+
+存储最终功能R5/5候选经fresh独立规格/质量审查C0I0M0。产品仅在old=Some且恢复A的候选已完整准备后关闭本流程ownB，然后原样执行一次restore/flush/identity及仅成功后retire，old=None exact-handle和所有guards/barrier保持。三项test-only helper使用真实同父typed rename/link与实际Volume/FileID/linkCount证明，原28断言与诊断保留。所有本候选编译/Clippy/原生行为仍未运行，不宣称五失败解决；不自动开启R6。真实引擎候选另由唯一作者开发，未审查部分不进入这一提交。
