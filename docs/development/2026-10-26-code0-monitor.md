@@ -268,3 +268,8 @@ Clippy窄修仅将有限非负安全数的两次比较改为相同闭区间conta
 下一候选源码检查点：调度器功能R2通过独立定向复审C0I0M0，以固定有界前缀保留释放前事件的因果顺序，并在调度失败时保留已收到的原生证据；原23契约未改，增2项相关时序/洪泛用例，共25项待实际GREEN。五臂输出R1通过独审C0I0M0，先完整验证/编码五条固定记录，再经有界、可失败的直接stderr写入并flush，补写/部分写/flush错误回归，不重复原生矩阵，不改访问/共享/事务策略。
 
 Windows首轮原生smoke拒绝型接缝与process-main/STA/run_return契约经两轮修正和独审C0I0M0：实际构造句柄身份、构造时隐藏状态与主事件回调焦点锁存须覆盖EngineReady以前，当前适配器仍拒绝创建且不伪造任何原生成功。schema2固定21字段；显式feature启用的正常全量Clippy/test接线经独审C0I0M0，严格检查本次run/attempt的新鲜单例证据、构造已观察且无窗口违规，保留固定JSON；缺失/失败不能放行打包。四个解析负例仅证明校验器，不是原生行为证据。当前候选编译、Clippy、25契约、可见五臂结果和首个nativeCreateDenied行为RED均待下一隔离CI，不称真实引擎GREEN；真实COM创建错误保留lease至物理释放的边界留给后续实现。
+
+
+`0ee854c`的[Windows 40551463225](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40551463225)前端302/26、类型/构建/密度/格式通过；显式feature严格Clippy在native观察enum报告large_enum_variant（实际Window至少536字节、次大80字节），库与库测试停止。25调度器契约、可见A–E、输出错误回归、原生smoke和原28存储均未运行，不算行为RED。新的Python自定义shell/原始schema2校验器实际接受正例并拒绝数组、错大小写、重复键和违规极性四个负例；缺失本次原生证据仍使门禁失败、安装包跳过，不能将解析器检查当作原生通过。日志131326B/SHA-256 `1726558d28febc9ec17f75ebff50ef717eea73ff74a05462bd3d112dc4d1790a`已保留。原作者R3仅将实际Window字段改为Box，保持同一对象身份、构造时点、焦点锁存和21字段不变，R3定向源码独审C0I0M0，修订后的严格检查与全部运行时仍待必要CI。
+
+同一[macOS 40551463214](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/40551463214)完整门禁成功，756/3/18/60/16、窗口12、原生12/2、共享桥26及文档/公开检查均通过；完整日志1411226B/SHA-256 `2221ad12616e79aec1e5c6bb6749f4d67ce1287491cec97a030a380305263457`。旧首因/媒体/TCC/TLS/真实账户未观察边界保持。
