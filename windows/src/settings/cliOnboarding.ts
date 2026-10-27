@@ -22,10 +22,12 @@ export class CLIOnboarding {
   dispose() { for (const p of ["claude", "codex", "deepseek", "gemini"] as const) this.next(p); this.busy.clear() }
   private next(provider: ProviderId) { const n = (this.revisions.get(provider) ?? 0) + 1; this.revisions.set(provider, n); return n }
   private async read(providerId: ProviderId, retryUsage = false): Promise<ServiceAccountStatus> {
+    if (providerId === "code0") return {providerId, connectionState: "unavailable"}
     try { return await this.invoke("service_account_status", { providerId, retryUsage }) as ServiceAccountStatus }
     catch { return { providerId, connectionState: "unavailable" } }
   }
   async check(providerId: ProviderId, retryUsage = false, replacePending = false) {
+    if (providerId === "code0") return
     if (this.isBusy(providerId) && !replacePending) return
     const revision = this.next(providerId)
     this.busy.add(providerId); this.changed()

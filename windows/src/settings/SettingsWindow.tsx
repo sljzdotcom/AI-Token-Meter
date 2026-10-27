@@ -10,7 +10,8 @@ import { deepSeekCredentialPresentation } from "./deepSeekCredentialPresentation
 import { GEMINI_INSTALL_COMMAND, GEMINI_INSTALLATION_GUIDE_LABEL, geminiInstallationInstructions } from "./geminiInstallationGuide"
 import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
 import appLogo from "../../src-tauri/icons/128x128.png"
-import type { Code0Action, Code0ActionResult, Code0SessionDTO } from "../state/code0Session"
+import { disabledCode0SessionBridge, emptyCode0Session, type Code0Action, type Code0ActionResult, type Code0SessionDTO } from "../state/code0Session"
+import { SettingsCode0 } from "./SettingsCode0"
 
 const tabs = ["Appearance", "Floating Strip", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
@@ -98,6 +99,8 @@ const defaultUpdateState: UpdateState = {
 }
 
 export function SettingsWindow({
+  code0Session = emptyCode0Session,
+  onCode0Action = disabledCode0SessionBridge.perform,
   onLocaleChange = setLocale,
   displays = {version: 1, mode: "primary", selectedId: null, placements: {}},
   availableDisplays = [],
@@ -405,6 +408,7 @@ export function SettingsWindow({
               <button type="button" aria-label={t("Check Antigravity status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
               <button type="button" onClick={onOpenGeminiInstallationGuide}>{t(GEMINI_INSTALLATION_GUIDE_LABEL)}</button>
             </Service>
+            <SettingsCode0 session={code0Session} onAction={onCode0Action} />
             {serviceMessage ? <p aria-live="polite" className="service-message">{t(serviceMessage)}</p> : null}
           </div>
         ) : null}

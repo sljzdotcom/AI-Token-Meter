@@ -66,3 +66,42 @@ it("an unknown action is rejected before any invoke", async () => {
   expect(await fixture.bridge.perform("refresh" as Code0Action)).toEqual({kind: "denied"})
   expect(fixture.invoke).not.toHaveBeenCalled()
 })
+
+
+it("accepts the native throttle lower bound without inventing a countdown", async () => {
+  const fixture = transport({kind: "throttled", secondsRemaining: 0})
+  expect(await fixture.bridge.perform("syncNow")).toEqual({kind: "throttled", secondsRemaining: 0})
+  expect(fixture.invoke.mock.calls).toEqual([["code0_session_action", {action: "syncNow"}]])
+})
+
+it.each([
+  ["array", ["started"]],
+  ["inherited kind", Object.create({kind: "started"})],
+  ["custom prototype", Object.assign(Object.create({extra: true}), {kind: "started"})],
+  ["symbol field", {kind: "started", [Symbol("extra")]: true}],
+  ["busy extra field", {kind: "busy", secondsRemaining: 0}],
+  ["throttled extra field", {kind: "throttled", secondsRemaining: 1, extra: true}],
+  ["unsafe throttle", {kind: "throttled", secondsRemaining: Number.MAX_SAFE_INTEGER + 1}],
+  ["nonfinite throttle", {kind: "throttled", secondsRemaining: Number.NaN}],
+])("rejects a noncanonical action reply: %s", async (_name, reply) => {
+  const fixture = transport(reply)
+  expect(await fixture.bridge.perform("syncNow")).toEqual({kind: "denied"})
+  expect(fixture.invoke.mock.calls).toEqual([["code0_session_action", {action: "syncNow"}]])
+})
+
+it("does not execute an accessor while validating a native action reply", async () => {
+  const getter = vi.fn(() => "started")
+  const fixture = transport(Object.defineProperty({}, "kind", {get: getter, enumerable: true}))
+  expect(await fixture.bridge.perform("connect")).toEqual({kind: "denied"})
+  expect(getter).not.toHaveBeenCalled()
+  expect(fixture.invoke.mock.calls).toEqual([["code0_session_action", {action: "connect"}]])
+})
+
+it("returns an independent canonical result rather than a mutable transport object", async () => {
+  const reply = {kind: "throttled", secondsRemaining: 10}
+  const fixture = transport(reply)
+  const result = await fixture.bridge.perform("syncNow")
+  reply.secondsRemaining = 299
+  expect(result).toEqual({kind: "throttled", secondsRemaining: 10})
+  expect(result).not.toBe(reply)
+})
