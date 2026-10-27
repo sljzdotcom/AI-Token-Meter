@@ -96,3 +96,39 @@ it("a missing ordinary provider is inserted when its event arrives", async () =>
   act(() => input.emit(newer))
   expect(result.current.find(value => value.providerId === "codex")).toEqual(newer)
 })
+
+
+it("controlled initial snapshots settle across equivalent references, changed ordinary values and Code0 clear", async () => {
+  const input = fixture(Promise.resolve([]))
+  const current = code0Session({revision: 2, snapshot: code0Snapshot(8, 3)})
+  let renders = 0
+  const {result, rerender} = renderHook(({ratio, session}: {ratio: number; session: Code0SessionDTO}) => {
+    // Fail a self-sustaining update promptly, without relying on timeout or OOM.
+    if (++renders > 16) throw new Error("Controlled initial snapshots did not settle within the render budget")
+    const values: UsageSnapshot[] = ordinary.map(value => value.providerId === "claude"
+      ? {...value, status: "fresh", usedRatio: ratio} : {...value})
+    return useUsageSnapshots(input.bridge, [...values, {...oldCode0}], session)
+  }, {initialProps: {ratio: 0.12, session: current}})
+  expect(result.current.find(value => value.providerId === "claude")?.usedRatio).toBe(0.12)
+  expect(code0(result.current)).toEqual(current.snapshot)
+
+  // Recreate equivalent arrays and elements in the same hook host render.
+  rerender({ratio: 0.12, session: current})
+  expect(result.current.find(value => value.providerId === "claude")?.usedRatio).toBe(0.12)
+  expect(code0(result.current)).toEqual(current.snapshot)
+
+  rerender({ratio: 0.42, session: current})
+  expect(result.current.find(value => value.providerId === "claude")?.usedRatio).toBe(0.42)
+  expect(code0(result.current)).toEqual(current.snapshot)
+
+  rerender({ratio: 0.42, session: code0Session({revision: 3, state: "disconnected", snapshot: null})})
+  await act(async () => { await Promise.resolve() })
+  expect(result.current.find(value => value.providerId === "claude")?.usedRatio).toBe(0.42)
+  expect(code0(result.current)?.primaryMetric).toBeFalsy()
+  expect(code0(result.current)?.secondaryMetric).toBeFalsy()
+  expect(code0(result.current)?.fetchedAt).not.toBe(oldCode0.fetchedAt)
+  expect(result.current.map(value => value.providerId)).toEqual(["claude", "codex", "deepseek", "gemini", "code0"])
+  expect(renders).toBeLessThanOrEqual(16)
+  expect(input.bridge.readSnapshots).not.toHaveBeenCalled()
+  expect(input.bridge.onSnapshotUpdated).not.toHaveBeenCalled()
+})

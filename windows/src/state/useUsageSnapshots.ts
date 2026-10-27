@@ -9,10 +9,7 @@ export function useUsageSnapshots(bridge: UsageBridge, initialSnapshots?: UsageS
   const [snapshots, setSnapshots] = useState(() => ordinary(initialSnapshots ?? unavailableSnapshots))
 
   useEffect(() => {
-    if (initialSnapshots) {
-      setSnapshots(ordinary(initialSnapshots))
-      return
-    }
+    if (initialSnapshots) return
     let disposed = false
     let unlisten: (() => void) | undefined
     const updated = new Set<ProviderId>()
@@ -48,7 +45,7 @@ export function useUsageSnapshots(bridge: UsageBridge, initialSnapshots?: UsageS
   const code0: UsageSnapshot = value ? {
     ...value, primaryMetric: {...value.primaryMetric}, secondaryMetric: {...value.secondaryMetric},
   } : {...unavailableSnapshots.find(snapshot => snapshot.providerId === "code0")!}
-  return ordered([...ordinary(snapshots), code0])
+  return ordered([...ordinary(initialSnapshots ?? snapshots), code0])
 }
 
 function isOrdinary(provider: ProviderId) {
