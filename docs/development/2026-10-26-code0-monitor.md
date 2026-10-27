@@ -372,3 +372,14 @@ root另核读[Microsoft进程事件说明](https://learn.microsoft.com/en-us/mic
 
 
 af87独立40596223295随后完整成功，独立实际续审C0I0M0：单轮25基线、四个严格编译后唯一语义kill与清理均通过，原始日志141084B/SHA-256 06ba2895616afc885f937e42793d8fce2869fe2c192b6c75b633e61b995df955，摘要15233B/SHA-256 f37b4ffa009a56d6bedb9178c6a5a44efc3bd743120b88218c454393354e2822，实际checkout e1d7d91。21份留存日志/补丁重哈希匹配，空stderr/副本与退出码通过已绑定runner、非全系统后代清理的边界保持。首次48完整证明不覆盖、不拼接；本次仍只验收dispatcher，不覆盖真实TempDir失败。
+
+
+## 清理信息诊断实际结果（1ad5fd9）
+
+2026-10-28，branch1ad5fd9592c4a8b92e1f35b80dcef4dfcf4a31fe的Windows40600555829实际测试merge833d3a6034792d5360cd8c139e6f70907f33b198。严格Clippy、编译、前端302/26和普通Rust父级380/0通过（打印381含一个子进程helper）。原生约7.44秒正常返回/退出1，原21字段除实际cleanupSucceeded外的正向项均true、bareWindowViolationfalse。fresh528B/SHA-256 cf6744af54f0a0e169967d36e1a1609bc10806fa8a8d8e5c8e85e3831923a3cc，完整smoke仍profileCleanupFailed，安装包与GUI后续未运行。
+
+实际新增行为`ok=0 kind=255 rawPresent=0 raw=0 leaseFacts=0000007f`。255仅是八类白名单之外，不等于具体ErrorKind/OS32；rawPresent0不能称OS成功。七位记录原object_free为true、take Some、release返回、本地lease作用域结束和slot None等步骤，不等于OS CloseHandle成功或浏览器进程退出。原始日志284918B/SHA-256 4d0250e6e10455629c3044df3a39ab1e217815d0d2f20ebda244e5f32a0960a8，元数据4265B/SHA-256 3fc86e158bb7f28d3b8cb8aadddfcc8a1641ea9c139c094c41b65991e721a73b；同一次真实close失败保留，不替换清理与验收。
+
+同提交Mac40600556125全部成功：767/3/18/60/16、hosted12、native12项/2套件、bridge/文档/公开检查；raw1416662B/SHA-256 7b596fd6579bb638900396e91ac39e4de602780dc90f323662179fc0eb2eccd9。Windows信息诊断待独立实际复核；BrowserProcessExited方案已交新鲜R4候选只读核对，尚未实施。官方同步边界缺失是源码合同缺口，不是已证本轮IO原因。未来候选须真实观察事件，保持实际TempDir成功门槛、原21字段/45-10-75及R3锁存；四项未提交Minor准备不在本轮HEAD。
+
+清理信息诊断已完成独立实际续审C0I0M0并由root全文核读：精确测试merge的driver/fixture/workflow Git blob与获审字节一致，实际编译/严格检查和一新一旧两条诊断交付成立；仅该信息保留范围获验收，完整smoke仍FAIL。255与七步事实不提供OS/浏览器退出证明，不放宽后续门槛。
