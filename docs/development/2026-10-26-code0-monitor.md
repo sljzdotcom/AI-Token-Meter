@@ -847,3 +847,6 @@ Mac实际作者分析18433/ffd21dc2由Root两段全文读取，结合独立12694
 
 
 Macfix3已冻结：作者13175/b0ae95f5及48250/058438d8两文件完整U10均Root全文读取，23新成员、原19/28/28、Git-before/live-after、4个per-file/2个full差异精确重建、四parked保持。SPEC11602/5e4cb82a与QUALITY11417/4b804e68均C0/I0/M0，Root全文接受四组源级关闭，包含真实持锁ready-rename EROFS负例与保留旧断言；初始ready创建可在close返回前已可见，旧空句柄晚close仍只旧inode，不影响原子新许可，未把close时序假作ACK。当前只接受SOURCE，新70定义、C2、编译/真实mask/PTY/全部完整门禁均未运行。下一步精确2源码+Root3文档本地提交并持久保存，再让已完成只读接入的新Sol6.1/high N2唯一作者开发；两组源码获审后合并为下一轮实际CI，不先推旧失败Mac，也不并行产品作者。
+
+
+N2三文件候选已冻结：作者13749/e3b10376、完整99487/cc626818 U10由Root全文读取（五段），20成员/seal5031/7cfc3037、Git-before/live-after、三文件完整差异精确重建、工作流新增177行移除后还原原74737字节。SPEC22908/2785341a与QUALITY18340/66648b11均C0/I0/M0，Root分别全文接受有限SOURCE；两peer独立纯DATA分别604+7与229+8拒绝检查，不冒充原生行为。N2专属完成义务不阻断旧关闭推进、真实完成及handler排空仍阻止早Released，原始PCWSTR在UI门后64单元有界读取，真实child/Cancel读回/原生Failed通道消费者及首次close时刻逐源绑定。旧N1顶层提交新增一行child互斥guard，移除该行才还原原函数，不能泛称整个函数原字节不变；旧handler/facts/evidence/尾部门禁与schemas1–7保持。四parked与Macfix3两源码精确不变。新编译/生成验收器main/初始空白页可达性/原生完成及清理全部UNRUN，缺目标不算RED或PASS，无fallback。373文档、公开扫描与差异检查通过；下一步只提交获审Native3/Root文档、完整检查点后推一轮Macfix3+N2，旧MacactualHOLD不改写，Task4后续/S3–S5/Task5仍未完成。

@@ -164,3 +164,5 @@ N1当前进展：Windows40747139906/真实757c/1d38090的有限N1实际独审201
 - 同步所有受影响精确fixture/seam：strict permission输入、ownedchild许可writer/ready、fork-permit needle、原/观测F_SETLK gate块，原语义/逆还原保持。新增或修改回归保持真实产品路径，不用模板计数代替行为。原初19/fix1 28/fix2 28及全部actual失败永久保留，另冻HEAD→fix3全差异和fix2→fix3增量、源码保护清单/DATA自检。修后独立SPEC+QUALITY定向复审，再按原完整隔离门禁实际验证；不改schema/期限/上限/断言/省略门禁，不执行宿主产品测试或旧不安全源。
 
 Macfix3当前进展：作者13175/b0ae95f5、完整48250/058438d8及SPEC11602/5e4cb82a、QUALITY11417/4b804e68均Root全文核读，定向SOURCE C0/I0/M0接受；70 suite/C2/全部新实际UNRUN。先本地2源码/Root文档检查点及备份，再发已完成只读接入的N2新作者，源码获审后同轮实际验证。旧Mac实际HOLD不改写为通过。
+
+N2当前进展：作者13749/e3b10376、全99487/cc626818及SPEC22908/2785341a、QUALITY18340/66648b11均Root全文核读，SOURCE C0/I0/M0接受。旧N1提交只有新增child互斥guard需作明确字节保留限定。当前一切新编译/实际N2及Macfix3的70/C2均UNRUN；精确源码/文档检查点、完整备份后同一隔离CI实际验证，未到目标或缺完成/清理仍失败/未覆盖，不扩大刺激或重试。
