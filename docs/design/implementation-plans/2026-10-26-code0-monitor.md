@@ -134,3 +134,33 @@ N1首份源码互补审查（SPEC 24188/69dd6397、QUALITY 20434/585c0803）均C
 ### 2026-10-29 验证排程更新（不改变任务或验收口径）
 
 Mac fix2定向SPEC9918/b770d125与QUALITY9917/28c4f2ef源码C0/I0/M0，Root全文接受；N1 fix1双源码复审同样已接受、本地提交4b11fd8。两组均实际UNRUN；在任何新推送前改为同一个获审源码检查点进入隔离CI，执行新Mac v2与完整旧门禁、Windows N1 strictschema7/真实效果及全部旧门禁、独立dispatcher。四parked继续保留，当前源码接受不授予实际通过或Task4/5完成。后续实际证据须绑定新提交实际checkout，另经独立审查，不使用工作区未提交字节冒充已测源码。
+
+
+#### S2-2 N2 条件准备：固定空白页上的真实 child 导航拒绝
+
+本节是未来单片的准备/审查基线，尚非源码GO；N1实际独审接受后才可按本节发唯一作者。Root已全文读取只读准备18427/4a55e897，允许在隔离debug+fixture环境评估下述固定DOM刺激作为普通实现选择，不扩展生产脚本/API或原S2授权。不得把未达目标事件当覆盖。
+
+- 独立固定selector `refusal-child-initial-data`、schema8、新鲜进程/profile/TempDir/唯一bare隐藏Window；仅driver、fixture、Windows workflow三文件。schemas1–7/N1字节与旧case保持。十项真实hook安装及单独只读同实例1023 receipt先完成，不能借P1/inline_loaded/任意seed导航实现。
+- 唯一刺激入口只接受真实request，无script/URL/path参数。在借用外读同一core.Source，要求实际初始值严格about:blank并重验live/身份；缺失/不同/未就绪失败，不导航初始化。原生状态预留一次后只调用一次core.ExecuteScript，固定源码检查top===self、location.href严格about:blank、有现成document根且无iframe；只创建一个iframe、先设src为字面量data:text/html,再挂入现有DOM，最后返回固定字符串code0-child-submitted-v1。无子脚本/资源/正文、网络API、存储、手势、模态、focus、权限、下载或popup；无循环/计时器/重试/任意插值。目标即使未取消也仅为空惰性data文档。
+- ExecuteScript必须有真实非null完成handler。调用前预留N2专属有界完成义务及handler库存，保持weak/UI/Active与借用外COM/Drop；该义务不得进入旧create Pending的callbacks.pending早退计数，旧创建guard语义保持。真实child拒绝立即推进现有Failed/Stop/Close/Destroyed，不等脚本完成；最终正常Released/ref0必须同时具有真实完成disposition和handler真实释放/库存排空，不能提前减票、以销毁推断完成、丢票称取消或延长10秒。缺失/被保留完成在原期限内不能清理则失败/不确定。
+- 完成回调在UI门后、任何字符串分配/通用wrapper转换前，将借用PCWSTR按最多64 UTF16单元有界检查/复制，拒绝null/无效UTF16/超长；不CoTaskMemFree、不留指针。真实HRESULT须成功，结果严格等于JSON字符串 `"code0-child-submitted-v1"`，只记录固定事实。完成只是刺激证据，不创建child/Cancel/Session计数或新的授权。初始提交要求live；合法同一已预留request/generation/installation的完成允许在child导致closing后、Released及原期限前到达，仅作结果/清理disposition，不使用禁止closing的S2 authorized作为回收门、不恢复导航或采集权限。陈旧/错代/重复/已Released/逾期完成失败，不能刷新首次关闭时刻。child事件、提交返回和完成之间无固定先后；错误线程只能用原线程安全边界，不触UI Weak/Rc/RefCell。原caps4/4096/16、45/10/75及全部旧门禁保持。
+- 目标只来自已注册Hook::ChildNavigation的真实FrameNavigationStarting，URI准确data:text/html,、成功NavigationId getter（0有效不输出）、IsRedirected getter/false、实际core sender/request/generation/live及同安装opaque receipt；SetCancel一次成功和真实Cancel读回true，在元数据错误时仍尝试取消并保留不确定，getters后再验授权。拒绝型旧child/top委托保持；若先到about:blank或其他事件导致关闭、或者目标未到，就是前置阻断/未覆盖，不改白名单、重标目标或延迟失败。
+- unchanged Context/poll真实Failed(PolicyRejected)经借用外events进入选定child分支，准确单次计数并与opaque child票据关联；脚本完成/DOM/Cancel不推算该计数。单独child状态不借top_selected绕过schema6原安装即关闭合同，N1第一关闭时间Cell方式保持且child自己的首次真实closing只能采一次。真实BrowserExit/Destroyed/ref0/Released/run_return/一次TempDir.close、无多窗口、actualexit0均必须成立；不声明per-frame ID/DOM ancestry或额外top导航证据。
+- 严格新鲜schema8仅接受准确selected/completed=1、安装先于刺激、一次真实原生提交/完成及子事件/动作读回/Session失败和所有清理正向事实。额外/重复键、Bool充整数、旧identity、缺/多case、超限、保留pass下关键事实突变均须拒绝。先独立窄审该准备边界、再源码双审与隔离actual；缺目标/前置/超时不skip/PASS或称行为RED。不自动第二目标/传输回退，不扩大旧P1/网络/信任/CA/账号权限。
+
+准备fix1：独立16199/e643b964的C0/I1已由Root全文接受；上述N2专属完成义务与closing-phase disposition条款修正原准备Existing Pending歧义，原18427准备和4032 brief及首审保留不改。当前仍无源码GO，先定向复审与N1实际接受。
+
+N1当前进展：Windows40747139906/真实757c/1d38090的有限N1实际独审20165/0a0148da C0/I0/M0已Root全文接受；安装、真实top取消读回、真实Session拒绝及正常清理通过。此为N2准备依赖的窄接受，不结项Task4/5或覆盖Mac实际HOLD；N2仍须准备fix1复审后才能派源码。
+
+
+### Mac publication fix3：实际失败后的集中窄修复（2026-10-29）
+
+1d38090/Mac40747140380实际独审12694/adeb53be HOLD C0/I5（五失败定义/14issues）及作者只读分析18433/ffd21dc2四组均由Root全文核读。两v2目标事实正向、固定diagnostic acceptancefalse正确，完整suiteexit1不能通过；STOP具体失败谓词仍未知，不将继承mask假设冒称历史实测原因。以下是原技术实现选择的修正，不改变用户需求或旧验收合同。fix3唯一作者仅拥有builder和CLI tests两文件、必要新ignored报告/冻结；Mac workflow、App launcher/C2 test、四parked、native及旧报告/冻结全部保持。
+
+- 停止许可迁至既有.status.ready，仍严格同实际guardian PID/nonce/单LF、完整有界owned regular单link0600/inode/EOF检查和原子发布；父统一从watchdog_ready_file读许可。旧.status.stopped仅保留最终helper_stopped_v1 ACK语义，App parser与653原absence断言不改。ready阶段复用依赖真实startup已完成父确认后才启动guardian、watchdog只缺失时创建且不重写既存ready、两消费者均在late removal前；保留原watchdog整行及所有ready移除时序，源码审查逐路验证。发布/身份/所有权/后续父query/foreground未知仍单调保留、不能将许可当清理完成。
+- 实际matched请求的全部pre-fork退出补同一one-way停止许可/不确定保护。必须结构性证明尚无fork子、原所有权与身份准确、真实完整matching请求且无先前发布/cleanup失败；parent loss/status!=ready/泛stop_requested不授予许可。保留pre_exec_cancelled wire与真实130/原parent reap/group/watchdog/foreground gate，不旁路父strictgate、不信号未证PID或重试。许可发布失败不得假成功。两旧launch-gate最终helper_cancelled断言保持，实际输出补固定enum以区分未知状态，不输出任意文本。
+- 发布器中断成功臂只观察真实生产builtin wait成功分支0的有界builtin-only事实，在真实commit前要求该事实；移除fixture新增第三次消费wait的假设，不增child/query/缓存PID重试或替代真实join。保留held child、USR2/deferred/ready、真正final handler、stage79负臂、取消请求/出版序列/130/guardian及no-latepublisher等原断言；不把actual98叫产品join失败或编造其wait rc。
+- STOP三臂在独立测试actor内显式建立TERM可投递且其余继承mask位保留的已知前提，可用未发送的blocked sentinel证明exact saved-mask恢复。只改该fixture的mask准备与有界固定enum阶段/guard诊断，不改production正确的原mask保存/恢复、公共nativeobserver或任何全局线程mask。实际stopped/terminal/ECHILD wait、masked pending/selfTERM/真实handler、退休/uncertainty、准确仍owned child才KILL/reap、无未证numeric syscall、normal143/EOF/reap/teardown与3秒原限均须保留；失败原因仍须以新事实判定，不删handler或以外部救援当通过。
+- 同步所有受影响精确fixture/seam：strict permission输入、ownedchild许可writer/ready、fork-permit needle、原/观测F_SETLK gate块，原语义/逆还原保持。新增或修改回归保持真实产品路径，不用模板计数代替行为。原初19/fix1 28/fix2 28及全部actual失败永久保留，另冻HEAD→fix3全差异和fix2→fix3增量、源码保护清单/DATA自检。修后独立SPEC+QUALITY定向复审，再按原完整隔离门禁实际验证；不改schema/期限/上限/断言/省略门禁，不执行宿主产品测试或旧不安全源。
+
+Macfix3当前进展：作者13175/b0ae95f5、完整48250/058438d8及SPEC11602/5e4cb82a、QUALITY11417/4b804e68均Root全文核读，定向SOURCE C0/I0/M0接受；70 suite/C2/全部新实际UNRUN。先本地2源码/Root文档检查点及备份，再发已完成只读接入的N2新作者，源码获审后同轮实际验证。旧Mac实际HOLD不改写为通过。
