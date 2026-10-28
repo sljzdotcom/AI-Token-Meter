@@ -850,3 +850,29 @@ Macfix3已冻结：作者13175/b0ae95f5及48250/058438d8两文件完整U10均Roo
 
 
 N2三文件候选已冻结：作者13749/e3b10376、完整99487/cc626818 U10由Root全文读取（五段），20成员/seal5031/7cfc3037、Git-before/live-after、三文件完整差异精确重建、工作流新增177行移除后还原原74737字节。SPEC22908/2785341a与QUALITY18340/66648b11均C0/I0/M0，Root分别全文接受有限SOURCE；两peer独立纯DATA分别604+7与229+8拒绝检查，不冒充原生行为。N2专属完成义务不阻断旧关闭推进、真实完成及handler排空仍阻止早Released，原始PCWSTR在UI门后64单元有界读取，真实child/Cancel读回/原生Failed通道消费者及首次close时刻逐源绑定。旧N1顶层提交新增一行child互斥guard，移除该行才还原原函数，不能泛称整个函数原字节不变；旧handler/facts/evidence/尾部门禁与schemas1–7保持。四parked与Macfix3两源码精确不变。新编译/生成验收器main/初始空白页可达性/原生完成及清理全部UNRUN，缺目标不算RED或PASS，无fallback。373文档、公开扫描与差异检查通过；下一步只提交获审Native3/Root文档、完整检查点后推一轮Macfix3+N2，旧MacactualHOLD不改写，Task4后续/S3–S5/Task5仍未完成。
+
+
+### 2026-10-29：Mac fix3与Windows N2联合实际验证已启动
+
+获审源码0ed30ec与1eb38f6随文档检查点311881327f3c342bf8e2ce54f0364be228fc03f1推送PR67。Mac40761904949、Windows40761904948及独立dispatcher40761904917正在运行；实际合并预览5b660a663bbb0e968d548bd4e21580f82898870d父a97/311与分支全树e151c329一致，九项提交源码/文档摘要匹配。源码C0/I0/M0不等于本轮实际验收，独立CLI子任务成功仍须绑定原始suite及完整主组后独审。四parked原件保持，整体尚未通过，未合并或发布。用户再次明确Sol6.1/high及完整门禁后直接发布，不重复询问。
+
+
+### 2026-10-29：Mac fix3实际独立验收通过
+
+40761904949/实际5b660a6完整四job成功，独审11751字节/3462e9fc3edbb9673ea3d10eafc65cabbc5e4c6f81cea43f64904c081918fe54为C0/I0/M0，Root全文接受。两套各70相同定义全通过，原四失败组、真实EROFS许可发布负例与原主C2 absence断言全部实际通过，strict v2 validation689/9de10332准确green/return0；两臂正向事实及拒绝事实逐一满足。主763汇总包含736执行pass及27skip，12由后续hosted真实覆盖，另15环境限定项未覆盖；不能写成763均执行。serial4/3/18/70/16、hosted12/native12in2/bridge26及全部后检查通过。REQ20261028-003回归范围完成；原Bounded2秒内部超时与旧STOP/status失败具体原因仍未回推，28-004及历史事项保持原边界。Windows新40761904948完整成功的20JSON与raw594429/f09a已保留，N2实际独审仍待最终报告；dispatcher40761904917仍运行，未合并/发布。
+
+
+### 2026-10-29：Windows N2有限实际验收通过，N3准备收敛
+
+40761904948/实际5b660a6完整SUCCESS，23610字节/9b2605d73098ace8c3957834f597ab84ee5fe0be0ea90601a098a6f80fa2c0a7独审C0/I0/M0经Root全文接受。20JSON/8下载及15源码pins/完整tree一致，38child事实来自真实原生事件/取消读回/独立completion与final drain；14fixture/42条正常生命周期、N2首次关闭预算到Released1066ms、真实TempClose/exit0及302前端/380唯一Rust/严格featureClippy/debugNSIS GUI均通过。仅真实driver Failed事件到fixture Session通道，未实例化生产Code0WebSession，不推断completion相对child/closing顺序。
+
+N3选择A新受控文档与strict S成功token的候选准备；独立预审发现NavigateToString仅返回HRESULT，现有about:blank Starting/Completed关联不足以排除迟到初始blank事件归属。保持源码未授权，先锁最小可辨别的新文档证据再复审；不以成功token之外的event-only回退或延迟关闭通过。剩余S2/S3–S5/Task5及最终全分支审查/发布仍待，dispatcher本轮继续运行。
+
+
+N3准备独审18271/21f58064已Root全文核读并接受C0/I1/M0 HOLD：无执行/实际问题证明，缺的是NavigateToString事件的因果归属。Root选择另行锁定同一TempDir的0byte固定owned .html与唯一准确file URI，复用N1已有路径来源校验，不使用任意URL/HTML或runtimefallback；新fix1准备由原只读研究者形成，之后独立定向复审，尚无产品源码GO。原strict-S/立即关闭/45-10-75及完整回收门槛保持，所有原brief/HOLD记录保留。
+
+
+第21轮独立dispatcher40761904917现完整SUCCESS，追加14584/7cb9ad50（保留194192/c0ec前缀、全文208776/df56d200）独审C0/I0/M0经Root全文接受；本轮25基线/四严格编译后的准确语义kill及全部清理通过，实际job23m52/步骤22m25，原期限不变。当前3118813三CI及三实际独审均已结束接受各自有限范围，仍不代表Task4/5或发布完成，N3fix1准备独审待完成、尚无产品源码GO。
+
+
+N3fix1准备14036/d23bfcd9定向独审关闭原I1、C0/I0/M0经Root全文接受，固定owned0byte.html与准确内部file URI/strictS及sole-writer限定获准作为下一实施合同；新鲜作者已只读接入、零写入。先提交并完整备份当前三实际C0和准备检查点，再明确唯一作者实施GO；N3 SOURCE/actual仍未执行或接受，不能据准备C0称目标通过。

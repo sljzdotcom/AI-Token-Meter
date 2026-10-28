@@ -166,3 +166,33 @@ N1当前进展：Windows40747139906/真实757c/1d38090的有限N1实际独审201
 Macfix3当前进展：作者13175/b0ae95f5、完整48250/058438d8及SPEC11602/5e4cb82a、QUALITY11417/4b804e68均Root全文核读，定向SOURCE C0/I0/M0接受；70 suite/C2/全部新实际UNRUN。先本地2源码/Root文档检查点及备份，再发已完成只读接入的N2新作者，源码获审后同轮实际验证。旧Mac实际HOLD不改写为通过。
 
 N2当前进展：作者13749/e3b10376、全99487/cc626818及SPEC22908/2785341a、QUALITY18340/66648b11均Root全文核读，SOURCE C0/I0/M0接受。旧N1提交只有新增child互斥guard需作明确字节保留限定。当前一切新编译/实际N2及Macfix3的70/C2均UNRUN；精确源码/文档检查点、完整备份后同一隔离CI实际验证，未到目标或缺完成/清理仍失败/未覆盖，不扩大刺激或重试。
+
+
+联合实际检查点：获审Macfix3与N2已随3118813推送，隔离Mac40761904949、Windows40761904948与dispatcher40761904917正在运行，真实merge5b660a6全树与head一致。以上历史UNRUN描述保留为发起前状态；当前仍无本轮实际验收结论，不据子任务成功扩张GO或直接发布。
+
+
+#### S2-2 N3准备：一次受控新文档的alert拒绝（尚无源码GO）
+
+Root全文读取原初始blank准备6459/6d1a、A/B比较11688/7535及候选合同12102/015aa2d2。选择A的单次硬编码无网络空HTML新文档，B的P1/S2组合留后续S4，禁止直接叠加或去掉旧互斥guard；选择严格S：真实alert事件后必须有实际成功HRESULT和准确固定token，失败HRESULT的event-only分支不采用。预审需先接受该有限合同，且N2实际独审接受后才派唯一新源码作者。
+
+新独立selector refusal-dialog-new-document-alert/schema9、真实十hook1023/默认dialog false先于唯一NavigateToString；一次性about:blank grant只属于该同实例/请求/安装与准确NavigationId，额外真实NavigationCompleted成功及Source/readback/实际提交返回共同证明新doc。额外observer是真实独立库存/同emitter单次移除，不冒称第十一refusal hook；缺失/额外/歧义/redirect或getter失败都不给脚本授权。production、official谓词、P1/inline互斥、N1/N2与schemas1–8保持。仅driver/fixture/Windows workflow，硬编码空文档与单次固定alert/返回token，无参数化URL/HTML/JS、网络/存储/手势或任意导航。
+
+实际目标须Kind=ALERT、准确固定message/Uri、同native sender/request/generation/install/live、真实未Accept/ResultText/deferral返回，不虚构Cancel读回。完成使用N2独立obligation/mailbox/handler库存和UI先行有界PCWSTR，不能进入阻止Stop/Close的旧creation Pending；实际refusal立即关闭，不等token/延迟revocation/加时，合法closing完成只作原操作disposition，不恢复权限。strict S缺成功token/目标/真实completion或清理即失败，不以event-only、expectedAbort、handlerDrop或丢票通过。最终仍需原45/10/75、实际NativeFailed通道、BrowserExit/Destroyed/ref0/Released/runreturn/TempClose/exit0及新鲜exact schema9，全旧门禁保持。alert不能证明confirm/prompt/beforeunload或所有OS UI不存在，未到目标不叫有效RED/GREEN；预审/双源码审查/实际验收分开。
+
+
+Macfix3实际进展：40761904949完整四job成功，11751/3462e9fc独审C0/I0/M0经Root全文接受；两完整70与原C2/四失败组、严格双臂v2通过。主736实际pass/27skip（12另hosted覆盖/15仍未覆盖）及全部serial/后门禁保留准确范围。只接受本修复与配置门禁，旧内部根因不倒推、不代替Windows/N3及Task4/5或发布验收。
+
+
+N2实际进展：40761904948/5b660a6完整Windows成功，23610/9b2605d7独审C0/I0/M0经Root全文接受，真实child/完成/库存/正常清理有限slice通过，非生产Code0WebSession。N3预审发现初始blank与新NavigateToString的NavID归属辨别不足，当前SOURCE HOLD，先最小补强准备再复审；保留现有候选准备，不自动选另一传输或放宽原生关联。
+
+
+N3准备I1修正方向（尚无源码GO）：Root全文读取18271/21f58064独立HOLD，固定DOM标记不能证明旧NavID属于新load。选择新的唯一受控运输：同一TempDir的独立固定leaf code0-s2-dialog-empty.html，经create_new与handle元数据证明确实0byte regularfile并关闭，按N1既有本地盘/canonical/精确父目录/nohost/query/fragment校验派生内部file URI，唯一core.Navigate；不读取个人文件、不使用NavigateToString、不自动回退。新selector refusal-dialog-owned-empty-html/schema9替代从未实现的旧N3候选。grant只接受准确该内部file URI的单次真实Starting及匹配ID Completed/IsSuccess/Source完整匹配，初始blank不能匹配；固定alert脚本不接收路径/URL或拼接代码，可查file协议/固定leaf后缀，原生Source/event负责全路径关联，严格成功token与立即关闭/独立完成义务保持。该方案须新fix1准备brief与定向独审C0后才可SOURCE GO；旧全部候选/审查不改，不将file下载/前置阻断当目标覆盖。
+
+
+N3fix1准备13591/c606ac63由Root全文读，唯一controlled-CI sole-writer freshTempDir前提明确，非抗恶意同权限替换证明。后续唯一新作者仅driver/fixture两源码及新报告冻结，Root负责Windows workflow固定追加run/strictchecker/artifact；新exact schema9 producer/keys/types须在完整三文件双SOURCE审查/CI GO前冻结，而非禁止作者设计实现。实施GO不等于源码接受或native执行许可，旧WF移除新块须逐字逆还原；全部旧SOURCE/actual/四parked保持。先定向准备复审及完整检查点，尚无源码GO。
+
+
+第21轮独立dispatcher40761904917现完整SUCCESS，追加14584/7cb9ad50（保留194192/c0ec前缀、全文208776/df56d200）独审C0/I0/M0经Root全文接受；本轮25基线/四严格编译后的准确语义kill及全部清理通过，实际job23m52/步骤22m25，原期限不变。当前3118813三CI及三实际独审均已结束接受各自有限范围，仍不代表Task4/5或发布完成，N3fix1准备独审待完成、尚无产品源码GO。
+
+
+N3fix1准备14036/d23bfcd9定向独审关闭原I1、C0/I0/M0经Root全文接受，固定owned0byte.html与准确内部file URI/strictS及sole-writer限定获准作为下一实施合同；新鲜作者已只读接入、零写入。先提交并完整备份当前三实际C0和准备检查点，再明确唯一作者实施GO；N3 SOURCE/actual仍未执行或接受，不能据准备C0称目标通过。
