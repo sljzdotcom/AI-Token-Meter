@@ -73,16 +73,27 @@ mod smoke {
                 return false;
             }
             self.native_instance_validated = true;
-            // The opaque native receipt is read from the live Instance's only
-            // supported registry state: all ten explicitly NotInstalled. This
-            // is not an installed counter, cast or native-event coverage claim.
+            // Opaque same-instance native add/token inventory, not interface
+            // availability, a caller-set count or native-event coverage.
             self.source_bound_registry = true;
             self.required_mask = 0x03ff;
-            self.installed_mask = 0;
-            self.not_installed_hooks = receipt.not_installed().map(|hook| hook.name()).to_vec();
+            self.installed_mask = receipt.installed_mask();
+            self.not_installed_hooks = receipt
+                .not_installed()
+                .iter()
+                .map(|hook| hook.name())
+                .collect();
             self.navigation_not_issued = true;
-            self.load_rejected = true;
-            self.not_installed_hooks == NATIVE_REFUSAL_HOOKS
+            self.load_rejected = receipt.load_rejected();
+            let expected_missing: Vec<_> = NATIVE_REFUSAL_HOOKS
+                .into_iter()
+                .enumerate()
+                .filter(|(index, _)| self.installed_mask & (1u16 << *index) == 0)
+                .map(|(_, name)| name)
+                .collect();
+            self.installed_mask & !self.required_mask == 0
+                && self.not_installed_hooks == expected_missing
+                && self.load_rejected == (self.installed_mask != self.required_mask)
         }
         fn positive(&self, lifecycle: &Summary) -> bool {
             self.receipts == 1
@@ -1721,19 +1732,30 @@ mod smoke {
                                     }
                                     continue;
                                 }
-                                if policy.lock().unwrap().native_refusal.is_some() {
+                                let native_selected =
+                                    { policy.lock().unwrap().native_refusal.is_some() };
+                                if native_selected {
+                                    // All summary/install guards ended before the
+                                    // explicit native installer or readonly getter.
+                                    let installed =
+                                        driver.install_fixture_native_refusal_handlers(&request);
                                     let receipt =
                                         driver.require_fixture_native_refusal_install(&request);
                                     let mut install = policy.lock().unwrap();
                                     let native = install.native_refusal.as_mut().unwrap();
-                                    let valid_missing = receipt
+                                    let valid_inventory = receipt
                                         .is_ok_and(|receipt| native.observe(receipt, &request));
+                                    let rejected = native.load_rejected;
                                     drop(install);
                                     state = observed.lock().unwrap();
-                                    state.failure = if valid_missing {
+                                    state.failure = if installed.is_err() {
+                                        "nativeHookInstallFailed"
+                                    } else if !valid_inventory {
+                                        "nativeHookInventoryPreconditionFailed"
+                                    } else if rejected {
                                         "nativeHooksMissing"
                                     } else {
-                                        "nativeHookInventoryPreconditionFailed"
+                                        "notCompleted"
                                     };
                                     continue;
                                 }
@@ -2082,6 +2104,14 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
+            let native_install_observed = policy.as_ref().is_some_and(|policy| {
+                policy
+                    .lock()
+                    .unwrap()
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| native.receipts == 1)
+            });
             if policy.is_some()
                 && closing_since.is_none()
                 && started.elapsed() >= Duration::from_secs(45)
@@ -2099,6 +2129,7 @@ mod smoke {
                 && closing_since.is_none()
                 && (state.renderer_message
                     || policy_document_ready
+                    || native_install_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)

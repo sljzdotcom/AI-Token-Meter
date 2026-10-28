@@ -465,7 +465,9 @@ mod native {
             && {
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 {
-                    instance.policy.is_none() && p1::mailbox_quiescent(instance)
+                    instance.policy.is_none()
+                        && p1::mailbox_quiescent(instance)
+                        && instance.refusal_registry.references_empty()
                 }
                 #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                 {
@@ -1377,6 +1379,12 @@ mod native {
                 instance.closing = true;
                 instance.cleanup_blocked = true;
             }
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if instance.refusal_registry.unknown() {
+                instance.failed = true;
+                instance.closing = true;
+                instance.cleanup_blocked = true;
+            }
             if !instance.closing
                 || instance.callbacks.active.load(Ordering::SeqCst) != 0
                 || instance.callbacks.pending.load(Ordering::SeqCst) != 0
@@ -1389,6 +1397,8 @@ mod native {
         arm_browser_exit(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         p1::remove_registrations(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::remove(owner);
         let remove = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1456,7 +1466,7 @@ mod native {
                 && {
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     {
-                        p1::registrations_removed(instance)
+                        p1::registrations_removed(instance) && s2::registrations_removed(instance)
                     }
                     #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                     {
@@ -1477,6 +1487,8 @@ mod native {
                     instance.controller.take(),
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     policy,
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s2::take_controls(instance),
                 ))
             } else {
                 None
@@ -1488,7 +1500,11 @@ mod native {
             // Drop can reenter. Only after all actual control locals end may a
             // later stage consume a synchronously recorded exit observation.
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-            let disposed = p1::after_control_drop(owner);
+            let disposed = {
+                let policy = p1::after_control_drop(owner);
+                let refusal = s2::after_control_drop(owner);
+                policy && refusal
+            };
             #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
             let disposed = true;
             owner
@@ -1679,34 +1695,8 @@ mod native {
         p1::load(owner, request)
     }
 
-    // This registry represents missing implementation, not successful adds.
-    // Future installed entries must own the actual same-emitter/token pair and
-    // join normal teardown; interface casts/settings/counters cannot fill it.
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-    struct NativeRefusalRegistry {
-        not_installed: [super::fixture::NativeRefusalHook; 10],
-    }
-
-    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-    impl NativeRefusalRegistry {
-        fn not_installed() -> Self {
-            use super::fixture::NativeRefusalHook::*;
-            Self {
-                not_installed: [
-                    TopNavigation,
-                    ChildNavigation,
-                    ExternalProtocol,
-                    NewWindow,
-                    Download,
-                    ScriptDialog,
-                    Permission,
-                    BasicAuthentication,
-                    ClientCertificate,
-                    TlsError,
-                ],
-            }
-        }
-    }
+    type NativeRefusalRegistry = s2::Registry;
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     pub(super) fn require_native_refusal_install(
@@ -1742,13 +1732,676 @@ mod native {
         {
             return Err(Code0SessionFailure::PolicyRejected);
         }
-        // No page, script, stimulus or native Navigate call occurs on this path.
-        // Returning this opaque receipt reports an actual denied load barrier,
-        // never successful installation or production PoliciesInstalled.
+        // Read only actual same-emitter token inventory; never install or load.
+        let installed_mask = i.refusal_registry.installed_mask();
         Ok(super::fixture::NativeRefusalInstallReceipt {
             request: i.request.clone(),
-            not_installed: i.refusal_registry.not_installed,
+            installed_mask,
+            not_installed: super::fixture::NativeRefusalHook::ALL
+                .into_iter()
+                .filter(|hook| installed_mask & hook.bit() == 0)
+                .collect(),
+            load_rejected: !i.refusal_registry.complete(),
         })
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn install_native_refusal_handlers(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> Result<(), Code0SessionFailure> {
+        s2::begin(owner, request)
+    }
+
+    /// Debug-only S2-1: actual registration and unwind, never navigation authority.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    mod s2 {
+        use super::super::fixture::NativeRefusalHook as Hook;
+        use super::*;
+        use webview2_com::{
+            BasicAuthenticationRequestedEventHandler, ClientCertificateRequestedEventHandler,
+            DownloadStartingEventHandler, LaunchingExternalUriSchemeEventHandler,
+            NavigationStartingEventHandler, NewWindowRequestedEventHandler,
+            PermissionRequestedEventHandler, ScriptDialogOpeningEventHandler,
+            ServerCertificateErrorDetectedEventHandler,
+        };
+        use windows::core::BOOL;
+
+        const GENERATION: u64 = 1;
+
+        enum Emitter {
+            Core(Rc<ICoreWebView2>),
+            External(Rc<ICoreWebView2_18>),
+            Download(Rc<ICoreWebView2_4>),
+            Authentication(Rc<ICoreWebView2_10>),
+            Certificate(Rc<ICoreWebView2_5>),
+            Tls(Rc<ICoreWebView2_14>),
+        }
+        struct Registration {
+            hook: Hook,
+            emitter: Rc<Emitter>,
+            token: Option<i64>,
+            remove_attempted: bool,
+        }
+        pub(super) struct Registry {
+            generation: u64,
+            started: bool,
+            settings_acknowledged: bool,
+            completed: bool,
+            unknown: Arc<AtomicBool>,
+            core: Option<Rc<ICoreWebView2>>,
+            settings: Option<Rc<ICoreWebView2Settings>>,
+            entries: Vec<Registration>,
+        }
+        impl Registry {
+            pub(super) fn not_installed() -> Self {
+                Self {
+                    generation: 0,
+                    started: false,
+                    settings_acknowledged: false,
+                    completed: false,
+                    unknown: Arc::new(AtomicBool::new(false)),
+                    core: None,
+                    settings: None,
+                    entries: Vec::new(),
+                }
+            }
+            pub(super) fn installed_mask(&self) -> u16 {
+                self.entries.iter().fold(0, |mask, entry| {
+                    mask | if entry.token.is_some() {
+                        entry.hook.bit()
+                    } else {
+                        0
+                    }
+                })
+            }
+            pub(super) fn complete(&self) -> bool {
+                self.completed
+                    && self.settings_acknowledged
+                    && self.installed_mask() == 0x03ff
+                    && !self.unknown.load(Ordering::SeqCst)
+            }
+            pub(super) fn unknown(&self) -> bool {
+                self.unknown.load(Ordering::SeqCst)
+            }
+            pub(super) fn references_empty(&self) -> bool {
+                self.core.is_none()
+                    && self.settings.is_none()
+                    && self.entries.is_empty()
+                    && !self.unknown.load(Ordering::SeqCst)
+            }
+        }
+        pub(super) struct Controls {
+            _core: Option<Rc<ICoreWebView2>>,
+            _settings: Option<Rc<ICoreWebView2Settings>>,
+            _entries: Vec<Registration>,
+        }
+
+        fn rejection() -> windows::core::Error {
+            // Empty ErrorInfo: construction and HRESULT conversion perform no
+            // thread-error-info calls, including the off-STA callback path.
+            windows::core::Error::from_hresult(E_FAIL)
+        }
+        fn live(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) -> bool {
+            let state = owner.borrow();
+            !state.unmatched
+                && state.instance.as_ref().is_some_and(|i| {
+                    &i.request == request
+                        && !i.closing
+                        && !i.failed
+                        && !i.cleanup_blocked
+                        && !i.released
+                        && !i.inline_loaded
+                        && i.policy.is_none()
+                        && i.policy_mailbox.is_none()
+                        && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                        && i.refusal_registry.started
+                        && i.refusal_registry.generation == GENERATION
+                        && !i.refusal_registry.unknown.load(Ordering::SeqCst)
+                })
+        }
+        fn require_live(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> windows::core::Result<()> {
+            if live(owner, request) {
+                Ok(())
+            } else {
+                Err(rejection())
+            }
+        }
+        fn latch_unknown(owner: &Rc<RefCell<Owner>>) {
+            let mut state = owner.borrow_mut();
+            if let Some(i) = state.instance.as_mut()
+                && i.refusal_registry.unknown.load(Ordering::SeqCst)
+            {
+                i.failed = true;
+                i.closing = true;
+                i.cleanup_blocked = true;
+            }
+        }
+
+        struct Context {
+            owner: Weak<RefCell<Owner>>,
+            request: Code0WindowRequest,
+            generation: u64,
+            ui: ThreadId,
+            callbacks: Arc<Callbacks>,
+            unknown: Arc<AtomicBool>,
+            _lifetime: HandlerLifetime,
+        }
+        impl Context {
+            fn new(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) -> Self {
+                let state = owner.borrow();
+                let i = state.instance.as_ref().unwrap();
+                let callbacks = Arc::clone(&i.callbacks);
+                Self {
+                    owner: Rc::downgrade(owner),
+                    request: request.clone(),
+                    generation: GENERATION,
+                    ui: state.ui_thread,
+                    unknown: Arc::clone(&i.refusal_registry.unknown),
+                    _lifetime: HandlerLifetime::new(&callbacks),
+                    callbacks,
+                }
+            }
+            fn matches_instance(&self, i: &Instance) -> bool {
+                i.request == self.request
+                    && i.refusal_registry.generation == self.generation
+                    && Arc::ptr_eq(&i.callbacks, &self.callbacks)
+                    && Arc::ptr_eq(&i.refusal_registry.unknown, &self.unknown)
+            }
+            fn authorized(&self, owner: &Rc<RefCell<Owner>>) -> bool {
+                let state = owner.borrow();
+                !state.unmatched
+                    && state.instance.as_ref().is_some_and(|i| {
+                        self.matches_instance(i)
+                            && !i.closing
+                            && !i.failed
+                            && !i.cleanup_blocked
+                            && !i.released
+                            && !i.inline_loaded
+                            && i.policy.is_none()
+                            && i.policy_mailbox.is_none()
+                            && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && i.refusal_registry.complete()
+                    })
+            }
+            fn invoke(
+                &self,
+                sender: Option<&ICoreWebView2>,
+                mut action: impl FnMut(bool) -> windows::core::Result<bool>,
+            ) -> windows::core::Result<()> {
+                if !callback_on_ui(self.ui, &self.callbacks) {
+                    self.unknown.store(true, Ordering::SeqCst);
+                    return Err(rejection());
+                }
+                let owner = self.owner.upgrade();
+                let binding = owner.as_ref().and_then(|owner| {
+                    let state = owner.borrow();
+                    state
+                        .instance
+                        .as_ref()
+                        .filter(|i| self.matches_instance(i))
+                        .and_then(|i| i.refusal_registry.core.as_ref())
+                        .cloned() // Clones only the Rc wrapper, never COM under this borrow.
+                });
+                // Native identity queries occur after the Owner borrow ends.
+                let identity = binding.as_ref().zip(sender).is_some_and(|(core, sender)| {
+                    let expected = core.cast::<IUnknown>();
+                    let actual = sender.cast::<IUnknown>();
+                    expected
+                        .ok()
+                        .zip(actual.ok())
+                        .is_some_and(|(a, b)| a.as_raw() == b.as_raw())
+                });
+                // Both native identity queries may reenter. Authority is read
+                // again only after those calls and their temporary drops end.
+                let eligible =
+                    identity && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                // Invalid/stale senders still receive the restrictive native
+                // action on STA. They never authorize official navigation.
+                let mut result = action(eligible);
+                if result.as_ref().is_ok_and(|refused| !*refused)
+                    && !owner.as_ref().is_some_and(|owner| self.authorized(owner))
+                {
+                    // Only an allowed navigation can return false. If its URI
+                    // getter reentered/revoked, issue its first cancel now.
+                    // Already-denied events never repeat either native setter.
+                    result = action(false);
+                }
+                let same_installation = owner.as_ref().is_some_and(|owner| {
+                    owner
+                        .borrow()
+                        .instance
+                        .as_ref()
+                        .is_some_and(|i| self.matches_instance(i))
+                });
+                if !identity || !same_installation || result.is_err() {
+                    self.unknown.store(true, Ordering::SeqCst);
+                }
+                if let Some(owner) = owner {
+                    let mut state = owner.borrow_mut();
+                    if let Some(i) = matching(&mut state, &self.request)
+                        && self.matches_instance(i)
+                    {
+                        if self.unknown.load(Ordering::SeqCst) {
+                            i.failed = true;
+                            i.closing = true;
+                            i.cleanup_blocked = true;
+                        } else if result.as_ref().is_ok_and(|refused| *refused) {
+                            // Existing poll delivers Failed(PolicyRejected),
+                            // outside this borrow and without session reentry.
+                            i.failed = true;
+                            i.closing = true;
+                        }
+                    }
+                }
+                if !identity || !same_installation {
+                    return Err(rejection());
+                }
+                result.map(|_| ())
+            }
+        }
+
+        fn official(source: &str) -> bool {
+            if source.bytes().any(|b| b <= 32 || b == 127 || b == b'\\') {
+                return false;
+            }
+            let Some((_, tail)) = source.split_once("://") else {
+                return false;
+            };
+            let authority = tail.split(['/', '?', '#']).next().unwrap_or_default();
+            if authority.is_empty() || authority.contains('@') {
+                return false;
+            }
+            let Ok(url) = reqwest::Url::parse(source) else {
+                return false;
+            };
+            url.scheme() == "https"
+                && url.host_str() == Some("console.code0.ai")
+                && url.port_or_known_default() == Some(443)
+                && url.username().is_empty()
+                && url.password().is_none()
+        }
+        fn navigation(
+            args: &ICoreWebView2NavigationStartingEventArgs,
+            eligible: bool,
+        ) -> windows::core::Result<bool> {
+            let uri = if eligible {
+                allocated_string(2048, |raw| unsafe { args.Uri(raw) })
+            } else {
+                Ok(String::new())
+            };
+            if uri.as_ref().is_ok_and(|uri| official(uri)) {
+                return Ok(false);
+            }
+            let canceled = unsafe { args.SetCancel(true) };
+            // Getter failure must not bypass the actual cancel attempt.
+            uri?;
+            canceled?;
+            Ok(true)
+        }
+
+        macro_rules! add_handler {
+            ($owner:expr, $request:expr, $index:expr, $emitter:expr, $wrapper:ident, $add:ident, $action:expr) => {{
+                let context = Context::new($owner, $request);
+                let action = $action;
+                let handler = $wrapper::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    let result = context.invoke(sender.as_ref(), |eligible| {
+                        let args = args.as_ref().ok_or_else(rejection)?;
+                        action(args, eligible)
+                    });
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    result
+                }));
+                let mut token = 0;
+                let result = unsafe { $emitter.$add(&handler, &mut token) };
+                {
+                    let mut state = $owner.borrow_mut();
+                    let i = matching(&mut state, $request).unwrap();
+                    if result.is_ok() {
+                        // Preserve every actual success before reentry checks.
+                        i.refusal_registry.entries[$index].token = Some(token);
+                    } else {
+                        // A failed add cannot prove no handler was retained.
+                        i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                        i.failed = true;
+                        i.closing = true;
+                        i.cleanup_blocked = true;
+                    }
+                }
+                drop(handler);
+                result?;
+                require_live($owner, $request)
+            }};
+        }
+        fn register(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            hook: Hook,
+            emitter: Rc<Emitter>,
+        ) -> windows::core::Result<()> {
+            require_live(owner, request)?;
+            let index = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                let index = i.refusal_registry.entries.len();
+                if index >= Hook::ALL.len() {
+                    return Err(rejection());
+                }
+                i.refusal_registry.entries.push(Registration {
+                    hook,
+                    emitter: Rc::clone(&emitter),
+                    token: None,
+                    remove_attempted: false,
+                });
+                index
+            };
+            match (hook, emitter.as_ref()) {
+                (Hook::TopNavigation, Emitter::Core(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    NavigationStartingEventHandler,
+                    add_NavigationStarting,
+                    navigation
+                ),
+                (Hook::ChildNavigation, Emitter::Core(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    NavigationStartingEventHandler,
+                    add_FrameNavigationStarting,
+                    navigation
+                ),
+                (Hook::ExternalProtocol, Emitter::External(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    LaunchingExternalUriSchemeEventHandler,
+                    add_LaunchingExternalUriScheme,
+                    |args: &ICoreWebView2LaunchingExternalUriSchemeEventArgs, _| unsafe {
+                        args.SetCancel(true)
+                    }
+                    .map(|()| true)
+                ),
+                (Hook::NewWindow, Emitter::Core(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    NewWindowRequestedEventHandler,
+                    add_NewWindowRequested,
+                    |args: &ICoreWebView2NewWindowRequestedEventArgs, _| unsafe {
+                        args.SetHandled(true)
+                    }
+                    .map(|()| true)
+                ),
+                (Hook::Download, Emitter::Download(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    DownloadStartingEventHandler,
+                    add_DownloadStarting,
+                    |args: &ICoreWebView2DownloadStartingEventArgs, _| {
+                        let canceled = unsafe { args.SetCancel(true) };
+                        let handled = unsafe { args.SetHandled(true) };
+                        canceled?;
+                        handled?;
+                        Ok(true)
+                    }
+                ),
+                (Hook::ScriptDialog, Emitter::Core(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    ScriptDialogOpeningEventHandler,
+                    add_ScriptDialogOpening,
+                    |args: &ICoreWebView2ScriptDialogOpeningEventArgs, _| {
+                        let mut kind = COREWEBVIEW2_SCRIPT_DIALOG_KIND::default();
+                        unsafe { args.Kind(&mut kind) }?;
+                        // No Accept, result text or default-dialog fallback.
+                        Ok(true)
+                    }
+                ),
+                (Hook::Permission, Emitter::Core(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    PermissionRequestedEventHandler,
+                    add_PermissionRequested,
+                    |args: &ICoreWebView2PermissionRequestedEventArgs, _| unsafe {
+                        args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)
+                    }
+                    .map(|()| true)
+                ),
+                (Hook::BasicAuthentication, Emitter::Authentication(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    BasicAuthenticationRequestedEventHandler,
+                    add_BasicAuthenticationRequested,
+                    |args: &ICoreWebView2BasicAuthenticationRequestedEventArgs, _| unsafe {
+                        args.SetCancel(true)
+                    }
+                    .map(|()| true)
+                ),
+                (Hook::ClientCertificate, Emitter::Certificate(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    ClientCertificateRequestedEventHandler,
+                    add_ClientCertificateRequested,
+                    |args: &ICoreWebView2ClientCertificateRequestedEventArgs, _| {
+                        let canceled = unsafe { args.SetCancel(true) };
+                        let handled = unsafe { args.SetHandled(true) };
+                        canceled?;
+                        handled?;
+                        Ok(true)
+                    }
+                ),
+                (Hook::TlsError, Emitter::Tls(core)) => add_handler!(
+                    owner,
+                    request,
+                    index,
+                    core,
+                    ServerCertificateErrorDetectedEventHandler,
+                    add_ServerCertificateErrorDetected,
+                    |args: &ICoreWebView2ServerCertificateErrorDetectedEventArgs, _| unsafe {
+                        args.SetAction(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL)
+                    }
+                    .map(|()| true)
+                ),
+                _ => Err(rejection()),
+            }
+        }
+
+        pub(super) fn begin(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            // Reuse the exact read-only unloaded startup validation first.
+            super::require_native_refusal_install(owner, request)?;
+            let callbacks = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                if i.refusal_registry.started {
+                    return Err(Code0SessionFailure::PolicyRejected);
+                }
+                i.refusal_registry.started = true;
+                i.refusal_registry.generation = GENERATION;
+                Arc::clone(&i.callbacks)
+            };
+            let _action = Active::enter(&callbacks);
+            // Native AddRef may reenter: move originals before cloning and
+            // restore them under Active, exactly as the existing P1 installer.
+            let original = matching(&mut owner.borrow_mut(), request)
+                .unwrap()
+                .core
+                .take()
+                .unwrap();
+            let core = Rc::new(original.clone());
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                i.core = Some(original);
+                i.refusal_registry.core = Some(Rc::clone(&core));
+            }
+            let result = (|| -> windows::core::Result<()> {
+                require_live(owner, request)?;
+                let settings = Rc::new(unsafe { core.Settings() }?);
+                matching(&mut owner.borrow_mut(), request)
+                    .unwrap()
+                    .refusal_registry
+                    .settings = Some(Rc::clone(&settings));
+                require_live(owner, request)?;
+                unsafe { settings.SetAreDefaultScriptDialogsEnabled(false) }?;
+                require_live(owner, request)?;
+                let mut actual = BOOL::default();
+                unsafe { settings.AreDefaultScriptDialogsEnabled(&mut actual) }?;
+                require_live(owner, request)?;
+                if actual.as_bool() {
+                    return Err(rejection());
+                }
+                matching(&mut owner.borrow_mut(), request)
+                    .unwrap()
+                    .refusal_registry
+                    .settings_acknowledged = true;
+                for hook in Hook::ALL {
+                    require_live(owner, request)?;
+                    let emitter = match hook {
+                        Hook::ExternalProtocol => {
+                            Emitter::External(Rc::new(core.cast::<ICoreWebView2_18>()?))
+                        }
+                        Hook::Download => {
+                            Emitter::Download(Rc::new(core.cast::<ICoreWebView2_4>()?))
+                        }
+                        Hook::BasicAuthentication => {
+                            Emitter::Authentication(Rc::new(core.cast::<ICoreWebView2_10>()?))
+                        }
+                        Hook::ClientCertificate => {
+                            Emitter::Certificate(Rc::new(core.cast::<ICoreWebView2_5>()?))
+                        }
+                        Hook::TlsError => Emitter::Tls(Rc::new(core.cast::<ICoreWebView2_14>()?)),
+                        _ => Emitter::Core(Rc::clone(&core)),
+                    };
+                    register(owner, request, hook, Rc::new(emitter))?;
+                }
+                require_live(owner, request)?;
+                matching(&mut owner.borrow_mut(), request)
+                    .unwrap()
+                    .refusal_registry
+                    .completed = true;
+                Ok(())
+            })();
+            result.map_err(|_| {
+                failed(owner, request);
+                Code0SessionFailure::PolicyRejected
+            })
+        }
+
+        pub(super) fn registrations_removed(i: &Instance) -> bool {
+            !i.refusal_registry.unknown.load(Ordering::SeqCst)
+                && i.refusal_registry.entries.iter().all(|e| e.token.is_none())
+        }
+        pub(super) fn remove(owner: &Rc<RefCell<Owner>>) {
+            loop {
+                let action = {
+                    let mut state = owner.borrow_mut();
+                    let i = state.instance.as_mut().unwrap();
+                    i.refusal_registry
+                        .entries
+                        .iter_mut()
+                        .enumerate()
+                        .find_map(|(index, e)| {
+                            if e.remove_attempted {
+                                return None;
+                            }
+                            let token = e.token?;
+                            e.remove_attempted = true;
+                            Some((index, e.hook, Rc::clone(&e.emitter), token))
+                        })
+                };
+                let Some((index, hook, emitter, token)) = action else {
+                    break;
+                };
+                let result = unsafe {
+                    match (hook, emitter.as_ref()) {
+                        (Hook::TopNavigation, Emitter::Core(core)) => {
+                            core.remove_NavigationStarting(token)
+                        }
+                        (Hook::ChildNavigation, Emitter::Core(core)) => {
+                            core.remove_FrameNavigationStarting(token)
+                        }
+                        (Hook::ExternalProtocol, Emitter::External(core)) => {
+                            core.remove_LaunchingExternalUriScheme(token)
+                        }
+                        (Hook::NewWindow, Emitter::Core(core)) => {
+                            core.remove_NewWindowRequested(token)
+                        }
+                        (Hook::Download, Emitter::Download(core)) => {
+                            core.remove_DownloadStarting(token)
+                        }
+                        (Hook::ScriptDialog, Emitter::Core(core)) => {
+                            core.remove_ScriptDialogOpening(token)
+                        }
+                        (Hook::Permission, Emitter::Core(core)) => {
+                            core.remove_PermissionRequested(token)
+                        }
+                        (Hook::BasicAuthentication, Emitter::Authentication(core)) => {
+                            core.remove_BasicAuthenticationRequested(token)
+                        }
+                        (Hook::ClientCertificate, Emitter::Certificate(core)) => {
+                            core.remove_ClientCertificateRequested(token)
+                        }
+                        (Hook::TlsError, Emitter::Tls(core)) => {
+                            core.remove_ServerCertificateErrorDetected(token)
+                        }
+                        _ => Err(rejection()),
+                    }
+                };
+                {
+                    let mut state = owner.borrow_mut();
+                    let i = state.instance.as_mut().unwrap();
+                    if result.is_ok() {
+                        i.refusal_registry.entries[index].token = None;
+                    } else {
+                        i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    }
+                }
+                latch_unknown(owner);
+            }
+        }
+        pub(super) fn take_controls(i: &mut Instance) -> Controls {
+            Controls {
+                _core: i.refusal_registry.core.take(),
+                _settings: i.refusal_registry.settings.take(),
+                _entries: std::mem::take(&mut i.refusal_registry.entries),
+            }
+        }
+        pub(super) fn after_control_drop(owner: &Rc<RefCell<Owner>>) -> bool {
+            latch_unknown(owner);
+            !owner
+                .borrow()
+                .instance
+                .as_ref()
+                .unwrap()
+                .refusal_registry
+                .unknown
+                .load(Ordering::SeqCst)
+        }
     }
 
     /// Finite debug-only P1. No production policy authority is derived here.
@@ -4216,6 +4869,7 @@ pub mod fixture {
 
     /// Fixed required S2 registrations. Redirects reuse both navigation hooks.
     #[derive(Clone, Copy)]
+    #[repr(u8)]
     pub enum NativeRefusalHook {
         TopNavigation,
         ChildNavigation,
@@ -4229,6 +4883,21 @@ pub mod fixture {
         TlsError,
     }
     impl NativeRefusalHook {
+        pub(super) const ALL: [Self; 10] = [
+            Self::TopNavigation,
+            Self::ChildNavigation,
+            Self::ExternalProtocol,
+            Self::NewWindow,
+            Self::Download,
+            Self::ScriptDialog,
+            Self::Permission,
+            Self::BasicAuthentication,
+            Self::ClientCertificate,
+            Self::TlsError,
+        ];
+        pub(super) fn bit(self) -> u16 {
+            1u16 << self as u8
+        }
         pub fn name(self) -> &'static str {
             match self {
                 Self::TopNavigation => "topNavigation",
@@ -4245,18 +4914,26 @@ pub mod fixture {
         }
     }
 
-    /// Read-only missing-install seam, constructed only after live native owner
-    /// validation. There is intentionally no Installed state or public setter.
+    /// Read-only token inventory, constructed only after live native owner
+    /// validation. No public constructor, installer or installed-counter setter.
     pub struct NativeRefusalInstallReceipt {
         pub(super) request: Code0WindowRequest,
-        pub(super) not_installed: [NativeRefusalHook; 10],
+        pub(super) installed_mask: u16,
+        pub(super) not_installed: Vec<NativeRefusalHook>,
+        pub(super) load_rejected: bool,
     }
     impl NativeRefusalInstallReceipt {
         pub fn matches(&self, request: &Code0WindowRequest) -> bool {
             &self.request == request
         }
-        pub fn not_installed(&self) -> [NativeRefusalHook; 10] {
-            self.not_installed
+        pub fn installed_mask(&self) -> u16 {
+            self.installed_mask
+        }
+        pub fn load_rejected(&self) -> bool {
+            self.load_rejected
+        }
+        pub fn not_installed(&self) -> &[NativeRefusalHook] {
+            &self.not_installed
         }
     }
 
@@ -5147,8 +5824,31 @@ pub mod fixture {
             self.fixture_observer = Some(observer);
         }
 
-        /// Read the current real unloaded instance's explicit missing-hook
-        /// registry and deny its load barrier. Does not install or load anything.
+        /// Explicit finite S2-1 registration action on the real unloaded owner.
+        /// This does not authorize page loading or production PoliciesInstalled.
+        pub fn install_fixture_native_refusal_handlers(
+            &mut self,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::install_native_refusal_handlers(&self.owner, request)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = request;
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// Read actual same-instance registration inventory. Never installs or loads.
         pub fn require_fixture_native_refusal_install(
             &mut self,
             request: &Code0WindowRequest,
