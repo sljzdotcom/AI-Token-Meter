@@ -1501,6 +1501,41 @@ mod native {
     }
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn begin_policy_install(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        case: super::fixture::PolicyFixtureCase,
+    ) -> Result<(), Code0SessionFailure> {
+        if !on_ui(owner) {
+            return Err(Code0SessionFailure::PolicyRejected);
+        }
+        let state = owner.borrow();
+        let instance = state
+            .instance
+            .as_ref()
+            .ok_or(Code0SessionFailure::PolicyRejected)?;
+        if &instance.request != request
+            || instance.closing
+            || instance.failed
+            || instance.inline_loaded
+            || instance.core.is_none()
+            || instance.controller.is_none()
+            || instance.environment.is_none()
+            || instance.message_token.is_none()
+        {
+            return Err(Code0SessionFailure::PolicyRejected);
+        }
+        // Honest missing-feature boundary: no setters, registrations, async
+        // ACKs, observations or load occur. A later partial debug barrier must
+        // never emit production PoliciesInstalled or authorize navigate/clear.
+        match case {
+            super::fixture::PolicyFixtureCase::InstallAckBeforeFirstLoad => {
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     pub(super) fn load_inline(
         owner: &Rc<RefCell<Owner>>,
         instance_id: &str,
@@ -1555,13 +1590,78 @@ mod native {
     }
 }
 
-/// Release builds expose neither inline document loading nor native observations.
+/// Release builds expose neither fixture loading nor native observations.
 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
 pub mod fixture {
     use std::path::PathBuf;
     use std::rc::Rc;
 
-    use super::{Code0NativeDriver, Code0SessionFailure};
+    use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
+
+    #[derive(Clone, Copy)]
+    pub enum PolicyFixtureCase {
+        InstallAckBeforeFirstLoad,
+    }
+
+    /// Opaque runtime receipts have no public constructor or callback-injection
+    /// API. There are deliberately no producers at this deny-first checkpoint.
+    /// Their future producer must be the same native owner at actual boundaries.
+    pub enum PolicyObservation {
+        BarrierReady(InstallBarrierReceipt),
+        FirstControlledLoad(ControlledLoadReceipt),
+        ControlledDocumentReady(ControlledDocumentReceipt),
+    }
+
+    pub struct InstallBarrierReceipt {
+        request: Code0WindowRequest,
+        synchronous_install_succeeded: bool,
+        script_acknowledged: bool,
+        cdp_acknowledged: bool,
+    }
+
+    impl InstallBarrierReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request && self.synchronous_install_succeeded
+        }
+        pub fn script_acknowledged(&self) -> bool {
+            self.script_acknowledged
+        }
+        pub fn cdp_acknowledged(&self) -> bool {
+            self.cdp_acknowledged
+        }
+    }
+
+    pub struct ControlledLoadReceipt {
+        request: Code0WindowRequest,
+    }
+
+    impl ControlledLoadReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request
+        }
+    }
+
+    pub struct ControlledDocumentReceipt {
+        request: Code0WindowRequest,
+        source_matched: bool,
+        synthetic_response_applied: bool,
+        canonical_ready_control: bool,
+    }
+
+    impl ControlledDocumentReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request
+        }
+        pub fn source_matched(&self) -> bool {
+            self.source_matched
+        }
+        pub fn synthetic_response_applied(&self) -> bool {
+            self.synthetic_response_applied
+        }
+        pub fn canonical_ready_control(&self) -> bool {
+            self.canonical_ready_control
+        }
+    }
 
     pub enum NativeSmokeObservation {
         /// Actual bare Window, synchronously immediately after build, before any
@@ -1578,6 +1678,8 @@ pub mod fixture {
         /// Actual registered event, validated against the owned environment,
         /// armed core PID and normal exit kind. Contains no native references.
         BrowserProcessExited,
+        /// Partial debug installation only; never a production policy event.
+        Policy(PolicyObservation),
     }
 
     pub type Observer = Rc<dyn Fn(NativeSmokeObservation)>;
@@ -1865,6 +1967,31 @@ pub mod fixture {
 
         pub fn observe_fixture(&mut self, observer: Observer) {
             self.fixture_observer = Some(observer);
+        }
+
+        /// Start the finite partial debug barrier on this real native instance.
+        /// A submission Ok would still require actual asynchronous receipts.
+        pub fn begin_fixture_policy_install(
+            &mut self,
+            request: &Code0WindowRequest,
+            case: PolicyFixtureCase,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::begin_policy_install(&self.owner, request, case)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (request, case);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
         }
 
         /// Only a separately observed true no-window/no-COM/no-pending state may

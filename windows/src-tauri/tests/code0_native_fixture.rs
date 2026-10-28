@@ -14,12 +14,14 @@ mod smoke {
     use std::time::{Duration, Instant};
 
     use ai_token_meter_windows::platform::windows::code0_web_session::{
-        Code0WindowDriving, Code0WindowEvent, Code0WindowMode, Code0WindowRequest,
+        Code0SessionFailure, Code0WindowDriving, Code0WindowEvent, Code0WindowMode,
+        Code0WindowRequest,
     };
     use ai_token_meter_windows::platform::windows::code0_webview::{
         Code0NativeDriver,
         fixture::{
             DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics, NativeSmokeObservation,
+            PolicyFixtureCase, PolicyObservation,
         },
     };
     use serde::Serialize;
@@ -31,6 +33,159 @@ mod smoke {
 
     const CASE: &str = "hidden_bare_inline_engine_release";
     const INSTANCE: &str = "code0-native-smoke";
+    const POLICY_CASE: &str = "install-ack-before-first-load";
+    const POLICY_INSTANCE: &str = "22222222-2222-4222-8222-222222222222";
+
+    // This positive oracle catches premature installation readiness, a first
+    // load before actual async ACKs, and a document without native Source/bridge
+    // evidence. Submission Ok and EngineReady cannot satisfy any receipt.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PolicyEvidence {
+        submissions: u8,
+        submission_accepted: bool,
+        install_rejected: bool,
+        barrier_receipts: u8,
+        script_acknowledged: bool,
+        cdp_acknowledged: bool,
+        first_load_receipts: u8,
+        document_receipts: u8,
+        source_matched: bool,
+        synthetic_response_applied: bool,
+        canonical_ready_control: bool,
+        ack_before_first_load: bool,
+    }
+
+    impl PolicyEvidence {
+        fn positive(&self, lifecycle: &Summary) -> bool {
+            self.submissions == 1
+                && self.submission_accepted
+                && !self.install_rejected
+                && self.barrier_receipts == 1
+                && self.script_acknowledged
+                && self.cdp_acknowledged
+                && self.first_load_receipts == 1
+                && self.document_receipts == 1
+                && self.source_matched
+                && self.synthetic_response_applied
+                && self.canonical_ready_control
+                && self.ack_before_first_load
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+
+        fn observe(&mut self, event: PolicyObservation, request: &Code0WindowRequest) -> bool {
+            match event {
+                PolicyObservation::BarrierReady(receipt) => {
+                    self.barrier_receipts = self.barrier_receipts.saturating_add(1);
+                    let valid = receipt.matches(request)
+                        && self.submissions == 1
+                        && self.submission_accepted
+                        && !self.install_rejected
+                        && self.barrier_receipts == 1
+                        && self.first_load_receipts == 0
+                        && self.document_receipts == 0;
+                    self.script_acknowledged = valid && receipt.script_acknowledged();
+                    self.cdp_acknowledged = valid && receipt.cdp_acknowledged();
+                    valid && self.script_acknowledged && self.cdp_acknowledged
+                }
+                PolicyObservation::FirstControlledLoad(receipt) => {
+                    self.first_load_receipts = self.first_load_receipts.saturating_add(1);
+                    self.ack_before_first_load = receipt.matches(request)
+                        && self.barrier_receipts == 1
+                        && self.script_acknowledged
+                        && self.cdp_acknowledged
+                        && self.first_load_receipts == 1
+                        && self.document_receipts == 0;
+                    self.ack_before_first_load
+                }
+                PolicyObservation::ControlledDocumentReady(receipt) => {
+                    self.document_receipts = self.document_receipts.saturating_add(1);
+                    let valid = receipt.matches(request)
+                        && self.ack_before_first_load
+                        && self.first_load_receipts == 1
+                        && self.document_receipts == 1;
+                    self.source_matched = valid && receipt.source_matched();
+                    self.synthetic_response_applied = valid && receipt.synthetic_response_applied();
+                    self.canonical_ready_control = valid && receipt.canonical_ready_control();
+                    valid
+                        && self.source_matched
+                        && self.synthetic_response_applied
+                        && self.canonical_ready_control
+                }
+            }
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PolicyLifecycle<'a> {
+        sta_main: bool,
+        callback_affinity: bool,
+        no_inherited_override: bool,
+        engine_ready: bool,
+        bare_hidden_unfocused: bool,
+        construction_observed: bool,
+        bare_window_violation: bool,
+        profile_isolated: bool,
+        destroyed: bool,
+        owned_references_released: bool,
+        run_returned: bool,
+        cleanup_succeeded: bool,
+        runtime_version: &'a str,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PolicySummary<'a> {
+        schema: u8,
+        run_id: &'a str,
+        required_case: &'static str,
+        selected_cases: u8,
+        completed_cases: u8,
+        pass: bool,
+        failure: &'static str,
+        install: &'a PolicyEvidence,
+        lifecycle: PolicyLifecycle<'a>,
+    }
+
+    impl<'a> PolicySummary<'a> {
+        fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
+            Self {
+                schema: 1,
+                run_id: &state.run_id,
+                required_case: POLICY_CASE,
+                selected_cases: 1,
+                completed_cases: state.completed_cases,
+                pass: state.pass,
+                failure: state.failure,
+                install,
+                lifecycle: PolicyLifecycle {
+                    sta_main: state.sta_main,
+                    callback_affinity: state.callback_affinity,
+                    no_inherited_override: state.no_inherited_override,
+                    engine_ready: state.engine_ready,
+                    bare_hidden_unfocused: state.bare_hidden_unfocused,
+                    construction_observed: state.construction_observed,
+                    bare_window_violation: state.bare_window_violation,
+                    profile_isolated: state.profile_isolated,
+                    destroyed: state.destroyed,
+                    owned_references_released: state.owned_references_released,
+                    run_returned: state.run_returned,
+                    cleanup_succeeded: state.cleanup_succeeded,
+                    runtime_version: &state.runtime_version,
+                },
+            }
+        }
+    }
 
     #[derive(Default, Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -99,7 +254,7 @@ mod smoke {
             && window.is_focused().ok() == Some(false)
     }
 
-    fn write_summary(file: &mut File, summary: &Summary) -> std::io::Result<()> {
+    fn write_summary(file: &mut File, summary: &impl Serialize) -> std::io::Result<()> {
         let bytes = serde_json::to_vec(summary)?;
         file.seek(SeekFrom::Start(0))?;
         file.write_all(&bytes)?;
@@ -171,7 +326,7 @@ mod smoke {
             ..Summary::default()
         }));
         diagnostics.phase(DP::FreshSummary, false);
-        write_summary(&mut file, &summary.lock().unwrap())?;
+        write_summary(&mut file, &*summary.lock().unwrap())?;
         diagnostics.phase(DP::FreshSummary, true);
         let evidence = Arc::new(Mutex::new(file));
         let (watchdog_done, watchdog_rx) = mpsc::channel();
@@ -196,7 +351,7 @@ mod smoke {
                 std::process::exit(124);
             }
         });
-        let outcome = run_case(Arc::clone(&summary), Arc::clone(&diagnostics));
+        let outcome = run_case(Arc::clone(&summary), Arc::clone(&diagnostics), None);
         if outcome.is_err() {
             diagnostics.phase(DP::SummaryLock, false);
             summary.lock().unwrap().failure = "fixtureSetupFailed";
@@ -206,7 +361,7 @@ mod smoke {
         let passed = summary.lock().unwrap().pass;
         diagnostics.phase(DP::SummaryLock, true);
         diagnostics.phase(DP::FinalSummary, false);
-        let write_result = write_summary(&mut evidence.lock().unwrap(), &summary.lock().unwrap());
+        let write_result = write_summary(&mut evidence.lock().unwrap(), &*summary.lock().unwrap());
         diagnostics.phase(DP::FinalSummary, true);
         let _ = watchdog_done.send(());
         diagnostics.phase(DP::WatchdogJoin, false);
@@ -218,9 +373,83 @@ mod smoke {
         Ok(passed)
     }
 
+    pub fn run_policy() -> Result<bool, Box<dyn std::error::Error>> {
+        let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
+        if run_id.is_empty()
+            || run_id.len() > 64
+            || !run_id
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || v == b'-' || v == b'_')
+        {
+            return Err("invalid policy fixture run ID".into());
+        }
+        let output = PathBuf::from(
+            std::env::var_os("AI_METER_CODE0_POLICY_SUMMARY")
+                .ok_or("missing fresh policy summary path")?,
+        );
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)?;
+        let summary = Arc::new(Mutex::new(Summary {
+            run_id,
+            failure: "notCompleted",
+            ..Summary::default()
+        }));
+        let install = Arc::new(Mutex::new(PolicyEvidence::default()));
+        write_summary(
+            &mut file,
+            &PolicySummary::snapshot(&summary.lock().unwrap(), &install.lock().unwrap()),
+        )?;
+        let evidence = Arc::new(Mutex::new(file));
+        let diagnostics = Arc::new(Diagnostics::from_env());
+        let (watchdog_done, watchdog_rx) = mpsc::channel();
+        let hard_run_id = summary.lock().unwrap().run_id.clone();
+        let hard_evidence = Arc::clone(&evidence);
+        let watchdog_diagnostics = Arc::clone(&diagnostics);
+        let watchdog = thread::spawn(move || {
+            if watchdog_rx.recv_timeout(Duration::from_secs(75)).is_err() {
+                watchdog_diagnostics.emit_once(true);
+                let failed = Summary {
+                    run_id: hard_run_id,
+                    failure: "watchdogTimeout",
+                    ..Summary::default()
+                };
+                if let Ok(mut file) = hard_evidence.try_lock() {
+                    let _ = write_summary(
+                        &mut file,
+                        &PolicySummary::snapshot(&failed, &PolicyEvidence::default()),
+                    );
+                }
+                // Only this fixture process; never native cleanup evidence.
+                std::process::exit(124);
+            }
+        });
+        let outcome = run_case(
+            Arc::clone(&summary),
+            Arc::clone(&diagnostics),
+            Some(Arc::clone(&install)),
+        );
+        if outcome.is_err() {
+            summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        let passed = summary.lock().unwrap().pass;
+        let write_result = write_summary(
+            &mut evidence.lock().unwrap(),
+            &PolicySummary::snapshot(&summary.lock().unwrap(), &install.lock().unwrap()),
+        );
+        let _ = watchdog_done.send(());
+        let _ = watchdog.join();
+        diagnostics.emit_once(false);
+        write_result?;
+        outcome?;
+        Ok(passed)
+    }
+
     fn run_case(
         summary: Arc<Mutex<Summary>>,
         diagnostics: Arc<Diagnostics>,
+        policy: Option<Arc<Mutex<PolicyEvidence>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         diagnostics.phase(DP::Sta, false);
         let _sta = Sta::initialize()?;
@@ -333,11 +562,31 @@ mod smoke {
                 is_sta(),
             ));
         }));
+        let instance = if policy.is_some() {
+            POLICY_INSTANCE
+        } else {
+            INSTANCE
+        };
         let request = Code0WindowRequest {
-            instance_id: INSTANCE.into(),
-            connection_epoch: "fixture-epoch".into(),
-            nonce: "fixture-nonce".into(),
-            document_id: "fixture-document".into(),
+            instance_id: instance.into(),
+            connection_epoch: if policy.is_some() {
+                "11111111-1111-4111-8111-111111111111"
+            } else {
+                "fixture-epoch"
+            }
+            .into(),
+            nonce: if policy.is_some() {
+                "33333333-4444-4555-8666-777777777777"
+            } else {
+                "fixture-nonce"
+            }
+            .into(),
+            document_id: if policy.is_some() {
+                "88888888-9999-4000-8111-222222222222"
+            } else {
+                "fixture-document"
+            }
+            .into(),
             mode: Code0WindowMode::Sync,
         };
         let wake_handle = app.handle().clone();
@@ -358,6 +607,7 @@ mod smoke {
         let mut ready_count = 0;
         let mut message_count = 0;
         let mut browser_exit_count = 0;
+        let final_policy = policy.clone();
         let live_construction = Arc::clone(&construction);
         let ui_diagnostics = Arc::clone(&diagnostics);
         diagnostics.phase(DP::RunReturn, false);
@@ -426,10 +676,10 @@ mod smoke {
                         // keep pumping until actual close evidence arrives.
                         closing_since = Some(Instant::now());
                         ui_diagnostics.phase(DP::CloseRequest, false);
-                        driver.close(INSTANCE);
+                        driver.close(instance);
                         ui_diagnostics.phase(DP::CloseRequest, true);
                         ui_diagnostics.observed(DM::CloseRequested);
-                        object_free_failure = driver.fixture_creation_is_object_free(INSTANCE);
+                        object_free_failure = driver.fixture_creation_is_object_free(instance);
                     }
                 }
                 if object_free_failure {
@@ -508,17 +758,62 @@ mod smoke {
                         if state.profile_isolated {
                             ui_diagnostics.observed(DM::ProfileMatched);
                         }
-                        // No fixture state lock crosses a COM call, which may
-                        // deliver native callbacks before returning.
-                        drop(state);
-                        ui_diagnostics.phase(DP::Inline, false);
-                        let loaded = driver.load_fixture_inline_document(INSTANCE);
-                        ui_diagnostics.phase(DP::Inline, true);
-                        ui_diagnostics.phase(DP::SummaryLock, false);
-                        state = observed.lock().unwrap();
-                        ui_diagnostics.phase(DP::SummaryLock, true);
-                        if loaded.is_err() {
-                            state.failure = "inlineLoadDenied";
+                        if let Some(policy) = &policy {
+                            if ready_count != 1 || !state.engine_ready || !state.profile_isolated {
+                                state.failure = "policyEnginePreconditionFailed";
+                            } else {
+                                // No summary/install lock crosses the actual driver
+                                // entry. A submission result never supplies an ACK.
+                                drop(state);
+                                policy.lock().unwrap().submissions += 1;
+                                let installed = driver.begin_fixture_policy_install(
+                                    &request,
+                                    PolicyFixtureCase::InstallAckBeforeFirstLoad,
+                                );
+                                let mut install = policy.lock().unwrap();
+                                install.submission_accepted = installed.is_ok();
+                                install.install_rejected =
+                                    installed == Err(Code0SessionFailure::PolicyRejected);
+                                drop(install);
+                                state = observed.lock().unwrap();
+                                if let Err(error) = installed {
+                                    state.failure = if error == Code0SessionFailure::PolicyRejected
+                                    {
+                                        "policyInstallRejected"
+                                    } else {
+                                        "policyInstallFailed"
+                                    };
+                                }
+                            }
+                        } else {
+                            // No fixture state lock crosses a COM call, which may
+                            // deliver native callbacks before returning.
+                            drop(state);
+                            ui_diagnostics.phase(DP::Inline, false);
+                            let loaded = driver.load_fixture_inline_document(instance);
+                            ui_diagnostics.phase(DP::Inline, true);
+                            ui_diagnostics.phase(DP::SummaryLock, false);
+                            state = observed.lock().unwrap();
+                            ui_diagnostics.phase(DP::SummaryLock, true);
+                            if loaded.is_err() {
+                                state.failure = "inlineLoadDenied";
+                            }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Policy(event),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if let Some(policy) = &policy {
+                            if closing_since.is_some()
+                                || !policy.lock().unwrap().observe(event, &request)
+                            {
+                                state.failure = "policyReceiptInvalid";
+                            }
+                        } else {
+                            state.failure = "unexpectedPolicyObservation";
                         }
                     }
                     Observation::Native(NativeSmokeObservation::WindowConstructed { .. }, _, _) => {
@@ -540,6 +835,9 @@ mod smoke {
                                 == Some(serde_json::json!({"kind":"code0NativeSmoke","value":7}));
                         if state.renderer_message {
                             ui_diagnostics.observed(DM::RendererMessage);
+                        }
+                        if policy.is_some() {
+                            state.failure = "unexpectedInlineMessage";
                         }
                     }
                     Observation::Native(
@@ -595,16 +893,27 @@ mod smoke {
             if state.bare_window_violation {
                 state.failure = "bareWindowViolation";
             }
+            let policy_document_ready = policy
+                .as_ref()
+                .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
+            if policy.is_some()
+                && closing_since.is_none()
+                && started.elapsed() >= Duration::from_secs(45)
+                && state.failure == "notCompleted"
+            {
+                state.failure = "installAcknowledgementsMissing";
+            }
             if !object_free_failure
                 && closing_since.is_none()
                 && (state.renderer_message
+                    || policy_document_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
                 closing_since = Some(Instant::now());
                 drop(state);
                 ui_diagnostics.phase(DP::CloseRequest, false);
-                driver.close(INSTANCE);
+                driver.close(instance);
                 ui_diagnostics.phase(DP::CloseRequest, true);
                 ui_diagnostics.observed(DM::CloseRequested);
                 ui_diagnostics.phase(DP::SummaryLock, false);
@@ -620,7 +929,11 @@ mod smoke {
                     state.failure = "closeEvidenceTimeout";
                 }
                 if state.destroyed && state.owned_references_released {
-                    let code = if state.positive() && state.failure == "notCompleted" {
+                    let positive = policy.as_ref().map_or_else(
+                        || state.positive(),
+                        |policy| policy.lock().unwrap().positive(&state),
+                    );
+                    let code = if positive && state.failure == "notCompleted" {
                         0
                     } else {
                         1
@@ -681,10 +994,12 @@ mod smoke {
         state.run_returned = true;
         state.cleanup_succeeded = cleanup_succeeded;
         state.completed_cases = 1;
-        state.pass = exit_code == 0
-            && state.failure == "notCompleted"
-            && state.positive()
-            && cleanup_succeeded;
+        let positive = final_policy.as_ref().map_or_else(
+            || state.positive(),
+            |policy| policy.lock().unwrap().positive(&state),
+        );
+        state.pass =
+            exit_code == 0 && state.failure == "notCompleted" && positive && cleanup_succeeded;
         if state.pass {
             state.failure = "none";
         } else if !cleanup_succeeded {
@@ -696,11 +1011,22 @@ mod smoke {
 
 fn main() {
     #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
-    match smoke::run() {
+    let result = {
+        let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+        match arguments.as_slice() {
+            [] => smoke::run(),
+            [selector] if selector == "--code0-policy-fixture=install-ack-before-first-load" => {
+                smoke::run_policy()
+            }
+            _ => Err("unknown or multiple fixture selectors".into()),
+        }
+    };
+    #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+    match result {
         Ok(true) => (),
         Ok(false) => std::process::exit(1),
         Err(_) => {
-            eprintln!("Code0 native smoke failed; inspect fresh fixed-schema summary");
+            eprintln!("Code0 native fixture failed; inspect fresh fixed-schema summary");
             std::process::exit(1);
         }
     }

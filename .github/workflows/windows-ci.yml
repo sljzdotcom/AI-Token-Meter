@@ -148,6 +148,98 @@ jobs:
           path: ${{ runner.temp }}/code0-native-smoke-${{ github.run_id }}-${{ github.run_attempt }}.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 policy installation barrier
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-p1-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+          cargo test --locked --features code0-native-fixture --test code0_native_fixture -- --code0-policy-fixture=install-ack-before-first-load
+      - name: Verify Code0 policy installation evidence
+        if: always()
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import re
+          top = {'schema', 'runId', 'requiredCase', 'selectedCases', 'completedCases', 'pass', 'failure', 'install', 'lifecycle'}
+          counts = {'submissions', 'barrierReceipts', 'firstLoadReceipts', 'documentReceipts'}
+          install_positive = {'submissionAccepted', 'scriptAcknowledged', 'cdpAcknowledged', 'sourceMatched', 'syntheticResponseApplied', 'canonicalReadyControl', 'ackBeforeFirstLoad'}
+          install_fields = counts | install_positive | {'installRejected'}
+          life_positive = {'staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady', 'bareHiddenUnfocused', 'constructionObserved', 'profileIsolated', 'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded'}
+          life_fields = life_positive | {'bareWindowViolation', 'runtimeVersion'}
+          def unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate evidence member')
+                  result[key] = value
+              return result
+          def invalid_constant(_):
+              raise ValueError('non-JSON evidence number')
+          def validate(raw, expected_run):
+              if len(raw) > 8192:
+                  raise ValueError('evidence exceeds limit')
+              d = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+              if type(d) is not dict or set(d) != top:
+                  raise ValueError('policy object schema mismatch')
+              for field in ('schema', 'selectedCases', 'completedCases'):
+                  if type(d[field]) is not int or d[field] != 1:
+                      raise ValueError('policy version or case count mismatch')
+              for field, expected in (('runId', expected_run), ('requiredCase', 'install-ack-before-first-load'), ('failure', 'none')):
+                  if type(d[field]) is not str or d[field] != expected:
+                      raise ValueError('policy identity or completion mismatch')
+              if d['pass'] is not True:
+                  raise ValueError('policy case not GREEN')
+              install, life = d['install'], d['lifecycle']
+              if type(install) is not dict or set(install) != install_fields or type(life) is not dict or set(life) != life_fields:
+                  raise ValueError('nested policy schema mismatch')
+              if any(type(install[k]) is not int or install[k] != 1 for k in counts):
+                  raise ValueError('policy required receipt count mismatch')
+              if any(install[k] is not True for k in install_positive) or install['installRejected'] is not False:
+                  raise ValueError('policy actual ACK or source evidence missing')
+              if any(life[k] is not True for k in life_positive) or life['bareWindowViolation'] is not False:
+                  raise ValueError('policy actual native lifecycle missing')
+              if type(life['runtimeVersion']) is not str or re.fullmatch(r'[0-9.]{1,128}', life['runtimeVersion']) is None:
+                  raise ValueError('policy runtime version invalid')
+          # Parser canaries only, never native acceptance.
+          canary = {'schema': 1, 'runId': 'policy-validator-canary', 'requiredCase': 'install-ack-before-first-load', 'selectedCases': 1, 'completedCases': 1, 'pass': True, 'failure': 'none'}
+          canary['install'] = {**dict.fromkeys(counts, 1), **dict.fromkeys(install_positive, True), 'installRejected': False}
+          canary['lifecycle'] = {**dict.fromkeys(life_positive, True), 'bareWindowViolation': False, 'runtimeVersion': '1.2.3.4'}
+          valid = json.dumps(canary).encode('utf-8')
+          validate(valid, 'policy-validator-canary')
+          bad_rejection = json.loads(valid)
+          bad_rejection['install']['installRejected'] = True
+          bad_count = json.loads(valid)
+          bad_count['install']['submissions'] = True
+          bad_extra = json.loads(valid)
+          bad_extra['lifecycle']['extra'] = True
+          for malformed in (b'[' + valid + b']', b'{"schema":1,' + valid[1:], json.dumps(bad_rejection).encode(), json.dumps(bad_count).encode(), json.dumps(bad_extra).encode()):
+              try:
+                  validate(malformed, 'policy-validator-canary')
+              except ValueError:
+                  continue
+              raise SystemExit('Code0 policy parser self-check failed')
+          print('Code0 policy parser self-checks passed; no native acceptance implied.')
+          expected_run = f"code0-policy-p1-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          path = Path(os.environ['RUNNER_TEMP']) / f'{expected_run}.json'
+          try:
+              with path.open('rb') as source:
+                  raw = source.read(8193)
+              validate(raw, expected_run)
+          except (OSError, ValueError, TypeError, UnicodeError):
+              raise SystemExit('Code0 policy P1 evidence missing, malformed, or not GREEN') from None
+          print('Code0 policy P1 evidence passed: one required case.')
+      - name: Preserve Code0 policy installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-policy-p1
+          path: ${{ runner.temp }}/code0-policy-p1-${{ github.run_id }}-${{ github.run_attempt }}.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug
