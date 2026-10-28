@@ -10,6 +10,18 @@
 
 实现先写可执行拒绝型契约和测试，由 root 在现有批准的临时 CI 看行为 RED；编译失败不算 RED。每个任务完成后独立审查规格与质量，最终全分支审查一次。执行者不自行提交/推送、运行宿主产品测试、操作 VM/真实账号；root 接管检查点和隔离验证。每项报告明确哪些验证未运行。
 
+### 并行门禁修复：REQ-20261028-003 状态发布与保留契约（2026-10-28）
+
+Mac40714996064 已独立接受受控空读RED与完成发布对照（10616/790f312f）；历史9ac内部先后仍不倒推。允许按下面的窄方案修复公共CLI状态发布和必要停止交接，不更改其他启动协议、实际watchdog分类/信号或原一秒测试期限。
+
+- 仅prod CLI builder、原CLI测试、Mac ci.yml三个文件。覆盖supervisor两处不确定状态和zsh report_status：同目录独占唯一临时文件、0600、完整写入/检查close/真实rename；失败仅清理本次所有的临时资源，保留旧正文并返回失败，不原地截断回退、不修改exec_status启动协议。
+- 发布失败与已知进程不确定性单调锁存；不确定性必须在尝试保留状态发布之前置位。新增短命shell发布者必须实际结束并回收后才处理延期取消/最终ACK，不能留下迟到写入者；若无法确认结束则保持未确认，不把wait被信号打断当作已退出。 极端未确认时允许helper保持保留态等待owned join，原登录期限不延长或重置；query未知/EPERM/可能复用PID均不能当ESRCH，不按未核对数值PID强杀。负例本身最终也必须有真实自有清理证据，不能靠外层watchdog超时冒充通过。
+- 允许最小新增停止许可，复用已有.status.stopped路径，严格格式guardian_stop_accepted_v1:PID:nonce。仅真实匹配app取消/guardian-stop请求被观察、此前无不确定或发布失败、所需直接子回收条件已检查后，才能在组清理前发布；后续新不确定性不能被旧许可覆盖。许可只证明接受请求，绝非清理完成。
+- 父shell主等待及stop_owned_processes两路对请求式停止均核对同实例PID/nonce许可，仍需原reap、真实组不存在、watchdog和前台恢复检查。ready下无有效许可的异常supervisor终结保守保留guardian、禁止receipt/完成ACK；不得由timeout路径绕过。正常CLI退出及既有普通非信号错误合同保留；无法区分的信号式退出可保守保留并增加定向回归。已在真实确认清理后移除的状态不因后续文件失败伪造重建。
+- guardian许可与原helper_stopped_v1精确格式互斥，应用侧原完成ACK解析不扩大接受；最终helper ACK仍只在全部所有者结束后产生。stopped及其现有临时路径加入碰撞校验。不能承诺不可通信/外部强杀等所有故障均能持久记录原因，但新增原子发布失败不得造成新的ready成功、假取消确认或未确认guardian移除。
+- 活动受控测试升级v2，旧v1提交/冻结/原始RED永存，原未插桩目标及五断言不变。prepublication臂停在真实staging完整写入/close后、真实rename前；实际watchdog读旧ready并完成原分支/期限证明后才放行rename，再确认真实preserve读及最终决策。published臂真实rename成功后放行read并确认原条件信号语句执行完毕；两臂shell均等待最终post-decision ACK再清理。
+- v2两臂都要求真实query exit42、发布成功、读/决策在原期限内、正常cleanup、guardian保留、准确process_state_unavailable、无callback/USR2 trap/取消确认。缺失/前置失败/超时一律拒绝；增加temp-create/write/close/rename失败、许可缺失/错误身份/发布者未回收的窄回归，核对不新增确认成功。严格validator只接受schema v2、actual exit0及两臂完整正向事实；保留原字节上限、身份/hash、exact keys/types/重复与非有限拒绝及原3job/全部门禁，不兼容放行v1。
+
 ### Task 1: 两端数值契约与可选服务兼容
 
 文件：Swift `Domain/UsageModels.swift`、新增 `Code0/Code0WebsiteCapture.swift`、现有 presentation/preferences/widget/CLI exhaustive switch；Rust `domain/usage.rs`、`domain/presentation.rs`、新增 `collectors/code0_capture.rs`；TS `state/usage.ts`；共享 schema/providers/fixture/checker；两端现有偏好及布局测试。
@@ -66,6 +78,17 @@ Task3底层受控夹具已在 `9bd45db` 通过；媒体设备前置分支有明�
 - [ ] 原生exclusive profile lease、唯一owned bare Window与destroy回调；直接COM创建专用WebView2，不安装Tauri/Wry WebView及其内部IPC。使用已锁定版本的直接依赖与公开gated WindowBuilder，UI/STA异步确认environment/controller、拒绝handler及桥脚本注册完成后再导航；覆盖navigation/new-window/download/permission/dialog/auth，正常TLS不绕过。
 - [ ] 受控fixture验证真实native拒绝/隐藏/销毁，组件测试验证仅点击明确动作才invoke；独立scheduler遵循300秒、sleep合并、busy和paused门禁。
 - [ ] 普通collector继续四项，由独立会话合成Code0；旧普通刷新/Disconnect迟到结果不能复活。Windows既有英语/简体中文、无币种/比例、最后成功时间和可选第五项与macOS相应行为一致；macOS继续既有三语言，不新增Windows语言系统。
+
+#### S2 分片：原生拒绝处理器安装与实际事件分开验收（2026-10-28）
+
+Windows40709469737 已独立确认真实同实例十项缺失、拒绝加载且正常清理/exit1，作为安装分片的有效RED。先完成以下S2-1，不把安装GREEN视为事件拒绝或生产接入完成；后续S2-2再逐项补真实刺激与拒绝/清理证据。
+
+- S2-1仅driver及选定S2 fixture接线：增加显式真实安装动作，随后沿用只读同实例receipt；不让读取库存的方法暗中执行安装。测试仍不导航、不加载页面，原schema6正向分支/actual exit0/真实normal cleanup必须成立，workflow判定与旧case不变。
+- 十项状态只能来自同一owned原生emitter的真实add成功与token库存：top/child导航、外部协议、new-window、download、script-dialog、permission、HTTP basic-auth、client-certificate、TLS-error；Some(0) token有效。接口不可用或部分失败保持真实部分库存并拒绝加载，不能标全Installed、伪造全缺失或吞掉错误。
+- 现有官方HTTPS同源策略用于top/child导航；其余同规格明确拒绝，不接受TLS例外。下载与客户端证书的两个必需setter均各尝试一次；一项失败不能阻止尝试另一项。不增加外部协议/系统对话刺激，不改信任、权限、CA、账号或真实网站环境。
+- 每个callback使用弱owner、匹配request/generation/emitter及UI/STA约束、现有Active/HandlerLifetime库存；Owner借用外不调用COM/原生API、不保存事件args、不增加强owner环。正常拒绝与setter/身份/移除不确定分开处理，后者维持sticky保护；stale/unknown不得默许原生默认行为或改写新attempt。
+- add/remove必须同一emitter和确切token，remove单次尝试、不能重试/零token当缺失/预先清状态；失败保留未确认状态。任何路径的局部native引用先纳入现有库存或Active，完成所有解绑/回调/原生对象释放后沿用真实BrowserProcessExited/Destroyed/Released/run_return/一次TempDir.close证据。保持45/10/75、所有旧断言、计数/上限及既有P0–P9行为。
+- 独立源码SPEC+QUALITY及实际S2安装正向验收后，才开始S2-2事件覆盖；未到目标事件的前置拒绝不能算该事件已测。文件选择/CDP、被动bridge、production registry/lease/clock/clear另属S3–S5，不混入此安装分片。
 
 ### Task 5: 跨平台验收与已授权发布
 
