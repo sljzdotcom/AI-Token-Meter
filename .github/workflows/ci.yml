@@ -82,6 +82,9 @@ jobs:
           checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           if not re.fullmatch(r"[0-9a-f]{40}", checkout) or checkout != os.environ["GITHUB_SHA"]:
               raise SystemExit("CONTROLLED_CLI_COLLECTION checkout-mismatch")
+          sources = ["Sources/AIMeterCore/Accounts/CLIAuthenticationScriptBuilder.swift",
+                     "Tests/AIMeterCoreTests/CLIAuthenticationScriptBuilderTests.swift", ".github/workflows/ci.yml"]
+          source_hashes = {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in sources}
           environment = os.environ.copy()
           environment["AI_METER_TEST_BUILD_DIR"] = str(root / "swift-tests")
           log = root / "suite.log"
@@ -95,11 +98,12 @@ jobs:
               for chunk in iter(lambda: output.read(65536), b""):
                   digest.update(chunk)
           record = {
-              "schema": "controlled-cli-exit-v1", "runId": os.environ["GITHUB_RUN_ID"],
+              "schema": "controlled-cli-exit-v2", "runId": os.environ["GITHUB_RUN_ID"],
               "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"], "job": os.environ["GITHUB_JOB"],
               "githubSha": os.environ["GITHUB_SHA"], "checkoutSha": checkout,
               "returnCode": completed.returncode, "logBytes": log.stat().st_size,
               "logSHA256": digest.hexdigest(),
+              "sourceHashes": source_hashes,
           }
           with (root / "exit.json").open("x") as output:
               json.dump(record, output, sort_keys=True)
@@ -122,7 +126,7 @@ jobs:
           import sys
 
           root = Path(os.environ["CONTROLLED_CLI_EVIDENCE_DIR"])
-          result = {"schema": "controlled-cli-validation-v1", "acceptance": False,
+          result = {"schema": "controlled-cli-validation-v2", "acceptance": False,
                     "runId": os.environ["GITHUB_RUN_ID"], "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
                     "result": "invalid-evidence"}
 
@@ -163,35 +167,34 @@ jobs:
                       "appCancelTrap", "appCancelCleanupConfirmed", "cleanupSucceeded", "statusClass",
                       "guardianRetained", "callbackObserved"}
               require(type(record) is dict and set(record) == keys, "record-keys")
-              require(record["schema"] == "controlled-group-probe-publication-v1", "record-schema")
-              require(record["arm"] in ("empty", "published"), "record-arm")
+              require(record["schema"] == "controlled-group-probe-publication-v2", "record-schema")
+              require(record["arm"] in ("prepublication", "published"), "record-arm")
               booleans = keys - {"schema", "arm", "classification", "required", "rejected", "statusClass"}
               require(all(type(record[key]) is bool for key in booleans), "record-boolean-type")
               require(record["acceptance"] is False, "diagnostic-acceptance")
               require(record["statusClass"] in ("ready", "process_state_unavailable", "helper_cancelled",
                                                  "helper_stop_unconfirmed", "other"), "status-enum")
               required = {"query-entered", "query-reaped-exit42", "writer-ready", "watchdog-parked",
-                          "writer-park-acknowledged", "writer-opened-truncated", "writer-published",
+                          "writer-park-acknowledged", "writer-staged-closed", "writer-staged-mode0600", "writer-published",
                           "watchdog-login-deadline-active", "watchdog-read-release-acknowledged",
                           "watchdog-read-before-product-deadline", "watchdog-decision-before-product-deadline",
-                          "watchdog-timed-nonready-branch"}
-              if record["arm"] == "empty":
-                  required.add("watchdog-read-empty")
-              else:
-                  required.update({"watchdog-read-preserve", "watchdog-decision-completed-before-product-deadline",
-                                   "watchdog-decision-completed"})
-              rejected = {"writer-park-gate-timeout", "writer-trap-gate-timeout", "watchdog-read-gate-timeout",
+                          "watchdog-timed-nonready-branch", "watchdog-read-preserve",
+                          "watchdog-decision-completed-before-product-deadline", "watchdog-decision-completed"}
+              if record["arm"] == "prepublication":
+                  required.update({"watchdog-read-ready", "watchdog-ready-read-valid",
+                                   "watchdog-ready-decision-before-product-deadline", "watchdog-ready-decision-completed",
+                                   "writer-ready-decision-acknowledged"})
+              rejected = {"writer-park-gate-timeout", "writer-ready-gate-timeout", "watchdog-read-gate-timeout",
                           "shell-preserve-gate-timeout", "writer-open-failed", "writer-publication-failed",
                           "gate-crossed-product-deadline", "watchdog-deadline-entered", "usr1-timeout",
-                          "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error"}
+                          "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error", "watchdog-read-empty"}
               for key, expected in (("required", required), ("rejected", rejected)):
                   markers = record[key]
                   require(type(markers) is dict and set(markers) == expected, "marker-keys")
                   require(all(type(value) is bool for value in markers.values()), "marker-boolean-type")
               handshake = all(record["required"].values()) and not any(record["rejected"].values())
-              cancellation = record["appCancelTrap"] and record["appCancelCleanupConfirmed"]
-              causal = handshake and record["cleanupSucceeded"] and (
-                  cancellation if record["arm"] == "empty" else not record["appCancelTrap"])
+              causal = (handshake and record["cleanupSucceeded"] and not record["appCancelTrap"]
+                        and not record["appCancelCleanupConfirmed"])
               require(record["causalPreconditions"] == causal, "causal-inconsistency")
               classification = "targetBoundaryReached" if causal else "PRECONDITION_FAILED"
               require(record["classification"] == classification, "classification-inconsistency")
@@ -202,13 +205,22 @@ jobs:
                       and not record["callbackObserved"] and not record["appCancelTrap"]
                       and not record["appCancelCleanupConfirmed"])
 
+          def classify(records, return_code):
+              require(len(records) == 2 and {record["arm"] for record in records} == {"prepublication", "published"},
+                      "missing-or-duplicate-arm")
+              if not all(record["causalPreconditions"] for record in records):
+                  return "precondition-failed", False
+              if return_code == 0 and all(preserved(record) for record in records):
+                  return "green", True
+              return "acceptance-not-met", False
+
           try:
               require(root.is_dir() and not root.is_symlink(), "missing-evidence-directory")
               metadata = decode(bounded_file("exit.json", 4096).decode("utf-8"))
               keys = {"schema", "runId", "runAttempt", "job", "githubSha", "checkoutSha",
-                      "returnCode", "logBytes", "logSHA256"}
+                      "returnCode", "logBytes", "logSHA256", "sourceHashes"}
               require(type(metadata) is dict and set(metadata) == keys, "exit-keys")
-              require(metadata["schema"] == "controlled-cli-exit-v1", "exit-schema")
+              require(metadata["schema"] == "controlled-cli-exit-v2", "exit-schema")
               for key, environment in (("runId", "GITHUB_RUN_ID"), ("runAttempt", "GITHUB_RUN_ATTEMPT"),
                                        ("job", "GITHUB_JOB"), ("githubSha", "GITHUB_SHA")):
                   require(metadata[key] == os.environ[environment], "identity-mismatch")
@@ -217,6 +229,12 @@ jobs:
                       and metadata["checkoutSha"] == metadata["githubSha"], "checkout-mismatch")
               require(type(metadata["returnCode"]) is int and -255 <= metadata["returnCode"] <= 255, "exit-type")
               require(type(metadata["logBytes"]) is int, "log-size-type")
+              sources = {"Sources/AIMeterCore/Accounts/CLIAuthenticationScriptBuilder.swift",
+                         "Tests/AIMeterCoreTests/CLIAuthenticationScriptBuilderTests.swift", ".github/workflows/ci.yml"}
+              hashes = metadata["sourceHashes"]
+              require(type(hashes) is dict and set(hashes) == sources, "source-hash-keys")
+              require(all(type(value) is str and re.fullmatch(r"[0-9a-f]{64}", value) for value in hashes.values()), "source-hash-type")
+              require(all(hashlib.sha256(Path(name).read_bytes()).hexdigest() == hashes[name] for name in sources), "source-hash-mismatch")
               log = bounded_file("suite.log", 4 * 1024 * 1024)
               require(len(log) == metadata["logBytes"] and hashlib.sha256(log).hexdigest() == metadata["logSHA256"],
                       "log-identity-mismatch")
@@ -227,23 +245,9 @@ jobs:
                       require(line.startswith(prefix) and len(line.encode("utf-8")) <= 8192, "record-framing")
                       records.append(validate_record(decode(line[len(prefix):])))
                       require(len(records) <= 2, "extra-record")
-              require(len(records) == 2 and {record["arm"] for record in records} == {"empty", "published"},
-                      "missing-or-duplicate-arm")
-              arms = {record["arm"]: record for record in records}
               result.update({"checkoutSha": metadata["checkoutSha"], "returnCode": metadata["returnCode"],
-                             "logBytes": len(log), "logSHA256": metadata["logSHA256"]})
-              if not all(record["causalPreconditions"] for record in records):
-                  result["result"] = "precondition-failed"
-              elif metadata["returnCode"] == 0 and all(preserved(record) for record in records):
-                  # Intentionally unreachable for the v1 empty RED seam, which requires actual cancellation.
-                  result.update({"result": "green", "acceptance": True})
-              elif (metadata["returnCode"] != 0 and preserved(arms["published"])
-                    and arms["empty"]["statusClass"] == "helper_cancelled"
-                    and not arms["empty"]["guardianRetained"] and not arms["empty"]["callbackObserved"]
-                    and arms["empty"]["appCancelTrap"] and arms["empty"]["appCancelCleanupConfirmed"]):
-                  result["result"] = "target-red-observed"
-              else:
-                  result["result"] = "acceptance-not-met"
+                             "logBytes": len(log), "logSHA256": metadata["logSHA256"], "sourceHashes": hashes})
+              result["result"], result["acceptance"] = classify(records, metadata["returnCode"])
           except EvidenceError as error:
               result["errorCode"] = str(error)
           except (OSError, UnicodeError, ValueError, TypeError, KeyError):

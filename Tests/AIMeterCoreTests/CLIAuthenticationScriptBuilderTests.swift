@@ -109,7 +109,7 @@ struct CLIAuthenticationScriptBuilderTests {
 
         let childStop = try #require(script.range(of: "kill \"STOP\", $$"))
         let childStopWait = script.range(of: "waitpid($child, WNOHANG | WUNTRACED)")
-        let childStopConfirmation = script.range(of: "WIFSTOPPED(${^CHILD_ERROR_NATIVE}) ? 1 : 0")
+        let childStopConfirmation = script.range(of: "WIFSTOPPED($stop_wait_status) ? 1 : 0")
         let processGroupPublication = try #require(script.range(of: "print {$group_handle} \"$$\\n\""))
 
         #expect(childStop.lowerBound < processGroupPublication.lowerBound)
@@ -134,7 +134,7 @@ struct CLIAuthenticationScriptBuilderTests {
 
         let shortWriteLoop = try #require(script.range(of: "while ($write_offset < length($exec_error))"))
         let shortWriteAdvance = try #require(script.range(of: "$write_offset += $written"))
-        let indeterminateCleanup = try #require(script.range(of: "if ($exec_state eq \"launch_indeterminate\") { $clean_group->(\"TERM\"); _exit(127); }"))
+        let indeterminateCleanup = try #require(script.range(of: "if ($exec_state eq \"launch_indeterminate\") { $cleanup_uncertain = 1; $pre_exec_child = $child if $child_owned && !$child_done; $clean_group->(\"TERM\"); _exit(127); }"))
         let blockingWait = try #require(script.range(of: "waitpid($child, 0)"))
 
         #expect(shortWriteLoop.lowerBound < shortWriteAdvance.lowerBound)
@@ -153,7 +153,7 @@ struct CLIAuthenticationScriptBuilderTests {
             completionStatusFileURL: root.appendingPathComponent("handoff.status")
         )
 
-        #expect(script.contains("if ($probe == $child) { $child_status = $?; $child_done = 1; $exec_state"))
+        #expect(script.contains("if ($probe == $child) { $child_status = $?; $child_done = 1; $child_owned = 0; $exec_state"))
         #expect(script.contains("while (!$child_done) {"))
     }
 
@@ -191,7 +191,7 @@ struct CLIAuthenticationScriptBuilderTests {
 
         #expect(script.contains("process_state_executable='/bin/ps'"))
         #expect(script.contains("return undef unless defined($process_rows)"))
-        #expect(script.contains("process_state_unavailable\\n"))
+        #expect(script.contains("$publish_status->(\"process_state_unavailable\")"))
         #expect(script.contains("if [[ -r \"$status_file\" && ( \"$(<\"$status_file\")\" == process_state_unavailable || \"$(<\"$status_file\")\" == helper_stop_unconfirmed ) ]]; then"))
         let groupStart = try #require(script.range(of: "process_group_is_empty() {"))
         let groupEnd = try #require(script.range(of: "watchdog_is_running() {", range: groupStart.upperBound..<script.endIndex))
@@ -574,31 +574,35 @@ struct CLIAuthenticationScriptBuilderTests {
         try #require(probeCount == 1)
         let observedProbe = probe.replacingOccurrences(of: probeCleanup, with: observedProbeCleanup)
         let supervisorImports = "use strict; use warnings; use Fcntl qw(:DEFAULT O_NONBLOCK); use POSIX qw(setpgid getpgrp waitpid WNOHANG WUNTRACED WIFSTOPPED _exit); use Errno qw(EINTR EAGAIN EWOULDBLOCK EACCES); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC);\n"
-        try replaceOnce(supervisorImports + probe, with: supervisorImports + observedProbe + "\n" + perlGate)
-
-        let originalWrite = #"if (open my $status_handle, ">", $status_path) { print {$status_handle} "process_state_unavailable\n"; close $status_handle; }"#
-        let waitForTrap = publishedBeforeRead ? "" : #"""
+        let originalPublication = CLIAuthenticationScriptBuilder.atomicStatusPublicationSubroutine
+        let originalRename = "rename($temporary, $path) or die \"publication rename\";"
+        let waitForReady = publishedBeforeRead ? "" : #"""
           $fixture_mark->("read-release");
-          if ($fixture_wait->("app-cancel-trap")) { $fixture_mark->("writer-trap-acknowledged"); }
-          else { $fixture_mark->("writer-trap-gate-timeout"); }
+          if ($fixture_wait->("watchdog-ready-decision-completed")) { $fixture_mark->("writer-ready-decision-acknowledged"); }
+          else { $fixture_mark->("writer-ready-gate-timeout"); }
         """#
-        let observedWrite = #"""
-        $fixture_mark->("writer-ready");
-        if ($fixture_wait->("watchdog-parked")) { $fixture_mark->("writer-park-acknowledged"); }
-        else { $fixture_mark->("writer-park-gate-timeout"); }
-        if (open my $status_handle, ">", $status_path) {
-          $fixture_mark->("writer-opened-truncated");
-        \#(waitForTrap)
-          my $fixture_printed = print {$status_handle} "process_state_unavailable\n";
-          my $fixture_closed = close $status_handle;
-          if ($fixture_printed && $fixture_closed) { $fixture_mark->("writer-published"); }
-          else { $fixture_mark->("writer-publication-failed"); }
-          $fixture_mark->("read-release");
-        } else { $fixture_mark->("writer-open-failed"); $fixture_mark->("read-release"); }
+        let observedRename = #"""
+        my $fixture_target = $path eq $ENV{AI_METER_TEST_GROUP_PROBE_STATUS} && $value eq "process_state_unavailable";
+        if ($fixture_target) {
+          $fixture_mark->("writer-staged-closed");
+          my @staged = stat($temporary);
+          $fixture_mark->("writer-staged-mode0600") if @staged && ($staged[2] & 0777) == 0600 && $staged[4] == $< && $staged[3] == 1;
+          $fixture_mark->("writer-ready");
+          if ($fixture_wait->("watchdog-parked")) { $fixture_mark->("writer-park-acknowledged"); }
+          else { $fixture_mark->("writer-park-gate-timeout"); }
+        \#(waitForReady)
+        }
+        rename($temporary, $path) or die "publication rename";
+        if ($fixture_target) { $fixture_mark->("writer-published"); $fixture_mark->("published-release"); }
         """#
-        try replaceOnce(originalWrite, with: observedWrite)
+        let renameCount = originalPublication.components(separatedBy: originalRename).count - 1
+        try #require(renameCount == 1)
+        let observedPublication = originalPublication.replacingOccurrences(of: originalRename, with: observedRename)
+        try replaceOnce(supervisorImports + probe + "\n" + originalPublication,
+                        with: supervisorImports + observedProbe + "\n" + perlGate + "\n" + observedPublication)
         let watchdogImports = "use Fcntl qw(:DEFAULT); use Time::HiRes qw(time); "
-        try replaceOnce(watchdogImports, with: watchdogImports + perlGate + "\nmy $fixture_product_deadline; my $fixture_read_done = 0; ")
+        let prepublication = publishedBeforeRead ? 0 : 1
+        try replaceOnce(watchdogImports, with: watchdogImports + perlGate + "\nmy $fixture_product_deadline; my $fixture_read_done = 0; my $fixture_ready_done = 0; my $fixture_prepublication = \(prepublication); my $fixture_pending_decision = \"\"; ")
         let watchdogDeadline = "my $deadline = time + $seconds; while (time < $deadline)"
         try replaceOnce(watchdogDeadline, with: "my $deadline = time + $seconds; $fixture_product_deadline = $deadline; $fixture_mark->(\"watchdog-login-deadline-active\"); while (time < $deadline)")
         let originalRead = #"my $value = ""; if (open my $handle, "<", $status_file) { $value = <$handle> // ""; close $handle; chomp $value; } return $value;"#
@@ -606,7 +610,8 @@ struct CLIAuthenticationScriptBuilderTests {
         my $fixture_sample = defined($fixture_product_deadline) && !$fixture_read_done && $fixture_seen->("writer-ready");
         if ($fixture_sample) {
           $fixture_mark->("watchdog-parked");
-          if ($fixture_wait->("read-release")) { $fixture_mark->("watchdog-read-release-acknowledged"); }
+          my $fixture_release = $fixture_prepublication && !$fixture_ready_done ? "read-release" : "published-release";
+          if ($fixture_wait->($fixture_release)) { $fixture_mark->("watchdog-read-release-acknowledged"); }
           else { $fixture_mark->("watchdog-read-gate-timeout"); }
           if (time < $fixture_product_deadline) { $fixture_mark->("watchdog-read-before-product-deadline"); }
           else { $fixture_mark->("gate-crossed-product-deadline"); }
@@ -618,8 +623,15 @@ struct CLIAuthenticationScriptBuilderTests {
           close $handle; chomp $value;
         }
         if ($fixture_sample) {
-          $fixture_read_done = 1;
+          $fixture_pending_decision = "";
+          if ($fixture_status_opened && !$fixture_read_errno && $value eq "ready" && $fixture_prepublication && !$fixture_ready_done) {
+            $fixture_mark->("watchdog-read-ready");
+            $fixture_pending_decision = "ready";
+          } elsif ($fixture_status_opened && !$fixture_read_errno && $value eq "process_state_unavailable") {
+            $fixture_read_done = 1; $fixture_pending_decision = "preserve";
+          } else { $fixture_read_done = 1; }
           $fixture_mark->(!$fixture_status_opened ? "watchdog-read-missing" : $fixture_read_errno ? "watchdog-read-error"
+            : $value eq "ready" && $fixture_pending_decision eq "ready" ? "watchdog-ready-read-valid"
             : $value eq "" ? "watchdog-read-empty" : $value eq "process_state_unavailable" ? "watchdog-read-preserve" : "watchdog-read-other");
         }
         return $value;
@@ -647,7 +659,16 @@ struct CLIAuthenticationScriptBuilderTests {
             } else { $fixture_mark->("gate-crossed-product-deadline"); }
           }
           exit 0;
-        } select undef, undef, undef, 0.1; } $finish_deadline->();
+        }
+        if ($fixture_pending_decision eq "ready" && $state eq "ready"
+            && $fixture_seen->("watchdog-ready-read-valid") && $fixture_seen->("watchdog-read-release-acknowledged")
+            && $fixture_seen->("watchdog-read-before-product-deadline")) {
+          $fixture_ready_done = 1; $fixture_pending_decision = "";
+          if (time < $fixture_product_deadline && $fixture_mark->("watchdog-ready-decision-before-product-deadline") && time < $fixture_product_deadline) {
+            $fixture_mark->("watchdog-ready-decision-completed");
+          } else { $fixture_mark->("gate-crossed-product-deadline"); }
+        }
+        select undef, undef, undef, 0.1; } $finish_deadline->();
         """#
         try replaceOnce(timedDecision, with: observedDecision)
         try replaceOnce("my $finish_deadline = sub {", with: "my $finish_deadline = sub { $fixture_mark->(\"watchdog-deadline-entered\");")
@@ -655,11 +676,14 @@ struct CLIAuthenticationScriptBuilderTests {
         try replaceOnce("mark_timeout() { timed_out=1; }", with: "mark_timeout() { timed_out=1; print -r -- observed >| \"$AI_METER_TEST_GROUP_PROBE_GATE/usr1-timeout\"; }")
         let cancelSuccess = """
         cancel_from_app() {
+          (( !cancellation_in_progress )) || return
+          cancellation_in_progress=1
+          deferred_app_cancel=0; deferred_cancel_exit=0
           trap '' HUP INT TERM USR1 USR2
           if stop_owned_processes && cleanup_watchdog; then
         """
         try replaceOnce(cancelSuccess, with: cancelSuccess + "\n    print -r -- observed >| \"$AI_METER_TEST_GROUP_PROBE_GATE/app-cancel-cleanup-confirmed\"")
-        if publishedBeforeRead {
+        do {
             let preservation = #"""
             if [[ -r "$status_file" && ( "$(<"$status_file")" == process_state_unavailable || "$(<"$status_file")" == helper_stop_unconfirmed ) ]]; then
                 guardian_state_preserved=1
@@ -695,31 +719,32 @@ struct CLIAuthenticationScriptBuilderTests {
         let result = try runIsolatedPTYLogin(
             scriptURL: scriptURL, tokenPipe: tokenPipe, cliPIDFile: cliPID, watchdogPIDFile: watchdogPID,
             inputAfterOutput: "handoff received.", supervisorStartRequired: true,
-            additionalEnvironment: ["AI_METER_TEST_GROUP_PROBE_GATE": gate.path], in: root
+            additionalEnvironment: ["AI_METER_TEST_GROUP_PROBE_GATE": gate.path,
+                                    "AI_METER_TEST_GROUP_PROBE_STATUS": statusFile.path], in: root
         )
         func observed(_ name: String) -> Bool {
             (try? String(contentsOf: gate.appendingPathComponent(name), encoding: .utf8)) == "observed\n"
         }
         let required = ["query-entered", "query-reaped-exit42", "writer-ready", "watchdog-parked",
-                        "writer-park-acknowledged", "writer-opened-truncated", "writer-published", "watchdog-login-deadline-active",
+                        "writer-park-acknowledged", "writer-staged-closed", "writer-staged-mode0600", "writer-published", "watchdog-login-deadline-active",
                         "watchdog-read-release-acknowledged", "watchdog-read-before-product-deadline", "watchdog-decision-before-product-deadline",
-                        "watchdog-timed-nonready-branch", publishedBeforeRead ? "watchdog-read-preserve" : "watchdog-read-empty"]
-            + (publishedBeforeRead ? ["watchdog-decision-completed-before-product-deadline", "watchdog-decision-completed"] : [])
-        let rejected = ["writer-park-gate-timeout", "writer-trap-gate-timeout", "watchdog-read-gate-timeout",
+                        "watchdog-timed-nonready-branch", "watchdog-read-preserve",
+                        "watchdog-decision-completed-before-product-deadline", "watchdog-decision-completed"]
+            + (publishedBeforeRead ? [] : ["watchdog-read-ready", "watchdog-ready-read-valid", "watchdog-ready-decision-before-product-deadline",
+                                          "watchdog-ready-decision-completed", "writer-ready-decision-acknowledged"])
+        let rejected = ["writer-park-gate-timeout", "writer-ready-gate-timeout", "watchdog-read-gate-timeout",
                         "shell-preserve-gate-timeout", "writer-open-failed", "writer-publication-failed",
                         "gate-crossed-product-deadline", "watchdog-deadline-entered", "usr1-timeout",
-                        "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error"]
+                        "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error", "watchdog-read-empty"]
         let handshakeComplete = required.allSatisfy(observed) && rejected.allSatisfy { !observed($0) }
-        let cancellationObserved = observed("app-cancel-trap") && observed("writer-trap-acknowledged")
-            && observed("app-cancel-cleanup-confirmed")
         let causalPreconditions = handshakeComplete && result.cleanupSucceeded
-            && (publishedBeforeRead ? !observed("app-cancel-trap") : cancellationObserved)
+            && !observed("app-cancel-trap") && !observed("app-cancel-cleanup-confirmed")
         let finalStatus = try String(contentsOf: statusFile, encoding: .utf8)
         let statusClass = ["ready\n", "process_state_unavailable\n", "helper_cancelled\n", "helper_stop_unconfirmed\n"].contains(finalStatus)
             ? finalStatus.trimmingCharacters(in: .newlines) : "other"
         let evidence: [String: Any] = [
-            "schema": "controlled-group-probe-publication-v1", "acceptance": false,
-            "arm": publishedBeforeRead ? "published" : "empty", "causalPreconditions": causalPreconditions,
+            "schema": "controlled-group-probe-publication-v2", "acceptance": false,
+            "arm": publishedBeforeRead ? "published" : "prepublication", "causalPreconditions": causalPreconditions,
             "classification": causalPreconditions ? "targetBoundaryReached" : "PRECONDITION_FAILED",
             "required": Dictionary(uniqueKeysWithValues: required.map { ($0, observed($0)) }),
             "rejected": Dictionary(uniqueKeysWithValues: rejected.map { ($0, observed($0)) }),
@@ -744,6 +769,541 @@ struct CLIAuthenticationScriptBuilderTests {
             || !FileManager.default.fileExists(atPath: cliStarted.path)
             || !FileManager.default.fileExists(atPath: statusFile.appendingPathExtension("guardian").path)
             || FileManager.default.fileExists(atPath: callback.path)
+    }
+
+    @Test("Atomic status publication preserves prior bytes on each IO failure", arguments: ["none", "absent", "module", "create", "write", "close", "rename", "directory"])
+    func atomicStatusPublicationIOFailure(phase: String) throws {
+        let root = temporaryDirectory()
+        let directory = root.appendingPathComponent("publication", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+            removeTemporaryDirectoryUnlessPreserved(root)
+        }
+        let status = directory.appendingPathComponent("status")
+        if phase != "absent" {
+            try Data("ready\n".utf8).write(to: status)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: status.path)
+        }
+        if phase == "create" { try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path) }
+        let fault = #"""
+        use strict; use warnings; use Errno qw(EINTR ENOSPC EIO); use File::Basename qw(dirname);
+        our ($fixture_fd, $fixture_close_failed);
+        BEGIN {
+          if ($ARGV[0] eq "write") { *CORE::GLOBAL::syswrite = sub { $! = ENOSPC; return undef; }; }
+          if ($ARGV[0] eq "close") {
+            *CORE::GLOBAL::close = sub {
+              if (defined($fixture_fd) && defined(fileno($_[0])) && fileno($_[0]) == $fixture_fd && !$fixture_close_failed++) {
+                $! = EIO; return 0;
+              }
+              return CORE::close($_[0]);
+            };
+          }
+        }
+        """#
+        let original = CLIAuthenticationScriptBuilder.atomicStatusPublicationSubroutine
+        let needle = "@identity = stat($handle);"
+        let matches = original.components(separatedBy: needle).count - 1
+        try #require(matches == 1)
+        let observed = original.replacingOccurrences(of: needle, with: needle + " $main::fixture_fd = fileno($handle);")
+        let publisherProgram = fault.replacingOccurrences(of: "$ARGV[0]", with: "\"\(phase)\"") + "\n" + observed + #"""
+
+        my ($path, $value) = @ARGV;
+        $SIG{ALRM} = sub { die "fixture deadline\n" }; alarm 1;
+        my $ok = atomic_publish_status($path, $value, 1);
+        if ($ok && "FIXTURE_PHASE" eq "rename") { chmod(0500, dirname($path)) == 1 or die "rename fixture mode"; }
+        if ($ok && "FIXTURE_PHASE" eq "directory") {
+          unlink($ENV{AI_METER_TEST_IO_TARGET}) or die "directory fixture unlink";
+          mkdir($ENV{AI_METER_TEST_IO_TARGET}, 0700) or die "directory fixture mkdir";
+        }
+        alarm 0;
+        exit($ok ? 0 : 79);
+        """#
+        let stageProgram = publisherProgram.replacingOccurrences(of: "FIXTURE_PHASE", with: phase)
+        let emitted = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: root.appendingPathComponent("unused"),
+                                                                 completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
+        let begin = try #require(emitted.range(of: "report_status() {"))
+        let end = try #require(emitted.range(of: "publish_completed_failure() {", range: begin.upperBound..<emitted.endIndex))
+        var publisher = String(emitted[begin.lowerBound..<end.lowerBound]).replacingOccurrences(
+            of: shellQuote(CLIAuthenticationScriptBuilder.statusStagingProgram), with: shellQuote(stageProgram))
+        let commit = "publisher_commit=$?"
+        let commitCount = publisher.components(separatedBy: commit).count - 1
+        try #require(commitCount == 1)
+        publisher = publisher.replacingOccurrences(of: commit, with: commit + "\n  print -r -- \"$publisher_commit\" >| \"$PWD/commit.result\"")
+        if phase == "module" {
+            let load = "builtin zmodload -F zsh/files b:zf_mv b:zf_rm"
+            let loadCount = publisher.components(separatedBy: load).count - 1
+            try #require(loadCount == 1)
+            publisher = publisher.replacingOccurrences(of: load, with: "builtin false")
+        }
+        let guardBegin = try #require(emitted.range(of: "guardian_stop_permission_valid() {"))
+        let guardEnd = try #require(emitted.range(of: "process_group_is_empty() {", range: guardBegin.upperBound..<emitted.endIndex))
+        let guardFunctions = String(emitted[guardBegin.lowerBound..<guardEnd.lowerBound])
+        let expected = ["none", "absent"].contains(phase) ? 0 : 1
+        let program = """
+        set -u
+        builtin cd -- \(shellQuote(root.path)) || exit 90
+        status_file=\(shellQuote(status.path))
+        export AI_METER_TEST_IO_TARGET="$status_file"
+        status_publication_failed=0; status_publication_critical=0; status_publication_sequence=0; cleanup_state_uncertain=0; guardian_state_preserved=0
+        launch_critical=0; deferred_app_cancel=0; deferred_cancel_exit=0; cancellation_in_progress=0; agy_stop_requested=0; agy_wait_status=0
+        \(publisher)
+        \(guardFunctions)
+        report_status callback_failed
+        fixture_publish_result=$?
+        owned_stop_confirmation_is_safe
+        fixture_guard_result=$?
+        [[ "$fixture_publish_result" == \(expected) && "$fixture_guard_result" == \(expected) && "$status_publication_failed" == \(expected) && "$status_publication_critical" == 0 ]]
+        """
+        let result = try #require(FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/bin/zsh"),
+                                                        arguments: ["-f", "-c", program], in: root, timeout: .seconds(3)))
+        #expect(result.exitStatus == 0)
+        if phase == "directory" {
+            #expect(try status.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true)
+            #expect(try FileManager.default.contentsOfDirectory(atPath: status.path).isEmpty)
+            #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("commit.result").path))
+        } else {
+            let payloadMatches = try String(contentsOf: status, encoding: .utf8) == (["none", "absent"].contains(phase) ? "callback_failed\n" : "ready\n")
+            #expect(payloadMatches)
+            let mode = try FileManager.default.attributesOfItem(atPath: status.path)[.posixPermissions] as? NSNumber
+            #expect(mode?.intValue == 0o600)
+        }
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path).filter { $0 != "status" }
+        if phase == "rename" {
+            let commitFailed = (try? String(contentsOf: root.appendingPathComponent("commit.result"), encoding: .utf8)) == "1\n"
+            let directoryMode = try FileManager.default.attributesOfItem(atPath: directory.path)[.posixPermissions] as? NSNumber
+            #expect(commitFailed)
+            #expect(directoryMode?.intValue == 0o500)
+            #expect(leftovers.count == 1 && leftovers.allSatisfy { $0.hasPrefix("status.publish-shell.") })
+        } else { #expect(leftovers.isEmpty) }
+    }
+
+    @Test("Stop confirmation requires matching permission and rejects an unreaped publisher",
+          arguments: ["normal0", "normal7", "signal137", "stop-missing", "stop-valid", "stop-wrong", "stop-wrong-nonce", "stop-extra", "stop-extra-bytes", "stop-helper-ack", "uncertain", "publisher-active", "publication-failed"])
+    func guardianStopConfirmationGate(fixture: String) throws {
+        let root = temporaryDirectory()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let identity = root.appendingPathComponent("guardian")
+        let permission = root.appendingPathComponent("stopped")
+        try Data("123 0123456789abcdef0123456789abcdef\n".utf8).write(to: identity)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: identity.path)
+        if fixture != "stop-missing" && (fixture.hasPrefix("stop-") || ["uncertain", "publisher-active", "publication-failed"].contains(fixture)) {
+            let pid = fixture == "stop-wrong" ? "124" : "123"
+            let nonce = fixture == "stop-wrong-nonce" ? "ffffffffffffffffffffffffffffffff" : "0123456789abcdef0123456789abcdef"
+            var value = "guardian_stop_accepted_v1:\(pid):\(nonce)\n"
+            if fixture == "stop-extra" { value += "\n" }
+            if fixture == "stop-extra-bytes" { value += "x" }
+            if fixture == "stop-helper-ack" { value = "helper_stopped_v1:status:missing_pipe\n" }
+            try Data(value.utf8).write(to: permission)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: permission.path)
+        }
+        let emitted = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: root.appendingPathComponent("unused"),
+                                                                 completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
+        let begin = try #require(emitted.range(of: "guardian_stop_permission_valid() {"))
+        let end = try #require(emitted.range(of: "process_group_is_empty() {", range: begin.upperBound..<emitted.endIndex))
+        let functions = String(emitted[begin.lowerBound..<end.lowerBound])
+        let expected = ["normal0", "normal7", "stop-valid"].contains(fixture) ? 0 : 1
+        let program = """
+        set -u
+        agy_pid=123
+        guardian_state_file=\(shellQuote(identity.path))
+        cleanup_ack_file=\(shellQuote(permission.path))
+        agy_stop_requested=\(fixture.hasPrefix("stop-") || fixture == "uncertain" ? 1 : 0)
+        agy_wait_status=\(fixture == "signal137" ? 137 : fixture == "normal7" ? 7 : 0)
+        status_publication_critical=\(fixture == "publisher-active" ? 1 : 0)
+        status_publication_failed=\(fixture == "publication-failed" ? 1 : 0)
+        cleanup_state_uncertain=\(fixture == "uncertain" ? 1 : 0)
+        \(functions)
+        owned_stop_confirmation_is_safe
+        [[ "$?" == \(expected) ]]
+        """
+        let result = try #require(FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/bin/zsh"),
+                                                        arguments: ["-f", "-c", program], in: root, timeout: .seconds(2)))
+        #expect(result.exitStatus == 0)
+        #expect(FileManager.default.fileExists(atPath: identity.path))
+    }
+
+    @Test("A guardian rename failure cannot become a confirmed timeout or cancellation")
+    func guardianPublicationFailureWithholdsStopPermission() throws {
+        let root = temporaryDirectory()
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let pipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: pipe)
+        let pid = root.appendingPathComponent("cli.pid")
+        let callback = root.appendingPathComponent("callback")
+        let fault = root.appendingPathComponent("rename-failed")
+        let cli = try writeExecutable("#!/bin/sh\nprintf '%s\\n' \"$$\" > '\(pid.path)'\nexit 0\n", named: "agy", in: root)
+        let opener = try writeExecutable("#!/bin/sh\n: > '\(callback.path)'\n", named: "open", in: root)
+        let query = try writeExecutable(#"""
+        #!/bin/sh
+        case " $* " in
+          *" -g "*) exit 42 ;;
+          *" -p "*) exec /bin/ps "$@" ;;
+          *) exit 42 ;;
+        esac
+        """#, named: "fake-ps", in: root)
+        let watchdogPID = root.appendingPathComponent("watchdog.pid")
+        let watchdog = try writeTrackedPerlWatchdog(pidFile: watchdogPID, in: root)
+        var script = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: cli,
+            completionTokenPipeURL: pipe, completionOpenExecutableURL: opener, watchdogExecutableURL: watchdog,
+            processStateExecutableURL: query, loginTimeoutSeconds: 1)
+        let prefix = "use strict; use warnings; use Fcntl qw(:DEFAULT O_NONBLOCK);"
+        let injected = prefix + #"""
+
+        use Errno qw(EROFS);
+        BEGIN {
+          *CORE::GLOBAL::rename = sub {
+            if ($_[1] eq $ARGV[1]) {
+              open my $marker, ">", $ENV{AI_METER_TEST_PUBLICATION_FAULT} or die $!;
+              print {$marker} "observed\n"; close $marker or die $!;
+              $! = EROFS; return 0;
+            }
+            return CORE::rename($_[0], $_[1]);
+          };
+        }
+        """#
+        let count = script.components(separatedBy: prefix).count - 1
+        try #require(count == 1)
+        script = script.replacingOccurrences(of: prefix, with: injected)
+        let scriptURL = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: scriptURL)
+        let result = try runIsolatedPTYLogin(scriptURL: scriptURL, tokenPipe: pipe, cliPIDFile: pid, watchdogPIDFile: watchdogPID,
+            inputAfterOutput: "handoff received.", supervisorStartRequired: true,
+            additionalEnvironment: ["AI_METER_TEST_PUBLICATION_FAULT": fault.path], in: root)
+        let status = pipe.appendingPathExtension("status")
+        let statusMatches = try String(contentsOf: status, encoding: .utf8) == "helper_stop_unconfirmed\n"
+        let failureObserved = (try? String(contentsOf: fault, encoding: .utf8)) == "observed\n"
+        let exit = try #require(result.terminationStatus)
+        if !result.cleanupSucceeded || !statusMatches || !failureObserved {
+            preserveTemporaryDirectory(root, reason: "guardian publication failure contract not reached")
+        }
+        #expect(result.cleanupSucceeded)
+        #expect(failureObserved)
+        #expect(exit == 124 || exit == 127)
+        #expect(statusMatches)
+        #expect(FileManager.default.fileExists(atPath: status.appendingPathExtension("guardian").path))
+        #expect(!FileManager.default.fileExists(atPath: status.appendingPathExtension("stopped").path))
+        #expect(!FileManager.default.fileExists(atPath: callback.path))
+    }
+
+    @Test("A signal-like CLI completion cannot clear its guardian without stop acceptance")
+    func ambiguousCLICompletionPreservesGuardian() throws {
+        let root = temporaryDirectory()
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let pipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: pipe)
+        let callback = root.appendingPathComponent("callback")
+        let cli = try writeExecutable("#!/bin/sh\nexit 137\n", named: "agy", in: root)
+        let opener = try writeExecutable("#!/bin/sh\n: > '\(callback.path)'\n", named: "open", in: root)
+        let result = try runGeminiScript(executable: cli, fakeOpen: opener, timeoutSeconds: 8, tokenPipe: pipe, in: root)
+        #expect(result.cleanupSucceeded)
+        #expect(result.terminationStatus == 127)
+        let statusMatches = try String(contentsOf: pipe.appendingPathExtension("status"), encoding: .utf8) == "helper_stop_unconfirmed\n"
+        #expect(statusMatches)
+        #expect(FileManager.default.fileExists(atPath: pipe.path + ".status.guardian"))
+        #expect(!FileManager.default.fileExists(atPath: callback.path))
+    }
+
+    @Test("Publisher interruption reaches the real final cancellation once with its request retained", arguments: [false, true])
+    func statusPublisherJoinPrecedesDeferredCancellation(stageFails: Bool) throws {
+        // Removing the one-shot dispatch guard causes recursive publishers;
+        // treating an interrupted wait as completion exposes the held owner.
+        let root = temporaryDirectory()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let emitted = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: root.appendingPathComponent("unused"),
+                                                                 completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
+        let start = try #require(emitted.range(of: "report_status() {"))
+        let finish = try #require(emitted.range(of: "publish_completed_failure() {", range: start.upperBound..<emitted.endIndex))
+        var publisher = String(emitted[start.lowerBound..<finish.lowerBound])
+        let gate = #"""
+        use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC sleep);
+        open my $values, ">>", "publish.values" or die $!; print {$values} "$ARGV[1]\n"; close $values or die $!;
+        if ($ARGV[1] eq "callback_failed") {
+          open my $pid_file, ">", "publisher.pid" or die $!; print {$pid_file} "$$\n"; close $pid_file or die $!;
+          open my $cancel, ">", "cancel" or die $!; print {$cancel} "cancelled\n"; close $cancel or die $!;
+          kill "USR2", getppid() or die "owned parent unavailable";
+          my $until = clock_gettime(CLOCK_MONOTONIC) + 0.5;
+          while (!-e "release") { die "join fixture gate timeout" if clock_gettime(CLOCK_MONOTONIC) >= $until; sleep 0.005; }
+          exit 79 if FIXTURE_STAGE_FAILS;
+        }
+        """#
+        let originalProgram = CLIAuthenticationScriptBuilder.statusStagingProgram
+        let declaration = "my ($path, $value) = @ARGV;"
+        try #require(originalProgram.components(separatedBy: declaration).count == 2)
+        let gatedProgram = originalProgram.replacingOccurrences(of: declaration,
+            with: gate.replacingOccurrences(of: "FIXTURE_STAGE_FAILS", with: stageFails ? "1" : "0") + "\n" + declaration)
+        try #require(publisher.components(separatedBy: shellQuote(originalProgram)).count == 2)
+        publisher = publisher.replacingOccurrences(of: shellQuote(originalProgram), with: shellQuote(gatedProgram))
+        let commit = "builtin zf_mv -f \"$publisher_temporary\" \"$status_file\""
+        try #require(publisher.components(separatedBy: commit).count == 2)
+        let joinedBeforeCommit = #"""
+        wait "$publisher_pid"; [[ "$?" == 0 ]] || exit 98
+        if [[ "$1" == callback_failed ]]; then
+          [[ "$(<"$status_file")" == ready && -e deferred ]] || exit 99
+          print -r -- observed > before-commit-joined
+        fi
+        """#
+        publisher = publisher.replacingOccurrences(of: commit, with: joinedBeforeCommit + "\n" + commit)
+        let functionsStart = try #require(emitted.range(of: "process_state() {"))
+        let functionsEnd = try #require(emitted.range(of: "mark_timeout() {", range: functionsStart.upperBound..<emitted.endIndex))
+        let functions = String(emitted[functionsStart.lowerBound..<functionsEnd.lowerBound])
+        let stopStart = try #require(emitted.range(of: "stop_requested() {"))
+        let stopEnd = try #require(emitted.range(of: "\n", range: stopStart.upperBound..<emitted.endIndex))
+        let stop = String(emitted[stopStart.lowerBound..<stopEnd.lowerBound])
+        let program = """
+        set -u
+        builtin cd -- \(shellQuote(root.path)) || exit 90
+        umask 077
+        status_file="$PWD/status"; cancel_request_file="$PWD/cancel"
+        process_group_file="$PWD/group"; guardian_state_file="$PWD/guardian"; guardian_stop_file="$PWD/stop"
+        watchdog_ready_file="$PWD/watchdog-ready"; cleanup_ack_file="$PWD/stopped"
+        print -r -- ready > "$status_file"
+        print -r -- retained > "$guardian_state_file"
+        status_publication_critical=0; status_publication_failed=0; status_publication_sequence=0
+        cleanup_state_uncertain=0; cleanup_uncertain=0; guardian_state_preserved=0
+        launch_critical=0; deferred_app_cancel=0; deferred_cancel_exit=0; cancellation_in_progress=0
+        agy_pid=""; agy_child_reaped=0; agy_stop_requested=0; agy_wait_status=0; watchdog_pid=""
+        terminal_foreground_transferred=0
+        \(stop)
+        \(publisher)
+        \(functions)
+        trap 'request_app_cancel; (( status_publication_critical && deferred_app_cancel )) || exit 96; [[ "$(<"$status_file")" == ready ]] || exit 97; print -r -- observed > deferred; print -r -- observed > release' USR2
+        report_status callback_failed
+        exit 91
+        """
+        let result = try #require(FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/bin/zsh"),
+                                                        arguments: ["-f", "-c", program], in: root, timeout: .seconds(3)))
+        #expect(result.exitStatus == 130)
+        let status = try String(contentsOf: root.appendingPathComponent("status"), encoding: .utf8)
+        let publications = try String(contentsOf: root.appendingPathComponent("publish.values"), encoding: .utf8)
+        let cancel = try String(contentsOf: root.appendingPathComponent("cancel"), encoding: .utf8)
+        #expect(cancel == "cancelled\n")
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("deferred").path))
+        if stageFails {
+            #expect(status == "ready\n")
+            #expect(publications == "callback_failed\n")
+            #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("guardian").path))
+            #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("before-commit-joined").path))
+        } else {
+            #expect(status == "helper_cancelled\n")
+            #expect(publications == "callback_failed\nhelper_cancelled\n")
+            #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("guardian").path))
+            #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("before-commit-joined").path))
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("stopped").path))
+    }
+
+    @Test("Exec confirmation ownership loss cannot recreate a numeric cleanup target")
+    func execProbeOwnershipLossNeverSignalsReapedChild() throws {
+        // The child is genuinely reaped first; the actual second wait returns
+        // ECHILD. A kill interceptor refuses every signal before any syscall.
+        let root = temporaryDirectory()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let emitted = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: root.appendingPathComponent("unused"),
+                                                                 completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
+        let cleanupStart = try #require(emitted.range(of: "my ($resume_reader, $resume_writer, $pre_exec_child)"))
+        let cleanupEnd = try #require(emitted.range(of: "$SIG{TERM} = sub", range: cleanupStart.upperBound..<emitted.endIndex))
+        var cleanup = String(emitted[cleanupStart.lowerBound..<cleanupEnd.lowerBound])
+        let exit = #"_exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);"#
+        try #require(cleanup.components(separatedBy: exit).count == 2)
+        cleanup = cleanup.replacingOccurrences(of: exit, with: #"""
+        die "ownership loss was accepted" unless $cleanup_uncertain && !$child_owned && !defined($pre_exec_child);
+        syswrite(STDOUT, "lost-owned-child-retained\n") == 26 or die "proof write";
+        """# + "\n" + exit)
+        let probeStart = try #require(emitted.range(of: "my $exec_state = \"exec_confirmed\";"))
+        let probeEnd = try #require(emitted.range(of: "my $exec_status_ok = 0;", range: probeStart.upperBound..<emitted.endIndex))
+        let routeStart = try #require(emitted.range(of: "if ($exec_state ne \"exec_confirmed\") {", range: probeEnd.upperBound..<emitted.endIndex))
+        let routeEnd = try #require(emitted.range(of: "while (!$child_done) {", range: routeStart.upperBound..<emitted.endIndex))
+        let program = #"""
+        use strict; use warnings; use POSIX qw(getpgrp waitpid WNOHANG _exit); use Errno qw(EINTR);
+        use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC sleep);
+        BEGIN { *CORE::GLOBAL::kill = sub { die "refused unowned signal before syscall"; }; }
+        die "fixture must not lead its group" if $$ == getpgrp();
+        my ($stopping, $cleanup_uncertain, $publication_failed) = (0, 0, 0);
+        my $nonce = "0123456789abcdef0123456789abcdef";
+        my $guardian_state_file = "$ARGV[0]/absent-guardian"; my $status_path = "$ARGV[0]/status";
+        my $matched_stop_request = sub { return 1; };
+        \#(cleanup)
+        my $child = fork(); defined($child) or die "owned fixture fork";
+        if ($child == 0) { _exit(0); }
+        waitpid($child, 0) == $child && $? == 0 or die "real owned reap";
+        $child_owned = 1;
+        my $exec_error = "";
+        \#(String(emitted[probeStart.lowerBound..<probeEnd.lowerBound]))
+        \#(String(emitted[routeStart.lowerBound..<routeEnd.lowerBound]))
+        die "ownership-loss branch not reached";
+        """#
+        let result = try #require(FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/usr/bin/perl"),
+            arguments: ["-e", program, root.path], in: root, timeout: .seconds(3)))
+        #expect(result.exitStatus == 143)
+        #expect(result.text == "lost-owned-child-retained\n")
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("status.stopped").path))
+    }
+
+    @Test("Initial STOP observation retires terminal ownership before pending cleanup", arguments: ["stopped", "terminated", "lost"])
+    func initialStopWaitAndOwnershipRetirementAreIndivisible(mode: String) throws {
+        // Actual stopped/terminal/ECHILD waits are retained. A pending self-TERM
+        // enters the real cleanup only after the corresponding state transition.
+        let root = temporaryDirectory()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let emitted = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: root.appendingPathComponent("unused"),
+                                                                 completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
+        let cleanupStart = try #require(emitted.range(of: "my ($resume_reader, $resume_writer, $pre_exec_child)"))
+        let cleanupEnd = try #require(emitted.range(of: "$SIG{TERM} = sub", range: cleanupStart.upperBound..<emitted.endIndex))
+        var cleanup = String(emitted[cleanupStart.lowerBound..<cleanupEnd.lowerBound])
+        let exit = #"_exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);"#
+        try #require(cleanup.components(separatedBy: exit).count == 2)
+        cleanup = cleanup.replacingOccurrences(of: exit, with: #"""
+        die "missing real masked delivery" unless $fixture_window && $fixture_pending && $fixture_handler;
+        die "target not retired" if $child_owned || defined($pre_exec_child);
+        die "wrong owned cleanup" unless $fixture_kills == ($fixture_mode eq "stopped" ? 1 : 0);
+        die "wrong uncertainty" unless $cleanup_uncertain == ($fixture_mode eq "stopped" ? 0 : 1);
+        die "STOP ownership not observed" if $fixture_mode eq "stopped" && !$fixture_stop_proven;
+        my $proof = "$fixture_mode-cleanup\n";
+        syswrite(STDOUT, $proof) == length($proof) or die "proof write";
+        """# + "\n" + exit)
+        let loopStart = try #require(emitted.range(of: "my $child_stopped = 0; my $stop_deadline = time + 2;"))
+        let loopEnd = try #require(emitted.range(of: "if (!$child_stopped) {\n", range: loopStart.upperBound..<emitted.endIndex))
+        var loop = String(emitted[loopStart.lowerBound..<loopEnd.lowerBound])
+        let wait = "my $waited = waitpid($child, WNOHANG | WUNTRACED);\n  my $stop_wait_error = 0 + $!;\n  my $stop_wait_status = ${^CHILD_ERROR_NATIVE};"
+        try #require(loop.components(separatedBy: wait).count == 2)
+        let postwait = #"""
+        if (($waited == $child && ($fixture_mode ne "stopped" || WIFSTOPPED($stop_wait_status)))
+            || ($waited == -1 && $stop_wait_error != EINTR && $fixture_mode eq "lost")) {
+          $fixture_window = 1;
+          $fixture_stop_proven = $waited == $child && WIFSTOPPED($stop_wait_status) ? 1 : 0;
+          CORE::kill("TERM", $$) or die "owned self-signal";
+          my $pending = POSIX::SigSet->new();
+          defined(POSIX::sigpending($pending)) && $pending->ismember(POSIX::SIGTERM()) or die "postwait stop not masked";
+          $fixture_pending = 1;
+          syswrite(STDOUT, "postwait-masked\n") == 16 or die "window proof";
+        }
+        """#
+        loop = loop.replacingOccurrences(of: wait, with: wait + "\n" + postwait)
+        let program = #"""
+        use strict; use warnings; use POSIX qw(getpgrp waitpid WNOHANG WUNTRACED WIFSTOPPED _exit);
+        use Errno qw(EINTR); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC);
+        our ($fixture_mode, $fixture_child, $fixture_owned_ref, $fixture_target_ref, $fixture_kills);
+        BEGIN {
+          *CORE::GLOBAL::kill = sub {
+            my ($signal, @targets) = @_;
+            die "refused unverified numeric signal before syscall" unless $fixture_mode eq "stopped"
+              && $signal eq "KILL" && @targets == 1 && $targets[0] == $fixture_child
+              && $$fixture_owned_ref && defined($$fixture_target_ref) && $$fixture_target_ref == $fixture_child;
+            ++$fixture_kills;
+            return CORE::kill($signal, @targets);
+          };
+        }
+        die "fixture must not lead its group" if $$ == getpgrp();
+        $fixture_mode = $ARGV[1]; $fixture_kills = 0;
+        my ($stopping, $cleanup_uncertain, $publication_failed) = (0, 0, 0);
+        my ($fixture_window, $fixture_pending, $fixture_handler, $fixture_stop_proven) = (0, 0, 0, 0);
+        my $nonce = "0123456789abcdef0123456789abcdef";
+        my $guardian_state_file = "$ARGV[0]/absent-guardian"; my $status_path = "$ARGV[0]/status";
+        my $matched_stop_request = sub { return 0; };
+        \#(cleanup)
+        $fixture_owned_ref = \$child_owned; $fixture_target_ref = \$pre_exec_child;
+        my $stop_requested = sub { return 0; };
+        my $mark_cleanup_unconfirmed = sub { $cleanup_uncertain = 1; };
+        my $fork_signals = POSIX::SigSet->new(POSIX::SIGTERM(), POSIX::SIGINT(), POSIX::SIGHUP());
+        my $child = fork(); defined($child) or die "real fork";
+        if ($child == 0) { if ($fixture_mode eq "stopped") { CORE::kill("STOP", $$) or _exit(127); } _exit(127); }
+        $fixture_child = $child; $pre_exec_child = $child; $child_owned = 1;
+        if ($fixture_mode eq "lost") { waitpid($child, 0) == $child or die "initial actual reap"; }
+        $SIG{TERM} = sub { $fixture_handler = 1; $clean_group->("TERM"); };
+        $SIG{INT} = sub { $clean_group->("INT"); }; $SIG{HUP} = sub { $clean_group->("HUP"); };
+        \#(loop)
+        # A missing delivery cannot pass. Still perform the actual owned cleanup.
+        $cleanup_uncertain = 1; $clean_group->("TERM");
+        die "cleanup unexpectedly returned";
+        """#
+        let result = try #require(FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/usr/bin/perl"),
+            arguments: ["-e", program, root.path, mode], in: root, timeout: .seconds(3)))
+        #expect(result.exitStatus == 143)
+        #expect(result.text == "postwait-masked\n\(mode)-cleanup\n")
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("status.stopped").path))
+    }
+
+    @Test("A stop delivered at the true fork return waits for registration and real preexec reap")
+    func guardianForkRegistrationMasksStopUntilOwnedReap() throws {
+        // Removing the fork mask permits the real handler to publish before
+        // registration. Only the owned supervisor sends this self-signal.
+        let root = temporaryDirectory()
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let pipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: pipe)
+        let status = pipe.appendingPathExtension("status")
+        let cliStarted = root.appendingPathComponent("cli-started")
+        let childPID = root.appendingPathComponent("preexec.pid")
+        let proof = root.appendingPathComponent("fork-proof")
+        let watchdogPID = root.appendingPathComponent("watchdog.pid")
+        let watchdog = try writeTrackedPerlWatchdog(pidFile: watchdogPID, in: root)
+        let cli = try writeExecutable("#!/bin/sh\nprintf started > '\(cliStarted.path)'\nexit 0\n", named: "agy", in: root)
+        var script = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: cli,
+            completionTokenPipeURL: pipe, completionOpenExecutableURL: URL(fileURLWithPath: "/usr/bin/false"),
+            watchdogExecutableURL: watchdog, loginTimeoutSeconds: 1)
+        func replaceOnce(_ old: String, _ new: String) throws {
+            try #require(script.components(separatedBy: old).count == 2)
+            script = script.replacingOccurrences(of: old, with: new)
+        }
+        let declaration = "my ($resume_reader, $resume_writer, $pre_exec_child);"
+        try replaceOnce(declaration, declaration + " my $fixture_preexec_reaped = 0;")
+        let childBranch = "if ($child == 0) {"
+        let forkWindow = #"""
+        if ($child != 0) {
+          open my $pid, ">", $ENV{AI_METER_TEST_PREEXEC_PID} or die "pid open";
+          print {$pid} "$child\n" or die "pid write"; close $pid or die "pid close";
+          open my $cancel, ">", $cancel_request_path or die "cancel open";
+          chmod 0600, $cancel_request_path or die "cancel mode";
+          print {$cancel} "cancelled\n" or die "cancel write"; close $cancel or die "cancel close";
+          kill "TERM", $$ or die "self signal";
+          my $pending = POSIX::SigSet->new();
+          defined(POSIX::sigpending($pending)) && $pending->ismember(POSIX::SIGTERM()) or die "stop not masked";
+          die "early stop permission" if -e "${status_path}.stopped";
+          open my $proof, ">", $ENV{AI_METER_TEST_FORK_PROOF} or die "proof open";
+          print {$proof} "fork-masked\n"; close $proof or die "proof close";
+        }
+        """#
+        try replaceOnce(childBranch, forkWindow + "\n" + childBranch)
+        let reaped = "if ($waited == $pre_exec_child) { undef $pre_exec_child; $child_owned = 0; last; }"
+        let observedReap = #"""
+        if ($waited == $pre_exec_child) {
+          $fixture_preexec_reaped = 1;
+          open my $proof, ">>", $ENV{AI_METER_TEST_FORK_PROOF} or die "proof open";
+          print {$proof} "reaped\n"; close $proof or die "proof close";
+          undef $pre_exec_child; $child_owned = 0; last;
+        }
+        """#
+        try replaceOnce(reaped, observedReap)
+        let permit = "if (!atomic_publish_status(\"${status_path}.stopped\", \"guardian_stop_accepted_v1:$$:$nonce\")) {"
+        let observedPermit = #"""
+        die "permission before real reap" unless $fixture_preexec_reaped;
+        open my $proof, ">>", $ENV{AI_METER_TEST_FORK_PROOF} or die "proof open";
+        print {$proof} "permission\n"; close $proof or die "proof close";
+        """#
+        try replaceOnce(permit, observedPermit + "\n" + permit)
+        let url = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: url)
+        let result = try runIsolatedPTYLogin(scriptURL: url, tokenPipe: pipe,
+            cliPIDFile: root.appendingPathComponent("unused-cli.pid"), watchdogPIDFile: watchdogPID,
+            inputAfterOutput: "handoff received.", cliStartRequired: false, supervisorStartRequired: true,
+            additionalTrackedProcessIDFiles: [childPID], additionalEnvironment: [
+                "AI_METER_TEST_PREEXEC_PID": childPID.path, "AI_METER_TEST_FORK_PROOF": proof.path
+            ], in: root)
+        #expect(result.wrapperExitedBeforeFallback)
+        #expect(!result.fallbackCleanupUsed)
+        #expect(result.cleanupSucceeded)
+        #expect(result.terminationStatus == 130)
+        #expect(try String(contentsOf: proof, encoding: .utf8) == "fork-masked\nreaped\npermission\n")
+        #expect(try String(contentsOf: status, encoding: .utf8) == "helper_cancelled\n")
+        #expect(try String(contentsOf: status.appendingPathExtension("cancel"), encoding: .utf8) == "cancelled\n")
+        #expect(!FileManager.default.fileExists(atPath: cliStarted.path))
+        #expect(!FileManager.default.fileExists(atPath: status.appendingPathExtension("guardian").path))
     }
 
     @Test("Antigravity app cancellation acknowledges only confirmed helper cleanup")
@@ -2334,6 +2894,8 @@ struct CLIAuthenticationScriptBuilderTests {
     private struct IsolatedPTYLoginResult {
         let cleanupSucceeded: Bool
         let terminationStatus: Int32?
+        let wrapperExitedBeforeFallback: Bool
+        let fallbackCleanupUsed: Bool
         var terminalOutput = ""
     }
 
@@ -2415,6 +2977,8 @@ struct CLIAuthenticationScriptBuilderTests {
             .appendingPathExtension("process-group")
         var inputSent = false
         var childExited = false
+        var wrapperExitedBeforeFallback = false
+        var fallbackCleanupUsed = false
         var childOwnershipUnknown = false
         var childSignalSent = false
         var markerActionPerformed = false
@@ -2492,6 +3056,9 @@ struct CLIAuthenticationScriptBuilderTests {
             switch observePTYChild(childPID, status: &childStatus) {
             case .exited:
                 childExited = true
+                // Positive wait/reap observation in the original main loop.
+                // A later ordinary exit after HUP cannot set this fact.
+                wrapperExitedBeforeFallback = true
                 break
             case .running:
                 break
@@ -2505,9 +3072,12 @@ struct CLIAuthenticationScriptBuilderTests {
 
         guard !childOwnershipUnknown else {
             preserveTemporaryDirectory(root, reason: "PTY wrapper ownership became unknown")
-            return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil)
+            return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil,
+                wrapperExitedBeforeFallback: wrapperExitedBeforeFallback, fallbackCleanupUsed: fallbackCleanupUsed)
         }
         if !childExited {
+            // Latch before entering rescue or sending its first signal.
+            fallbackCleanupUsed = true
             // The PTY child is a direct unreaped child, so its PID cannot be
             // reused before waitpid. HUP closes this private controlling tty and
             // lets the generated shell run its normal cancellation cleanup.
@@ -2519,10 +3089,12 @@ struct CLIAuthenticationScriptBuilderTests {
                 break
             case .ownershipUnknown:
                 preserveTemporaryDirectory(root, reason: "PTY wrapper ownership became unknown after HUP")
-                return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil)
+                return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil,
+                    wrapperExitedBeforeFallback: wrapperExitedBeforeFallback, fallbackCleanupUsed: fallbackCleanupUsed)
             }
         }
         if !childExited {
+            fallbackCleanupUsed = true
             _ = Darwin.kill(childPID, SIGTERM)
             switch waitForPTYChild(childPID, status: &childStatus, timeout: 1) {
             case .exited:
@@ -2531,16 +3103,19 @@ struct CLIAuthenticationScriptBuilderTests {
                 break
             case .ownershipUnknown:
                 preserveTemporaryDirectory(root, reason: "PTY wrapper ownership became unknown after TERM")
-                return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil)
+                return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil,
+                    wrapperExitedBeforeFallback: wrapperExitedBeforeFallback, fallbackCleanupUsed: fallbackCleanupUsed)
             }
         }
         if !childExited {
+            fallbackCleanupUsed = true
             _ = Darwin.kill(childPID, SIGKILL)
             childExited = waitForPTYChild(childPID, status: &childStatus, timeout: 1) == .exited
         }
         guard childExited else {
             preserveTemporaryDirectory(root, reason: "PTY wrapper did not exit after bounded cleanup")
-            return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil)
+            return IsolatedPTYLoginResult(cleanupSucceeded: false, terminationStatus: nil,
+                wrapperExitedBeforeFallback: wrapperExitedBeforeFallback, fallbackCleanupUsed: fallbackCleanupUsed)
         }
 
         let supervisorExited = trackedChildExited(pidFile: guardianPIDFile, required: supervisorStartRequired || cliStartRequired, in: root)
@@ -2562,12 +3137,14 @@ struct CLIAuthenticationScriptBuilderTests {
             return IsolatedPTYLoginResult(
                 cleanupSucceeded: false,
                 terminationStatus: childStatus & 0x7f == 0 ? (childStatus >> 8) & 0xff : nil,
+                wrapperExitedBeforeFallback: wrapperExitedBeforeFallback, fallbackCleanupUsed: fallbackCleanupUsed,
                 terminalOutput: String(decoding: output, as: UTF8.self)
             )
         }
         return IsolatedPTYLoginResult(
             cleanupSucceeded: true,
             terminationStatus: childStatus & 0x7f == 0 ? (childStatus >> 8) & 0xff : nil,
+            wrapperExitedBeforeFallback: wrapperExitedBeforeFallback, fallbackCleanupUsed: fallbackCleanupUsed,
             terminalOutput: String(decoding: output, as: UTF8.self)
         )
     }
@@ -2809,6 +3386,7 @@ struct CLIAuthenticationScriptBuilderTests {
         let status = URL(fileURLWithPath: "/tmp/hand-off status's.status")
         for request in [status, status.appendingPathExtension("exec"), status.appendingPathExtension("lock"),
                         status.appendingPathExtension("ready"), status.appendingPathExtension("guardian"),
+                        status.appendingPathExtension("stopped"), status.appendingPathExtension("stopped.tmp"),
                         URL(fileURLWithPath: "/tmp/handoff.token")] {
             #expect(throws: CLIAuthenticationScriptError.invalidCompletionTokenPipe) {
                 try CLIAuthenticationScriptBuilder().build(
@@ -2834,7 +3412,7 @@ struct CLIAuthenticationScriptBuilderTests {
                 completionTokenPipeURL: root.appendingPathComponent("never-opened-token")
             )
             let start = try #require(script.range(of: "sub group_peers {"))
-            let end = try #require(script.range(of: "my $stop_requested = sub", range: start.upperBound..<script.endIndex))
+            let end = try #require(script.range(of: "my $read_stop_control = sub", range: start.upperBound..<script.endIndex))
             // Exercise the emitted guardian function and its real bounded /bin/ps
             // child. No CLI, wrapper, Terminal or process-group signal is used.
             let peers = String(script[start.lowerBound..<end.lowerBound])
@@ -3066,7 +3644,7 @@ struct CLIAuthenticationScriptBuilderTests {
             use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC sleep);
             my ($mode) = @ARGV;
             setpgid(0, 0) == 0 or die "owned private group unavailable";
-            my $identity = "$$ fixture-owned-nonce-v20\n";
+            my $identity = "$$ 0123456789abcdef0123456789abcdef\n";
             open my $g, '>', 'guardian.state' or die $!; print {$g} $identity; close $g or die $!;
             open my $r, '>', 'child.ready' or die $!; print {$r} "$$\n"; close $r or die $!;
             my $deadline = clock_gettime(CLOCK_MONOTONIC) + 2;
@@ -3076,6 +3654,9 @@ struct CLIAuthenticationScriptBuilderTests {
                 local $/; my $request = <$s>; close $s;
                 if ($request eq $identity) {
                   open my $a, '>', 'authenticated.ack' or die $!; print {$a} $identity; close $a or die $!;
+                  open my $p, '>', 'helper.status.stopped' or die $!;
+                  print {$p} "guardian_stop_accepted_v1:$$:0123456789abcdef0123456789abcdef\n";
+                  close $p or die $!;
                   _exit(31);
                 }
               }
@@ -3159,8 +3740,11 @@ struct CLIAuthenticationScriptBuilderTests {
             guardian_state_file="$PWD/guardian.state"
             guardian_stop_file="$PWD/guardian.stop"
             watchdog_ready_file="$PWD/not-created.ready"
+            cleanup_ack_file="$PWD/helper.status.stopped"
             process_state_executable="$PWD/query.pl"
             agy_pid=""; agy_child_reaped=0; watchdog_pid=""
+            agy_wait_status=0; agy_stop_requested=0
+            status_publication_critical=0; status_publication_failed=0; cleanup_state_uncertain=0
             terminal_foreground_transferred=0; guardian_state_preserved=0; cleanup_uncertain=0; timed_out=0
             fixture_product_wait_calls=0; fixture_wait_status=""
             report_status() { print -r -- "$1" >| "$status_file"; }
