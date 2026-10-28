@@ -465,3 +465,30 @@ P0/P2/P3/P9源码与CI整份候选已独立规格/质量审查C0I0M0，root全�
 下一次隔离CI预期P0已有拒绝可以通过，P2/P3/P9在真实目标和真实屏障各到达一次、注入0后以faultNotApplied失败并正常真实清理。仅这种完整证据可认行为RED；编译/设置/缺目标/超时/清理失败不算。新候选尚未编译或原生运行；生产接线、其余原生策略、Task5与发布仍未完成。
 
 同步边界测试源码与CI检查点 `e3929af` 已本地提交，仅含获审三文件；373文档、公开扫描、差异和精确暂存哈希通过。四parked保留未提交，新编译/原生结果待隔离CI，当前尚未推送或取得本组行为RED。
+
+
+## 同步边界实际RED已接受（764696a）
+
+Windows40627131033新用例已编译并实际运行；失败仅新四例测试和严格正向验收器，后续NSIS/PE/上传跳过。实际merge0c272b15b732d761bd72b1923cc68babdfa5bf68父a97c2a5/764696a，driver40c56bcb/fixture3d727fe5/workflow3e5ae04e/Cargo cd3042ad/锁ceffdbb4在head及实际merge五blob独立绑定，非job工作字节hash。独立实际续审C0I0M0已接受P0现有拒绝GREEN及P2/P3/P9有效行为RED，root全文核读14459B追加报告，完整32788B/1968c35faa4f0cb24288aa367c8584fcddc78d1daa290e6cff8169725afead32，原18329B/90f2前缀保持。
+
+P0真实probe拒绝、target1/denial1、controlled Navigate0、无安装/脚本/CDP及新增资源，pass true/none。P2/P3/P9均真实目标1、实际script/CDP ACK和barrier1、注入0、controlled Navigate/load/doc0，以faultNotApplied失败；完整安装后真实资源/过滤器add/removal及scriptRemoval均1，没有将它们改写为未来部分回滚的期望0。四例selected/completed1、所有实际生命周期正向true/违规false/Runtime155.0.4283.62，四个独立进程均正常返回并真实TempClose ok1/lease7f。实际退出manifest按P0/P2/P3/P9为0/1/1/1；三个负例CLI和exit1在raw明确可见，P0由固定首项/新鲜摘要/manifest首行绑定。原子诊断不作因果栈/全局句柄证据，实际lease位不替代浏览器退出证明。
+
+实际四例摘要哈希分别9f63d4d5、b9a249bd、df887069、18a766ee；退出记录360B/7deb52fc。Windowsraw365006B/d9df08bd81a682e7d98f7afc8e3cfc492bb92b715b30ab1bb3fae5e00b248371。严格feature Clippy --locked/-Dwarnings和真实测试编译通过，普通Rust父级380/前端302/26通过，原basic510B/d36c9977与P1 792B/6731ce6a全部保持GREEN。Mac40627130828完整成功，raw1419584B/95bc8edde132ef69726e32c79a3a7cf8f329c9eace664c33be05860dbe103395，主组767/3/18/60/16、hosted12/native12+2；独立40627130823结果尚未读取，不能沿用前六轮充作本轮通过。
+
+严格正向验收器正确拒绝三份实际非GREEN文件及退出记录，canary与实际验收分开；整体Windows仍失败，未发布。上述结果仅验证已到达真实目标后缺少本地注入的行为RED，尚无实际注入/部分已获取资源回滚GREEN，也不是平台原生API拒绝或生产策略完成。下一步在保留实际证据和检查点后，仅实现这三个固定同步目标的一次本地注入/已知失败关闭；不伪造COM错误或native callback，不放宽任何unknown/ownership门槛，P0/P1/basic及既有判定保持。其余异步/containment/拒绝/chooser/捕获/清理/接线和Task5仍未完。
+
+
+同轮独立dispatcher40627130823已获第七次完整实际验收C0I0M0，root全文核读5452B追加，原42557B/96f1前缀保持，完整48009B/16164238c5fe5789905aff7b8822a3c8d7da3a24d0a6be407cfbf516ce191a23。单轮23+2基线、四严格编译后精确语义kill/清理通过，21留存日志/补丁重哈希相符，原限制全部保留；raw140947B/0d401784、summary15233B/d3dc712d，实际0c272b1。28分10秒是本轮观察值，不保证未来耗时。仅dispatcher，不覆盖同步注入或生产/发布门禁。
+
+实际RED证据24文件已持久备份/全读回后，按原计划进入新的单文件最小GREEN实现；该新阶段不是重试此前容量失败的RED编写turn，仍显式Sol6.1/high。仅在三个固定已成功目标后记录一次本地注入、发出已预留的封闭回执并立刻中止后续安装，使用私有Continue/Injected本地结果而非伪造COM错误；fixture/CI正向矩阵不改。P0/P1和旧基本用例仍须后续实际回归，当前GREEN候选尚未编译/运行或获审。
+
+
+### 2026-10-28：同步故障最小 GREEN 源码获审，实际验证待运行
+
+在上一轮 P0 正例、P2/P3/P9 有效行为 RED 独立验收后，新的执行阶段仅修改原生 driver 一文件（+71/-16）。采用私有 Continue/Injected 成功载荷，在真实成功目标之后、观察回调外重查 liveness，唯一保留一次注入收据；三个同步边界通过原有 failed/PolicyRejected 路径停止安装，不伪造 HRESULT、API 失败或回调。P2 尚无注册资源，P3 保留真实 handler token，P9 再保留实际 filter，后续仍须原有真实移除和库存归零。
+
+独立完整 SPEC + QUALITY 源码审查 C0/I0/M0，开发入口已分两段全文读取 13262 字节报告（SHA-256 `6c9f6a9eccd56a93f67243fdaca33a03f95a00710cc883b82f0c7d69fb5ff862`）。冻结 driver 151715 字节 / `a59f7b7328ea4001aff45bde752dd781b2b63f8e66d7b7ed97c49be0f5e13a5e`，完整补丁 12515 字节 / `9d1b84a983ad0943b73ce0e0e8117aec573fabeb510dd23e3ba24c4b427da3c3`。七个冻结成员和 32 个保护文件已分别逐字核对；fixture、CI 四例严格正向矩阵、Cargo/lock、四份 parked 候选及旧证据保持。
+
+作者仅运行获准的格式检查；新编译及全部原生结果尚未运行。下一步以精确获审单文件候选提交隔离 CI，要求同一轮 P0/P2/P3/P9 全正向、basic/P1、普通双平台门禁及独立实际复核。源码审查不等于运行 GREEN；异步故障、完整生产策略/拒绝/chooser/捕获/清理/接线及 Task5 仍未完成，未合并或发布。
+
+获审 driver 单文件已提交 `5b1171d127e16cb706eef8c6b50f77faa70ee214`。提交前已确认暂存区只含该文件且与冻结获审字节完全一致；373 份 Markdown 文档检查、公开发布安全扫描、差异检查均通过。四份 parked 候选保持未提交。下一步完整恢复检查点后仅推送候选分支；没有新增实际编译、原生或发布结果。
