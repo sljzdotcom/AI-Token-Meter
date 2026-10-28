@@ -769,3 +769,14 @@ f4a4cfe已推送；持久检查点76文件/1149本机证据成员、全refs bund
 
 
 工作流单文件fix2已本地提交 `8838ac2144ee85bb553507895e8499a03232117c`，远端仍f4a4cfe、当前两测试继续，未触发新一轮或发布。
+
+
+Windows40709469737实际续审11949字节/`be6419b155ef9a7eb2c2645e6fb0055dce19f00d86c018a0c9112eee89af8fcc` C0/I1/M0 HOLD，Root全文三段读取。实际merge33136099e009cf32381520ec528d66bcfe199045的两父与f4完整树相同、15源码pin绑定；第15个仅本机证据ref及bundle保留。前端302、严格Clippy/编译、普通Rust380（47摘要相加381含嵌套helper1不重复计）、旧native/P5/P6/P7通过。新S2严格schema6达有效missing-hook RED：receipt1/真实同实例/十项缺失、拒绝导航、实际exit1，正常Destroyed/Released/run_return与TempClose；这只证明缺失安装屏障，不是十hook安装/事件GREEN。
+
+P8仍watchdog124/无TempClose，唯一schema2首锁存e48a190500000007是固定probe-main GET的精确XML_HTTP_REQUEST7；现有三个固定probe均用fetch且源码只接受FETCH8，403设置成功后条件拒绝触发原sticky清理保留。重建1498摘要默认值不是实际计数，不能用新首错推断worker OTHER修复已执行或整矩阵通过。下一步原唯一driver作者仅给三个现有probe URI类接受FETCH/XML_HTTP_REQUEST、GET及全部响应/未知403/清理/期限保持，待独审与实际验证；十hook GREEN在此窄修检查点后再接续。当前dispatcher40709469606仍运行、Mac配置修正尚未实际执行，无合并或发布。
+
+
+固定P8探针类型窄修作者4957/df0fa246、完整1414/bdbd92bf差异与独审5542字节/`066ff31828fa857b01406f14c2b841bd41ffde11478ea04e80ac43594788c980`均由Root全文读取，源码C0/I0/M0。driver216336/fdea9c1c仅一个谓词替换：三个精确P8Probe GET增加typed XML_HTTP_REQUEST，资产DOCUMENT/SCRIPT/OTHER及未知403保持；1936纯DATA唯三个既有probe GET/context7组合变化。19成员+seal/HEAD前源/当前后源/单替换与完整差异核对，独审2164保护保持。新编译/Clippy/P8完整矩阵/正常清理仍未运行；实际只观测main探针，不把此源码修复或旧worker分支视作已验证。
+
+
+固定探针单文件检查点已提交 `b72b34a421056d7ef68ae3b0bde973d9862aa908`，四份parked保留。第十七轮dispatcher40709469606实际独审C0/I0/M0，原141319字节前缀保持，追加11814字节/a0e96abb由Root全文三段读取；全文153133字节/`c74a881ad1b63367fc6b13a5e0c0d7c94c3b4b1a0c13362e51477b0bb38dab8b`。25基线+四个严格编译精确语义kill+清理/最终验收通过，22文件重哈希；实际job24分07秒/变异23分03秒、预算保持。只接受该门禁，本轮Mac/Windows失败不被覆盖。所有本轮CI已结束、无取消或重跑；373文档/公开安全扫描/差异检查通过，下一步完整检查点读回后仅推源码候选继续实际验证，S2十hook尚未开始。
