@@ -1734,7 +1734,10 @@ mod native {
             || i.core.is_none()
             || i.controller.is_none()
             || i.message_token.is_none()
-            || !matches!(i.browser_exit, BrowserExitState::Armed(_))
+            || i.environment.is_none()
+            || i.environment5.is_none()
+            || i.exit_token.is_none()
+            || !matches!(i.browser_exit, BrowserExitState::Unarmed)
             || i.callbacks.affinity_failed.load(Ordering::SeqCst)
         {
             return Err(Code0SessionFailure::PolicyRejected);
@@ -3818,7 +3821,11 @@ mod native {
                 } else {
                     return Ok(ResponseKind::P8Other);
                 };
-                if method != "GET" || context != expected_context {
+                // This one fixed synthetic script asset may be delivered as
+                // SCRIPT or OTHER; neither value proves a native worker realm.
+                let context_matches = context == expected_context
+                    || (uri == P8_WORKER_URI && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_OTHER);
+                if method != "GET" || !context_matches {
                     trace.condition(
                         UT::Binding,
                         if method != "GET" {
