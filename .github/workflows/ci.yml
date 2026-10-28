@@ -48,6 +48,221 @@ jobs:
           name: code0-native-origin-fixture
           path: ${{ runner.temp }}/aimeter-code0-native-fixtures/fixture-output.log
           if-no-files-found: warn
+  code0-controlled-cli:
+    name: Code0 controlled CLI publication
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify Swift toolchain
+        run: swift --version
+      - name: Install secret scanner
+        run: brew install gitleaks
+      - name: Build and collect the complete isolated CLI suite
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import sys
+
+          root = Path(os.environ["CONTROLLED_CLI_EVIDENCE_DIR"])
+          root.mkdir(mode=0o700, exist_ok=False)
+          checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if not re.fullmatch(r"[0-9a-f]{40}", checkout) or checkout != os.environ["GITHUB_SHA"]:
+              raise SystemExit("CONTROLLED_CLI_COLLECTION checkout-mismatch")
+          environment = os.environ.copy()
+          environment["AI_METER_TEST_BUILD_DIR"] = str(root / "swift-tests")
+          log = root / "suite.log"
+          with log.open("xb") as output:
+              completed = subprocess.run(
+                  ["bash", "scripts/test.sh", "--no-parallel", "--filter", "CLIAuthenticationScriptBuilderTests"],
+                  stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, env=environment,
+              )
+          digest = hashlib.sha256()
+          with log.open("rb") as output:
+              for chunk in iter(lambda: output.read(65536), b""):
+                  digest.update(chunk)
+          record = {
+              "schema": "controlled-cli-exit-v1", "runId": os.environ["GITHUB_RUN_ID"],
+              "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"], "job": os.environ["GITHUB_JOB"],
+              "githubSha": os.environ["GITHUB_SHA"], "checkoutSha": checkout,
+              "returnCode": completed.returncode, "logBytes": log.stat().st_size,
+              "logSHA256": digest.hexdigest(),
+          }
+          with (root / "exit.json").open("x") as output:
+              json.dump(record, output, sort_keys=True)
+              output.write("\n")
+          # Keep raw synthetic test output in the artifact; never echo PTY transcripts.
+          print("CONTROLLED_CLI_COLLECTION captured", record["logBytes"], "bytes")
+          sys.exit(0 if completed.returncode == 0 else 1)
+          PY
+      - name: Require strict fresh dual-arm evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import sys
+
+          root = Path(os.environ["CONTROLLED_CLI_EVIDENCE_DIR"])
+          result = {"schema": "controlled-cli-validation-v1", "acceptance": False,
+                    "runId": os.environ["GITHUB_RUN_ID"], "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                    "result": "invalid-evidence"}
+
+          class EvidenceError(Exception):
+              pass
+
+          def require(condition, code):
+              if not condition:
+                  raise EvidenceError(code)
+
+          def unique_object(pairs):
+              value = {}
+              for key, item in pairs:
+                  require(key not in value, "duplicate-json-key")
+                  value[key] = item
+              return value
+
+          def reject_constant(value):
+              raise EvidenceError("nonfinite-json")
+
+          def decode(text):
+              try:
+                  return json.loads(text, object_pairs_hook=unique_object, parse_constant=reject_constant)
+              except (ValueError, TypeError):
+                  raise EvidenceError("malformed-json") from None
+
+          def bounded_file(name, limit):
+              path = root / name
+              require(path.is_file() and not path.is_symlink(), "missing-evidence-file")
+              require(path.stat().st_size <= limit, "oversize-evidence-file")
+              with path.open("rb", buffering=0) as source:
+                  data = source.read(limit + 1)
+              require(len(data) <= limit, "oversize-evidence-file")
+              return data
+
+          def validate_record(record):
+              keys = {"schema", "acceptance", "arm", "causalPreconditions", "classification", "required", "rejected",
+                      "appCancelTrap", "appCancelCleanupConfirmed", "cleanupSucceeded", "statusClass",
+                      "guardianRetained", "callbackObserved"}
+              require(type(record) is dict and set(record) == keys, "record-keys")
+              require(record["schema"] == "controlled-group-probe-publication-v1", "record-schema")
+              require(record["arm"] in ("empty", "published"), "record-arm")
+              booleans = keys - {"schema", "arm", "classification", "required", "rejected", "statusClass"}
+              require(all(type(record[key]) is bool for key in booleans), "record-boolean-type")
+              require(record["acceptance"] is False, "diagnostic-acceptance")
+              require(record["statusClass"] in ("ready", "process_state_unavailable", "helper_cancelled",
+                                                 "helper_stop_unconfirmed", "other"), "status-enum")
+              required = {"query-entered", "query-reaped-exit42", "writer-ready", "watchdog-parked",
+                          "writer-park-acknowledged", "writer-opened-truncated", "writer-published",
+                          "watchdog-login-deadline-active", "watchdog-read-release-acknowledged",
+                          "watchdog-read-before-product-deadline", "watchdog-decision-before-product-deadline",
+                          "watchdog-timed-nonready-branch"}
+              if record["arm"] == "empty":
+                  required.add("watchdog-read-empty")
+              else:
+                  required.update({"watchdog-read-preserve", "watchdog-decision-completed-before-product-deadline",
+                                   "watchdog-decision-completed"})
+              rejected = {"writer-park-gate-timeout", "writer-trap-gate-timeout", "watchdog-read-gate-timeout",
+                          "shell-preserve-gate-timeout", "writer-open-failed", "writer-publication-failed",
+                          "gate-crossed-product-deadline", "watchdog-deadline-entered", "usr1-timeout",
+                          "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error"}
+              for key, expected in (("required", required), ("rejected", rejected)):
+                  markers = record[key]
+                  require(type(markers) is dict and set(markers) == expected, "marker-keys")
+                  require(all(type(value) is bool for value in markers.values()), "marker-boolean-type")
+              handshake = all(record["required"].values()) and not any(record["rejected"].values())
+              cancellation = record["appCancelTrap"] and record["appCancelCleanupConfirmed"]
+              causal = handshake and record["cleanupSucceeded"] and (
+                  cancellation if record["arm"] == "empty" else not record["appCancelTrap"])
+              require(record["causalPreconditions"] == causal, "causal-inconsistency")
+              classification = "targetBoundaryReached" if causal else "PRECONDITION_FAILED"
+              require(record["classification"] == classification, "classification-inconsistency")
+              return record
+
+          def preserved(record):
+              return (record["statusClass"] == "process_state_unavailable" and record["guardianRetained"]
+                      and not record["callbackObserved"] and not record["appCancelTrap"]
+                      and not record["appCancelCleanupConfirmed"])
+
+          try:
+              require(root.is_dir() and not root.is_symlink(), "missing-evidence-directory")
+              metadata = decode(bounded_file("exit.json", 4096).decode("utf-8"))
+              keys = {"schema", "runId", "runAttempt", "job", "githubSha", "checkoutSha",
+                      "returnCode", "logBytes", "logSHA256"}
+              require(type(metadata) is dict and set(metadata) == keys, "exit-keys")
+              require(metadata["schema"] == "controlled-cli-exit-v1", "exit-schema")
+              for key, environment in (("runId", "GITHUB_RUN_ID"), ("runAttempt", "GITHUB_RUN_ATTEMPT"),
+                                       ("job", "GITHUB_JOB"), ("githubSha", "GITHUB_SHA")):
+                  require(metadata[key] == os.environ[environment], "identity-mismatch")
+              require(metadata["job"] == "code0-controlled-cli", "job-mismatch")
+              require(type(metadata["checkoutSha"]) is str and re.fullmatch(r"[0-9a-f]{40}", metadata["checkoutSha"])
+                      and metadata["checkoutSha"] == metadata["githubSha"], "checkout-mismatch")
+              require(type(metadata["returnCode"]) is int and -255 <= metadata["returnCode"] <= 255, "exit-type")
+              require(type(metadata["logBytes"]) is int, "log-size-type")
+              log = bounded_file("suite.log", 4 * 1024 * 1024)
+              require(len(log) == metadata["logBytes"] and hashlib.sha256(log).hexdigest() == metadata["logSHA256"],
+                      "log-identity-mismatch")
+              prefix = "CONTROLLED_GROUP_PROBE_PUBLICATION "
+              records = []
+              for line in log.decode("utf-8").splitlines():
+                  if prefix in line:
+                      require(line.startswith(prefix) and len(line.encode("utf-8")) <= 8192, "record-framing")
+                      records.append(validate_record(decode(line[len(prefix):])))
+                      require(len(records) <= 2, "extra-record")
+              require(len(records) == 2 and {record["arm"] for record in records} == {"empty", "published"},
+                      "missing-or-duplicate-arm")
+              arms = {record["arm"]: record for record in records}
+              result.update({"checkoutSha": metadata["checkoutSha"], "returnCode": metadata["returnCode"],
+                             "logBytes": len(log), "logSHA256": metadata["logSHA256"]})
+              if not all(record["causalPreconditions"] for record in records):
+                  result["result"] = "precondition-failed"
+              elif metadata["returnCode"] == 0 and all(preserved(record) for record in records):
+                  # Intentionally unreachable for the v1 empty RED seam, which requires actual cancellation.
+                  result.update({"result": "green", "acceptance": True})
+              elif (metadata["returnCode"] != 0 and preserved(arms["published"])
+                    and arms["empty"]["statusClass"] == "helper_cancelled"
+                    and not arms["empty"]["guardianRetained"] and not arms["empty"]["callbackObserved"]
+                    and arms["empty"]["appCancelTrap"] and arms["empty"]["appCancelCleanupConfirmed"]):
+                  result["result"] = "target-red-observed"
+              else:
+                  result["result"] = "acceptance-not-met"
+          except EvidenceError as error:
+              result["errorCode"] = str(error)
+          except (OSError, UnicodeError, ValueError, TypeError, KeyError):
+              result["errorCode"] = "unreadable-or-malformed-evidence"
+          if root.is_dir() and not root.is_symlink():
+              with (root / "validation.json").open("x") as output:
+                  json.dump(result, output, sort_keys=True)
+                  output.write("\n")
+          print("CONTROLLED_CLI_VALIDATION", result["result"])
+          sys.exit(0 if result["acceptance"] else 1)
+          PY
+      - name: Preserve fresh controlled CLI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.CONTROLLED_CLI_EVIDENCE_DIR }}/suite.log
+            ${{ env.CONTROLLED_CLI_EVIDENCE_DIR }}/exit.json
+            ${{ env.CONTROLLED_CLI_EVIDENCE_DIR }}/validation.json
+          if-no-files-found: warn
+          retention-days: 7
   test:
     name: Swift tests and public-release checks
     runs-on: macos-15
