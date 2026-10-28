@@ -55,7 +55,6 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       HOMEBREW_NO_AUTO_UPDATE: "1"
-      CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Check out complete history
         uses: actions/checkout@v5
@@ -66,6 +65,8 @@ jobs:
       - name: Install secret scanner
         run: brew install gitleaks
       - name: Build and collect the complete isolated CLI suite
+        env:
+          CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -109,6 +110,8 @@ jobs:
           PY
       - name: Require strict fresh dual-arm evidence
         if: always()
+        env:
+          CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -254,6 +257,8 @@ jobs:
           PY
       - name: Preserve fresh controlled CLI evidence
         if: always()
+        env:
+          CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
         uses: actions/upload-artifact@v4
         with:
           name: code0-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
