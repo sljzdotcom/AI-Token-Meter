@@ -540,3 +540,26 @@ macOS `40631550145` 完整成功，raw1416417字节/`3129638d76877918507efd274c7
 Fix1精确复审原入口I1已ADDRESSED，当前组合源码C0/I0/M0。原17941/5c70前缀完整保留，追加7395/`cd4e65f52258f47be88d70c8d10161806505c6efca6fd92f3ae887e2399d45a1`经开发入口全文读取，完整25336/`62bc39cfb87c4c6f348a43873fde5f32275f412a5ed677176c9a1a0a0e9a11a3`。独立核验14新成员+19旧成员/外部报告、单hunk逆变换与前后缀、完整52305/516995包、1601保护零变更；fixture及workflow补丁区段与初审完全相同。仅源码接受，编译/实际RED均未运行。
 
 获审三文件已精确提交 `3ce789545f614efd5bf7f60956b413c8f052e7cb`，暂存仅workflow/driver/fixture并与最终获审字节逐一相等；373文档/公开扫描/差异检查通过，四parked候选未提交。下一步完整Git/源码/冻结报告/全部既有实际证据检查点读回后仅推候选分支，实际远程编译与P4/P5有效RED需新鲜真实成功target、ACK/barrier继续、注入0/faultNotApplied和正常真实清理/原生退出证据；不得把编译/设置/看门狗失败算RED。
+
+
+### P4/P5 有效行为 RED 实际接受（2026-10-28）
+
+7fcd201/Windows40640279659的P4/P5已独立实际C0I0M0（全47204B/133bba88，Root全文核读21868B续篇）：两例真实target1、ACK/barrier1、injection0/faultNotApplied、native退出1及正常真实清理，符合有效行为RED；旧basic/P1/四同步和父380/前端302/严格编译检查通过，Mac40640279688完整成功。整体Windows仍预期FAIL、安装器跳过；独立40640279657仍运行。保留历史9f关闭期限I1，先备份实际证据再最小P4/P5 GREEN，不放宽夹具或CI。
+
+源码绑定为实际 merge e4a7df8aa072e7b30066c0025eb8ff234c825ac3（a97c2a5 + 7fcd201）；五个规范 Git blob 与获审源码一致，不代表 runner 工作字节或可执行文件哈希。Cargo 命令状态与原生进程退出分别核对。新的 schema3 完整矩阵、八组三类清理时序记录均已复核；数据解析自检不冒称原生验收。实际审查只接受这一窄范围 RED，不接受整体功能或发布。既有模型选择继续为 Sol 6.1/high；本轮用户再次明确确认，不重启已有工作。
+
+
+### 本轮独立 dispatcher 期限失败保留（2026-10-28）
+
+第十独立dispatcher40640279657现已completedFAIL：baseline25及M1–M3严格编译/精确语义kill/清理完成，M4亦观察到严格编译后精确语义失败，但总2400秒期限到达前其清理未验收，标记invalid/cleanup-unrun，整体preserved_after_failure；不能计作单轮四kill通过或用旧九轮拼接。原期限不延长，原始raw/summary/21留存文件已保存，独立实际续审中。
+
+本轮 raw 132934B/74d00922，summary 15413B/daaf65a3，checkout证据4704B/5e8219b4；源码与实际merge e4a7df8绑定，PR event merge字段仍为旧3e195db，不能替代实际checkout。M4精确断言为510:17的reply preceded matching emit；此观测不自动满足清理或整体状态门槛。仅继续已获授权的独立实际复核及已完成两行P4/P5源码候选审查，不修改变异runner/期限/成功判据，不把本轮失败视作产品因果已定位。
+
+
+### 最小 P4/P5 GREEN 源码接受，运行仍待验（2026-10-28）
+
+P4/P5最小GREEN源码最终独审C0I0M0（全25440B/8baa9a9a，Root全文核读19819及5621B续篇）：仅两个固定注入allowlist成员与一处过时注释修正，driver166858/22b74863；fixture/CI未改，14+14冻结及1641保护文件核对通过。新编译/两例实际GREEN仍待CI，非Task4/5完成。第十独立实际续审C0I1M0（全72303B/9c6ed9c9，Root全文核读12779B续篇）确认M4清理未验收/总期限失败保留，不能补作第四kill；原九轮完整结果独立保留，不延长期限。
+
+最终相对HEAD仅两allowlist行和一行说明，两个hunk合计+3/-1（+139B）；完整差异2626B/55c2b8d2。真实回调贡献ID、Pending保留、FaultApplied后重新验证与仅Continue应用ACK均沿用原实现；P4应不再提交CDP，P5应保留真实script ACK但拒绝CDP ACK，两者应无barrier/导航/加载，仍需实际摘要与真实清理独立验收。只读P6/P7、P8与生产接线准备均不算实现覆盖；P8现有未知请求403可能已经正确，不人为制造RED，也不将页面relay等同原生frame/worker身份或全局网络封锁。
+
+源码提交 `4cfb09993be2f1385e46dfee6eda1d59310d3125` 已精确提交唯一driver，原四parked候选仍未纳入。373文档、公开扫描与差异/暂存字节检查通过；远端运行、合并及发布仍待下一阶段。
