@@ -20,8 +20,9 @@ mod smoke {
     use ai_token_meter_windows::platform::windows::code0_webview::{
         Code0NativeDriver,
         fixture::{
-            DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics, NativeSmokeObservation,
-            PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
+            ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
+            NativeSmokeObservation, PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
+            StaleDispositionReceipt, StaleDispositionStage,
         },
     };
     use serde::Serialize;
@@ -86,7 +87,9 @@ mod smoke {
             match event {
                 PolicyObservation::FaultTarget(_)
                 | PolicyObservation::FaultApplied(_)
-                | PolicyObservation::FaultFinal(_) => false,
+                | PolicyObservation::FaultFinal(_)
+                | PolicyObservation::StaleDisposition(_)
+                | PolicyObservation::Containment(_) => false,
                 PolicyObservation::BarrierReady(receipt) => {
                     self.barrier_receipts = self.barrier_receipts.saturating_add(1);
                     let valid = receipt.matches(request)
@@ -405,7 +408,7 @@ mod smoke {
         }
     }
 
-    #[derive(Serialize)]
+    #[derive(Default, Serialize)]
     #[serde(rename_all = "camelCase")]
     struct ApplicationEvidence {
         script_id_inventoried: bool,
@@ -455,6 +458,390 @@ mod smoke {
                         script_acknowledged: fault.application[1],
                         cdp_acknowledged: fault.application[2],
                     }),
+            }
+        }
+    }
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NativeOperations {
+        target_receipts: u32,
+        injection_receipts: u32,
+        premature_load_denials: u32,
+        navigate_attempts: u32,
+        script_submissions: u32,
+        cdp_submissions: u32,
+        resource_adds: u32,
+        filter_adds: u32,
+        resource_removals: u32,
+        filter_removals: u32,
+        script_removals: u32,
+    }
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct StaleEvidence {
+        held_receipts: u8,
+        close_revocations: u32,
+        drained_receipts: u8,
+        final_receipts: u8,
+        held_application: ApplicationEvidence,
+        queued_script_id_at_held: bool,
+        policy_script_ids_at_held: u32,
+        policy_script_ids_at_drain: u32,
+        policy_script_ids_at_final: u32,
+        policy_failures: u32,
+    }
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ContainmentEvidence {
+        asset_deliveries: [u32; 3],
+        asset_responses: [u32; 3],
+        probe_deliveries: [u32; 3],
+        probe_responses: [u32; 3],
+        other_deliveries: u32,
+        other_responses: u32,
+        total_delivered: u32,
+        complete_receipts: u8,
+        final_receipts: u8,
+        policy_failures: u32,
+    }
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RendererEvidence {
+        main_refusal: bool,
+        child_refusal: bool,
+        worker_refusal: bool,
+        child_detached: bool,
+        worker_terminate_returned: bool,
+    }
+
+    struct CoverageEvidence {
+        case: PolicyFixtureCase,
+        counts: [u32; 11],
+        facts: [bool; 3],
+        native: NativeOperations,
+        application: ApplicationEvidence,
+        stale: StaleEvidence,
+        containment: ContainmentEvidence,
+        renderer: RendererEvidence,
+    }
+
+    impl CoverageEvidence {
+        fn new(case: PolicyFixtureCase) -> Self {
+            Self {
+                case,
+                counts: [0; 11],
+                facts: [false; 3],
+                native: NativeOperations::default(),
+                application: ApplicationEvidence::default(),
+                stale: StaleEvidence::default(),
+                containment: ContainmentEvidence::default(),
+                renderer: RendererEvidence::default(),
+            }
+        }
+
+        fn snapshot(
+            &mut self,
+            counts: [u32; 11],
+            facts: [bool; 3],
+            install: &mut PolicyEvidence,
+        ) -> bool {
+            if counts
+                .iter()
+                .zip(self.counts)
+                .any(|(now, prior)| *now < prior)
+                || facts
+                    .iter()
+                    .zip(self.facts)
+                    .any(|(now, prior)| prior && !*now)
+            {
+                return false;
+            }
+            self.counts = counts;
+            self.facts = facts;
+            [
+                self.native.target_receipts,
+                self.native.injection_receipts,
+                self.native.premature_load_denials,
+                self.native.navigate_attempts,
+                self.native.script_submissions,
+                self.native.cdp_submissions,
+                self.native.resource_adds,
+                self.native.filter_adds,
+                self.native.resource_removals,
+                self.native.filter_removals,
+                self.native.script_removals,
+            ] = counts;
+            self.application = ApplicationEvidence {
+                script_id_inventoried: facts[0],
+                script_acknowledged: facts[1],
+                cdp_acknowledged: facts[2],
+            };
+            install.script_acknowledged = facts[1];
+            install.cdp_acknowledged = facts[2];
+            true
+        }
+
+        fn observe_stale(
+            &mut self,
+            receipt: StaleDispositionReceipt,
+            request: &Code0WindowRequest,
+            install: &mut PolicyEvidence,
+            closing: bool,
+        ) -> bool {
+            let script = self.case == PolicyFixtureCase::InstallScriptStaleDisposition;
+            if !self.case.stale_disposition()
+                || !receipt.matches(request)
+                || receipt.script() != script
+                || !self.snapshot(receipt.counts(), receipt.application(), install)
+            {
+                return false;
+            }
+            let order = receipt.order();
+            match receipt.stage() {
+                StaleDispositionStage::Held => {
+                    if closing
+                        || self.stale.held_receipts != 0
+                        || order != [1, 0, 0, 0]
+                        || receipt.application()
+                            != if script {
+                                [false; 3]
+                            } else {
+                                [true, true, false]
+                            }
+                        || receipt.queued_script_id() != script
+                        || receipt.policy_script_ids() != u32::from(!script)
+                    {
+                        return false;
+                    }
+                    self.stale.held_receipts += 1;
+                    let f = receipt.application();
+                    self.stale.held_application = ApplicationEvidence {
+                        script_id_inventoried: f[0],
+                        script_acknowledged: f[1],
+                        cdp_acknowledged: f[2],
+                    };
+                    self.stale.queued_script_id_at_held = receipt.queued_script_id();
+                    self.stale.policy_script_ids_at_held = receipt.policy_script_ids();
+                }
+                StaleDispositionStage::Drained => {
+                    if !closing
+                        || self.stale.held_receipts != 1
+                        || self.stale.drained_receipts != 0
+                        || order != [1, 1, 1, 0]
+                        || receipt.queued_script_id()
+                        || receipt.policy_script_ids() != 1
+                    {
+                        return false;
+                    }
+                    self.stale.drained_receipts += 1;
+                    self.stale.policy_script_ids_at_drain = receipt.policy_script_ids();
+                }
+                StaleDispositionStage::Final => {
+                    if !closing
+                        || self.stale.drained_receipts != 1
+                        || self.stale.final_receipts != 0
+                        || order != [1, 1, 1, 1]
+                        || receipt.queued_script_id()
+                        || receipt.policy_script_ids() != 0
+                    {
+                        return false;
+                    }
+                    self.stale.final_receipts += 1;
+                    self.stale.policy_script_ids_at_final = receipt.policy_script_ids();
+                }
+            }
+            self.stale.close_revocations = order[1];
+            true
+        }
+
+        fn observe_containment(
+            &mut self,
+            receipt: ContainmentReceipt,
+            request: &Code0WindowRequest,
+            install: &mut PolicyEvidence,
+            closing: bool,
+        ) -> bool {
+            if self.case != PolicyFixtureCase::InstallRealmsNoPassthrough
+                || !receipt.matches(request)
+                || !self.snapshot(receipt.counts(), receipt.application(), install)
+            {
+                return false;
+            }
+            let d = receipt.deliveries();
+            let a = receipt.responses();
+            let prior_d = [
+                self.containment.asset_deliveries[0],
+                self.containment.asset_deliveries[1],
+                self.containment.asset_deliveries[2],
+                self.containment.probe_deliveries[0],
+                self.containment.probe_deliveries[1],
+                self.containment.probe_deliveries[2],
+                self.containment.other_deliveries,
+            ];
+            let prior_a = [
+                self.containment.asset_responses[0],
+                self.containment.asset_responses[1],
+                self.containment.asset_responses[2],
+                self.containment.probe_responses[0],
+                self.containment.probe_responses[1],
+                self.containment.probe_responses[2],
+                self.containment.other_responses,
+            ];
+            if d.iter().zip(prior_d).any(|(now, prior)| *now < prior)
+                || a.iter().zip(prior_a).any(|(now, prior)| *now < prior)
+                || receipt.renderer() != [true; 5]
+                || receipt.document() != [true; 3]
+            {
+                return false;
+            }
+            if receipt.final_snapshot() {
+                if !closing
+                    || self.containment.complete_receipts != 1
+                    || self.containment.final_receipts != 0
+                {
+                    return false;
+                }
+                self.containment.final_receipts += 1;
+            } else {
+                if closing
+                    || self.containment.complete_receipts != 0
+                    || install.first_load_receipts != 1
+                {
+                    return false;
+                }
+                self.containment.complete_receipts += 1;
+                install.document_receipts = install.document_receipts.saturating_add(1);
+                let document = receipt.document();
+                install.source_matched = document[0];
+                install.synthetic_response_applied = document[1];
+                install.canonical_ready_control = document[2];
+            }
+            self.containment.asset_deliveries.copy_from_slice(&d[..3]);
+            self.containment.asset_responses.copy_from_slice(&a[..3]);
+            self.containment.probe_deliveries.copy_from_slice(&d[3..6]);
+            self.containment.probe_responses.copy_from_slice(&a[3..6]);
+            self.containment.other_deliveries = d[6];
+            self.containment.other_responses = a[6];
+            self.containment.total_delivered = receipt.total_delivered();
+            let page = receipt.renderer();
+            self.renderer = RendererEvidence {
+                main_refusal: page[0],
+                child_refusal: page[1],
+                worker_refusal: page[2],
+                child_detached: page[3],
+                worker_terminate_returned: page[4],
+            };
+            true
+        }
+
+        fn positive(&self, install: &PolicyEvidence, state: &Summary) -> bool {
+            let stale = self.case.stale_disposition();
+            let cdp = self.case == PolicyFixtureCase::InstallCdpStaleDisposition;
+            let scenario = if stale {
+                self.counts == [0, 0, 0, 0, 1, u32::from(cdp), 1, 1, 1, 1, 1]
+                    && self.facts == [true, cdp, false]
+                    && self.stale.held_receipts == 1
+                    && self.stale.close_revocations == 1
+                    && self.stale.drained_receipts == 1
+                    && self.stale.final_receipts == 1
+                    && self.stale.policy_failures == 1
+                    && self.stale.queued_script_id_at_held != cdp
+                    && self.stale.policy_script_ids_at_held == u32::from(cdp)
+                    && self.stale.policy_script_ids_at_drain == 1
+                    && self.stale.policy_script_ids_at_final == 0
+                    && install.submissions == 1
+                    && install.submission_accepted
+                    && !install.install_rejected
+                    && install.barrier_receipts == 0
+                    && install.script_acknowledged == cdp
+                    && !install.cdp_acknowledged
+                    && install.first_load_receipts == 0
+                    && install.document_receipts == 0
+                    && !install.source_matched
+                    && !install.synthetic_response_applied
+                    && !install.canonical_ready_control
+                    && !install.ack_before_first_load
+            } else {
+                self.counts == [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+                    && self.facts == [true; 3]
+                    && self.containment.asset_deliveries == [1; 3]
+                    && self.containment.asset_responses == [1; 3]
+                    && self.containment.probe_deliveries == [1; 3]
+                    && self.containment.probe_responses == [1; 3]
+                    && self.containment.other_deliveries == self.containment.other_responses
+                    && self.containment.total_delivered == 6 + self.containment.other_deliveries
+                    && self.containment.total_delivered <= 16
+                    && self.containment.complete_receipts == 1
+                    && self.containment.final_receipts == 1
+                    && self.containment.policy_failures == 0
+                    && self.renderer.main_refusal
+                    && self.renderer.child_refusal
+                    && self.renderer.worker_refusal
+                    && self.renderer.child_detached
+                    && self.renderer.worker_terminate_returned
+                    && install.positive(state)
+            };
+            scenario
+                && state.sta_main
+                && state.callback_affinity
+                && state.no_inherited_override
+                && state.engine_ready
+                && state.bare_hidden_unfocused
+                && state.construction_observed
+                && !state.bare_window_violation
+                && state.profile_isolated
+                && state.destroyed
+                && state.owned_references_released
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CoverageSummary<'a> {
+        schema: u8,
+        run_id: &'a str,
+        required_case: &'static str,
+        selected_cases: u8,
+        completed_cases: u8,
+        pass: bool,
+        failure: &'static str,
+        install: &'a PolicyEvidence,
+        lifecycle: PolicyLifecycle<'a>,
+        native: &'a NativeOperations,
+        application: &'a ApplicationEvidence,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        stale: Option<&'a StaleEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        containment: Option<&'a ContainmentEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        renderer: Option<&'a RendererEvidence>,
+    }
+    impl<'a> CoverageSummary<'a> {
+        fn snapshot(
+            state: &'a Summary,
+            install: &'a PolicyEvidence,
+            evidence: &'a CoverageEvidence,
+        ) -> Self {
+            let stale = evidence.case.stale_disposition();
+            Self {
+                schema: if stale { 4 } else { 5 },
+                run_id: &state.run_id,
+                required_case: evidence.case.name(),
+                selected_cases: 1,
+                completed_cases: state.completed_cases,
+                pass: state.pass,
+                failure: state.failure,
+                install,
+                lifecycle: PolicySummary::snapshot(state, install).lifecycle,
+                native: &evidence.native,
+                application: &evidence.application,
+                stale: stale.then_some(&evidence.stale),
+                containment: (!stale).then_some(&evidence.containment),
+                renderer: (!stale).then_some(&evidence.renderer),
             }
         }
     }
@@ -623,7 +1010,13 @@ mod smoke {
                 std::process::exit(124);
             }
         });
-        let outcome = run_case(Arc::clone(&summary), Arc::clone(&diagnostics), None, None);
+        let outcome = run_case(
+            Arc::clone(&summary),
+            Arc::clone(&diagnostics),
+            None,
+            None,
+            None,
+        );
         if outcome.is_err() {
             diagnostics.phase(DP::SummaryLock, false);
             summary.lock().unwrap().failure = "fixtureSetupFailed";
@@ -701,6 +1094,7 @@ mod smoke {
             Arc::clone(&summary),
             Arc::clone(&diagnostics),
             Some(Arc::clone(&install)),
+            None,
             None,
         );
         if outcome.is_err() {
@@ -784,6 +1178,7 @@ mod smoke {
             Arc::clone(&diagnostics),
             Some(Arc::clone(&install)),
             Some(Arc::clone(&fault)),
+            None,
         );
         if outcome.is_err() {
             summary.lock().unwrap().failure = "fixtureSetupFailed";
@@ -805,13 +1200,105 @@ mod smoke {
         Ok(passed)
     }
 
+    pub fn run_coverage(case: PolicyFixtureCase) -> Result<bool, Box<dyn std::error::Error>> {
+        let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
+        if run_id.is_empty()
+            || run_id.len() > 64
+            || !run_id
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || v == b'-' || v == b'_')
+        {
+            return Err("invalid policy fixture run ID".into());
+        }
+        let output = PathBuf::from(
+            std::env::var_os("AI_METER_CODE0_POLICY_SUMMARY")
+                .ok_or("missing fresh policy summary path")?,
+        );
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)?;
+        let summary = Arc::new(Mutex::new(Summary {
+            run_id,
+            failure: "notCompleted",
+            ..Summary::default()
+        }));
+        let install = Arc::new(Mutex::new(PolicyEvidence::default()));
+        let coverage = Arc::new(Mutex::new(CoverageEvidence::new(case)));
+        write_summary(
+            &mut file,
+            &CoverageSummary::snapshot(
+                &summary.lock().unwrap(),
+                &install.lock().unwrap(),
+                &coverage.lock().unwrap(),
+            ),
+        )?;
+        let evidence = Arc::new(Mutex::new(file));
+        let diagnostics = Arc::new(Diagnostics::from_env());
+        let (watchdog_done, watchdog_rx) = mpsc::channel();
+        let hard_run_id = summary.lock().unwrap().run_id.clone();
+        let hard_evidence = Arc::clone(&evidence);
+        let watchdog_diagnostics = Arc::clone(&diagnostics);
+        let watchdog = thread::spawn(move || {
+            if watchdog_rx.recv_timeout(Duration::from_secs(75)).is_err() {
+                watchdog_diagnostics.emit_once(true);
+                let failed = Summary {
+                    run_id: hard_run_id,
+                    failure: "watchdogTimeout",
+                    ..Summary::default()
+                };
+                if let Ok(mut file) = hard_evidence.try_lock() {
+                    let _ = write_summary(
+                        &mut file,
+                        &CoverageSummary::snapshot(
+                            &failed,
+                            &PolicyEvidence::default(),
+                            &CoverageEvidence::new(case),
+                        ),
+                    );
+                }
+                std::process::exit(124);
+            }
+        });
+        let outcome = run_case(
+            Arc::clone(&summary),
+            Arc::clone(&diagnostics),
+            Some(Arc::clone(&install)),
+            None,
+            Some(Arc::clone(&coverage)),
+        );
+        if outcome.is_err() {
+            summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        let passed = summary.lock().unwrap().pass;
+        let write_result = write_summary(
+            &mut evidence.lock().unwrap(),
+            &CoverageSummary::snapshot(
+                &summary.lock().unwrap(),
+                &install.lock().unwrap(),
+                &coverage.lock().unwrap(),
+            ),
+        );
+        let _ = watchdog_done.send(());
+        let _ = watchdog.join();
+        diagnostics.emit_once(false);
+        write_result?;
+        outcome?;
+        Ok(passed)
+    }
+
     fn run_case(
         summary: Arc<Mutex<Summary>>,
         diagnostics: Arc<Diagnostics>,
         policy: Option<Arc<Mutex<PolicyEvidence>>>,
         fault: Option<Arc<Mutex<FaultEvidence>>>,
+        coverage: Option<Arc<Mutex<CoverageEvidence>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let fault_case = fault.as_ref().map(|fault| fault.lock().unwrap().case);
+        let coverage_case = coverage
+            .as_ref()
+            .map(|coverage| coverage.lock().unwrap().case);
+        let selected_case = fault_case.or(coverage_case);
         diagnostics.phase(DP::Sta, false);
         let _sta = Sta::initialize()?;
         diagnostics.phase(DP::Sta, true);
@@ -970,6 +1457,7 @@ mod smoke {
         let mut browser_exit_count = 0;
         let final_policy = policy.clone();
         let final_fault = fault.clone();
+        let final_coverage = coverage.clone();
         let live_construction = Arc::clone(&construction);
         let ui_diagnostics = Arc::clone(&diagnostics);
         diagnostics.phase(DP::RunReturn, false);
@@ -1142,7 +1630,7 @@ mod smoke {
                                 policy.lock().unwrap().submissions += 1;
                                 let installed = driver.begin_fixture_policy_install(
                                     &request,
-                                    fault_case
+                                    selected_case
                                         .unwrap_or(PolicyFixtureCase::InstallAckBeforeFirstLoad),
                                 );
                                 let mut install = policy.lock().unwrap();
@@ -1186,7 +1674,69 @@ mod smoke {
                         callback_sta,
                     ) => {
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
-                        if let Some(fault) = &fault {
+                        if let Some(coverage) = &coverage {
+                            match event {
+                                PolicyObservation::StaleDisposition(receipt) => {
+                                    let mut install = policy.as_ref().unwrap().lock().unwrap();
+                                    if !coverage.lock().unwrap().observe_stale(
+                                        receipt,
+                                        &request,
+                                        &mut install,
+                                        closing_since.is_some(),
+                                    ) {
+                                        state.failure = "staleReceiptInvalid";
+                                    }
+                                }
+                                PolicyObservation::Containment(receipt) => {
+                                    let mut install = policy.as_ref().unwrap().lock().unwrap();
+                                    if !coverage.lock().unwrap().observe_containment(
+                                        receipt,
+                                        &request,
+                                        &mut install,
+                                        closing_since.is_some(),
+                                    ) {
+                                        state.failure = "containmentReceiptInvalid";
+                                    }
+                                }
+                                PolicyObservation::BarrierReady(receipt) => {
+                                    let valid = closing_since.is_none()
+                                        && coverage_case
+                                            == Some(PolicyFixtureCase::InstallRealmsNoPassthrough)
+                                        && policy.as_ref().unwrap().lock().unwrap().observe(
+                                            PolicyObservation::BarrierReady(receipt),
+                                            &request,
+                                        );
+                                    if !valid {
+                                        state.failure = "coverageUnexpectedBarrier";
+                                    } else {
+                                        drop(state);
+                                        let loaded = driver.load_fixture_policy_document(&request);
+                                        state = observed.lock().unwrap();
+                                        if loaded.is_err() {
+                                            state.failure = "containmentLoadDenied";
+                                        }
+                                    }
+                                }
+                                PolicyObservation::FirstControlledLoad(receipt) => {
+                                    if closing_since.is_some()
+                                        || coverage_case
+                                            != Some(PolicyFixtureCase::InstallRealmsNoPassthrough)
+                                        || !policy.as_ref().unwrap().lock().unwrap().observe(
+                                            PolicyObservation::FirstControlledLoad(receipt),
+                                            &request,
+                                        )
+                                    {
+                                        state.failure = "coverageLoadReceiptInvalid";
+                                    }
+                                }
+                                PolicyObservation::ControlledDocumentReady(_)
+                                | PolicyObservation::FaultTarget(_)
+                                | PolicyObservation::FaultApplied(_)
+                                | PolicyObservation::FaultFinal(_) => {
+                                    state.failure = "coverageUnexpectedObservation";
+                                }
+                            }
+                        } else if let Some(fault) = &fault {
                             match event {
                                 PolicyObservation::FaultTarget(receipt) => {
                                     let mut fault = fault.lock().unwrap();
@@ -1242,7 +1792,9 @@ mod smoke {
                                     // through R4 below; never call the controlled loader.
                                 }
                                 PolicyObservation::FirstControlledLoad(_)
-                                | PolicyObservation::ControlledDocumentReady(_) => {
+                                | PolicyObservation::ControlledDocumentReady(_)
+                                | PolicyObservation::StaleDisposition(_)
+                                | PolicyObservation::Containment(_) => {
                                     state.failure = "unexpectedFaultLoad";
                                 }
                             }
@@ -1323,7 +1875,36 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
-                        if let Some(fault) = &fault {
+                        if let Some(coverage) = &coverage {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut coverage = coverage.lock().unwrap();
+                            if owned == request
+                                && reason == Code0SessionFailure::PolicyRejected
+                                && coverage.case.stale_disposition()
+                            {
+                                coverage.stale.policy_failures =
+                                    coverage.stale.policy_failures.saturating_add(1);
+                                if coverage.stale.held_receipts != 1
+                                    || coverage.stale.close_revocations != 1
+                                    || coverage.stale.drained_receipts != 1
+                                    || coverage.stale.policy_failures != 1
+                                {
+                                    state.failure = "staleFailureWithoutDrain";
+                                }
+                            } else {
+                                if owned == request && reason == Code0SessionFailure::PolicyRejected
+                                {
+                                    coverage.containment.policy_failures =
+                                        coverage.containment.policy_failures.saturating_add(1);
+                                }
+                                state.failure = if reason == Code0SessionFailure::CleanupFailed {
+                                    "coverageNativeCleanupFailed"
+                                } else {
+                                    "coverageUnexpectedNativeFailure"
+                                };
+                            }
+                        } else if let Some(fault) = &fault {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut fault = fault.lock().unwrap();
@@ -1380,6 +1961,14 @@ mod smoke {
                     && fault.target_events == 1)
                     || fault.policy_failures != 0
             });
+            let coverage_ready = coverage.as_ref().is_some_and(|coverage| {
+                let coverage = coverage.lock().unwrap();
+                if coverage.case.stale_disposition() {
+                    coverage.stale.held_receipts == 1
+                } else {
+                    coverage.containment.complete_receipts == 1
+                }
+            });
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
@@ -1388,7 +1977,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if fault.is_some() {
+                state.failure = if coverage.is_some() {
+                    "coveragePreconditionMissing"
+                } else if fault.is_some() {
                     "faultTargetPreconditionFailed"
                 } else {
                     "installAcknowledgementsMissing"
@@ -1399,6 +1990,7 @@ mod smoke {
                 && (state.renderer_message
                     || policy_document_ready
                     || fault_target_ready
+                    || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
@@ -1433,9 +2025,14 @@ mod smoke {
                         || state.positive(),
                         |policy| {
                             let install = policy.lock().unwrap();
-                            fault.as_ref().map_or_else(
-                                || install.positive(&state),
-                                |fault| fault.lock().unwrap().positive(&install, &state),
+                            coverage.as_ref().map_or_else(
+                                || {
+                                    fault.as_ref().map_or_else(
+                                        || install.positive(&state),
+                                        |fault| fault.lock().unwrap().positive(&install, &state),
+                                    )
+                                },
+                                |coverage| coverage.lock().unwrap().positive(&install, &state),
                             )
                         },
                     );
@@ -1451,6 +2048,9 @@ mod smoke {
                         } else {
                             "faultPositiveOracleMismatch"
                         };
+                    }
+                    if coverage.is_some() && !positive && state.failure == "notCompleted" {
+                        state.failure = "coveragePositiveOracleMismatch";
                     }
                     let code = if positive && state.failure == "notCompleted" {
                         0
@@ -1517,9 +2117,14 @@ mod smoke {
             || state.positive(),
             |policy| {
                 let install = policy.lock().unwrap();
-                final_fault.as_ref().map_or_else(
-                    || install.positive(&state),
-                    |fault| fault.lock().unwrap().positive(&install, &state),
+                final_coverage.as_ref().map_or_else(
+                    || {
+                        final_fault.as_ref().map_or_else(
+                            || install.positive(&state),
+                            |fault| fault.lock().unwrap().positive(&install, &state),
+                        )
+                    },
+                    |coverage| coverage.lock().unwrap().positive(&install, &state),
                 )
             },
         );
@@ -1561,6 +2166,15 @@ fn main() {
             }
             [selector] if selector == "--code0-policy-fixture=install-cdp-injected-failure" => {
                 smoke::run_fault(PolicyFixtureCase::InstallCdpInjectedFailure)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-script-stale-disposition" => {
+                smoke::run_coverage(PolicyFixtureCase::InstallScriptStaleDisposition)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-cdp-stale-disposition" => {
+                smoke::run_coverage(PolicyFixtureCase::InstallCdpStaleDisposition)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-realms-no-passthrough" => {
+                smoke::run_coverage(PolicyFixtureCase::InstallRealmsNoPassthrough)
             }
             _ => Err("unknown or multiple fixture selectors".into()),
         }

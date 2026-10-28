@@ -1177,14 +1177,18 @@ mod native {
         if !on_ui(owner) {
             return;
         }
-        if let Some(instance) = owner.borrow_mut().instance.as_mut()
+        let mut state = owner.borrow_mut();
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let unmatched = state.unmatched;
+        if let Some(instance) = state.instance.as_mut()
             && instance.request.instance_id == instance_id
         {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            p1::mark_stale_close(instance, unmatched);
             // Revoke before any external Stop/Close/removal can reenter.
             instance.closing = true;
         }
-        // Do not emit Released here: callers may still have action-local COM
-        // clones on their stack. Only a later UI poll can certify the inventory.
+        // Only a later UI poll can certify actual inventory and release.
     }
 
     pub(super) fn window_event(
@@ -1549,6 +1553,7 @@ mod native {
             if released {
                 phase!(owner, ReleasedDispatch, false);
                 p1::publish_final_fault(owner);
+                p1::publish_final_coverage(owner);
             }
             events(request, event);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1584,7 +1589,10 @@ mod native {
             | super::fixture::PolicyFixtureCase::InstallAddInjectedFailure
             | super::fixture::PolicyFixtureCase::InstallFilterInjectedFailure
             | super::fixture::PolicyFixtureCase::InstallScriptInjectedFailure
-            | super::fixture::PolicyFixtureCase::InstallCdpInjectedFailure => {
+            | super::fixture::PolicyFixtureCase::InstallCdpInjectedFailure
+            | super::fixture::PolicyFixtureCase::InstallScriptStaleDisposition
+            | super::fixture::PolicyFixtureCase::InstallCdpStaleDisposition
+            | super::fixture::PolicyFixtureCase::InstallRealmsNoPassthrough => {
                 p1::begin(owner, request, case)
             }
         }
@@ -1610,8 +1618,9 @@ mod native {
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     mod p1 {
         use super::super::fixture::{
-            ControlledDocumentReceipt, ControlledLoadReceipt, InstallBarrierReceipt,
-            PolicyFaultReceipt, PolicyFaultTarget, PolicyFixtureCase, PolicyObservation,
+            ContainmentReceipt, ControlledDocumentReceipt, ControlledLoadReceipt,
+            InstallBarrierReceipt, PolicyFaultReceipt, PolicyFaultTarget, PolicyFixtureCase,
+            PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
         };
         use super::*;
         use crate::collectors::code0_bridge::{
@@ -1633,6 +1642,74 @@ mod native {
         const REFUSAL: &[u8] = b"Code0 P1 synthetic refusal";
         const HEADERS: &str = "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; script-src 'nonce-code0-p1-fixed'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\r\n";
 
+        const P8_MAIN_URI: &str = "https://console.code0.ai/__ai_meter_fixture__/containment-main";
+        const P8_CHILD_URI: &str =
+            "https://console.code0.ai/__ai_meter_fixture__/containment-child";
+        const P8_WORKER_URI: &str =
+            "https://console.code0.ai/__ai_meter_fixture__/containment-worker.js";
+        const P8_PROBES: [&str; 3] = [
+            "https://console.code0.ai/__ai_meter_fixture__/probe-main",
+            "https://console.code0.ai/__ai_meter_fixture__/probe-child",
+            "https://console.code0.ai/__ai_meter_fixture__/probe-worker",
+        ];
+        // Fixed execution-witness nonce, never the quota bridge configuration.
+        const P8_NONCE: &str = "code0-p8-witness-v1";
+        const P8_REFUSAL: &[u8] = b"Code0 P8 synthetic refusal";
+        const P8_MAIN: &[u8] = br#"<!doctype html><meta charset="utf-8"><title>Code0 containment</title><body><script nonce="code0-p8-fixed">document.addEventListener('DOMContentLoaded',()=>{const nonce='code0-p8-witness-v1';let main=false,child=false,worker=false,done=false,invalid=false;const frame=document.createElement('iframe');const task=new Worker('/__ai_meter_fixture__/containment-worker.js');const emit=(detached,terminated)=>window.chrome.webview.postMessage({kind:'code0P8Complete',nonce,main,child,worker,childDetached:detached,workerTerminateReturned:terminated});const finish=()=>{if(!done&&main&&child&&worker){done=true;frame.remove();const detached=!frame.isConnected;task.terminate();emit(detached,true);}};const valid=(v,kind)=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===4&&v.kind===kind&&v.nonce===nonce&&v.status===403&&v.body==='Code0 P8 synthetic refusal';const bad=()=>{if(!invalid){invalid=true;done=true;emit(false,false);}};window.addEventListener('message',e=>{if(e.source!==frame.contentWindow||e.origin!=='https://console.code0.ai'){bad();return;}if(child||!valid(e.data,'child')){bad();return;}child=true;finish();});task.addEventListener('message',e=>{if(e.target!==task||worker||!valid(e.data,'worker')){bad();return;}worker=true;finish();});task.addEventListener('error',bad);frame.src='/__ai_meter_fixture__/containment-child';document.body.appendChild(frame);fetch('/__ai_meter_fixture__/probe-main').then(async r=>{main=r.status===403&&(await r.text())==='Code0 P8 synthetic refusal';if(!main){bad();return;}finish();}).catch(bad);},{once:true});</script>"#;
+        const P8_CHILD: &[u8] = br#"<!doctype html><meta charset="utf-8"><title>Code0 child</title><script nonce="code0-p8-fixed">document.addEventListener('DOMContentLoaded',()=>{fetch('/__ai_meter_fixture__/probe-child').then(async r=>parent.postMessage({kind:'child',nonce:'code0-p8-witness-v1',status:r.status,body:await r.text()},'https://console.code0.ai'));},{once:true});</script>"#;
+        const P8_WORKER: &[u8] = br#"fetch('/__ai_meter_fixture__/probe-worker').then(async r=>postMessage({kind:'worker',nonce:'code0-p8-witness-v1',status:r.status,body:await r.text()}));"#;
+        const P8_MAIN_HEADERS: &str = "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; script-src 'nonce-code0-p8-fixed'; frame-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n";
+        const P8_CHILD_HEADERS: &str = "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; script-src 'nonce-code0-p8-fixed'; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'\r\n";
+        const P8_WORKER_HEADERS: &str = "Content-Type: application/javascript; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; connect-src 'self'\r\n";
+        const P8_REFUSAL_HEADERS: &str = "Content-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'\r\n";
+
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct ContainmentWitness {
+            kind: String,
+            nonce: String,
+            main: bool,
+            child: bool,
+            worker: bool,
+            child_detached: bool,
+            worker_terminate_returned: bool,
+        }
+
+        #[derive(Clone, Copy)]
+        enum ResponseKind {
+            Main,
+            Refusal,
+            P8Main,
+            P8Child,
+            P8Worker,
+            P8Probe(usize),
+            P8Other,
+        }
+        impl ResponseKind {
+            fn allowed(self) -> bool {
+                matches!(
+                    self,
+                    Self::Main | Self::P8Main | Self::P8Child | Self::P8Worker
+                )
+            }
+            fn refusal(self) -> Self {
+                if matches!(self, Self::Main | Self::Refusal) {
+                    Self::Refusal
+                } else {
+                    Self::P8Other
+                }
+            }
+            fn p8_index(self) -> usize {
+                match self {
+                    Self::P8Main => 0,
+                    Self::P8Child => 1,
+                    Self::P8Worker => 2,
+                    Self::P8Probe(index) => 3 + index,
+                    _ => 6,
+                }
+            }
+        }
+
         // Observation-only data remains on the existing Instance through native
         // teardown. No count participates in readiness, cleanup or release.
         #[derive(Default)]
@@ -1643,6 +1720,30 @@ mod native {
             counts: [u32; 11],
             // Actual ID transfer, script ACK application, CDP ACK application.
             application: [bool; 3],
+            final_sent: bool,
+            stale_phase: StalePhase,
+            stale_order: [u32; 4],
+            stale_script: bool,
+            containment: ContainmentState,
+        }
+
+        #[derive(Default, PartialEq, Eq)]
+        enum StalePhase {
+            #[default]
+            Waiting,
+            Held,
+            CloseRevoked,
+            Drained,
+        }
+
+        #[derive(Default)]
+        struct ContainmentState {
+            deliveries: [u32; 7],
+            responses: [u32; 7],
+            total: u32,
+            renderer: [bool; 5],
+            source_matched: bool,
+            document: [bool; 3],
             final_sent: bool,
         }
 
@@ -2542,6 +2643,258 @@ mod native {
             require_live(owner, request)
         }
 
+        fn hold_disposition(owner: &Rc<RefCell<Owner>>) -> bool {
+            let request = {
+                let state = owner.borrow();
+                let Some(i) = state.instance.as_ref() else {
+                    return false;
+                };
+                if !i
+                    .policy_fault
+                    .case
+                    .is_some_and(PolicyFixtureCase::stale_disposition)
+                {
+                    return false;
+                }
+                i.request.clone()
+            };
+            if !live(owner, &request) {
+                return false;
+            }
+            let notification = {
+                let mut state = owner.borrow_mut();
+                if state.unmatched {
+                    return false;
+                }
+                let Some(i) = matching(&mut state, &request) else {
+                    return false;
+                };
+                if i.policy_fault.stale_phase == StalePhase::Held {
+                    return true;
+                }
+                if i.policy_fault.stale_phase != StalePhase::Waiting {
+                    return false;
+                }
+                let Some(p) = i.policy.as_ref() else {
+                    return false;
+                };
+                let Some(mailbox) = i.policy_mailbox.as_ref() else {
+                    return false;
+                };
+                if mailbox.invalid.load(Ordering::SeqCst)
+                    || mailbox.unknown.load(Ordering::SeqCst)
+                    || i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                {
+                    return false;
+                }
+                let queue = mailbox.state.lock().unwrap();
+                let candidate = queue.queue.iter().find_map(|d| match d {
+                    Disposition::Script {
+                        request: r,
+                        generation,
+                        succeeded,
+                        valid_id,
+                        first,
+                        id,
+                        ..
+                    } if i.policy_fault.case
+                        == Some(PolicyFixtureCase::InstallScriptStaleDisposition)
+                        && r == &request
+                        && *generation == p.generation
+                        && *first
+                        && *succeeded
+                        && *valid_id
+                        && id.as_ref().is_some_and(|id| !id.is_empty())
+                        && p.sync_ack
+                        && p.script_submitted
+                        && !p.script_completed
+                        && !p.script_ack
+                        && p.scripts.is_empty() =>
+                    {
+                        Some((true, true))
+                    }
+                    Disposition::Cdp {
+                        request: r,
+                        generation,
+                        expected,
+                        first,
+                        ..
+                    } if i.policy_fault.case
+                        == Some(PolicyFixtureCase::InstallCdpStaleDisposition)
+                        && r == &request
+                        && *generation == p.generation
+                        && *first
+                        && *expected
+                        && p.sync_ack
+                        && p.script_ack
+                        && p.cdp_submitted
+                        && !p.cdp_completed
+                        && !p.cdp_ack
+                        && p.scripts.len() == 1 =>
+                    {
+                        Some((false, false))
+                    }
+                    _ => None,
+                });
+                let Some((script, queued_script_id)) = candidate else {
+                    return false;
+                };
+                i.policy_fault.stale_phase = StalePhase::Held;
+                i.policy_fault.stale_script = script;
+                i.policy_fault.stale_order[0] = i.policy_fault.stale_order[0].saturating_add(1);
+                (
+                    i.observer.clone(),
+                    StaleDispositionReceipt {
+                        request: request.clone(),
+                        generation: p.generation,
+                        stage: StaleDispositionStage::Held,
+                        script,
+                        counts: i.policy_fault.counts,
+                        application: i.policy_fault.application,
+                        order: i.policy_fault.stale_order,
+                        queued_script_id,
+                        policy_script_ids: p.scripts.len() as u32,
+                    },
+                )
+            };
+            if !live(owner, &request) {
+                return false;
+            }
+            if let (Some(observer), receipt) = notification {
+                observer(NativeSmokeObservation::Policy(
+                    PolicyObservation::StaleDisposition(receipt),
+                ));
+            }
+            // Never drain this turn, including observer-driven close/reentry.
+            true
+        }
+
+        pub(super) fn mark_stale_close(i: &mut Instance, unmatched: bool) {
+            if !unmatched
+                && !i.closing
+                && !i.failed
+                && i.policy_fault.stale_phase == StalePhase::Held
+                && i.policy
+                    .as_ref()
+                    .is_some_and(|p| p.generation == GENERATION)
+                && i.policy_mailbox.as_ref().is_some_and(|m| {
+                    !m.invalid.load(Ordering::SeqCst) && !m.unknown.load(Ordering::SeqCst)
+                })
+                && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+            {
+                i.policy_fault.stale_phase = StalePhase::CloseRevoked;
+                i.policy_fault.stale_order[1] = i.policy_fault.stale_order[1].saturating_add(1);
+            }
+        }
+
+        fn stale_drained(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            generation: u64,
+            script: bool,
+            genuine: bool,
+        ) {
+            let notification = {
+                let mut state = owner.borrow_mut();
+                let Some(i) = matching(&mut state, request) else {
+                    return;
+                };
+                let Some(p) = i.policy.as_ref() else {
+                    return;
+                };
+                if !genuine
+                    || p.generation != generation
+                    || i.policy_fault.stale_script != script
+                    || i.policy_fault.stale_phase != StalePhase::CloseRevoked
+                {
+                    return;
+                }
+                i.policy_fault.stale_phase = StalePhase::Drained;
+                i.policy_fault.stale_order[2] = i.policy_fault.stale_order[2].saturating_add(1);
+                (
+                    i.observer.clone(),
+                    StaleDispositionReceipt {
+                        request: request.clone(),
+                        generation,
+                        stage: StaleDispositionStage::Drained,
+                        script,
+                        counts: i.policy_fault.counts,
+                        application: i.policy_fault.application,
+                        order: i.policy_fault.stale_order,
+                        queued_script_id: false,
+                        policy_script_ids: p.scripts.len() as u32,
+                    },
+                )
+            };
+            if let (Some(observer), receipt) = notification {
+                observer(NativeSmokeObservation::Policy(
+                    PolicyObservation::StaleDisposition(receipt),
+                ));
+            }
+        }
+
+        pub(super) fn publish_final_coverage(owner: &Rc<RefCell<Owner>>) {
+            let notification = {
+                let mut state = owner.borrow_mut();
+                let Some(i) = state.instance.as_mut() else {
+                    return;
+                };
+                if i.policy_fault
+                    .case
+                    .is_some_and(PolicyFixtureCase::stale_disposition)
+                {
+                    if i.policy_fault.stale_order[3] != 0 {
+                        return;
+                    }
+                    i.policy_fault.stale_order[3] = i.policy_fault.stale_order[3].saturating_add(1);
+                    Some((
+                        i.observer.clone(),
+                        PolicyObservation::StaleDisposition(StaleDispositionReceipt {
+                            request: i.request.clone(),
+                            generation: GENERATION,
+                            stage: StaleDispositionStage::Final,
+                            script: i.policy_fault.stale_script,
+                            counts: i.policy_fault.counts,
+                            application: i.policy_fault.application,
+                            order: i.policy_fault.stale_order,
+                            queued_script_id: false,
+                            policy_script_ids: i
+                                .policy
+                                .as_ref()
+                                .map_or(0, |p| p.scripts.len() as u32),
+                        }),
+                    ))
+                } else if i.policy_fault.case == Some(PolicyFixtureCase::InstallRealmsNoPassthrough)
+                {
+                    let c = &mut i.policy_fault.containment;
+                    if c.final_sent {
+                        return;
+                    }
+                    c.final_sent = true;
+                    Some((
+                        i.observer.clone(),
+                        PolicyObservation::Containment(ContainmentReceipt {
+                            request: i.request.clone(),
+                            generation: GENERATION,
+                            final_snapshot: true,
+                            counts: i.policy_fault.counts,
+                            application: i.policy_fault.application,
+                            deliveries: c.deliveries,
+                            responses: c.responses,
+                            total_delivered: c.total,
+                            renderer: c.renderer,
+                            document: c.document,
+                        }),
+                    ))
+                } else {
+                    None
+                }
+            };
+            if let Some((Some(observer), receipt)) = notification {
+                observer(NativeSmokeObservation::Policy(receipt));
+            }
+        }
+
         fn drain_dispositions(owner: &Rc<RefCell<Owner>>) {
             let mailbox = {
                 let state = owner.borrow();
@@ -2569,10 +2922,19 @@ mod native {
                         let asynchronous = owner.borrow().instance.as_ref().is_some_and(|i| {
                             i.policy_fault
                                 .case
-                                .is_some_and(PolicyFixtureCase::async_application)
+                                .is_some_and(PolicyFixtureCase::observes_application)
                         });
                         let current_live = !asynchronous || live(owner, &request);
-                        let retained_id = if asynchronous { id.clone() } else { None };
+                        let genuine = first && succeeded && valid_id && id.is_some();
+                        let retained_id = if owner.borrow().instance.as_ref().is_some_and(|i| {
+                            i.policy_fault
+                                .case
+                                .is_some_and(PolicyFixtureCase::async_application)
+                        }) {
+                            id.clone()
+                        } else {
+                            None
+                        };
                         let target = {
                             let mut state = owner.borrow_mut();
                             if let Some(i) = state.instance.as_mut()
@@ -2663,6 +3025,7 @@ mod native {
                                 state.unmatched = true;
                             }
                         }
+                        stale_drained(owner, &request, generation, true, genuine);
                         drop(pending);
                     }
                     Disposition::Cdp {
@@ -2675,7 +3038,7 @@ mod native {
                         let asynchronous = owner.borrow().instance.as_ref().is_some_and(|i| {
                             i.policy_fault
                                 .case
-                                .is_some_and(PolicyFixtureCase::async_application)
+                                .is_some_and(PolicyFixtureCase::observes_application)
                         });
                         let current_live = !asynchronous || live(owner, &request);
                         let target = {
@@ -2751,6 +3114,7 @@ mod native {
                                 state.unmatched = true;
                             }
                         }
+                        stale_drained(owner, &request, generation, false, first && expected);
                         drop(pending);
                     }
                 }
@@ -2821,9 +3185,12 @@ mod native {
             if owner.borrow().instance.as_ref().is_some_and(|i| {
                 i.policy_fault
                     .case
-                    .is_some_and(PolicyFixtureCase::async_application)
+                    .is_some_and(PolicyFixtureCase::observes_application)
                     && i.callbacks.active.load(Ordering::SeqCst) != 0
             }) {
+                return;
+            }
+            if hold_disposition(owner) {
                 return;
             }
             drain_dispositions(owner);
@@ -2879,15 +3246,41 @@ mod native {
                     && p.document_complete
                     && !p.document_receipt
                 {
-                    p.document_receipt = true;
-                    Some(PolicyObservation::ControlledDocumentReady(
-                        ControlledDocumentReceipt {
-                            request: request.clone(),
-                            source_matched: true,
-                            synthetic_response_applied: p.main_response,
-                            canonical_ready_control: p.ready_control,
-                        },
-                    ))
+                    if i.policy_fault.case == Some(PolicyFixtureCase::InstallRealmsNoPassthrough) {
+                        let c = &mut i.policy_fault.containment;
+                        if c.deliveries[..6] == [1; 6]
+                            && c.responses[..6] == [1; 6]
+                            && c.renderer == [true; 5]
+                            && c.source_matched
+                        {
+                            p.document_receipt = true;
+                            c.document = [c.source_matched, p.main_response, p.ready_control];
+                            Some(PolicyObservation::Containment(ContainmentReceipt {
+                                request: request.clone(),
+                                generation: p.generation,
+                                final_snapshot: false,
+                                counts: i.policy_fault.counts,
+                                application: i.policy_fault.application,
+                                deliveries: c.deliveries,
+                                responses: c.responses,
+                                total_delivered: c.total,
+                                renderer: c.renderer,
+                                document: c.document,
+                            }))
+                        } else {
+                            None
+                        }
+                    } else {
+                        p.document_receipt = true;
+                        Some(PolicyObservation::ControlledDocumentReady(
+                            ControlledDocumentReceipt {
+                                request: request.clone(),
+                                source_matched: true,
+                                synthetic_response_applied: p.main_response,
+                                canonical_ready_control: p.ready_control,
+                            },
+                        ))
+                    }
                 } else {
                     None
                 };
@@ -2907,7 +3300,7 @@ mod native {
             }
             let (callbacks, _) = callback_state(owner);
             let _action = Active::enter(&callbacks);
-            let (core, observer) = {
+            let (core, observer, containment) = {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).ok_or(Code0SessionFailure::PolicyRejected)?;
                 let p = i
@@ -2923,16 +3316,22 @@ mod native {
                     return Err(Code0SessionFailure::PolicyRejected);
                 }
                 p.load_attempted = true;
-                (Rc::clone(&p.core), i.observer.clone())
+                (
+                    Rc::clone(&p.core),
+                    i.observer.clone(),
+                    i.policy_fault.case == Some(PolicyFixtureCase::InstallRealmsNoPassthrough),
+                )
             };
             require_live(owner, request).map_err(|_| Code0SessionFailure::PolicyRejected)?;
             // Counts only this compiled fixed-controlled call boundary; it
             // makes no claim about implicit/default browser navigation.
             count(owner, Count::Navigate);
             let result = unsafe {
-                core.Navigate(w!(
-                    "https://console.code0.ai/__ai_meter_fixture__/install-p1"
-                ))
+                core.Navigate(if containment {
+                    w!("https://console.code0.ai/__ai_meter_fixture__/containment-main")
+                } else {
+                    w!("https://console.code0.ai/__ai_meter_fixture__/install-p1")
+                })
             };
             if result.is_err() || !live(owner, request) {
                 failed(owner, request);
@@ -3006,40 +3405,52 @@ mod native {
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
             environment: &ICoreWebView2Environment,
-            allowed: bool,
-        ) -> windows::core::Result<(IStream, ICoreWebView2WebResourceResponse, bool)> {
-            let body = if allowed { MAIN } else { REFUSAL };
+            kind: ResponseKind,
+        ) -> windows::core::Result<(IStream, ICoreWebView2WebResourceResponse, ResponseKind)>
+        {
+            let (body, headers) = match kind {
+                ResponseKind::Main => (MAIN, HEADERS),
+                ResponseKind::Refusal => (REFUSAL, HEADERS),
+                ResponseKind::P8Main => (P8_MAIN, P8_MAIN_HEADERS),
+                ResponseKind::P8Child => (P8_CHILD, P8_CHILD_HEADERS),
+                ResponseKind::P8Worker => (P8_WORKER, P8_WORKER_HEADERS),
+                ResponseKind::P8Probe(_) | ResponseKind::P8Other => {
+                    (P8_REFUSAL, P8_REFUSAL_HEADERS)
+                }
+            };
             if body.len() > 65536 || u32::try_from(body.len()).is_err() {
                 return Err(E_FAIL.into());
             }
-            // SHCreateMemStream returns Option, not HRESULT/GetLastError.
-            // This is our fixed allocation-failure mapping, not a native code.
             let stream = unsafe { SHCreateMemStream(Some(body)) }
                 .ok_or_else(|| windows::core::Error::from_hresult(E_OUTOFMEMORY))?;
-            if allowed && !live(owner, request) {
+            if kind.allowed() && !live(owner, request) {
                 drop(stream);
-                return make_response(owner, request, environment, false);
+                return make_response(owner, request, environment, kind.refusal());
             }
             unsafe { stream.Seek(0, STREAM_SEEK_SET, None) }?;
-            if allowed && !live(owner, request) {
+            if kind.allowed() && !live(owner, request) {
                 drop(stream);
-                return make_response(owner, request, environment, false);
+                return make_response(owner, request, environment, kind.refusal());
             }
-            let headers: Vec<u16> = HEADERS.encode_utf16().chain(Some(0)).collect();
+            let headers: Vec<u16> = headers.encode_utf16().chain(Some(0)).collect();
             let response = unsafe {
                 environment.CreateWebResourceResponse(
                     &stream,
-                    if allowed { 200 } else { 403 },
-                    if allowed { w!("OK") } else { w!("Forbidden") },
+                    if kind.allowed() { 200 } else { 403 },
+                    if kind.allowed() {
+                        w!("OK")
+                    } else {
+                        w!("Forbidden")
+                    },
                     PCWSTR(headers.as_ptr()),
                 )
             }?;
-            if allowed && !live(owner, request) {
+            if kind.allowed() && !live(owner, request) {
                 drop(response);
                 drop(stream);
-                return make_response(owner, request, environment, false);
+                return make_response(owner, request, environment, kind.refusal());
             }
-            Ok((stream, response, allowed))
+            Ok((stream, response, kind))
         }
 
         fn resource(
@@ -3050,19 +3461,28 @@ mod native {
             args: Option<&ICoreWebView2WebResourceRequestedEventArgs>,
         ) -> windows::core::Result<()> {
             let args = args.ok_or(E_FAIL)?;
-            let (environment, within_bound) = {
+            let (environment, within_bound, containment) = {
                 let mut state = owner.borrow_mut();
                 let i = state.instance.as_mut().ok_or(E_FAIL)?;
                 let p = i.policy.as_mut().ok_or(E_FAIL)?;
                 p.delivered_requests = p.delivered_requests.saturating_add(1);
+                let containment =
+                    i.policy_fault.case == Some(PolicyFixtureCase::InstallRealmsNoPassthrough);
+                if containment {
+                    i.policy_fault.containment.total = p.delivered_requests;
+                }
                 (
                     Rc::clone(&p.environment),
                     p.delivered_requests <= MAX_REQUESTS,
+                    containment,
                 )
             };
-            // Metadata/identity errors, revocation and unexpected requests still
-            // receive the same fixed synthetic refusal, never successful unset.
-            let metadata = (|| -> windows::core::Result<bool> {
+            let refused = if containment {
+                ResponseKind::P8Other
+            } else {
+                ResponseKind::Refusal
+            };
+            let metadata = (|| -> windows::core::Result<ResponseKind> {
                 sender_matches(owner, sender)?;
                 let native_request = unsafe { args.Request() }?;
                 let uri = allocated_string(2048, |raw| unsafe { native_request.Uri(raw) })?;
@@ -3072,38 +3492,113 @@ mod native {
                 let state = owner.borrow();
                 let i = state.instance.as_ref().ok_or(E_FAIL)?;
                 let p = i.policy.as_ref().ok_or(E_FAIL)?;
-                Ok(&i.request == request
-                    && p.generation == generation
-                    && !i.closing
-                    && !i.failed
-                    && installed(p)
-                    && p.barrier
-                    && p.load_attempted
-                    && !p.main_response
-                    && within_bound
-                    && uri == URI
-                    && method == "GET"
-                    && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT)
+                if !containment {
+                    return Ok(
+                        if &i.request == request
+                            && p.generation == generation
+                            && !i.closing
+                            && !i.failed
+                            && installed(p)
+                            && p.barrier
+                            && p.load_attempted
+                            && !p.main_response
+                            && within_bound
+                            && uri == URI
+                            && method == "GET"
+                            && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT
+                        {
+                            ResponseKind::Main
+                        } else {
+                            ResponseKind::Refusal
+                        },
+                    );
+                }
+                if &i.request != request || p.generation != generation {
+                    return Err(E_FAIL.into());
+                }
+                // Classify actual fixed-path delivery before readiness downgrade:
+                // a late duplicate must not become an incidental request.
+                let (kind, expected_context) = if uri == P8_MAIN_URI {
+                    (
+                        ResponseKind::P8Main,
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT,
+                    )
+                } else if uri == P8_CHILD_URI {
+                    (
+                        ResponseKind::P8Child,
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT,
+                    )
+                } else if uri == P8_WORKER_URI {
+                    (
+                        ResponseKind::P8Worker,
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_SCRIPT,
+                    )
+                } else if let Some(index) = P8_PROBES.iter().position(|path| uri == *path) {
+                    (
+                        ResponseKind::P8Probe(index),
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_FETCH,
+                    )
+                } else {
+                    return Ok(ResponseKind::P8Other);
+                };
+                if method != "GET" || context != expected_context {
+                    return Err(E_FAIL.into());
+                }
+                Ok(kind)
             })();
-            let allowed = matches!(metadata, Ok(true)) && live(owner, request);
-            let pair = make_response(owner, request, &environment, allowed)?;
-            let allowed = pair.2;
+            let requested = metadata.as_ref().copied().unwrap_or(refused);
+            let duplicate = if containment {
+                let mut state = owner.borrow_mut();
+                let i = state.instance.as_mut().ok_or(E_FAIL)?;
+                let c = &mut i.policy_fault.containment;
+                let index = requested.p8_index();
+                let duplicate = index < 6 && c.deliveries[index] != 0;
+                c.deliveries[index] = c.deliveries[index].saturating_add(1);
+                duplicate
+            } else {
+                false
+            };
+            let ready = live(owner, request)
+                && (!containment
+                    || owner.borrow().instance.as_ref().is_some_and(|i| {
+                        i.policy.as_ref().is_some_and(|p| {
+                            installed(p) && p.barrier && p.load_attempted && within_bound
+                        })
+                    }));
+            let kind = if duplicate || !ready {
+                requested.refusal()
+            } else {
+                requested
+            };
+            let pair = make_response(owner, request, &environment, kind)?;
+            let actual = pair.2;
             let applied = unsafe { args.SetResponse(&pair.1) };
-            // Root-reviewed Microsoft native sample/COM ownership boundary:
-            // native code retains its own refs on successful put_Response.
-            // Drop our aliases outside Owner borrows, under the real callback
-            // Active guard. This proves neither consumption nor cancellation.
+            // Drop caller aliases outside Owner borrows under callback Active.
+            // Successful SetResponse is application, not consumption or cancellation.
             drop(pair);
             applied?;
             {
                 let mut state = owner.borrow_mut();
                 let i = state.instance.as_mut().ok_or(E_FAIL)?;
+                if containment {
+                    let c = &mut i.policy_fault.containment;
+                    let index = actual.p8_index();
+                    c.responses[index] = c.responses[index].saturating_add(1);
+                }
                 let p = i.policy.as_mut().ok_or(E_FAIL)?;
-                if allowed && &i.request == request && !i.closing && !i.failed {
+                if matches!(actual, ResponseKind::Main | ResponseKind::P8Main)
+                    && &i.request == request
+                    && !i.closing
+                    && !i.failed
+                {
                     p.main_response = true;
                 }
             }
-            if metadata.is_err() || !within_bound || allowed && !live(owner, request) {
+            if metadata.is_err()
+                || !within_bound
+                || duplicate
+                || actual.allowed() && !live(owner, request)
+            {
                 return Err(E_FAIL.into());
             }
             Ok(())
@@ -3123,8 +3618,21 @@ mod native {
             require_live(owner, request)?;
             let payload = allocated_string(2048, |raw| unsafe { args.WebMessageAsJson(raw) })?;
             require_live(owner, request)?;
-            if source != URI || payload.len() > 2048 {
+            let containment = owner.borrow().instance.as_ref().is_some_and(|i| {
+                i.policy_fault.case == Some(PolicyFixtureCase::InstallRealmsNoPassthrough)
+            });
+            let expected_source = if containment { P8_MAIN_URI } else { URI };
+            if source != expected_source || payload.len() > 2048 {
                 return Err(E_FAIL.into());
+            }
+            if containment {
+                let core = core(owner);
+                let actual_source = allocated_string(2048, |raw| unsafe { core.Source(raw) })?;
+                drop(core);
+                require_live(owner, request)?;
+                if actual_source != P8_MAIN_URI {
+                    return Err(E_FAIL.into());
+                }
             }
             let context = Code0BridgeContext {
                 connection_epoch: request.connection_epoch.clone(),
@@ -3143,6 +3651,28 @@ mod native {
                     return Err(E_FAIL.into());
                 }
                 p.ready_control = true;
+            } else if containment {
+                let witness: ContainmentWitness =
+                    serde_json::from_str(&payload).map_err(|_| E_FAIL)?;
+                if p.document_complete
+                    || witness.kind != "code0P8Complete"
+                    || witness.nonce != P8_NONCE
+                {
+                    return Err(E_FAIL.into());
+                }
+                let page = [
+                    witness.main,
+                    witness.child,
+                    witness.worker,
+                    witness.child_detached,
+                    witness.worker_terminate_returned,
+                ];
+                if page != [true; 5] {
+                    return Err(E_FAIL.into());
+                }
+                i.policy_fault.containment.renderer = page;
+                i.policy_fault.containment.source_matched = true;
+                p.document_complete = true;
             } else {
                 let expected = serde_json::json!({"kind":"code0InstallDocumentComplete","value":1});
                 if p.document_complete
@@ -3368,6 +3898,9 @@ pub mod fixture {
         InstallFilterInjectedFailure,
         InstallScriptInjectedFailure,
         InstallCdpInjectedFailure,
+        InstallScriptStaleDisposition,
+        InstallCdpStaleDisposition,
+        InstallRealmsNoPassthrough,
     }
 
     impl PolicyFixtureCase {
@@ -3380,6 +3913,9 @@ pub mod fixture {
                 Self::InstallFilterInjectedFailure => "install-filter-injected-failure",
                 Self::InstallScriptInjectedFailure => "install-script-injected-failure",
                 Self::InstallCdpInjectedFailure => "install-cdp-injected-failure",
+                Self::InstallScriptStaleDisposition => "install-script-stale-disposition",
+                Self::InstallCdpStaleDisposition => "install-cdp-stale-disposition",
+                Self::InstallRealmsNoPassthrough => "install-realms-no-passthrough",
             }
         }
         pub fn async_application(self) -> bool {
@@ -3388,9 +3924,23 @@ pub mod fixture {
                 Self::InstallScriptInjectedFailure | Self::InstallCdpInjectedFailure
             )
         }
+        pub fn stale_disposition(self) -> bool {
+            matches!(
+                self,
+                Self::InstallScriptStaleDisposition | Self::InstallCdpStaleDisposition
+            )
+        }
+        pub fn observes_application(self) -> bool {
+            self.async_application()
+                || self.stale_disposition()
+                || self == Self::InstallRealmsNoPassthrough
+        }
         pub fn fault_target(self) -> Option<PolicyFaultTarget> {
             match self {
-                Self::InstallAckBeforeFirstLoad => None,
+                Self::InstallAckBeforeFirstLoad
+                | Self::InstallScriptStaleDisposition
+                | Self::InstallCdpStaleDisposition
+                | Self::InstallRealmsNoPassthrough => None,
                 Self::InstallPrematureLoadDenied => Some(PolicyFaultTarget::PrematureLoad),
                 Self::InstallSettingInjectedFailure => Some(PolicyFaultTarget::HostObjectsSetting),
                 Self::InstallAddInjectedFailure => Some(PolicyFaultTarget::ResourceAdd),
@@ -3452,9 +4002,98 @@ pub mod fixture {
         }
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    pub enum StaleDispositionStage {
+        Held,
+        Drained,
+        Final,
+    }
+
+    pub struct StaleDispositionReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) generation: u64,
+        pub(super) stage: StaleDispositionStage,
+        pub(super) script: bool,
+        pub(super) counts: [u32; 11],
+        pub(super) application: [bool; 3],
+        pub(super) order: [u32; 4],
+        pub(super) queued_script_id: bool,
+        pub(super) policy_script_ids: u32,
+    }
+    impl StaleDispositionReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request && self.generation == 1
+        }
+        pub fn stage(&self) -> StaleDispositionStage {
+            self.stage
+        }
+        pub fn script(&self) -> bool {
+            self.script
+        }
+        pub fn counts(&self) -> [u32; 11] {
+            self.counts
+        }
+        pub fn application(&self) -> [bool; 3] {
+            self.application
+        }
+        pub fn order(&self) -> [u32; 4] {
+            self.order
+        }
+        pub fn queued_script_id(&self) -> bool {
+            self.queued_script_id
+        }
+        pub fn policy_script_ids(&self) -> u32 {
+            self.policy_script_ids
+        }
+    }
+
+    pub struct ContainmentReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) generation: u64,
+        pub(super) final_snapshot: bool,
+        pub(super) counts: [u32; 11],
+        pub(super) application: [bool; 3],
+        pub(super) deliveries: [u32; 7],
+        pub(super) responses: [u32; 7],
+        pub(super) total_delivered: u32,
+        pub(super) renderer: [bool; 5],
+        pub(super) document: [bool; 3],
+    }
+    impl ContainmentReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request && self.generation == 1
+        }
+        pub fn final_snapshot(&self) -> bool {
+            self.final_snapshot
+        }
+        pub fn counts(&self) -> [u32; 11] {
+            self.counts
+        }
+        pub fn application(&self) -> [bool; 3] {
+            self.application
+        }
+        pub fn deliveries(&self) -> [u32; 7] {
+            self.deliveries
+        }
+        pub fn responses(&self) -> [u32; 7] {
+            self.responses
+        }
+        pub fn total_delivered(&self) -> u32 {
+            self.total_delivered
+        }
+        pub fn renderer(&self) -> [bool; 5] {
+            self.renderer
+        }
+        pub fn document(&self) -> [bool; 3] {
+            self.document
+        }
+    }
+
     /// Opaque partial-debug receipts are produced only by the native owner at
     /// actual boundaries. No public constructor or callback-injection API.
     pub enum PolicyObservation {
+        StaleDisposition(StaleDispositionReceipt),
+        Containment(ContainmentReceipt),
         FaultTarget(PolicyFaultReceipt),
         FaultApplied(PolicyFaultReceipt),
         FaultFinal(PolicyFaultReceipt),

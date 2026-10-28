@@ -619,6 +619,246 @@ jobs:
             ${{ runner.temp }}/code0-policy-async-${{ github.run_id }}-${{ github.run_attempt }}-exits.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 stale and containment boundaries
+        shell: pwsh
+        env:
+          AI_METER_CODE0_NATIVE_DIAGNOSTICS: "1"
+        run: |
+          $ErrorActionPreference = "Continue"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $coverageCases = @(
+            @{ Tag = "p6"; Case = "install-script-stale-disposition" },
+            @{ Tag = "p7"; Case = "install-cdp-stale-disposition" },
+            @{ Tag = "p8"; Case = "install-realms-no-passthrough" }
+          )
+          $coverageRows = [System.Collections.Generic.List[object]]::new()
+          foreach ($coverageCase in $coverageCases) {
+            $coverageTag = $coverageCase.Tag
+            $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-$coverageTag-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+            $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+            Write-Host "Code0 coverage invocation: $coverageTag"
+            $global:LASTEXITCODE = $null
+            cargo test --locked --manifest-path windows/src-tauri/Cargo.toml --features code0-native-fixture --test code0_native_fixture -- "--code0-policy-fixture=$($coverageCase.Case)"
+            $coverageExit = if ($null -eq $LASTEXITCODE) { -1 } else { [int]$LASTEXITCODE }
+            Write-Host "Code0 coverage Cargo-command status: $coverageTag $coverageExit"
+            $coverageRows.Add([ordered]@{ tag = $coverageTag; requiredCase = $coverageCase.Case; exitCode = $coverageExit })
+          }
+          $coverageManifestRun = "code0-policy-coverage-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $coverageManifestPath = Join-Path $env:RUNNER_TEMP "$coverageManifestRun-exits.json"
+          $coverageManifest = [ordered]@{ schema = 1; runId = $coverageManifestRun; cases = $coverageRows.ToArray() }
+          $coverageBytes = [System.Text.UTF8Encoding]::new($false).GetBytes(($coverageManifest | ConvertTo-Json -Depth 5 -Compress))
+          $coverageStream = [System.IO.FileStream]::new($coverageManifestPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try {
+            $coverageStream.Write($coverageBytes, 0, $coverageBytes.Length)
+            $coverageStream.Flush($true)
+          } finally {
+            $coverageStream.Dispose()
+          }
+          if (@($coverageRows | Where-Object { $_.exitCode -ne 0 }).Count -ne 0) { exit 1 }
+      - name: Verify Code0 stale and containment evidence
+        if: always()
+        shell: python {0}
+        run: |
+          import copy,json,os,re
+          from pathlib import Path
+          BASE_EXPECTED = json.loads('{"p6":{"schema":4,"runId":"<matching-fresh-run-id>","requiredCase":"install-script-stale-disposition","selectedCases":1,"completedCases":1,"pass":true,"failure":"none","install":{"submissions":1,"submissionAccepted":true,"installRejected":false,"barrierReceipts":0,"scriptAcknowledged":false,"cdpAcknowledged":false,"firstLoadReceipts":0,"documentReceipts":0,"sourceMatched":false,"syntheticResponseApplied":false,"canonicalReadyControl":false,"ackBeforeFirstLoad":false},"lifecycle":{"staMain":true,"callbackAffinity":true,"noInheritedOverride":true,"engineReady":true,"bareHiddenUnfocused":true,"constructionObserved":true,"profileIsolated":true,"destroyed":true,"ownedReferencesReleased":true,"runReturned":true,"cleanupSucceeded":true,"bareWindowViolation":false,"runtimeVersion":"<actual-runtime-version>"},"native":{"targetReceipts":0,"injectionReceipts":0,"prematureLoadDenials":0,"navigateAttempts":0,"scriptSubmissions":1,"cdpSubmissions":0,"resourceAdds":1,"filterAdds":1,"resourceRemovals":1,"filterRemovals":1,"scriptRemovals":1},"application":{"scriptIdInventoried":true,"scriptAcknowledged":false,"cdpAcknowledged":false},"stale":{"heldReceipts":1,"closeRevocations":1,"drainedReceipts":1,"finalReceipts":1,"heldApplication":{"scriptIdInventoried":false,"scriptAcknowledged":false,"cdpAcknowledged":false},"queuedScriptIdAtHeld":true,"policyScriptIdsAtHeld":0,"policyScriptIdsAtDrain":1,"policyScriptIdsAtFinal":0,"policyFailures":1}},"p7":{"schema":4,"runId":"<matching-fresh-run-id>","requiredCase":"install-cdp-stale-disposition","selectedCases":1,"completedCases":1,"pass":true,"failure":"none","install":{"submissions":1,"submissionAccepted":true,"installRejected":false,"barrierReceipts":0,"scriptAcknowledged":true,"cdpAcknowledged":false,"firstLoadReceipts":0,"documentReceipts":0,"sourceMatched":false,"syntheticResponseApplied":false,"canonicalReadyControl":false,"ackBeforeFirstLoad":false},"lifecycle":{"staMain":true,"callbackAffinity":true,"noInheritedOverride":true,"engineReady":true,"bareHiddenUnfocused":true,"constructionObserved":true,"profileIsolated":true,"destroyed":true,"ownedReferencesReleased":true,"runReturned":true,"cleanupSucceeded":true,"bareWindowViolation":false,"runtimeVersion":"<actual-runtime-version>"},"native":{"targetReceipts":0,"injectionReceipts":0,"prematureLoadDenials":0,"navigateAttempts":0,"scriptSubmissions":1,"cdpSubmissions":1,"resourceAdds":1,"filterAdds":1,"resourceRemovals":1,"filterRemovals":1,"scriptRemovals":1},"application":{"scriptIdInventoried":true,"scriptAcknowledged":true,"cdpAcknowledged":false},"stale":{"heldReceipts":1,"closeRevocations":1,"drainedReceipts":1,"finalReceipts":1,"heldApplication":{"scriptIdInventoried":true,"scriptAcknowledged":true,"cdpAcknowledged":false},"queuedScriptIdAtHeld":false,"policyScriptIdsAtHeld":1,"policyScriptIdsAtDrain":1,"policyScriptIdsAtFinal":0,"policyFailures":1}},"p8":{"schema":5,"runId":"<matching-fresh-run-id>","requiredCase":"install-realms-no-passthrough","selectedCases":1,"completedCases":1,"pass":true,"failure":"none","install":{"submissions":1,"submissionAccepted":true,"installRejected":false,"barrierReceipts":1,"scriptAcknowledged":true,"cdpAcknowledged":true,"firstLoadReceipts":1,"documentReceipts":1,"sourceMatched":true,"syntheticResponseApplied":true,"canonicalReadyControl":true,"ackBeforeFirstLoad":true},"lifecycle":{"staMain":true,"callbackAffinity":true,"noInheritedOverride":true,"engineReady":true,"bareHiddenUnfocused":true,"constructionObserved":true,"profileIsolated":true,"destroyed":true,"ownedReferencesReleased":true,"runReturned":true,"cleanupSucceeded":true,"bareWindowViolation":false,"runtimeVersion":"<actual-runtime-version>"},"native":{"targetReceipts":0,"injectionReceipts":0,"prematureLoadDenials":0,"navigateAttempts":1,"scriptSubmissions":1,"cdpSubmissions":1,"resourceAdds":1,"filterAdds":1,"resourceRemovals":1,"filterRemovals":1,"scriptRemovals":1},"application":{"scriptIdInventoried":true,"scriptAcknowledged":true,"cdpAcknowledged":true},"containment":{"assetDeliveries":[1,1,1],"assetResponses":[1,1,1],"probeDeliveries":[1,1,1],"probeResponses":[1,1,1],"otherDeliveries":0,"otherResponses":0,"totalDelivered":6,"completeReceipts":1,"finalReceipts":1,"policyFailures":0},"renderer":{"mainRefusal":true,"childRefusal":true,"workerRefusal":true,"childDetached":true,"workerTerminateReturned":true}}}')
+          CASES = {'p6': 'install-script-stale-disposition', 'p7': 'install-cdp-stale-disposition', 'p8': 'install-realms-no-passthrough'}
+
+          def unique(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate JSON member')
+                  result[key] = value
+              return result
+
+          def bad_constant(value):
+              raise ValueError('non-JSON numeric constant')
+
+          def decode(raw):
+              if len(raw) > 8192:
+                  raise ValueError('summary exceeds cap')
+              return json.loads(raw.decode('utf-8'), object_pairs_hook=unique, parse_constant=bad_constant)
+
+          def same(actual, expected):
+              if type(actual) is not type(expected):
+                  raise ValueError('wrong exact JSON type')
+              if type(expected) is dict:
+                  if set(actual) != set(expected):
+                      raise ValueError('wrong JSON members')
+                  for key, value in expected.items():
+                      same(actual[key], value)
+              elif type(expected) is list:
+                  if len(actual) != len(expected):
+                      raise ValueError('wrong JSON array length')
+                  for item, value in zip(actual, expected):
+                      same(item, value)
+              elif actual != expected:
+                  raise ValueError('non-GREEN value')
+
+          def validate_case(raw, expected_run, tag):
+              if tag not in CASES or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', expected_run):
+                  raise ValueError('invalid invocation identity')
+              actual = decode(raw)
+              if type(actual) is not dict or type(actual.get('lifecycle')) is not dict:
+                  raise ValueError('missing lifecycle')
+              version = actual['lifecycle'].get('runtimeVersion')
+              if type(version) is not str or re.fullmatch(r'[0-9.]{1,128}', version) is None:
+                  raise ValueError('invalid actual runtime version')
+              expected = copy.deepcopy(BASE_EXPECTED[tag])
+              expected['runId'] = expected_run
+              expected['lifecycle']['runtimeVersion'] = version
+              if tag == 'p8':
+                  containment = actual.get('containment')
+                  if type(containment) is not dict:
+                      raise ValueError('missing containment')
+                  incidental = containment.get('otherDeliveries')
+                  if type(incidental) is not int or not 0 <= incidental <= 10:
+                      raise ValueError('invalid incidental request count')
+                  expected['containment'].update(otherDeliveries=incidental, otherResponses=incidental, totalDelivered=6+incidental)
+              same(actual, expected)
+              return actual
+
+          def exit_expected(expected_run):
+              return {'schema':1,'runId':expected_run,'cases':[{'tag':tag,'requiredCase':name,'exitCode':0}for tag,name in CASES.items()]}
+
+          def validate_exits(raw, expected_run):
+              same(decode(raw), exit_expected(expected_run))
+
+          def self_checks():
+              rejected = 0
+              def reject(raw, run, tag):
+                  nonlocal rejected
+                  try:
+                      validate_case(raw, run, tag)
+                  except (ValueError,TypeError,UnicodeError):
+                      rejected += 1
+                      return
+                  raise SystemExit('Code0 coverage parser self-check failed')
+              for tag in CASES:
+                  run = f'coverage-parser-canary-{tag}'
+                  sample = copy.deepcopy(BASE_EXPECTED[tag])
+                  sample['runId'] = run
+                  sample['lifecycle']['runtimeVersion'] = '1.2.3.4'
+                  raw = json.dumps(sample,separators=(',',':')).encode()
+                  validate_case(raw,run,tag)
+                  reject(raw+b' '*8193,run,tag)
+                  reject(raw[:-1]+b',"schema":4}',run,tag)
+                  reject(raw.replace(b'"submissions":1',b'"submissions":1,"submissions":1',1),run,tag)
+                  reject(raw.replace(b'"selectedCases":1',b'"selectedCases":NaN',1),run,tag)
+                  probes = [
+                      (('schema',),True),(('runId',),'wrong-run'),
+                      (('requiredCase',),'wrong-case'),(('selectedCases',),0),
+                      (('completedCases',),False),(('pass',),False),(('failure',),'setupFailure'),
+                      (('install','submissions'),True),
+                      (('install','barrierReceipts'),0 if tag=='p8' else 1),
+                      (('native','scriptRemovals'),0),
+                      (('native','injectionReceipts'),1),
+                      (('application','scriptIdInventoried'),False),
+                      (('lifecycle','cleanupSucceeded'),False),
+                      (('lifecycle','runReturned'),False),
+                      (('lifecycle','runtimeVersion'),'not-a-version'),
+                  ]
+                  if tag in ('p6','p7'):
+                      probes += [
+                          (('stale','closeRevocations'),0),
+                          (('stale','heldReceipts'),2),
+                          (('stale','drainedReceipts'),False),
+                          (('stale','finalReceipts'),0),
+                          (('stale','policyFailures'),0),
+                          (('stale','queuedScriptIdAtHeld'),tag!='p6'),
+                          (('stale','heldApplication','scriptIdInventoried'),tag=='p6'),
+                      ]
+                  else:
+                      probes += [
+                          (('containment','otherDeliveries'),True),
+                          (('containment','otherDeliveries'),11),
+                          (('containment','otherDeliveries'),-1),
+                          (('containment','otherResponses'),1),
+                          (('containment','totalDelivered'),7),
+                          (('containment','assetResponses'),[1,1]),
+                          (('containment','probeResponses'),[1,1,0]),
+                          (('containment','finalReceipts'),0),
+                          (('containment','policyFailures'),1),
+                          (('renderer','workerRefusal'),1),
+                          (('renderer','childDetached'),False),
+                          (('renderer','workerTerminateReturned'),False),
+                      ]
+                      for incidental in range(11):
+                          valid = copy.deepcopy(sample)
+                          valid['containment'].update(otherDeliveries=incidental,otherResponses=incidental,totalDelivered=6+incidental)
+                          validate_case(json.dumps(valid).encode(),run,tag)
+                  for path,value in probes:
+                      invalid = copy.deepcopy(sample)
+                      target = invalid
+                      for key in path[:-1]:
+                          target = target[key]
+                      target[path[-1]] = value
+                      reject(json.dumps(invalid).encode(),run,tag)
+                  extra = copy.deepcopy(sample)
+                  extra['native']['workerExited'] = True
+                  reject(json.dumps(extra).encode(),run,tag)
+              run = 'coverage-exit-canary'
+              valid = exit_expected(run)
+              validate_exits(json.dumps(valid).encode(),run)
+              for value in (False,1,124):
+                  invalid = copy.deepcopy(valid)
+                  invalid['cases'][2]['exitCode'] = value
+                  try:
+                      validate_exits(json.dumps(invalid).encode(),run)
+                  except (ValueError,TypeError,UnicodeError):
+                      rejected += 1
+                  else:
+                      raise SystemExit('Code0 coverage exit parser self-check failed')
+              invalid = copy.deepcopy(valid)
+              invalid['cases'].pop()
+              try:
+                  validate_exits(json.dumps(invalid).encode(),run)
+              except (ValueError,TypeError,UnicodeError):
+                  rejected += 1
+              else:
+                  raise SystemExit('Code0 coverage exit-count self-check failed')
+              print(f'Code0 coverage parser self-checks passed ({rejected} rejected data probes); no native acceptance implied.')
+              return rejected
+
+          def main():
+              self_checks()
+              run,attempt = os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']
+              root = Path(os.environ['RUNNER_TEMP'])
+              failed = False
+              for tag in CASES:
+                  expected_run = f'code0-policy-{tag}-{run}-{attempt}'
+                  try:
+                      with (root/f'{expected_run}.json').open('rb') as source:
+                          validate_case(source.read(8193),expected_run,tag)
+                  except (OSError,ValueError,TypeError,UnicodeError):
+                      print(f'Code0 {tag} stale/containment evidence missing, malformed, or not GREEN.')
+                      failed = True
+              try:
+                  expected_run = f'code0-policy-coverage-{run}-{attempt}'
+                  with (root/f'{expected_run}-exits.json').open('rb') as source:
+                      validate_exits(source.read(8193),expected_run)
+              except (OSError,ValueError,TypeError,UnicodeError):
+                  print('Code0 coverage Cargo-command exit evidence missing, malformed, or not GREEN.')
+                  failed = True
+              if failed:
+                  raise SystemExit('Code0 stale and containment evidence is not GREEN')
+              print('Code0 stale and containment evidence passed: three required separate native processes.')
+
+          if __name__ == '__main__':
+              main()
+      - name: Preserve Code0 stale and containment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-stale-containment
+          path: |
+            ${{ runner.temp }}/code0-policy-p6-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-p7-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-p8-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-coverage-${{ github.run_id }}-${{ github.run_attempt }}-exits.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug
