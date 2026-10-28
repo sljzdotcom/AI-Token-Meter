@@ -3,7 +3,7 @@
 //! message, actual destruction and owned reference release. No mock engine is used.
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod smoke {
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
     use std::fs::{File, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
@@ -21,7 +21,8 @@ mod smoke {
         Code0NativeDriver,
         fixture::{
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
-            NativeRefusalInstallReceipt, NativeSmokeObservation, PolicyFaultReceipt,
+            NativeRefusalInstallReceipt, NativeSmokeObservation, NativeTopRefusalFacts,
+            NativeTopRefusalReceipt, NativeTopSubmissionReceipt, PolicyFaultReceipt,
             PolicyFixtureCase, PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
         },
     };
@@ -37,6 +38,8 @@ mod smoke {
     const POLICY_CASE: &str = "install-ack-before-first-load";
     const POLICY_INSTANCE: &str = "22222222-2222-4222-8222-222222222222";
     const NATIVE_REFUSAL_CASE: &str = "install-native-refusal-hooks-before-load";
+    const TOP_REFUSAL_CASE: &str = "refusal-top-owned-file";
+    const TOP_REFUSAL_LEAF: &str = "code0-s2-top-denied.txt";
     const NATIVE_REFUSAL_HOOKS: [&str; 10] = [
         "topNavigation",
         "childNavigation",
@@ -65,7 +68,7 @@ mod smoke {
     impl NativeRefusalEvidence {
         fn observe(
             &mut self,
-            receipt: NativeRefusalInstallReceipt,
+            receipt: &NativeRefusalInstallReceipt,
             request: &Code0WindowRequest,
         ) -> bool {
             self.receipts = self.receipts.saturating_add(1);
@@ -117,6 +120,119 @@ mod smoke {
         }
     }
 
+    // This oracle must reject a real native event without a successful Cancel
+    // readback, a missing actual Session PolicyRejected, or abnormal cleanup.
+    // Submission success and the installation inventory cannot supply those facts.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TopRefusalEvidence {
+        owned_file_prepared: bool,
+        submissions: u8,
+        submission_returned: bool,
+        native_submit_ok: bool,
+        asset_binding_validated: bool,
+        installation_before_stimulus: bool,
+        stimulus_kind: &'static str,
+        target_receipts: u8,
+        receipt_installation_matched: bool,
+        policy_failures: u8,
+        action_before_policy_failure: bool,
+        browser_process_exited_once: bool,
+        #[serde(flatten)]
+        facts: NativeTopRefusalFacts,
+        #[serde(skip)]
+        installation: Option<NativeRefusalInstallReceipt>,
+    }
+    impl TopRefusalEvidence {
+        fn facts_positive(facts: &NativeTopRefusalFacts) -> bool {
+            facts.event_kind == "topNavigationStarting"
+                && facts.action_kind == "setCancelTrue"
+                && facts.target_uri_matched
+                && facts.native_sender_matched
+                && facts.request_generation_live_matched
+                && facts.navigation_id_getter_succeeded
+                && facts.redirected_getter_succeeded
+                && !facts.is_redirected
+                && facts.issued_before_event
+                && facts.cancel_attempts == 1
+                && facts.cancel_returns == 1
+                && facts.cancel_successes == 1
+                && facts.cancel_readbacks == 1
+                && facts.cancel_readback_succeeded
+                && facts.native_cancel_true
+                && facts.live_after_getters
+                && facts.native_action_before_receipt
+        }
+        fn submission(
+            &mut self,
+            receipt: NativeTopSubmissionReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            self.submissions = self.submissions.saturating_add(1);
+            self.submission_returned = true;
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|install| receipt.matches(request, install));
+            self.asset_binding_validated = matched;
+            self.installation_before_stimulus = matched
+                && self.installation.as_ref().is_some_and(|install| {
+                    install.installed_mask() == 1023 && !install.load_rejected()
+                });
+            self.stimulus_kind = "ownedFileTopNavigation";
+            self.native_submit_ok = matched && receipt.native_submit_ok();
+            self.submissions == 1 && self.native_submit_ok
+        }
+        fn observe(
+            &mut self,
+            receipt: NativeTopRefusalReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            self.target_receipts = self.target_receipts.saturating_add(1);
+            self.receipt_installation_matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|install| receipt.matches(request, install));
+            self.facts = receipt.facts();
+            self.target_receipts == 1
+                && self.receipt_installation_matched
+                && Self::facts_positive(&self.facts)
+        }
+        fn positive(&self, native: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.owned_file_prepared
+                && self.submissions == 1
+                && self.submission_returned
+                && self.native_submit_ok
+                && self.asset_binding_validated
+                && self.installation_before_stimulus
+                && self.stimulus_kind == "ownedFileTopNavigation"
+                && self.target_receipts == 1
+                && self.receipt_installation_matched
+                && self.policy_failures == 1
+                && self.action_before_policy_failure
+                && self.browser_process_exited_once
+                && Self::facts_positive(&self.facts)
+                && native.receipts == 1
+                && native.native_instance_validated
+                && native.source_bound_registry
+                && native.required_mask == 1023
+                && native.installed_mask == 1023
+                && native.not_installed_hooks.is_empty()
+                && !native.navigation_not_issued
+                && !native.load_rejected
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+    }
+
     // This positive oracle catches premature installation readiness, a first
     // load before actual async ACKs, and a document without native Source/bridge
     // evidence. Submission Ok and EngineReady cannot satisfy any receipt.
@@ -137,10 +253,18 @@ mod smoke {
         ack_before_first_load: bool,
         #[serde(skip)]
         native_refusal: Option<NativeRefusalEvidence>,
+        #[serde(skip)]
+        top_refusal: Option<TopRefusalEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(top) = &self.top_refusal {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| top.positive(native, lifecycle));
+            }
             if let Some(native) = &self.native_refusal {
                 return native.positive(lifecycle);
             }
@@ -248,18 +372,24 @@ mod smoke {
         lifecycle: PolicyLifecycle<'a>,
         #[serde(skip_serializing_if = "Option::is_none")]
         native_refusal: Option<&'a NativeRefusalEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        top_refusal: Option<&'a TopRefusalEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.native_refusal.is_some() {
+                schema: if install.top_refusal.is_some() {
+                    7
+                } else if install.native_refusal.is_some() {
                     6
                 } else {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.native_refusal.is_some() {
+                required_case: if install.top_refusal.is_some() {
+                    TOP_REFUSAL_CASE
+                } else if install.native_refusal.is_some() {
                     NATIVE_REFUSAL_CASE
                 } else {
                     POLICY_CASE
@@ -270,6 +400,7 @@ mod smoke {
                 failure: state.failure,
                 install,
                 native_refusal: install.native_refusal.as_ref(),
+                top_refusal: install.top_refusal.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1135,6 +1266,17 @@ mod smoke {
     }
 
     pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(native_refusal, false)
+    }
+
+    pub fn run_top_refusal() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(true, true)
+    }
+
+    fn run_policy_selected(
+        native_refusal: bool,
+        top_refusal: bool,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
             || run_id.len() > 64
@@ -1159,6 +1301,7 @@ mod smoke {
         }));
         let install = Arc::new(Mutex::new(PolicyEvidence {
             native_refusal: native_refusal.then(NativeRefusalEvidence::default),
+            top_refusal: top_refusal.then(TopRefusalEvidence::default),
             ..PolicyEvidence::default()
         }));
         write_summary(
@@ -1186,6 +1329,7 @@ mod smoke {
                             &failed,
                             &PolicyEvidence {
                                 native_refusal: native_refusal.then(NativeRefusalEvidence::default),
+                                top_refusal: top_refusal.then(TopRefusalEvidence::default),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -1392,6 +1536,28 @@ mod smoke {
         Ok(passed)
     }
 
+    // Native refusal can synchronously enter ordinary cleanup before Failed is
+    // emitted at the bottom of poll. Preserve the first actual callback time;
+    // adopting it never waits for an observation ACK or resets the 10s budget.
+    fn adopt_top_refusal_close(
+        driver: &mut Code0NativeDriver,
+        instance: &str,
+        closing_since: &mut Option<Instant>,
+        at: Option<Instant>,
+        diagnostics: &Diagnostics,
+    ) {
+        if closing_since.is_none()
+            && let Some(closing) = at
+        {
+            *closing_since = Some(closing);
+            diagnostics.close_budget_started(closing);
+            diagnostics.phase(DP::CloseRequest, false);
+            driver.close(instance);
+            diagnostics.phase(DP::CloseRequest, true);
+            diagnostics.observed(DM::CloseRequested);
+        }
+    }
+
     fn run_case(
         summary: Arc<Mutex<Summary>>,
         diagnostics: Arc<Diagnostics>,
@@ -1404,6 +1570,9 @@ mod smoke {
             .as_ref()
             .map(|coverage| coverage.lock().unwrap().case);
         let selected_case = fault_case.or(coverage_case);
+        let top_selected = policy
+            .as_ref()
+            .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
         diagnostics.phase(DP::Sta, false);
         let _sta = Sta::initialize()?;
         diagnostics.phase(DP::Sta, true);
@@ -1433,6 +1602,28 @@ mod smoke {
         let temp = tempfile::tempdir()?;
         let temp_root = temp.path().canonicalize()?;
         let profile = temp.path().join("code0");
+        if top_selected {
+            // Exclusive creation in this very TempDir; never reuse or read a body.
+            let asset = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(temp_root.join(TOP_REFUSAL_LEAF))?;
+            let metadata = asset.metadata()?;
+            let empty = metadata.is_file() && metadata.len() == 0;
+            drop(asset);
+            if !empty {
+                return Err("owned inert asset setup failed".into());
+            }
+            policy
+                .as_ref()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .top_refusal
+                .as_mut()
+                .unwrap()
+                .owned_file_prepared = true;
+        }
         let mut context = tauri::generate_context!();
         context.config_mut().app.windows.clear();
         // No product run/setup/RuntimeState, plugins, commands or managed windows.
@@ -1469,7 +1660,17 @@ mod smoke {
         let owner_handle = app.handle().clone();
         let native_queue = Rc::clone(&queue);
         let observer_diagnostics = Arc::clone(&diagnostics);
+        let native_top_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_top_close = Rc::clone(&native_top_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if top_selected
+                && matches!(&event, NativeSmokeObservation::TopRefusal(_))
+                && observer_top_close.get().is_none()
+            {
+                // The real Context has already revoked this native instance.
+                // UI-local timestamp only, outside Owner/summary/queue borrows.
+                observer_top_close.set(Some(Instant::now()));
+            }
             if let NativeSmokeObservation::WindowConstructed { window } = event {
                 // This receipt is synchronous at actual bare construction, before
                 // any correction/hiding or asynchronous environment/controller work.
@@ -1659,9 +1860,24 @@ mod smoke {
             }
             // Previous callbacks have returned before this poll. No Send-bound
             // Tauri listener captures the UI-local Rc/COM owner.
+            adopt_top_refusal_close(
+                &mut driver,
+                instance,
+                &mut closing_since,
+                native_top_close.get(),
+                &ui_diagnostics,
+            );
             ui_diagnostics.phase(DP::Poll, false);
             driver.poll_cleanup();
             ui_diagnostics.phase(DP::Poll, true);
+            // A target callback can also reenter a native query during poll.
+            adopt_top_refusal_close(
+                &mut driver,
+                instance,
+                &mut closing_since,
+                native_top_close.get(),
+                &ui_diagnostics,
+            );
             ui_diagnostics.phase(DP::SummaryLock, false);
             let mut state = observed.lock().unwrap();
             ui_diagnostics.phase(DP::SummaryLock, true);
@@ -1743,10 +1959,56 @@ mod smoke {
                                         driver.require_fixture_native_refusal_install(&request);
                                     let mut install = policy.lock().unwrap();
                                     let native = install.native_refusal.as_mut().unwrap();
-                                    let valid_inventory = receipt
-                                        .is_ok_and(|receipt| native.observe(receipt, &request));
+                                    let mut saved_receipt = None;
+                                    let valid_inventory = receipt.is_ok_and(|receipt| {
+                                        let valid = native.observe(&receipt, &request);
+                                        if top_selected {
+                                            saved_receipt = Some(receipt);
+                                        }
+                                        valid
+                                    });
                                     let rejected = native.load_rejected;
+                                    if top_selected {
+                                        install.top_refusal.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    }
                                     drop(install);
+                                    // No summary/install/queue guard crosses native Navigate.
+                                    let top_submission = if top_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        Some(driver.navigate_fixture_top_owned_file(&request))
+                                    } else {
+                                        None
+                                    };
+                                    let mut top_submission_failure = None;
+                                    if let Some(result) = top_submission {
+                                        let mut install = policy.lock().unwrap();
+                                        match result {
+                                            Ok(receipt) => {
+                                                let top = install.top_refusal.as_mut().unwrap();
+                                                if !top.submission(receipt, &request) {
+                                                    top_submission_failure =
+                                                        Some(if !top.asset_binding_validated {
+                                                            "topSubmissionReceiptInvalid"
+                                                        } else {
+                                                            "topNativeSubmissionFailed"
+                                                        });
+                                                }
+                                                install
+                                                    .native_refusal
+                                                    .as_mut()
+                                                    .unwrap()
+                                                    .navigation_not_issued = false;
+                                            }
+                                            Err(_) => {
+                                                top_submission_failure =
+                                                    Some("topAssetBindingPreconditionFailed")
+                                            }
+                                        }
+                                    }
                                     state = observed.lock().unwrap();
                                     state.failure = if installed.is_err() {
                                         "nativeHookInstallFailed"
@@ -1754,6 +2016,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = top_submission_failure {
+                                        failure
                                     } else {
                                         "notCompleted"
                                     };
@@ -1798,6 +2062,25 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::TopRefusal(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = top_selected
+                            && policy.as_ref().is_some_and(|policy| {
+                                policy
+                                    .lock()
+                                    .unwrap()
+                                    .top_refusal
+                                    .as_mut()
+                                    .is_some_and(|top| top.observe(receipt, &request))
+                            });
+                        if !valid {
+                            state.failure = "topNativeReceiptInvalid";
                         }
                     }
                     Observation::Native(
@@ -1980,6 +2263,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if top_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .top_refusal
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
                         if browser_exit_count != 1
                             || closing_since.is_none()
@@ -2007,7 +2301,35 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
-                        if let Some(coverage) = &coverage {
+                        if top_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let top = install.top_refusal.as_mut().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                // Count only the real once-only events(request, Failed)
+                                // channel. The opaque receipt joins this request to
+                                // the same native installation; no extra generation
+                                // is invented for the public session event.
+                                top.policy_failures = top.policy_failures.saturating_add(1);
+                                top.action_before_policy_failure = top.target_receipts == 1
+                                    && top.receipt_installation_matched
+                                    && TopRefusalEvidence::facts_positive(&top.facts);
+                                if top.policy_failures != 1 || !top.action_before_policy_failure {
+                                    state.failure = "topFailureWithoutNativeAction";
+                                }
+                                // Native Context already marked failed/closing.
+                                // The original close budget was already adopted
+                                // from the actual top callback; no failure-event
+                                // ACK or NavigationCompleted is awaited.
+                            } else {
+                                state.failure = if reason == Code0SessionFailure::CleanupFailed {
+                                    "topNativeCleanupFailed"
+                                } else {
+                                    "topUnexpectedNativeFailure"
+                                };
+                            }
+                        } else if let Some(coverage) = &coverage {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut coverage = coverage.lock().unwrap();
@@ -2104,20 +2426,24 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = policy.as_ref().is_some_and(|policy| {
-                policy
-                    .lock()
-                    .unwrap()
-                    .native_refusal
-                    .as_ref()
-                    .is_some_and(|native| native.receipts == 1)
-            });
+            let native_install_observed = !top_selected
+                && policy.as_ref().is_some_and(|policy| {
+                    policy
+                        .lock()
+                        .unwrap()
+                        .native_refusal
+                        .as_ref()
+                        .is_some_and(|native| native.receipts == 1)
+                });
+            let top_action_observed = top_selected && native_top_close.get().is_some();
             if policy.is_some()
                 && closing_since.is_none()
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if coverage.is_some() {
+                state.failure = if top_selected {
+                    "topTargetUnobserved"
+                } else if coverage.is_some() {
                     "coveragePreconditionMissing"
                 } else if fault.is_some() {
                     "faultTargetPreconditionFailed"
@@ -2130,12 +2456,13 @@ mod smoke {
                 && (state.renderer_message
                     || policy_document_ready
                     || native_install_observed
+                    || top_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = Instant::now();
+                let closing = native_top_close.get().unwrap_or_else(Instant::now);
                 closing_since = Some(closing);
                 ui_diagnostics.close_budget_started(closing);
                 drop(state);
@@ -2295,6 +2622,9 @@ fn main() {
                     == "--code0-policy-fixture=install-native-refusal-hooks-before-load" =>
             {
                 smoke::run_policy(true)
+            }
+            [selector] if selector == "--code0-policy-fixture=refusal-top-owned-file" => {
+                smoke::run_top_refusal()
             }
             [selector] if selector == "--code0-policy-fixture=install-premature-load-denied" => {
                 smoke::run_fault(PolicyFixtureCase::InstallPrematureLoadDenied)

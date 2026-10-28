@@ -1742,6 +1742,7 @@ mod native {
                 .filter(|hook| installed_mask & hook.bit() == 0)
                 .collect(),
             load_rejected: !i.refusal_registry.complete(),
+            installation: Arc::clone(&i.refusal_registry.unknown),
         })
     }
 
@@ -1753,7 +1754,16 @@ mod native {
         s2::begin(owner, request)
     }
 
-    /// Debug-only S2-1: actual registration and unwind, never navigation authority.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn navigate_top_owned_file(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        owned_root: &Path,
+    ) -> Result<super::fixture::NativeTopSubmissionReceipt, Code0SessionFailure> {
+        s2::navigate_top_owned_file(owner, request, owned_root)
+    }
+
+    /// Debug-only refusal registration and finite N1 audit; never production authority.
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     mod s2 {
         use super::super::fixture::NativeRefusalHook as Hook;
@@ -1788,10 +1798,12 @@ mod native {
             started: bool,
             settings_acknowledged: bool,
             completed: bool,
-            unknown: Arc<AtomicBool>,
+            pub(super) unknown: Arc<AtomicBool>,
             core: Option<Rc<ICoreWebView2>>,
             settings: Option<Rc<ICoreWebView2Settings>>,
             entries: Vec<Registration>,
+            // Finite N1 reservation only; never a production load permission.
+            top_target: Option<String>,
         }
         impl Registry {
             pub(super) fn not_installed() -> Self {
@@ -1804,6 +1816,7 @@ mod native {
                     core: None,
                     settings: None,
                     entries: Vec::new(),
+                    top_target: None,
                 }
             }
             pub(super) fn installed_mask(&self) -> u16 {
@@ -2043,6 +2056,222 @@ mod native {
             Ok(true)
         }
 
+        /// N1 accepts only this owned fixed empty leaf, after the independent
+        /// complete native inventory receipt. No URL or page input is accepted.
+        pub(super) fn navigate_top_owned_file(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            owned_root: &Path,
+        ) -> Result<super::super::fixture::NativeTopSubmissionReceipt, Code0SessionFailure>
+        {
+            use std::path::{Component, Prefix};
+            let denied = || Code0SessionFailure::PolicyRejected;
+            super::require_native_refusal_install(owner, request)?;
+            let root = owned_root.canonicalize().map_err(|_| denied())?;
+            let fixed = root.join("code0-s2-top-denied.txt");
+            let target = fixed.canonicalize().map_err(|_| denied())?;
+            let local = |path: &Path| {
+                path.is_absolute()
+                    && matches!(
+                        path.components().next(),
+                        Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_))
+                    )
+            };
+            if !local(&root)
+                || !local(&target)
+                || target != fixed
+                || target.parent() != Some(root.as_path())
+                || target.file_name() != Some(std::ffi::OsStr::new("code0-s2-top-denied.txt"))
+            {
+                return Err(denied());
+            }
+            let metadata = target.metadata().map_err(|_| denied())?;
+            if !metadata.is_file() || metadata.len() != 0 {
+                return Err(denied());
+            }
+            let url = reqwest::Url::from_file_path(&target).map_err(|_| denied())?;
+            if url.scheme() != "file"
+                || url.host_str().is_some()
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+                || url.as_str().is_empty()
+                || url.as_str().encode_utf16().count() > 2048
+            {
+                return Err(denied());
+            }
+            let target = url.to_string();
+            let wide: Vec<u16> = target.encode_utf16().chain(std::iter::once(0)).collect();
+            let (core, callbacks, installation) = {
+                let mut state = owner.borrow_mut();
+                if state.unmatched {
+                    return Err(denied());
+                }
+                let i = matching(&mut state, request).ok_or(Code0SessionFailure::PolicyRejected)?;
+                if i.closing
+                    || i.failed
+                    || i.cleanup_blocked
+                    || i.released
+                    || i.inline_loaded
+                    || i.policy.is_some()
+                    || i.policy_mailbox.is_some()
+                    || i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                    || !i.refusal_registry.complete()
+                    || i.refusal_registry.top_target.is_some()
+                {
+                    return Err(denied());
+                }
+                let core = i
+                    .refusal_registry
+                    .core
+                    .as_ref()
+                    .map(Rc::clone)
+                    .ok_or(Code0SessionFailure::PolicyRejected)?;
+                // Reserve once immediately before the only native call. Neither
+                // getter nor COM AddRef runs between this reservation and Navigate.
+                i.refusal_registry.top_target = Some(target);
+                (
+                    core,
+                    Arc::clone(&i.callbacks),
+                    Arc::clone(&i.refusal_registry.unknown),
+                )
+            };
+            let active = Active::enter(&callbacks);
+            let result = unsafe { core.Navigate(PCWSTR(wide.as_ptr())) };
+            let native_submit_ok = result.is_ok();
+            // Any HRESULT ErrorInfo and the action-local interface wrapper end
+            // while the callback inventory still protects this native action.
+            drop(result);
+            drop(core);
+            drop(active);
+            Ok(super::super::fixture::NativeTopSubmissionReceipt {
+                request: request.clone(),
+                installation,
+                native_submit_ok,
+            })
+        }
+
+        impl Context {
+            fn top_navigation(
+                &self,
+                args: &ICoreWebView2NavigationStartingEventArgs,
+                eligible: bool,
+                receipt: &mut Option<super::super::fixture::NativeTopRefusalReceipt>,
+            ) -> windows::core::Result<bool> {
+                let owner = self.owner.upgrade();
+                let target = owner.as_ref().and_then(|owner| {
+                    let state = owner.borrow();
+                    state
+                        .instance
+                        .as_ref()
+                        .filter(|i| self.matches_instance(i))
+                        .and_then(|i| i.refusal_registry.top_target.clone())
+                });
+                let Some(target) = target else {
+                    return navigation(args, eligible);
+                };
+                // All metadata is fallible and may reenter. None of its errors
+                // can bypass the original restrictive native SetCancel action.
+                let uri = allocated_string(2048, |raw| unsafe { args.Uri(raw) });
+                let mut navigation_id = 0u64;
+                let id_result = unsafe { args.NavigationId(&mut navigation_id) };
+                let mut redirected = BOOL::from(false);
+                let redirected_result = unsafe { args.IsRedirected(&mut redirected) };
+                let live_after_metadata =
+                    eligible && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                let canceled = unsafe { args.SetCancel(true) };
+                let mut cancel = BOOL::from(false);
+                let readback = unsafe { args.Cancel(&mut cancel) };
+                let live_after_getters = live_after_metadata
+                    && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                let facts = super::super::fixture::NativeTopRefusalFacts {
+                    event_kind: "topNavigationStarting",
+                    action_kind: "setCancelTrue",
+                    target_uri_matched: uri.as_ref().is_ok_and(|uri| uri == &target),
+                    native_sender_matched: eligible,
+                    request_generation_live_matched: live_after_getters,
+                    navigation_id_getter_succeeded: id_result.is_ok(),
+                    redirected_getter_succeeded: redirected_result.is_ok(),
+                    is_redirected: redirected.as_bool(),
+                    issued_before_event: true,
+                    cancel_attempts: 1,
+                    cancel_returns: 1,
+                    cancel_successes: u8::from(canceled.is_ok()),
+                    cancel_readbacks: 1,
+                    cancel_readback_succeeded: readback.is_ok(),
+                    native_cancel_true: readback.is_ok() && cancel.as_bool(),
+                    live_after_getters,
+                    native_action_before_receipt: true,
+                };
+                *receipt = Some(super::super::fixture::NativeTopRefusalReceipt {
+                    request: self.request.clone(),
+                    installation: Arc::clone(&self.unknown),
+                    facts,
+                });
+                uri?;
+                id_result?;
+                redirected_result?;
+                canceled?;
+                readback?;
+                if !cancel.as_bool() || !live_after_getters {
+                    return Err(rejection());
+                }
+                Ok(true)
+            }
+        }
+
+        fn add_top_navigation(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            index: usize,
+            core: &ICoreWebView2,
+        ) -> windows::core::Result<()> {
+            let context = Context::new(owner, request);
+            let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
+                let active = Active::enter(&context.callbacks);
+                let mut receipt = None;
+                let result = context.invoke(sender.as_ref(), |eligible| {
+                    let args = args.as_ref().ok_or_else(rejection)?;
+                    context.top_navigation(args, eligible, &mut receipt)
+                });
+                if let Some(receipt) = receipt {
+                    let observer = context.owner.upgrade().and_then(|owner| {
+                        let state = owner.borrow();
+                        state
+                            .instance
+                            .as_ref()
+                            .filter(|i| context.matches_instance(i))
+                            .and_then(|i| i.observer.clone())
+                    });
+                    if let Some(observer) = observer {
+                        observer(NativeSmokeObservation::TopRefusal(receipt));
+                    }
+                }
+                drop(args);
+                drop(sender);
+                drop(active);
+                result
+            }));
+            let mut token = 0;
+            let result = unsafe { core.add_NavigationStarting(&handler, &mut token) };
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                if result.is_ok() {
+                    i.refusal_registry.entries[index].token = Some(token);
+                } else {
+                    i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    i.failed = true;
+                    i.closing = true;
+                    i.cleanup_blocked = true;
+                }
+            }
+            drop(handler);
+            result?;
+            require_live(owner, request)
+        }
+
         macro_rules! add_handler {
             ($owner:expr, $request:expr, $index:expr, $emitter:expr, $wrapper:ident, $add:ident, $action:expr) => {{
                 let context = Context::new($owner, $request);
@@ -2102,15 +2331,9 @@ mod native {
                 index
             };
             match (hook, emitter.as_ref()) {
-                (Hook::TopNavigation, Emitter::Core(core)) => add_handler!(
-                    owner,
-                    request,
-                    index,
-                    core,
-                    NavigationStartingEventHandler,
-                    add_NavigationStarting,
-                    navigation
-                ),
+                (Hook::TopNavigation, Emitter::Core(core)) => {
+                    add_top_navigation(owner, request, index, core)
+                }
                 (Hook::ChildNavigation, Emitter::Core(core)) => add_handler!(
                     owner,
                     request,
@@ -4921,6 +5144,7 @@ pub mod fixture {
         pub(super) installed_mask: u16,
         pub(super) not_installed: Vec<NativeRefusalHook>,
         pub(super) load_rejected: bool,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
     }
     impl NativeRefusalInstallReceipt {
         pub fn matches(&self, request: &Code0WindowRequest) -> bool {
@@ -4934,6 +5158,67 @@ pub mod fixture {
         }
         pub fn not_installed(&self) -> &[NativeRefusalHook] {
             &self.not_installed
+        }
+    }
+
+    /// Primitive native callback audit only; no native references or identifiers.
+    #[derive(Clone, Copy, Default, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NativeTopRefusalFacts {
+        pub event_kind: &'static str,
+        pub action_kind: &'static str,
+        pub target_uri_matched: bool,
+        pub native_sender_matched: bool,
+        pub request_generation_live_matched: bool,
+        pub navigation_id_getter_succeeded: bool,
+        pub redirected_getter_succeeded: bool,
+        pub is_redirected: bool,
+        pub issued_before_event: bool,
+        pub cancel_attempts: u8,
+        pub cancel_returns: u8,
+        pub cancel_successes: u8,
+        pub cancel_readbacks: u8,
+        pub cancel_readback_succeeded: bool,
+        pub native_cancel_true: bool,
+        pub live_after_getters: bool,
+        pub native_action_before_receipt: bool,
+    }
+    pub struct NativeTopRefusalReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) facts: NativeTopRefusalFacts,
+    }
+    impl NativeTopRefusalReceipt {
+        pub fn matches(
+            &self,
+            request: &Code0WindowRequest,
+            install: &NativeRefusalInstallReceipt,
+        ) -> bool {
+            &self.request == request
+                && install.matches(request)
+                && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        pub fn facts(&self) -> NativeTopRefusalFacts {
+            self.facts
+        }
+    }
+    pub struct NativeTopSubmissionReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) native_submit_ok: bool,
+    }
+    impl NativeTopSubmissionReceipt {
+        pub fn matches(
+            &self,
+            request: &Code0WindowRequest,
+            install: &NativeRefusalInstallReceipt,
+        ) -> bool {
+            &self.request == request
+                && install.matches(request)
+                && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        pub fn native_submit_ok(&self) -> bool {
+            self.native_submit_ok
         }
     }
 
@@ -5216,6 +5501,8 @@ pub mod fixture {
         /// Actual registered event, validated against the owned environment,
         /// armed core PID and normal exit kind. Contains no native references.
         BrowserProcessExited,
+        /// Actual registered N1 top callback; opaque source-bound primitive audit.
+        TopRefusal(NativeTopRefusalReceipt),
         /// Partial debug installation only; never a production policy event.
         Policy(PolicyObservation),
     }
@@ -5867,6 +6154,36 @@ pub mod fixture {
             #[cfg(not(windows))]
             {
                 let _ = request;
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// One debug-only N1 Navigate, derived from the owned fixed inert leaf.
+        /// The production navigate and PoliciesInstalled paths remain denied.
+        pub fn navigate_fixture_top_owned_file(
+            &mut self,
+            request: &Code0WindowRequest,
+        ) -> Result<NativeTopSubmissionReceipt, Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            // The root is derived from this driver's leased dedicated profile,
+            // never from page/App URL or path input to the finite action.
+            let owned_root = self
+                .profile_root
+                .parent()
+                .ok_or(Code0SessionFailure::PolicyRejected)?;
+            #[cfg(windows)]
+            {
+                super::native::navigate_top_owned_file(&self.owner, request, owned_root)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (request, owned_root);
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }

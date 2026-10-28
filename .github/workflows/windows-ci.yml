@@ -969,6 +969,160 @@ jobs:
             ${{ runner.temp }}/code0-policy-s2-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 native top owned-file refusal
+        if: always()
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-n1-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+          & cargo test --locked --features code0-native-fixture --test code0_native_fixture -- --code0-policy-fixture=refusal-top-owned-file
+          $code = [int]$LASTEXITCODE
+          $exitPath = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID-exit.json"
+          $payload = [ordered]@{ schema = 1; runId = $env:AI_METER_CODE0_POLICY_RUN_ID; exitCode = $code } | ConvertTo-Json -Compress
+          $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
+          $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+          exit $code
+      - name: Verify Code0 native top owned-file refusal evidence
+        if: always()
+        shell: python
+        run: |
+          import copy, json, os, re
+          from pathlib import Path
+          LIFE = ['staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady', 'bareHiddenUnfocused', 'constructionObserved', 'profileIsolated', 'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded']
+          COUNTS = ['submissions', 'barrierReceipts', 'firstLoadReceipts', 'documentReceipts']
+          FLAGS = ['submissionAccepted', 'installRejected', 'scriptAcknowledged', 'cdpAcknowledged', 'sourceMatched', 'syntheticResponseApplied', 'canonicalReadyControl', 'ackBeforeFirstLoad']
+          TOP_TRUE = ['ownedFilePrepared', 'submissionReturned', 'nativeSubmitOk', 'assetBindingValidated', 'installationBeforeStimulus', 'receiptInstallationMatched', 'actionBeforePolicyFailure', 'browserProcessExitedOnce', 'targetUriMatched', 'nativeSenderMatched', 'requestGenerationLiveMatched', 'navigationIdGetterSucceeded', 'redirectedGetterSucceeded', 'issuedBeforeEvent', 'cancelReadbackSucceeded', 'nativeCancelTrue', 'liveAfterGetters', 'nativeActionBeforeReceipt']
+          TOP_ONCE = ['submissions', 'targetReceipts', 'policyFailures', 'cancelAttempts', 'cancelReturns', 'cancelSuccesses', 'cancelReadbacks']
+          def unique(pairs):
+              value = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise ValueError('duplicate member')
+                  value[key] = item
+              return value
+          def invalid_constant(_):
+              raise ValueError('invalid JSON constant')
+          def decode(raw):
+              if len(raw) > 8192:
+                  raise ValueError('oversize evidence')
+              return json.loads(raw.decode('utf-8'), object_pairs_hook=unique, parse_constant=invalid_constant, parse_float=invalid_constant)
+          def read(path):
+              with path.open('rb') as source:
+                  return decode(source.read(8193))
+          def exact(actual, expected):
+              if type(actual) is not type(expected):
+                  raise ValueError('wrong evidence type')
+              if type(expected) is dict:
+                  if set(actual) != set(expected):
+                      raise ValueError('wrong evidence fields')
+                  for key in expected:
+                      exact(actual[key], expected[key])
+              elif type(expected) is list:
+                  if len(actual) != len(expected):
+                      raise ValueError('wrong evidence list')
+                  for item, wanted in zip(actual, expected):
+                      exact(item, wanted)
+              elif actual != expected:
+                  raise ValueError('evidence mismatch')
+          def expected(run_id):
+              return {'schema': 7, 'runId': run_id, 'requiredCase': 'refusal-top-owned-file', 'selectedCases': 1, 'completedCases': 1, 'pass': True, 'failure': 'none',
+                      'install': {**dict.fromkeys(COUNTS, 0), **dict.fromkeys(FLAGS, False)},
+                      'lifecycle': {**dict.fromkeys(LIFE, True), 'bareWindowViolation': False, 'runtimeVersion': '<actual>'},
+                      'nativeRefusal': {'receipts': 1, 'nativeInstanceValidated': True, 'sourceBoundRegistry': True, 'requiredMask': 1023, 'installedMask': 1023, 'notInstalledHooks': [], 'navigationNotIssued': False, 'loadRejected': False},
+                      'topRefusal': {**dict.fromkeys(TOP_TRUE, True), **dict.fromkeys(TOP_ONCE, 1), 'stimulusKind': 'ownedFileTopNavigation', 'eventKind': 'topNavigationStarting', 'actionKind': 'setCancelTrue', 'isRedirected': False}}
+          def validate(data, exit_data, run_id):
+              wanted = expected(run_id)
+              runtime = data.get('lifecycle', {}).get('runtimeVersion') if type(data) is dict else None
+              if type(runtime) is not str or re.fullmatch(r'[0-9.]{1,128}', runtime) is None:
+                  raise ValueError('missing actual runtime')
+              wanted['lifecycle']['runtimeVersion'] = runtime
+              exact(data, wanted)
+              exact(exit_data, {'schema': 1, 'runId': run_id, 'exitCode': 0})
+          def must_reject(data, exit_data):
+              try:
+                  validate(data, exit_data, 'canary')
+              except (ValueError, TypeError, AttributeError):
+                  return
+              raise ValueError('N1 parser accepted negative DATA')
+          def leaves(value, prefix=()):
+              if type(value) is dict:
+                  for key, item in value.items():
+                      yield from leaves(item, prefix + (key,))
+              else:
+                  yield prefix, value
+          def changed(data, path, value):
+              result = copy.deepcopy(data)
+              node = result
+              for key in path[:-1]:
+                  node = node[key]
+              node[path[-1]] = value
+              return result
+          def data_self_check():
+              # DATA only: never native witnesses. Keep pass=true while each
+              # independent setup/event/action/failure/lifecycle fact is broken.
+              canary = expected('canary')
+              canary['lifecycle']['runtimeVersion'] = '1.2.3.4'
+              exit_data = {'schema': 1, 'runId': 'canary', 'exitCode': 0}
+              validate(canary, exit_data, 'canary')
+              for path, value in leaves(canary):
+                  if path == ('pass',):
+                      continue
+                  replacement = (not value) if type(value) is bool else (value + 1) if type(value) is int else ['extra'] if type(value) is list else 'wrong'
+                  must_reject(changed(canary, path, replacement), exit_data)
+                  if type(value) is int:
+                      must_reject(changed(canary, path, True), exit_data)
+                      if value > 0:
+                          must_reject(changed(canary, path, 0), exit_data)
+              for schema in range(1, 7):
+                  must_reject(changed(canary, ('schema',), schema), exit_data)
+              for count in (0, 2):
+                  for key in ('selectedCases', 'completedCases'):
+                      must_reject(changed(canary, (key,), count), exit_data)
+              for count in (0, 2):
+                  must_reject(changed(canary, ('topRefusal', 'targetReceipts'), count), exit_data)
+                  must_reject(changed(canary, ('topRefusal', 'policyFailures'), count), exit_data)
+              for value in (False, 1, [], None):
+                  must_reject(value, exit_data)
+              for path, _ in leaves(exit_data):
+                  must_reject(canary, changed(exit_data, path, True))
+              must_reject(canary, {**exit_data, 'exitCode': 1})
+              must_reject(canary, {**exit_data, 'runId': 'stale'})
+              must_reject(canary, {**exit_data, 'extra': True})
+              extra = copy.deepcopy(canary)
+              extra['topRefusal']['extra'] = True
+              must_reject(extra, exit_data)
+              missing = copy.deepcopy(canary)
+              del missing['topRefusal']['cancelReadbackSucceeded']
+              must_reject(missing, exit_data)
+              for raw in (b'{"pass":true,"pass":true}', b'{"v":NaN}', b'{"v":Infinity}', b'{"v":-Infinity}', b'{"v":1e999}', b'\xff', b' ' * 8193):
+                  try:
+                      decode(raw)
+                  except (ValueError, UnicodeError):
+                      continue
+                  raise ValueError('N1 parser accepted invalid JSON DATA')
+          if __name__ == '__main__':
+              try:
+                  data_self_check()
+                  run_id = f"code0-policy-n1-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+                  base = Path(os.environ['RUNNER_TEMP'])
+                  validate(read(base / f'{run_id}.json'), read(base / f'{run_id}-exit.json'), run_id)
+              except (OSError, ValueError, TypeError, AttributeError, UnicodeError):
+                  raise SystemExit('Code0 N1 setup, target, native action, session failure, schema, exit or cleanup failed; uncovered is not PASS or target RED') from None
+              print('Code0 N1 native top refusal GREEN; subsequent events and production integration remain unverified.')
+      - name: Preserve Code0 native top owned-file refusal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-policy-n1
+          path: |
+            ${{ runner.temp }}/code0-policy-n1-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-n1-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug
