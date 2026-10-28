@@ -859,6 +859,114 @@ jobs:
             ${{ runner.temp }}/code0-policy-coverage-${{ github.run_id }}-${{ github.run_attempt }}-exits.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 native refusal installation barrier
+        if: always()
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-s2-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+          & cargo test --locked --features code0-native-fixture --test code0_native_fixture -- --code0-policy-fixture=install-native-refusal-hooks-before-load
+          $code = [int]$LASTEXITCODE
+          $exitPath = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID-exit.json"
+          $payload = [ordered]@{ schema = 1; runId = $env:AI_METER_CODE0_POLICY_RUN_ID; exitCode = $code } | ConvertTo-Json -Compress
+          $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
+          $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+          exit $code
+      - name: Verify Code0 native refusal installation evidence
+        if: always()
+        shell: python
+        run: |
+          import copy, json, os, re
+          from pathlib import Path
+          HOOKS = ['topNavigation', 'childNavigation', 'externalProtocol', 'newWindow', 'download', 'scriptDialog', 'permission', 'basicAuthentication', 'clientCertificate', 'tlsError']
+          LIFE = ['staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady', 'bareHiddenUnfocused', 'constructionObserved', 'profileIsolated', 'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded']
+          COUNTS = ['submissions', 'barrierReceipts', 'firstLoadReceipts', 'documentReceipts']
+          FLAGS = ['submissionAccepted', 'installRejected', 'scriptAcknowledged', 'cdpAcknowledged', 'sourceMatched', 'syntheticResponseApplied', 'canonicalReadyControl', 'ackBeforeFirstLoad']
+          def unique(pairs):
+              value = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise ValueError('duplicate member')
+                  value[key] = item
+              return value
+          def invalid_constant(_):
+              raise ValueError('invalid JSON constant')
+          def read(path):
+              with path.open('rb') as source:
+                  raw = source.read(8193)
+              if len(raw) > 8192:
+                  raise ValueError('oversize evidence')
+              return json.loads(raw.decode('utf-8'), object_pairs_hook=unique, parse_constant=invalid_constant)
+          def exact(actual, expected):
+              if type(actual) is not type(expected):
+                  raise ValueError('wrong evidence type')
+              if type(expected) is dict:
+                  if set(actual) != set(expected):
+                      raise ValueError('wrong evidence fields')
+                  for key in expected:
+                      exact(actual[key], expected[key])
+              elif type(expected) is list:
+                  if len(actual) != len(expected):
+                      raise ValueError('wrong evidence list')
+                  for item, wanted in zip(actual, expected):
+                      exact(item, wanted)
+              elif actual != expected:
+                  raise ValueError('evidence mismatch')
+          def expected(run_id, missing):
+              return {'schema': 6, 'runId': run_id, 'requiredCase': 'install-native-refusal-hooks-before-load', 'selectedCases': 1, 'completedCases': 1, 'pass': not missing, 'failure': 'nativeHooksMissing' if missing else 'none',
+                      'install': {**dict.fromkeys(COUNTS, 0), **dict.fromkeys(FLAGS, False)},
+                      'lifecycle': {**dict.fromkeys(LIFE, True), 'bareWindowViolation': False, 'runtimeVersion': '<actual>'},
+                      'nativeRefusal': {'receipts': 1, 'nativeInstanceValidated': True, 'sourceBoundRegistry': True, 'requiredMask': 1023, 'installedMask': 0 if missing else 1023, 'notInstalledHooks': HOOKS if missing else [], 'navigationNotIssued': True, 'loadRejected': missing}}
+          def validate(data, exit_data, run_id, missing):
+              wanted = expected(run_id, missing)
+              runtime = data.get('lifecycle', {}).get('runtimeVersion') if type(data) is dict else None
+              if type(runtime) is not str or re.fullmatch(r'[0-9.]{1,128}', runtime) is None:
+                  raise ValueError('missing actual runtime')
+              wanted['lifecycle']['runtimeVersion'] = runtime
+              exact(data, wanted)
+              exact(exit_data, {'schema': 1, 'runId': run_id, 'exitCode': 1 if missing else 0})
+          # DATA parser canaries only; neither is a native installation witness.
+          canary = expected('canary', False)
+          canary['lifecycle']['runtimeVersion'] = '1.2.3.4'
+          canary_exit = {'schema': 1, 'runId': 'canary', 'exitCode': 0}
+          validate(canary, canary_exit, 'canary', False)
+          bad = copy.deepcopy(canary)
+          bad['nativeRefusal']['installedMask'] = True
+          extra = copy.deepcopy(canary)
+          extra['nativeRefusal']['extra'] = True
+          for malformed in (bad, extra, []):
+              try:
+                  validate(malformed, canary_exit, 'canary', False)
+              except (ValueError, TypeError, AttributeError):
+                  continue
+              raise SystemExit('Code0 S2 parser self-check failed')
+          run_id = f"code0-policy-s2-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          try:
+              base = Path(os.environ['RUNNER_TEMP'])
+              data = read(base / f'{run_id}.json')
+              exit_data = read(base / f'{run_id}-exit.json')
+              try:
+                  validate(data, exit_data, run_id, False)
+              except (ValueError, TypeError, AttributeError):
+                  validate(data, exit_data, run_id, True)
+                  raise SystemExit('Code0 S2 target RED: all ten native hooks NOT INSTALLED; native setup and normal cleanup verified')
+          except (OSError, ValueError, TypeError, AttributeError, UnicodeError):
+              raise SystemExit('Code0 S2 setup, schema, exit or cleanup failed; not a valid missing-hook RED') from None
+          print('Code0 S2 installation barrier GREEN; no hook-event coverage implied.')
+      - name: Preserve Code0 native refusal installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-policy-s2
+          path: |
+            ${{ runner.temp }}/code0-policy-s2-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-s2-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug

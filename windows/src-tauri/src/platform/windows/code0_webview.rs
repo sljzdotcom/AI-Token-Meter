@@ -389,6 +389,8 @@ mod native {
         policy_mailbox: Option<Arc<p1::Mailbox>>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         policy_fault: p1::FaultState,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        refusal_registry: NativeRefusalRegistry,
     }
 
     impl Owner {
@@ -581,6 +583,8 @@ mod native {
             policy_mailbox: None,
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             policy_fault: p1::FaultState::default(),
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            refusal_registry: NativeRefusalRegistry::not_installed(),
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -1673,6 +1677,75 @@ mod native {
         request: &Code0WindowRequest,
     ) -> Result<(), Code0SessionFailure> {
         p1::load(owner, request)
+    }
+
+    // This registry represents missing implementation, not successful adds.
+    // Future installed entries must own the actual same-emitter/token pair and
+    // join normal teardown; interface casts/settings/counters cannot fill it.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    struct NativeRefusalRegistry {
+        not_installed: [super::fixture::NativeRefusalHook; 10],
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    impl NativeRefusalRegistry {
+        fn not_installed() -> Self {
+            use super::fixture::NativeRefusalHook::*;
+            Self {
+                not_installed: [
+                    TopNavigation,
+                    ChildNavigation,
+                    ExternalProtocol,
+                    NewWindow,
+                    Download,
+                    ScriptDialog,
+                    Permission,
+                    BasicAuthentication,
+                    ClientCertificate,
+                    TlsError,
+                ],
+            }
+        }
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn require_native_refusal_install(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> Result<super::fixture::NativeRefusalInstallReceipt, Code0SessionFailure> {
+        if !on_ui(owner) {
+            return Err(Code0SessionFailure::PolicyRejected);
+        }
+        let state = owner.borrow();
+        let i = state
+            .instance
+            .as_ref()
+            .ok_or(Code0SessionFailure::PolicyRejected)?;
+        if state.unmatched
+            || &i.request != request
+            || i.closing
+            || i.failed
+            || i.cleanup_blocked
+            || i.released
+            || i.destroyed
+            || i.inline_loaded
+            || i.policy.is_some()
+            || i.policy_mailbox.is_some()
+            || i.core.is_none()
+            || i.controller.is_none()
+            || i.message_token.is_none()
+            || !matches!(i.browser_exit, BrowserExitState::Armed(_))
+            || i.callbacks.affinity_failed.load(Ordering::SeqCst)
+        {
+            return Err(Code0SessionFailure::PolicyRejected);
+        }
+        // No page, script, stimulus or native Navigate call occurs on this path.
+        // Returning this opaque receipt reports an actual denied load barrier,
+        // never successful installation or production PoliciesInstalled.
+        Ok(super::fixture::NativeRefusalInstallReceipt {
+            request: i.request.clone(),
+            not_installed: i.refusal_registry.not_installed,
+        })
     }
 
     /// Finite debug-only P1. No production policy authority is derived here.
@@ -4132,6 +4205,52 @@ pub mod fixture {
 
     use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
 
+    /// Fixed required S2 registrations. Redirects reuse both navigation hooks.
+    #[derive(Clone, Copy)]
+    pub enum NativeRefusalHook {
+        TopNavigation,
+        ChildNavigation,
+        ExternalProtocol,
+        NewWindow,
+        Download,
+        ScriptDialog,
+        Permission,
+        BasicAuthentication,
+        ClientCertificate,
+        TlsError,
+    }
+    impl NativeRefusalHook {
+        pub fn name(self) -> &'static str {
+            match self {
+                Self::TopNavigation => "topNavigation",
+                Self::ChildNavigation => "childNavigation",
+                Self::ExternalProtocol => "externalProtocol",
+                Self::NewWindow => "newWindow",
+                Self::Download => "download",
+                Self::ScriptDialog => "scriptDialog",
+                Self::Permission => "permission",
+                Self::BasicAuthentication => "basicAuthentication",
+                Self::ClientCertificate => "clientCertificate",
+                Self::TlsError => "tlsError",
+            }
+        }
+    }
+
+    /// Read-only missing-install seam, constructed only after live native owner
+    /// validation. There is intentionally no Installed state or public setter.
+    pub struct NativeRefusalInstallReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) not_installed: [NativeRefusalHook; 10],
+    }
+    impl NativeRefusalInstallReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request
+        }
+        pub fn not_installed(&self) -> [NativeRefusalHook; 10] {
+            self.not_installed
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum PolicyFixtureCase {
         InstallAckBeforeFirstLoad,
@@ -5017,6 +5136,30 @@ pub mod fixture {
 
         pub fn observe_fixture(&mut self, observer: Observer) {
             self.fixture_observer = Some(observer);
+        }
+
+        /// Read the current real unloaded instance's explicit missing-hook
+        /// registry and deny its load barrier. Does not install or load anything.
+        pub fn require_fixture_native_refusal_install(
+            &mut self,
+            request: &Code0WindowRequest,
+        ) -> Result<NativeRefusalInstallReceipt, Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::require_native_refusal_install(&self.owner, request)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = request;
+                Err(Code0SessionFailure::PolicyRejected)
+            }
         }
 
         /// Start the finite partial debug barrier on this real native instance.

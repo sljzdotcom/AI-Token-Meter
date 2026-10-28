@@ -21,8 +21,8 @@ mod smoke {
         Code0NativeDriver,
         fixture::{
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
-            NativeSmokeObservation, PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
-            StaleDispositionReceipt, StaleDispositionStage,
+            NativeRefusalInstallReceipt, NativeSmokeObservation, PolicyFaultReceipt,
+            PolicyFixtureCase, PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
         },
     };
     use serde::Serialize;
@@ -36,6 +36,75 @@ mod smoke {
     const INSTANCE: &str = "code0-native-smoke";
     const POLICY_CASE: &str = "install-ack-before-first-load";
     const POLICY_INSTANCE: &str = "22222222-2222-4222-8222-222222222222";
+    const NATIVE_REFUSAL_CASE: &str = "install-native-refusal-hooks-before-load";
+    const NATIVE_REFUSAL_HOOKS: [&str; 10] = [
+        "topNavigation",
+        "childNavigation",
+        "externalProtocol",
+        "newWindow",
+        "download",
+        "scriptDialog",
+        "permission",
+        "basicAuthentication",
+        "clientCertificate",
+        "tlsError",
+    ];
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NativeRefusalEvidence {
+        receipts: u8,
+        native_instance_validated: bool,
+        source_bound_registry: bool,
+        required_mask: u16,
+        installed_mask: u16,
+        not_installed_hooks: Vec<&'static str>,
+        navigation_not_issued: bool,
+        load_rejected: bool,
+    }
+    impl NativeRefusalEvidence {
+        fn observe(
+            &mut self,
+            receipt: NativeRefusalInstallReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            self.receipts = self.receipts.saturating_add(1);
+            if self.receipts != 1 || !receipt.matches(request) {
+                return false;
+            }
+            self.native_instance_validated = true;
+            // The opaque native receipt is read from the live Instance's only
+            // supported registry state: all ten explicitly NotInstalled. This
+            // is not an installed counter, cast or native-event coverage claim.
+            self.source_bound_registry = true;
+            self.required_mask = 0x03ff;
+            self.installed_mask = 0;
+            self.not_installed_hooks = receipt.not_installed().map(|hook| hook.name()).to_vec();
+            self.navigation_not_issued = true;
+            self.load_rejected = true;
+            self.not_installed_hooks == NATIVE_REFUSAL_HOOKS
+        }
+        fn positive(&self, lifecycle: &Summary) -> bool {
+            self.receipts == 1
+                && self.native_instance_validated
+                && self.source_bound_registry
+                && self.required_mask == 0x03ff
+                && self.installed_mask == self.required_mask
+                && self.not_installed_hooks.is_empty()
+                && self.navigation_not_issued
+                && !self.load_rejected
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+    }
 
     // This positive oracle catches premature installation readiness, a first
     // load before actual async ACKs, and a document without native Source/bridge
@@ -55,10 +124,15 @@ mod smoke {
         synthetic_response_applied: bool,
         canonical_ready_control: bool,
         ack_before_first_load: bool,
+        #[serde(skip)]
+        native_refusal: Option<NativeRefusalEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(native) = &self.native_refusal {
+                return native.positive(lifecycle);
+            }
             self.submissions == 1
                 && self.submission_accepted
                 && !self.install_rejected
@@ -161,19 +235,30 @@ mod smoke {
         failure: &'static str,
         install: &'a PolicyEvidence,
         lifecycle: PolicyLifecycle<'a>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        native_refusal: Option<&'a NativeRefusalEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: 1,
+                schema: if install.native_refusal.is_some() {
+                    6
+                } else {
+                    1
+                },
                 run_id: &state.run_id,
-                required_case: POLICY_CASE,
+                required_case: if install.native_refusal.is_some() {
+                    NATIVE_REFUSAL_CASE
+                } else {
+                    POLICY_CASE
+                },
                 selected_cases: 1,
                 completed_cases: state.completed_cases,
                 pass: state.pass,
                 failure: state.failure,
                 install,
+                native_refusal: install.native_refusal.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1038,7 +1123,7 @@ mod smoke {
         Ok(passed)
     }
 
-    pub fn run_policy() -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
             || run_id.len() > 64
@@ -1061,7 +1146,10 @@ mod smoke {
             failure: "notCompleted",
             ..Summary::default()
         }));
-        let install = Arc::new(Mutex::new(PolicyEvidence::default()));
+        let install = Arc::new(Mutex::new(PolicyEvidence {
+            native_refusal: native_refusal.then(NativeRefusalEvidence::default),
+            ..PolicyEvidence::default()
+        }));
         write_summary(
             &mut file,
             &PolicySummary::snapshot(&summary.lock().unwrap(), &install.lock().unwrap()),
@@ -1083,7 +1171,13 @@ mod smoke {
                 if let Ok(mut file) = hard_evidence.try_lock() {
                     let _ = write_summary(
                         &mut file,
-                        &PolicySummary::snapshot(&failed, &PolicyEvidence::default()),
+                        &PolicySummary::snapshot(
+                            &failed,
+                            &PolicyEvidence {
+                                native_refusal: native_refusal.then(NativeRefusalEvidence::default),
+                                ..PolicyEvidence::default()
+                            },
+                        ),
                     );
                 }
                 // Only this fixture process; never native cleanup evidence.
@@ -1627,6 +1721,22 @@ mod smoke {
                                     }
                                     continue;
                                 }
+                                if policy.lock().unwrap().native_refusal.is_some() {
+                                    let receipt =
+                                        driver.require_fixture_native_refusal_install(&request);
+                                    let mut install = policy.lock().unwrap();
+                                    let native = install.native_refusal.as_mut().unwrap();
+                                    let valid_missing = receipt
+                                        .is_ok_and(|receipt| native.observe(receipt, &request));
+                                    drop(install);
+                                    state = observed.lock().unwrap();
+                                    state.failure = if valid_missing {
+                                        "nativeHooksMissing"
+                                    } else {
+                                        "nativeHookInventoryPreconditionFailed"
+                                    };
+                                    continue;
+                                }
                                 policy.lock().unwrap().submissions += 1;
                                 let installed = driver.begin_fixture_policy_install(
                                     &request,
@@ -2147,7 +2257,13 @@ fn main() {
         match arguments.as_slice() {
             [] => smoke::run(),
             [selector] if selector == "--code0-policy-fixture=install-ack-before-first-load" => {
-                smoke::run_policy()
+                smoke::run_policy(false)
+            }
+            [selector]
+                if selector
+                    == "--code0-policy-fixture=install-native-refusal-hooks-before-load" =>
+            {
+                smoke::run_policy(true)
             }
             [selector] if selector == "--code0-policy-fixture=install-premature-load-denied" => {
                 smoke::run_fault(PolicyFixtureCase::InstallPrematureLoadDenied)
