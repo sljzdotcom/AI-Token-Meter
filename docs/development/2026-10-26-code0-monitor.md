@@ -760,3 +760,12 @@ Mac采证fix1已独立复审C0/I0/M0，报告6212字节/`90f2b7e4d26556a942a2f59
 
 
 获审Mac三文件仅源码检查点已提交 `0ec53ccf34f89e3eb63f408f0256adccf30defbf`；与driver64ad共同等待下一实际轮。索引逐项核对获审SHA，四份parked仍未提交，远端仍7a；没有宣称实际通过或发布。
+
+
+f4a4cfe已推送；持久检查点76文件/1149本机证据成员、全refs bundle及前驱798链读回，manifest `19ab16e7f3adca7cc9adb58ca8d8604a2d05c0f01e270fb417335cafe7ff5210`。新Windows40709469737与dispatcher40709469606于14:47:46UTC运行。Mac40709458861在14:47:42立即配置失败、jobs为空；workflow212/cccad2a3、CLI说明266/ce637842保存，无测试日志/执行或有效RED。GitHub官方context表明确job.env不允许runner、step.env允许；新CONTROLLED_CLI_EVIDENCE_DIR使用了前者的不合法层级，静态YAML与Python解析未发现GitHub表达式权限问题。实际详细注解未由API提供，不伪造精确服务端错误文字；源码此违规已证，拟仅将同一表达式移到三个使用步骤的env，Python/期限/因果/上传路径不变，旧候选与复审保留。新Windows/dispatcher继续运行、不取消或重试，下一push等本轮结束及窄修独审。
+
+
+工作流context fix2源码独审6524字节/`c7d518be89f528e59efd7e8bac9d03c72d03e3a914f3699af59c3814f0f693f1` C0/I0/M0已全文读取，作者5202及3425增量同样全文读取，19新成员与初始93/fix1 97成员保持，两个Git全差异精确重建。仅一项job.env移到三个step.env的同值表达式，Python与with/路径/原三job逐字不变。当前14991/b9546a6d；实际GitHub配置接受/编译/测试未验，旧服务拒绝不冒充目标RED，先本地检查点，现有Windows/dispatcher运行完再安排下一轮。另P5观察设计30097/92d5已全文读取，当前不采纳新进程句柄观察器，单PID身份/整个Runtime进程集合及CloseUncertain边界限制其解释力，历史P5根因仍未知、未新增产品代码或验收权威。
+
+
+工作流单文件fix2已本地提交 `8838ac2144ee85bb553507895e8499a03232117c`，远端仍f4a4cfe、当前两测试继续，未触发新一轮或发布。
