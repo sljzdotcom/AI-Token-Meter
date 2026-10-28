@@ -51,6 +51,7 @@ jobs:
         working-directory: windows/src-tauri
         run: cargo fmt --check
       - name: Lint Rust
+        id: code0_native_lint
         working-directory: windows/src-tauri
         run: cargo clippy --locked --all-targets --features code0-native-fixture -- -D warnings
       - name: Test Windows runtime
@@ -620,6 +621,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Test Code0 stale and containment boundaries
+        if: ${{ !cancelled() && steps.code0_native_lint.outcome == 'success' }}
         shell: pwsh
         env:
           AI_METER_CODE0_NATIVE_DIAGNOSTICS: "1"
