@@ -876,3 +876,51 @@ N3准备独审18271/21f58064已Root全文核读并接受C0/I1/M0 HOLD：无执�
 
 
 N3fix1准备14036/d23bfcd9定向独审关闭原I1、C0/I0/M0经Root全文接受，固定owned0byte.html与准确内部file URI/strictS及sole-writer限定获准作为下一实施合同；新鲜作者已只读接入、零写入。先提交并完整备份当前三实际C0和准备检查点，再明确唯一作者实施GO；N3 SOURCE/actual仍未执行或接受，不能据准备C0称目标通过。
+
+
+完整59文件检查点73309d84读回后，Root已明确向新鲜Sol6.1/high作者授予N3唯一实施GO；仅driver/fixture两源码及新报告冻结，Root负责后续WF/checker。基线本地3859fc1/远端311，N3仍在开发、未冻结/独审/编译/actual，不据实施GO扩大为源码接受或发布。
+
+
+S3仅只读后续准备：15708/a672与16415/cf79119e已Root全文读，修正CSP参数精确名allowUnsafeEvalBlockedByCSP:false。两阶段native预绑定消除目标事件后的DOM读取依赖，strict真实cancel/0files回调仍须先于Stop/Close自然到达；Root选择有限请求协议取消equivalent交独立预审，不声称全局OSUIabsence或FileSystemAccess等其他面。当前N3作者继续唯一两源码任务，S3无源码GO；后续依赖N3 SOURCE C0及S3准备C0，全部原预算/实际前提保持。
+
+
+N3候选已冻结：作者26260/07a22825及两源码115656/78aab096均Root全文读、25冻结成员与保护核对；Root仅在作者STOP后追加177行schema9严格WF，完整三源码129064/8a913d05已Root全文核读，规格及质量独审正在进行，未SOURCE接受/提交/编译/actual。旧WF可逐字逆还原，11root/61dialog数据契约及270负变体/8坏JSON仅数据检查，不冒称原生测试。S3后续准备19101/16e43b3c独审HOLD I1（receiver白名单/数量/epoch阶段未封闭）已Root全文读，先修准备、不扩当前N3任务；FSA13716/db61b18e只读报告表明上游CDP有pre-picker路径但Runtime155未证，权限DENY不冒称通用picker前拦截，其他chooser面仍未完成。
+
+
+N3完整SOURCE双审已Root全文读：SPEC27042/5c1fe419 C0/I0/M0、QUALITY21257/7014bb1c C0/I1/M0，合并裁定HOLD；缺陷为原fixture started+45秒未绑定，较晚DialogState时钟及closing adoption可放行截止后的alert与完成。先保存两报告/原候选，再原作者定向fix1，仅N3绑定唯一原绝对deadline及getter/Drop后重验，原10/75及严格S/61字段保持，不提交或运行已知有缺口候选。
+
+
+2026-10-29 N3 SOURCE fix1执行检查点：初始SOURCE C0/I1/M0 HOLD保持，持久14文件增量`req004-3859fc1-n3-SOURCE-HOLD-before-fix1-20261029`清单SHA256 `9b44e8a95ef1077edb74254090b9c906e24c13fe13711c548c85c54961908d33`已逐文件回读，承接原候选60/d04dcc。原作者已获两原生源码的fix1窄修派工，原started+45秒绝对期限、重入调用后的复核及有意义共享路径回归是本轮范围；Root工作流及四份parked不变。S3 receiver/epoch新预备brief22185/f79ae33f经Root全文读取后交原独立审查者定向复审，尚未接受、没有S3源码GO。当前本地3859/远端311，新实际测试仍未运行，不提交推送已知缺口候选。继续用户最新Sol6.1/high、保留改动且全测试与独审后直接发布授权，不重复征求模型/发布确认。
+
+
+#### S3准备fix1：精确receiver/观察epoch与独立预算（2026-10-29，仅准备接受）
+
+22185/f79ae33f准备与独立17485/7528623c已由Root全文核读，原准备I1 ADDRESSED、C0/I0/M0。固定10个同core原生receiver：Page.fileChooserOpened、Runtime.executionContextCreated/Destroyed、Runtime.executionContextsCleared、DOM.documentUpdated、Page.frameAttached/Detached/Navigated、Page.documentOpened、Page.navigatedWithinDocument。每次真实投递均须Args2+空default SessionId；全注册先于enable/config/唯一fresh文件导航。Bootstrap仅有界已知初始化且无节点权限；真实fresh-doc/config完成后call4前唯一arm，随后所有文档/拓扑/context失效为sticky，无ignore-first、重绑或第二getDocument。唯一createWorld candidate与ACK必须原生ID一致后使用uniqueContextId。所有授权边界仍使用原attempt绝对45秒；真实target立即撤权关闭，真实成功effect回调/有界捕获/身份复核均须早于第一次实际Stop/Close entry。
+
+新S3独立预算为command response/named-context candidate/chooser总3槽、所有retained协议文字合计4096 UTF-8字节、单copy2048 UTF-8/scan2048 UTF-16、Bootstrap最多16通知、10receiver与最多11completion handler的独立真释放库存。旧P1的4是dispositions/script库存、4096是script-ID UTF-16单位、16是delivered resource数，不挪用或扩大。准确typed profile/固定脚本/producer/artifact仍须在组合SOURCE双审前冻结。
+
+接受范围仅本次请求的真实回调观察序、匹配target与preStop取消effect。postStop已知销毁形状仅有界清理，不证明事件由Stop导致，不补缺正向事实、不清先前invalid；公共payload未给引擎全局因果时间戳，不能宣称全程无未投递变化/全局OS窗口不存在。受控fresh空文档、唯一固定输入、无其他writer与真实native单次导航gate是前提；FSA/nested/multiple/directory/capture/production连续性仍未完成。此准备接受没有S3源码或CI GO，仍待N3原截止fix1 SOURCE C0、Root持久检查点与明确唯一作者派工。actual全部未运行。
+
+
+#### S2-2 N4条件准备：初始blank真实popup拒绝（2026-10-29，仅准备接受）
+
+Root全文核读准备21307/d26c17f7、范围澄清3857/9201e00d及独立15686/5e895017，SPEC/QUALITY均C0/I0/M0。候选只在新鲜隔离fixture真实top about:blank、同core十hook及只读1023先决下，一次硬编码无手势window.open about:blank；无新导航、参数/网络/真实账号/deferral/SetNewWindow/额外owned窗口、重试或故障注入。目标必须真实NewWindowRequested，native URI/IsUserInitiated=false、SetHandled成功与真实Handled=true读回、同请求安装/live/原45秒调用与Drop后复核、实际Session PolicyRejected单次；固定严格成功HRESULT/token和独立完成义务/真handler drain、原10秒关闭/75秒watchdog及全部正常清理/实际exit0仍必需。
+
+仅接受此实际请求在文档化成功API语义下的拒绝，不证明全局OS UI不存在或任意native失败下绝不默认popup。Handled失败/错线程/缺回调/读回false可能产生默认空白popup，必须失败/未覆盖并保留不确定；不为它造救援WebView、不从app-owned数量推断系统窗口。立即Close下严格token是否能真实到达未知，不能延迟关闭或改event-only/expectedAbort。源码需锁精确script/schema/producer/strict checker并双审；作者提议schema10未分配，Root将与S3无冲突后才派源码。当前N3fix1仍唯一源码作者，N4没有源码/CI GO、actual全部未运行。
+
+
+S3固定表达式/profile准备追加接受（2026-10-29）：Root全文核读26380/cab2b90d（两连续完整字节段）及独立20482/f9a4c5aa，SPEC/QUALITY C0/I0/M0，仅准备。两个惰性表达式743/94910f66与1364/8c3536bf固定单input、原对象及真实trusted cancel时的files0/valueEmpty快照；完整owned URI仍由native独立证明，cancel/change计数不声称一直到Close无后续事件。11调用/10receiver精确closed typed profile及3槽/4096 retained文字预算维持，新增三项显式浅Node可选profile：Document仅空xmlVersion、HTML frameId只与native root一致性、非authority UA shadow summary允许nodeId0；root/query/INPUT仍正ID，INPUT.frameId拒绝、不增加pierce/重查/方法。没有增加CDP timeout窗口，原45/10/75与调用/Drop后复核保持。Runtime155具体shape/激活/cancel/preStop完成及实际内存/释放全部未验，未知/不合即失败/未覆盖。没有S3源码/CI GO，仍待N3原截止fix1 SOURCE C0、检查点与明确唯一作者任务。
+
+2026-10-29 final-gate queue: readonly legacyclock auditor reports same originalattempt45 gap in immutable3859 N1/N2 (fixturestarted1960;adopt2067/2082 beforetimeout2785;native live2201/authorized2278 no clock;N2completion2035 close10only). Report stillfreezing/notRootFULLyet; queue exactwithinTask4 for fullread and narrowfix BEFORErelease, notsilentlydefer. Existing early actualC0 retained; no actuallate execution claimed. CurrentN3fix1 staysONLYN3, no scope expansion toP1/production/othercases.
+
+
+2026-10-29 N3fix1源码候选已完整冻结并进入双复审：报告21346/a30757d1、34成员manifest6183/c47b0ab0，driver356390/84afe839、fixture154069/a753bcc7。Root已全文核读报告及初始→fix1完整64753/77fd8510差异（连续4段），重新生成累计139693/f61a740b逐字一致，全部34+原25+Root11及WF/四parked核对通过；Root新增7成员组合包完整153101/6bb3657b（覆盖初始已读+完整修正，非新实际结果）。六共享路径回归仅定义、编译/实际未运行。持久65文件候选检查点manifest1c52fd6ffdff372d27681ef7433f1e9fdce1cef4cdbca3f8740b186f97381abe承接16/46c0及原历史。SPEC与QUALITY分别定向复审，SOURCE仍待接受，不提交推送已知缺口。
+
+Root随后全文核读legacy N1/N2审计15808/820547e3，接受静态I1：原45秒未进入native授权/目标证据，先adopt closing遮蔽timeout；N2现有完成只检close10。已排在Task4发布前窄修，当前N3fix1范围保持。明确新正向口径：N1/N2刺激及目标、N2成功完成的真实调用与消费均受原45秒限制；close10只作真实清理，不扩成功窗口，晚/错误匹配完成可在close10真实disposal但不能成功。保留此前及时实际C0，未执行迟到原生复现，不扩P1/production或所有旧case。新窄修仍须N3当前SOURCE接受后单独检查点/派工及源码双审。
+
+N5下载准备26063/efbbd0c6+Root3158/3bf83a82+独立20475/1a164f57已Root全文核读C0/I0/M0，仅有限正向准备：严格初始blank固定空data下载anchor，真实args.DownloadOperation.Uri、Cancel与Handled各自真实独立setter成功和读回、实际Session/严格token/正常清理。Handled不等于取消；默认progress、失败时保存/UI及目标可达/即刻Close竞态都未证，不声称全局文件系统/窗口缺席，无路径/手势/网络/策略/替代传输。没有源码/CI GO，schema提案未分配。S3固定脚本/profile准备C0记录已保存；全部新实际未运行，整体Task4/5未完成。
+
+
+2026-10-29 N3原截止fix1组合SOURCE已接受：独立SPEC21630/5f805a60与QUALITY19053/375a436d均原I1 ADDRESSED、C0/I0/M0，Root两份全文核读并接受准确driver356390/84afe839、fixture154069/a753bcc7及不变WF98473/bbed。完整64753差异已读并累计逐字重建、全部冻结及其他改动保护通过。六回归/编译/actual全部未运行；这仅允许保存源码检查点，不是原生通过、整体完成、合并或发布。先保存新审查与Root结论后作选择性本地提交；另排N1/N2原截止窄修审查完成后再批次隔离CI，当前没有新CI运行。未来legacy brief8535/30902ee0已形成，仅条件草案、无源码GO，须本地基线检查点完成后明确派工。
+
+2026-10-29 N3 SOURCE检查点已选择性本地提交`f2295b5765717b656bcc17eb2ed7fbc471d55494`（仅driver/fixture/Windows WF三文件，逐Git blob绑定获审hash），基线3859。Root3记录将另提交，四parked仍未staged；远端311未变/无新CI/6回归及编译原生实际未运行。SOURCE双审21630/5f805a60+19053/375a436d C0已Root全文接受，完整持久65候选及16源码接受增量`8e661a8bb772ec27b898eee2414df5f16ec076dd49920bc1e1f46f94aa8a4be6`已回读。之后仅在全Git/最新记录检查点完成后给N1/N2原45秒窄修明确GO；整体未完成未发布。
