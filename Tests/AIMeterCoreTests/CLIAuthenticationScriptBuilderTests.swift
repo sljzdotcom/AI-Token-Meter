@@ -474,6 +474,278 @@ struct CLIAuthenticationScriptBuilderTests {
         #expect(!FileManager.default.fileExists(atPath: callbackLog.path))
     }
 
+    @Test("Antigravity preserves a failed group probe across controlled status publication", arguments: [false, true])
+    func geminiProcessGroupProbeControlledPublication(publishedBeforeRead: Bool) throws {
+        let root = temporaryDirectory()
+        let gate = root.appendingPathComponent("probe-publication-gate", isDirectory: true)
+        var retainRoot = true
+        defer {
+            // No controller process owns these gates. All Perl/shell waits are
+            // bounded too, including while the PTY helper handles a throw.
+            try? Data("observed\n".utf8).write(to: gate.appendingPathComponent("release-all"))
+            if retainRoot { preserveTemporaryDirectory(root, reason: "controlled probe publication evidence retained") }
+            removeTemporaryDirectoryUnlessPreserved(root)
+        }
+        let tokenPipe = root.appendingPathComponent("completion.token")
+        let statusFile = tokenPipe.appendingPathExtension("status")
+        let cliPID = root.appendingPathComponent("agy.pid")
+        let cliStarted = root.appendingPathComponent("agy.started")
+        let watchdogPID = root.appendingPathComponent("watchdog.pid")
+        let callback = root.appendingPathComponent("callback-observed")
+        try createTokenPipe(at: tokenPipe)
+        try FileManager.default.createDirectory(at: gate, withIntermediateDirectories: false,
+                                                attributes: [.posixPermissions: 0o700])
+        let cli = try writeExecutable(
+            "#!/bin/sh\nprintf '%s\\n' \"$$\" > '\(cliPID.path)'\n: > '\(cliStarted.path)'\nexit 0\n",
+            named: "agy", in: root
+        )
+        let opener = try writeExecutable("#!/bin/sh\n: > '\(callback.path)'\n", named: "open", in: root)
+        let query = try writeExecutable(#"""
+        #!/bin/sh
+        case " $* " in
+          *" -g "*) printf 'observed\n' > "$AI_METER_TEST_GROUP_PROBE_GATE/query-entered"; exit 42 ;;
+          *" -p "*)
+            [ "$#" -eq 4 ] && [ "$1" = "-o" ] && [ "$2" = "stat=" ] && [ "$3" = "-p" ] || exit 42
+            case "$4" in ''|*[!0-9]*) exit 42 ;; esac
+            exec /bin/ps "$@"
+            ;;
+          *) exit 42 ;;
+        esac
+        """#, named: "fake-ps", in: root)
+        let watchdog = try writeTrackedPerlWatchdog(pidFile: watchdogPID, in: root)
+        var script = try CLIAuthenticationScriptBuilder().build(
+            provider: .gemini, executableURL: cli, completionTokenPipeURL: tokenPipe,
+            completionStatusFileURL: statusFile, completionOpenExecutableURL: opener,
+            watchdogExecutableURL: watchdog, processStateExecutableURL: query, loginTimeoutSeconds: 1
+        )
+        let originalScript = script
+        var substitutions: [(String, String)] = []
+        func replaceOnce(_ original: String, with instrumented: String) throws {
+            let count = script.components(separatedBy: original).count - 1
+            try #require(count == 1, "Controlled publication seam must match exactly once")
+            script = script.replacingOccurrences(of: original, with: instrumented)
+            substitutions.append((original, instrumented))
+        }
+        // Private fixed-value acknowledgments. Neither helper changes $?/$!,
+        // a query result, the watchdog's return value, or its signal decision.
+        let perlGate = #"""
+        my $fixture_seen = sub {
+          local $!; local $?;
+          my ($name) = @_;
+          open my $handle, "<", "$ENV{AI_METER_TEST_GROUP_PROBE_GATE}/$name" or return 0;
+          my $value = <$handle> // ""; close $handle;
+          return $value eq "observed\n";
+        };
+        my $fixture_mark = sub {
+          local $!; local $?;
+          my ($name) = @_;
+          open my $handle, ">", "$ENV{AI_METER_TEST_GROUP_PROBE_GATE}/$name" or return 0;
+          my $written = print {$handle} "observed\n";
+          my $closed = close $handle;
+          return $written && $closed;
+        };
+        my $fixture_wait = sub {
+          local $!; local $?;
+          my ($name) = @_;
+          my $until = Time::HiRes::clock_gettime(Time::HiRes::CLOCK_MONOTONIC()) + 0.5;
+          while (Time::HiRes::clock_gettime(Time::HiRes::CLOCK_MONOTONIC()) < $until) {
+            return 1 if $fixture_seen->($name);
+            return 0 if $fixture_seen->("release-all");
+            select undef, undef, undef, 0.01;
+          }
+          return 0;
+        };
+        """#
+        let probe = CLIAuthenticationScriptBuilder.boundedProcessStateProbeSubroutine
+        let probeCleanup = "close $reader;\n  if (!$child_done && $child_owned) {"
+        let observedProbeCleanup = #"""
+        if (@probe_args == 4 && $probe_args[2] eq "-g"
+            && $child_done && $child_owned && $eof && !$read_failed
+            && $child_status == (42 << 8) && clock_gettime(CLOCK_MONOTONIC) < $deadline) {
+          local $!; local $?;
+          if (open my $fixture_query, ">", "$ENV{AI_METER_TEST_GROUP_PROBE_GATE}/query-reaped-exit42") {
+            print {$fixture_query} "observed\n"; close $fixture_query;
+          }
+        }
+        close $reader;
+          if (!$child_done && $child_owned) {
+        """#
+        let probeCount = probe.components(separatedBy: probeCleanup).count - 1
+        try #require(probeCount == 1)
+        let observedProbe = probe.replacingOccurrences(of: probeCleanup, with: observedProbeCleanup)
+        let supervisorImports = "use strict; use warnings; use Fcntl qw(:DEFAULT O_NONBLOCK); use POSIX qw(setpgid getpgrp waitpid WNOHANG WUNTRACED WIFSTOPPED _exit); use Errno qw(EINTR EAGAIN EWOULDBLOCK EACCES); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC);\n"
+        try replaceOnce(supervisorImports + probe, with: supervisorImports + observedProbe + "\n" + perlGate)
+
+        let originalWrite = #"if (open my $status_handle, ">", $status_path) { print {$status_handle} "process_state_unavailable\n"; close $status_handle; }"#
+        let waitForTrap = publishedBeforeRead ? "" : #"""
+          $fixture_mark->("read-release");
+          if ($fixture_wait->("app-cancel-trap")) { $fixture_mark->("writer-trap-acknowledged"); }
+          else { $fixture_mark->("writer-trap-gate-timeout"); }
+        """#
+        let observedWrite = #"""
+        $fixture_mark->("writer-ready");
+        if ($fixture_wait->("watchdog-parked")) { $fixture_mark->("writer-park-acknowledged"); }
+        else { $fixture_mark->("writer-park-gate-timeout"); }
+        if (open my $status_handle, ">", $status_path) {
+          $fixture_mark->("writer-opened-truncated");
+        \#(waitForTrap)
+          my $fixture_printed = print {$status_handle} "process_state_unavailable\n";
+          my $fixture_closed = close $status_handle;
+          if ($fixture_printed && $fixture_closed) { $fixture_mark->("writer-published"); }
+          else { $fixture_mark->("writer-publication-failed"); }
+          $fixture_mark->("read-release");
+        } else { $fixture_mark->("writer-open-failed"); $fixture_mark->("read-release"); }
+        """#
+        try replaceOnce(originalWrite, with: observedWrite)
+        let watchdogImports = "use Fcntl qw(:DEFAULT); use Time::HiRes qw(time); "
+        try replaceOnce(watchdogImports, with: watchdogImports + perlGate + "\nmy $fixture_product_deadline; my $fixture_read_done = 0; ")
+        let watchdogDeadline = "my $deadline = time + $seconds; while (time < $deadline)"
+        try replaceOnce(watchdogDeadline, with: "my $deadline = time + $seconds; $fixture_product_deadline = $deadline; $fixture_mark->(\"watchdog-login-deadline-active\"); while (time < $deadline)")
+        let originalRead = #"my $value = ""; if (open my $handle, "<", $status_file) { $value = <$handle> // ""; close $handle; chomp $value; } return $value;"#
+        let observedRead = #"""
+        my $fixture_sample = defined($fixture_product_deadline) && !$fixture_read_done && $fixture_seen->("writer-ready");
+        if ($fixture_sample) {
+          $fixture_mark->("watchdog-parked");
+          if ($fixture_wait->("read-release")) { $fixture_mark->("watchdog-read-release-acknowledged"); }
+          else { $fixture_mark->("watchdog-read-gate-timeout"); }
+          if (time < $fixture_product_deadline) { $fixture_mark->("watchdog-read-before-product-deadline"); }
+          else { $fixture_mark->("gate-crossed-product-deadline"); }
+        }
+        my $value = ""; my $fixture_status_opened = 0; my $fixture_read_errno = 0;
+        if (open my $handle, "<", $status_file) {
+          $fixture_status_opened = 1;
+          { local $! = 0; $value = <$handle> // ""; $fixture_read_errno = 0 + $!; }
+          close $handle; chomp $value;
+        }
+        if ($fixture_sample) {
+          $fixture_read_done = 1;
+          $fixture_mark->(!$fixture_status_opened ? "watchdog-read-missing" : $fixture_read_errno ? "watchdog-read-error"
+            : $value eq "" ? "watchdog-read-empty" : $value eq "process_state_unavailable" ? "watchdog-read-preserve" : "watchdog-read-other");
+        }
+        return $value;
+        """#
+        try replaceOnce(originalRead, with: observedRead)
+        let timedDecision = #"if ($state ne "ready") { kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed"; exit 0; } select undef, undef, undef, 0.1; } $finish_deadline->();"#
+        let observedDecision = #"""
+        if ($state ne "ready") {
+          if ($fixture_read_done) {
+            $fixture_mark->("watchdog-timed-nonready-branch");
+            if (time < $fixture_product_deadline) { $fixture_mark->("watchdog-decision-before-product-deadline"); }
+            else { $fixture_mark->("gate-crossed-product-deadline"); }
+          }
+          kill "USR2", $parent_pid if $state ne "process_state_unavailable" && $state ne "helper_stop_unconfirmed";
+          if ($fixture_read_done && $fixture_seen->("watchdog-read-preserve")
+              && $fixture_seen->("writer-park-acknowledged") && $fixture_seen->("writer-published")
+              && $fixture_seen->("watchdog-read-release-acknowledged")
+              && $fixture_seen->("watchdog-read-before-product-deadline")
+              && $fixture_seen->("watchdog-timed-nonready-branch")
+              && $fixture_seen->("watchdog-decision-before-product-deadline")) {
+            if (time < $fixture_product_deadline) {
+              if ($fixture_mark->("watchdog-decision-completed-before-product-deadline") && time < $fixture_product_deadline) {
+                $fixture_mark->("watchdog-decision-completed");
+              } else { $fixture_mark->("gate-crossed-product-deadline") if time >= $fixture_product_deadline; }
+            } else { $fixture_mark->("gate-crossed-product-deadline"); }
+          }
+          exit 0;
+        } select undef, undef, undef, 0.1; } $finish_deadline->();
+        """#
+        try replaceOnce(timedDecision, with: observedDecision)
+        try replaceOnce("my $finish_deadline = sub {", with: "my $finish_deadline = sub { $fixture_mark->(\"watchdog-deadline-entered\");")
+        try replaceOnce("request_app_cancel() {", with: "request_app_cancel() {\n  print -r -- observed >| \"$AI_METER_TEST_GROUP_PROBE_GATE/app-cancel-trap\"")
+        try replaceOnce("mark_timeout() { timed_out=1; }", with: "mark_timeout() { timed_out=1; print -r -- observed >| \"$AI_METER_TEST_GROUP_PROBE_GATE/usr1-timeout\"; }")
+        let cancelSuccess = """
+        cancel_from_app() {
+          trap '' HUP INT TERM USR1 USR2
+          if stop_owned_processes && cleanup_watchdog; then
+        """
+        try replaceOnce(cancelSuccess, with: cancelSuccess + "\n    print -r -- observed >| \"$AI_METER_TEST_GROUP_PROBE_GATE/app-cancel-cleanup-confirmed\"")
+        if publishedBeforeRead {
+            let preservation = #"""
+            if [[ -r "$status_file" && ( "$(<"$status_file")" == process_state_unavailable || "$(<"$status_file")" == helper_stop_unconfirmed ) ]]; then
+                guardian_state_preserved=1
+            """#
+            let acknowledgedPreservation = preservation + #"""
+
+                for fixture_waited in {1..50}; do
+                  if [[ -r "$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-read-preserve" && "$(<"$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-read-preserve")" == observed ]] &&
+                     [[ -r "$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed-before-product-deadline" && "$(<"$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed-before-product-deadline")" == observed ]] &&
+                     [[ -r "$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed" && "$(<"$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed")" == observed ]]; then break; fi
+                  [[ -e "$AI_METER_TEST_GROUP_PROBE_GATE/release-all" ]] && break
+                  /bin/sleep 0.01 || true
+                done
+                if [[ ! -r "$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-read-preserve" ]] || [[ "$(<"$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-read-preserve")" != observed ]] ||
+                   [[ ! -r "$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed-before-product-deadline" ]] || [[ "$(<"$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed-before-product-deadline")" != observed ]] ||
+                   [[ ! -r "$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed" ]] || [[ "$(<"$AI_METER_TEST_GROUP_PROBE_GATE/watchdog-decision-completed")" != observed ]]; then
+                  print -r -- observed >| "$AI_METER_TEST_GROUP_PROBE_GATE/shell-preserve-gate-timeout"
+                fi
+            """#
+            try replaceOnce(preservation, with: acknowledgedPreservation)
+        }
+        var restored = script
+        for (original, instrumented) in substitutions.reversed() {
+            let count = restored.components(separatedBy: instrumented).count - 1
+            try #require(count == 1, "Controlled publication seam must be invertible")
+            restored = restored.replacingOccurrences(of: instrumented, with: original)
+        }
+        let originalRestored = restored == originalScript
+        try #require(originalRestored)
+        let scriptURL = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: scriptURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptURL.path)
+        let result = try runIsolatedPTYLogin(
+            scriptURL: scriptURL, tokenPipe: tokenPipe, cliPIDFile: cliPID, watchdogPIDFile: watchdogPID,
+            inputAfterOutput: "handoff received.", supervisorStartRequired: true,
+            additionalEnvironment: ["AI_METER_TEST_GROUP_PROBE_GATE": gate.path], in: root
+        )
+        func observed(_ name: String) -> Bool {
+            (try? String(contentsOf: gate.appendingPathComponent(name), encoding: .utf8)) == "observed\n"
+        }
+        let required = ["query-entered", "query-reaped-exit42", "writer-ready", "watchdog-parked",
+                        "writer-park-acknowledged", "writer-opened-truncated", "writer-published", "watchdog-login-deadline-active",
+                        "watchdog-read-release-acknowledged", "watchdog-read-before-product-deadline", "watchdog-decision-before-product-deadline",
+                        "watchdog-timed-nonready-branch", publishedBeforeRead ? "watchdog-read-preserve" : "watchdog-read-empty"]
+            + (publishedBeforeRead ? ["watchdog-decision-completed-before-product-deadline", "watchdog-decision-completed"] : [])
+        let rejected = ["writer-park-gate-timeout", "writer-trap-gate-timeout", "watchdog-read-gate-timeout",
+                        "shell-preserve-gate-timeout", "writer-open-failed", "writer-publication-failed",
+                        "gate-crossed-product-deadline", "watchdog-deadline-entered", "usr1-timeout",
+                        "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error"]
+        let handshakeComplete = required.allSatisfy(observed) && rejected.allSatisfy { !observed($0) }
+        let cancellationObserved = observed("app-cancel-trap") && observed("writer-trap-acknowledged")
+            && observed("app-cancel-cleanup-confirmed")
+        let causalPreconditions = handshakeComplete && result.cleanupSucceeded
+            && (publishedBeforeRead ? !observed("app-cancel-trap") : cancellationObserved)
+        let finalStatus = try String(contentsOf: statusFile, encoding: .utf8)
+        let statusClass = ["ready\n", "process_state_unavailable\n", "helper_cancelled\n", "helper_stop_unconfirmed\n"].contains(finalStatus)
+            ? finalStatus.trimmingCharacters(in: .newlines) : "other"
+        let evidence: [String: Any] = [
+            "schema": "controlled-group-probe-publication-v1", "acceptance": false,
+            "arm": publishedBeforeRead ? "published" : "empty", "causalPreconditions": causalPreconditions,
+            "classification": causalPreconditions ? "targetBoundaryReached" : "PRECONDITION_FAILED",
+            "required": Dictionary(uniqueKeysWithValues: required.map { ($0, observed($0)) }),
+            "rejected": Dictionary(uniqueKeysWithValues: rejected.map { ($0, observed($0)) }),
+            "appCancelTrap": observed("app-cancel-trap"), "appCancelCleanupConfirmed": observed("app-cancel-cleanup-confirmed"),
+            "cleanupSucceeded": result.cleanupSucceeded, "statusClass": statusClass,
+            "guardianRetained": FileManager.default.fileExists(atPath: statusFile.appendingPathExtension("guardian").path),
+            "callbackObserved": FileManager.default.fileExists(atPath: callback.path)
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys]),
+           let text = String(data: data, encoding: .utf8) { print("CONTROLLED_GROUP_PROBE_PUBLICATION " + text) }
+        // Preconditions fail separately: a deadline/gate/setup failure cannot be
+        // mistaken for the intended status/guardian behavioral RED.
+        try #require(causalPreconditions, "Controlled publication PRECONDITION_FAILED; inspect fixed-enum evidence")
+        let expectedStatus = "process_state_unavailable\n"
+        let finalStatusIsExpected = finalStatus == expectedStatus
+        #expect(result.cleanupSucceeded)
+        #expect(finalStatusIsExpected)
+        #expect(FileManager.default.fileExists(atPath: cliStarted.path))
+        #expect(FileManager.default.fileExists(atPath: statusFile.appendingPathExtension("guardian").path))
+        #expect(!FileManager.default.fileExists(atPath: callback.path))
+        retainRoot = finalStatus != expectedStatus || !result.cleanupSucceeded
+            || !FileManager.default.fileExists(atPath: cliStarted.path)
+            || !FileManager.default.fileExists(atPath: statusFile.appendingPathExtension("guardian").path)
+            || FileManager.default.fileExists(atPath: callback.path)
+    }
+
     @Test("Antigravity app cancellation acknowledges only confirmed helper cleanup")
     func geminiAppCancellationDoesNotAcknowledgeUncertainCleanup() throws {
         let root = temporaryDirectory()
