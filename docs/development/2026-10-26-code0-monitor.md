@@ -563,3 +563,56 @@ P4/P5最小GREEN源码最终独审C0I0M0（全25440B/8baa9a9a，Root全文核读
 最终相对HEAD仅两allowlist行和一行说明，两个hunk合计+3/-1（+139B）；完整差异2626B/55c2b8d2。真实回调贡献ID、Pending保留、FaultApplied后重新验证与仅Continue应用ACK均沿用原实现；P4应不再提交CDP，P5应保留真实script ACK但拒绝CDP ACK，两者应无barrier/导航/加载，仍需实际摘要与真实清理独立验收。只读P6/P7、P8与生产接线准备均不算实现覆盖；P8现有未知请求403可能已经正确，不人为制造RED，也不将页面relay等同原生frame/worker身份或全局网络封锁。
 
 源码提交 `4cfb09993be2f1385e46dfee6eda1d59310d3125` 已精确提交唯一driver，原四parked候选仍未纳入。373文档、公开扫描与差异/暂存字节检查通过；远端运行、合并及发布仍待下一阶段。
+
+
+### 双平台通过，实际独审受模型容量限制（2026-10-28）
+
+6dc474f的Windows40645876984与Mac40645877008完整SUCCESS，P4/P5与旧四同步实际严格矩阵已由Root数据核对匹配，实际mergec1e0d61规范源码绑定通过；独立实际验收Agent因所选Sol6.1模型容量不足中断，原25440B/8baa源码审查全文未变，实际续审未完成，不能称阶段独审通过。所有证据保留、不换模型/盲重试，依赖的后续源码GO暂停；不依赖的报告/归档继续，dispatcher40645876962仍运行，未合并/发布。
+
+本轮P4：真实target/injection/policyFailure各1，scriptSub1/CDPSub0，application=true/false/false；P5：script/CDP各1，application=true/true/false；两例barrier/navigation/load均0、精确script移除1、真实清理成功，Cargo命令退出0。正向运行没有另行打印native exit0行，正常结果由fresh pass/生命周期、命令0及已绑定custom-main支持，不虚构额外退出日志。Windowsraw425920B/a4044a32，Macraw1420519B/50c22e92，P4摘要1172B/c4b71bac、P5摘要1164B/4ffa0c1f、两命令退出清单212B/3cf62899。数据解析与规范Gitblob绑定不等于独立行为验收、runner工作字节或可执行文件哈希。
+
+
+### 实际 P4/P5 独审恢复完成，后续原生覆盖（2026-10-28）
+
+同一Sol6.1/high在完整现场核对与554文件备份后仅一次有界恢复成功，P4/P5实际独审已C0I0M0（全47178B/415e8ddd，Root全文核读21738B续篇及原25440B源码前缀），本阶段窄范围GREEN接受。第十一dispatcher40645876962单轮CI完整SUCCESS，summary通过/四kill及清理、21留存hash的Root数据核对匹配；其独立实际复核新遇模型容量中断、72303B旧报告未变，仍待验收，不冒充该项独审完成。保留前十轮历史及旧9f期限原因未知，继续独立的P6/P7/P8原生覆盖准备，发布仍须全部审查与Task5门禁。
+
+当前同一源码完整实际门禁含Windows父Rust380（排除重复helper1）、前端302、basic/P1/四同步/两异步、严格Clippy/编译、NSIS/PE GUI=2及上传，以及Mac三个job。实际报告区分独立打印的native exit0缺失与fresh pass/custom-main/Cargo0证据层；八组正常时序不关闭历史期限I1。第十一dispatcher实际raw140949B/9d853683、summary15233B/920f24a3、checkout4704B/81de9261；Root仅数据核对，不代称独立行为审查。第一次Root数据检查误将error字段期望为null而停止，核读固定schema实际为字符串none后按原值核对通过，无产品/测试重跑或改动。
+
+后续拟单一作者在同一范围增加三个独立fresh process覆盖：P6/P7同队列真实callback暂缓至关闭后应用，P8三固定资源及三未知请求通道的实际拒绝。它们的现有关闭/403逻辑可能直接正确，不人为制造RED；只读准备不算覆盖。此原生阶段以已独立接受的P4/P5基线继续，第十一dispatcher补审仍作为独立待办及最终发布门禁，未跳过或放宽。
+
+
+### 第十一 dispatcher 独审补齐（2026-10-28）
+
+第十一dispatcher有界同模型恢复后实际独审已C0I0M0（全83801B/26866c27，Root全文核读11498B续篇），单轮25基线+四严格编译后精确语义kill+全部清理/最终验收器通过，旧72303B失败历史前缀完整保留；25m35实测不保证未来耗时、不关闭旧期限原因。当前6dc三CI与两项实际独审均完成，后续P6/P7/P8单作者阶段继续，尚非整项完成/发布。
+
+本次在核对原报告未写、四固定变异文件和HEAD未变、584文件备份后仅做一次原Sol6.1/high有界恢复，正常完成且只追加指定报告；当前源码作者的演进driver/fixture未被用于本轮旧提交验收。21留存文件哈希匹配，empty source.tar.stderr未上传、ZIP未独立重哈希、删除树依赖固定runner执行证明、numeric101通过严格guard绑定、direct child不等于所有descendant等限制保持。
+
+
+### 后续源码阶段容量中断，未完成候选保留（2026-10-28）
+
+后续P6/P7/P8作者在编写阶段遇同模型容量错误，当前仅fixture部分改动94177B/bf44975e，driver仍166858B/22b74863，尚无final报告/after冻结/编译或有效行为结果；1662保护文件仅Root授权记录和dispatcher前缀追加变化，其余保持。先完整保留未完成候选与before，再按原Sol6.1/high做一次有界恢复，不把部分改动当作完成或RED。
+
+工作计划先编写新fixture/严格schema再实现driver，当前部分fixture已约+461行，不能将未配套入口和类型的中间状态当编译失败证据或原生RED。HEAD6dc未变、workflow324f未动、四parked保持，无其他产品文件变化。Root不接管或重写作者的中间源码，保留before7文件与当前pair及差异、授权记录变化、需求与恢复信息后再续派原作者。
+
+
+### 继续授权与同模型干净上下文接管（2026-10-28）
+
+用户再次明确沿用Sol6.1/high继续开发、保留现有改动，全部测试与独立审查通过后直接发布。原作者第二次容量中断后停止原上下文；当前driver194542B/e598ae7f、fixture98188B/f58f7d88均为未冻结候选，原before保留。先保存最新完整中间态，再在同一模型的干净执行上下文接管收尾，不重置/覆盖已有改动，不将格式可解析误称编译或行为通过。
+
+原作者最后回传已接入新schema4/5、三个selector、同邮箱Held/close/drain/final及P8静态资产/原生响应计数/双Source校验，正在静态检查和格式整理；其后再次容量错误，尚无最终报告/after冻结/最终格式通过，原上下文不再重复启动。新执行者须先核对现有pair和原before，对累计差异负责，保留原作者before目录和首次格式诊断，独立完成检查点与报告，后续仍经完整独审及隔离CI。
+
+
+### P6/P7/P8 累计源码冻结与待独审 CI（2026-10-28）
+
+同模型干净上下文已完成新三case源码收尾并冻结：driver195374B/ea554300、fixture98176B/520d15d1，完整报告21137B/bb74bff7已Root全文读；28成员/清单b8f03a83/seal1ae322b9和1662保护文件已核对。Root仅追加3个CI步骤，WF57485B/a897522e，原39866B逐字逆还原保持；typed schema4/5与90项数据解析负例/YAML/AST检查通过，不算原生验证。三文件累计126478B/84da685c仍未独审、编译/原生UNRUN，先保存候选再完整独审，不提前提交或发布。
+
+源码对全部累计差异负责，既保留原before8，也保留二次中断pair与新handoff-before。新静态修正包含4处误替换的default标识符、P8先按固定路径分类以拒绝晚到重复、无效relay完成后仍产生有界失败见证，以及P8 Active0应用门禁；不是实际编译/行为失败的修复结论。P6/P7 schema4顶层12字段、P8 schema5顶层13字段，native计数与renderer5见证分开；P8额外请求n0..10须response=delivery、total=6+n<=16。RootCI V1只在旧async保留后、NSIS前插入3步骤，三个独立fresh Cargo/native调用及CreateNew/no-BOM/Flush(true)实际命令退出清单，always严格验收/保留，原门槛与超时不变。V0草稿Python shell模板在应用前修为现有python {0}形式，原稿保留，未据此推断远端失败。
+
+
+### 新三case完整源码独审通过，运行待验（2026-10-28）
+
+P6/P7/P8完整累计三文件独审已C0I0M0（23505B/050a9fac，Root全文核读），全部2577行差异与生命周期/实际生产者/严格CI契约已审，未请求源码修正。373文档/公开扫描/差异检查通过；仅静态源码接受，下一步精确提交与完整备份后新CI，三个新case编译/Clippy/原生行为仍UNRUN，不提前结项或发布。
+
+独立审查另行核对真实Held/实际close mark/Drained/Final有序关联、P8固定路径及原生SetResponse计数与renderer5见证的区别、实际双Source及所有旧生命周期/门禁，CI全字段与Rust序列化/谓词对齐，原28步骤逐字保持、三个新fresh进程及退出清单严格验收。报告只读源/数据与Git，无编译/格式重复/原生执行；新正常runtime结果仍须独立实际验收。
+
+获审三文件已精确提交 `b5b4da6c32867c3ca639587e549342ae40ab4270`；四parked保持原哈希、未暂存。提交前文档373/公开扫描/差异与暂存源字节检查通过，新运行与合并发布仍待后续门禁。
