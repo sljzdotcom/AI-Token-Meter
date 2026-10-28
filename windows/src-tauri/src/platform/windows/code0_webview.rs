@@ -3475,11 +3475,77 @@ pub mod fixture {
         EnvironmentDropped,
     }
 
+    #[repr(usize)]
+    enum CloseTiming {
+        BudgetBegin,
+        CloseReturned,
+        StopReturned,
+        ControllerCloseReturned,
+        ControlsDisposed,
+        ExitObserved,
+        Destroyed,
+        ReleasedProduced,
+        ReleasedConsumed,
+        RunReturned,
+    }
+
+    /// Owned numeric watermarks only; no native or summary references.
+    pub struct DiagnosticCloseSnapshot {
+        kind: u8,
+        terminal: bool,
+        close_elapsed_ms1: u64,
+        sample_ms1: u64,
+        phase: u32,
+        boundary: u32,
+        depth: u32,
+        heartbeat: u64,
+        milestones: u64,
+        inventory: u64,
+        first_failure: u64,
+        times: [u64; 10],
+    }
+
+    impl DiagnosticCloseSnapshot {
+        pub fn emit(self) {
+            use std::io::Write as _;
+            // Fixed literals/numbers only, under1024bytes at maximum widths.
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeCloseTiming schema=1 kind={} terminal={} closeElapsedMs1={} sampleMs1={} phase={} boundary={} depth={} heartbeat={} milestones={:016x} inventory={:016x} firstFailure={:016x} budgetBeginMs1={} closeReturnedMs1={} stopReturnedMs1={} controllerCloseReturnedMs1={} controlsDisposedMs1={} exitObservedMs1={} destroyedMs1={} releasedProducedMs1={} releasedConsumedMs1={} runReturnedMs1={}",
+                self.kind,
+                u8::from(self.terminal),
+                self.close_elapsed_ms1,
+                self.sample_ms1,
+                self.phase,
+                self.boundary,
+                self.depth,
+                self.heartbeat,
+                self.milestones,
+                self.inventory,
+                self.first_failure,
+                self.times[0],
+                self.times[1],
+                self.times[2],
+                self.times[3],
+                self.times[4],
+                self.times[5],
+                self.times[6],
+                self.times[7],
+                self.times[8],
+                self.times[9]
+            );
+        }
+    }
+
     #[derive(Default)]
     pub struct Diagnostics {
         enabled: bool,
         emitted: std::sync::atomic::AtomicBool,
         temp_close_emitted: std::sync::atomic::AtomicBool,
+        close_deadline_emitted: std::sync::atomic::AtomicBool,
+        close_final_emitted: std::sync::atomic::AtomicBool,
+        origin: Option<std::time::Instant>,
+        close_times: [std::sync::atomic::AtomicU64; 10],
         lease_facts: std::sync::atomic::AtomicU32,
         phase: std::sync::atomic::AtomicU32,
         boundary: std::sync::atomic::AtomicU32,
@@ -3518,11 +3584,78 @@ pub mod fixture {
         }
 
         pub fn from_env() -> Self {
+            static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+            let enabled = std::env::var_os("AI_METER_CODE0_NATIVE_DIAGNOSTICS").as_deref()
+                == Some(std::ffi::OsStr::new("1"));
             Self {
-                enabled: std::env::var_os("AI_METER_CODE0_NATIVE_DIAGNOSTICS").as_deref()
-                    == Some(std::ffi::OsStr::new("1")),
+                enabled,
+                origin: enabled.then(|| *ORIGIN.get_or_init(std::time::Instant::now)),
                 ..Self::default()
             }
+        }
+
+        fn record_close_time(&self, timing: CloseTiming, instant: std::time::Instant) {
+            use std::sync::atomic::Ordering::Relaxed;
+            if let Some(origin) = self.origin {
+                let value = instant
+                    .saturating_duration_since(origin)
+                    .as_millis()
+                    .saturating_add(1)
+                    .min(u128::from(u64::MAX)) as u64;
+                let _ =
+                    self.close_times[timing as usize].compare_exchange(0, value, Relaxed, Relaxed);
+            }
+        }
+
+        pub fn close_budget_started(&self, instant: std::time::Instant) {
+            if self.enabled {
+                self.record_close_time(CloseTiming::BudgetBegin, instant);
+            }
+        }
+
+        fn close_snapshot(
+            &self,
+            kind: u8,
+            terminal: bool,
+            close_elapsed_ms1: u64,
+        ) -> DiagnosticCloseSnapshot {
+            use std::sync::atomic::Ordering::Relaxed;
+            DiagnosticCloseSnapshot {
+                kind,
+                terminal,
+                close_elapsed_ms1,
+                sample_ms1: self.origin.map_or(0, |origin| {
+                    origin
+                        .elapsed()
+                        .as_millis()
+                        .saturating_add(1)
+                        .min(u128::from(u64::MAX)) as u64
+                }),
+                phase: self.phase.load(Relaxed),
+                boundary: self.boundary.load(Relaxed),
+                depth: self.boundary_depth.load(Relaxed),
+                heartbeat: self.heartbeat.load(Relaxed),
+                milestones: self.milestones.load(Relaxed),
+                inventory: self.inventory.load(Relaxed),
+                first_failure: self.first_failure.load(Relaxed),
+                times: std::array::from_fn(|n| self.close_times[n].load(Relaxed)),
+            }
+        }
+
+        pub fn close_deadline_snapshot_once(
+            &self,
+            closing: std::time::Instant,
+        ) -> Option<DiagnosticCloseSnapshot> {
+            use std::sync::atomic::Ordering::Relaxed;
+            if !self.enabled || self.close_deadline_emitted.swap(true, Relaxed) {
+                return None;
+            }
+            let elapsed = closing
+                .elapsed()
+                .as_millis()
+                .saturating_add(1)
+                .min(u128::from(u64::MAX)) as u64;
+            Some(self.close_snapshot(1, false, elapsed))
         }
 
         pub fn phase(&self, phase: DiagnosticPhase, returned: bool) {
@@ -3531,6 +3664,20 @@ pub mod fixture {
                     (phase as u32) * 2 + u32::from(returned),
                     std::sync::atomic::Ordering::Relaxed,
                 );
+                let timing = match (phase, returned) {
+                    (DiagnosticPhase::CloseRequest, true) => Some(CloseTiming::CloseReturned),
+                    (DiagnosticPhase::Stop, true) => Some(CloseTiming::StopReturned),
+                    (DiagnosticPhase::ControllerClose, true) => {
+                        Some(CloseTiming::ControllerCloseReturned)
+                    }
+                    (DiagnosticPhase::ReleasedDispatch, false) => {
+                        Some(CloseTiming::ReleasedProduced)
+                    }
+                    _ => None,
+                };
+                if let Some(timing) = timing {
+                    self.record_close_time(timing, std::time::Instant::now());
+                }
             }
         }
 
@@ -3547,6 +3694,17 @@ pub mod fixture {
                     1 << (milestone as u32),
                     std::sync::atomic::Ordering::Relaxed,
                 );
+                let timing = match milestone {
+                    DiagnosticMilestone::ControlsDisposed => Some(CloseTiming::ControlsDisposed),
+                    DiagnosticMilestone::ExitObserved => Some(CloseTiming::ExitObserved),
+                    DiagnosticMilestone::WindowDestroyed => Some(CloseTiming::Destroyed),
+                    DiagnosticMilestone::Released => Some(CloseTiming::ReleasedConsumed),
+                    DiagnosticMilestone::RunReturned => Some(CloseTiming::RunReturned),
+                    _ => None,
+                };
+                if let Some(timing) = timing {
+                    self.record_close_time(timing, std::time::Instant::now());
+                }
             }
         }
 
@@ -3625,7 +3783,8 @@ pub mod fixture {
             }
         }
 
-        /// At most one fixed diagnostic line: terminal1 is watchdog,0 normal.
+        /// Original one-shot diagnostic plus a separate final timing snapshot.
+        /// Terminal1 is watchdog,0 normal.
         /// Snapshot reads touch only atomics, not UI/native/summary/file locks.
         /// Values are diagnostic watermarks, never a native stack or acceptance.
         pub fn emit_once(&self, watchdog: bool) {
@@ -3646,6 +3805,9 @@ pub mod fixture {
                     self.inventory.load(Relaxed),
                     self.first_failure.load(Relaxed)
                 );
+                if !self.close_final_emitted.swap(true, Relaxed) {
+                    self.close_snapshot(2, watchdog, 0).emit();
+                }
             }
         }
     }

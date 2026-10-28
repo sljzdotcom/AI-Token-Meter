@@ -987,7 +987,9 @@ mod smoke {
                         // A failed create can already own a bare Window, COM objects
                         // or an in-flight completion. Retain the owner and lease and
                         // keep pumping until actual close evidence arrives.
-                        closing_since = Some(Instant::now());
+                        let closing = Instant::now();
+                        closing_since = Some(closing);
+                        ui_diagnostics.close_budget_started(closing);
                         ui_diagnostics.phase(DP::CloseRequest, false);
                         driver.close(instance);
                         ui_diagnostics.phase(DP::CloseRequest, true);
@@ -1341,7 +1343,9 @@ mod smoke {
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                closing_since = Some(Instant::now());
+                let closing = Instant::now();
+                closing_since = Some(closing);
+                ui_diagnostics.close_budget_started(closing);
                 drop(state);
                 ui_diagnostics.phase(DP::CloseRequest, false);
                 driver.close(instance);
@@ -1357,7 +1361,13 @@ mod smoke {
                     // cleanup after 10s must still fail, even on this first tick.
                     // Retain/pump CleanupPending until real cleanup, or the
                     // original outer process watchdog fails.
+                    let snapshot = ui_diagnostics.close_deadline_snapshot_once(closing);
                     state.failure = "closeEvidenceTimeout";
+                    if let Some(snapshot) = snapshot {
+                        drop(state);
+                        snapshot.emit();
+                        state = observed.lock().unwrap();
+                    }
                 }
                 if state.destroyed && state.owned_references_released {
                     let positive = policy.as_ref().map_or_else(
