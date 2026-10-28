@@ -21,9 +21,11 @@ mod smoke {
         Code0NativeDriver,
         fixture::{
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
-            NativeRefusalInstallReceipt, NativeSmokeObservation, NativeTopRefusalFacts,
-            NativeTopRefusalReceipt, NativeTopSubmissionReceipt, PolicyFaultReceipt,
-            PolicyFixtureCase, PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
+            NativeChildCompletionReceipt, NativeChildFinalReceipt, NativeChildRefusalFacts,
+            NativeChildRefusalReceipt, NativeChildSubmissionReceipt, NativeRefusalInstallReceipt,
+            NativeSmokeObservation, NativeTopRefusalFacts, NativeTopRefusalReceipt,
+            NativeTopSubmissionReceipt, PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
+            StaleDispositionReceipt, StaleDispositionStage,
         },
     };
     use serde::Serialize;
@@ -38,6 +40,7 @@ mod smoke {
     const POLICY_CASE: &str = "install-ack-before-first-load";
     const POLICY_INSTANCE: &str = "22222222-2222-4222-8222-222222222222";
     const NATIVE_REFUSAL_CASE: &str = "install-native-refusal-hooks-before-load";
+    const CHILD_REFUSAL_CASE: &str = "refusal-child-initial-data";
     const TOP_REFUSAL_CASE: &str = "refusal-top-owned-file";
     const TOP_REFUSAL_LEAF: &str = "code0-s2-top-denied.txt";
     const NATIVE_REFUSAL_HOOKS: [&str; 10] = [
@@ -233,6 +236,174 @@ mod smoke {
         }
     }
 
+    // N2 rejects a successful submit without the actual registered child action,
+    // the real ExecuteScript completion, genuine Session failure and ref0 audit.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ChildRefusalEvidence {
+        submissions: u8,
+        submission_returned: bool,
+        native_submit_ok: bool,
+        initial_source_matched: bool,
+        installation_before_stimulus: bool,
+        stimulus_kind: &'static str,
+        target_receipts: u8,
+        receipt_installation_matched: bool,
+        completions: u8,
+        completion_identity_matched: bool,
+        completion_hresult_succeeded: bool,
+        bounded_result_valid: bool,
+        fixed_result_matched: bool,
+        completion_before_release: bool,
+        completion_within_deadline: bool,
+        final_receipts: u8,
+        completion_obligation_drained: bool,
+        completion_handlers_drained: bool,
+        policy_failures: u8,
+        action_before_policy_failure: bool,
+        browser_process_exited_once: bool,
+        #[serde(flatten)]
+        facts: NativeChildRefusalFacts,
+        #[serde(skip)]
+        installation: Option<NativeRefusalInstallReceipt>,
+    }
+    impl ChildRefusalEvidence {
+        fn facts_positive(f: &NativeChildRefusalFacts) -> bool {
+            f.event_kind == "frameNavigationStarting"
+                && f.action_kind == "setCancelTrue"
+                && f.target_uri_matched
+                && f.native_sender_matched
+                && f.request_generation_live_matched
+                && f.navigation_id_getter_succeeded
+                && f.redirected_getter_succeeded
+                && !f.is_redirected
+                && f.issued_before_event
+                && f.cancel_attempts == 1
+                && f.cancel_returns == 1
+                && f.cancel_successes == 1
+                && f.cancel_readbacks == 1
+                && f.cancel_readback_succeeded
+                && f.native_cancel_true
+                && f.live_after_getters
+                && f.native_action_before_receipt
+        }
+        fn submission(
+            &mut self,
+            r: NativeChildSubmissionReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            self.submissions = self.submissions.saturating_add(1);
+            self.submission_returned = true;
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| r.matches(request, i));
+            self.initial_source_matched = matched && r.initial_source_matched();
+            self.installation_before_stimulus = matched
+                && self
+                    .installation
+                    .as_ref()
+                    .is_some_and(|i| i.installed_mask() == 1023 && !i.load_rejected());
+            self.stimulus_kind = "initialBlankFixedDataChild";
+            self.native_submit_ok = matched && r.native_submit_ok();
+            self.submissions == 1 && self.initial_source_matched && self.native_submit_ok
+        }
+        fn observe(&mut self, r: NativeChildRefusalReceipt, request: &Code0WindowRequest) -> bool {
+            self.target_receipts = self.target_receipts.saturating_add(1);
+            self.receipt_installation_matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| r.matches(request, i));
+            self.facts = r.facts();
+            self.target_receipts == 1
+                && self.receipt_installation_matched
+                && Self::facts_positive(&self.facts)
+        }
+        fn completion(
+            &mut self,
+            r: NativeChildCompletionReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            self.completions = self.completions.saturating_add(1);
+            self.completion_identity_matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| r.matches(request, i));
+            let f = r.facts();
+            self.completion_identity_matched &= f.identity_matched;
+            self.completion_hresult_succeeded = f.hresult_succeeded;
+            self.bounded_result_valid = f.bounded_result_valid;
+            self.fixed_result_matched = f.fixed_result_matched;
+            self.completion_before_release = f.before_release;
+            self.completion_within_deadline = f.within_deadline;
+            self.completions == 1
+                && self.completion_identity_matched
+                && self.completion_hresult_succeeded
+                && self.bounded_result_valid
+                && self.fixed_result_matched
+                && self.completion_before_release
+                && self.completion_within_deadline
+        }
+        fn final_receipt(
+            &mut self,
+            r: NativeChildFinalReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            self.final_receipts = self.final_receipts.saturating_add(1);
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| r.matches(request, i));
+            self.completion_obligation_drained = matched && r.obligation_drained();
+            self.completion_handlers_drained = matched && r.handlers_drained();
+            self.final_receipts == 1
+                && self.completion_obligation_drained
+                && self.completion_handlers_drained
+        }
+        fn positive(&self, n: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.submissions == 1
+                && self.submission_returned
+                && self.native_submit_ok
+                && self.initial_source_matched
+                && self.installation_before_stimulus
+                && self.stimulus_kind == "initialBlankFixedDataChild"
+                && self.target_receipts == 1
+                && self.receipt_installation_matched
+                && self.completions == 1
+                && self.completion_identity_matched
+                && self.completion_hresult_succeeded
+                && self.bounded_result_valid
+                && self.fixed_result_matched
+                && self.completion_before_release
+                && self.completion_within_deadline
+                && self.final_receipts == 1
+                && self.completion_obligation_drained
+                && self.completion_handlers_drained
+                && self.policy_failures == 1
+                && self.action_before_policy_failure
+                && self.browser_process_exited_once
+                && Self::facts_positive(&self.facts)
+                && n.receipts == 1
+                && n.native_instance_validated
+                && n.source_bound_registry
+                && n.required_mask == 1023
+                && n.installed_mask == 1023
+                && n.not_installed_hooks.is_empty()
+                && !n.navigation_not_issued
+                && !n.load_rejected
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+    }
+
     // This positive oracle catches premature installation readiness, a first
     // load before actual async ACKs, and a document without native Source/bridge
     // evidence. Submission Ok and EngineReady cannot satisfy any receipt.
@@ -255,10 +426,18 @@ mod smoke {
         native_refusal: Option<NativeRefusalEvidence>,
         #[serde(skip)]
         top_refusal: Option<TopRefusalEvidence>,
+        #[serde(skip)]
+        child_refusal: Option<ChildRefusalEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(child) = &self.child_refusal {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| child.positive(native, lifecycle));
+            }
             if let Some(top) = &self.top_refusal {
                 return self
                     .native_refusal
@@ -374,12 +553,16 @@ mod smoke {
         native_refusal: Option<&'a NativeRefusalEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         top_refusal: Option<&'a TopRefusalEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        child_refusal: Option<&'a ChildRefusalEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.top_refusal.is_some() {
+                schema: if install.child_refusal.is_some() {
+                    8
+                } else if install.top_refusal.is_some() {
                     7
                 } else if install.native_refusal.is_some() {
                     6
@@ -387,7 +570,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.top_refusal.is_some() {
+                required_case: if install.child_refusal.is_some() {
+                    CHILD_REFUSAL_CASE
+                } else if install.top_refusal.is_some() {
                     TOP_REFUSAL_CASE
                 } else if install.native_refusal.is_some() {
                     NATIVE_REFUSAL_CASE
@@ -401,6 +586,7 @@ mod smoke {
                 install,
                 native_refusal: install.native_refusal.as_ref(),
                 top_refusal: install.top_refusal.as_ref(),
+                child_refusal: install.child_refusal.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1266,16 +1452,21 @@ mod smoke {
     }
 
     pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(native_refusal, false)
+        run_policy_selected(native_refusal, false, false)
     }
 
     pub fn run_top_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, true)
+        run_policy_selected(true, true, false)
+    }
+
+    pub fn run_child_refusal() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(true, false, true)
     }
 
     fn run_policy_selected(
         native_refusal: bool,
         top_refusal: bool,
+        child_refusal: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
@@ -1302,6 +1493,7 @@ mod smoke {
         let install = Arc::new(Mutex::new(PolicyEvidence {
             native_refusal: native_refusal.then(NativeRefusalEvidence::default),
             top_refusal: top_refusal.then(TopRefusalEvidence::default),
+            child_refusal: child_refusal.then(ChildRefusalEvidence::default),
             ..PolicyEvidence::default()
         }));
         write_summary(
@@ -1330,6 +1522,7 @@ mod smoke {
                             &PolicyEvidence {
                                 native_refusal: native_refusal.then(NativeRefusalEvidence::default),
                                 top_refusal: top_refusal.then(TopRefusalEvidence::default),
+                                child_refusal: child_refusal.then(ChildRefusalEvidence::default),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -1570,6 +1763,9 @@ mod smoke {
             .as_ref()
             .map(|coverage| coverage.lock().unwrap().case);
         let selected_case = fault_case.or(coverage_case);
+        let child_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().child_refusal.is_some());
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -1662,7 +1858,15 @@ mod smoke {
         let observer_diagnostics = Arc::clone(&diagnostics);
         let native_top_close = Rc::new(Cell::new(None::<Instant>));
         let observer_top_close = Rc::clone(&native_top_close);
+        let native_child_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_child_close = Rc::clone(&native_child_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if child_selected
+                && let NativeSmokeObservation::ChildClosing { at } = &event
+                && observer_child_close.get().is_none()
+            {
+                observer_child_close.set(Some(*at));
+            }
             if top_selected
                 && matches!(&event, NativeSmokeObservation::TopRefusal(_))
                 && observer_top_close.get().is_none()
@@ -1864,7 +2068,11 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                native_top_close.get(),
+                if child_selected {
+                    native_child_close.get()
+                } else {
+                    native_top_close.get()
+                },
                 &ui_diagnostics,
             );
             ui_diagnostics.phase(DP::Poll, false);
@@ -1875,7 +2083,11 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                native_top_close.get(),
+                if child_selected {
+                    native_child_close.get()
+                } else {
+                    native_top_close.get()
+                },
                 &ui_diagnostics,
             );
             ui_diagnostics.phase(DP::SummaryLock, false);
@@ -1962,13 +2174,16 @@ mod smoke {
                                     let mut saved_receipt = None;
                                     let valid_inventory = receipt.is_ok_and(|receipt| {
                                         let valid = native.observe(&receipt, &request);
-                                        if top_selected {
+                                        if top_selected || child_selected {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if top_selected {
+                                    if child_selected {
+                                        install.child_refusal.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if top_selected {
                                         install.top_refusal.as_mut().unwrap().installation =
                                             saved_receipt;
                                     }
@@ -1983,6 +2198,41 @@ mod smoke {
                                     } else {
                                         None
                                     };
+                                    let child_submission = if child_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        Some(driver.submit_fixture_child_initial_data(&request))
+                                    } else {
+                                        None
+                                    };
+                                    let mut child_submission_failure = None;
+                                    if let Some(result) = child_submission {
+                                        let mut install = policy.lock().unwrap();
+                                        match result {
+                                            Ok(receipt) => {
+                                                if !install
+                                                    .child_refusal
+                                                    .as_mut()
+                                                    .unwrap()
+                                                    .submission(receipt, &request)
+                                                {
+                                                    child_submission_failure =
+                                                        Some("childNativeSubmissionFailed");
+                                                }
+                                                install
+                                                    .native_refusal
+                                                    .as_mut()
+                                                    .unwrap()
+                                                    .navigation_not_issued = false;
+                                            }
+                                            Err(_) => {
+                                                child_submission_failure =
+                                                    Some("childInitialBlankPreconditionFailed")
+                                            }
+                                        }
+                                    }
                                     let mut top_submission_failure = None;
                                     if let Some(result) = top_submission {
                                         let mut install = policy.lock().unwrap();
@@ -2016,6 +2266,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = child_submission_failure {
+                                        failure
                                     } else if let Some(failure) = top_submission_failure {
                                         failure
                                     } else {
@@ -2062,6 +2314,70 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::ChildClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !child_selected {
+                            state.failure = "unexpectedChildClosing";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::ChildRefusal(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = child_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                p.lock()
+                                    .unwrap()
+                                    .child_refusal
+                                    .as_mut()
+                                    .is_some_and(|c| c.observe(receipt, &request))
+                            });
+                        if !valid {
+                            state.failure = "childNativeReceiptInvalid";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::ChildCompletion(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = child_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                p.lock()
+                                    .unwrap()
+                                    .child_refusal
+                                    .as_mut()
+                                    .is_some_and(|c| c.completion(receipt, &request))
+                            });
+                        if !valid {
+                            state.failure = "childCompletionInvalid";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::ChildFinal(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = child_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                p.lock()
+                                    .unwrap()
+                                    .child_refusal
+                                    .as_mut()
+                                    .is_some_and(|c| c.final_receipt(receipt, &request))
+                            });
+                        if !valid {
+                            state.failure = "childFinalInventoryInvalid";
                         }
                     }
                     Observation::Native(
@@ -2263,6 +2579,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if child_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .child_refusal
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         if top_selected {
                             policy
                                 .as_ref()
@@ -2301,7 +2628,24 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
-                        if top_selected {
+                        if child_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let child = install.child_refusal.as_mut().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                child.policy_failures = child.policy_failures.saturating_add(1);
+                                child.action_before_policy_failure = child.target_receipts == 1
+                                    && child.receipt_installation_matched
+                                    && ChildRefusalEvidence::facts_positive(&child.facts);
+                                if child.policy_failures != 1 || !child.action_before_policy_failure
+                                {
+                                    state.failure = "childFailureWithoutNativeAction";
+                                }
+                            } else {
+                                state.failure = "childUnexpectedNativeFailure";
+                            }
+                        } else if top_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -2427,6 +2771,7 @@ mod smoke {
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
             let native_install_observed = !top_selected
+                && !child_selected
                 && policy.as_ref().is_some_and(|policy| {
                     policy
                         .lock()
@@ -2436,12 +2781,15 @@ mod smoke {
                         .is_some_and(|native| native.receipts == 1)
                 });
             let top_action_observed = top_selected && native_top_close.get().is_some();
+            let child_action_observed = child_selected && native_child_close.get().is_some();
             if policy.is_some()
                 && closing_since.is_none()
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if top_selected {
+                state.failure = if child_selected {
+                    "childTargetUnobserved"
+                } else if top_selected {
                     "topTargetUnobserved"
                 } else if coverage.is_some() {
                     "coveragePreconditionMissing"
@@ -2457,12 +2805,18 @@ mod smoke {
                     || policy_document_ready
                     || native_install_observed
                     || top_action_observed
+                    || child_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = native_top_close.get().unwrap_or_else(Instant::now);
+                let closing = if child_selected {
+                    native_child_close.get()
+                } else {
+                    native_top_close.get()
+                }
+                .unwrap_or_else(Instant::now);
                 closing_since = Some(closing);
                 ui_diagnostics.close_budget_started(closing);
                 drop(state);
@@ -2622,6 +2976,9 @@ fn main() {
                     == "--code0-policy-fixture=install-native-refusal-hooks-before-load" =>
             {
                 smoke::run_policy(true)
+            }
+            [selector] if selector == "--code0-policy-fixture=refusal-child-initial-data" => {
+                smoke::run_child_refusal()
             }
             [selector] if selector == "--code0-policy-fixture=refusal-top-owned-file" => {
                 smoke::run_top_refusal()

@@ -1227,6 +1227,8 @@ mod native {
             p1::mark_stale_close(instance, unmatched);
             // Revoke before any external Stop/Close/removal can reenter.
             instance.closing = true;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let _ = s2::mark_child_close(instance);
         }
         // Only a later UI poll can certify actual inventory and release.
     }
@@ -1339,6 +1341,8 @@ mod native {
         // UI poll, after all previous callbacks and outer actions have settled.
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         p1::advance(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::advance_child(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -1635,6 +1639,7 @@ mod native {
                 phase!(owner, ReleasedDispatch, false);
                 p1::publish_final_fault(owner);
                 p1::publish_final_coverage(owner);
+                s2::publish_child_final(owner);
             }
             events(request, event);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1763,6 +1768,14 @@ mod native {
         s2::navigate_top_owned_file(owner, request, owned_root)
     }
 
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn submit_child_initial_data(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> Result<super::fixture::NativeChildSubmissionReceipt, Code0SessionFailure> {
+        s2::submit_child_initial_data(owner, request)
+    }
+
     /// Debug-only refusal registration and finite N1 audit; never production authority.
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     mod s2 {
@@ -1777,7 +1790,13 @@ mod native {
         };
         use windows::core::BOOL;
 
+        use std::sync::Mutex;
+        use std::time::{Duration, Instant};
+
         const GENERATION: u64 = 1;
+        const CHILD_TARGET: &str = "data:text/html,";
+        const CHILD_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.querySelector('iframe')!==null){throw new Error('code0-child-precondition');}const f=document.createElement('iframe');f.src='data:text/html,';document.documentElement.appendChild(f);return 'code0-child-submitted-v1';})()";
+        const CHILD_RESULT: &str = "\"code0-child-submitted-v1\"";
 
         enum Emitter {
             Core(Rc<ICoreWebView2>),
@@ -1804,6 +1823,7 @@ mod native {
             entries: Vec<Registration>,
             // Finite N1 reservation only; never a production load permission.
             top_target: Option<String>,
+            child: Option<ChildState>,
         }
         impl Registry {
             pub(super) fn not_installed() -> Self {
@@ -1817,6 +1837,7 @@ mod native {
                     settings: None,
                     entries: Vec::new(),
                     top_target: None,
+                    child: None,
                 }
             }
             pub(super) fn installed_mask(&self) -> u16 {
@@ -1842,12 +1863,334 @@ mod native {
                     && self.settings.is_none()
                     && self.entries.is_empty()
                     && !self.unknown.load(Ordering::SeqCst)
+                    && self.child.as_ref().is_none_or(ChildState::quiescent)
             }
         }
         pub(super) struct Controls {
             _core: Option<Rc<ICoreWebView2>>,
             _settings: Option<Rc<ICoreWebView2Settings>>,
             _entries: Vec<Registration>,
+        }
+
+        struct ChildMailbox {
+            disposition: Mutex<Option<ChildDisposition>>,
+            invoked: AtomicBool,
+            invalid: AtomicBool,
+            // This is NOT Callbacks::pending: creation safety gates stay exact.
+            // Only consuming a real matching completion discharges this ticket.
+            obligation: AtomicUsize,
+            handlers: AtomicUsize,
+            closing_since: Mutex<Option<Instant>>,
+        }
+        struct ChildState {
+            mailbox: Arc<ChildMailbox>,
+            completion_seen: bool,
+        }
+        impl ChildState {
+            fn quiescent(&self) -> bool {
+                self.completion_seen
+                    && self.mailbox.obligation.load(Ordering::SeqCst) == 0
+                    && self.mailbox.handlers.load(Ordering::SeqCst) == 0
+                    && !self.mailbox.invalid.load(Ordering::SeqCst)
+                    && self.mailbox.disposition.lock().unwrap().is_none()
+            }
+        }
+        struct ChildDisposition {
+            request: Code0WindowRequest,
+            generation: u64,
+            installation: Arc<AtomicBool>,
+            received_at: Instant,
+            hresult_succeeded: bool,
+            bounded_result_valid: bool,
+            fixed_result_matched: bool,
+        }
+        struct ChildHandlerLifetime {
+            mailbox: std::sync::Weak<ChildMailbox>,
+            _aggregate: HandlerLifetime,
+        }
+        impl Drop for ChildHandlerLifetime {
+            fn drop(&mut self) {
+                if let Some(mailbox) = self.mailbox.upgrade() {
+                    mailbox.handlers.fetch_sub(1, Ordering::SeqCst);
+                }
+                // A never-called handler never discharges completion obligation.
+            }
+        }
+        #[windows::core::implement(ICoreWebView2ExecuteScriptCompletedHandler, Agile = false)]
+        struct ChildCompletion {
+            mailbox: std::sync::Weak<ChildMailbox>,
+            callbacks: Arc<Callbacks>,
+            installation: Arc<AtomicBool>,
+            request: Code0WindowRequest,
+            generation: u64,
+            ui: ThreadId,
+            _lifetime: ChildHandlerLifetime,
+        }
+        impl ICoreWebView2ExecuteScriptCompletedHandler_Impl for ChildCompletion_Impl {
+            fn Invoke(
+                &self,
+                errorcode: windows::core::HRESULT,
+                result: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                let _active = Active::enter(&self.callbacks);
+                // No UI Weak/Rc/RefCell, raw read or allocation before this gate.
+                if !callback_on_ui(self.ui, &self.callbacks) {
+                    self.installation.store(true, Ordering::SeqCst);
+                    if let Some(mailbox) = self.mailbox.upgrade() {
+                        mailbox.invalid.store(true, Ordering::SeqCst);
+                    }
+                    return Ok(());
+                }
+                let Some(mailbox) = self.mailbox.upgrade() else {
+                    self.installation.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                if mailbox.invoked.swap(true, Ordering::SeqCst) {
+                    mailbox.invalid.store(true, Ordering::SeqCst);
+                    self.installation.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let received_at = Instant::now();
+                let (bounded_result_valid, fixed_result_matched) = child_result(*result);
+                let disposition = ChildDisposition {
+                    request: self.request.clone(),
+                    generation: self.generation,
+                    installation: Arc::clone(&self.installation),
+                    received_at,
+                    hresult_succeeded: errorcode.is_ok(),
+                    bounded_result_valid,
+                    fixed_result_matched,
+                };
+                let mut slot = mailbox.disposition.lock().unwrap();
+                if slot.is_some() {
+                    mailbox.invalid.store(true, Ordering::SeqCst);
+                    self.installation.store(true, Ordering::SeqCst);
+                } else {
+                    *slot = Some(disposition);
+                }
+                // Transport success carries no permission or target evidence.
+                Ok(())
+            }
+        }
+        fn child_result(raw: PCWSTR) -> (bool, bool) {
+            if raw.is_null() {
+                return (false, false);
+            }
+            let mut copied = [0u16; 64];
+            let mut length = 0;
+            while length < copied.len() {
+                // Borrowed completion PCWSTR: at most 64 units read, never freed.
+                let unit = unsafe { *raw.0.add(length) };
+                if unit == 0 {
+                    let units = &copied[..length];
+                    let valid = char::decode_utf16(units.iter().copied()).all(|v| v.is_ok());
+                    return (
+                        valid,
+                        valid && units.iter().copied().eq(CHILD_RESULT.encode_utf16()),
+                    );
+                }
+                copied[length] = unit;
+                length += 1;
+            }
+            (false, false)
+        }
+        pub(super) fn mark_child_close(i: &mut Instance) -> Option<Instant> {
+            let child = i.refusal_registry.child.as_ref()?;
+            let mut closing = child.mailbox.closing_since.lock().unwrap();
+            if closing.is_some() {
+                return None;
+            }
+            let at = Instant::now();
+            *closing = Some(at);
+            Some(at)
+        }
+        pub(super) fn advance_child(owner: &Rc<RefCell<Owner>>) {
+            let mailbox = owner.borrow().instance.as_ref().and_then(|i| {
+                i.refusal_registry
+                    .child
+                    .as_ref()
+                    .map(|c| Arc::clone(&c.mailbox))
+            });
+            let Some(mailbox) = mailbox else {
+                return;
+            };
+            let disposition = mailbox.disposition.lock().unwrap().take();
+            let mut observation = None;
+            {
+                let mut state = owner.borrow_mut();
+                let unmatched = state.unmatched;
+                let i = state.instance.as_mut().unwrap();
+                if mailbox.invalid.load(Ordering::SeqCst) {
+                    i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                }
+                if let Some(d) = disposition {
+                    let child = i.refusal_registry.child.as_mut().unwrap();
+                    let same = !unmatched
+                        && i.request == d.request
+                        && i.refusal_registry.generation == d.generation
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, &d.installation)
+                        && Arc::ptr_eq(&child.mailbox, &mailbox)
+                        && !child.completion_seen;
+                    let closing = *mailbox.closing_since.lock().unwrap();
+                    let within_deadline = closing.is_none_or(|at| {
+                        Instant::now().duration_since(at) < Duration::from_secs(10)
+                            && d.received_at
+                                .checked_duration_since(at)
+                                .is_none_or(|elapsed| elapsed < Duration::from_secs(10))
+                    });
+                    let facts = super::super::fixture::NativeChildCompletionFacts {
+                        identity_matched: same,
+                        hresult_succeeded: d.hresult_succeeded,
+                        bounded_result_valid: d.bounded_result_valid,
+                        fixed_result_matched: d.fixed_result_matched,
+                        before_release: !i.released,
+                        within_deadline,
+                    };
+                    // This is a cleanup disposition gate, deliberately not
+                    // Context::authorized: legitimate closing completion drains.
+                    let valid = same
+                        && !i.released
+                        && within_deadline
+                        && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                        && !mailbox.invalid.load(Ordering::SeqCst)
+                        && d.hresult_succeeded
+                        && d.bounded_result_valid
+                        && d.fixed_result_matched;
+                    if same {
+                        child.completion_seen = true;
+                        mailbox.obligation.store(0, Ordering::SeqCst);
+                    }
+                    if !valid {
+                        i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    }
+                    observation = Some((
+                        i.observer.clone(),
+                        super::super::fixture::NativeChildCompletionReceipt {
+                            request: d.request,
+                            installation: d.installation,
+                            facts,
+                        },
+                    ));
+                }
+            }
+            latch_unknown(owner);
+            if let Some((Some(observer), receipt)) = observation {
+                observer(NativeSmokeObservation::ChildCompletion(receipt));
+            }
+        }
+        pub(super) fn publish_child_final(owner: &Rc<RefCell<Owner>>) {
+            let observation = {
+                let state = owner.borrow();
+                state.instance.as_ref().and_then(|i| {
+                    i.refusal_registry.child.as_ref().map(|c| {
+                        (
+                            i.observer.clone(),
+                            super::super::fixture::NativeChildFinalReceipt {
+                                request: i.request.clone(),
+                                installation: Arc::clone(&i.refusal_registry.unknown),
+                                obligation_drained: c.completion_seen
+                                    && c.mailbox.obligation.load(Ordering::SeqCst) == 0,
+                                handlers_drained: c.mailbox.handlers.load(Ordering::SeqCst) == 0
+                                    && i.callbacks.handlers.load(Ordering::SeqCst) == 0,
+                            },
+                        )
+                    })
+                })
+            };
+            if let Some((Some(observer), receipt)) = observation {
+                observer(NativeSmokeObservation::ChildFinal(receipt));
+            }
+        }
+        pub(super) fn submit_child_initial_data(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> Result<super::super::fixture::NativeChildSubmissionReceipt, Code0SessionFailure>
+        {
+            super::require_native_refusal_install(owner, request)?;
+            let denied = || Code0SessionFailure::PolicyRejected;
+            let (callbacks, ui) = {
+                let state = owner.borrow();
+                let i = state.instance.as_ref().ok_or_else(denied)?;
+                (Arc::clone(&i.callbacks), state.ui_thread)
+            };
+            let active = Active::enter(&callbacks);
+            let core = {
+                let state = owner.borrow();
+                let i = state.instance.as_ref().ok_or_else(denied)?;
+                if !i.refusal_registry.complete()
+                    || i.refusal_registry.child.is_some()
+                    || i.refusal_registry.top_target.is_some()
+                {
+                    return Err(denied());
+                }
+                i.refusal_registry
+                    .core
+                    .as_ref()
+                    .map(Rc::clone)
+                    .ok_or_else(denied)?
+            };
+            let source = allocated_string(64, |raw| unsafe { core.Source(raw) });
+            let source_matched = source.as_ref().is_ok_and(|s| s == "about:blank");
+            drop(source);
+            if !source_matched || !live(owner, request) {
+                return Err(denied());
+            }
+            let mailbox = Arc::new(ChildMailbox {
+                disposition: Mutex::new(None),
+                invoked: AtomicBool::new(false),
+                invalid: AtomicBool::new(false),
+                obligation: AtomicUsize::new(1),
+                handlers: AtomicUsize::new(1),
+                closing_since: Mutex::new(None),
+            });
+            let installation = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).ok_or_else(denied)?;
+                if !i.refusal_registry.complete()
+                    || i.refusal_registry.child.is_some()
+                    || i.refusal_registry
+                        .core
+                        .as_ref()
+                        .is_none_or(|actual| !Rc::ptr_eq(actual, &core))
+                {
+                    return Err(denied());
+                }
+                i.refusal_registry.child = Some(ChildState {
+                    mailbox: Arc::clone(&mailbox),
+                    completion_seen: false,
+                });
+                Arc::clone(&i.refusal_registry.unknown)
+            };
+            let handler: ICoreWebView2ExecuteScriptCompletedHandler = ChildCompletion {
+                mailbox: Arc::downgrade(&mailbox),
+                callbacks: Arc::clone(&callbacks),
+                installation: Arc::clone(&installation),
+                request: request.clone(),
+                generation: GENERATION,
+                ui,
+                _lifetime: ChildHandlerLifetime {
+                    mailbox: Arc::downgrade(&mailbox),
+                    _aggregate: HandlerLifetime::new(&callbacks),
+                },
+            }
+            .into();
+            let wide: Vec<u16> = CHILD_SCRIPT
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+            // Reservation + handler inventory precede this only native submission.
+            let result = unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) };
+            let native_submit_ok = result.is_ok();
+            drop(result);
+            drop(handler);
+            drop(core);
+            drop(active);
+            Ok(super::super::fixture::NativeChildSubmissionReceipt {
+                request: request.clone(),
+                installation,
+                native_submit_ok,
+                initial_source_matched: source_matched,
+            })
         }
 
         fn rejection() -> windows::core::Error {
@@ -1884,13 +2227,21 @@ mod native {
             }
         }
         fn latch_unknown(owner: &Rc<RefCell<Owner>>) {
-            let mut state = owner.borrow_mut();
-            if let Some(i) = state.instance.as_mut()
-                && i.refusal_registry.unknown.load(Ordering::SeqCst)
-            {
-                i.failed = true;
-                i.closing = true;
-                i.cleanup_blocked = true;
+            let observation = {
+                let mut state = owner.borrow_mut();
+                if let Some(i) = state.instance.as_mut()
+                    && i.refusal_registry.unknown.load(Ordering::SeqCst)
+                {
+                    i.failed = true;
+                    i.closing = true;
+                    i.cleanup_blocked = true;
+                    mark_child_close(i).map(|at| (i.observer.clone(), at))
+                } else {
+                    None
+                }
+            };
+            if let Some((Some(observer), at)) = observation {
+                observer(NativeSmokeObservation::ChildClosing { at });
             }
         }
 
@@ -1993,7 +2344,8 @@ mod native {
                 if !identity || !same_installation || result.is_err() {
                     self.unknown.store(true, Ordering::SeqCst);
                 }
-                if let Some(owner) = owner {
+                let mut child_close = None;
+                if let Some(owner) = owner.as_ref() {
                     let mut state = owner.borrow_mut();
                     if let Some(i) = matching(&mut state, &self.request)
                         && self.matches_instance(i)
@@ -2008,7 +2360,13 @@ mod native {
                             i.failed = true;
                             i.closing = true;
                         }
+                        if i.closing {
+                            child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
+                        }
                     }
+                }
+                if let Some((Some(observer), at)) = child_close {
+                    observer(NativeSmokeObservation::ChildClosing { at });
                 }
                 if !identity || !same_installation {
                     return Err(rejection());
@@ -2119,6 +2477,7 @@ mod native {
                     || i.callbacks.affinity_failed.load(Ordering::SeqCst)
                     || !i.refusal_registry.complete()
                     || i.refusal_registry.top_target.is_some()
+                    || i.refusal_registry.child.is_some()
                 {
                     return Err(denied());
                 }
@@ -2221,6 +2580,80 @@ mod native {
             }
         }
 
+        impl Context {
+            fn child_navigation(
+                &self,
+                args: &ICoreWebView2NavigationStartingEventArgs,
+                eligible: bool,
+                receipt: &mut Option<super::super::fixture::NativeChildRefusalReceipt>,
+            ) -> windows::core::Result<bool> {
+                let owner = self.owner.upgrade();
+                let armed = owner.as_ref().is_some_and(|owner| {
+                    owner.borrow().instance.as_ref().is_some_and(|i| {
+                        self.matches_instance(i) && i.refusal_registry.child.is_some()
+                    })
+                });
+                if !armed {
+                    return navigation(args, eligible);
+                }
+                let target = CHILD_TARGET;
+                // All metadata is fallible and may reenter. None of its errors
+                // can bypass the original restrictive native SetCancel action.
+                let uri = allocated_string(2048, |raw| unsafe { args.Uri(raw) });
+                if uri.as_ref().is_ok_and(|uri| uri != target) {
+                    // An earlier blank/other child keeps the original delegate.
+                    // It cannot be relabeled as this target or delayed for it.
+                    return navigation(args, eligible);
+                }
+                let mut navigation_id = 0u64;
+                let id_result = unsafe { args.NavigationId(&mut navigation_id) };
+                let mut redirected = BOOL::from(false);
+                let redirected_result = unsafe { args.IsRedirected(&mut redirected) };
+                let live_after_metadata =
+                    eligible && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                let canceled = unsafe { args.SetCancel(true) };
+                let mut cancel = BOOL::from(false);
+                let readback = unsafe { args.Cancel(&mut cancel) };
+                let live_after_getters = live_after_metadata
+                    && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                let facts = super::super::fixture::NativeChildRefusalFacts {
+                    event_kind: "frameNavigationStarting",
+                    action_kind: "setCancelTrue",
+                    target_uri_matched: uri.as_ref().is_ok_and(|uri| uri == target),
+                    native_sender_matched: eligible,
+                    request_generation_live_matched: live_after_getters,
+                    navigation_id_getter_succeeded: id_result.is_ok(),
+                    redirected_getter_succeeded: redirected_result.is_ok(),
+                    is_redirected: redirected.as_bool(),
+                    issued_before_event: true,
+                    cancel_attempts: 1,
+                    cancel_returns: 1,
+                    cancel_successes: u8::from(canceled.is_ok()),
+                    cancel_readbacks: 1,
+                    cancel_readback_succeeded: readback.is_ok(),
+                    native_cancel_true: readback.is_ok() && cancel.as_bool(),
+                    live_after_getters,
+                    native_action_before_receipt: true,
+                };
+                if facts.target_uri_matched {
+                    *receipt = Some(super::super::fixture::NativeChildRefusalReceipt {
+                        request: self.request.clone(),
+                        installation: Arc::clone(&self.unknown),
+                        facts,
+                    });
+                }
+                uri?;
+                id_result?;
+                redirected_result?;
+                canceled?;
+                readback?;
+                if !cancel.as_bool() || !live_after_getters {
+                    return Err(rejection());
+                }
+                Ok(true)
+            }
+        }
+
         fn add_top_navigation(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
@@ -2255,6 +2688,57 @@ mod native {
             }));
             let mut token = 0;
             let result = unsafe { core.add_NavigationStarting(&handler, &mut token) };
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                if result.is_ok() {
+                    i.refusal_registry.entries[index].token = Some(token);
+                } else {
+                    i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    i.failed = true;
+                    i.closing = true;
+                    i.cleanup_blocked = true;
+                }
+            }
+            drop(handler);
+            result?;
+            require_live(owner, request)
+        }
+
+        fn add_child_navigation(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            index: usize,
+            core: &ICoreWebView2,
+        ) -> windows::core::Result<()> {
+            let context = Context::new(owner, request);
+            let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
+                let active = Active::enter(&context.callbacks);
+                let mut receipt = None;
+                let result = context.invoke(sender.as_ref(), |eligible| {
+                    let args = args.as_ref().ok_or_else(rejection)?;
+                    context.child_navigation(args, eligible, &mut receipt)
+                });
+                if let Some(receipt) = receipt {
+                    let observer = context.owner.upgrade().and_then(|owner| {
+                        let state = owner.borrow();
+                        state
+                            .instance
+                            .as_ref()
+                            .filter(|i| context.matches_instance(i))
+                            .and_then(|i| i.observer.clone())
+                    });
+                    if let Some(observer) = observer {
+                        observer(NativeSmokeObservation::ChildRefusal(receipt));
+                    }
+                }
+                drop(args);
+                drop(sender);
+                drop(active);
+                result
+            }));
+            let mut token = 0;
+            let result = unsafe { core.add_FrameNavigationStarting(&handler, &mut token) };
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -2334,15 +2818,9 @@ mod native {
                 (Hook::TopNavigation, Emitter::Core(core)) => {
                     add_top_navigation(owner, request, index, core)
                 }
-                (Hook::ChildNavigation, Emitter::Core(core)) => add_handler!(
-                    owner,
-                    request,
-                    index,
-                    core,
-                    NavigationStartingEventHandler,
-                    add_FrameNavigationStarting,
-                    navigation
-                ),
+                (Hook::ChildNavigation, Emitter::Core(core)) => {
+                    add_child_navigation(owner, request, index, core)
+                }
                 (Hook::ExternalProtocol, Emitter::External(core)) => add_handler!(
                     owner,
                     request,
@@ -5222,6 +5700,104 @@ pub mod fixture {
         }
     }
 
+    #[derive(Clone, Copy, Default, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NativeChildRefusalFacts {
+        pub event_kind: &'static str,
+        pub action_kind: &'static str,
+        pub target_uri_matched: bool,
+        pub native_sender_matched: bool,
+        pub request_generation_live_matched: bool,
+        pub navigation_id_getter_succeeded: bool,
+        pub redirected_getter_succeeded: bool,
+        pub is_redirected: bool,
+        pub issued_before_event: bool,
+        pub cancel_attempts: u8,
+        pub cancel_returns: u8,
+        pub cancel_successes: u8,
+        pub cancel_readbacks: u8,
+        pub cancel_readback_succeeded: bool,
+        pub native_cancel_true: bool,
+        pub live_after_getters: bool,
+        pub native_action_before_receipt: bool,
+    }
+    pub struct NativeChildRefusalReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) facts: NativeChildRefusalFacts,
+    }
+    pub struct NativeChildSubmissionReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) native_submit_ok: bool,
+        pub(super) initial_source_matched: bool,
+    }
+    #[derive(Clone, Copy)]
+    pub struct NativeChildCompletionFacts {
+        pub identity_matched: bool,
+        pub hresult_succeeded: bool,
+        pub bounded_result_valid: bool,
+        pub fixed_result_matched: bool,
+        pub before_release: bool,
+        pub within_deadline: bool,
+    }
+    pub struct NativeChildCompletionReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) facts: NativeChildCompletionFacts,
+    }
+    pub struct NativeChildFinalReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) obligation_drained: bool,
+        pub(super) handlers_drained: bool,
+    }
+    macro_rules! child_receipt_matches {
+        ($receipt:ty) => {
+            impl $receipt {
+                pub fn matches(
+                    &self,
+                    request: &Code0WindowRequest,
+                    install: &NativeRefusalInstallReceipt,
+                ) -> bool {
+                    &self.request == request
+                        && install.matches(request)
+                        && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+                }
+            }
+        };
+    }
+    child_receipt_matches!(NativeChildRefusalReceipt);
+    child_receipt_matches!(NativeChildSubmissionReceipt);
+    child_receipt_matches!(NativeChildCompletionReceipt);
+    child_receipt_matches!(NativeChildFinalReceipt);
+    impl NativeChildRefusalReceipt {
+        pub fn facts(&self) -> NativeChildRefusalFacts {
+            self.facts
+        }
+    }
+    impl NativeChildSubmissionReceipt {
+        pub fn native_submit_ok(&self) -> bool {
+            self.native_submit_ok
+        }
+        pub fn initial_source_matched(&self) -> bool {
+            self.initial_source_matched
+        }
+    }
+    impl NativeChildCompletionReceipt {
+        pub fn facts(&self) -> NativeChildCompletionFacts {
+            self.facts
+        }
+    }
+    impl NativeChildFinalReceipt {
+        pub fn obligation_drained(&self) -> bool {
+            self.obligation_drained
+        }
+        pub fn handlers_drained(&self) -> bool {
+            self.handlers_drained
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum PolicyFixtureCase {
         InstallAckBeforeFirstLoad,
@@ -5489,7 +6065,9 @@ pub mod fixture {
     pub enum NativeSmokeObservation {
         /// Actual bare Window, synchronously immediately after build, before any
         /// correction/getter or asynchronous environment/controller creation.
-        WindowConstructed { window: Box<tauri::Window> },
+        WindowConstructed {
+            window: Box<tauri::Window>,
+        },
         /// Actual environment/controller/core completion and environment getters.
         EngineReady {
             window_label: String,
@@ -5497,12 +6075,21 @@ pub mod fixture {
             runtime_version: String,
         },
         /// Actual bounded renderer object JSON; not production bridge evidence.
-        RendererMessage { payload: Vec<u8> },
+        RendererMessage {
+            payload: Vec<u8>,
+        },
         /// Actual registered event, validated against the owned environment,
         /// armed core PID and normal exit kind. Contains no native references.
         BrowserProcessExited,
         /// Actual registered N1 top callback; opaque source-bound primitive audit.
         TopRefusal(NativeTopRefusalReceipt),
+        /// First actual N2 closing transition, timestamp only; no authority.
+        ChildClosing {
+            at: std::time::Instant,
+        },
+        ChildRefusal(NativeChildRefusalReceipt),
+        ChildCompletion(NativeChildCompletionReceipt),
+        ChildFinal(NativeChildFinalReceipt),
         /// Partial debug installation only; never a production policy event.
         Policy(PolicyObservation),
     }
@@ -6184,6 +6771,29 @@ pub mod fixture {
             #[cfg(not(windows))]
             {
                 let _ = (request, owned_root);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// One internally fixed N2 operation on the existing initial blank DOM.
+        pub fn submit_fixture_child_initial_data(
+            &mut self,
+            request: &Code0WindowRequest,
+        ) -> Result<NativeChildSubmissionReceipt, Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::submit_child_initial_data(&self.owner, request)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = request;
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }
