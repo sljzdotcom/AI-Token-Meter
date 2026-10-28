@@ -1643,7 +1643,6 @@ mod native {
         }
 
         // Fixed successful native actions / actual call-attempt boundaries only.
-        // There is intentionally no injection counter operation in this RED stage.
         enum Count {
             PrematureDenial = 2,
             Navigate = 3,
@@ -1663,19 +1662,24 @@ mod native {
             fault.counts[index] = fault.counts[index].saturating_add(1);
         }
 
+        enum SynchronousFlow {
+            Continue,
+            Injected,
+        }
+
         fn target_succeeded(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
             target: PolicyFaultTarget,
-        ) {
+        ) -> windows::core::Result<SynchronousFlow> {
             let notification = {
                 let mut state = owner.borrow_mut();
                 let Some(i) = matching(&mut state, request) else {
-                    return;
+                    return Ok(SynchronousFlow::Continue);
                 };
                 let fault = &mut i.policy_fault;
                 if fault.case.and_then(PolicyFixtureCase::fault_target) != Some(target) {
-                    return;
+                    return Ok(SynchronousFlow::Continue);
                 }
                 fault.counts[0] = fault.counts[0].saturating_add(1);
                 (
@@ -1687,13 +1691,49 @@ mod native {
                     },
                 )
             };
-            if let (Some(observer), receipt) = notification {
+            let (observer, receipt) = notification;
+            let counts = receipt.counts;
+            if let Some(observer) = observer.as_ref() {
                 observer(NativeSmokeObservation::Policy(
                     PolicyObservation::FaultTarget(receipt),
                 ));
             }
-            // RED scaffold deliberately has no fault-application producer. The
-            // unchanged P1 installation must reach its real script/CDP barrier.
+            if !matches!(
+                target,
+                PolicyFaultTarget::HostObjectsSetting
+                    | PolicyFaultTarget::ResourceAdd
+                    | PolicyFaultTarget::AllSourceFilter
+            ) {
+                return Ok(SynchronousFlow::Continue);
+            }
+            require_live(owner, request)?;
+            let applied = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).ok_or(E_FAIL)?;
+                let fault = &mut i.policy_fault;
+                if fault.case.and_then(PolicyFixtureCase::fault_target) != Some(target)
+                    || fault.counts != counts
+                    || counts[0] != 1
+                    || counts[1] != 0
+                {
+                    return Err(E_FAIL.into());
+                }
+                // Reserve once after the genuine target receipt. This is a
+                // local debug abort, never a fabricated native API failure.
+                fault.counts[1] = fault.counts[1].saturating_add(1);
+                PolicyFaultReceipt {
+                    request: request.clone(),
+                    target,
+                    counts: fault.counts,
+                }
+            };
+            if let Some(observer) = observer {
+                observer(NativeSmokeObservation::Policy(
+                    PolicyObservation::FaultApplied(applied),
+                ));
+            }
+            require_live(owner, request)?;
+            Ok(SynchronousFlow::Injected)
         }
 
         pub(super) fn publish_final_fault(owner: &Rc<RefCell<Owner>>) {
@@ -1759,7 +1799,8 @@ mod native {
             let result = load(owner, request);
             if result == Err(Code0SessionFailure::PolicyRejected) {
                 count(owner, Count::PrematureDenial);
-                target_succeeded(owner, request, PolicyFaultTarget::PrematureLoad);
+                target_succeeded(owner, request, PolicyFaultTarget::PrematureLoad)
+                    .map_err(|_| Code0SessionFailure::PolicyRejected)?;
             }
             result
         }
@@ -2191,8 +2232,11 @@ mod native {
                     delivered_requests: 0,
                 });
             }
-            let result = synchronous(owner, request).and_then(|()| submit_script(owner, request));
-            if result.is_err() {
+            let accepted = match synchronous(owner, request) {
+                Ok(SynchronousFlow::Continue) => submit_script(owner, request).is_ok(),
+                Ok(SynchronousFlow::Injected) | Err(_) => false,
+            };
+            if !accepted {
                 failed(owner, request);
                 return Err(Code0SessionFailure::PolicyRejected);
             }
@@ -2202,7 +2246,7 @@ mod native {
         fn synchronous(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
-        ) -> windows::core::Result<()> {
+        ) -> windows::core::Result<SynchronousFlow> {
             require_live(owner, request)?;
             let core = core(owner);
             let settings = Rc::new(unsafe { core.Settings() }?);
@@ -2241,7 +2285,11 @@ mod native {
                 false
             );
             setting!(SetAreHostObjectsAllowed, AreHostObjectsAllowed, false);
-            target_succeeded(owner, request, PolicyFaultTarget::HostObjectsSetting);
+            if let SynchronousFlow::Injected =
+                target_succeeded(owner, request, PolicyFaultTarget::HostObjectsSetting)?
+            {
+                return Ok(SynchronousFlow::Injected);
+            }
             require_live(owner, request)?;
             let core22 = Rc::new(core.cast::<ICoreWebView2_22>()?);
             owner
@@ -2307,7 +2355,11 @@ mod native {
             }
             drop(handler);
             result?;
-            target_succeeded(owner, request, PolicyFaultTarget::ResourceAdd);
+            if let SynchronousFlow::Injected =
+                target_succeeded(owner, request, PolicyFaultTarget::ResourceAdd)?
+            {
+                return Ok(SynchronousFlow::Injected);
+            }
             require_live(owner, request)?;
             let filtered = unsafe {
                 core22.AddWebResourceRequestedFilterWithRequestSourceKinds(
@@ -2329,7 +2381,11 @@ mod native {
                 count(owner, Count::FilterAdd);
             }
             filtered?;
-            target_succeeded(owner, request, PolicyFaultTarget::AllSourceFilter);
+            if let SynchronousFlow::Injected =
+                target_succeeded(owner, request, PolicyFaultTarget::AllSourceFilter)?
+            {
+                return Ok(SynchronousFlow::Injected);
+            }
             require_live(owner, request)?;
             let receiver = Rc::new(unsafe {
                 core.GetDevToolsProtocolEventReceiver(w!("Page.fileChooserOpened"))
@@ -2401,7 +2457,7 @@ mod native {
                 .as_mut()
                 .unwrap()
                 .sync_ack = true;
-            Ok(())
+            Ok(SynchronousFlow::Continue)
         }
 
         fn submit_script(
@@ -3244,7 +3300,6 @@ pub mod fixture {
     /// actual boundaries. No public constructor or callback-injection API.
     pub enum PolicyObservation {
         FaultTarget(PolicyFaultReceipt),
-        // Reserved future-positive observation; no RED producer exists.
         FaultApplied(PolicyFaultReceipt),
         FaultFinal(PolicyFaultReceipt),
         BarrierReady(InstallBarrierReceipt),
