@@ -3824,7 +3824,9 @@ mod native {
                 // This one fixed synthetic script asset may be delivered as
                 // SCRIPT or OTHER; neither value proves a native worker realm.
                 let context_matches = context == expected_context
-                    || (uri == P8_WORKER_URI && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_OTHER);
+                    || (uri == P8_WORKER_URI && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_OTHER)
+                    || (matches!(kind, ResponseKind::P8Probe(_))
+                        && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_XML_HTTP_REQUEST);
                 if method != "GET" || !context_matches {
                     trace.condition(
                         UT::Binding,
