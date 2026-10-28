@@ -3676,6 +3676,7 @@ mod native {
                 trace.detail.method = if method == "GET" { 1 } else { 2 };
                 let mut context = COREWEBVIEW2_WEB_RESOURCE_CONTEXT::default();
                 trace.native(UT::Context, unsafe { args.ResourceContext(&mut context) })?;
+                trace.detail.context_scalar = Some(context.0);
                 trace.detail.context = if context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT {
                     1
                 } else if context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_SCRIPT {
@@ -4655,6 +4656,7 @@ pub mod fixture {
         pub(super) set_response: u8,
         pub(super) metadata: u8,
         pub(super) hresult: Option<i32>,
+        pub(super) context_scalar: Option<i32>,
     }
 
     #[cfg(windows)]
@@ -4675,12 +4677,20 @@ pub mod fixture {
                 set_response: 0,
                 metadata: 0,
                 hresult,
+                context_scalar: None,
             }
         }
 
         fn packed(self) -> u64 {
+            // Schema2: native HRESULT wins; otherwise preserve the exact
+            // successful getter scalar, including zero and unknown i32 values.
+            let (payload, context_present) = match (self.hresult, self.context_scalar) {
+                (Some(code), _) => (code, false),
+                (None, Some(context)) => (context, true),
+                (None, None) => (0, false),
+            };
             (1 << 63)
-                | u64::from(self.hresult.unwrap_or(0) as u32)
+                | u64::from(payload as u32)
                 | ((self.site as u64) << 32)
                 | ((self.stage as u64) << 37)
                 | ((self.reason as u64) << 42)
@@ -4691,6 +4701,7 @@ pub mod fixture {
                 | (u64::from(self.set_response.min(3)) << 57)
                 | (u64::from(self.hresult.is_some()) << 59)
                 | (u64::from(self.metadata.min(3)) << 60)
+                | (u64::from(context_present) << 62)
         }
     }
 
@@ -4987,7 +4998,7 @@ pub mod fixture {
                     // Fixed56-byte line, only the one coherent atomic snapshot.
                     let _ = writeln!(
                         std::io::stderr(),
-                        "Code0NativeUncertainty schema=1 packed={uncertainty:016x}"
+                        "Code0NativeUncertainty schema=2 packed={uncertainty:016x}"
                     );
                 }
             }
