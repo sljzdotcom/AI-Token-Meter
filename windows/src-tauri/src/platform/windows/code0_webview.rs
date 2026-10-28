@@ -4987,8 +4987,7 @@ pub mod fixture {
                     // Fixed56-byte line, only the one coherent atomic snapshot.
                     let _ = writeln!(
                         std::io::stderr(),
-                        "Code0NativeUncertainty schema=1 packed={:016x}",
-                        uncertainty
+                        "Code0NativeUncertainty schema=1 packed={uncertainty:016x}"
                     );
                 }
             }
