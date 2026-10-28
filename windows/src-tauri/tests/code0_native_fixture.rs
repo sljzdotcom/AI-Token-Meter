@@ -215,6 +215,10 @@ mod smoke {
         target_events: u8,
         #[serde(skip)]
         final_events: u8,
+        #[serde(skip)]
+        application: [bool; 3],
+        #[serde(skip)]
+        target_application: Option<[bool; 3]>,
     }
 
     impl FaultEvidence {
@@ -236,6 +240,8 @@ mod smoke {
                 case,
                 target_events: 0,
                 final_events: 0,
+                application: [false; 3],
+                target_application: None,
             }
         }
 
@@ -249,6 +255,21 @@ mod smoke {
                 return false;
             }
             let c = receipt.counts();
+            let application = receipt.application();
+            if application
+                .iter()
+                .zip(self.application)
+                .any(|(current, prior)| prior && !*current)
+                || (!final_snapshot
+                    && application
+                        != match self.case {
+                            PolicyFixtureCase::InstallScriptInjectedFailure => [true, false, false],
+                            PolicyFixtureCase::InstallCdpInjectedFailure => [true, true, false],
+                            _ => [false; 3],
+                        })
+            {
+                return false;
+            }
             if final_snapshot {
                 self.final_events = self.final_events.saturating_add(1);
                 if self.final_events != 1 || c[0] != self.target_receipts {
@@ -292,6 +313,10 @@ mod smoke {
                 self.filter_removals,
                 self.script_removals,
             ] = c;
+            self.application = application;
+            if !final_snapshot {
+                self.target_application = Some(application);
+            }
             true
         }
 
@@ -308,6 +333,7 @@ mod smoke {
                 || self.target_receipts != 1
                 || self.final_events != 0
                 || self.injection_receipts != 0
+                || Some(receipt.application()) != self.target_application
                 || c != [
                     self.target_receipts,
                     1,
@@ -330,9 +356,13 @@ mod smoke {
 
         fn positive(&self, install: &PolicyEvidence, state: &Summary) -> bool {
             let p0 = self.case == PolicyFixtureCase::InstallPrematureLoadDenied;
+            let asynchronous = self.case.async_application();
+            let p5 = self.case == PolicyFixtureCase::InstallCdpInjectedFailure;
             let (resources, filters) = match self.case {
                 PolicyFixtureCase::InstallAddInjectedFailure => (1, 0),
-                PolicyFixtureCase::InstallFilterInjectedFailure => (1, 1),
+                PolicyFixtureCase::InstallFilterInjectedFailure
+                | PolicyFixtureCase::InstallScriptInjectedFailure
+                | PolicyFixtureCase::InstallCdpInjectedFailure => (1, 1),
                 _ => (0, 0),
             };
             self.target_events == 1
@@ -341,19 +371,20 @@ mod smoke {
                 && self.injection_receipts == u32::from(!p0)
                 && self.premature_load_denials == u32::from(p0)
                 && self.navigate_attempts == 0
-                && self.script_submissions == 0
-                && self.cdp_submissions == 0
-                && self.script_removals == 0
+                && self.script_submissions == u32::from(asynchronous)
+                && self.cdp_submissions == u32::from(p5)
+                && self.script_removals == u32::from(asynchronous)
+                && self.application == [asynchronous, p5, false]
                 && self.resource_adds == resources
                 && self.resource_removals == resources
                 && self.filter_adds == filters
                 && self.filter_removals == filters
                 && self.policy_failures == u32::from(!p0)
                 && install.submissions == u8::from(!p0)
-                && !install.submission_accepted
-                && install.install_rejected != p0
+                && install.submission_accepted == asynchronous
+                && install.install_rejected == (!p0 && !asynchronous)
                 && install.barrier_receipts == 0
-                && !install.script_acknowledged
+                && install.script_acknowledged == p5
                 && !install.cdp_acknowledged
                 && install.first_load_receipts == 0
                 && install.document_receipts == 0
@@ -376,6 +407,14 @@ mod smoke {
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
+    struct ApplicationEvidence {
+        script_id_inventoried: bool,
+        script_acknowledged: bool,
+        cdp_acknowledged: bool,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
     struct FaultSummary<'a> {
         schema: u8,
         run_id: &'a str,
@@ -387,6 +426,8 @@ mod smoke {
         install: &'a PolicyEvidence,
         lifecycle: PolicyLifecycle<'a>,
         fault: &'a FaultEvidence,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        application: Option<ApplicationEvidence>,
     }
 
     impl<'a> FaultSummary<'a> {
@@ -396,7 +437,7 @@ mod smoke {
             fault: &'a FaultEvidence,
         ) -> Self {
             Self {
-                schema: 2,
+                schema: if fault.case.async_application() { 3 } else { 2 },
                 run_id: &state.run_id,
                 required_case: fault.case.name(),
                 selected_cases: 1,
@@ -406,6 +447,14 @@ mod smoke {
                 install,
                 lifecycle: PolicySummary::snapshot(state, install).lifecycle,
                 fault,
+                application: fault
+                    .case
+                    .async_application()
+                    .then_some(ApplicationEvidence {
+                        script_id_inventoried: fault.application[0],
+                        script_acknowledged: fault.application[1],
+                        cdp_acknowledged: fault.application[2],
+                    }),
             }
         }
     }
@@ -1140,10 +1189,15 @@ mod smoke {
                         if let Some(fault) = &fault {
                             match event {
                                 PolicyObservation::FaultTarget(receipt) => {
+                                    let mut fault = fault.lock().unwrap();
                                     if closing_since.is_some()
-                                        || !fault.lock().unwrap().observe(receipt, &request, false)
+                                        || !fault.observe(receipt, &request, false)
                                     {
                                         state.failure = "faultTargetReceiptInvalid";
+                                    } else if fault.case.async_application() {
+                                        let mut install = policy.as_ref().unwrap().lock().unwrap();
+                                        install.script_acknowledged = fault.application[1];
+                                        install.cdp_acknowledged = fault.application[2];
                                     }
                                 }
                                 PolicyObservation::FaultApplied(receipt) => {
@@ -1154,10 +1208,15 @@ mod smoke {
                                     }
                                 }
                                 PolicyObservation::FaultFinal(receipt) => {
+                                    let mut fault = fault.lock().unwrap();
                                     if closing_since.is_none()
-                                        || !fault.lock().unwrap().observe(receipt, &request, true)
+                                        || !fault.observe(receipt, &request, true)
                                     {
                                         state.failure = "faultFinalReceiptInvalid";
+                                    } else if fault.case.async_application() {
+                                        let mut install = policy.as_ref().unwrap().lock().unwrap();
+                                        install.script_acknowledged = fault.application[1];
+                                        install.cdp_acknowledged = fault.application[2];
                                     }
                                 }
                                 PolicyObservation::BarrierReady(receipt) => {
@@ -1496,6 +1555,12 @@ fn main() {
             }
             [selector] if selector == "--code0-policy-fixture=install-filter-injected-failure" => {
                 smoke::run_fault(PolicyFixtureCase::InstallFilterInjectedFailure)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-script-injected-failure" => {
+                smoke::run_fault(PolicyFixtureCase::InstallScriptInjectedFailure)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-cdp-injected-failure" => {
+                smoke::run_fault(PolicyFixtureCase::InstallCdpInjectedFailure)
             }
             _ => Err("unknown or multiple fixture selectors".into()),
         }

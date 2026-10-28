@@ -1582,7 +1582,9 @@ mod native {
             super::fixture::PolicyFixtureCase::InstallAckBeforeFirstLoad
             | super::fixture::PolicyFixtureCase::InstallSettingInjectedFailure
             | super::fixture::PolicyFixtureCase::InstallAddInjectedFailure
-            | super::fixture::PolicyFixtureCase::InstallFilterInjectedFailure => {
+            | super::fixture::PolicyFixtureCase::InstallFilterInjectedFailure
+            | super::fixture::PolicyFixtureCase::InstallScriptInjectedFailure
+            | super::fixture::PolicyFixtureCase::InstallCdpInjectedFailure => {
                 p1::begin(owner, request, case)
             }
         }
@@ -1639,6 +1641,8 @@ mod native {
             // target, injection, premature denial, Navigate, script, CDP,
             // resource add, filter add, resource remove, filter remove, script remove.
             counts: [u32; 11],
+            // Actual ID transfer, script ACK application, CDP ACK application.
+            application: [bool; 3],
             final_sent: bool,
         }
 
@@ -1688,11 +1692,13 @@ mod native {
                         request: request.clone(),
                         target,
                         counts: fault.counts,
+                        application: fault.application,
                     },
                 )
             };
             let (observer, receipt) = notification;
             let counts = receipt.counts;
+            let application = receipt.application;
             if let Some(observer) = observer.as_ref() {
                 observer(NativeSmokeObservation::Policy(
                     PolicyObservation::FaultTarget(receipt),
@@ -1713,6 +1719,7 @@ mod native {
                 let fault = &mut i.policy_fault;
                 if fault.case.and_then(PolicyFixtureCase::fault_target) != Some(target)
                     || fault.counts != counts
+                    || fault.application != application
                     || counts[0] != 1
                     || counts[1] != 0
                 {
@@ -1725,6 +1732,7 @@ mod native {
                     request: request.clone(),
                     target,
                     counts: fault.counts,
+                    application: fault.application,
                 }
             };
             if let Some(observer) = observer {
@@ -1756,6 +1764,7 @@ mod native {
                         request: i.request.clone(),
                         target,
                         counts: fault.counts,
+                        application: fault.application,
                     },
                 )
             };
@@ -2555,13 +2564,24 @@ mod native {
                         id,
                         pending,
                     } => {
-                        {
+                        let asynchronous = owner.borrow().instance.as_ref().is_some_and(|i| {
+                            i.policy_fault
+                                .case
+                                .is_some_and(PolicyFixtureCase::async_application)
+                        });
+                        let current_live = !asynchronous || live(owner, &request);
+                        let retained_id = if asynchronous { id.clone() } else { None };
+                        let target = {
                             let mut state = owner.borrow_mut();
                             if let Some(i) = state.instance.as_mut()
                                 && let Some(p) = i.policy.as_mut()
                             {
+                                let contributed_id = id.is_some();
                                 if let Some(id) = id {
                                     p.scripts.push((id, false));
+                                    if asynchronous {
+                                        i.policy_fault.application[0] = true;
+                                    }
                                 }
                                 let valid = i.request == request
                                     && p.generation == generation
@@ -2573,19 +2593,71 @@ mod native {
                                     && !i.failed
                                     && succeeded
                                     && valid_id
+                                    && (!asynchronous
+                                        || (current_live
+                                            && contributed_id
+                                            && p.scripts.len() == 1
+                                            && !p.script_ack))
                                     && !mailbox.invalid.load(Ordering::SeqCst)
                                     && !mailbox.unknown.load(Ordering::SeqCst)
                                     && !i.callbacks.affinity_failed.load(Ordering::SeqCst);
                                 p.script_completed = true;
-                                p.script_ack = valid;
+                                let target = valid
+                                    && i.policy_fault.case
+                                        == Some(PolicyFixtureCase::InstallScriptInjectedFailure);
+                                if !target {
+                                    p.script_ack = valid;
+                                    if asynchronous && valid {
+                                        i.policy_fault.application[1] = true;
+                                    }
+                                }
                                 if !valid {
                                     i.failed = true;
                                     i.closing = true;
                                 }
+                                target
                             } else {
                                 if let Some(id) = id {
                                     state.unmatched_script_ids.push(id);
                                 }
+                                state.unmatched = true;
+                                false
+                            }
+                        };
+                        if target {
+                            // Pending and the exact inventoried ID survive the observer.
+                            // RED observes real success, then applies its original ACK.
+                            let continued = matches!(
+                                target_succeeded(
+                                    owner,
+                                    &request,
+                                    PolicyFaultTarget::ScriptApplication
+                                ),
+                                Ok(SynchronousFlow::Continue)
+                            ) && live(owner, &request);
+                            let mut state = owner.borrow_mut();
+                            if let Some(i) = state.instance.as_mut()
+                                && let Some(p) = i.policy.as_mut()
+                            {
+                                let valid = continued
+                                    && i.request == request
+                                    && p.generation == generation
+                                    && p.sync_ack
+                                    && p.script_submitted
+                                    && p.script_completed
+                                    && !p.script_ack
+                                    && p.scripts.len() == 1
+                                    && p.scripts.iter().any(|(id, attempted)| {
+                                        Some(id) == retained_id.as_ref() && !attempted
+                                    });
+                                if valid {
+                                    p.script_ack = true;
+                                    i.policy_fault.application[1] = true;
+                                } else {
+                                    i.failed = true;
+                                    i.closing = true;
+                                }
+                            } else {
                                 state.unmatched = true;
                             }
                         }
@@ -2598,7 +2670,13 @@ mod native {
                         first,
                         pending,
                     } => {
-                        {
+                        let asynchronous = owner.borrow().instance.as_ref().is_some_and(|i| {
+                            i.policy_fault
+                                .case
+                                .is_some_and(PolicyFixtureCase::async_application)
+                        });
+                        let current_live = !asynchronous || live(owner, &request);
+                        let target = {
                             let mut state = owner.borrow_mut();
                             if let Some(i) = state.instance.as_mut()
                                 && let Some(p) = i.policy.as_mut()
@@ -2613,12 +2691,57 @@ mod native {
                                     && !i.closing
                                     && !i.failed
                                     && expected
+                                    && (!asynchronous || (current_live && !p.cdp_ack))
                                     && !mailbox.invalid.load(Ordering::SeqCst)
                                     && !mailbox.unknown.load(Ordering::SeqCst)
                                     && !i.callbacks.affinity_failed.load(Ordering::SeqCst);
                                 p.cdp_completed = true;
-                                p.cdp_ack = valid;
+                                let target = valid
+                                    && i.policy_fault.case
+                                        == Some(PolicyFixtureCase::InstallCdpInjectedFailure);
+                                if !target {
+                                    p.cdp_ack = valid;
+                                    if asynchronous && valid {
+                                        i.policy_fault.application[2] = true;
+                                    }
+                                }
                                 if !valid {
+                                    i.failed = true;
+                                    i.closing = true;
+                                }
+                                target
+                            } else {
+                                state.unmatched = true;
+                                false
+                            }
+                        };
+                        if target {
+                            let continued = matches!(
+                                target_succeeded(
+                                    owner,
+                                    &request,
+                                    PolicyFaultTarget::CdpApplication
+                                ),
+                                Ok(SynchronousFlow::Continue)
+                            ) && live(owner, &request);
+                            let mut state = owner.borrow_mut();
+                            if let Some(i) = state.instance.as_mut()
+                                && let Some(p) = i.policy.as_mut()
+                            {
+                                let valid = continued
+                                    && i.request == request
+                                    && p.generation == generation
+                                    && p.sync_ack
+                                    && p.script_ack
+                                    && p.cdp_submitted
+                                    && p.cdp_completed
+                                    && !p.cdp_ack
+                                    && p.scripts.len() == 1
+                                    && !p.scripts.iter().any(|(_, attempted)| *attempted);
+                                if valid {
+                                    p.cdp_ack = true;
+                                    i.policy_fault.application[2] = true;
+                                } else {
                                     i.failed = true;
                                     i.closing = true;
                                 }
@@ -2691,6 +2814,16 @@ mod native {
         }
 
         pub(super) fn advance(owner: &Rc<RefCell<Owner>>) {
+            // Selected async application waits for the current action to settle.
+            // Never require Pending0: the queued real disposition owns Pending.
+            if owner.borrow().instance.as_ref().is_some_and(|i| {
+                i.policy_fault
+                    .case
+                    .is_some_and(PolicyFixtureCase::async_application)
+                    && i.callbacks.active.load(Ordering::SeqCst) != 0
+            }) {
+                return;
+            }
             drain_dispositions(owner);
             let request = {
                 let state = owner.borrow();
@@ -3231,6 +3364,8 @@ pub mod fixture {
         InstallSettingInjectedFailure,
         InstallAddInjectedFailure,
         InstallFilterInjectedFailure,
+        InstallScriptInjectedFailure,
+        InstallCdpInjectedFailure,
     }
 
     impl PolicyFixtureCase {
@@ -3241,7 +3376,15 @@ pub mod fixture {
                 Self::InstallSettingInjectedFailure => "install-setting-injected-failure",
                 Self::InstallAddInjectedFailure => "install-add-injected-failure",
                 Self::InstallFilterInjectedFailure => "install-filter-injected-failure",
+                Self::InstallScriptInjectedFailure => "install-script-injected-failure",
+                Self::InstallCdpInjectedFailure => "install-cdp-injected-failure",
             }
+        }
+        pub fn async_application(self) -> bool {
+            matches!(
+                self,
+                Self::InstallScriptInjectedFailure | Self::InstallCdpInjectedFailure
+            )
         }
         pub fn fault_target(self) -> Option<PolicyFaultTarget> {
             match self {
@@ -3250,6 +3393,8 @@ pub mod fixture {
                 Self::InstallSettingInjectedFailure => Some(PolicyFaultTarget::HostObjectsSetting),
                 Self::InstallAddInjectedFailure => Some(PolicyFaultTarget::ResourceAdd),
                 Self::InstallFilterInjectedFailure => Some(PolicyFaultTarget::AllSourceFilter),
+                Self::InstallScriptInjectedFailure => Some(PolicyFaultTarget::ScriptApplication),
+                Self::InstallCdpInjectedFailure => Some(PolicyFaultTarget::CdpApplication),
             }
         }
     }
@@ -3260,6 +3405,8 @@ pub mod fixture {
         HostObjectsSetting,
         ResourceAdd,
         AllSourceFilter,
+        ScriptApplication,
+        CdpApplication,
     }
 
     impl PolicyFaultTarget {
@@ -3269,6 +3416,8 @@ pub mod fixture {
                 Self::HostObjectsSetting => "host-objects-setting",
                 Self::ResourceAdd => "resource-add",
                 Self::AllSourceFilter => "all-source-filter",
+                Self::ScriptApplication => "script-application",
+                Self::CdpApplication => "cdp-application",
             }
         }
     }
@@ -3279,6 +3428,7 @@ pub mod fixture {
         pub(super) request: Code0WindowRequest,
         pub(super) target: PolicyFaultTarget,
         pub(super) counts: [u32; 11],
+        pub(super) application: [bool; 3],
     }
 
     impl PolicyFaultReceipt {
@@ -3293,6 +3443,10 @@ pub mod fixture {
         /// script remove. Every counter saturates at u32::MAX.
         pub fn counts(&self) -> [u32; 11] {
             self.counts
+        }
+        /// Actual ID inventoried, script ACK applied, CDP ACK applied.
+        pub fn application(&self) -> [bool; 3] {
+            self.application
         }
     }
 
