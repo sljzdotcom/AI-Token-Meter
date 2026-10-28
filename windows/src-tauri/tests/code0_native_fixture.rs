@@ -807,10 +807,20 @@ mod smoke {
                     ) => {
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
                         if let Some(policy) = &policy {
-                            if closing_since.is_some()
-                                || !policy.lock().unwrap().observe(event, &request)
-                            {
+                            let barrier = matches!(&event, PolicyObservation::BarrierReady(_));
+                            let valid = closing_since.is_none()
+                                && policy.lock().unwrap().observe(event, &request);
+                            if !valid {
                                 state.failure = "policyReceiptInvalid";
+                            } else if barrier {
+                                // Genuine native barrier was observed first. Neither
+                                // summary nor policy locks cross the finite loader.
+                                drop(state);
+                                let loaded = driver.load_fixture_policy_document(&request);
+                                state = observed.lock().unwrap();
+                                if loaded.is_err() {
+                                    state.failure = "policyDocumentLoadDenied";
+                                }
                             }
                         } else {
                             state.failure = "unexpectedPolicyObservation";

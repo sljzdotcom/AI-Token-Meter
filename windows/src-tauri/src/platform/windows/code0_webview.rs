@@ -303,6 +303,8 @@ mod native {
         // of a different request or permit the profile lease to be released.
         unmatched: bool,
         unmatched_objects: Vec<UnmatchedObject>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        unmatched_script_ids: Vec<String>,
         polling: bool,
         ui_thread: ThreadId,
         events: Code0NativeEventSink,
@@ -352,6 +354,10 @@ mod native {
         observer: Option<Observer>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         inline_loaded: bool,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        policy: Option<p1::Installation>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        policy_mailbox: Option<Arc<p1::Mailbox>>,
     }
 
     impl Owner {
@@ -359,6 +365,8 @@ mod native {
             Self {
                 unmatched: false,
                 unmatched_objects: Vec::new(),
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                unmatched_script_ids: Vec::new(),
                 polling: false,
                 ui_thread: thread::current().id(),
                 events,
@@ -377,7 +385,8 @@ mod native {
     }
 
     fn on_ui(owner: &Rc<RefCell<Owner>>) -> bool {
-        owner.borrow().ui_thread == thread::current().id() && is_sta()
+        let ui_thread = owner.borrow().ui_thread;
+        ui_thread == thread::current().id() && is_sta()
     }
 
     fn callback_on_ui(ui: ThreadId, callbacks: &Callbacks) -> bool {
@@ -420,6 +429,16 @@ mod native {
             && instance.controller.is_none()
             && instance.core.is_none()
             && instance.message_token.is_none()
+            && {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                {
+                    instance.policy.is_none() && p1::mailbox_quiescent(instance)
+                }
+                #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                {
+                    true
+                }
+            }
             && instance.callbacks.pending.load(Ordering::SeqCst) == 0
             && instance.callbacks.active.load(Ordering::SeqCst) == 0
             && instance.callbacks.handlers.load(Ordering::SeqCst) == 0
@@ -525,6 +544,10 @@ mod native {
             observer: observer.clone(),
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             inline_loaded: false,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            policy: None,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            policy_mailbox: None,
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -1052,7 +1075,7 @@ mod native {
             if callback_on_ui(ui, &callbacks)
                 && let Some(owner) = weak.upgrade()
             {
-                message_received(&owner, &owned_request, args.as_ref());
+                message_received(&owner, &owned_request, sender.as_ref(), args.as_ref());
             }
             drop(args);
             drop(sender);
@@ -1098,10 +1121,22 @@ mod native {
     fn message_received(
         owner: &Rc<RefCell<Owner>>,
         request: &Code0WindowRequest,
+        sender: Option<&ICoreWebView2>,
         args: Option<&ICoreWebView2WebMessageReceivedEventArgs>,
     ) {
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         {
+            if owner
+                .borrow()
+                .instance
+                .as_ref()
+                .is_some_and(|i| i.policy.is_some())
+            {
+                if p1::message(owner, request, sender, args).is_err() {
+                    failed(owner, request);
+                }
+                return;
+            }
             let observer = {
                 let mut state = owner.borrow_mut();
                 let Some(instance) = matching(&mut state, request) else {
@@ -1131,7 +1166,7 @@ mod native {
             }
         }
         #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
-        let _ = (owner, request, args);
+        let _ = (owner, request, sender, args);
     }
 
     pub(super) fn close(owner: &Rc<RefCell<Owner>>, instance_id: &str) {
@@ -1244,6 +1279,10 @@ mod native {
         let _poll = PollGuard(Rc::clone(owner));
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         publish_inventory(owner);
+        // Installation progress and receipt publication happen only on a later
+        // UI poll, after all previous callbacks and outer actions have settled.
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        p1::advance(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -1282,6 +1321,8 @@ mod native {
         // Bind the actual core's process before Stop/Close can synchronously
         // deliver exit. PollGuard covers this getter's action-local interface.
         arm_browser_exit(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        p1::remove_registrations(owner);
         let remove = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1339,6 +1380,16 @@ mod native {
                 && !instance.controls_disposed
                 && !instance.cleanup_blocked
                 && instance.message_token.is_none()
+                && {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    {
+                        p1::registrations_removed(instance)
+                    }
+                    #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                    {
+                        true
+                    }
+                }
                 && (instance.core.is_none() || instance.stop_attempted)
                 && (instance.controller.is_none() || instance.close_attempted)
                 && instance.callbacks.pending.load(Ordering::SeqCst) == 0
@@ -1346,7 +1397,14 @@ mod native {
             {
                 // Intentionally do not require aggregate handlers0 here: the
                 // registered exit handler/environment must survive control drop.
-                Some((instance.core.take(), instance.controller.take()))
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                let policy = instance.policy.take();
+                Some((
+                    instance.core.take(),
+                    instance.controller.take(),
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    policy,
+                ))
             } else {
                 None
             }
@@ -1356,14 +1414,20 @@ mod native {
             drop(controls);
             // Drop can reenter. Only after all actual control locals end may a
             // later stage consume a synchronously recorded exit observation.
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let disposed = p1::after_control_drop(owner);
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            let disposed = true;
             owner
                 .borrow_mut()
                 .instance
                 .as_mut()
                 .unwrap()
-                .controls_disposed = true;
+                .controls_disposed = disposed;
             phase!(owner, ControlDrop, true);
-            milestone!(owner, ControlsDisposed);
+            if disposed {
+                milestone!(owner, ControlsDisposed);
+            }
         }
         let exit_registration = {
             let mut state = owner.borrow_mut();
@@ -1506,31 +1570,1363 @@ mod native {
         request: &Code0WindowRequest,
         case: super::fixture::PolicyFixtureCase,
     ) -> Result<(), Code0SessionFailure> {
-        if !on_ui(owner) {
-            return Err(Code0SessionFailure::PolicyRejected);
-        }
-        let state = owner.borrow();
-        let instance = state
-            .instance
-            .as_ref()
-            .ok_or(Code0SessionFailure::PolicyRejected)?;
-        if &instance.request != request
-            || instance.closing
-            || instance.failed
-            || instance.inline_loaded
-            || instance.core.is_none()
-            || instance.controller.is_none()
-            || instance.environment.is_none()
-            || instance.message_token.is_none()
-        {
-            return Err(Code0SessionFailure::PolicyRejected);
-        }
-        // Honest missing-feature boundary: no setters, registrations, async
-        // ACKs, observations or load occur. A later partial debug barrier must
-        // never emit production PoliciesInstalled or authorize navigate/clear.
         match case {
             super::fixture::PolicyFixtureCase::InstallAckBeforeFirstLoad => {
-                Err(Code0SessionFailure::PolicyRejected)
+                p1::begin(owner, request)
+            }
+        }
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn load_policy_document(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> Result<(), Code0SessionFailure> {
+        p1::load(owner, request)
+    }
+
+    /// Finite debug-only P1. No production policy authority is derived here.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    mod p1 {
+        use super::super::fixture::{
+            ControlledDocumentReceipt, ControlledLoadReceipt, InstallBarrierReceipt,
+            PolicyObservation,
+        };
+        use super::*;
+        use crate::collectors::code0_bridge::{
+            CODE0_BRIDGE_SOURCE, Code0BridgeContext, Code0BridgeEvent, Code0BridgeValidator,
+        };
+        use std::sync::Mutex;
+        use webview2_com::{
+            DevToolsProtocolEventReceivedEventHandler, WebResourceRequestedEventHandler,
+        };
+        use windows::Win32::Foundation::E_OUTOFMEMORY;
+        use windows::Win32::System::Com::{IStream, STREAM_SEEK_SET};
+        use windows::Win32::UI::Shell::SHCreateMemStream;
+        use windows::core::{BOOL, w};
+
+        const GENERATION: u64 = 1;
+        const URI: &str = "https://console.code0.ai/__ai_meter_fixture__/install-p1";
+        const MAX_REQUESTS: u32 = 16;
+        const MAIN: &[u8] = br#"<!doctype html><meta charset="utf-8"><title>Code0 P1</title><script nonce="code0-p1-fixed">document.addEventListener('DOMContentLoaded',()=>{window.chrome.webview.postMessage({kind:'code0InstallDocumentComplete',value:1});},{once:true});</script>"#;
+        const REFUSAL: &[u8] = b"Code0 P1 synthetic refusal";
+        const HEADERS: &str = "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; script-src 'nonce-code0-p1-fixed'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\r\n";
+
+        // Rc snapshots do not call COM while Owner is borrowed. Every actual
+        // interface is disposed with the R4 nonterminal control stage. Event
+        // closures capture only weak Owner, immutable request/generation and the
+        // existing counted atomic lifetime, never any of these emitters.
+        pub(super) struct Installation {
+            generation: u64,
+            core: Rc<ICoreWebView2>,
+            environment: Rc<ICoreWebView2Environment>,
+            settings: Option<Rc<ICoreWebView2Settings>>,
+            core22: Option<Rc<ICoreWebView2_22>>,
+            receiver: Option<Rc<ICoreWebView2DevToolsProtocolEventReceiver>>,
+            resource_token: Option<i64>,
+            resource_remove_attempted: bool,
+            chooser_token: Option<i64>,
+            chooser_remove_attempted: bool,
+            filter: bool,
+            filter_remove_attempted: bool,
+            scripts: Vec<(String, bool)>,
+            sync_ack: bool,
+            script_submitted: bool,
+            script_completed: bool,
+            script_ack: bool,
+            cdp_submitted: bool,
+            cdp_completed: bool,
+            cdp_ack: bool,
+            barrier: bool,
+            load_attempted: bool,
+            main_response: bool,
+            ready_control: bool,
+            document_complete: bool,
+            document_receipt: bool,
+            validator: Code0BridgeValidator,
+            delivered_requests: u32,
+        }
+
+        const MAX_DISPOSITIONS: usize = 4;
+        const MAX_SCRIPT_ID_UNITS: usize = 4096;
+
+        pub(super) struct Mailbox {
+            state: Mutex<MailboxState>,
+            invalid: AtomicBool,
+            unknown: AtomicBool,
+        }
+
+        #[derive(Default)]
+        struct MailboxState {
+            queue: Vec<Disposition>,
+            script_ids: Vec<String>,
+        }
+
+        // Thread-safe weak mailbox is the callback's route to the same UI
+        // owner's instance. It carries no native refs or independent authority.
+        // In particular no Rc/RefCell/COM object is touched on an off-STA Invoke.
+        struct Completion {
+            mailbox: std::sync::Weak<Mailbox>,
+            callbacks: Arc<Callbacks>,
+            request: Code0WindowRequest,
+            generation: u64,
+            ui: ThreadId,
+            invoked: AtomicBool,
+            first_pending: Mutex<Option<Pending>>,
+            _lifetime: HandlerLifetime,
+        }
+
+        #[windows::core::implement(
+            ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler,
+            Agile = false
+        )]
+        struct ScriptCompletion {
+            completion: Completion,
+        }
+
+        impl ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler_Impl
+            for ScriptCompletion_Impl
+        {
+            fn Invoke(
+                &self,
+                errorcode: windows::core::HRESULT,
+                result: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                self.completion.invoke(true, errorcode, *result)
+            }
+        }
+
+        #[windows::core::implement(
+            ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,
+            Agile = false
+        )]
+        struct CdpCompletion {
+            completion: Completion,
+        }
+
+        impl ICoreWebView2CallDevToolsProtocolMethodCompletedHandler_Impl for CdpCompletion_Impl {
+            fn Invoke(
+                &self,
+                errorcode: windows::core::HRESULT,
+                result: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                self.completion.invoke(false, errorcode, *result)
+            }
+        }
+
+        enum Disposition {
+            Script {
+                request: Code0WindowRequest,
+                generation: u64,
+                succeeded: bool,
+                valid_id: bool,
+                first: bool,
+                id: Option<String>,
+                pending: Pending,
+            },
+            Cdp {
+                request: Code0WindowRequest,
+                generation: u64,
+                expected: bool,
+                first: bool,
+                pending: Pending,
+            },
+        }
+
+        // Callback PCWSTR is borrowed, not CoTaskMem output. Never free it or
+        // retain its address. An overlength/malformed ID is unknown ownership;
+        // it is never truncated and submitted to native removal.
+        fn borrowed_string(raw: PCWSTR, max_units: usize) -> windows::core::Result<String> {
+            if raw.is_null() {
+                return Err(windows::core::Error::from_hresult(E_FAIL));
+            }
+            for length in 0..=max_units {
+                if unsafe { *raw.0.add(length) } == 0 {
+                    let units = unsafe { std::slice::from_raw_parts(raw.0, length) };
+                    return String::from_utf16(units)
+                        .map_err(|_| windows::core::Error::from_hresult(E_FAIL));
+                }
+            }
+            Err(windows::core::Error::from_hresult(E_FAIL))
+        }
+
+        impl Completion {
+            fn new(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) -> Self {
+                let (callbacks, ui) = callback_state(owner);
+                let mailbox = {
+                    let state = owner.borrow();
+                    Arc::downgrade(
+                        state
+                            .instance
+                            .as_ref()
+                            .unwrap()
+                            .policy_mailbox
+                            .as_ref()
+                            .unwrap(),
+                    )
+                };
+                Self {
+                    mailbox,
+                    request: request.clone(),
+                    generation: GENERATION,
+                    ui,
+                    invoked: AtomicBool::new(false),
+                    first_pending: Mutex::new(Some(Pending::new(&callbacks))),
+                    _lifetime: HandlerLifetime::new(&callbacks),
+                    callbacks,
+                }
+            }
+
+            fn invoke(
+                &self,
+                script: bool,
+                errorcode: windows::core::HRESULT,
+                raw: PCWSTR,
+            ) -> windows::core::Result<()> {
+                let _active = Active::enter(&self.callbacks);
+                // Off-thread must perform only owned-copy/atomics/mutex work.
+                // The UI-thread path may additionally validate its apartment.
+                if thread::current().id() != self.ui || !is_sta() {
+                    self.callbacks.affinity_failed.store(true, Ordering::SeqCst);
+                }
+                let Some(mailbox) = self.mailbox.upgrade() else {
+                    self.callbacks.affinity_failed.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                let first = !self.invoked.swap(true, Ordering::SeqCst);
+                if !first {
+                    mailbox.invalid.store(true, Ordering::SeqCst);
+                }
+                let pending = if first {
+                    self.first_pending.lock().unwrap().take().unwrap()
+                } else {
+                    Pending::new(&self.callbacks)
+                };
+                let copied = borrowed_string(raw, if script { MAX_SCRIPT_ID_UNITS } else { 2048 })
+                    .and_then(|value| {
+                        if !script && value.len() > 2048 {
+                            Err(windows::core::Error::from_hresult(E_FAIL))
+                        } else {
+                            Ok(value)
+                        }
+                    });
+                if copied.is_err() {
+                    mailbox.unknown.store(true, Ordering::SeqCst);
+                }
+                let disposition = if script {
+                    let valid_id = copied.as_ref().is_ok_and(|id| !id.is_empty());
+                    // A successful registration without a usable exact ID is an
+                    // unresolved removal obligation, not an empty inventory.
+                    if errorcode.is_ok() && !valid_id {
+                        mailbox.unknown.store(true, Ordering::SeqCst);
+                    }
+                    let mut id = copied.ok().filter(|id| !id.is_empty());
+                    {
+                        let mut state = mailbox.state.lock().unwrap();
+                        if let Some(value) = id.as_ref() {
+                            if state.script_ids.contains(value) {
+                                id = None; // Same real ID is removed at most once.
+                            } else if state.script_ids.len() < MAX_DISPOSITIONS {
+                                state.script_ids.push(value.clone());
+                            } else {
+                                mailbox.unknown.store(true, Ordering::SeqCst);
+                                id = None;
+                            }
+                        }
+                    }
+                    Disposition::Script {
+                        request: self.request.clone(),
+                        generation: self.generation,
+                        succeeded: errorcode.is_ok(),
+                        valid_id,
+                        first,
+                        id,
+                        pending,
+                    }
+                } else {
+                    let expected = errorcode.is_ok()
+                        && copied.as_ref().is_ok_and(|json| {
+                            json.len() <= 2048
+                                && serde_json::from_str::<serde_json::Value>(json)
+                                    .ok()
+                                    .is_some_and(|v| v.as_object().is_some_and(|o| o.is_empty()))
+                        });
+                    Disposition::Cdp {
+                        request: self.request.clone(),
+                        generation: self.generation,
+                        expected,
+                        first,
+                        pending,
+                    }
+                };
+                let overflow = {
+                    let mut state = mailbox.state.lock().unwrap();
+                    if state.queue.len() < MAX_DISPOSITIONS {
+                        state.queue.push(disposition);
+                        None
+                    } else {
+                        mailbox.unknown.store(true, Ordering::SeqCst);
+                        Some(disposition)
+                    }
+                };
+                // Pending/owned payload drops happen after the queue lock ends.
+                drop(overflow);
+                // Invoke transport success is never an installation ACK. Do
+                // not let generated Error->HRESULT conversion set thread COM
+                // error info off STA; sticky flags/disposition carry failure.
+                Ok(())
+            }
+        }
+
+        fn live(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) -> bool {
+            let state = owner.borrow();
+            !state.unmatched
+                && state.instance.as_ref().is_some_and(|i| {
+                    &i.request == request
+                        && i.policy_mailbox.as_ref().is_some_and(|m| {
+                            !m.invalid.load(Ordering::SeqCst) && !m.unknown.load(Ordering::SeqCst)
+                        })
+                        && !i.closing
+                        && !i.failed
+                        && !i.inline_loaded
+                        && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                        && i.policy
+                            .as_ref()
+                            .is_some_and(|p| p.generation == GENERATION)
+                })
+        }
+
+        fn require_live(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> windows::core::Result<()> {
+            if live(owner, request) {
+                Ok(())
+            } else {
+                Err(E_FAIL.into())
+            }
+        }
+
+        fn uuid(value: &str) -> bool {
+            value.len() == 36
+                && value.bytes().enumerate().all(|(n, b)| {
+                    if [8, 13, 18, 23].contains(&n) {
+                        b == b'-'
+                    } else {
+                        b.is_ascii_hexdigit()
+                    }
+                })
+        }
+
+        fn core(owner: &Rc<RefCell<Owner>>) -> Rc<ICoreWebView2> {
+            Rc::clone(
+                &owner
+                    .borrow()
+                    .instance
+                    .as_ref()
+                    .unwrap()
+                    .policy
+                    .as_ref()
+                    .unwrap()
+                    .core,
+            )
+        }
+
+        fn callback_state(owner: &Rc<RefCell<Owner>>) -> (Arc<Callbacks>, ThreadId) {
+            let state = owner.borrow();
+            (
+                Arc::clone(&state.instance.as_ref().unwrap().callbacks),
+                state.ui_thread,
+            )
+        }
+
+        pub(super) fn begin(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            if !on_ui(owner) {
+                return Err(Code0SessionFailure::PolicyRejected);
+            }
+            let callbacks = {
+                let state = owner.borrow();
+                let i = state
+                    .instance
+                    .as_ref()
+                    .ok_or(Code0SessionFailure::PolicyRejected)?;
+                if &i.request != request
+                    || i.closing
+                    || i.failed
+                    || i.inline_loaded
+                    || i.policy.is_some()
+                    || i.core.is_none()
+                    || i.environment.is_none()
+                    || i.controller.is_none()
+                    || i.message_token.is_none()
+                    || ![
+                        &request.instance_id,
+                        &request.connection_epoch,
+                        &request.nonce,
+                        &request.document_id,
+                    ]
+                    .into_iter()
+                    .all(|s| uuid(s))
+                {
+                    return Err(Code0SessionFailure::PolicyRejected);
+                }
+                Arc::clone(&i.callbacks)
+            };
+            let _action = Active::enter(&callbacks);
+            // Move original refs out before AddRef, then restore them. Active
+            // prevents a reentrant poll from treating the temporary move as free.
+            let (original_core, original_environment) = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                (i.core.take().unwrap(), i.environment.take().unwrap())
+            };
+            let retained_core = Rc::new(original_core.clone());
+            let retained_environment = Rc::new(original_environment.clone());
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                i.core = Some(original_core);
+                i.environment = Some(original_environment);
+                i.policy_mailbox = Some(Arc::new(Mailbox {
+                    state: Mutex::new(MailboxState::default()),
+                    invalid: AtomicBool::new(false),
+                    unknown: AtomicBool::new(false),
+                }));
+                i.policy = Some(Installation {
+                    generation: GENERATION,
+                    core: retained_core,
+                    environment: retained_environment,
+                    settings: None,
+                    core22: None,
+                    receiver: None,
+                    resource_token: None,
+                    resource_remove_attempted: false,
+                    chooser_token: None,
+                    chooser_remove_attempted: false,
+                    filter: false,
+                    filter_remove_attempted: false,
+                    scripts: Vec::new(),
+                    sync_ack: false,
+                    script_submitted: false,
+                    script_completed: false,
+                    script_ack: false,
+                    cdp_submitted: false,
+                    cdp_completed: false,
+                    cdp_ack: false,
+                    barrier: false,
+                    load_attempted: false,
+                    main_response: false,
+                    ready_control: false,
+                    document_complete: false,
+                    document_receipt: false,
+                    validator: Code0BridgeValidator::new(
+                        &request.connection_epoch,
+                        &request.instance_id,
+                        &request.nonce,
+                        &request.document_id,
+                    ),
+                    delivered_requests: 0,
+                });
+            }
+            let result = synchronous(owner, request).and_then(|()| submit_script(owner, request));
+            if result.is_err() {
+                failed(owner, request);
+                return Err(Code0SessionFailure::PolicyRejected);
+            }
+            Ok(())
+        }
+
+        fn synchronous(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> windows::core::Result<()> {
+            require_live(owner, request)?;
+            let core = core(owner);
+            let settings = Rc::new(unsafe { core.Settings() }?);
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy
+                .as_mut()
+                .unwrap()
+                .settings = Some(Rc::clone(&settings));
+            require_live(owner, request)?;
+            macro_rules! setting {
+                ($set:ident, $get:ident, $value:expr) => {{
+                    unsafe { settings.$set($value) }?;
+                    require_live(owner, request)?;
+                    let mut actual = BOOL::default();
+                    unsafe { settings.$get(&mut actual) }?;
+                    require_live(owner, request)?;
+                    if actual.as_bool() != $value {
+                        return Err(E_FAIL.into());
+                    }
+                }};
+            }
+            setting!(SetIsWebMessageEnabled, IsWebMessageEnabled, true);
+            setting!(
+                SetAreDefaultScriptDialogsEnabled,
+                AreDefaultScriptDialogsEnabled,
+                false
+            );
+            setting!(SetAreDevToolsEnabled, AreDevToolsEnabled, false);
+            setting!(
+                SetAreDefaultContextMenusEnabled,
+                AreDefaultContextMenusEnabled,
+                false
+            );
+            setting!(SetAreHostObjectsAllowed, AreHostObjectsAllowed, false);
+            let core22 = Rc::new(core.cast::<ICoreWebView2_22>()?);
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy
+                .as_mut()
+                .unwrap()
+                .core22 = Some(Rc::clone(&core22));
+            require_live(owner, request)?;
+            let (callbacks, ui) = callback_state(owner);
+            let lifetime = HandlerLifetime::new(&callbacks);
+            let weak = Rc::downgrade(owner);
+            let owned = request.clone();
+            let generation = GENERATION;
+            let handler =
+                WebResourceRequestedEventHandler::create(Box::new(move |sender, args| {
+                    let _lifetime = &lifetime;
+                    let active = Active::enter(&callbacks);
+                    let result = if callback_on_ui(ui, &callbacks) {
+                        if let Some(owner) = weak.upgrade() {
+                            let result = resource(
+                                &owner,
+                                &owned,
+                                generation,
+                                sender.as_ref(),
+                                args.as_ref(),
+                            );
+                            if result.is_err() {
+                                uncertain_response(&owner, &owned);
+                            }
+                            result
+                        } else {
+                            Err(E_FAIL.into())
+                        }
+                    } else {
+                        // callback_on_ui already latched affinity failure. A
+                        // transport error would access COM thread error info;
+                        // transport success grants no response/install ACK.
+                        Ok(())
+                    };
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    result
+                }));
+            let mut token = 0;
+            let result = unsafe { core.add_WebResourceRequested(&handler, &mut token) };
+            // Store every successful token before checking reentrant revocation.
+            if result.is_ok() {
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .policy
+                    .as_mut()
+                    .unwrap()
+                    .resource_token = Some(token);
+            }
+            drop(handler);
+            result?;
+            require_live(owner, request)?;
+            let filtered = unsafe {
+                core22.AddWebResourceRequestedFilterWithRequestSourceKinds(
+                    w!("*"),
+                    COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                    COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+                )
+            };
+            if filtered.is_ok() {
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .policy
+                    .as_mut()
+                    .unwrap()
+                    .filter = true;
+            }
+            filtered?;
+            require_live(owner, request)?;
+            let receiver = Rc::new(unsafe {
+                core.GetDevToolsProtocolEventReceiver(w!("Page.fileChooserOpened"))
+            }?);
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy
+                .as_mut()
+                .unwrap()
+                .receiver = Some(Rc::clone(&receiver));
+            require_live(owner, request)?;
+            let (callbacks, ui) = callback_state(owner);
+            let lifetime = HandlerLifetime::new(&callbacks);
+            let weak = Rc::downgrade(owner);
+            let owned = request.clone();
+            let generation = GENERATION;
+            let handler =
+                DevToolsProtocolEventReceivedEventHandler::create(Box::new(move |sender, args| {
+                    let _lifetime = &lifetime;
+                    let active = Active::enter(&callbacks);
+                    if callback_on_ui(ui, &callbacks)
+                        && let Some(owner) = weak.upgrade()
+                    {
+                        // No chooser stimulus belongs to this benign case. Even a
+                        // missing/unknown event fails it; no file/parameter parsing.
+                        let mut state = owner.borrow_mut();
+                        if let Some(i) = matching(&mut state, &owned)
+                            && i.policy
+                                .as_ref()
+                                .is_some_and(|p| p.generation == generation)
+                        {
+                            i.failed = true;
+                            i.closing = true;
+                        } else {
+                            state.unmatched = true;
+                        }
+                    }
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    Ok(())
+                }));
+            let mut token = 0;
+            let registered =
+                unsafe { receiver.add_DevToolsProtocolEventReceived(&handler, &mut token) };
+            if registered.is_ok() {
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .policy
+                    .as_mut()
+                    .unwrap()
+                    .chooser_token = Some(token);
+            }
+            drop(handler);
+            registered?;
+            require_live(owner, request)?;
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy
+                .as_mut()
+                .unwrap()
+                .sync_ack = true;
+            Ok(())
+        }
+
+        fn submit_script(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> windows::core::Result<()> {
+            require_live(owner, request)?;
+            let core = core(owner);
+            let handler: ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler =
+                ScriptCompletion {
+                    completion: Completion::new(owner, request),
+                }
+                .into();
+            // The canonical expression bytes are unchanged. Evaluation, config
+            // and transport construction all occur inside the exact realm guard.
+            let script = format!(
+                "(()=>{{if(window!==top||location.origin!==\"https://console.code0.ai\")return;const install=({CODE0_BRIDGE_SOURCE});install({{version:1,nonce:{},document:{},send:(message)=>window.chrome.webview.postMessage(message)}});}})();",
+                serde_json::to_string(&request.nonce).map_err(|_| E_FAIL)?,
+                serde_json::to_string(&request.document_id).map_err(|_| E_FAIL)?
+            );
+            let script: Vec<u16> = script.encode_utf16().chain(Some(0)).collect();
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy
+                .as_mut()
+                .unwrap()
+                .script_submitted = true;
+            let submitted = unsafe {
+                core.AddScriptToExecuteOnDocumentCreated(PCWSTR(script.as_ptr()), &handler)
+            };
+            drop(handler);
+            submitted?;
+            require_live(owner, request)
+        }
+
+        fn submit_cdp(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> windows::core::Result<()> {
+            require_live(owner, request)?;
+            let (callbacks, _) = callback_state(owner);
+            let _action = Active::enter(&callbacks);
+            let core = core(owner);
+            let handler: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler = CdpCompletion {
+                completion: Completion::new(owner, request),
+            }
+            .into();
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy
+                .as_mut()
+                .unwrap()
+                .cdp_submitted = true;
+            let result = unsafe {
+                core.CallDevToolsProtocolMethod(
+                    w!("Page.setInterceptFileChooserDialog"),
+                    w!("{\"enabled\":true,\"cancel\":true}"),
+                    &handler,
+                )
+            };
+            drop(handler);
+            result?;
+            require_live(owner, request)
+        }
+
+        fn drain_dispositions(owner: &Rc<RefCell<Owner>>) {
+            let mailbox = {
+                let state = owner.borrow();
+                state
+                    .instance
+                    .as_ref()
+                    .and_then(|i| i.policy_mailbox.as_ref())
+                    .map(Arc::clone)
+            };
+            let Some(mailbox) = mailbox else {
+                return;
+            };
+            let dispositions = std::mem::take(&mut mailbox.state.lock().unwrap().queue);
+            for disposition in dispositions {
+                match disposition {
+                    Disposition::Script {
+                        request,
+                        generation,
+                        succeeded,
+                        valid_id,
+                        first,
+                        id,
+                        pending,
+                    } => {
+                        {
+                            let mut state = owner.borrow_mut();
+                            if let Some(i) = state.instance.as_mut()
+                                && let Some(p) = i.policy.as_mut()
+                            {
+                                if let Some(id) = id {
+                                    p.scripts.push((id, false));
+                                }
+                                let valid = i.request == request
+                                    && p.generation == generation
+                                    && first
+                                    && p.script_submitted
+                                    && !p.script_completed
+                                    && p.sync_ack
+                                    && !i.closing
+                                    && !i.failed
+                                    && succeeded
+                                    && valid_id
+                                    && !mailbox.invalid.load(Ordering::SeqCst)
+                                    && !mailbox.unknown.load(Ordering::SeqCst)
+                                    && !i.callbacks.affinity_failed.load(Ordering::SeqCst);
+                                p.script_completed = true;
+                                p.script_ack = valid;
+                                if !valid {
+                                    i.failed = true;
+                                    i.closing = true;
+                                }
+                            } else {
+                                if let Some(id) = id {
+                                    state.unmatched_script_ids.push(id);
+                                }
+                                state.unmatched = true;
+                            }
+                        }
+                        drop(pending);
+                    }
+                    Disposition::Cdp {
+                        request,
+                        generation,
+                        expected,
+                        first,
+                        pending,
+                    } => {
+                        {
+                            let mut state = owner.borrow_mut();
+                            if let Some(i) = state.instance.as_mut()
+                                && let Some(p) = i.policy.as_mut()
+                            {
+                                let valid = i.request == request
+                                    && p.generation == generation
+                                    && first
+                                    && p.sync_ack
+                                    && p.script_ack
+                                    && p.cdp_submitted
+                                    && !p.cdp_completed
+                                    && !i.closing
+                                    && !i.failed
+                                    && expected
+                                    && !mailbox.invalid.load(Ordering::SeqCst)
+                                    && !mailbox.unknown.load(Ordering::SeqCst)
+                                    && !i.callbacks.affinity_failed.load(Ordering::SeqCst);
+                                p.cdp_completed = true;
+                                p.cdp_ack = valid;
+                                if !valid {
+                                    i.failed = true;
+                                    i.closing = true;
+                                }
+                            } else {
+                                state.unmatched = true;
+                            }
+                        }
+                        drop(pending);
+                    }
+                }
+            }
+            if mailbox.invalid.load(Ordering::SeqCst) || mailbox.unknown.load(Ordering::SeqCst) {
+                let mut state = owner.borrow_mut();
+                if let Some(i) = state.instance.as_mut() {
+                    i.failed = true;
+                    i.closing = true;
+                    if mailbox.unknown.load(Ordering::SeqCst) {
+                        i.cleanup_blocked = true;
+                    }
+                }
+            }
+        }
+
+        pub(super) fn mailbox_quiescent(i: &Instance) -> bool {
+            i.policy_mailbox.as_ref().is_none_or(|m| {
+                !m.unknown.load(Ordering::SeqCst) && m.state.lock().unwrap().queue.is_empty()
+            })
+        }
+
+        pub(super) fn after_control_drop(owner: &Rc<RefCell<Owner>>) -> bool {
+            let mut state = owner.borrow_mut();
+            let unmatched = state.unmatched;
+            let i = state.instance.as_mut().unwrap();
+            let valid = !unmatched
+                && !i.cleanup_blocked
+                && mailbox_quiescent(i)
+                && i.callbacks.pending.load(Ordering::SeqCst) == 0
+                && i.callbacks.active.load(Ordering::SeqCst) == 0
+                && !i.callbacks.affinity_failed.load(Ordering::SeqCst);
+            if !valid {
+                if let Some(m) = &i.policy_mailbox {
+                    m.unknown.store(true, Ordering::SeqCst);
+                }
+                i.cleanup_blocked = true;
+                i.failed = true;
+                i.closing = true;
+            }
+            valid
+        }
+
+        fn installed(p: &Installation) -> bool {
+            p.sync_ack
+                && p.script_submitted
+                && p.script_completed
+                && p.script_ack
+                && p.scripts.len() == 1
+                && p.cdp_submitted
+                && p.cdp_completed
+                && p.cdp_ack
+                && p.settings.is_some()
+                && p.core22.is_some()
+                && p.receiver.is_some()
+                && p.resource_token.is_some()
+                && p.chooser_token.is_some()
+                && p.filter
+                && !p.resource_remove_attempted
+                && !p.chooser_remove_attempted
+                && !p.filter_remove_attempted
+                && !p.scripts.iter().any(|(_, attempted)| *attempted)
+        }
+
+        pub(super) fn advance(owner: &Rc<RefCell<Owner>>) {
+            drain_dispositions(owner);
+            let request = {
+                let state = owner.borrow();
+                let Some(i) = state.instance.as_ref() else {
+                    return;
+                };
+                if i.policy.is_none()
+                    || i.closing
+                    || i.failed
+                    || i.callbacks.pending.load(Ordering::SeqCst) != 0
+                    || i.callbacks.active.load(Ordering::SeqCst) != 0
+                    || i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                {
+                    return;
+                }
+                i.request.clone()
+            };
+            if !live(owner, &request) {
+                failed(owner, &request);
+                return;
+            }
+            let cdp = {
+                let state = owner.borrow();
+                let p = state.instance.as_ref().unwrap().policy.as_ref().unwrap();
+                p.sync_ack && p.script_ack && !p.cdp_submitted
+            };
+            if cdp {
+                if submit_cdp(owner, &request).is_err() {
+                    failed(owner, &request);
+                }
+                // Even a synchronous completion must settle this action first.
+                return;
+            }
+            let notification = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, &request).unwrap();
+                let p = i.policy.as_mut().unwrap();
+                let event = if installed(p) && !p.barrier {
+                    p.barrier = true;
+                    Some(PolicyObservation::BarrierReady(InstallBarrierReceipt {
+                        request: request.clone(),
+                        synchronous_install_succeeded: true,
+                        script_acknowledged: p.script_ack,
+                        cdp_acknowledged: p.cdp_ack,
+                    }))
+                } else if installed(p)
+                    && p.barrier
+                    && p.load_attempted
+                    && p.main_response
+                    && p.ready_control
+                    && p.document_complete
+                    && !p.document_receipt
+                {
+                    p.document_receipt = true;
+                    Some(PolicyObservation::ControlledDocumentReady(
+                        ControlledDocumentReceipt {
+                            request: request.clone(),
+                            source_matched: true,
+                            synthetic_response_applied: p.main_response,
+                            canonical_ready_control: p.ready_control,
+                        },
+                    ))
+                } else {
+                    None
+                };
+                event.map(|event| (i.observer.clone(), event))
+            };
+            if let Some((Some(observer), event)) = notification {
+                observer(NativeSmokeObservation::Policy(event));
+            }
+        }
+
+        pub(super) fn load(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            if !on_ui(owner) || !live(owner, request) {
+                return Err(Code0SessionFailure::PolicyRejected);
+            }
+            let (callbacks, _) = callback_state(owner);
+            let _action = Active::enter(&callbacks);
+            let (core, observer) = {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).ok_or(Code0SessionFailure::PolicyRejected)?;
+                let p = i
+                    .policy
+                    .as_mut()
+                    .ok_or(Code0SessionFailure::PolicyRejected)?;
+                if !installed(p)
+                    || !p.barrier
+                    || p.load_attempted
+                    || i.callbacks.pending.load(Ordering::SeqCst) != 0
+                    || i.callbacks.active.load(Ordering::SeqCst) != 1
+                {
+                    return Err(Code0SessionFailure::PolicyRejected);
+                }
+                p.load_attempted = true;
+                (Rc::clone(&p.core), i.observer.clone())
+            };
+            require_live(owner, request).map_err(|_| Code0SessionFailure::PolicyRejected)?;
+            let result = unsafe {
+                core.Navigate(w!(
+                    "https://console.code0.ai/__ai_meter_fixture__/install-p1"
+                ))
+            };
+            if result.is_err() || !live(owner, request) {
+                failed(owner, request);
+                return Err(Code0SessionFailure::NavigationFailed);
+            }
+            // A receipt requires the actual fixed Navigate to have returned
+            // successfully; neither an observer nor a method entry invents it.
+            if let Some(observer) = observer {
+                observer(NativeSmokeObservation::Policy(
+                    PolicyObservation::FirstControlledLoad(ControlledLoadReceipt {
+                        request: request.clone(),
+                    }),
+                ));
+            }
+            Ok(())
+        }
+
+        fn sender_matches(
+            owner: &Rc<RefCell<Owner>>,
+            sender: Option<&ICoreWebView2>,
+        ) -> windows::core::Result<()> {
+            let core = core(owner);
+            let expected: IUnknown = core.cast()?;
+            let actual: IUnknown = sender.ok_or(E_FAIL)?.cast()?;
+            if expected.as_raw() == actual.as_raw() {
+                Ok(())
+            } else {
+                Err(E_FAIL.into())
+            }
+        }
+
+        // A failed/over-cap response is retained uncertainty, never a successful
+        // unset response or a claimed transport cancellation. Stop is attempted
+        // under this callback's Active guard, then ordinary R4 close is requested.
+        fn uncertain_response(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) {
+            let core = {
+                let mut state = owner.borrow_mut();
+                let Some(i) = matching(&mut state, request) else {
+                    state.unmatched = true;
+                    return;
+                };
+                i.failed = true;
+                i.closing = true;
+                i.cleanup_blocked = true;
+                let Some(policy) = i.policy.as_ref().filter(|p| p.generation == GENERATION) else {
+                    // Native Drop may reenter after the policy group was taken.
+                    // Its missing emitter is sticky unknown, never an unwrap or
+                    // an invented native reference/cleanup result.
+                    if let Some(mailbox) = &i.policy_mailbox {
+                        mailbox.unknown.store(true, Ordering::SeqCst);
+                    }
+                    state.unmatched = true;
+                    return;
+                };
+                if i.stop_attempted {
+                    None
+                } else {
+                    // Reserve once before any Stop reentry. Rc::clone does not
+                    // call COM while the owner is borrowed; Active covers the
+                    // actual native call and snapshot's later drop.
+                    i.stop_attempted = true;
+                    Some(Rc::clone(&policy.core))
+                }
+            };
+            if let Some(core) = core {
+                let _ = unsafe { core.Stop() };
+            }
+        }
+
+        fn make_response(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            environment: &ICoreWebView2Environment,
+            allowed: bool,
+        ) -> windows::core::Result<(IStream, ICoreWebView2WebResourceResponse, bool)> {
+            let body = if allowed { MAIN } else { REFUSAL };
+            if body.len() > 65536 || u32::try_from(body.len()).is_err() {
+                return Err(E_FAIL.into());
+            }
+            // SHCreateMemStream returns Option, not HRESULT/GetLastError.
+            // This is our fixed allocation-failure mapping, not a native code.
+            let stream = unsafe { SHCreateMemStream(Some(body)) }
+                .ok_or_else(|| windows::core::Error::from_hresult(E_OUTOFMEMORY))?;
+            if allowed && !live(owner, request) {
+                drop(stream);
+                return make_response(owner, request, environment, false);
+            }
+            unsafe { stream.Seek(0, STREAM_SEEK_SET, None) }?;
+            if allowed && !live(owner, request) {
+                drop(stream);
+                return make_response(owner, request, environment, false);
+            }
+            let headers: Vec<u16> = HEADERS.encode_utf16().chain(Some(0)).collect();
+            let response = unsafe {
+                environment.CreateWebResourceResponse(
+                    &stream,
+                    if allowed { 200 } else { 403 },
+                    if allowed { w!("OK") } else { w!("Forbidden") },
+                    PCWSTR(headers.as_ptr()),
+                )
+            }?;
+            if allowed && !live(owner, request) {
+                drop(response);
+                drop(stream);
+                return make_response(owner, request, environment, false);
+            }
+            Ok((stream, response, allowed))
+        }
+
+        fn resource(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            generation: u64,
+            sender: Option<&ICoreWebView2>,
+            args: Option<&ICoreWebView2WebResourceRequestedEventArgs>,
+        ) -> windows::core::Result<()> {
+            let args = args.ok_or(E_FAIL)?;
+            let (environment, within_bound) = {
+                let mut state = owner.borrow_mut();
+                let i = state.instance.as_mut().ok_or(E_FAIL)?;
+                let p = i.policy.as_mut().ok_or(E_FAIL)?;
+                p.delivered_requests = p.delivered_requests.saturating_add(1);
+                (
+                    Rc::clone(&p.environment),
+                    p.delivered_requests <= MAX_REQUESTS,
+                )
+            };
+            // Metadata/identity errors, revocation and unexpected requests still
+            // receive the same fixed synthetic refusal, never successful unset.
+            let metadata = (|| -> windows::core::Result<bool> {
+                sender_matches(owner, sender)?;
+                let native_request = unsafe { args.Request() }?;
+                let uri = allocated_string(2048, |raw| unsafe { native_request.Uri(raw) })?;
+                let method = allocated_string(16, |raw| unsafe { native_request.Method(raw) })?;
+                let mut context = COREWEBVIEW2_WEB_RESOURCE_CONTEXT::default();
+                unsafe { args.ResourceContext(&mut context) }?;
+                let state = owner.borrow();
+                let i = state.instance.as_ref().ok_or(E_FAIL)?;
+                let p = i.policy.as_ref().ok_or(E_FAIL)?;
+                Ok(&i.request == request
+                    && p.generation == generation
+                    && !i.closing
+                    && !i.failed
+                    && installed(p)
+                    && p.barrier
+                    && p.load_attempted
+                    && !p.main_response
+                    && within_bound
+                    && uri == URI
+                    && method == "GET"
+                    && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT)
+            })();
+            let allowed = matches!(metadata, Ok(true)) && live(owner, request);
+            let pair = make_response(owner, request, &environment, allowed)?;
+            let allowed = pair.2;
+            let applied = unsafe { args.SetResponse(&pair.1) };
+            // Root-reviewed Microsoft native sample/COM ownership boundary:
+            // native code retains its own refs on successful put_Response.
+            // Drop our aliases outside Owner borrows, under the real callback
+            // Active guard. This proves neither consumption nor cancellation.
+            drop(pair);
+            applied?;
+            {
+                let mut state = owner.borrow_mut();
+                let i = state.instance.as_mut().ok_or(E_FAIL)?;
+                let p = i.policy.as_mut().ok_or(E_FAIL)?;
+                if allowed && &i.request == request && !i.closing && !i.failed {
+                    p.main_response = true;
+                }
+            }
+            if metadata.is_err() || !within_bound || allowed && !live(owner, request) {
+                return Err(E_FAIL.into());
+            }
+            Ok(())
+        }
+
+        pub(super) fn message(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            sender: Option<&ICoreWebView2>,
+            args: Option<&ICoreWebView2WebMessageReceivedEventArgs>,
+        ) -> windows::core::Result<()> {
+            require_live(owner, request)?;
+            sender_matches(owner, sender)?;
+            require_live(owner, request)?;
+            let args = args.ok_or(E_FAIL)?;
+            let source = allocated_string(2048, |raw| unsafe { args.Source(raw) })?;
+            require_live(owner, request)?;
+            let payload = allocated_string(2048, |raw| unsafe { args.WebMessageAsJson(raw) })?;
+            require_live(owner, request)?;
+            if source != URI || payload.len() > 2048 {
+                return Err(E_FAIL.into());
+            }
+            let context = Code0BridgeContext {
+                connection_epoch: request.connection_epoch.clone(),
+                attempt_id: request.instance_id.clone(),
+                source_url: source,
+                is_main_frame: true, // Only actual core route, never Frame2.
+            };
+            let mut state = owner.borrow_mut();
+            let i = matching(&mut state, request).ok_or(E_FAIL)?;
+            let p = i.policy.as_mut().ok_or(E_FAIL)?;
+            if !installed(p) || !p.barrier || !p.load_attempted || !p.main_response {
+                return Err(E_FAIL.into());
+            }
+            if !p.ready_control {
+                if p.validator.receive(payload.as_bytes(), &context) != Code0BridgeEvent::Control {
+                    return Err(E_FAIL.into());
+                }
+                p.ready_control = true;
+            } else {
+                let expected = serde_json::json!({"kind":"code0InstallDocumentComplete","value":1});
+                if p.document_complete
+                    || serde_json::from_str::<serde_json::Value>(&payload).ok() != Some(expected)
+                {
+                    return Err(E_FAIL.into());
+                }
+                p.document_complete = true;
+            }
+            Ok(())
+        }
+
+        pub(super) fn registrations_removed(i: &Instance) -> bool {
+            mailbox_quiescent(i)
+                && i.policy.as_ref().is_none_or(|p| {
+                    p.resource_token.is_none()
+                        && p.chooser_token.is_none()
+                        && !p.filter
+                        && p.scripts.is_empty()
+                })
+        }
+
+        pub(super) fn remove_registrations(owner: &Rc<RefCell<Owner>>) {
+            // Caller already holds PollGuard and has drained pending/active0.
+            // All native refs are Rc snapshots, dropped before controls_disposed.
+            let has_policy = owner.borrow().instance.as_ref().unwrap().policy.is_some();
+            if !has_policy {
+                return;
+            }
+            let core = core(owner);
+            let resource = {
+                let mut state = owner.borrow_mut();
+                let p = state.instance.as_mut().unwrap().policy.as_mut().unwrap();
+                if !p.resource_remove_attempted && p.resource_token.is_some() {
+                    p.resource_remove_attempted = true;
+                    p.resource_token
+                } else {
+                    None
+                }
+            };
+            if let Some(token) = resource {
+                let result = unsafe { core.remove_WebResourceRequested(token) };
+                if result.is_ok() {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .policy
+                        .as_mut()
+                        .unwrap()
+                        .resource_token = None;
+                }
+                cleanup_result(owner, result);
+            }
+            let chooser = {
+                let mut state = owner.borrow_mut();
+                let p = state.instance.as_mut().unwrap().policy.as_mut().unwrap();
+                if !p.chooser_remove_attempted && p.chooser_token.is_some() {
+                    p.chooser_remove_attempted = true;
+                    p.receiver
+                        .as_ref()
+                        .map(|r| (Rc::clone(r), p.chooser_token.unwrap()))
+                } else {
+                    None
+                }
+            };
+            if let Some((receiver, token)) = chooser {
+                let result = unsafe { receiver.remove_DevToolsProtocolEventReceived(token) };
+                if result.is_ok() {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .policy
+                        .as_mut()
+                        .unwrap()
+                        .chooser_token = None;
+                }
+                cleanup_result(owner, result);
+            }
+            let filter = {
+                let mut state = owner.borrow_mut();
+                let p = state.instance.as_mut().unwrap().policy.as_mut().unwrap();
+                if p.filter && !p.filter_remove_attempted {
+                    p.filter_remove_attempted = true;
+                    p.core22.as_ref().map(Rc::clone)
+                } else {
+                    None
+                }
+            };
+            if let Some(core22) = filter {
+                let result = unsafe {
+                    core22.RemoveWebResourceRequestedFilterWithRequestSourceKinds(
+                        w!("*"),
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                        COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+                    )
+                };
+                if result.is_ok() {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .policy
+                        .as_mut()
+                        .unwrap()
+                        .filter = false;
+                }
+                cleanup_result(owner, result);
+            }
+            loop {
+                let script = {
+                    let mut state = owner.borrow_mut();
+                    let p = state.instance.as_mut().unwrap().policy.as_mut().unwrap();
+                    p.scripts.iter_mut().find(|(_, attempted)| !*attempted).map(
+                        |(id, attempted)| {
+                            *attempted = true;
+                            id.clone()
+                        },
+                    )
+                };
+                let Some(id) = script else {
+                    break;
+                };
+                let result = if id.contains('\0') {
+                    Err(E_FAIL.into())
+                } else {
+                    let wide: Vec<u16> = id.encode_utf16().chain(Some(0)).collect();
+                    unsafe { core.RemoveScriptToExecuteOnDocumentCreated(PCWSTR(wide.as_ptr())) }
+                };
+                if result.is_ok() {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .policy
+                        .as_mut()
+                        .unwrap()
+                        .scripts
+                        .retain(|(stored, _)| stored != &id);
+                }
+                cleanup_result(owner, result);
             }
         }
     }
@@ -1603,9 +2999,8 @@ pub mod fixture {
         InstallAckBeforeFirstLoad,
     }
 
-    /// Opaque runtime receipts have no public constructor or callback-injection
-    /// API. There are deliberately no producers at this deny-first checkpoint.
-    /// Their future producer must be the same native owner at actual boundaries.
+    /// Opaque partial-debug receipts are produced only by the native owner at
+    /// actual boundaries. No public constructor or callback-injection API.
     pub enum PolicyObservation {
         BarrierReady(InstallBarrierReceipt),
         FirstControlledLoad(ControlledLoadReceipt),
@@ -1613,10 +3008,10 @@ pub mod fixture {
     }
 
     pub struct InstallBarrierReceipt {
-        request: Code0WindowRequest,
-        synchronous_install_succeeded: bool,
-        script_acknowledged: bool,
-        cdp_acknowledged: bool,
+        pub(super) request: Code0WindowRequest,
+        pub(super) synchronous_install_succeeded: bool,
+        pub(super) script_acknowledged: bool,
+        pub(super) cdp_acknowledged: bool,
     }
 
     impl InstallBarrierReceipt {
@@ -1632,7 +3027,7 @@ pub mod fixture {
     }
 
     pub struct ControlledLoadReceipt {
-        request: Code0WindowRequest,
+        pub(super) request: Code0WindowRequest,
     }
 
     impl ControlledLoadReceipt {
@@ -1642,10 +3037,10 @@ pub mod fixture {
     }
 
     pub struct ControlledDocumentReceipt {
-        request: Code0WindowRequest,
-        source_matched: bool,
-        synthetic_response_applied: bool,
-        canonical_ready_control: bool,
+        pub(super) request: Code0WindowRequest,
+        pub(super) source_matched: bool,
+        pub(super) synthetic_response_applied: bool,
+        pub(super) canonical_ready_control: bool,
     }
 
     impl ControlledDocumentReceipt {
@@ -1990,6 +3385,29 @@ pub mod fixture {
             #[cfg(not(windows))]
             {
                 let _ = (request, case);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// One finite P1 document, only after this same owner's barrier receipt.
+        pub fn load_fixture_policy_document(
+            &mut self,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::load_policy_document(&self.owner, request)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = request;
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }
