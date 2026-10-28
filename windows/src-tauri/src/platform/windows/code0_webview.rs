@@ -1709,6 +1709,8 @@ mod native {
                 PolicyFaultTarget::HostObjectsSetting
                     | PolicyFaultTarget::ResourceAdd
                     | PolicyFaultTarget::AllSourceFilter
+                    | PolicyFaultTarget::ScriptApplication
+                    | PolicyFaultTarget::CdpApplication
             ) {
                 return Ok(SynchronousFlow::Continue);
             }
@@ -2626,7 +2628,7 @@ mod native {
                         };
                         if target {
                             // Pending and the exact inventoried ID survive the observer.
-                            // RED observes real success, then applies its original ACK.
+                            // Only Continue may apply the real ACK; injected or invalid work closes without it.
                             let continued = matches!(
                                 target_succeeded(
                                     owner,
