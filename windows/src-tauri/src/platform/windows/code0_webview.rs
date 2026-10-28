@@ -184,8 +184,9 @@ mod native {
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     use super::fixture::{
-        DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics, NativeSmokeObservation,
-        Observer,
+        DiagnosticMilestone as DM, DiagnosticPhase as DP, DiagnosticUncertainty as DU,
+        DiagnosticUncertaintyReason as UR, DiagnosticUncertaintySite as US,
+        DiagnosticUncertaintyStage as UT, Diagnostics, NativeSmokeObservation, Observer,
     };
     use super::{Code0NativeEventSink, Code0SessionFailure, Code0WindowEvent, Code0WindowRequest};
 
@@ -227,6 +228,34 @@ mod native {
                 diagnostic.failure(DP::$phase, error.code().0);
             }
             result
+        }};
+    }
+
+    // Same cleanup Result and call order. The optional source descriptor is
+    // consumed only at cleanup_result's actual sticky-failure assignment.
+    macro_rules! cleanup_at {
+        ($owner:expr, $site:ident, $result:expr, $native:expr) => {{
+            let result: windows::core::Result<()> = $result;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let detail = DU::cleanup(
+                US::$site,
+                if $native {
+                    UR::NativeError
+                } else {
+                    UR::Condition
+                },
+                result
+                    .as_ref()
+                    .err()
+                    .filter(|_| $native)
+                    .map(|error| error.code().0),
+            );
+            cleanup_result(
+                $owner,
+                result,
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                detail,
+            );
         }};
     }
 
@@ -583,9 +612,14 @@ mod native {
             Err(_) => {
                 // A build error supplies no actual handle/destruction receipt.
                 // Keep the unknown partial-build obligation; do not certify zero.
-                matching(&mut owner.borrow_mut(), &request)
-                    .unwrap()
-                    .cleanup_blocked = true;
+                let mut state = owner.borrow_mut();
+                let instance = matching(&mut state, &request).unwrap();
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = instance.callbacks.diagnostics.as_ref() {
+                    diagnostic.uncertainty(DU::cleanup(US::WindowBuild, UR::Condition, None));
+                }
+                instance.cleanup_blocked = true;
+                drop(state);
                 failed(owner, &request);
                 return Err(Code0SessionFailure::PolicyRejected);
             }
@@ -1221,10 +1255,18 @@ mod native {
         drop(window);
     }
 
-    fn cleanup_result(owner: &Rc<RefCell<Owner>>, result: windows::core::Result<()>) {
+    fn cleanup_result(
+        owner: &Rc<RefCell<Owner>>,
+        result: windows::core::Result<()>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))] detail: DU,
+    ) {
         if result.is_err() {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = instance.callbacks.diagnostics.as_ref() {
+                diagnostic.uncertainty(detail);
+            }
             instance.failed = true;
             instance.cleanup_blocked = true;
         }
@@ -1315,6 +1357,18 @@ mod native {
                 return;
             };
             if unmatched || instance.callbacks.affinity_failed.load(Ordering::SeqCst) {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = instance.callbacks.diagnostics.as_ref() {
+                    diagnostic.uncertainty(DU::cleanup(
+                        US::PollIdentity,
+                        if unmatched {
+                            UR::Unmatched
+                        } else {
+                            UR::Affinity
+                        },
+                        None,
+                    ));
+                }
                 instance.failed = true;
                 instance.closing = true;
                 instance.cleanup_blocked = true;
@@ -1348,7 +1402,7 @@ mod native {
             if result.is_ok() {
                 owner.borrow_mut().instance.as_mut().unwrap().message_token = None;
             }
-            cleanup_result(owner, result);
+            cleanup_at!(owner, MessageRemove, result, true);
         }
         let stop = {
             let mut state = owner.borrow_mut();
@@ -1361,7 +1415,12 @@ mod native {
             }
         };
         if let Some(core) = stop {
-            cleanup_result(owner, native_call!(owner, Stop, unsafe { core.Stop() }));
+            cleanup_at!(
+                owner,
+                Stop,
+                native_call!(owner, Stop, unsafe { core.Stop() }),
+                true
+            );
         }
         let close = {
             let mut state = owner.borrow_mut();
@@ -1374,9 +1433,11 @@ mod native {
             }
         };
         if let Some(controller) = close {
-            cleanup_result(
+            cleanup_at!(
                 owner,
+                ControllerClose,
                 native_call!(owner, ControllerClose, unsafe { controller.Close() }),
+                true
             );
         }
         let controls = {
@@ -1464,7 +1525,7 @@ mod native {
                 owner.borrow_mut().instance.as_mut().unwrap().exit_token = None;
                 milestone!(owner, ExitRemoved);
             }
-            cleanup_result(owner, result);
+            cleanup_at!(owner, ExitRemove, result, true);
         }
         let environments = {
             let mut state = owner.borrow_mut();
@@ -1514,7 +1575,7 @@ mod native {
                 if let Some(diagnostic) = owner.borrow().diagnostics.as_ref() {
                     diagnostic.failure(DP::WindowDestroy, 0);
                 }
-                cleanup_result(owner, Err(E_FAIL.into()));
+                cleanup_at!(owner, WindowDestroy, Err(E_FAIL.into()), false);
             }
         }
         let notification = {
@@ -1699,6 +1760,13 @@ mod native {
                     Self::P8Other
                 }
             }
+            fn diagnostic_lane(self) -> u8 {
+                match self {
+                    Self::Main => 8,
+                    Self::Refusal => 9,
+                    _ => self.p8_index() as u8 + 1,
+                }
+            }
             fn p8_index(self) -> usize {
                 match self {
                     Self::P8Main => 0,
@@ -1707,6 +1775,62 @@ mod native {
                     Self::P8Probe(index) => 3 + index,
                     _ => 6,
                 }
+            }
+        }
+
+        // Call-local primitives only. Publish at uncertain_response's actual
+        // sticky assignment, never at a metadata observation that can still unwind.
+        struct ResourceTrace {
+            detail: DU,
+        }
+        impl ResourceTrace {
+            fn new() -> Self {
+                Self {
+                    detail: DU::cleanup(US::ResourceResponse, UR::Condition, None),
+                }
+            }
+            fn condition(&mut self, stage: UT, reason: UR) {
+                self.detail.stage = stage;
+                self.detail.reason = reason;
+                self.detail.hresult = None;
+            }
+            fn observe_native<T>(&mut self, stage: UT, result: &windows::core::Result<T>) {
+                if let Err(error) = result {
+                    self.detail.stage = stage;
+                    self.detail.reason = UR::NativeError;
+                    self.detail.hresult = Some(error.code().0);
+                }
+            }
+            fn native<T>(
+                &mut self,
+                stage: UT,
+                result: windows::core::Result<T>,
+            ) -> windows::core::Result<T> {
+                self.observe_native(stage, &result);
+                result
+            }
+            fn bounded(
+                &mut self,
+                stage: UT,
+                result: windows::core::Result<String>,
+            ) -> windows::core::Result<String> {
+                if result.is_err() && self.detail.hresult.is_none() {
+                    self.condition(stage, UR::InvalidString);
+                }
+                result
+            }
+        }
+
+        fn diagnostic_lane(uri: &str) -> u8 {
+            match uri {
+                P8_MAIN_URI => 1,
+                P8_CHILD_URI => 2,
+                P8_WORKER_URI => 3,
+                URI => 8,
+                _ => P8_PROBES
+                    .iter()
+                    .position(|path| uri == *path)
+                    .map_or(7, |index| 4 + index as u8),
             }
         }
 
@@ -2425,15 +2549,17 @@ mod native {
                     let active = Active::enter(&callbacks);
                     let result = if callback_on_ui(ui, &callbacks) {
                         if let Some(owner) = weak.upgrade() {
+                            let mut trace = ResourceTrace::new();
                             let result = resource(
                                 &owner,
                                 &owned,
                                 generation,
                                 sender.as_ref(),
                                 args.as_ref(),
+                                &mut trace,
                             );
                             if result.is_err() {
-                                uncertain_response(&owner, &owned);
+                                uncertain_response(&owner, &owned, trace.detail);
                             }
                             result
                         } else {
@@ -3125,6 +3251,13 @@ mod native {
                     i.failed = true;
                     i.closing = true;
                     if mailbox.unknown.load(Ordering::SeqCst) {
+                        if let Some(diagnostic) = i.callbacks.diagnostics.as_ref() {
+                            diagnostic.uncertainty(DU::cleanup(
+                                US::MailboxUnknown,
+                                UR::Unknown,
+                                None,
+                            ));
+                        }
                         i.cleanup_blocked = true;
                     }
                 }
@@ -3148,6 +3281,9 @@ mod native {
                 && i.callbacks.active.load(Ordering::SeqCst) == 0
                 && !i.callbacks.affinity_failed.load(Ordering::SeqCst);
             if !valid {
+                if let Some(diagnostic) = i.callbacks.diagnostics.as_ref() {
+                    diagnostic.uncertainty(DU::cleanup(US::AfterControlDrop, UR::Condition, None));
+                }
                 if let Some(m) = &i.policy_mailbox {
                     m.unknown.store(true, Ordering::SeqCst);
                 }
@@ -3352,13 +3488,31 @@ mod native {
         fn sender_matches(
             owner: &Rc<RefCell<Owner>>,
             sender: Option<&ICoreWebView2>,
+            mut trace: Option<&mut ResourceTrace>,
         ) -> windows::core::Result<()> {
             let core = core(owner);
-            let expected: IUnknown = core.cast()?;
-            let actual: IUnknown = sender.ok_or(E_FAIL)?.cast()?;
+            let expected = core.cast();
+            if let Some(trace) = trace.as_deref_mut() {
+                trace.observe_native(UT::Sender, &expected);
+            }
+            let expected: IUnknown = expected?;
+            let sender = sender.ok_or_else(|| {
+                if let Some(trace) = trace.as_deref_mut() {
+                    trace.condition(UT::Sender, UR::Missing);
+                }
+                E_FAIL
+            })?;
+            let actual = sender.cast();
+            if let Some(trace) = trace.as_deref_mut() {
+                trace.observe_native(UT::Sender, &actual);
+            }
+            let actual: IUnknown = actual?;
             if expected.as_raw() == actual.as_raw() {
                 Ok(())
             } else {
+                if let Some(trace) = trace {
+                    trace.condition(UT::Sender, UR::SenderMismatch);
+                }
                 Err(E_FAIL.into())
             }
         }
@@ -3366,7 +3520,11 @@ mod native {
         // A failed/over-cap response is retained uncertainty, never a successful
         // unset response or a claimed transport cancellation. Stop is attempted
         // under this callback's Active guard, then ordinary R4 close is requested.
-        fn uncertain_response(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) {
+        fn uncertain_response(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            detail: DU,
+        ) {
             let core = {
                 let mut state = owner.borrow_mut();
                 let Some(i) = matching(&mut state, request) else {
@@ -3375,6 +3533,9 @@ mod native {
                 };
                 i.failed = true;
                 i.closing = true;
+                if let Some(diagnostic) = i.callbacks.diagnostics.as_ref() {
+                    diagnostic.uncertainty(detail);
+                }
                 i.cleanup_blocked = true;
                 let Some(policy) = i.policy.as_ref().filter(|p| p.generation == GENERATION) else {
                     // Native Drop may reenter after the policy group was taken.
@@ -3406,6 +3567,7 @@ mod native {
             request: &Code0WindowRequest,
             environment: &ICoreWebView2Environment,
             kind: ResponseKind,
+            trace: &mut ResourceTrace,
         ) -> windows::core::Result<(IStream, ICoreWebView2WebResourceResponse, ResponseKind)>
         {
             let (body, headers) = match kind {
@@ -3419,18 +3581,23 @@ mod native {
                 }
             };
             if body.len() > 65536 || u32::try_from(body.len()).is_err() {
+                trace.condition(UT::Body, UR::BodyBound);
                 return Err(E_FAIL.into());
             }
-            let stream = unsafe { SHCreateMemStream(Some(body)) }
-                .ok_or_else(|| windows::core::Error::from_hresult(E_OUTOFMEMORY))?;
+            let stream = unsafe { SHCreateMemStream(Some(body)) }.ok_or_else(|| {
+                trace.condition(UT::Stream, UR::NullStream);
+                windows::core::Error::from_hresult(E_OUTOFMEMORY)
+            })?;
             if kind.allowed() && !live(owner, request) {
+                trace.detail.downgraded = true;
                 drop(stream);
-                return make_response(owner, request, environment, kind.refusal());
+                return make_response(owner, request, environment, kind.refusal(), trace);
             }
-            unsafe { stream.Seek(0, STREAM_SEEK_SET, None) }?;
+            trace.native(UT::Seek, unsafe { stream.Seek(0, STREAM_SEEK_SET, None) })?;
             if kind.allowed() && !live(owner, request) {
+                trace.detail.downgraded = true;
                 drop(stream);
-                return make_response(owner, request, environment, kind.refusal());
+                return make_response(owner, request, environment, kind.refusal(), trace);
             }
             let headers: Vec<u16> = headers.encode_utf16().chain(Some(0)).collect();
             let response = unsafe {
@@ -3444,11 +3611,13 @@ mod native {
                     },
                     PCWSTR(headers.as_ptr()),
                 )
-            }?;
+            };
+            let response = trace.native(UT::CreateResponse, response)?;
             if kind.allowed() && !live(owner, request) {
+                trace.detail.downgraded = true;
                 drop(response);
                 drop(stream);
-                return make_response(owner, request, environment, kind.refusal());
+                return make_response(owner, request, environment, kind.refusal(), trace);
             }
             Ok((stream, response, kind))
         }
@@ -3459,12 +3628,22 @@ mod native {
             generation: u64,
             sender: Option<&ICoreWebView2>,
             args: Option<&ICoreWebView2WebResourceRequestedEventArgs>,
+            trace: &mut ResourceTrace,
         ) -> windows::core::Result<()> {
-            let args = args.ok_or(E_FAIL)?;
+            let args = args.ok_or_else(|| {
+                trace.condition(UT::Args, UR::Missing);
+                E_FAIL
+            })?;
             let (environment, within_bound, containment) = {
                 let mut state = owner.borrow_mut();
-                let i = state.instance.as_mut().ok_or(E_FAIL)?;
-                let p = i.policy.as_mut().ok_or(E_FAIL)?;
+                let i = state.instance.as_mut().ok_or_else(|| {
+                    trace.condition(UT::Policy, UR::Missing);
+                    E_FAIL
+                })?;
+                let p = i.policy.as_mut().ok_or_else(|| {
+                    trace.condition(UT::Policy, UR::Missing);
+                    E_FAIL
+                })?;
                 p.delivered_requests = p.delivered_requests.saturating_add(1);
                 let containment =
                     i.policy_fault.case == Some(PolicyFixtureCase::InstallRealmsNoPassthrough);
@@ -3483,15 +3662,38 @@ mod native {
                 ResponseKind::Refusal
             };
             let metadata = (|| -> windows::core::Result<ResponseKind> {
-                sender_matches(owner, sender)?;
-                let native_request = unsafe { args.Request() }?;
-                let uri = allocated_string(2048, |raw| unsafe { native_request.Uri(raw) })?;
-                let method = allocated_string(16, |raw| unsafe { native_request.Method(raw) })?;
+                sender_matches(owner, sender, Some(trace))?;
+                let native_request = trace.native(UT::Request, unsafe { args.Request() })?;
+                let uri = allocated_string(2048, |raw| {
+                    trace.native(UT::Uri, unsafe { native_request.Uri(raw) })
+                });
+                let uri = trace.bounded(UT::Uri, uri)?;
+                trace.detail.lane = diagnostic_lane(&uri);
+                let method = allocated_string(16, |raw| {
+                    trace.native(UT::Method, unsafe { native_request.Method(raw) })
+                });
+                let method = trace.bounded(UT::Method, method)?;
+                trace.detail.method = if method == "GET" { 1 } else { 2 };
                 let mut context = COREWEBVIEW2_WEB_RESOURCE_CONTEXT::default();
-                unsafe { args.ResourceContext(&mut context) }?;
+                trace.native(UT::Context, unsafe { args.ResourceContext(&mut context) })?;
+                trace.detail.context = if context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT {
+                    1
+                } else if context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_SCRIPT {
+                    2
+                } else if context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_FETCH {
+                    3
+                } else {
+                    4
+                };
                 let state = owner.borrow();
-                let i = state.instance.as_ref().ok_or(E_FAIL)?;
-                let p = i.policy.as_ref().ok_or(E_FAIL)?;
+                let i = state.instance.as_ref().ok_or_else(|| {
+                    trace.condition(UT::Policy, UR::Missing);
+                    E_FAIL
+                })?;
+                let p = i.policy.as_ref().ok_or_else(|| {
+                    trace.condition(UT::Policy, UR::Missing);
+                    E_FAIL
+                })?;
                 if !containment {
                     return Ok(
                         if &i.request == request
@@ -3514,6 +3716,7 @@ mod native {
                     );
                 }
                 if &i.request != request || p.generation != generation {
+                    trace.condition(UT::Binding, UR::BindingMismatch);
                     return Err(E_FAIL.into());
                 }
                 // Classify actual fixed-path delivery before readiness downgrade:
@@ -3542,14 +3745,32 @@ mod native {
                     return Ok(ResponseKind::P8Other);
                 };
                 if method != "GET" || context != expected_context {
+                    trace.condition(
+                        UT::Binding,
+                        if method != "GET" {
+                            UR::MethodMismatch
+                        } else {
+                            UR::ContextMismatch
+                        },
+                    );
                     return Err(E_FAIL.into());
                 }
                 Ok(kind)
             })();
+            trace.detail.metadata = if metadata.is_ok() {
+                1
+            } else if trace.detail.hresult.is_some() {
+                3
+            } else {
+                2
+            };
             let requested = metadata.as_ref().copied().unwrap_or(refused);
             let duplicate = if containment {
                 let mut state = owner.borrow_mut();
-                let i = state.instance.as_mut().ok_or(E_FAIL)?;
+                let i = state.instance.as_mut().ok_or_else(|| {
+                    trace.condition(UT::Inventory, UR::Missing);
+                    E_FAIL
+                })?;
                 let c = &mut i.policy_fault.containment;
                 let index = requested.p8_index();
                 let duplicate = index < 6 && c.deliveries[index] != 0;
@@ -3570,22 +3791,31 @@ mod native {
             } else {
                 requested
             };
-            let pair = make_response(owner, request, &environment, kind)?;
+            trace.detail.downgraded |= requested.diagnostic_lane() != kind.diagnostic_lane();
+            let pair = make_response(owner, request, &environment, kind, trace)?;
             let actual = pair.2;
+            trace.detail.set_response = 1;
             let applied = unsafe { args.SetResponse(&pair.1) };
+            trace.detail.set_response = if applied.is_ok() { 2 } else { 3 };
             // Drop caller aliases outside Owner borrows under callback Active.
             // Successful SetResponse is application, not consumption or cancellation.
             drop(pair);
-            applied?;
+            trace.native(UT::SetResponse, applied)?;
             {
                 let mut state = owner.borrow_mut();
-                let i = state.instance.as_mut().ok_or(E_FAIL)?;
+                let i = state.instance.as_mut().ok_or_else(|| {
+                    trace.condition(UT::Inventory, UR::Missing);
+                    E_FAIL
+                })?;
                 if containment {
                     let c = &mut i.policy_fault.containment;
                     let index = actual.p8_index();
                     c.responses[index] = c.responses[index].saturating_add(1);
                 }
-                let p = i.policy.as_mut().ok_or(E_FAIL)?;
+                let p = i.policy.as_mut().ok_or_else(|| {
+                    trace.condition(UT::Inventory, UR::Missing);
+                    E_FAIL
+                })?;
                 if matches!(actual, ResponseKind::Main | ResponseKind::P8Main)
                     && &i.request == request
                     && !i.closing
@@ -3599,6 +3829,18 @@ mod native {
                 || duplicate
                 || actual.allowed() && !live(owner, request)
             {
+                if metadata.is_ok() {
+                    trace.condition(
+                        UT::PostResponse,
+                        if !within_bound {
+                            UR::RequestLimit
+                        } else if duplicate {
+                            UR::Duplicate
+                        } else {
+                            UR::Revoked
+                        },
+                    );
+                }
                 return Err(E_FAIL.into());
             }
             Ok(())
@@ -3611,7 +3853,7 @@ mod native {
             args: Option<&ICoreWebView2WebMessageReceivedEventArgs>,
         ) -> windows::core::Result<()> {
             require_live(owner, request)?;
-            sender_matches(owner, sender)?;
+            sender_matches(owner, sender, None)?;
             require_live(owner, request)?;
             let args = args.ok_or(E_FAIL)?;
             let source = allocated_string(2048, |raw| unsafe { args.Source(raw) })?;
@@ -3727,7 +3969,7 @@ mod native {
                         .resource_token = None;
                     count(owner, Count::ResourceRemoval);
                 }
-                cleanup_result(owner, result);
+                cleanup_at!(owner, ResourceRemove, result, true);
             }
             let chooser = {
                 let mut state = owner.borrow_mut();
@@ -3754,7 +3996,7 @@ mod native {
                         .unwrap()
                         .chooser_token = None;
                 }
-                cleanup_result(owner, result);
+                cleanup_at!(owner, ChooserRemove, result, true);
             }
             let filter = {
                 let mut state = owner.borrow_mut();
@@ -3786,7 +4028,7 @@ mod native {
                         .filter = false;
                     count(owner, Count::FilterRemoval);
                 }
-                cleanup_result(owner, result);
+                cleanup_at!(owner, FilterRemove, result, true);
             }
             loop {
                 let script = {
@@ -3821,7 +4063,7 @@ mod native {
                         .retain(|(stored, _)| stored != &id);
                     count(owner, Count::ScriptRemoval);
                 }
-                cleanup_result(owner, result);
+                cleanup_at!(owner, ScriptRemove, result, !id.contains('\0'));
             }
         }
     }
@@ -4332,6 +4574,126 @@ pub mod fixture {
         }
     }
 
+    // A single word is published only at an actual cleanup_blocked boundary.
+    // No raw metadata or dynamic string is retained. See the frozen encoding table.
+    #[cfg(windows)]
+    #[derive(Clone, Copy)]
+    #[repr(u8)]
+    pub(super) enum DiagnosticUncertaintySite {
+        WindowBuild = 1,
+        PollIdentity = 2,
+        MailboxUnknown = 3,
+        AfterControlDrop = 4,
+        ResourceResponse = 5,
+        MessageRemove = 6,
+        Stop = 7,
+        ControllerClose = 8,
+        ExitRemove = 9,
+        WindowDestroy = 10,
+        ResourceRemove = 11,
+        ChooserRemove = 12,
+        FilterRemove = 13,
+        ScriptRemove = 14,
+    }
+
+    #[cfg(windows)]
+    #[derive(Clone, Copy, Default)]
+    #[repr(u8)]
+    pub(super) enum DiagnosticUncertaintyStage {
+        #[default]
+        None = 0,
+        Args = 1,
+        Policy = 2,
+        Sender = 3,
+        Request = 4,
+        Uri = 5,
+        Method = 6,
+        Context = 7,
+        Binding = 8,
+        Body = 9,
+        Stream = 10,
+        Seek = 11,
+        CreateResponse = 12,
+        SetResponse = 13,
+        Inventory = 14,
+        PostResponse = 15,
+    }
+
+    #[cfg(windows)]
+    #[derive(Clone, Copy, Default)]
+    #[repr(u8)]
+    pub(super) enum DiagnosticUncertaintyReason {
+        #[default]
+        Condition = 0,
+        NativeError = 1,
+        Missing = 2,
+        SenderMismatch = 3,
+        BindingMismatch = 4,
+        MethodMismatch = 5,
+        ContextMismatch = 6,
+        InvalidString = 7,
+        BodyBound = 8,
+        NullStream = 9,
+        RequestLimit = 10,
+        Duplicate = 11,
+        Revoked = 12,
+        Unknown = 13,
+        Unmatched = 14,
+        Affinity = 15,
+    }
+
+    #[cfg(windows)]
+    #[derive(Clone, Copy)]
+    pub(super) struct DiagnosticUncertainty {
+        pub(super) site: DiagnosticUncertaintySite,
+        pub(super) stage: DiagnosticUncertaintyStage,
+        pub(super) reason: DiagnosticUncertaintyReason,
+        pub(super) lane: u8,
+        pub(super) method: u8,
+        pub(super) context: u8,
+        pub(super) downgraded: bool,
+        pub(super) set_response: u8,
+        pub(super) metadata: u8,
+        pub(super) hresult: Option<i32>,
+    }
+
+    #[cfg(windows)]
+    impl DiagnosticUncertainty {
+        pub(super) fn cleanup(
+            site: DiagnosticUncertaintySite,
+            reason: DiagnosticUncertaintyReason,
+            hresult: Option<i32>,
+        ) -> Self {
+            Self {
+                site,
+                stage: DiagnosticUncertaintyStage::None,
+                reason,
+                lane: 0,
+                method: 0,
+                context: 0,
+                downgraded: false,
+                set_response: 0,
+                metadata: 0,
+                hresult,
+            }
+        }
+
+        fn packed(self) -> u64 {
+            (1 << 63)
+                | u64::from(self.hresult.unwrap_or(0) as u32)
+                | ((self.site as u64) << 32)
+                | ((self.stage as u64) << 37)
+                | ((self.reason as u64) << 42)
+                | (u64::from(self.lane.min(15)) << 47)
+                | (u64::from(self.method.min(3)) << 51)
+                | (u64::from(self.context.min(7)) << 53)
+                | (u64::from(self.downgraded) << 56)
+                | (u64::from(self.set_response.min(3)) << 57)
+                | (u64::from(self.hresult.is_some()) << 59)
+                | (u64::from(self.metadata.min(3)) << 60)
+        }
+    }
+
     #[derive(Default)]
     pub struct Diagnostics {
         enabled: bool,
@@ -4349,6 +4711,8 @@ pub mod fixture {
         milestones: std::sync::atomic::AtomicU64,
         inventory: std::sync::atomic::AtomicU64,
         first_failure: std::sync::atomic::AtomicU64,
+        #[cfg(windows)]
+        first_uncertainty: std::sync::atomic::AtomicU64,
     }
 
     /// The outermost outstanding native/getter call survives nested UI phase
@@ -4515,6 +4879,19 @@ pub mod fixture {
             }
         }
 
+        #[cfg(windows)]
+        pub(super) fn uncertainty(&self, detail: DiagnosticUncertainty) {
+            if self.enabled {
+                // One coherent first-latch record. Later errors cannot replace it.
+                let _ = self.first_uncertainty.compare_exchange(
+                    0,
+                    detail.packed(),
+                    std::sync::atomic::Ordering::Relaxed,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+            }
+        }
+
         pub fn publish_inventory(
             &self,
             pending: usize,
@@ -4602,6 +4979,17 @@ pub mod fixture {
                 );
                 if !self.close_final_emitted.swap(true, Relaxed) {
                     self.close_snapshot(2, watchdog, 0).emit();
+                }
+                #[cfg(windows)]
+                let uncertainty = self.first_uncertainty.load(Relaxed);
+                #[cfg(windows)]
+                if uncertainty != 0 {
+                    // Fixed56-byte line, only the one coherent atomic snapshot.
+                    let _ = writeln!(
+                        std::io::stderr(),
+                        "Code0NativeUncertainty schema=1 packed={:016x}",
+                        uncertainty
+                    );
                 }
             }
         }
