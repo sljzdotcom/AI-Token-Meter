@@ -22,7 +22,8 @@ mod smoke {
         fixture::{
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
             NativeChildCompletionReceipt, NativeChildFinalReceipt, NativeChildRefusalFacts,
-            NativeChildRefusalReceipt, NativeChildSubmissionReceipt, NativeRefusalInstallReceipt,
+            NativeChildRefusalReceipt, NativeChildSubmissionReceipt, NativeDialogDeadline,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeRefusalInstallReceipt,
             NativeSmokeObservation, NativeTopRefusalFacts, NativeTopRefusalReceipt,
             NativeTopSubmissionReceipt, PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
             StaleDispositionReceipt, StaleDispositionStage,
@@ -42,6 +43,8 @@ mod smoke {
     const NATIVE_REFUSAL_CASE: &str = "install-native-refusal-hooks-before-load";
     const CHILD_REFUSAL_CASE: &str = "refusal-child-initial-data";
     const TOP_REFUSAL_CASE: &str = "refusal-top-owned-file";
+    const DIALOG_REFUSAL_CASE: &str = "refusal-dialog-owned-empty-html";
+    const DIALOG_REFUSAL_LEAF: &str = "code0-s2-dialog-empty.html";
     const TOP_REFUSAL_LEAF: &str = "code0-s2-top-denied.txt";
     const NATIVE_REFUSAL_HOOKS: [&str; 10] = [
         "topNavigation",
@@ -110,6 +113,126 @@ mod smoke {
                 && self.not_installed_hooks.is_empty()
                 && self.navigation_not_issued
                 && !self.load_rejected
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+    }
+
+    // N3's observable contract: missing the native alert, post-alert completion,
+    // exact new-file readiness, or actual cleanup must fail independently.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct DialogRefusalEvidence {
+        owned_file_prepared: bool,
+        submission_receipts: u8,
+        document_receipts: u8,
+        script_submission_receipts: u8,
+        target_receipts: u8,
+        completion_receipts: u8,
+        final_receipts: u8,
+        receipt_installation_matched: bool,
+        policy_failures: u8,
+        action_before_policy_failure: bool,
+        browser_process_exited_once: bool,
+        #[serde(flatten)]
+        facts: NativeDialogFacts,
+        #[serde(skip)]
+        installation: Option<NativeRefusalInstallReceipt>,
+    }
+    impl DialogRefusalEvidence {
+        fn observe(&mut self, receipt: NativeDialogReceipt, request: &Code0WindowRequest) -> bool {
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| receipt.matches(request, i));
+            self.receipt_installation_matched = if self.submission_receipts == 0
+                && self.document_receipts == 0
+                && self.script_submission_receipts == 0
+                && self.target_receipts == 0
+                && self.completion_receipts == 0
+                && self.final_receipts == 0
+            {
+                matched
+            } else {
+                self.receipt_installation_matched && matched
+            };
+            let count = match receipt.stage() {
+                NativeDialogStage::Submitted => &mut self.submission_receipts,
+                NativeDialogStage::DocumentReady => &mut self.document_receipts,
+                NativeDialogStage::ScriptSubmitted => &mut self.script_submission_receipts,
+                NativeDialogStage::Refusal => &mut self.target_receipts,
+                NativeDialogStage::Completion => &mut self.completion_receipts,
+                NativeDialogStage::Final => &mut self.final_receipts,
+            };
+            *count = count.saturating_add(1);
+            let once = *count == 1;
+            self.facts = receipt.facts();
+            matched && once
+        }
+        fn target_positive(&self) -> bool {
+            let f = &self.facts;
+            self.target_receipts == 1
+                && self.receipt_installation_matched
+                && f.dialog_events == 1
+                && f.dialog_kind_alert
+                && f.dialog_message_matched
+                && f.dialog_uri_matched
+                && f.dialog_sender_matched
+                && f.dialog_live_after_getters
+                && f.non_accept_action_returned
+        }
+        fn failure(&self) -> &'static str {
+            if !self.owned_file_prepared
+                || !self.facts.asset_binding_validated
+                || !self.facts.navigation_submit_ok
+            {
+                "dialogOwnedDocumentSetupFailed"
+            } else if self.document_receipts != 1 || !self.facts.fresh_document {
+                "dialogDocumentNotReady"
+            } else if !self.target_positive() {
+                "dialogTargetUnobserved"
+            } else if self.completion_receipts != 1
+                || !self.facts.completion_hresult_succeeded
+                || !self.facts.fixed_result_matched
+            {
+                "dialogStrictCompletionFailed"
+            } else if !self.facts.completion_obligation_drained
+                || !self.facts.completion_handlers_drained
+                || !self.facts.completed_remove_succeeded
+            {
+                "dialogCleanupEvidenceMissing"
+            } else {
+                "dialogPositiveOracleMismatch"
+            }
+        }
+        fn positive(&self, native: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.owned_file_prepared
+                && self.submission_receipts == 1
+                && self.document_receipts == 1
+                && self.script_submission_receipts == 1
+                && self.target_positive()
+                && self.completion_receipts == 1
+                && self.final_receipts == 1
+                && self.policy_failures == 1
+                && self.action_before_policy_failure
+                && self.browser_process_exited_once
+                && self.facts.positive()
+                && native.receipts == 1
+                && native.native_instance_validated
+                && native.source_bound_registry
+                && native.required_mask == 1023
+                && native.installed_mask == 1023
+                && native.not_installed_hooks.is_empty()
+                && !native.navigation_not_issued
+                && !native.load_rejected
                 && lifecycle.sta_main
                 && lifecycle.callback_affinity
                 && lifecycle.no_inherited_override
@@ -428,10 +551,18 @@ mod smoke {
         top_refusal: Option<TopRefusalEvidence>,
         #[serde(skip)]
         child_refusal: Option<ChildRefusalEvidence>,
+        #[serde(skip)]
+        dialog_refusal: Option<DialogRefusalEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(dialog) = &self.dialog_refusal {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| dialog.positive(native, lifecycle));
+            }
             if let Some(child) = &self.child_refusal {
                 return self
                     .native_refusal
@@ -555,12 +686,16 @@ mod smoke {
         top_refusal: Option<&'a TopRefusalEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         child_refusal: Option<&'a ChildRefusalEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        dialog_refusal: Option<&'a DialogRefusalEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.child_refusal.is_some() {
+                schema: if install.dialog_refusal.is_some() {
+                    9
+                } else if install.child_refusal.is_some() {
                     8
                 } else if install.top_refusal.is_some() {
                     7
@@ -570,7 +705,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.child_refusal.is_some() {
+                required_case: if install.dialog_refusal.is_some() {
+                    DIALOG_REFUSAL_CASE
+                } else if install.child_refusal.is_some() {
                     CHILD_REFUSAL_CASE
                 } else if install.top_refusal.is_some() {
                     TOP_REFUSAL_CASE
@@ -587,6 +724,7 @@ mod smoke {
                 native_refusal: install.native_refusal.as_ref(),
                 top_refusal: install.top_refusal.as_ref(),
                 child_refusal: install.child_refusal.as_ref(),
+                dialog_refusal: install.dialog_refusal.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1451,22 +1589,37 @@ mod smoke {
         Ok(passed)
     }
 
+    fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 9 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "N3 summary exceeds fixed bound",
+            ));
+        }
+        write_summary(file, summary)
+    }
+
     pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(native_refusal, false, false)
+        run_policy_selected(native_refusal, false, false, false)
     }
 
     pub fn run_top_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, true, false)
+        run_policy_selected(true, true, false, false)
     }
 
     pub fn run_child_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, true)
+        run_policy_selected(true, false, true, false)
+    }
+
+    pub fn run_dialog_refusal() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(true, false, false, true)
     }
 
     fn run_policy_selected(
         native_refusal: bool,
         top_refusal: bool,
         child_refusal: bool,
+        dialog_refusal: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
@@ -1494,9 +1647,10 @@ mod smoke {
             native_refusal: native_refusal.then(NativeRefusalEvidence::default),
             top_refusal: top_refusal.then(TopRefusalEvidence::default),
             child_refusal: child_refusal.then(ChildRefusalEvidence::default),
+            dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
             ..PolicyEvidence::default()
         }));
-        write_summary(
+        write_policy_summary(
             &mut file,
             &PolicySummary::snapshot(&summary.lock().unwrap(), &install.lock().unwrap()),
         )?;
@@ -1515,7 +1669,7 @@ mod smoke {
                     ..Summary::default()
                 };
                 if let Ok(mut file) = hard_evidence.try_lock() {
-                    let _ = write_summary(
+                    let _ = write_policy_summary(
                         &mut file,
                         &PolicySummary::snapshot(
                             &failed,
@@ -1523,6 +1677,7 @@ mod smoke {
                                 native_refusal: native_refusal.then(NativeRefusalEvidence::default),
                                 top_refusal: top_refusal.then(TopRefusalEvidence::default),
                                 child_refusal: child_refusal.then(ChildRefusalEvidence::default),
+                                dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -1543,7 +1698,7 @@ mod smoke {
             summary.lock().unwrap().failure = "fixtureSetupFailed";
         }
         let passed = summary.lock().unwrap().pass;
-        let write_result = write_summary(
+        let write_result = write_policy_summary(
             &mut evidence.lock().unwrap(),
             &PolicySummary::snapshot(&summary.lock().unwrap(), &install.lock().unwrap()),
         );
@@ -1766,6 +1921,9 @@ mod smoke {
         let child_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().child_refusal.is_some());
+        let dialog_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().dialog_refusal.is_some());
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -1820,6 +1978,29 @@ mod smoke {
                 .unwrap()
                 .owned_file_prepared = true;
         }
+        if dialog_selected {
+            // Controlled CI has one fixture writer. This is not atomic binding
+            // against hostile same-privilege replacement after the handle closes.
+            let asset = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(temp_root.join(DIALOG_REFUSAL_LEAF))?;
+            let metadata = asset.metadata()?;
+            let empty = metadata.is_file() && metadata.len() == 0;
+            drop(asset);
+            if !empty {
+                return Err("owned empty HTML asset setup failed".into());
+            }
+            policy
+                .as_ref()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .dialog_refusal
+                .as_mut()
+                .unwrap()
+                .owned_file_prepared = true;
+        }
         let mut context = tauri::generate_context!();
         context.config_mut().app.windows.clear();
         // No product run/setup/RuntimeState, plugins, commands or managed windows.
@@ -1858,9 +2039,17 @@ mod smoke {
         let observer_diagnostics = Arc::clone(&diagnostics);
         let native_top_close = Rc::new(Cell::new(None::<Instant>));
         let observer_top_close = Rc::clone(&native_top_close);
+        let native_dialog_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_dialog_close = Rc::clone(&native_dialog_close);
         let native_child_close = Rc::new(Cell::new(None::<Instant>));
         let observer_child_close = Rc::clone(&native_child_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if dialog_selected
+                && let NativeSmokeObservation::DialogClosing { at } = &event
+                && observer_dialog_close.get().is_none()
+            {
+                observer_dialog_close.set(Some(*at));
+            }
             if child_selected
                 && let NativeSmokeObservation::ChildClosing { at } = &event
                 && observer_child_close.get().is_none()
@@ -1958,6 +2147,13 @@ mod smoke {
         });
         let observed = Arc::clone(&summary);
         let started = Instant::now();
+        // N3 alone carries the original absolute end; late EngineReady cannot
+        // construct a newer 45-second authorization window.
+        let mut dialog_deadline = if dialog_selected {
+            NativeDialogDeadline::from_attempt_started(started)
+        } else {
+            None
+        };
         let mut closing_since = None;
         let mut started_create = false;
         let mut object_free_failure = false;
@@ -2068,7 +2264,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if child_selected {
+                if dialog_selected {
+                    native_dialog_close.get()
+                } else if child_selected {
                     native_child_close.get()
                 } else {
                     native_top_close.get()
@@ -2083,7 +2281,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if child_selected {
+                if dialog_selected {
+                    native_dialog_close.get()
+                } else if child_selected {
                     native_child_close.get()
                 } else {
                     native_top_close.get()
@@ -2174,13 +2374,16 @@ mod smoke {
                                     let mut saved_receipt = None;
                                     let valid_inventory = receipt.is_ok_and(|receipt| {
                                         let valid = native.observe(&receipt, &request);
-                                        if top_selected || child_selected {
+                                        if top_selected || child_selected || dialog_selected {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if child_selected {
+                                    if dialog_selected {
+                                        install.dialog_refusal.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if child_selected {
                                         install.child_refusal.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if top_selected {
@@ -2189,6 +2392,38 @@ mod smoke {
                                     }
                                     drop(install);
                                     // No summary/install/queue guard crosses native Navigate.
+                                    let dialog_submission = if dialog_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        Some(match dialog_deadline.take() {
+                                            Some(deadline) => driver
+                                                .navigate_fixture_dialog_owned_empty_html(
+                                                    &request, deadline,
+                                                ),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        })
+                                    } else {
+                                        None
+                                    };
+                                    let dialog_submission_failure =
+                                        if let Some(result) = dialog_submission {
+                                            if result.is_ok() {
+                                                policy
+                                                    .lock()
+                                                    .unwrap()
+                                                    .native_refusal
+                                                    .as_mut()
+                                                    .unwrap()
+                                                    .navigation_not_issued = false;
+                                                None
+                                            } else {
+                                                Some("dialogOwnedDocumentSetupFailed")
+                                            }
+                                        } else {
+                                            None
+                                        };
                                     let top_submission = if top_selected
                                         && installed.is_ok()
                                         && valid_inventory
@@ -2266,6 +2501,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = dialog_submission_failure {
+                                        failure
                                     } else if let Some(failure) = child_submission_failure {
                                         failure
                                     } else if let Some(failure) = top_submission_failure {
@@ -2314,6 +2551,44 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::DialogClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !dialog_selected {
+                            state.failure = "unexpectedDialogClosing";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Dialog(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = dialog_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                let issued =
+                                    matches!(receipt.stage(), NativeDialogStage::Submitted)
+                                        && receipt.facts().navigation_submissions == 1;
+                                let mut install = p.lock().unwrap();
+                                if issued {
+                                    install
+                                        .native_refusal
+                                        .as_mut()
+                                        .unwrap()
+                                        .navigation_not_issued = false;
+                                }
+                                install
+                                    .dialog_refusal
+                                    .as_mut()
+                                    .is_some_and(|d| d.observe(receipt, &request))
+                            });
+                        if !valid {
+                            state.failure = "dialogNativeReceiptInvalid";
                         }
                     }
                     Observation::Native(
@@ -2579,6 +2854,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if dialog_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .dialog_refusal
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         if child_selected {
                             policy
                                 .as_ref()
@@ -2628,7 +2914,23 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
-                        if child_selected {
+                        if dialog_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let dialog = install.dialog_refusal.as_mut().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                dialog.policy_failures = dialog.policy_failures.saturating_add(1);
+                                dialog.action_before_policy_failure = dialog.target_positive();
+                                if dialog.policy_failures != 1
+                                    || !dialog.action_before_policy_failure
+                                {
+                                    state.failure = "dialogFailureWithoutNativeAction";
+                                }
+                            } else {
+                                state.failure = "dialogUnexpectedNativeFailure";
+                            }
+                        } else if child_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -2772,6 +3074,7 @@ mod smoke {
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
             let native_install_observed = !top_selected
                 && !child_selected
+                && !dialog_selected
                 && policy.as_ref().is_some_and(|policy| {
                     policy
                         .lock()
@@ -2780,6 +3083,7 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let dialog_action_observed = dialog_selected && native_dialog_close.get().is_some();
             let top_action_observed = top_selected && native_top_close.get().is_some();
             let child_action_observed = child_selected && native_child_close.get().is_some();
             if policy.is_some()
@@ -2787,7 +3091,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if child_selected {
+                state.failure = if dialog_selected {
+                    "dialogTargetUnobserved"
+                } else if child_selected {
                     "childTargetUnobserved"
                 } else if top_selected {
                     "topTargetUnobserved"
@@ -2806,12 +3112,15 @@ mod smoke {
                     || native_install_observed
                     || top_action_observed
                     || child_action_observed
+                    || dialog_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if child_selected {
+                let closing = if dialog_selected {
+                    native_dialog_close.get()
+                } else if child_selected {
                     native_child_close.get()
                 } else {
                     native_top_close.get()
@@ -2873,6 +3182,17 @@ mod smoke {
                     }
                     if coverage.is_some() && !positive && state.failure == "notCompleted" {
                         state.failure = "coveragePositiveOracleMismatch";
+                    }
+                    if dialog_selected && !positive && state.failure == "notCompleted" {
+                        state.failure = policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .dialog_refusal
+                            .as_ref()
+                            .unwrap()
+                            .failure();
                     }
                     let code = if positive && state.failure == "notCompleted" {
                         0
@@ -2976,6 +3296,9 @@ fn main() {
                     == "--code0-policy-fixture=install-native-refusal-hooks-before-load" =>
             {
                 smoke::run_policy(true)
+            }
+            [selector] if selector == "--code0-policy-fixture=refusal-dialog-owned-empty-html" => {
+                smoke::run_dialog_refusal()
             }
             [selector] if selector == "--code0-policy-fixture=refusal-child-initial-data" => {
                 smoke::run_child_refusal()
