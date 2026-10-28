@@ -348,12 +348,12 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
                 }
               }
               $cleanup_uncertain = 1 if defined($pre_exec_child);
-              my $identity = ""; if (open my $handle, "<", $guardian_state_file) { $identity = <$handle> // ""; close $handle; }
-              if ($$ == getpgrp() && $identity eq "$$ $nonce\n") {
+              my $identity = $read_stop_control->($guardian_state_file);
+              if ($$ == getpgrp() && defined($identity) && $identity eq "$$ $nonce\n") {
                 # This is acceptance, not cleanup completion. No uncertainty may
                 # follow this permission: this one-way routine never returns.
                 if (!$cleanup_uncertain && !$publication_failed && $matched_stop_request->()) {
-                  if (!atomic_publish_status("${status_path}.stopped", "guardian_stop_accepted_v1:$$:$nonce")) {
+                  if (!atomic_publish_status("${status_path}.ready", "guardian_stop_accepted_v1:$$:$nonce")) {
                     $publication_failed = 1; $cleanup_uncertain = 1;
                   }
                 }
@@ -367,29 +367,32 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               _exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);
             };
             $SIG{TERM} = sub { $clean_group->("TERM"); }; $SIG{INT} = sub { $clean_group->("INT"); }; $SIG{HUP} = sub { $clean_group->("HUP"); };
+            # Every cancellation exit below precedes the only CLI fork. Reuse
+            # one-way cleanup so only a real matched request may grant a stop
+            # permission, even when there is no child to reap yet.
             open my $gate, "+<", $gate_path or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             my $flags = fcntl($gate, F_GETFD, 0); defined($flags) && defined(fcntl($gate, F_SETFD, $flags | FD_CLOEXEC)) or do { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET);
             my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
             while (1) {
-              if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+              if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
               if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
               last if defined(fcntl($gate, F_SETLK, $record_lock));
               if ($! != EINTR && $! != EACCES && $! != EAGAIN && $! != EWOULDBLOCK) { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); }
               sleep 0.05;
             }
             my $status = ""; if (open my $handle, "<", $status_path) { $status = <$handle> // ""; close $handle; chomp $status; }
-            if ($status ne "ready" || $stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            if ($status ne "ready" || $stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
             close $gate;
             open STDIN, "<", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             open STDOUT, ">", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             open STDERR, ">", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
-            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
             pipe(my $exec_status_reader, my $exec_status_writer) or do { open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
             my $reader_flags = fcntl($exec_status_reader, F_GETFL, 0); defined($reader_flags) && defined(fcntl($exec_status_reader, F_SETFL, $reader_flags | O_NONBLOCK)) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
             my $exec_flags = fcntl($exec_status_writer, F_GETFD, 0); defined($exec_flags) && defined(fcntl($exec_status_writer, F_SETFD, $exec_flags | FD_CLOEXEC)) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
             my $guardian_pid = $$;
-            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
             pipe($resume_reader, $resume_writer) or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             for my $handle ($resume_reader, $resume_writer) {
               my $flags = fcntl($handle, F_GETFD, 0);
@@ -798,7 +801,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             guardian_stop_permission_valid() {
-              /usr/bin/perl -e \(shellQuote(Self.guardianStopPermissionProbeProgram)) "$agy_pid" "$guardian_state_file" "$cleanup_ack_file"
+              /usr/bin/perl -e \(shellQuote(Self.guardianStopPermissionProbeProgram)) "$agy_pid" "$guardian_state_file" "$watchdog_ready_file"
             }
 
             owned_stop_confirmation_is_safe() {

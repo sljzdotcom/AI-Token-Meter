@@ -886,7 +886,7 @@ struct CLIAuthenticationScriptBuilderTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         defer { removeTemporaryDirectoryUnlessPreserved(root) }
         let identity = root.appendingPathComponent("guardian")
-        let permission = root.appendingPathComponent("stopped")
+        let permission = root.appendingPathComponent("ready")
         try Data("123 0123456789abcdef0123456789abcdef\n".utf8).write(to: identity)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: identity.path)
         if fixture != "stop-missing" && (fixture.hasPrefix("stop-") || ["uncertain", "publisher-active", "publication-failed"].contains(fixture)) {
@@ -909,7 +909,7 @@ struct CLIAuthenticationScriptBuilderTests {
         set -u
         agy_pid=123
         guardian_state_file=\(shellQuote(identity.path))
-        cleanup_ack_file=\(shellQuote(permission.path))
+        watchdog_ready_file=\(shellQuote(permission.path))
         agy_stop_requested=\(fixture.hasPrefix("stop-") || fixture == "uncertain" ? 1 : 0)
         agy_wait_status=\(fixture == "signal137" ? 137 : fixture == "normal7" ? 7 : 0)
         status_publication_critical=\(fixture == "publisher-active" ? 1 : 0)
@@ -1037,12 +1037,21 @@ struct CLIAuthenticationScriptBuilderTests {
             with: gate.replacingOccurrences(of: "FIXTURE_STAGE_FAILS", with: stageFails ? "1" : "0") + "\n" + declaration)
         try #require(publisher.components(separatedBy: shellQuote(originalProgram)).count == 2)
         publisher = publisher.replacingOccurrences(of: shellQuote(originalProgram), with: shellQuote(gatedProgram))
+        let normalWait = #"if [[ "$publisher_exit" == 0 || "$publisher_exit" == 79 ]]; then break; fi"#
+        try #require(publisher.components(separatedBy: normalWait).count == 3)
+        let observedNormalWait = #"""
+        if [[ "$publisher_exit" == 0 || "$publisher_exit" == 79 ]]; then
+          if [[ "$publisher_exit" == 0 ]]; then print -r -- "$1" >> "$PWD/joined.values"; fi
+          break
+        fi
+        """#
+        publisher = publisher.replacingOccurrences(of: normalWait, with: observedNormalWait)
         let commit = "builtin zf_mv -f \"$publisher_temporary\" \"$status_file\""
         try #require(publisher.components(separatedBy: commit).count == 2)
         let joinedBeforeCommit = #"""
-        wait "$publisher_pid"; [[ "$?" == 0 ]] || exit 98
+        [[ "$publisher_exit" == 0 && -r joined.values ]] || exit 98
         if [[ "$1" == callback_failed ]]; then
-          [[ "$(<"$status_file")" == ready && -e deferred ]] || exit 99
+          [[ "$(<"$status_file")" == ready && -e deferred && "$(<joined.values)" == callback_failed ]] || exit 99
           print -r -- observed > before-commit-joined
         fi
         """#
@@ -1080,6 +1089,8 @@ struct CLIAuthenticationScriptBuilderTests {
         let status = try String(contentsOf: root.appendingPathComponent("status"), encoding: .utf8)
         let publications = try String(contentsOf: root.appendingPathComponent("publish.values"), encoding: .utf8)
         let cancel = try String(contentsOf: root.appendingPathComponent("cancel"), encoding: .utf8)
+        let joins = (try? String(contentsOf: root.appendingPathComponent("joined.values"), encoding: .utf8)) ?? ""
+        #expect(joins == (stageFails ? "" : "callback_failed\nhelper_cancelled\n"))
         #expect(cancel == "cancelled\n")
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("deferred").path))
         if stageFails {
@@ -1107,7 +1118,10 @@ struct CLIAuthenticationScriptBuilderTests {
                                                                  completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
         let cleanupStart = try #require(emitted.range(of: "my ($resume_reader, $resume_writer, $pre_exec_child)"))
         let cleanupEnd = try #require(emitted.range(of: "$SIG{TERM} = sub", range: cleanupStart.upperBound..<emitted.endIndex))
-        var cleanup = String(emitted[cleanupStart.lowerBound..<cleanupEnd.lowerBound])
+        let readerStart = try #require(emitted.range(of: "my $read_stop_control = sub"))
+        let readerEnd = try #require(emitted.range(of: "my $matched_stop_request = sub", range: readerStart.upperBound..<emitted.endIndex))
+        var cleanup = String(emitted[readerStart.lowerBound..<readerEnd.lowerBound])
+            + String(emitted[cleanupStart.lowerBound..<cleanupEnd.lowerBound])
         let exit = #"_exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);"#
         try #require(cleanup.components(separatedBy: exit).count == 2)
         cleanup = cleanup.replacingOccurrences(of: exit, with: #"""
@@ -1155,15 +1169,20 @@ struct CLIAuthenticationScriptBuilderTests {
                                                                  completionTokenPipeURL: root.appendingPathComponent("unused.pipe"))
         let cleanupStart = try #require(emitted.range(of: "my ($resume_reader, $resume_writer, $pre_exec_child)"))
         let cleanupEnd = try #require(emitted.range(of: "$SIG{TERM} = sub", range: cleanupStart.upperBound..<emitted.endIndex))
-        var cleanup = String(emitted[cleanupStart.lowerBound..<cleanupEnd.lowerBound])
+        let readerStart = try #require(emitted.range(of: "my $read_stop_control = sub"))
+        let readerEnd = try #require(emitted.range(of: "my $matched_stop_request = sub", range: readerStart.upperBound..<emitted.endIndex))
+        var cleanup = String(emitted[readerStart.lowerBound..<readerEnd.lowerBound])
+            + String(emitted[cleanupStart.lowerBound..<cleanupEnd.lowerBound])
         let exit = #"_exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);"#
         try #require(cleanup.components(separatedBy: exit).count == 2)
         cleanup = cleanup.replacingOccurrences(of: exit, with: #"""
-        die "missing real masked delivery" unless $fixture_window && $fixture_pending && $fixture_handler;
-        die "target not retired" if $child_owned || defined($pre_exec_child);
-        die "wrong owned cleanup" unless $fixture_kills == ($fixture_mode eq "stopped" ? 1 : 0);
-        die "wrong uncertainty" unless $cleanup_uncertain == ($fixture_mode eq "stopped" ? 0 : 1);
-        die "STOP ownership not observed" if $fixture_mode eq "stopped" && !$fixture_stop_proven;
+        if (!$fixture_window || !$fixture_pending || !$fixture_handler) { $fixture_note->("guard-missing-delivery"); die "missing real masked delivery"; }
+        if (!$fixture_seed_ok || !$fixture_restore_ok) { $fixture_note->("guard-mask-restore"); die "mask premise or restoration"; }
+        if ($child_owned || defined($pre_exec_child)) { $fixture_note->("guard-target-not-retired"); die "target not retired"; }
+        if ($fixture_kills != ($fixture_mode eq "stopped" ? 1 : 0)) { $fixture_note->("guard-kill-count"); die "wrong owned cleanup"; }
+        if ($cleanup_uncertain != ($fixture_mode eq "stopped" ? 0 : 1)) { $fixture_note->("guard-uncertainty"); die "wrong uncertainty"; }
+        if ($fixture_mode eq "stopped" && !$fixture_stop_proven) { $fixture_note->("guard-stop-unobserved"); die "STOP ownership not observed"; }
+        $fixture_note->("cleanup-confirmed");
         my $proof = "$fixture_mode-cleanup\n";
         syswrite(STDOUT, $proof) == length($proof) or die "proof write";
         """# + "\n" + exit)
@@ -1181,20 +1200,23 @@ struct CLIAuthenticationScriptBuilderTests {
           my $pending = POSIX::SigSet->new();
           defined(POSIX::sigpending($pending)) && $pending->ismember(POSIX::SIGTERM()) or die "postwait stop not masked";
           $fixture_pending = 1;
+          $fixture_note->("postwait-mask-pending");
           syswrite(STDOUT, "postwait-masked\n") == 16 or die "window proof";
         }
         """#
         loop = loop.replacingOccurrences(of: wait, with: wait + "\n" + postwait)
         let program = #"""
         use strict; use warnings; use POSIX qw(getpgrp waitpid WNOHANG WUNTRACED WIFSTOPPED _exit);
-        use Errno qw(EINTR); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC);
-        our ($fixture_mode, $fixture_child, $fixture_owned_ref, $fixture_target_ref, $fixture_kills);
+        use Errno qw(EINTR); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC); use Config ();
+        our ($fixture_mode, $fixture_child, $fixture_owned_ref, $fixture_target_ref, $fixture_kills, $fixture_note_ref);
         BEGIN {
           *CORE::GLOBAL::kill = sub {
             my ($signal, @targets) = @_;
-            die "refused unverified numeric signal before syscall" unless $fixture_mode eq "stopped"
-              && $signal eq "KILL" && @targets == 1 && $targets[0] == $fixture_child
-              && $$fixture_owned_ref && defined($$fixture_target_ref) && $$fixture_target_ref == $fixture_child;
+            if (!($fixture_mode eq "stopped" && $signal eq "KILL" && @targets == 1 && $targets[0] == $fixture_child
+                  && $$fixture_owned_ref && defined($$fixture_target_ref) && $$fixture_target_ref == $fixture_child)) {
+              $fixture_note_ref->("guard-unverified-signal") if defined($fixture_note_ref);
+              die "refused unverified numeric signal before syscall";
+            }
             ++$fixture_kills;
             return CORE::kill($signal, @targets);
           };
@@ -1203,6 +1225,18 @@ struct CLIAuthenticationScriptBuilderTests {
         $fixture_mode = $ARGV[1]; $fixture_kills = 0;
         my ($stopping, $cleanup_uncertain, $publication_failed) = (0, 0, 0);
         my ($fixture_window, $fixture_pending, $fixture_handler, $fixture_stop_proven) = (0, 0, 0, 0);
+        my ($fixture_seed_ok, $fixture_restore_ok) = (0, 0);
+        umask 0077;
+        my $fixture_note = sub {
+          my ($stage) = @_;
+          open my $note, ">>", "$ARGV[0]/stop.diagnostic" or return 0;
+          my $ok = print {$note} "$stage\n";
+          my $closed = close $note;
+          return $ok && $closed;
+        };
+        $fixture_note_ref = $fixture_note;
+        my @fixture_signals = grep { $_ > 0 } split /\s+/, $Config::Config{sig_num};
+        my $fixture_seed = POSIX::SigSet->new();
         my $nonce = "0123456789abcdef0123456789abcdef";
         my $guardian_state_file = "$ARGV[0]/absent-guardian"; my $status_path = "$ARGV[0]/status";
         my $matched_stop_request = sub { return 0; };
@@ -1211,19 +1245,70 @@ struct CLIAuthenticationScriptBuilderTests {
         my $stop_requested = sub { return 0; };
         my $mark_cleanup_unconfirmed = sub { $cleanup_uncertain = 1; };
         my $fork_signals = POSIX::SigSet->new(POSIX::SIGTERM(), POSIX::SIGINT(), POSIX::SIGHUP());
+        # Actor-local setup only: TERM must be deliverable. All other inherited
+        # bits are retained except the deliberately blocked, never-sent sentinel.
+        my $fixture_inherited = POSIX::SigSet->new();
+        my $fixture_empty = POSIX::SigSet->new();
+        defined(POSIX::sigprocmask(POSIX::SIG_BLOCK(), $fixture_empty, $fixture_inherited)) or do { $fixture_note->("guard-mask-setup"); die "read inherited mask"; };
+        $fixture_note->($fixture_inherited->ismember(POSIX::SIGTERM()) ? "inherited-term-blocked" : "inherited-term-clear");
+        defined(POSIX::sigprocmask(POSIX::SIG_UNBLOCK(), POSIX::SigSet->new(POSIX::SIGTERM()))) or do { $fixture_note->("guard-mask-setup"); die "unblock fixture TERM"; };
+        defined(POSIX::sigprocmask(POSIX::SIG_BLOCK(), POSIX::SigSet->new(POSIX::SIGUSR1()))) or do { $fixture_note->("guard-mask-setup"); die "block unsent sentinel"; };
+        defined(POSIX::sigprocmask(POSIX::SIG_BLOCK(), $fixture_empty, $fixture_seed)) or do { $fixture_note->("guard-mask-setup"); die "read fixture mask"; };
+        $fixture_seed_ok = @fixture_signals && !$fixture_seed->ismember(POSIX::SIGTERM()) && $fixture_seed->ismember(POSIX::SIGUSR1());
+        for my $signal (@fixture_signals) {
+          next if $signal == POSIX::SIGTERM() || $signal == POSIX::SIGUSR1();
+          $fixture_seed_ok = 0 if $fixture_seed->ismember($signal) != $fixture_inherited->ismember($signal);
+        }
+        if (!$fixture_seed_ok) { $fixture_note->("guard-mask-precondition"); die "fixture mask precondition"; }
+        $fixture_note->("mask-seeded");
         my $child = fork(); defined($child) or die "real fork";
         if ($child == 0) { if ($fixture_mode eq "stopped") { CORE::kill("STOP", $$) or _exit(127); } _exit(127); }
         $fixture_child = $child; $pre_exec_child = $child; $child_owned = 1;
         if ($fixture_mode eq "lost") { waitpid($child, 0) == $child or die "initial actual reap"; }
-        $SIG{TERM} = sub { $fixture_handler = 1; $clean_group->("TERM"); };
+        $SIG{TERM} = sub {
+          $fixture_handler = 1;
+          my $restored = POSIX::SigSet->new();
+          if (defined(POSIX::sigprocmask(POSIX::SIG_BLOCK(), $fixture_empty, $restored))) {
+            $fixture_restore_ok = $restored->ismember(POSIX::SIGUSR1()) ? 1 : 0;
+            for my $signal (@fixture_signals) {
+              # Current-signal masking can be part of handler dispatch. Delivery
+              # proves TERM was unblocked; every other seeded bit must match.
+              next if $signal == POSIX::SIGTERM();
+              $fixture_restore_ok = 0 if $restored->ismember($signal) != $fixture_seed->ismember($signal);
+            }
+            $fixture_note->($fixture_restore_ok ? "handler-mask-restored" : "guard-mask-restore");
+            $fixture_note->($restored->ismember(POSIX::SIGTERM()) ? "handler-term-blocked" : "handler-term-clear");
+          } else { $fixture_note->("guard-mask-restore"); }
+          $clean_group->("TERM");
+        };
         $SIG{INT} = sub { $clean_group->("INT"); }; $SIG{HUP} = sub { $clean_group->("HUP"); };
         \#(loop)
         # A missing delivery cannot pass. Still perform the actual owned cleanup.
+        $fixture_note->("fallback-cleanup");
         $cleanup_uncertain = 1; $clean_group->("TERM");
         die "cleanup unexpectedly returned";
         """#
-        let result = try #require(FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/usr/bin/perl"),
-            arguments: ["-e", program, root.path, mode], in: root, timeout: .seconds(3)))
+        let observed = FixtureProcessQuery.run(executable: URL(fileURLWithPath: "/usr/bin/perl"),
+            arguments: ["-e", program, root.path, mode], in: root, timeout: .seconds(3))
+        var stages: [String] = []
+        if let handle = try? FileHandle(forReadingFrom: root.appendingPathComponent("stop.diagnostic")) {
+            if let data = try? handle.read(upToCount: 2049), data.count <= 2048,
+               let text = String(data: data, encoding: .utf8) { stages = text.split(separator: "\n").map(String.init) }
+            try? handle.close()
+        }
+        let allowed: Set<String> = ["inherited-term-blocked", "inherited-term-clear", "mask-seeded", "postwait-mask-pending",
+            "handler-mask-restored", "handler-term-blocked", "handler-term-clear", "cleanup-confirmed", "fallback-cleanup",
+            "guard-unverified-signal", "guard-missing-delivery", "guard-target-not-retired", "guard-kill-count",
+            "guard-uncertainty", "guard-stop-unobserved", "guard-mask-setup", "guard-mask-restore", "guard-mask-precondition"]
+        let validStages = !stages.isEmpty && stages.count <= 20 && stages.allSatisfy(allowed.contains)
+        print("INITIAL_STOP_DIAGNOSTIC \(mode) " + (validStages ? stages.joined(separator: ",") : "invalid"))
+        let maskProof = validStages && ["mask-seeded", "postwait-mask-pending", "handler-mask-restored", "cleanup-confirmed"].allSatisfy(stages.contains)
+            && stages.filter { $0.hasPrefix("inherited-term-") }.count == 1
+            && stages.filter { $0.hasPrefix("handler-term-") }.count == 1
+            && !stages.contains(where: { $0.hasPrefix("guard-") || $0 == "fallback-cleanup" })
+        if !maskProof || observed?.exitStatus != 143 { preserveTemporaryDirectory(root, reason: "STOP retirement fixture evidence incomplete") }
+        let result = try #require(observed)
+        #expect(maskProof)
         #expect(result.exitStatus == 143)
         #expect(result.text == "postwait-masked\n\(mode)-cleanup\n")
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("status.stopped").path))
@@ -1265,6 +1350,8 @@ struct CLIAuthenticationScriptBuilderTests {
           my $pending = POSIX::SigSet->new();
           defined(POSIX::sigpending($pending)) && $pending->ismember(POSIX::SIGTERM()) or die "stop not masked";
           die "early stop permission" if -e "${status_path}.stopped";
+          my $ready_before = $read_stop_control->("${status_path}.ready");
+          die "ready phase not empty before permission" unless defined($ready_before) && $ready_before eq "";
           open my $proof, ">", $ENV{AI_METER_TEST_FORK_PROOF} or die "proof open";
           print {$proof} "fork-masked\n"; close $proof or die "proof close";
         }
@@ -1280,7 +1367,7 @@ struct CLIAuthenticationScriptBuilderTests {
         }
         """#
         try replaceOnce(reaped, observedReap)
-        let permit = "if (!atomic_publish_status(\"${status_path}.stopped\", \"guardian_stop_accepted_v1:$$:$nonce\")) {"
+        let permit = "if (!atomic_publish_status(\"${status_path}.ready\", \"guardian_stop_accepted_v1:$$:$nonce\")) {"
         let observedPermit = #"""
         die "permission before real reap" unless $fixture_preexec_reaped;
         open my $proof, ">>", $ENV{AI_METER_TEST_FORK_PROOF} or die "proof open";
@@ -1592,7 +1679,77 @@ struct CLIAuthenticationScriptBuilderTests {
         #expect(result.terminationStatus == 130)
         #expect(!FileManager.default.fileExists(atPath: release.path))
         #expect(!FileManager.default.fileExists(atPath: cliMarker.path))
+        let finalStatus = (try? String(contentsOf: status, encoding: .utf8)) ?? ""
+        let statusClass = ["ready\n", "helper_cancelled\n", "helper_stop_unconfirmed\n", "process_state_unavailable\n"].contains(finalStatus)
+            ? finalStatus.trimmingCharacters(in: .newlines) : "other"
+        print("PREFORK_STOP_STATUS \(statusClass)")
         #expect(try String(contentsOf: status, encoding: .utf8) == "helper_cancelled\n")
+    }
+
+    @Test("A failed pre-fork ready permission publication cannot acknowledge cancellation")
+    func preForkPermissionPublicationFailurePreservesUncertainty() throws {
+        let root = temporaryDirectory()
+        defer { removeTemporaryDirectoryUnlessPreserved(root) }
+        let pipe = root.appendingPathComponent("completion.token")
+        try createTokenPipe(at: pipe)
+        let status = pipe.appendingPathExtension("status")
+        let locked = root.appendingPathComponent("gate-locked")
+        let release = root.appendingPathComponent("release-gate")
+        let holder = isolatedProcess(executable: URL(fileURLWithPath: "/usr/bin/perl"), arguments: [
+            "-e", "use Fcntl qw(:DEFAULT); my ($p,$l,$r)=@ARGV; open my $g,'+<',$p or die $!; my $f=pack('qqiss',0,0,0,F_WRLCK,SEEK_SET); defined(fcntl($g,F_SETLKW,$f)) or die $!; open my $m,'>',$l or die $!; close $m; select undef,undef,undef,0.01 until -e $r;",
+            status.appendingPathExtension("lock").path, locked.path, release.path
+        ], in: root)
+        try holder.run()
+        defer { try? Data().write(to: release); if holder.isRunning { holder.terminate() }; holder.waitUntilExit() }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while !FileManager.default.fileExists(atPath: locked.path), ContinuousClock.now < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        try #require(FileManager.default.fileExists(atPath: locked.path))
+        let cliMarker = root.appendingPathComponent("cli-started")
+        let callback = root.appendingPathComponent("callback")
+        let fault = root.appendingPathComponent("permission-rename-failed")
+        let cli = try writeExecutable("#!/bin/sh\ntouch '\(cliMarker.path)'\nexit 0\n", named: "agy", in: root)
+        let opener = try writeExecutable("#!/bin/sh\ntouch '\(callback.path)'\n", named: "open", in: root)
+        let watchdogPID = root.appendingPathComponent("watchdog.pid")
+        let watchdog = try writeTrackedPerlWatchdog(pidFile: watchdogPID, in: root)
+        var script = try CLIAuthenticationScriptBuilder().build(provider: .gemini, executableURL: cli,
+            completionTokenPipeURL: pipe, completionOpenExecutableURL: opener, watchdogExecutableURL: watchdog, loginTimeoutSeconds: 1)
+        let prefix = "use strict; use warnings; use Fcntl qw(:DEFAULT O_NONBLOCK);"
+        let injected = prefix + #"""
+
+        use Errno qw(EROFS);
+        BEGIN {
+          *CORE::GLOBAL::rename = sub {
+            if ($_[1] eq "$ARGV[1].ready") {
+              open my $marker, ">", $ENV{AI_METER_TEST_PERMISSION_FAULT} or die "permission fault marker";
+              print {$marker} "observed\n"; close $marker or die "permission fault close";
+              $! = EROFS; return 0;
+            }
+            return CORE::rename($_[0], $_[1]);
+          };
+        }
+        """#
+        try #require(script.components(separatedBy: prefix).count == 2)
+        script = script.replacingOccurrences(of: prefix, with: injected)
+        let url = root.appendingPathComponent("login.command")
+        try Data(script.utf8).write(to: url)
+        let result = try runIsolatedPTYLogin(scriptURL: url, tokenPipe: pipe,
+            cliPIDFile: root.appendingPathComponent("unused-cli.pid"), watchdogPIDFile: watchdogPID,
+            inputAfterOutput: "handoff received.", cliStartRequired: false, supervisorStartRequired: true,
+            onGuardianReady: { try Data("cancelled\n".utf8).write(to: status.appendingPathExtension("cancel"), options: .atomic) },
+            additionalEnvironment: ["AI_METER_TEST_PERMISSION_FAULT": fault.path], in: root)
+        let faultObserved = (try? String(contentsOf: fault, encoding: .utf8)) == "observed\n"
+        if !faultObserved || !result.cleanupSucceeded { preserveTemporaryDirectory(root, reason: "Pre-fork permission failure boundary incomplete") }
+        #expect(result.wrapperExitedBeforeFallback)
+        #expect(!result.fallbackCleanupUsed)
+        #expect(result.cleanupSucceeded)
+        #expect(result.terminationStatus == 130)
+        #expect(faultObserved)
+        #expect(try String(contentsOf: status, encoding: .utf8) == "helper_stop_unconfirmed\n")
+        #expect(FileManager.default.fileExists(atPath: status.appendingPathExtension("guardian").path))
+        #expect(!FileManager.default.fileExists(atPath: status.appendingPathExtension("stopped").path))
+        #expect(!FileManager.default.fileExists(atPath: cliMarker.path))
+        #expect(!FileManager.default.fileExists(atPath: callback.path))
+        #expect(!FileManager.default.fileExists(atPath: release.path))
     }
 
     @Test("Cancellation after an observed record-lock conflict reaps the supervisor before gate release")
@@ -1624,7 +1781,7 @@ struct CLIAuthenticationScriptBuilderTests {
         let originalGate = #"""
         my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
         while (1) {
-          if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+          if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
           if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
           last if defined(fcntl($gate, F_SETLK, $record_lock));
           if ($! != EINTR && $! != EACCES && $! != EAGAIN && $! != EWOULDBLOCK) { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); }
@@ -1635,7 +1792,7 @@ struct CLIAuthenticationScriptBuilderTests {
         my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
         my $fixture_lock_contention_reported = 0;
         while (1) {
-          if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+          if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
           if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
           last if defined(fcntl($gate, F_SETLK, $record_lock));
           my $fixture_lock_error = 0 + $!;
@@ -1676,6 +1833,10 @@ struct CLIAuthenticationScriptBuilderTests {
         #expect(result.terminationStatus == 130)
         #expect(!FileManager.default.fileExists(atPath: release.path))
         #expect(!FileManager.default.fileExists(atPath: cliMarker.path))
+        let finalStatus = (try? String(contentsOf: status, encoding: .utf8)) ?? ""
+        let statusClass = ["ready\n", "helper_cancelled\n", "helper_stop_unconfirmed\n", "process_state_unavailable\n"].contains(finalStatus)
+            ? finalStatus.trimmingCharacters(in: .newlines) : "other"
+        print("PREFORK_STOP_STATUS \(statusClass)")
         #expect(try String(contentsOf: status, encoding: .utf8) == "helper_cancelled\n")
     }
 
@@ -3654,7 +3815,7 @@ struct CLIAuthenticationScriptBuilderTests {
                 local $/; my $request = <$s>; close $s;
                 if ($request eq $identity) {
                   open my $a, '>', 'authenticated.ack' or die $!; print {$a} $identity; close $a or die $!;
-                  open my $p, '>', 'helper.status.stopped' or die $!;
+                  open my $p, '>', 'helper.status.ready' or die $!;
                   print {$p} "guardian_stop_accepted_v1:$$:0123456789abcdef0123456789abcdef\n";
                   close $p or die $!;
                   _exit(31);
@@ -3739,7 +3900,7 @@ struct CLIAuthenticationScriptBuilderTests {
             process_group_file="$PWD/not-created.group"
             guardian_state_file="$PWD/guardian.state"
             guardian_stop_file="$PWD/guardian.stop"
-            watchdog_ready_file="$PWD/not-created.ready"
+            watchdog_ready_file="$PWD/helper.status.ready"
             cleanup_ack_file="$PWD/helper.status.stopped"
             process_state_executable="$PWD/query.pl"
             agy_pid=""; agy_child_reaped=0; watchdog_pid=""
