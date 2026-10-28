@@ -21,7 +21,7 @@ mod smoke {
         Code0NativeDriver,
         fixture::{
             DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics, NativeSmokeObservation,
-            PolicyFixtureCase, PolicyObservation,
+            PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
         },
     };
     use serde::Serialize;
@@ -84,6 +84,9 @@ mod smoke {
 
         fn observe(&mut self, event: PolicyObservation, request: &Code0WindowRequest) -> bool {
             match event {
+                PolicyObservation::FaultTarget(_)
+                | PolicyObservation::FaultApplied(_)
+                | PolicyObservation::FaultFinal(_) => false,
                 PolicyObservation::BarrierReady(receipt) => {
                     self.barrier_receipts = self.barrier_receipts.saturating_add(1);
                     let valid = receipt.matches(request)
@@ -183,6 +186,226 @@ mod smoke {
                     cleanup_succeeded: state.cleanup_succeeded,
                     runtime_version: &state.runtime_version,
                 },
+            }
+        }
+    }
+
+    // Future-positive oracle: removing the post-success abort, injecting before
+    // the selected successful boundary, or accepting an early blanket denial
+    // must fail. Target/final receipts come only from the real native owner.
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FaultEvidence {
+        target: &'static str,
+        target_receipts: u32,
+        injection_receipts: u32,
+        premature_load_denials: u32,
+        navigate_attempts: u32,
+        script_submissions: u32,
+        cdp_submissions: u32,
+        resource_adds: u32,
+        filter_adds: u32,
+        resource_removals: u32,
+        filter_removals: u32,
+        script_removals: u32,
+        policy_failures: u32,
+        #[serde(skip)]
+        case: PolicyFixtureCase,
+        #[serde(skip)]
+        target_events: u8,
+        #[serde(skip)]
+        final_events: u8,
+    }
+
+    impl FaultEvidence {
+        fn new(case: PolicyFixtureCase) -> Self {
+            Self {
+                target: case.fault_target().unwrap().name(),
+                target_receipts: 0,
+                injection_receipts: 0,
+                premature_load_denials: 0,
+                navigate_attempts: 0,
+                script_submissions: 0,
+                cdp_submissions: 0,
+                resource_adds: 0,
+                filter_adds: 0,
+                resource_removals: 0,
+                filter_removals: 0,
+                script_removals: 0,
+                policy_failures: 0,
+                case,
+                target_events: 0,
+                final_events: 0,
+            }
+        }
+
+        fn observe(
+            &mut self,
+            receipt: PolicyFaultReceipt,
+            request: &Code0WindowRequest,
+            final_snapshot: bool,
+        ) -> bool {
+            if !receipt.matches(request) || Some(receipt.target()) != self.case.fault_target() {
+                return false;
+            }
+            let c = receipt.counts();
+            if final_snapshot {
+                self.final_events = self.final_events.saturating_add(1);
+                if self.final_events != 1 || c[0] != self.target_receipts {
+                    return false;
+                }
+            } else {
+                self.target_events = self.target_events.saturating_add(1);
+                if self.target_events != 1 || self.final_events != 0 || c[0] != 1 {
+                    return false;
+                }
+            }
+            let previous = [
+                self.target_receipts,
+                self.injection_receipts,
+                self.premature_load_denials,
+                self.navigate_attempts,
+                self.script_submissions,
+                self.cdp_submissions,
+                self.resource_adds,
+                self.filter_adds,
+                self.resource_removals,
+                self.filter_removals,
+                self.script_removals,
+            ];
+            if c.iter()
+                .zip(previous)
+                .any(|(current, prior)| *current < prior)
+            {
+                return false;
+            }
+            [
+                self.target_receipts,
+                self.injection_receipts,
+                self.premature_load_denials,
+                self.navigate_attempts,
+                self.script_submissions,
+                self.cdp_submissions,
+                self.resource_adds,
+                self.filter_adds,
+                self.resource_removals,
+                self.filter_removals,
+                self.script_removals,
+            ] = c;
+            true
+        }
+
+        fn observe_applied(
+            &mut self,
+            receipt: PolicyFaultReceipt,
+            request: &Code0WindowRequest,
+        ) -> bool {
+            let c = receipt.counts();
+            if !receipt.matches(request)
+                || Some(receipt.target()) != self.case.fault_target()
+                || self.case == PolicyFixtureCase::InstallPrematureLoadDenied
+                || self.target_events != 1
+                || self.target_receipts != 1
+                || self.final_events != 0
+                || self.injection_receipts != 0
+                || c != [
+                    self.target_receipts,
+                    1,
+                    self.premature_load_denials,
+                    self.navigate_attempts,
+                    self.script_submissions,
+                    self.cdp_submissions,
+                    self.resource_adds,
+                    self.filter_adds,
+                    self.resource_removals,
+                    self.filter_removals,
+                    self.script_removals,
+                ]
+            {
+                return false;
+            }
+            self.injection_receipts = c[1];
+            true
+        }
+
+        fn positive(&self, install: &PolicyEvidence, state: &Summary) -> bool {
+            let p0 = self.case == PolicyFixtureCase::InstallPrematureLoadDenied;
+            let (resources, filters) = match self.case {
+                PolicyFixtureCase::InstallAddInjectedFailure => (1, 0),
+                PolicyFixtureCase::InstallFilterInjectedFailure => (1, 1),
+                _ => (0, 0),
+            };
+            self.target_events == 1
+                && self.final_events == 1
+                && self.target_receipts == 1
+                && self.injection_receipts == u32::from(!p0)
+                && self.premature_load_denials == u32::from(p0)
+                && self.navigate_attempts == 0
+                && self.script_submissions == 0
+                && self.cdp_submissions == 0
+                && self.script_removals == 0
+                && self.resource_adds == resources
+                && self.resource_removals == resources
+                && self.filter_adds == filters
+                && self.filter_removals == filters
+                && self.policy_failures == u32::from(!p0)
+                && install.submissions == u8::from(!p0)
+                && !install.submission_accepted
+                && install.install_rejected != p0
+                && install.barrier_receipts == 0
+                && !install.script_acknowledged
+                && !install.cdp_acknowledged
+                && install.first_load_receipts == 0
+                && install.document_receipts == 0
+                && !install.source_matched
+                && !install.synthetic_response_applied
+                && !install.canonical_ready_control
+                && !install.ack_before_first_load
+                && state.sta_main
+                && state.callback_affinity
+                && state.no_inherited_override
+                && state.engine_ready
+                && state.bare_hidden_unfocused
+                && state.construction_observed
+                && !state.bare_window_violation
+                && state.profile_isolated
+                && state.destroyed
+                && state.owned_references_released
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FaultSummary<'a> {
+        schema: u8,
+        run_id: &'a str,
+        required_case: &'static str,
+        selected_cases: u8,
+        completed_cases: u8,
+        pass: bool,
+        failure: &'static str,
+        install: &'a PolicyEvidence,
+        lifecycle: PolicyLifecycle<'a>,
+        fault: &'a FaultEvidence,
+    }
+
+    impl<'a> FaultSummary<'a> {
+        fn snapshot(
+            state: &'a Summary,
+            install: &'a PolicyEvidence,
+            fault: &'a FaultEvidence,
+        ) -> Self {
+            Self {
+                schema: 2,
+                run_id: &state.run_id,
+                required_case: fault.case.name(),
+                selected_cases: 1,
+                completed_cases: state.completed_cases,
+                pass: state.pass,
+                failure: state.failure,
+                install,
+                lifecycle: PolicySummary::snapshot(state, install).lifecycle,
+                fault,
             }
         }
     }
@@ -351,7 +574,7 @@ mod smoke {
                 std::process::exit(124);
             }
         });
-        let outcome = run_case(Arc::clone(&summary), Arc::clone(&diagnostics), None);
+        let outcome = run_case(Arc::clone(&summary), Arc::clone(&diagnostics), None, None);
         if outcome.is_err() {
             diagnostics.phase(DP::SummaryLock, false);
             summary.lock().unwrap().failure = "fixtureSetupFailed";
@@ -429,6 +652,7 @@ mod smoke {
             Arc::clone(&summary),
             Arc::clone(&diagnostics),
             Some(Arc::clone(&install)),
+            None,
         );
         if outcome.is_err() {
             summary.lock().unwrap().failure = "fixtureSetupFailed";
@@ -446,11 +670,99 @@ mod smoke {
         Ok(passed)
     }
 
+    pub fn run_fault(case: PolicyFixtureCase) -> Result<bool, Box<dyn std::error::Error>> {
+        let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
+        if run_id.is_empty()
+            || run_id.len() > 64
+            || !run_id
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || v == b'-' || v == b'_')
+        {
+            return Err("invalid policy fixture run ID".into());
+        }
+        let output = PathBuf::from(
+            std::env::var_os("AI_METER_CODE0_POLICY_SUMMARY")
+                .ok_or("missing fresh policy summary path")?,
+        );
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)?;
+        let summary = Arc::new(Mutex::new(Summary {
+            run_id,
+            failure: "notCompleted",
+            ..Summary::default()
+        }));
+        let install = Arc::new(Mutex::new(PolicyEvidence::default()));
+        let fault = Arc::new(Mutex::new(FaultEvidence::new(case)));
+        write_summary(
+            &mut file,
+            &FaultSummary::snapshot(
+                &summary.lock().unwrap(),
+                &install.lock().unwrap(),
+                &fault.lock().unwrap(),
+            ),
+        )?;
+        let evidence = Arc::new(Mutex::new(file));
+        let diagnostics = Arc::new(Diagnostics::from_env());
+        let (watchdog_done, watchdog_rx) = mpsc::channel();
+        let hard_run_id = summary.lock().unwrap().run_id.clone();
+        let hard_evidence = Arc::clone(&evidence);
+        let watchdog_diagnostics = Arc::clone(&diagnostics);
+        let watchdog = thread::spawn(move || {
+            if watchdog_rx.recv_timeout(Duration::from_secs(75)).is_err() {
+                watchdog_diagnostics.emit_once(true);
+                let failed = Summary {
+                    run_id: hard_run_id,
+                    failure: "watchdogTimeout",
+                    ..Summary::default()
+                };
+                if let Ok(mut file) = hard_evidence.try_lock() {
+                    let _ = write_summary(
+                        &mut file,
+                        &FaultSummary::snapshot(
+                            &failed,
+                            &PolicyEvidence::default(),
+                            &FaultEvidence::new(case),
+                        ),
+                    );
+                }
+                std::process::exit(124);
+            }
+        });
+        let outcome = run_case(
+            Arc::clone(&summary),
+            Arc::clone(&diagnostics),
+            Some(Arc::clone(&install)),
+            Some(Arc::clone(&fault)),
+        );
+        if outcome.is_err() {
+            summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        let passed = summary.lock().unwrap().pass;
+        let write_result = write_summary(
+            &mut evidence.lock().unwrap(),
+            &FaultSummary::snapshot(
+                &summary.lock().unwrap(),
+                &install.lock().unwrap(),
+                &fault.lock().unwrap(),
+            ),
+        );
+        let _ = watchdog_done.send(());
+        let _ = watchdog.join();
+        diagnostics.emit_once(false);
+        write_result?;
+        outcome?;
+        Ok(passed)
+    }
+
     fn run_case(
         summary: Arc<Mutex<Summary>>,
         diagnostics: Arc<Diagnostics>,
         policy: Option<Arc<Mutex<PolicyEvidence>>>,
+        fault: Option<Arc<Mutex<FaultEvidence>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let fault_case = fault.as_ref().map(|fault| fault.lock().unwrap().case);
         diagnostics.phase(DP::Sta, false);
         let _sta = Sta::initialize()?;
         diagnostics.phase(DP::Sta, true);
@@ -608,6 +920,7 @@ mod smoke {
         let mut message_count = 0;
         let mut browser_exit_count = 0;
         let final_policy = policy.clone();
+        let final_fault = fault.clone();
         let live_construction = Arc::clone(&construction);
         let ui_diagnostics = Arc::clone(&diagnostics);
         diagnostics.phase(DP::RunReturn, false);
@@ -765,10 +1078,21 @@ mod smoke {
                                 // No summary/install lock crosses the actual driver
                                 // entry. A submission result never supplies an ACK.
                                 drop(state);
+                                if fault_case == Some(PolicyFixtureCase::InstallPrematureLoadDenied)
+                                {
+                                    let denied =
+                                        driver.probe_fixture_premature_policy_load(&request);
+                                    state = observed.lock().unwrap();
+                                    if denied != Err(Code0SessionFailure::PolicyRejected) {
+                                        state.failure = "prematureLoadNotDenied";
+                                    }
+                                    continue;
+                                }
                                 policy.lock().unwrap().submissions += 1;
                                 let installed = driver.begin_fixture_policy_install(
                                     &request,
-                                    PolicyFixtureCase::InstallAckBeforeFirstLoad,
+                                    fault_case
+                                        .unwrap_or(PolicyFixtureCase::InstallAckBeforeFirstLoad),
                                 );
                                 let mut install = policy.lock().unwrap();
                                 install.submission_accepted = installed.is_ok();
@@ -777,8 +1101,13 @@ mod smoke {
                                 drop(install);
                                 state = observed.lock().unwrap();
                                 if let Err(error) = installed {
-                                    state.failure = if error == Code0SessionFailure::PolicyRejected
+                                    state.failure = if fault.is_some()
+                                        && error == Code0SessionFailure::PolicyRejected
                                     {
+                                        "notCompleted"
+                                    } else if fault.is_some() {
+                                        "faultInstallPreconditionFailed"
+                                    } else if error == Code0SessionFailure::PolicyRejected {
                                         "policyInstallRejected"
                                     } else {
                                         "policyInstallFailed"
@@ -806,7 +1135,57 @@ mod smoke {
                         callback_sta,
                     ) => {
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
-                        if let Some(policy) = &policy {
+                        if let Some(fault) = &fault {
+                            match event {
+                                PolicyObservation::FaultTarget(receipt) => {
+                                    if closing_since.is_some()
+                                        || !fault.lock().unwrap().observe(receipt, &request, false)
+                                    {
+                                        state.failure = "faultTargetReceiptInvalid";
+                                    }
+                                }
+                                PolicyObservation::FaultApplied(receipt) => {
+                                    if closing_since.is_some()
+                                        || !fault.lock().unwrap().observe_applied(receipt, &request)
+                                    {
+                                        state.failure = "faultAppliedReceiptInvalid";
+                                    }
+                                }
+                                PolicyObservation::FaultFinal(receipt) => {
+                                    if closing_since.is_none()
+                                        || !fault.lock().unwrap().observe(receipt, &request, true)
+                                    {
+                                        state.failure = "faultFinalReceiptInvalid";
+                                    }
+                                }
+                                PolicyObservation::BarrierReady(receipt) => {
+                                    let valid = closing_since.is_none()
+                                        && policy.as_ref().unwrap().lock().unwrap().observe(
+                                            PolicyObservation::BarrierReady(receipt),
+                                            &request,
+                                        );
+                                    let fault = fault.lock().unwrap();
+                                    state.failure = if state.failure != "notCompleted" {
+                                        state.failure
+                                    } else if !valid {
+                                        "faultBarrierReceiptInvalid"
+                                    } else if fault.target_events == 1
+                                        && fault.target_receipts == 1
+                                        && fault.injection_receipts == 0
+                                    {
+                                        "faultNotApplied"
+                                    } else {
+                                        "faultTargetPreconditionFailed"
+                                    };
+                                    // An unexpected real barrier proves continuation. Close
+                                    // through R4 below; never call the controlled loader.
+                                }
+                                PolicyObservation::FirstControlledLoad(_)
+                                | PolicyObservation::ControlledDocumentReady(_) => {
+                                    state.failure = "unexpectedFaultLoad";
+                                }
+                            }
+                        } else if let Some(policy) = &policy {
                             let barrier = matches!(&event, PolicyObservation::BarrierReady(_));
                             let valid = closing_since.is_none()
                                 && policy.lock().unwrap().observe(event, &request);
@@ -877,6 +1256,37 @@ mod smoke {
                             ui_diagnostics.observed(DM::Released);
                         }
                     }
+                    Observation::Session(
+                        owned,
+                        Code0WindowEvent::Failed(reason),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        if let Some(fault) = &fault {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut fault = fault.lock().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                fault.policy_failures = fault.policy_failures.saturating_add(1);
+                                state.failure = if fault.target_events == 1
+                                    && fault.injection_receipts == 1
+                                    && fault.policy_failures == 1
+                                {
+                                    state.failure
+                                } else {
+                                    "faultFailureWithoutInjection"
+                                };
+                            } else {
+                                state.failure = if reason == Code0SessionFailure::CleanupFailed {
+                                    "faultNativeCleanupFailed"
+                                } else {
+                                    "faultUnexpectedNativeFailure"
+                                };
+                            }
+                        } else {
+                            state.failure = "unexpectedProductionEvent";
+                        }
+                    }
                     Observation::Session(_, _, _, _) => {
                         // This smoke never installs the production policy set or captures official data.
                         state.failure = "unexpectedProductionEvent";
@@ -903,6 +1313,12 @@ mod smoke {
             if state.bare_window_violation {
                 state.failure = "bareWindowViolation";
             }
+            let fault_target_ready = fault.as_ref().is_some_and(|fault| {
+                let fault = fault.lock().unwrap();
+                (fault.case == PolicyFixtureCase::InstallPrematureLoadDenied
+                    && fault.target_events == 1)
+                    || fault.policy_failures != 0
+            });
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
@@ -911,12 +1327,17 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = "installAcknowledgementsMissing";
+                state.failure = if fault.is_some() {
+                    "faultTargetPreconditionFailed"
+                } else {
+                    "installAcknowledgementsMissing"
+                };
             }
             if !object_free_failure
                 && closing_since.is_none()
                 && (state.renderer_message
                     || policy_document_ready
+                    || fault_target_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
@@ -941,8 +1362,27 @@ mod smoke {
                 if state.destroyed && state.owned_references_released {
                     let positive = policy.as_ref().map_or_else(
                         || state.positive(),
-                        |policy| policy.lock().unwrap().positive(&state),
+                        |policy| {
+                            let install = policy.lock().unwrap();
+                            fault.as_ref().map_or_else(
+                                || install.positive(&state),
+                                |fault| fault.lock().unwrap().positive(&install, &state),
+                            )
+                        },
                     );
+                    if let Some(fault) = &fault
+                        && !positive
+                        && state.failure == "notCompleted"
+                    {
+                        let fault = fault.lock().unwrap();
+                        state.failure = if fault.target_events != 1 {
+                            "faultTargetPreconditionFailed"
+                        } else if fault.final_events != 1 {
+                            "faultFinalReceiptMissing"
+                        } else {
+                            "faultPositiveOracleMismatch"
+                        };
+                    }
                     let code = if positive && state.failure == "notCompleted" {
                         0
                     } else {
@@ -1006,7 +1446,13 @@ mod smoke {
         state.completed_cases = 1;
         let positive = final_policy.as_ref().map_or_else(
             || state.positive(),
-            |policy| policy.lock().unwrap().positive(&state),
+            |policy| {
+                let install = policy.lock().unwrap();
+                final_fault.as_ref().map_or_else(
+                    || install.positive(&state),
+                    |fault| fault.lock().unwrap().positive(&install, &state),
+                )
+            },
         );
         state.pass =
             exit_code == 0 && state.failure == "notCompleted" && positive && cleanup_succeeded;
@@ -1022,11 +1468,24 @@ mod smoke {
 fn main() {
     #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
     let result = {
+        use ai_token_meter_windows::platform::windows::code0_webview::fixture::PolicyFixtureCase;
         let arguments: Vec<_> = std::env::args_os().skip(1).collect();
         match arguments.as_slice() {
             [] => smoke::run(),
             [selector] if selector == "--code0-policy-fixture=install-ack-before-first-load" => {
                 smoke::run_policy()
+            }
+            [selector] if selector == "--code0-policy-fixture=install-premature-load-denied" => {
+                smoke::run_fault(PolicyFixtureCase::InstallPrematureLoadDenied)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-setting-injected-failure" => {
+                smoke::run_fault(PolicyFixtureCase::InstallSettingInjectedFailure)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-add-injected-failure" => {
+                smoke::run_fault(PolicyFixtureCase::InstallAddInjectedFailure)
+            }
+            [selector] if selector == "--code0-policy-fixture=install-filter-injected-failure" => {
+                smoke::run_fault(PolicyFixtureCase::InstallFilterInjectedFailure)
             }
             _ => Err("unknown or multiple fixture selectors".into()),
         }

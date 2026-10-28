@@ -358,6 +358,8 @@ mod native {
         policy: Option<p1::Installation>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         policy_mailbox: Option<Arc<p1::Mailbox>>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        policy_fault: p1::FaultState,
     }
 
     impl Owner {
@@ -548,6 +550,8 @@ mod native {
             policy: None,
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             policy_mailbox: None,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            policy_fault: p1::FaultState::default(),
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -1544,6 +1548,7 @@ mod native {
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if released {
                 phase!(owner, ReleasedDispatch, false);
+                p1::publish_final_fault(owner);
             }
             events(request, event);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1571,10 +1576,24 @@ mod native {
         case: super::fixture::PolicyFixtureCase,
     ) -> Result<(), Code0SessionFailure> {
         match case {
-            super::fixture::PolicyFixtureCase::InstallAckBeforeFirstLoad => {
-                p1::begin(owner, request)
+            super::fixture::PolicyFixtureCase::InstallPrematureLoadDenied => {
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+            super::fixture::PolicyFixtureCase::InstallAckBeforeFirstLoad
+            | super::fixture::PolicyFixtureCase::InstallSettingInjectedFailure
+            | super::fixture::PolicyFixtureCase::InstallAddInjectedFailure
+            | super::fixture::PolicyFixtureCase::InstallFilterInjectedFailure => {
+                p1::begin(owner, request, case)
             }
         }
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn probe_premature_policy_load(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> Result<(), Code0SessionFailure> {
+        p1::premature_load(owner, request)
     }
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1590,7 +1609,7 @@ mod native {
     mod p1 {
         use super::super::fixture::{
             ControlledDocumentReceipt, ControlledLoadReceipt, InstallBarrierReceipt,
-            PolicyObservation,
+            PolicyFaultReceipt, PolicyFaultTarget, PolicyFixtureCase, PolicyObservation,
         };
         use super::*;
         use crate::collectors::code0_bridge::{
@@ -1611,6 +1630,139 @@ mod native {
         const MAIN: &[u8] = br#"<!doctype html><meta charset="utf-8"><title>Code0 P1</title><script nonce="code0-p1-fixed">document.addEventListener('DOMContentLoaded',()=>{window.chrome.webview.postMessage({kind:'code0InstallDocumentComplete',value:1});},{once:true});</script>"#;
         const REFUSAL: &[u8] = b"Code0 P1 synthetic refusal";
         const HEADERS: &str = "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; script-src 'nonce-code0-p1-fixed'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\r\n";
+
+        // Observation-only data remains on the existing Instance through native
+        // teardown. No count participates in readiness, cleanup or release.
+        #[derive(Default)]
+        pub(super) struct FaultState {
+            case: Option<PolicyFixtureCase>,
+            // target, injection, premature denial, Navigate, script, CDP,
+            // resource add, filter add, resource remove, filter remove, script remove.
+            counts: [u32; 11],
+            final_sent: bool,
+        }
+
+        // Fixed successful native actions / actual call-attempt boundaries only.
+        // There is intentionally no injection counter operation in this RED stage.
+        enum Count {
+            PrematureDenial = 2,
+            Navigate = 3,
+            ScriptSubmission = 4,
+            CdpSubmission = 5,
+            ResourceAdd = 6,
+            FilterAdd = 7,
+            ResourceRemoval = 8,
+            FilterRemoval = 9,
+            ScriptRemoval = 10,
+        }
+
+        fn count(owner: &Rc<RefCell<Owner>>, operation: Count) {
+            let mut state = owner.borrow_mut();
+            let fault = &mut state.instance.as_mut().unwrap().policy_fault;
+            let index = operation as usize;
+            fault.counts[index] = fault.counts[index].saturating_add(1);
+        }
+
+        fn target_succeeded(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            target: PolicyFaultTarget,
+        ) {
+            let notification = {
+                let mut state = owner.borrow_mut();
+                let Some(i) = matching(&mut state, request) else {
+                    return;
+                };
+                let fault = &mut i.policy_fault;
+                if fault.case.and_then(PolicyFixtureCase::fault_target) != Some(target) {
+                    return;
+                }
+                fault.counts[0] = fault.counts[0].saturating_add(1);
+                (
+                    i.observer.clone(),
+                    PolicyFaultReceipt {
+                        request: request.clone(),
+                        target,
+                        counts: fault.counts,
+                    },
+                )
+            };
+            if let (Some(observer), receipt) = notification {
+                observer(NativeSmokeObservation::Policy(
+                    PolicyObservation::FaultTarget(receipt),
+                ));
+            }
+            // RED scaffold deliberately has no fault-application producer. The
+            // unchanged P1 installation must reach its real script/CDP barrier.
+        }
+
+        pub(super) fn publish_final_fault(owner: &Rc<RefCell<Owner>>) {
+            let notification = {
+                let mut state = owner.borrow_mut();
+                let Some(i) = state.instance.as_mut() else {
+                    return;
+                };
+                let fault = &mut i.policy_fault;
+                let Some(target) = fault.case.and_then(PolicyFixtureCase::fault_target) else {
+                    return;
+                };
+                if fault.final_sent {
+                    return;
+                }
+                fault.final_sent = true;
+                (
+                    i.observer.clone(),
+                    PolicyFaultReceipt {
+                        request: i.request.clone(),
+                        target,
+                        counts: fault.counts,
+                    },
+                )
+            };
+            if let (Some(observer), receipt) = notification {
+                observer(NativeSmokeObservation::Policy(
+                    PolicyObservation::FaultFinal(receipt),
+                ));
+            }
+        }
+
+        pub(super) fn premature_load(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            if !on_ui(owner) {
+                return Err(Code0SessionFailure::PolicyRejected);
+            }
+            {
+                let mut state = owner.borrow_mut();
+                if state.unmatched {
+                    return Err(Code0SessionFailure::PolicyRejected);
+                }
+                let i = matching(&mut state, request).ok_or(Code0SessionFailure::PolicyRejected)?;
+                if i.closing
+                    || i.failed
+                    || i.inline_loaded
+                    || i.policy.is_some()
+                    || i.policy_mailbox.is_some()
+                    || i.policy_fault.case.is_some()
+                    || i.core.is_none()
+                    || i.environment.is_none()
+                    || i.controller.is_none()
+                    || i.message_token.is_none()
+                {
+                    return Err(Code0SessionFailure::PolicyRejected);
+                }
+                i.policy_fault.case = Some(PolicyFixtureCase::InstallPrematureLoadDenied);
+            }
+            // This actually invokes the same finite controlled loader before
+            // begin; its live/installed gate, not this helper, must deny it.
+            let result = load(owner, request);
+            if result == Err(Code0SessionFailure::PolicyRejected) {
+                count(owner, Count::PrematureDenial);
+                target_succeeded(owner, request, PolicyFaultTarget::PrematureLoad);
+            }
+            result
+        }
 
         // Rc snapshots do not call COM while Owner is borrowed. Every actual
         // interface is disposed with the R4 nonterminal control stage. Event
@@ -1943,6 +2095,7 @@ mod native {
         pub(super) fn begin(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
+            case: PolicyFixtureCase,
         ) -> Result<(), Code0SessionFailure> {
             if !on_ui(owner) {
                 return Err(Code0SessionFailure::PolicyRejected);
@@ -1975,6 +2128,13 @@ mod native {
                 }
                 Arc::clone(&i.callbacks)
             };
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .policy_fault
+                .case = Some(case);
             let _action = Active::enter(&callbacks);
             // Move original refs out before AddRef, then restore them. Active
             // prevents a reentrant poll from treating the temporary move as free.
@@ -2081,6 +2241,8 @@ mod native {
                 false
             );
             setting!(SetAreHostObjectsAllowed, AreHostObjectsAllowed, false);
+            target_succeeded(owner, request, PolicyFaultTarget::HostObjectsSetting);
+            require_live(owner, request)?;
             let core22 = Rc::new(core.cast::<ICoreWebView2_22>()?);
             owner
                 .borrow_mut()
@@ -2141,9 +2303,11 @@ mod native {
                     .as_mut()
                     .unwrap()
                     .resource_token = Some(token);
+                count(owner, Count::ResourceAdd);
             }
             drop(handler);
             result?;
+            target_succeeded(owner, request, PolicyFaultTarget::ResourceAdd);
             require_live(owner, request)?;
             let filtered = unsafe {
                 core22.AddWebResourceRequestedFilterWithRequestSourceKinds(
@@ -2162,8 +2326,10 @@ mod native {
                     .as_mut()
                     .unwrap()
                     .filter = true;
+                count(owner, Count::FilterAdd);
             }
             filtered?;
+            target_succeeded(owner, request, PolicyFaultTarget::AllSourceFilter);
             require_live(owner, request)?;
             let receiver = Rc::new(unsafe {
                 core.GetDevToolsProtocolEventReceiver(w!("Page.fileChooserOpened"))
@@ -2266,6 +2432,7 @@ mod native {
                 .as_mut()
                 .unwrap()
                 .script_submitted = true;
+            count(owner, Count::ScriptSubmission);
             let submitted = unsafe {
                 core.AddScriptToExecuteOnDocumentCreated(PCWSTR(script.as_ptr()), &handler)
             };
@@ -2295,6 +2462,7 @@ mod native {
                 .as_mut()
                 .unwrap()
                 .cdp_submitted = true;
+            count(owner, Count::CdpSubmission);
             let result = unsafe {
                 core.CallDevToolsProtocolMethod(
                     w!("Page.setInterceptFileChooserDialog"),
@@ -2567,6 +2735,9 @@ mod native {
                 (Rc::clone(&p.core), i.observer.clone())
             };
             require_live(owner, request).map_err(|_| Code0SessionFailure::PolicyRejected)?;
+            // Counts only this compiled fixed-controlled call boundary; it
+            // makes no claim about implicit/default browser navigation.
+            count(owner, Count::Navigate);
             let result = unsafe {
                 core.Navigate(w!(
                     "https://console.code0.ai/__ai_meter_fixture__/install-p1"
@@ -2833,6 +3004,7 @@ mod native {
                         .as_mut()
                         .unwrap()
                         .resource_token = None;
+                    count(owner, Count::ResourceRemoval);
                 }
                 cleanup_result(owner, result);
             }
@@ -2891,6 +3063,7 @@ mod native {
                         .as_mut()
                         .unwrap()
                         .filter = false;
+                    count(owner, Count::FilterRemoval);
                 }
                 cleanup_result(owner, result);
             }
@@ -2925,6 +3098,7 @@ mod native {
                         .unwrap()
                         .scripts
                         .retain(|(stored, _)| stored != &id);
+                    count(owner, Count::ScriptRemoval);
                 }
                 cleanup_result(owner, result);
             }
@@ -2994,14 +3168,85 @@ pub mod fixture {
 
     use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum PolicyFixtureCase {
         InstallAckBeforeFirstLoad,
+        InstallPrematureLoadDenied,
+        InstallSettingInjectedFailure,
+        InstallAddInjectedFailure,
+        InstallFilterInjectedFailure,
+    }
+
+    impl PolicyFixtureCase {
+        pub fn name(self) -> &'static str {
+            match self {
+                Self::InstallAckBeforeFirstLoad => "install-ack-before-first-load",
+                Self::InstallPrematureLoadDenied => "install-premature-load-denied",
+                Self::InstallSettingInjectedFailure => "install-setting-injected-failure",
+                Self::InstallAddInjectedFailure => "install-add-injected-failure",
+                Self::InstallFilterInjectedFailure => "install-filter-injected-failure",
+            }
+        }
+        pub fn fault_target(self) -> Option<PolicyFaultTarget> {
+            match self {
+                Self::InstallAckBeforeFirstLoad => None,
+                Self::InstallPrematureLoadDenied => Some(PolicyFaultTarget::PrematureLoad),
+                Self::InstallSettingInjectedFailure => Some(PolicyFaultTarget::HostObjectsSetting),
+                Self::InstallAddInjectedFailure => Some(PolicyFaultTarget::ResourceAdd),
+                Self::InstallFilterInjectedFailure => Some(PolicyFaultTarget::AllSourceFilter),
+            }
+        }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    pub enum PolicyFaultTarget {
+        PrematureLoad,
+        HostObjectsSetting,
+        ResourceAdd,
+        AllSourceFilter,
+    }
+
+    impl PolicyFaultTarget {
+        pub fn name(self) -> &'static str {
+            match self {
+                Self::PrematureLoad => "premature-load",
+                Self::HostObjectsSetting => "host-objects-setting",
+                Self::ResourceAdd => "resource-add",
+                Self::AllSourceFilter => "all-source-filter",
+            }
+        }
+    }
+
+    /// Sealed observation-only snapshot: no Default, constructor, native refs,
+    /// tokens, IDs, paths or raw results. No consumer can grant install authority.
+    pub struct PolicyFaultReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) target: PolicyFaultTarget,
+        pub(super) counts: [u32; 11],
+    }
+
+    impl PolicyFaultReceipt {
+        pub fn matches(&self, request: &Code0WindowRequest) -> bool {
+            &self.request == request
+        }
+        pub fn target(&self) -> PolicyFaultTarget {
+            self.target
+        }
+        /// target, injection, premature denial, fixed Navigate, script submit,
+        /// CDP submit, resource add, filter add, resource remove, filter remove,
+        /// script remove. Every counter saturates at u32::MAX.
+        pub fn counts(&self) -> [u32; 11] {
+            self.counts
+        }
     }
 
     /// Opaque partial-debug receipts are produced only by the native owner at
     /// actual boundaries. No public constructor or callback-injection API.
     pub enum PolicyObservation {
+        FaultTarget(PolicyFaultReceipt),
+        // Reserved future-positive observation; no RED producer exists.
+        FaultApplied(PolicyFaultReceipt),
+        FaultFinal(PolicyFaultReceipt),
         BarrierReady(InstallBarrierReceipt),
         FirstControlledLoad(ControlledLoadReceipt),
         ControlledDocumentReady(ControlledDocumentReceipt),
@@ -3385,6 +3630,30 @@ pub mod fixture {
             #[cfg(not(windows))]
             {
                 let _ = (request, case);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// Invoke the finite loader on this real engine before installation.
+        /// Only the loader's actual PolicyRejected result can produce a receipt.
+        pub fn probe_fixture_premature_policy_load(
+            &mut self,
+            request: &Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::probe_premature_policy_load(&self.owner, request)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = request;
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }

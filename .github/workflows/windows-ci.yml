@@ -240,6 +240,199 @@ jobs:
           path: ${{ runner.temp }}/code0-policy-p1-${{ github.run_id }}-${{ github.run_attempt }}.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 synchronous install boundaries
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $cases = @(
+            @{ tag = "p0"; id = "install-premature-load-denied" },
+            @{ tag = "p2"; id = "install-setting-injected-failure" },
+            @{ tag = "p3"; id = "install-add-injected-failure" },
+            @{ tag = "p9"; id = "install-filter-injected-failure" }
+          )
+          $records = [System.Collections.Generic.List[object]]::new()
+          $failed = $false
+          foreach ($case in $cases) {
+            $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-$($case.tag)-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+            $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+            $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+            & cargo test --locked --features code0-native-fixture --test code0_native_fixture -- "--code0-policy-fixture=$($case.id)"
+            $code = $LASTEXITCODE
+            $records.Add([ordered]@{ tag = $case.tag; requiredCase = $case.id; exitCode = [int]$code })
+            if ($code -ne 0) { $failed = $true }
+          }
+          $runId = "code0-policy-sync-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $exitPath = Join-Path $env:RUNNER_TEMP "$runId-exits.json"
+          $payload = [ordered]@{ schema = 1; runId = $runId; cases = @($records.ToArray()) } | ConvertTo-Json -Depth 5 -Compress
+          $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
+          $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+          if ($failed) { exit 1 }
+      - name: Verify Code0 synchronous install evidence
+        if: always()
+        shell: python
+        run: |
+          import copy
+          import json
+          import os
+          from pathlib import Path
+          import re
+          cases = {
+              'p0': ('install-premature-load-denied', 'premature-load'),
+              'p2': ('install-setting-injected-failure', 'host-objects-setting'),
+              'p3': ('install-add-injected-failure', 'resource-add'),
+              'p9': ('install-filter-injected-failure', 'all-source-filter'),
+          }
+          top = {'schema', 'runId', 'requiredCase', 'selectedCases', 'completedCases', 'pass', 'failure', 'install', 'lifecycle', 'fault'}
+          install_counts = {'submissions', 'barrierReceipts', 'firstLoadReceipts', 'documentReceipts'}
+          install_bools = {'submissionAccepted', 'installRejected', 'scriptAcknowledged', 'cdpAcknowledged', 'sourceMatched', 'syntheticResponseApplied', 'canonicalReadyControl', 'ackBeforeFirstLoad'}
+          life_positive = {'staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady', 'bareHiddenUnfocused', 'constructionObserved', 'profileIsolated', 'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded'}
+          life_fields = life_positive | {'bareWindowViolation', 'runtimeVersion'}
+          fault_counts = {'targetReceipts', 'injectionReceipts', 'prematureLoadDenials', 'navigateAttempts', 'scriptSubmissions', 'cdpSubmissions', 'resourceAdds', 'filterAdds', 'resourceRemovals', 'filterRemovals', 'scriptRemovals', 'policyFailures'}
+          def unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate evidence member')
+                  result[key] = value
+              return result
+          def invalid_constant(_):
+              raise ValueError('non-JSON evidence number')
+          def decode(raw):
+              if len(raw) > 8192:
+                  raise ValueError('evidence exceeds limit')
+              return json.loads(raw.decode('utf-8'), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+          def expected_install(tag):
+              d = {**dict.fromkeys(install_counts, 0), **dict.fromkeys(install_bools, False)}
+              if tag != 'p0':
+                  d['submissions'] = 1
+                  d['installRejected'] = True
+              return d
+          def expected_fault(tag):
+              d = {**dict.fromkeys(fault_counts, 0), 'target': cases[tag][1], 'targetReceipts': 1}
+              if tag == 'p0':
+                  d['prematureLoadDenials'] = 1
+              else:
+                  d['injectionReceipts'] = 1
+                  d['policyFailures'] = 1
+              if tag in ('p3', 'p9'):
+                  d['resourceAdds'] = d['resourceRemovals'] = 1
+              if tag == 'p9':
+                  d['filterAdds'] = d['filterRemovals'] = 1
+              return d
+          def validate_case(raw, expected_run, tag):
+              d = decode(raw)
+              if type(d) is not dict or set(d) != top:
+                  raise ValueError('boundary object schema mismatch')
+              for field, expected in (('schema', 2), ('selectedCases', 1), ('completedCases', 1)):
+                  if type(d[field]) is not int or d[field] != expected:
+                      raise ValueError('boundary version or case count mismatch')
+              for field, expected in (('runId', expected_run), ('requiredCase', cases[tag][0]), ('failure', 'none')):
+                  if type(d[field]) is not str or d[field] != expected:
+                      raise ValueError('boundary identity or completion mismatch')
+              if d['pass'] is not True:
+                  raise ValueError('boundary case not GREEN')
+              install, life, fault = d['install'], d['lifecycle'], d['fault']
+              if type(install) is not dict or set(install) != install_counts | install_bools:
+                  raise ValueError('install schema mismatch')
+              for key, expected in expected_install(tag).items():
+                  if key in install_counts:
+                      if type(install[key]) is not int or install[key] != expected:
+                          raise ValueError('install count mismatch')
+                  elif install[key] is not expected:
+                      raise ValueError('unexpected install ACK or rejection')
+              if type(life) is not dict or set(life) != life_fields:
+                  raise ValueError('lifecycle schema mismatch')
+              if any(life[key] is not True for key in life_positive) or life['bareWindowViolation'] is not False:
+                  raise ValueError('actual native lifecycle missing')
+              if type(life['runtimeVersion']) is not str or re.fullmatch(r'[0-9.]{1,128}', life['runtimeVersion']) is None:
+                  raise ValueError('runtime version invalid')
+              if type(fault) is not dict or set(fault) != fault_counts | {'target'}:
+                  raise ValueError('fault schema mismatch')
+              for key, expected in expected_fault(tag).items():
+                  if key == 'target':
+                      if type(fault[key]) is not str or fault[key] != expected:
+                          raise ValueError('wrong fault target')
+                  elif type(fault[key]) is not int or fault[key] != expected:
+                      raise ValueError('fault witness or operation count mismatch')
+          def validate_exits(raw, expected_run):
+              d = decode(raw)
+              if type(d) is not dict or set(d) != {'schema', 'runId', 'cases'}:
+                  raise ValueError('exit schema mismatch')
+              if type(d['schema']) is not int or d['schema'] != 1 or d['runId'] != expected_run or type(d['runId']) is not str:
+                  raise ValueError('exit identity mismatch')
+              if type(d['cases']) is not list or len(d['cases']) != 4:
+                  raise ValueError('exit case count mismatch')
+              for row, (tag, (name, _)) in zip(d['cases'], cases.items()):
+                  if type(row) is not dict or set(row) != {'tag', 'requiredCase', 'exitCode'}:
+                      raise ValueError('exit row schema mismatch')
+                  if row['tag'] != tag or type(row['tag']) is not str or row['requiredCase'] != name or type(row['requiredCase']) is not str:
+                      raise ValueError('exit selection mismatch')
+                  if type(row['exitCode']) is not int or row['exitCode'] != 0:
+                      raise ValueError('native command did not succeed')
+          # In-memory parser canaries ONLY, never native acceptance or output artifacts.
+          for tag in cases:
+              canary = {'schema': 2, 'runId': 'sync-validator-canary', 'requiredCase': cases[tag][0], 'selectedCases': 1, 'completedCases': 1, 'pass': True, 'failure': 'none', 'install': expected_install(tag), 'fault': expected_fault(tag), 'lifecycle': {**dict.fromkeys(life_positive, True), 'bareWindowViolation': False, 'runtimeVersion': '1.2.3.4'}}
+              valid = json.dumps(canary).encode()
+              validate_case(valid, 'sync-validator-canary', tag)
+              malformed = [b'[' + valid + b']', b'{"schema":2,' + valid[1:], valid + b' ' * 8193]
+              for path, value in [(('fault', 'navigateAttempts'), False), (('fault', 'targetReceipts'), 0), (('fault', 'injectionReceipts'), 0 if tag != 'p0' else 1), (('lifecycle', 'ownedReferencesReleased'), False), (('install', 'barrierReceipts'), 1)]:
+                  bad = copy.deepcopy(canary)
+                  bad[path[0]][path[1]] = value
+                  malformed.append(json.dumps(bad).encode())
+              for raw in malformed:
+                  try:
+                      validate_case(raw, 'sync-validator-canary', tag)
+                  except (ValueError, TypeError, UnicodeError):
+                      continue
+                  raise SystemExit('Code0 sync parser self-check failed')
+          exit_canary = {'schema': 1, 'runId': 'sync-exit-canary', 'cases': [{'tag': tag, 'requiredCase': name, 'exitCode': 0} for tag, (name, _) in cases.items()]}
+          validate_exits(json.dumps(exit_canary).encode(), 'sync-exit-canary')
+          for value in (False, 1, 124):
+              bad = copy.deepcopy(exit_canary)
+              bad['cases'][1]['exitCode'] = value
+              try:
+                  validate_exits(json.dumps(bad).encode(), 'sync-exit-canary')
+              except ValueError:
+                  continue
+              raise SystemExit('Code0 exit parser self-check failed')
+          print('Code0 sync parser self-checks passed; no native acceptance implied.')
+          # Actual run artifacts only; case identity derives from CI, never supplied JSON.
+          run, attempt = os.environ['GITHUB_RUN_ID'], os.environ['GITHUB_RUN_ATTEMPT']
+          root = Path(os.environ['RUNNER_TEMP'])
+          failed = False
+          for tag in cases:
+              expected_run = f'code0-policy-{tag}-{run}-{attempt}'
+              try:
+                  with (root / f'{expected_run}.json').open('rb') as source:
+                      validate_case(source.read(8193), expected_run, tag)
+              except (OSError, ValueError, TypeError, UnicodeError):
+                  print(f'Code0 {tag} evidence missing, malformed, or not GREEN.')
+                  failed = True
+          try:
+              expected_run = f'code0-policy-sync-{run}-{attempt}'
+              with (root / f'{expected_run}-exits.json').open('rb') as source:
+                  validate_exits(source.read(8193), expected_run)
+          except (OSError, ValueError, TypeError, UnicodeError):
+              print('Code0 sync native exit evidence missing, malformed, or not GREEN.')
+              failed = True
+          if failed:
+              raise SystemExit('Code0 synchronous install evidence is not GREEN')
+          print('Code0 synchronous install evidence passed: four required separate cases.')
+      - name: Preserve Code0 synchronous install evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-policy-sync
+          path: |
+            ${{ runner.temp }}/code0-policy-p0-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-p2-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-p3-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-p9-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-sync-${{ github.run_id }}-${{ github.run_attempt }}-exits.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug
