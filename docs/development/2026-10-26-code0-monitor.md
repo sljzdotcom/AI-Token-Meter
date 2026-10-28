@@ -440,3 +440,28 @@ P1 driver-only fix1四处窄修已经同一独审者复核，四项均ADDRESSED�
 当前候选driver138438B/4f57ec89a53c73a8d7a28935771ef1caa9e8c90697aa89e74fd1ccb272088b73；fixture1a2b8c4f、Cargo cd3042ad/锁ceffdbb4保持原冻结字节，锁仅新增现有windows-core0.61.2的一条可选直接依赖边，没有升级包。完整源码差异与原始问题/报告前缀均保留；四份parked候选及工作流不变。作者格式检查、root哈希/差异和文档检查属于静态证据；新feature/锁解析、严格编译/lint、P1/basic原生与异常路径尚未运行。此检查点仅供下一轮实际CI，不代表生产策略完成、功能GREEN或发布完成。
 
 源码检查点 `49e3b71` 已本地提交，仅含获审四文件；用于下一轮隔离CI，提交时尚无本候选的新编译/原生运行结论。静态文档373份、公开扫描和差异检查通过，四份parked修改未提交。公开扫描首次调用遗漏必需路径参数，只返回用法错误；补齐 `--repository .` 后完整执行通过，未将前次记为通过。
+
+
+## P1真实原生正例与同轮完整CI通过（32a3772）
+
+本次明确恢复指令后，先核对已有执行工作区、源代码检查点与备份，不重跑已启动CI；主台账新增恢复/容量中断记录原文保持本机，公开台账仅补安全意图摘要。Windows40617844166、Mac40617844176、独立dispatcher40617844309均已实际完成成功，完整原始日志/产物已保存。实际测试merge为dfd231dd760e09edc2c9bbbaefc76d0825d917b4，父a97c2a5/32a3772；五个canonical源码/锁/工作流blob与获审字节逐字绑定，未将其冒称Windows工作树或已加载exe的独立字节hash。
+
+新P1正例已独立实际复核C0I0M0，root全文核读12143B实际续审及先前完整源码报告。792B新鲜摘要e2895cb2fa56e92d64ed3c8163a22f8f4de4321f5b3f50712dbb1b739246dbbf严格schema1/9+12+13、期望case/run/selected1/completed1成立，真实脚本/CDP ACK、native Source、合成响应、canonical ready及ACK-before-load均true，屏障/首次加载/文档回执各1；全部生命周期正向true、违规false，Runtime155.0.4283.62。原basic独立510B摘要2843c4d4d8d06d5edb838c0bb9a00a150eb6f6a7c25658828fb3a622aa719e53的原schema2/21全部通过，保留真实renderer。新P1验证器先做数据canary，再独立读取真实运行文件并验收，没有以canary冒充原生通过。
+
+P1实际exe日志到同一次真实TempDir.close记录间隔7.8627125秒，真实close ok1/kind0/rawPresent0/lease7f；正常返回、原R4匹配浏览器退出/Destroyed/Released、最终pending/active/handlers0和新增policy/mailbox库存门槛成立。诊断3ffebfff只缺该P1不使用的InlineAccepted/RendererMessage两位；basic另有完整3fffffff。累计heartbeat231/phase25水印不作因果轨迹或最后活跃时间；lease位不作CloseHandle证明，真实浏览器退出与TempDir各有独立门槛。新严格feature Clippy --locked/-Dwarnings、宏/类型/现有依赖边解析与实际native调用均已通过，关闭了原UNRUN的编译前置。普通Rust父级380通过（381打印数扣除嵌套helper1），前端302/26，NSIS、PE GUI子系统2与产物上传均通过；CI安装器产物不是公开发布或交互GUI验收。
+
+Windows原始日志321828B/18ffdee7016efd98fb0fa055ca65dc075975188ebdec00ba5d7045c82b28d182，元数据0aad972b；Mac原始1414385B/3ef849bf5d5c34f21683db2e6160bbbdf7fbd9f9ff4f36b090e8ef41940a0fae，767/3/18/60/16主组、hosted12、native12+2与共享桥26完整通过。第六个独立dispatcher完整轮23+2基线、四个严格编译后唯一语义kill与清理均获独审C0I0M0，root全文核读5610B续审：raw140954B/a345b63e、summary15233B/45231303，21留存日志/补丁重哈希一致；24分17秒为本轮观察值，原限制保持，取消部分轮不拼接，空stderr/ZIP/删除副本/数值退出码/全部后代清理边界保留。
+
+验收仅一个部分debug安装屏障、固定官方realm合成文档、观察到的正常R4清理及原basic/父级门禁。I1–I4异常触发、重复/超长/溢出、其余安装失败/迟到用例仍未实际运行；尚未完成生产完整策略、实际拒绝、文件选择器行为、额度捕获/刷新、网站数据清理和App接线。没有OS级DNS/后台零外联、官网真实TLS/服务器或账号验收结论，PR67未合并发布。下一步先做有限P0及P2/P3/P9提前加载与同步安装失败边界，再接其余异步/containment用例；保持原basic/P1、45/10/75及真实释放门槛。
+
+
+下一组P0/P2/P3/P9仅准备测试先行源码：记录真实提前加载拒绝、真实setting/readback/resource-add/filter成功边界和实际已获取资源移除，三个故障应用仍刻意未实现，预期在真实屏障成功后触发faultNotApplied而失败并关闭、不加载页面。P0已有拒绝可以直接通过。新增schema2/Top10+install12+lifecycle13+fault13与原P1 schema1/basic21分别验证；不将实际目标未到达、编译/启动、超时或清理失败视为行为RED。四个独立进程与退出记录/始终严格正向校验及独立产物已在CI候选准备，原P1/basic原文和30分钟job限制保持；内存解析canary/YAML/AST属于静态检查，尚无新编译或原生运行结论。源码作者正在冻结两文件，后续完整源码+CI独审通过后才提交验证。
+
+
+P0/P2/P3/P9源码与CI整份候选已独立规格/质量审查C0I0M0，root全文核读18329B报告90f2b88c7f3811d1768115bb66edffdc6df8f48ba68460a84a17fdcea89f22e8；14冻结成员、三当前文件/canonical before、1516非例外保护文件及四parked均核对。driver149600B/40c56bcb、fixture67115B/3d727fe5、workflow26869B/3e5ae04e，完整三文件差异78543B/61be95a4。真实目标通知后会重新检查liveness再继续；counter来自实际调用/成功库存/成功移除，最终纯数据快照在原真实Released门槛之后、事件交付前发出；无FaultApplied producer。原P1/basic核心字段与正向判定字节保持，原权限/库存/45-10-75门槛不放宽。CI四例分进程、所有非零均使步骤失败、严格校验四真实摘要和退出记录，原30分钟限制不变。
+
+源码作者在完整冻结回传后遇到模型容量错误；未自动重试或换模型。已独立核实完整结果并持久保留32文件候选检查点，随后由此前已启动的独审者完成上述审查，未把失败的模型turn冒称正常结束。此事不改变候选仍须实际编译/原生运行的前提。原始报告/中断/历史冻结均保留，主台账本机协调原文独立私有留存，不随公开源码发布。
+
+下一次隔离CI预期P0已有拒绝可以通过，P2/P3/P9在真实目标和真实屏障各到达一次、注入0后以faultNotApplied失败并正常真实清理。仅这种完整证据可认行为RED；编译/设置/缺目标/超时/清理失败不算。新候选尚未编译或原生运行；生产接线、其余原生策略、Task5与发布仍未完成。
+
+同步边界测试源码与CI检查点 `e3929af` 已本地提交，仅含获审三文件；373文档、公开扫描、差异和精确暂存哈希通过。四parked保留未提交，新编译/原生结果待隔离CI，当前尚未推送或取得本组行为RED。
