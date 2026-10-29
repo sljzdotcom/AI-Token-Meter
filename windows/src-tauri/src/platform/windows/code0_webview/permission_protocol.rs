@@ -2130,6 +2130,78 @@ mod tests {
             assert!(p.status().action_revoked);
         }
     }
+
+    // Missing behavior: a real observed initial stop-only prefix cannot reserve
+    // the once-only navigation, despite a bound context and completed ACKs.
+    mod initial_stop_only_red_tests {
+        use super::*;
+
+        fn assert_stop_only_reserves(context_first: bool, with_blank_frame: bool) {
+            let mut p = enabling();
+            if with_blank_frame {
+                p.lifecycle(
+                    Lifecycle::FrameNavigated(Document::Blank, frame("blank-loader")),
+                    at(4),
+                )
+                .unwrap();
+            }
+            let context = Lifecycle::ContextCreated(Document::Blank, context("blank-context"));
+            let stopped = Lifecycle::StoppedLoading(id("root"));
+            let events = if context_first {
+                [context, stopped]
+            } else {
+                [stopped, context]
+            };
+            for event in events {
+                p.lifecycle(event, at(4)).unwrap();
+            }
+            assert!(p.blank.context.is_some());
+            assert!(!p.blank.started);
+            assert!(p.blank.stopped);
+            assert_eq!(p.blank.root, Some(id("root")));
+            assert_eq!(p.status().phase, Phase::Enabling);
+            assert_eq!(p.status().blank_branch, None);
+            assert_eq!(p.status().failure, None);
+            assert_eq!(
+                p.navigation_reserved(at(5)),
+                Ok(()),
+                "IB-R observed initial stop-only prefix must reserve without fabricating start"
+            );
+            assert_eq!(p.status().phase, Phase::Navigating);
+            assert!(p.status().blank_branch.is_some());
+            assert!(!p.blank.started);
+            assert!(p.blank.stopped);
+            assert!(p.selected.context.is_none());
+            assert!(p.selected.frame.is_none());
+            assert!(!p.selected.started);
+            assert!(!p.selected.stopped);
+            assert_eq!(
+                p.command_entered(Command::GetFrameTree, at(6)),
+                Err(Problem::NotReady)
+            );
+            assert_eq!(p.arm(at(6)), Err(Problem::NotReady));
+        }
+
+        #[test]
+        fn context_then_stop_without_blank_frame_reserves_navigation() {
+            assert_stop_only_reserves(true, false);
+        }
+
+        #[test]
+        fn stop_then_context_without_blank_frame_reserves_navigation() {
+            assert_stop_only_reserves(false, false);
+        }
+
+        #[test]
+        fn context_then_stop_with_blank_frame_reserves_navigation() {
+            assert_stop_only_reserves(true, true);
+        }
+
+        #[test]
+        fn stop_then_context_with_blank_frame_reserves_navigation() {
+            assert_stop_only_reserves(false, true);
+        }
+    }
 }
 
 #[cfg(test)]
