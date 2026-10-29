@@ -2045,7 +2045,7 @@ mod native {
         const CHILD_RESULT: &str = "\"code0-child-submitted-v1\"";
         const DOWNLOAD_TARGET: &str = "data:application/octet-stream,";
         const DOWNLOAD_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||!document.body||document.querySelector('iframe,frame,a,base')!==null){return 'code0-download-precondition-v1';}const a=document.createElement('a');a.href='data:application/octet-stream,';a.setAttribute('download','');a.target='_self';document.body.appendChild(a);try{a.click();}finally{a.remove();}return 'code0-download-submitted-v1';})()";
-        const POPUP_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||document.querySelector('iframe,frame')!==null){return 'code0-popup-precondition-v1';}window.open('about:blank','_blank');return 'code0-popup-submitted-v1';})()";
+        const POPUP_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||document.querySelector('iframe,frame')!==null){return 'code0-popup-precondition-v2';}setTimeout(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||document.querySelector('iframe,frame')!==null){return;}window.open('about:blank','_blank');},0);return 'code0-popup-scheduled-v2';})()";
 
         enum Emitter {
             Core(Rc<ICoreWebView2>),
@@ -9810,7 +9810,7 @@ pub mod fixture {
                 && units
                     .iter()
                     .copied()
-                    .eq("\"code0-popup-submitted-v1\"".encode_utf16()),
+                    .eq("\"code0-popup-scheduled-v2\"".encode_utf16()),
         )
     }
 
@@ -9844,19 +9844,35 @@ pub mod fixture {
 
     #[cfg(test)]
     mod popup_contract_tests {
-        use super::popup_result_units;
+        use super::{
+            LegacyCompletionInput, LegacyRefusalEvent, NativePopupFacts, NativeRefusalDeadline,
+            legacy_completion_disposition_at, popup_result_units,
+        };
+        use std::time::{Duration, Instant};
 
         // A permissive JSON/string parser would accept preflight failure,
         // a missing quoted token, malformed UTF16 or an oversized callback.
         #[test]
         fn popup_completion_accepts_only_bounded_exact_json_token() {
-            let exact: Vec<u16> = "\"code0-popup-submitted-v1\"".encode_utf16().collect();
+            let exact: Vec<u16> = "\"code0-popup-scheduled-v2\"".encode_utf16().collect();
             assert_eq!(popup_result_units(&exact), (true, true));
             for text in [
+                "code0-popup-scheduled-v2",
                 "code0-popup-submitted-v1",
+                "\"code0-popup-submitted-v1\"",
+                "\"code0-popup-submitted-v1\" ",
                 "null",
                 "\"code0-popup-precondition-v1\"",
-                "\"code0-popup-submitted-v1\" ",
+                "\"code0-popup-precondition-v2\"",
+                "\"code0-popup-scheduled-v2\" ",
+                " \"code0-popup-scheduled-v2\"",
+                "\"code0-popup-scheduled-v2\"\n",
+                "\"code0-popup-scheduled-v2-extra\"",
+                "\"prefix-code0-popup-scheduled-v2\"",
+                r#""code0-popup-\u0073cheduled-v2""#,
+                "{}",
+                "[]",
+                "\"other\"",
                 "",
             ] {
                 assert_eq!(
@@ -9867,6 +9883,234 @@ pub mod fixture {
             assert_eq!(popup_result_units(&[0xd800]), (false, false));
             assert_eq!(popup_result_units(&[65; 63]), (true, false));
             assert_eq!(popup_result_units(&[65; 64]), (false, false));
+        }
+
+        fn at(start: Instant, millis: u64) -> Instant {
+            start.checked_add(Duration::from_millis(millis)).unwrap()
+        }
+
+        fn submitted() -> NativePopupFacts {
+            NativePopupFacts {
+                script_submissions: 1,
+                settings_before_stimulus: true,
+                initial_source_matched: true,
+                source_after_drop_timely: true,
+                script_submission_returned: true,
+                script_submit_ok: true,
+                script_return_timely: true,
+                ..NativePopupFacts::default()
+            }
+        }
+
+        // Test inputs for the real facts predicate, not a substitute event loop.
+        // The actual refusal helper supplies the target's original-time gate.
+        fn with_target(
+            facts: NativePopupFacts,
+            deadline: &NativeRefusalDeadline,
+            observed: Instant,
+        ) -> NativePopupFacts {
+            let mut event = LegacyRefusalEvent::new();
+            assert!(event.cancel_once(|| ()).is_some());
+            NativePopupFacts {
+                popup_events: 1,
+                handled_attempts: 1,
+                handled_returns: 1,
+                handled_successes: 1,
+                handled_readbacks: 1,
+                popup_sender_matched: true,
+                request_generation_live_matched: true,
+                issued_before_event: true,
+                target_uri_getter_succeeded: true,
+                target_uri_matched: true,
+                non_user_getter_succeeded: true,
+                non_user: true,
+                handled_readback_succeeded: true,
+                native_handled_true: true,
+                live_after_calls: true,
+                target_after_drop_timely: event.qualify_at(deadline, observed, true),
+                no_new_window_assignment: true,
+                first_closing_observed: true,
+                ..facts
+            }
+        }
+
+        // Parse the actual token and use the same disposition helper as the
+        // native consumer; only the independent identity/HRESULT inputs are fixed.
+        fn with_completion(
+            facts: NativePopupFacts,
+            deadline: &NativeRefusalDeadline,
+            received: Instant,
+            consumed: Instant,
+            closing: Option<Instant>,
+            token: &str,
+        ) -> NativePopupFacts {
+            let (bounded, matched) = popup_result_units(&token.encode_utf16().collect::<Vec<_>>());
+            let outcome = legacy_completion_disposition_at(
+                deadline,
+                received,
+                consumed,
+                closing,
+                LegacyCompletionInput {
+                    identity_valid: true,
+                    hresult_succeeded: true,
+                    bounded_result_valid: bounded,
+                    fixed_result_matched: matched,
+                },
+            );
+            NativePopupFacts {
+                script_completions: 1,
+                completion_identity_matched: true,
+                completion_hresult_succeeded: true,
+                bounded_result_valid: bounded,
+                fixed_result_matched: matched,
+                completion_before_release: true,
+                completion_within_deadline: outcome.timely,
+                completion_disposition_consumed: outcome.disposable,
+                completion_obligation_drained: outcome.disposable,
+                completion_handlers_drained: true,
+                ..facts
+            }
+        }
+
+        // A scheduling receipt must never manufacture a native target. Missing
+        // completion, native user activation, or a failed getter must still fail.
+        #[test]
+        fn scheduling_alone_missing_completion_and_user_popup_are_not_positive() {
+            let start = Instant::now();
+            let deadline = NativeRefusalDeadline::from_attempt_started(start).unwrap();
+            let scheduling = with_completion(
+                submitted(),
+                &deadline,
+                at(start, 100),
+                at(start, 101),
+                None,
+                "\"code0-popup-scheduled-v2\"",
+            );
+            assert!(scheduling.fixed_result_matched && scheduling.completion_obligation_drained);
+            assert!(!scheduling.target_positive());
+            assert!(!scheduling.positive());
+            let target = with_target(submitted(), &deadline, at(start, 200));
+            assert!(target.target_positive());
+            assert!(!target.positive());
+            let complete = with_target(scheduling, &deadline, at(start, 200));
+            assert!(complete.positive());
+            let user_popup = NativePopupFacts {
+                non_user: false,
+                ..complete
+            };
+            assert!(!user_popup.target_positive());
+            assert!(!user_popup.positive());
+            let missing_getter = NativePopupFacts {
+                non_user_getter_succeeded: false,
+                ..complete
+            };
+            assert!(!missing_getter.target_positive());
+            assert!(!missing_getter.positive());
+        }
+
+        // Requiring a target at completion consumption would break the first
+        // order; accepting a target without strict completion breaks the second.
+        #[test]
+        fn scheduling_completion_and_target_keep_independent_evidence_in_both_orders() {
+            for completion_first in [true, false] {
+                let start = Instant::now();
+                let deadline = NativeRefusalDeadline::from_attempt_started(start).unwrap();
+                let facts = if completion_first {
+                    let early = with_completion(
+                        submitted(),
+                        &deadline,
+                        at(start, 100),
+                        at(start, 101),
+                        None,
+                        "\"code0-popup-scheduled-v2\"",
+                    );
+                    assert!(early.completion_within_deadline && early.fixed_result_matched);
+                    assert!(!early.target_positive() && !early.positive());
+                    with_target(early, &deadline, at(start, 200))
+                } else {
+                    let early = with_target(submitted(), &deadline, at(start, 200));
+                    assert!(early.target_positive());
+                    assert!(!early.positive());
+                    with_completion(
+                        early,
+                        &deadline,
+                        at(start, 300),
+                        at(start, 301),
+                        Some(at(start, 200)),
+                        "\"code0-popup-scheduled-v2\"",
+                    )
+                };
+                assert!(facts.target_positive() && facts.positive());
+                assert_eq!((facts.popup_events, facts.script_completions), (1, 1));
+            }
+        }
+
+        // Neither a timely scheduling receipt nor a real target renews the
+        // immutable attempt. Exact45 and first-close+10 are failure boundaries.
+        #[test]
+        fn popup_target_and_completion_reject_original45_and_close10_boundaries() {
+            for target_ms in [44999, 45000, 45001] {
+                let start = Instant::now();
+                let deadline = NativeRefusalDeadline::from_attempt_started(start).unwrap();
+                let scheduling = with_completion(
+                    submitted(),
+                    &deadline,
+                    at(start, 100),
+                    at(start, 101),
+                    None,
+                    "\"code0-popup-scheduled-v2\"",
+                );
+                let facts = with_target(scheduling, &deadline, at(start, target_ms));
+                assert_eq!(facts.target_positive(), target_ms < 45000);
+                assert_eq!(facts.positive(), target_ms < 45000);
+            }
+            for (close_ms, received_ms, consumed_ms, positive) in [
+                (44000, 44998, 44999, true),
+                (44000, 45000, 45001, false),
+                (44000, 44999, 45000, false),
+                (1000, 10998, 10999, true),
+                (1000, 11000, 11001, false),
+                (1000, 10999, 11000, false),
+            ] {
+                let start = Instant::now();
+                let deadline = NativeRefusalDeadline::from_attempt_started(start).unwrap();
+                let target = with_target(submitted(), &deadline, at(start, close_ms));
+                assert!(target.target_positive());
+                let facts = with_completion(
+                    target,
+                    &deadline,
+                    at(start, received_ms),
+                    at(start, consumed_ms),
+                    Some(at(start, close_ms)),
+                    "\"code0-popup-scheduled-v2\"",
+                );
+                assert_eq!(facts.completion_within_deadline, positive);
+                assert_eq!(facts.positive(), positive);
+            }
+        }
+
+        #[test]
+        fn qualified_popup_cannot_replace_strict_scheduling_completion() {
+            for token in [
+                "\"code0-popup-submitted-v1\"",
+                "\"code0-popup-precondition-v2\"",
+                "null",
+                "",
+            ] {
+                let start = Instant::now();
+                let deadline = NativeRefusalDeadline::from_attempt_started(start).unwrap();
+                let target = with_target(submitted(), &deadline, at(start, 200));
+                let facts = with_completion(
+                    target,
+                    &deadline,
+                    at(start, 300),
+                    at(start, 301),
+                    Some(at(start, 200)),
+                    token,
+                );
+                assert!(facts.target_positive());
+                assert!(!facts.fixed_result_matched && !facts.positive());
+            }
         }
     }
 
@@ -11665,8 +11909,12 @@ pub mod fixture {
         #[test]
         fn n4_result_classes_do_not_promote_precondition_null_or_other_tokens() {
             for (text, class) in [
-                ("\"code0-popup-submitted-v1\"", 1),
-                ("\"code0-popup-precondition-v1\"", 2),
+                ("\"code0-popup-scheduled-v2\"", 1),
+                ("\"code0-popup-precondition-v2\"", 2),
+                ("\"code0-popup-submitted-v1\"", 4),
+                ("\"code0-popup-precondition-v1\"", 4),
+                ("\"code0-popup-scheduled-v2\" ", 4),
+                (r#""code0-popup-\u0073cheduled-v2""#, 4),
                 ("null", 3),
                 ("\"other\"", 4),
                 ("broken", 4),
@@ -11761,7 +12009,7 @@ pub mod fixture {
         } else if units
             .iter()
             .copied()
-            .eq("\"code0-popup-precondition-v1\"".encode_utf16())
+            .eq("\"code0-popup-precondition-v2\"".encode_utf16())
         {
             2
         } else if units.iter().copied().eq("null".encode_utf16()) {
