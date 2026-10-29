@@ -354,7 +354,13 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
 
     #[cfg(test)]
     pub(crate) fn terminal_stop_consumed(&self) -> bool {
-        false
+        self.stopped
+            && self.owned.is_none()
+            && self.cleanup.is_none()
+            && matches!(
+                self.state,
+                Code0SessionState::Paused | Code0SessionState::Disconnected
+            )
     }
 
     pub fn state(&self) -> Code0SessionState {

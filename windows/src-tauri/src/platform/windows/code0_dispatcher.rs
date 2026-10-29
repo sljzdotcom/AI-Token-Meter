@@ -248,7 +248,7 @@ impl Code0Proxy {
     }
     #[cfg(test)]
     pub(crate) fn begin_terminal_stop(&self) {
-        self.stop(Box::new(|_| {}));
+        let _ = self.enqueue(Message::StopSignal);
     }
 
     pub fn window(
@@ -354,6 +354,11 @@ impl Code0Proxy {
                         inbox.cleanup = Some(Message::Cleanup(binding, request, result));
                     }
                 }
+                #[cfg(test)]
+                Message::StopSignal => {
+                    inbox.stopping = true;
+                    inbox.stop_signal = true;
+                }
                 Message::Stop(reply) => {
                     inbox.stopping = true;
                     inbox.stop_signal = true;
@@ -429,6 +434,19 @@ impl Code0Proxy {
     }
 }
 
+#[cfg(test)]
+struct DrainObservation<'a> {
+    active: &'a Cell<bool>,
+    prior: bool,
+}
+
+#[cfg(test)]
+impl Drop for DrainObservation<'_> {
+    fn drop(&mut self) {
+        self.active.set(self.prior);
+    }
+}
+
 /// The actual pure session remains the only authorization authority, retained
 /// locally. The only extra deadline is presentation-only throttling. This type
 /// has no Send bound and is not stored in Tauri managed state.
@@ -441,6 +459,8 @@ pub struct Code0Dispatcher<C, D, S> {
     emit: RefCell<Code0Emitter>,
     retry_deadline: Cell<Option<Duration>>,
     stop_waiters: RefCell<Vec<Code0ReplySink>>,
+    #[cfg(test)]
+    drain_active: Cell<bool>,
 }
 impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
     Code0Dispatcher<C, D, S>
@@ -475,14 +495,54 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
             emit: RefCell::new(emit),
             retry_deadline: Cell::new(None),
             stop_waiters: RefCell::new(Vec::new()),
+            #[cfg(test)]
+            drain_active: Cell::new(false),
         })
     }
     #[cfg(test)]
     pub(crate) fn terminal_prerequisites_met(&self) -> bool {
-        false
+        if self.drain_active.get() {
+            return false;
+        }
+        {
+            let Ok(session) = self.session.try_borrow() else {
+                return false;
+            };
+            if !session.terminal_stop_consumed() {
+                return false;
+            }
+        }
+        {
+            let Ok(waiters) = self.stop_waiters.try_borrow() else {
+                return false;
+            };
+            if !waiters.is_empty() {
+                return false;
+            }
+        }
+        let Ok(inbox) = self.proxy.inbox.try_lock() else {
+            return false;
+        };
+        inbox.general.is_empty()
+            && inbox.stops.is_empty()
+            && inbox.stop_pending == 0
+            && inbox.tick.is_none()
+            && inbox.released.is_none()
+            && inbox.cleanup.is_none()
+            && !inbox.overflow
+            && !inbox.stop_signal
+            && inbox.expected_window.is_none()
+            && inbox.expected_cleanup.is_none()
+            && inbox.release_prefix == 0
+            && !inbox.scheduled
     }
 
     pub fn drain(&self) {
+        #[cfg(test)]
+        let _drain_observation = DrainObservation {
+            active: &self.drain_active,
+            prior: self.drain_active.replace(true),
+        };
         loop {
             let message = {
                 let mut inbox = self.proxy.inbox.lock().unwrap();
