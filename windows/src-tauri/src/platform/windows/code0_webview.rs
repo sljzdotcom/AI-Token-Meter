@@ -15,11 +15,11 @@ mod chooser_protocol;
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod http401_protocol;
 
-#[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 #[doc(hidden)]
 pub mod permission_protocol;
 
-#[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod permission_wire;
 
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
@@ -240,6 +240,10 @@ mod native {
         ($owner:expr, $phase:ident, $call:expr) => {{
             let result = observed_call!($owner, $phase, $call);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if result.is_err() {
+                permission::native_failed(&$owner);
+            }
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Some(diagnostic) = $owner.borrow().diagnostics.as_ref()
                 && let Err(error) = &result
             {
@@ -325,12 +329,59 @@ mod native {
         include!("code0_webview/http401_native.rs");
     }
 
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) mod permission {
+        include!("code0_webview/permission_native.rs");
+    }
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn begin_permission(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        started: std::time::Instant,
+    ) -> Result<(), Code0SessionFailure> {
+        permission::begin(owner, request, started)
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn permission_setup_failure(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        started: std::time::Instant,
+    ) -> Result<permission::Receipt, Code0SessionFailure> {
+        permission::setup_failure(owner, request, started)
+    }
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn select_permission_intent(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        started: std::time::Instant,
+    ) -> Result<(), Code0SessionFailure> {
+        permission::select_intent(owner, request, started)
+    }
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn prepare_permission(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        started: std::time::Instant,
+    ) -> Result<(), Code0SessionFailure> {
+        permission::prepare(owner, request, started)
+    }
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn refusal_inventory_receipt(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+    ) -> Result<super::fixture::NativeRefusalInstallReceipt, Code0SessionFailure> {
+        require_native_refusal_install_checked(owner, request, true)
+    }
+
     #[derive(Default)]
     struct Callbacks {
         pending: AtomicUsize,
         active: AtomicUsize,
         handlers: AtomicUsize,
         affinity_failed: AtomicBool,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission_clock: std::sync::OnceLock<Arc<permission::FailureClock>>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         diagnostics: Option<Arc<Diagnostics>>,
     }
@@ -406,6 +457,8 @@ mod native {
         instance: Option<Instance>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         pub(super) diagnostics: Option<Arc<Diagnostics>>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission_intent: Option<permission::Intent>,
     }
 
     #[derive(Clone, Copy)]
@@ -465,6 +518,12 @@ mod native {
         http401: Option<http401::State>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         http401_selected: Arc<AtomicBool>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission: Option<permission::State>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission_history: permission::History,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission_selected: Arc<AtomicBool>,
     }
 
     impl Owner {
@@ -480,6 +539,8 @@ mod native {
                 instance: None,
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 diagnostics: None,
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                permission_intent: None,
             }
         }
     }
@@ -499,6 +560,10 @@ mod native {
     fn callback_on_ui(ui: ThreadId, callbacks: &Callbacks, _n4_site: u16) -> bool {
         let valid = thread::current().id() == ui && is_sta();
         if !valid {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(clock) = callbacks.permission_clock.get() {
+                clock.record(std::time::Instant::now());
+            }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             n4_note(
                 callbacks,
@@ -543,6 +608,8 @@ mod native {
             s4::mark_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             http401::external_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission::external_close(instance);
         }
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
@@ -578,6 +645,7 @@ mod native {
                         && s3::quiescent(instance)
                         && s4::quiescent(instance)
                         && http401::quiescent(instance)
+                        && permission::quiescent(instance)
                 }
                 #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                 {
@@ -654,6 +722,26 @@ mod native {
         });
         #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
         let callbacks = Arc::new(Callbacks::default());
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let selected_permission = {
+            let o = owner.borrow();
+            if o.permission_intent.is_some() && !permission::intent_for(&o, &request) {
+                return Err(Code0SessionFailure::PolicyRejected);
+            }
+            permission::intent_for(&o, &request)
+        };
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let permission_history =
+            permission::history_for_create(&owner.borrow(), &request, selected_permission)?;
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        if selected_permission
+            && callbacks
+                .permission_clock
+                .set(permission_history.clock())
+                .is_err()
+        {
+            return Err(Code0SessionFailure::PolicyRejected);
+        }
         // Encompass the entire outer create action, not only its callbacks.
         // Declared before every Window/handler/interface local so all of those
         // drop first on success and every early return. A synchronous factory
@@ -705,6 +793,12 @@ mod native {
             http401: None,
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             http401_selected: Arc::new(AtomicBool::new(false)),
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission: None,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission_history,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission_selected: Arc::new(AtomicBool::new(selected_permission)),
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -903,35 +997,69 @@ mod native {
         let weak = Rc::downgrade(owner);
         let owned_request = request.clone();
         let lifetime = HandlerLifetime::new(&callbacks);
-        let handler = BrowserProcessExitedEventHandler::create(Box::new(move |sender, args| {
-            let _lifetime = &lifetime;
-            let active = Active::enter(&callbacks);
+        let handler = {
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
-                diagnostic.phase(DP::ExitCallback, false);
-            }
-            if callback_on_ui(ui, &callbacks, 774)
-                && let Some(owner) = weak.upgrade()
-                && browser_process_exited(&owner, &owned_request, sender.as_ref(), args.as_ref())
-                    .is_err()
-            {
+            let selected = owner
+                .borrow()
+                .instance
+                .as_ref()
+                .is_some_and(|i| i.permission_selected.load(Ordering::SeqCst));
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            let selected = false;
+            if selected {
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-                if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
-                    diagnostic.failure(DP::ExitCallback, E_FAIL.0);
+                {
+                    let clock = permission::clock_for(owner).ok_or(E_FAIL)?;
+                    permission::browser_exit_handler(
+                        weak,
+                        owned_request,
+                        callbacks,
+                        ui,
+                        lifetime,
+                        clock,
+                    )
                 }
-                browser_exit_unknown(&owner, &owned_request);
+                #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                {
+                    unreachable!("release has no permission selection")
+                }
+            } else {
+                BrowserProcessExitedEventHandler::create(Box::new(move |sender, args| {
+                    let _lifetime = &lifetime;
+                    let active = Active::enter(&callbacks);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                        diagnostic.phase(DP::ExitCallback, false);
+                    }
+                    if callback_on_ui(ui, &callbacks, 774)
+                        && let Some(owner) = weak.upgrade()
+                        && browser_process_exited(
+                            &owner,
+                            &owned_request,
+                            sender.as_ref(),
+                            args.as_ref(),
+                        )
+                        .is_err()
+                    {
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                            diagnostic.failure(DP::ExitCallback, E_FAIL.0);
+                        }
+                        browser_exit_unknown(&owner, &owned_request);
+                    }
+                    // The wrapper supplies owned interface clones. They must end while
+                    // Active still prevents any reentrant poll from certifying release.
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                        diagnostic.phase(DP::ExitCallback, true);
+                    }
+                    Ok(())
+                }))
             }
-            // The wrapper supplies owned interface clones. They must end while
-            // Active still prevents any reentrant poll from certifying release.
-            drop(args);
-            drop(sender);
-            drop(active);
-            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
-                diagnostic.phase(DP::ExitCallback, true);
-            }
-            Ok(())
-        }));
+        };
         let mut token = 0;
         let registered = native_call!(owner, ExitAdd, unsafe {
             environment5.add_BrowserProcessExited(&handler, &mut token)
@@ -1013,11 +1141,30 @@ mod native {
             }
             (
                 instance.request.clone(),
-                instance.core.clone(),
+                {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    {
+                        if instance.permission_selected.load(Ordering::SeqCst) {
+                            None
+                        } else {
+                            instance.core.clone()
+                        }
+                    }
+                    #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                    {
+                        instance.core.clone()
+                    }
+                },
                 instance.environment5.is_some() && instance.exit_token.is_some(),
             )
         };
         let (request, core, registered) = candidate;
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let core = if permission::selected(owner) {
+            permission::action_core(owner)
+        } else {
+            core
+        };
         let Some(core) = core.filter(|_| registered) else {
             browser_exit_unknown(owner, &request);
             return;
@@ -1244,13 +1391,53 @@ mod native {
             let state = owner.borrow();
             let instance = state.instance.as_ref().unwrap();
             (
-                instance.controller.clone().unwrap(),
-                instance.environment.clone().unwrap(),
+                {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    {
+                        if instance.permission_selected.load(Ordering::SeqCst) {
+                            None
+                        } else {
+                            Some(instance.controller.clone().unwrap())
+                        }
+                    }
+                    #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                    {
+                        Some(instance.controller.clone().unwrap())
+                    }
+                },
+                {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    {
+                        if instance.permission_selected.load(Ordering::SeqCst) {
+                            None
+                        } else {
+                            Some(instance.environment.clone().unwrap())
+                        }
+                    }
+                    #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                    {
+                        Some(instance.environment.clone().unwrap())
+                    }
+                },
                 instance.window.clone().ok_or(E_FAIL)?,
                 state.ui_thread,
                 Arc::clone(&instance.callbacks),
             )
         };
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let controller = if permission::selected(owner) {
+            permission::action_controller(owner)
+        } else {
+            controller
+        };
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let environment = if permission::selected(owner) {
+            permission::action_environment(owner)
+        } else {
+            environment
+        };
+        let controller = controller.ok_or(E_FAIL)?;
+        let environment = environment.ok_or(E_FAIL)?;
         native_call!(owner, ControllerVisibility, unsafe {
             controller.SetIsVisible(false)
         })?;
@@ -1291,34 +1478,61 @@ mod native {
         let weak = Rc::downgrade(owner);
         let owned_request = request.clone();
         let lifetime = HandlerLifetime::new(&callbacks);
-        let handler = WebMessageReceivedEventHandler::create(Box::new(move |sender, args| {
+        let handler = {
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
-                diagnostic.phase(DP::MessageCallback, false);
-                diagnostic.observed(DM::RendererCallback);
+            let selected = owner
+                .borrow()
+                .instance
+                .as_ref()
+                .is_some_and(|i| i.permission_selected.load(Ordering::SeqCst));
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            let selected = false;
+            if selected {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                {
+                    let clock = permission::clock_for(owner).ok_or(E_FAIL)?;
+                    permission::message_handler(weak, owned_request, callbacks, ui, lifetime, clock)
+                }
+                #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                {
+                    unreachable!("release has no permission selection")
+                }
+            } else {
+                WebMessageReceivedEventHandler::create(Box::new(move |sender, args| {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                        diagnostic.phase(DP::MessageCallback, false);
+                        diagnostic.observed(DM::RendererCallback);
+                    }
+                    // Keep the registration lifetime in the FnMut closure until the real
+                    // COM handler releases it, including failed add/remove paths.
+                    let _lifetime = &lifetime;
+                    let active = Active::enter(&callbacks);
+                    if callback_on_ui(ui, &callbacks, 1127)
+                        && let Some(owner) = weak.upgrade()
+                    {
+                        message_received(&owner, &owned_request, sender.as_ref(), args.as_ref());
+                    }
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+                        diagnostic.phase(DP::MessageCallback, true);
+                    }
+                    Ok(())
+                }))
             }
-            // Keep the registration lifetime in the FnMut closure until the real
-            // COM handler releases it, including failed add/remove paths.
-            let _lifetime = &lifetime;
-            let active = Active::enter(&callbacks);
-            if callback_on_ui(ui, &callbacks, 1127)
-                && let Some(owner) = weak.upgrade()
-            {
-                message_received(&owner, &owned_request, sender.as_ref(), args.as_ref());
-            }
-            drop(args);
-            drop(sender);
-            drop(active);
-            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
-            if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
-                diagnostic.phase(DP::MessageCallback, true);
-            }
-            Ok(())
-        }));
+        };
+
         let mut token = 0;
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission::add_entered(owner, 23);
         let registered = native_call!(owner, MessageAdd, unsafe {
             core.add_WebMessageReceived(&handler, &mut token)
         });
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission::add_returned(owner, 23, registered.is_ok());
         drop(handler);
         registered?;
         milestone!(owner, MessageRegistered);
@@ -1328,6 +1542,26 @@ mod native {
             instance.message_token = Some(token);
             !instance.closing
         };
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        if permission::selected(owner) {
+            drop(environment7);
+            drop(core);
+            drop(controller);
+            drop(environment);
+            let current = {
+                let state = owner.borrow();
+                !state.unmatched
+                    && state.instance.as_ref().is_some_and(|i| {
+                        &i.request == request
+                            && !i.closing
+                            && !i.failed
+                            && !i.released
+                            && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && i.message_token == Some(token)
+                    })
+            };
+            permission::add_qualified(owner, 23, current);
+        }
         // No production PoliciesInstalled acknowledgement. This tiny smoke does
         // not establish refusal handlers, bridge registration or official origin.
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1353,6 +1587,12 @@ mod native {
         sender: Option<&ICoreWebView2>,
         args: Option<&ICoreWebView2WebMessageReceivedEventArgs>,
     ) {
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        if permission::selected(owner) {
+            permission::unexpected(owner);
+            return;
+        }
+
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         {
             if owner
@@ -1433,6 +1673,8 @@ mod native {
             s4::mark_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             http401::external_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission::external_close(instance);
         }
         drop(state);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1483,6 +1725,8 @@ mod native {
                 s4::mark_close(instance);
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 http401::external_close(instance);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                permission::external_close(instance);
                 instance.window.take()
             } else {
                 None
@@ -1603,6 +1847,8 @@ mod native {
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         http401::advance(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission::advance(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         p1::advance(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::advance_child(owner);
@@ -1712,6 +1958,8 @@ mod native {
             s4::mark_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             http401::mark_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission::external_close(instance);
             if !instance.closing
                 || {
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1731,6 +1979,13 @@ mod native {
         }
         // Bind the actual core's process before Stop/Close can synchronously
         // deliver exit. PollGuard covers this getter's action-local interface.
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission::cutoff(
+            owner,
+            super::permission_protocol::CutoffReason::RequiredRemovalAttempt,
+        );
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let permission_cleanup_active = permission::cleanup_guard(owner);
         arm_browser_exit(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         p1::remove_registrations(owner);
@@ -1742,33 +1997,110 @@ mod native {
         s4::remove(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         http401::remove(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        permission::remove(owner);
         let remove = {
-            let mut state = owner.borrow_mut();
-            let instance = state.instance.as_mut().unwrap();
-            if !instance.remove_attempted && instance.message_token.is_some() {
-                instance.remove_attempted = true;
-                instance.core.clone().zip(instance.message_token)
-            } else {
-                None
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            {
+                if permission::selected(owner) {
+                    let token = {
+                        let mut state = owner.borrow_mut();
+                        let i = state.instance.as_mut().unwrap();
+                        if !i.remove_attempted && i.message_token.is_some() {
+                            i.remove_attempted = true;
+                            i.message_token
+                        } else {
+                            None
+                        }
+                    };
+                    token.and_then(|token| permission::action_core(owner).map(|core| (core, token)))
+                } else {
+                    {
+                        let mut state = owner.borrow_mut();
+                        let instance = state.instance.as_mut().unwrap();
+                        if !instance.remove_attempted && instance.message_token.is_some() {
+                            instance.remove_attempted = true;
+                            instance.core.clone().zip(instance.message_token)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            {
+                {
+                    let mut state = owner.borrow_mut();
+                    let instance = state.instance.as_mut().unwrap();
+                    if !instance.remove_attempted && instance.message_token.is_some() {
+                        instance.remove_attempted = true;
+                        instance.core.clone().zip(instance.message_token)
+                    } else {
+                        None
+                    }
+                }
             }
         };
         if let Some((core, token)) = remove {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission::remove_entered(owner, 23);
             let result = native_call!(owner, MessageRemove, unsafe {
                 core.remove_WebMessageReceived(token)
             });
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission::remove_returned(owner, 23, result.is_ok());
             if result.is_ok() {
                 owner.borrow_mut().instance.as_mut().unwrap().message_token = None;
             }
             cleanup_at!(owner, MessageRemove, result, true);
+            drop(core);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            permission::remove_qualified(owner, 23);
         }
         let stop = {
-            let mut state = owner.borrow_mut();
-            let instance = state.instance.as_mut().unwrap();
-            if !instance.stop_attempted && instance.core.is_some() {
-                instance.stop_attempted = true;
-                instance.core.clone()
-            } else {
-                None
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            {
+                if permission::selected(owner) {
+                    let reserved = {
+                        let mut state = owner.borrow_mut();
+                        let i = state.instance.as_mut().unwrap();
+                        if !i.stop_attempted && i.core.is_some() {
+                            i.stop_attempted = true;
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    if reserved {
+                        permission::action_core(owner)
+                    } else {
+                        None
+                    }
+                } else {
+                    {
+                        let mut state = owner.borrow_mut();
+                        let instance = state.instance.as_mut().unwrap();
+                        if !instance.stop_attempted && instance.core.is_some() {
+                            instance.stop_attempted = true;
+                            instance.core.clone()
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            {
+                {
+                    let mut state = owner.borrow_mut();
+                    let instance = state.instance.as_mut().unwrap();
+                    if !instance.stop_attempted && instance.core.is_some() {
+                        instance.stop_attempted = true;
+                        instance.core.clone()
+                    } else {
+                        None
+                    }
+                }
             }
         };
         if let Some(core) = stop {
@@ -1780,19 +2112,57 @@ mod native {
                     s3::stop_entry(owner);
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s4::stop_entry(owner);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    permission::cutoff(owner, super::permission_protocol::CutoffReason::StopEntry);
                     unsafe { core.Stop() }
                 }),
                 true
             );
         }
         let close = {
-            let mut state = owner.borrow_mut();
-            let instance = state.instance.as_mut().unwrap();
-            if !instance.close_attempted && instance.controller.is_some() {
-                instance.close_attempted = true;
-                instance.controller.clone()
-            } else {
-                None
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            {
+                if permission::selected(owner) {
+                    let reserved = {
+                        let mut state = owner.borrow_mut();
+                        let i = state.instance.as_mut().unwrap();
+                        if !i.close_attempted && i.controller.is_some() {
+                            i.close_attempted = true;
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    if reserved {
+                        permission::action_controller(owner)
+                    } else {
+                        None
+                    }
+                } else {
+                    {
+                        let mut state = owner.borrow_mut();
+                        let instance = state.instance.as_mut().unwrap();
+                        if !instance.close_attempted && instance.controller.is_some() {
+                            instance.close_attempted = true;
+                            instance.controller.clone()
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            {
+                {
+                    let mut state = owner.borrow_mut();
+                    let instance = state.instance.as_mut().unwrap();
+                    if !instance.close_attempted && instance.controller.is_some() {
+                        instance.close_attempted = true;
+                        instance.controller.clone()
+                    } else {
+                        None
+                    }
+                }
             }
         };
         if let Some(controller) = close {
@@ -1804,11 +2174,18 @@ mod native {
                     s3::stop_entry(owner);
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s4::stop_entry(owner);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    permission::cutoff(
+                        owner,
+                        super::permission_protocol::CutoffReason::ControllerCloseEntry,
+                    );
                     unsafe { controller.Close() }
                 }),
                 true
             );
         }
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        drop(permission_cleanup_active);
         let controls = {
             let mut state = owner.borrow_mut();
             let unmatched = state.unmatched;
@@ -1826,6 +2203,7 @@ mod native {
                             && s3::removed(instance)
                             && s4::removed(instance)
                             && http401::removed(instance)
+                            && permission::removed(instance)
                     }
                     #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                     {
@@ -1854,14 +2232,20 @@ mod native {
                     s4::take_controls(instance),
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     http401::take_controls(instance),
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    permission::take_controls(instance),
                 ))
             } else {
                 None
             }
         };
         if let Some(controls) = controls {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let permission_control_active = permission::cleanup_guard(owner);
             phase!(owner, ControlDrop, false);
             drop(controls);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            drop(permission_control_active);
             // Drop can reenter. Only after all actual control locals end may a
             // later stage consume a synchronously recorded exit observation.
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1883,23 +2267,81 @@ mod native {
                 milestone!(owner, ControlsDisposed);
             }
         }
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        let mut permission_exit_active = None;
         let exit_registration = {
-            let mut state = owner.borrow_mut();
-            let unmatched = state.unmatched;
-            let instance = state.instance.as_mut().unwrap();
-            if !unmatched
-                && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
-                && instance.controls_disposed
-                && matches!(instance.browser_exit, BrowserExitState::Observed)
-                && !instance.cleanup_blocked
-                && !instance.exit_remove_attempted
-                && instance.callbacks.pending.load(Ordering::SeqCst) == 0
-                && instance.callbacks.active.load(Ordering::SeqCst) == 0
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             {
-                instance.exit_remove_attempted = true;
-                instance.environment5.clone().zip(instance.exit_token)
-            } else {
-                None
+                if permission::selected(owner) {
+                    let token = {
+                        let mut state = owner.borrow_mut();
+                        let unmatched = state.unmatched;
+                        let instance = state.instance.as_mut().unwrap();
+                        if !unmatched
+                            && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && instance.controls_disposed
+                            && matches!(instance.browser_exit, BrowserExitState::Observed)
+                            && !instance.cleanup_blocked
+                            && !instance.exit_remove_attempted
+                            && instance.callbacks.pending.load(Ordering::SeqCst) == 0
+                            && instance.callbacks.active.load(Ordering::SeqCst) == 0
+                        {
+                            instance.exit_remove_attempted = true;
+                            instance.exit_token
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some(token) = token {
+                        permission_exit_active = permission::cleanup_guard(owner);
+                        permission::action_environment5(owner)
+                            .map(|environment| (environment, token))
+                    } else {
+                        None
+                    }
+                } else {
+                    {
+                        let mut state = owner.borrow_mut();
+                        let unmatched = state.unmatched;
+                        let instance = state.instance.as_mut().unwrap();
+                        if !unmatched
+                            && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && instance.controls_disposed
+                            && matches!(instance.browser_exit, BrowserExitState::Observed)
+                            && !instance.cleanup_blocked
+                            && !instance.exit_remove_attempted
+                            && instance.callbacks.pending.load(Ordering::SeqCst) == 0
+                            && instance.callbacks.active.load(Ordering::SeqCst) == 0
+                        {
+                            instance.exit_remove_attempted = true;
+                            instance.environment5.clone().zip(instance.exit_token)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+            #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+            {
+                {
+                    let mut state = owner.borrow_mut();
+                    let unmatched = state.unmatched;
+                    let instance = state.instance.as_mut().unwrap();
+                    if !unmatched
+                        && !instance.callbacks.affinity_failed.load(Ordering::SeqCst)
+                        && instance.controls_disposed
+                        && matches!(instance.browser_exit, BrowserExitState::Observed)
+                        && !instance.cleanup_blocked
+                        && !instance.exit_remove_attempted
+                        && instance.callbacks.pending.load(Ordering::SeqCst) == 0
+                        && instance.callbacks.active.load(Ordering::SeqCst) == 0
+                    {
+                        instance.exit_remove_attempted = true;
+                        instance.environment5.clone().zip(instance.exit_token)
+                    } else {
+                        None
+                    }
+                }
             }
         };
         if let Some((environment5, token)) = exit_registration {
@@ -1912,6 +2354,8 @@ mod native {
             }
             cleanup_at!(owner, ExitRemove, result, true);
         }
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        drop(permission_exit_active);
         let environments = {
             let mut state = owner.borrow_mut();
             let unmatched = state.unmatched;
@@ -1935,10 +2379,14 @@ mod native {
             }
         };
         if let Some(environments) = environments {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let permission_environment_active = permission::cleanup_guard(owner);
             phase!(owner, EnvironmentDrop, false);
             // A removed handler may remain retained until its emitter drops.
             // Its real HandlerLifetime still gates final inventory_empty.
             drop(environments);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            drop(permission_environment_active);
             phase!(owner, EnvironmentDrop, true);
             milestone!(owner, EnvironmentDropped);
         }
@@ -1954,6 +2402,8 @@ mod native {
             }
         };
         if let Some(window) = destroy {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let permission_window_active = permission::cleanup_guard(owner);
             let destroyed = observed_call!(owner, WindowDestroy, window.destroy());
             if destroyed.is_err() {
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1962,6 +2412,10 @@ mod native {
                 }
                 cleanup_at!(owner, WindowDestroy, Err(E_FAIL.into()), false);
             }
+            drop(destroyed);
+            drop(window);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            drop(permission_window_active);
         }
         let notification = {
             let mut state = owner.borrow_mut();
@@ -2007,6 +2461,7 @@ mod native {
                 s3::publish_final(owner);
                 s4::publish_final(owner);
                 http401::publish_final(owner);
+                permission::publish_final(owner);
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Code0WindowEvent::Failed(reason) = &event
@@ -2081,6 +2536,14 @@ mod native {
         owner: &Rc<RefCell<Owner>>,
         request: &Code0WindowRequest,
     ) -> Result<super::fixture::NativeRefusalInstallReceipt, Code0SessionFailure> {
+        require_native_refusal_install_checked(owner, request, false)
+    }
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    fn require_native_refusal_install_checked(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        allow_permission_setup: bool,
+    ) -> Result<super::fixture::NativeRefusalInstallReceipt, Code0SessionFailure> {
         if !on_ui(owner) {
             return Err(Code0SessionFailure::PolicyRejected);
         }
@@ -2099,6 +2562,8 @@ mod native {
             || i.inline_loaded
             || i.capability.is_some()
             || i.http401.is_some()
+            || ((i.permission.is_some() || i.permission_selected.load(Ordering::SeqCst))
+                && !(allow_permission_setup && permission::install_allowed(i)))
             || i.policy.is_some()
             || i.policy_mailbox.is_some()
             || i.core.is_none()
@@ -2290,6 +2755,17 @@ mod native {
                     && self.dialog_completed.is_none()
                     && self.popup.is_none()
                     && self.download.is_none()
+            }
+            pub(super) fn permission_token(&self, slot: usize) -> Option<i64> {
+                self.entries
+                    .iter()
+                    .find(|entry| entry.hook as usize == slot)
+                    .and_then(|entry| entry.token)
+            }
+            pub(super) fn permission_core_matches(&self, core: &Rc<ICoreWebView2>) -> bool {
+                self.core
+                    .as_ref()
+                    .is_some_and(|stored| Rc::ptr_eq(stored, core))
             }
             pub(super) fn http_generation(&self) -> u64 {
                 self.generation
@@ -3368,47 +3844,53 @@ mod native {
             core: &ICoreWebView2,
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
-            let handler = ScriptDialogOpeningEventHandler::create(Box::new(move |sender, args| {
-                let active = Active::enter(&context.callbacks);
-                let mut selected = false;
-                let result = context.invoke(sender.as_ref(), |eligible| {
-                    let args = args.as_ref().ok_or_else(rejection)?;
-                    selected = context.dialog_selected();
-                    if selected {
-                        return context.dialog_opening(args, eligible);
-                    }
-                    let mut kind = COREWEBVIEW2_SCRIPT_DIALOG_KIND::default();
-                    unsafe { args.Kind(&mut kind) }?;
-                    // No Accept, result text or default-dialog fallback.
-                    Ok(true)
-                });
-                drop(args);
-                drop(sender);
-                // selected can only be set inside invoke's STA-gated action.
-                let timely_return = !selected || context.dialog_after_drop();
-                if selected && let Some(owner) = context.owner.upgrade() {
-                    {
-                        let mut state = owner.borrow_mut();
-                        if let Some(i) = matching(&mut state, &context.request)
-                            && context.matches_instance(i)
-                            && let Some(d) = i.refusal_registry.dialog.as_mut()
-                        {
-                            d.facts.non_accept_action_returned = result.is_ok() && timely_return;
-                            d.facts.dialog_live_after_getters &= timely_return;
+            let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                permission::s2_dialog(context.into_permission_guard()?)
+            } else {
+                ScriptDialogOpeningEventHandler::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    let mut selected = false;
+                    let result = context.invoke(sender.as_ref(), |eligible| {
+                        let args = args.as_ref().ok_or_else(rejection)?;
+                        selected = context.dialog_selected();
+                        if selected {
+                            return context.dialog_opening(args, eligible);
                         }
+                        let mut kind = COREWEBVIEW2_SCRIPT_DIALOG_KIND::default();
+                        unsafe { args.Kind(&mut kind) }?;
+                        // No Accept, result text or default-dialog fallback.
+                        Ok(true)
+                    });
+                    drop(args);
+                    drop(sender);
+                    // selected can only be set inside invoke's STA-gated action.
+                    let timely_return = !selected || context.dialog_after_drop();
+                    if selected && let Some(owner) = context.owner.upgrade() {
+                        {
+                            let mut state = owner.borrow_mut();
+                            if let Some(i) = matching(&mut state, &context.request)
+                                && context.matches_instance(i)
+                                && let Some(d) = i.refusal_registry.dialog.as_mut()
+                            {
+                                d.facts.non_accept_action_returned =
+                                    result.is_ok() && timely_return;
+                                d.facts.dialog_live_after_getters &= timely_return;
+                            }
+                        }
+                        emit_dialog(
+                            &owner,
+                            &context.request,
+                            &context.unknown,
+                            NativeDialogStage::Refusal,
+                        );
                     }
-                    emit_dialog(
-                        &owner,
-                        &context.request,
-                        &context.unknown,
-                        NativeDialogStage::Refusal,
-                    );
-                }
-                drop(active);
-                result
-            }));
+                    drop(active);
+                    result
+                }))
+            };
             let mut token = 0;
             let result = unsafe { core.add_ScriptDialogOpening(&handler, &mut token) };
+            permission::add_returned(owner, index, result.is_ok());
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -5383,53 +5865,63 @@ mod native {
             core: &ICoreWebView2,
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
-            let handler = NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
-                let active = Active::enter(&context.callbacks);
-                if !callback_on_ui(context.ui, &context.callbacks, 4398) {
-                    n4_note(
-                        &context.callbacks,
-                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
-                        4399,
-                        context.diagnostic_hook_bits(),
-                    );
-                    context.unknown.store(true, Ordering::SeqCst);
-                    n3_writer(
-                        &context.callbacks,
-                        N3W::PopupAffinity,
-                        u16::from(context.n3_event) << 8,
-                    );
+            let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                permission::s2_popup(context.into_permission_guard()?)
+            } else {
+                NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    if !callback_on_ui(context.ui, &context.callbacks, 4398) {
+                        n4_note(
+                            &context.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            4399,
+                            context.diagnostic_hook_bits(),
+                        );
+                        context.unknown.store(true, Ordering::SeqCst);
+                        n3_writer(
+                            &context.callbacks,
+                            N3W::PopupAffinity,
+                            u16::from(context.n3_event) << 8,
+                        );
+                        drop(args);
+                        drop(sender);
+                        drop(active);
+                        return Err(rejection());
+                    }
+                    let selected = context.popup_selected();
+                    // Reserve before Context's fallible native IUnknown queries.
+                    let reserved = selected && context.reserve_popup_target();
+                    let mut event = LegacyRefusalEvent::new();
+                    let mut facts = NativePopupFacts::default();
+                    let result = context.invoke(sender.as_ref(), |eligible| {
+                        let args = args.as_ref().ok_or_else(rejection)?;
+                        if selected {
+                            context.popup_opening(
+                                args,
+                                eligible && reserved,
+                                &mut event,
+                                &mut facts,
+                            )
+                        } else {
+                            unsafe { args.SetHandled(true) }.map(|()| true)
+                        }
+                    });
+                    let failed = result.is_err();
+                    drop(result);
                     drop(args);
                     drop(sender);
+                    let timely = !selected || context.popup_after_drop(&mut event);
                     drop(active);
-                    return Err(rejection());
-                }
-                let selected = context.popup_selected();
-                // Reserve before Context's fallible native IUnknown queries.
-                let reserved = selected && context.reserve_popup_target();
-                let mut event = LegacyRefusalEvent::new();
-                let mut facts = NativePopupFacts::default();
-                let result = context.invoke(sender.as_ref(), |eligible| {
-                    let args = args.as_ref().ok_or_else(rejection)?;
+                    let timely = timely && (!selected || context.popup_after_drop(&mut event));
                     if selected {
-                        context.popup_opening(args, eligible && reserved, &mut event, &mut facts)
-                    } else {
-                        unsafe { args.SetHandled(true) }.map(|()| true)
+                        context.publish_popup_target(facts, timely);
                     }
-                });
-                let failed = result.is_err();
-                drop(result);
-                drop(args);
-                drop(sender);
-                let timely = !selected || context.popup_after_drop(&mut event);
-                drop(active);
-                let timely = timely && (!selected || context.popup_after_drop(&mut event));
-                if selected {
-                    context.publish_popup_target(facts, timely);
-                }
-                if failed { Err(rejection()) } else { Ok(()) }
-            }));
+                    if failed { Err(rejection()) } else { Ok(()) }
+                }))
+            };
             let mut token = 0;
             let result = unsafe { core.add_NewWindowRequested(&handler, &mut token) };
+            permission::add_returned(owner, index, result.is_ok());
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -6277,62 +6769,67 @@ mod native {
             core: &ICoreWebView2_4,
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
-            let handler = DownloadStartingEventHandler::create(Box::new(move |sender, args| {
-                let active = Active::enter(&context.callbacks);
-                if !callback_on_ui(context.ui, &context.callbacks, 5232) {
-                    n4_note(
-                        &context.callbacks,
-                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
-                        5233,
-                        context.diagnostic_hook_bits(),
-                    );
-                    context.unknown.store(true, Ordering::SeqCst);
-                    n3_writer(
-                        &context.callbacks,
-                        N3W::DownloadAffinity,
-                        u16::from(context.n3_event) << 8,
-                    );
+            let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                permission::s2_download(context.into_permission_guard()?)
+            } else {
+                DownloadStartingEventHandler::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    if !callback_on_ui(context.ui, &context.callbacks, 5232) {
+                        n4_note(
+                            &context.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            5233,
+                            context.diagnostic_hook_bits(),
+                        );
+                        context.unknown.store(true, Ordering::SeqCst);
+                        n3_writer(
+                            &context.callbacks,
+                            N3W::DownloadAffinity,
+                            u16::from(context.n3_event) << 8,
+                        );
+                        drop(args);
+                        drop(sender);
+                        drop(active);
+                        return Err(rejection());
+                    }
+                    let selected = context.download_selected();
+                    // Reserve before Context's fallible native IUnknown queries.
+                    let reserved = selected && context.reserve_download_target();
+                    let mut event = LegacyRefusalEvent::new();
+                    let mut facts = NativeDownloadFacts::default();
+                    let result = context.invoke(sender.as_ref(), |eligible| {
+                        let args = args.as_ref().ok_or_else(rejection)?;
+                        if selected {
+                            context.download_starting(
+                                args,
+                                eligible && reserved,
+                                &mut event,
+                                &mut facts,
+                            )
+                        } else {
+                            let canceled = unsafe { args.SetCancel(true) };
+                            let handled = unsafe { args.SetHandled(true) };
+                            canceled?;
+                            handled?;
+                            Ok(true)
+                        }
+                    });
+                    let failed = result.is_err();
+                    drop(result);
                     drop(args);
                     drop(sender);
+                    let timely = !selected || context.download_after_drop(&mut event);
                     drop(active);
-                    return Err(rejection());
-                }
-                let selected = context.download_selected();
-                // Reserve before Context's fallible native IUnknown queries.
-                let reserved = selected && context.reserve_download_target();
-                let mut event = LegacyRefusalEvent::new();
-                let mut facts = NativeDownloadFacts::default();
-                let result = context.invoke(sender.as_ref(), |eligible| {
-                    let args = args.as_ref().ok_or_else(rejection)?;
+                    let timely = timely && (!selected || context.download_after_drop(&mut event));
                     if selected {
-                        context.download_starting(
-                            args,
-                            eligible && reserved,
-                            &mut event,
-                            &mut facts,
-                        )
-                    } else {
-                        let canceled = unsafe { args.SetCancel(true) };
-                        let handled = unsafe { args.SetHandled(true) };
-                        canceled?;
-                        handled?;
-                        Ok(true)
+                        context.publish_download_target(facts, timely);
                     }
-                });
-                let failed = result.is_err();
-                drop(result);
-                drop(args);
-                drop(sender);
-                let timely = !selected || context.download_after_drop(&mut event);
-                drop(active);
-                let timely = timely && (!selected || context.download_after_drop(&mut event));
-                if selected {
-                    context.publish_download_target(facts, timely);
-                }
-                if failed { Err(rejection()) } else { Ok(()) }
-            }));
+                    if failed { Err(rejection()) } else { Ok(()) }
+                }))
+            };
             let mut token = 0;
             let result = unsafe { core.add_DownloadStarting(&handler, &mut token) };
+            permission::add_returned(owner, index, result.is_ok());
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -6464,6 +6961,7 @@ mod native {
             unknown: Arc<AtomicBool>,
             diagnostic_hook: u8,
             n3_event: u8,
+            permission_selected: Arc<AtomicBool>,
             _lifetime: HandlerLifetime,
         }
         impl Context {
@@ -6487,9 +6985,34 @@ mod native {
                         .last()
                         .map_or(255, |e| e.hook as u8),
                     unknown: Arc::clone(&i.refusal_registry.unknown),
+                    permission_selected: Arc::clone(&i.permission_selected),
                     _lifetime: HandlerLifetime::new(&callbacks),
                     callbacks,
                 }
+            }
+            fn into_permission_guard(self) -> windows::core::Result<permission::S2Guard> {
+                let clock = {
+                    let owner = self.owner.upgrade().ok_or_else(rejection)?;
+                    let state = owner.borrow();
+                    let i = state
+                        .instance
+                        .as_ref()
+                        .filter(|i| {
+                            i.request == self.request && Arc::ptr_eq(&i.callbacks, &self.callbacks)
+                        })
+                        .ok_or_else(rejection)?;
+                    i.permission_history.clock()
+                };
+                Ok(permission::S2Guard {
+                    owner: self.owner,
+                    request: self.request,
+                    generation: self.generation,
+                    ui: self.ui,
+                    callbacks: self.callbacks,
+                    unknown: self.unknown,
+                    clock,
+                    _lifetime: self._lifetime,
+                })
             }
             fn diagnostic_hook_bits(&self) -> u16 {
                 u16::from(self.diagnostic_hook) << 8
@@ -6695,6 +7218,8 @@ mod native {
                             s4::mark_close(i);
                             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                             http401::mark_close(i);
+                            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                            permission::external_close(i);
                             top_close = mark_top_close(i).map(|at| (i.observer.clone(), at));
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
@@ -7074,63 +7599,69 @@ mod native {
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
             let http_context = http401::Context::new(owner, request);
-            let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
-                let active = Active::enter(&context.callbacks);
-                if http_context.selected() {
-                    if !callback_on_ui(http_context.ui, &http_context.callbacks, 8603) {
-                        http_context.lost();
+            let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                permission::s2_navigation(context.into_permission_guard()?, false)
+            } else {
+                NavigationStartingEventHandler::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    if http_context.selected() {
+                        if !callback_on_ui(http_context.ui, &http_context.callbacks, 8603) {
+                            http_context.lost();
+                            drop(args);
+                            drop(sender);
+                            drop(active);
+                            return Err(rejection());
+                        }
+                        let candidate =
+                            http401::top_callback(&http_context, sender.as_ref(), args.as_ref());
                         drop(args);
                         drop(sender);
+                        http401::finish_top(&http_context, candidate);
                         drop(active);
-                        return Err(rejection());
+                        return Ok(());
                     }
-                    let candidate =
-                        http401::top_callback(&http_context, sender.as_ref(), args.as_ref());
+                    let mut receipt = None;
+                    let mut event = LegacyRefusalEvent::new();
+                    let mut dialog_selected = false;
+                    let mut chooser_selected = false;
+                    let result = context.invoke(sender.as_ref(), |eligible| {
+                        let args = args.as_ref().ok_or_else(rejection)?;
+                        dialog_selected = context.dialog_selected();
+                        chooser_selected =
+                            context.owner.upgrade().is_some_and(|o| s3::selected(&o));
+                        context.top_navigation(args, eligible, &mut event, &mut receipt)
+                    });
                     drop(args);
                     drop(sender);
-                    http401::finish_top(&http_context, candidate);
-                    drop(active);
-                    return Ok(());
-                }
-                let mut receipt = None;
-                let mut event = LegacyRefusalEvent::new();
-                let mut dialog_selected = false;
-                let mut chooser_selected = false;
-                let result = context.invoke(sender.as_ref(), |eligible| {
-                    let args = args.as_ref().ok_or_else(rejection)?;
-                    dialog_selected = context.dialog_selected();
-                    chooser_selected = context.owner.upgrade().is_some_and(|o| s3::selected(&o));
-                    context.top_navigation(args, eligible, &mut event, &mut receipt)
-                });
-                drop(args);
-                drop(sender);
-                if dialog_selected {
-                    let _ = context.dialog_after_drop();
-                }
-                if chooser_selected && let Some(owner) = context.owner.upgrade() {
-                    s3::qualify_navigation(&owner);
-                }
-                if let Some(mut receipt) = receipt {
-                    let timely = context.legacy_after_drop(&mut event);
-                    receipt.facts.live_after_getters &= timely;
-                    receipt.facts.request_generation_live_matched &= timely;
-                    let observer = context.owner.upgrade().and_then(|owner| {
-                        let state = owner.borrow();
-                        state
-                            .instance
-                            .as_ref()
-                            .filter(|i| context.matches_instance(i))
-                            .and_then(|i| i.observer.clone())
-                    });
-                    if let Some(observer) = observer {
-                        observer(NativeSmokeObservation::TopRefusal(receipt));
+                    if dialog_selected {
+                        let _ = context.dialog_after_drop();
                     }
-                }
-                drop(active);
-                result
-            }));
+                    if chooser_selected && let Some(owner) = context.owner.upgrade() {
+                        s3::qualify_navigation(&owner);
+                    }
+                    if let Some(mut receipt) = receipt {
+                        let timely = context.legacy_after_drop(&mut event);
+                        receipt.facts.live_after_getters &= timely;
+                        receipt.facts.request_generation_live_matched &= timely;
+                        let observer = context.owner.upgrade().and_then(|owner| {
+                            let state = owner.borrow();
+                            state
+                                .instance
+                                .as_ref()
+                                .filter(|i| context.matches_instance(i))
+                                .and_then(|i| i.observer.clone())
+                        });
+                        if let Some(observer) = observer {
+                            observer(NativeSmokeObservation::TopRefusal(receipt));
+                        }
+                    }
+                    drop(active);
+                    result
+                }))
+            };
             let mut token = 0;
             let result = unsafe { core.add_NavigationStarting(&handler, &mut token) };
+            permission::add_returned(owner, index, result.is_ok());
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -7182,7 +7713,9 @@ mod native {
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
             let http_context = http401::Context::new(owner, request);
-            let handler =
+            let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                permission::s2_authentication(context.into_permission_guard()?)
+            } else {
                 BasicAuthenticationRequestedEventHandler::create(Box::new(move |sender, args| {
                     let active = Active::enter(&context.callbacks);
                     if http_context.selected() {
@@ -7209,9 +7742,11 @@ mod native {
                     drop(sender);
                     drop(active);
                     result
-                }));
+                }))
+            };
             let mut token = 0;
             let result = unsafe { core.add_BasicAuthenticationRequested(&handler, &mut token) };
+            permission::add_returned(owner, index, result.is_ok());
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -7261,54 +7796,60 @@ mod native {
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
             let http_context = http401::Context::new(owner, request);
-            let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
-                let active = Active::enter(&context.callbacks);
-                let mut receipt = None;
-                let mut event = LegacyRefusalEvent::new();
-                let mut http_child = None;
-                let result = http401::dispatch_child(
-                    http_context.selected(),
-                    || {
-                        if !callback_on_ui(http_context.ui, &http_context.callbacks, 8605) {
-                            http_context.lost();
-                            return Err(rejection());
-                        }
-                        http_child = Some(http401::child_callback(&http_context, args.as_ref()));
-                        Ok(())
-                    },
-                    || {
-                        context.invoke(sender.as_ref(), |eligible| {
-                            let args = args.as_ref().ok_or_else(rejection)?;
-                            context.child_navigation(args, eligible, &mut event, &mut receipt)
-                        })
-                    },
-                );
-                drop(args);
-                drop(sender);
-                if let Some(candidate) = http_child {
-                    http401::finish_child(&http_context, candidate);
-                }
-                if let Some(mut receipt) = receipt {
-                    let timely = context.legacy_after_drop(&mut event);
-                    receipt.facts.live_after_getters &= timely;
-                    receipt.facts.request_generation_live_matched &= timely;
-                    let observer = context.owner.upgrade().and_then(|owner| {
-                        let state = owner.borrow();
-                        state
-                            .instance
-                            .as_ref()
-                            .filter(|i| context.matches_instance(i))
-                            .and_then(|i| i.observer.clone())
-                    });
-                    if let Some(observer) = observer {
-                        observer(NativeSmokeObservation::ChildRefusal(receipt));
+            let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                permission::s2_navigation(context.into_permission_guard()?, true)
+            } else {
+                NavigationStartingEventHandler::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    let mut receipt = None;
+                    let mut event = LegacyRefusalEvent::new();
+                    let mut http_child = None;
+                    let result = http401::dispatch_child(
+                        http_context.selected(),
+                        || {
+                            if !callback_on_ui(http_context.ui, &http_context.callbacks, 8605) {
+                                http_context.lost();
+                                return Err(rejection());
+                            }
+                            http_child =
+                                Some(http401::child_callback(&http_context, args.as_ref()));
+                            Ok(())
+                        },
+                        || {
+                            context.invoke(sender.as_ref(), |eligible| {
+                                let args = args.as_ref().ok_or_else(rejection)?;
+                                context.child_navigation(args, eligible, &mut event, &mut receipt)
+                            })
+                        },
+                    );
+                    drop(args);
+                    drop(sender);
+                    if let Some(candidate) = http_child {
+                        http401::finish_child(&http_context, candidate);
                     }
-                }
-                drop(active);
-                result
-            }));
+                    if let Some(mut receipt) = receipt {
+                        let timely = context.legacy_after_drop(&mut event);
+                        receipt.facts.live_after_getters &= timely;
+                        receipt.facts.request_generation_live_matched &= timely;
+                        let observer = context.owner.upgrade().and_then(|owner| {
+                            let state = owner.borrow();
+                            state
+                                .instance
+                                .as_ref()
+                                .filter(|i| context.matches_instance(i))
+                                .and_then(|i| i.observer.clone())
+                        });
+                        if let Some(observer) = observer {
+                            observer(NativeSmokeObservation::ChildRefusal(receipt));
+                        }
+                    }
+                    drop(active);
+                    result
+                }))
+            };
             let mut token = 0;
             let result = unsafe { core.add_FrameNavigationStarting(&handler, &mut token) };
+            permission::add_returned(owner, index, result.is_ok());
             {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -7353,22 +7894,27 @@ mod native {
         }
 
         macro_rules! add_handler {
-            ($owner:expr, $request:expr, $index:expr, $emitter:expr, $wrapper:ident, $add:ident, $action:expr) => {{
+            ($owner:expr, $request:expr, $index:expr, $emitter:expr, $wrapper:ident, $add:ident, $selected:ident, $action:expr) => {{
                 let context = Context::new($owner, $request);
                 let action = $action;
-                let handler = $wrapper::create(Box::new(move |sender, args| {
-                    let active = Active::enter(&context.callbacks);
-                    let result = context.invoke(sender.as_ref(), |eligible| {
-                        let args = args.as_ref().ok_or_else(rejection)?;
-                        action(args, eligible)
-                    });
-                    drop(args);
-                    drop(sender);
-                    drop(active);
-                    result
-                }));
+                let handler = if context.permission_selected.load(Ordering::SeqCst) {
+                    permission::$selected(context.into_permission_guard()?)
+                } else {
+                    $wrapper::create(Box::new(move |sender, args| {
+                        let active = Active::enter(&context.callbacks);
+                        let result = context.invoke(sender.as_ref(), |eligible| {
+                            let args = args.as_ref().ok_or_else(rejection)?;
+                            action(args, eligible)
+                        });
+                        drop(args);
+                        drop(sender);
+                        drop(active);
+                        result
+                    }))
+                };
                 let mut token = 0;
                 let result = unsafe { $emitter.$add(&handler, &mut token) };
+                permission::add_returned($owner, $index, result.is_ok());
                 {
                     let mut state = $owner.borrow_mut();
                     let i = matching(&mut state, $request).unwrap();
@@ -7436,7 +7982,8 @@ mod native {
                 });
                 index
             };
-            match (hook, emitter.as_ref()) {
+            permission::add_entered(owner, hook as usize);
+            let result = match (hook, emitter.as_ref()) {
                 (Hook::TopNavigation, Emitter::Core(core)) => {
                     add_top_navigation(owner, request, index, core)
                 }
@@ -7450,6 +7997,7 @@ mod native {
                     core,
                     LaunchingExternalUriSchemeEventHandler,
                     add_LaunchingExternalUriScheme,
+                    s2_external,
                     |args: &ICoreWebView2LaunchingExternalUriSchemeEventArgs, _| unsafe {
                         args.SetCancel(true)
                     }
@@ -7469,6 +8017,7 @@ mod native {
                     core,
                     PermissionRequestedEventHandler,
                     add_PermissionRequested,
+                    s2_permission,
                     |args: &ICoreWebView2PermissionRequestedEventArgs, _| unsafe {
                         args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)
                     }
@@ -7484,6 +8033,7 @@ mod native {
                     core,
                     ClientCertificateRequestedEventHandler,
                     add_ClientCertificateRequested,
+                    s2_certificate,
                     |args: &ICoreWebView2ClientCertificateRequestedEventArgs, _| {
                         let canceled = unsafe { args.SetCancel(true) };
                         let handled = unsafe { args.SetHandled(true) };
@@ -7499,13 +8049,16 @@ mod native {
                     core,
                     ServerCertificateErrorDetectedEventHandler,
                     add_ServerCertificateErrorDetected,
+                    s2_tls,
                     |args: &ICoreWebView2ServerCertificateErrorDetectedEventArgs, _| unsafe {
                         args.SetAction(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL)
                     }
                     .map(|()| true)
                 ),
                 _ => Err(rejection()),
-            }
+            };
+            permission::add_qualified(owner, hook as usize, result.is_ok());
+            result
         }
 
         pub(super) fn begin(
@@ -7513,7 +8066,7 @@ mod native {
             request: &Code0WindowRequest,
         ) -> Result<(), Code0SessionFailure> {
             // Reuse the exact read-only unloaded startup validation first.
-            super::require_native_refusal_install(owner, request)?;
+            super::require_native_refusal_install_checked(owner, request, true)?;
             let callbacks = {
                 let mut state = owner.borrow_mut();
                 let i = matching(&mut state, request).unwrap();
@@ -7559,6 +8112,7 @@ mod native {
                     .unwrap()
                     .refusal_registry
                     .settings_acknowledged = true;
+                permission::settings_acknowledged(owner);
                 for hook in Hook::ALL {
                     require_live(owner, request)?;
                     let emitter = match hook {
@@ -7614,6 +8168,7 @@ mod native {
                 || i.refusal_registry.dialog_completed.is_some()
                 || i.refusal_registry.popup.is_some()
                 || i.refusal_registry.download.is_some()
+                || i.permission.is_some()
                 || !i.refusal_registry.complete()
             {
                 return None;
@@ -7651,6 +8206,7 @@ mod native {
                 let Some((index, hook, emitter, token)) = action else {
                     break;
                 };
+                permission::remove_entered(owner, hook as usize);
                 let result = unsafe {
                     match (hook, emitter.as_ref()) {
                         (Hook::TopNavigation, Emitter::Core(core)) => {
@@ -7686,6 +8242,7 @@ mod native {
                         _ => Err(rejection()),
                     }
                 };
+                permission::remove_returned(owner, hook as usize, result.is_ok());
                 {
                     let mut state = owner.borrow_mut();
                     let i = state.instance.as_mut().unwrap();
@@ -7722,6 +8279,9 @@ mod native {
                         );
                     }
                 }
+                drop(result);
+                drop(emitter);
+                permission::remove_qualified(owner, hook as usize);
                 latch_unknown(owner);
             }
         }
@@ -16120,6 +16680,7 @@ if(m.k==="detach"&&((phase===4&&c!=="s4-capability-dispose-missing")||(phase===2
                 || instance.closing
                 || instance.inline_loaded
                 || instance.capability.is_some()
+                || instance.permission.is_some()
                 || instance.message_token.is_none()
             {
                 return Err(Code0SessionFailure::PolicyRejected);
@@ -16158,6 +16719,14 @@ pub mod fixture {
         Facts as NativeHttp401Facts, FinalClock as NativeHttp401FinalClock,
         Receipt as NativeHttp401Receipt, Timing as NativeHttp401Timing,
         finalize_http401_with_watchdog, merge_http401_native_facts, record_http401_session_failure,
+    };
+    #[cfg(windows)]
+    pub use super::native::permission::{
+        Facts as NativePermissionFacts, Receipt as NativePermissionReceipt,
+        Timing as NativePermissionTiming, merge_native_facts as merge_permission_native_facts,
+        record_browser_exit as record_permission_browser_exit,
+        record_destroyed as record_permission_destroyed,
+        record_session_failure as record_permission_session_failure,
     };
     use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
 
@@ -18743,6 +19312,12 @@ pub mod fixture {
 
     pub enum NativeSmokeObservation {
         #[cfg(windows)]
+        Permission(Box<NativePermissionReceipt>),
+        #[cfg(windows)]
+        PermissionClosing {
+            at: std::time::Instant,
+        },
+        #[cfg(windows)]
         Http401(Box<NativeHttp401Receipt>),
         #[cfg(windows)]
         Http401Closing {
@@ -20209,6 +20784,52 @@ pub mod fixture {
         }
 
         #[cfg(windows)]
+        pub fn select_fixture_permission(
+            &mut self,
+            request: &Code0WindowRequest,
+            started: std::time::Instant,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            super::native::select_permission_intent(&self.owner, request, started)
+        }
+        #[cfg(windows)]
+        pub fn prepare_fixture_permission(
+            &mut self,
+            request: &Code0WindowRequest,
+            started: std::time::Instant,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            super::native::prepare_permission(&self.owner, request, started)
+        }
+        #[cfg(windows)]
+        pub fn begin_fixture_permission(
+            &mut self,
+            request: &Code0WindowRequest,
+            started: std::time::Instant,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            super::native::begin_permission(&self.owner, request, started)
+        }
+
+        #[cfg(windows)]
         pub fn begin_fixture_http401(
             &mut self,
             request: &Code0WindowRequest,
@@ -20222,6 +20843,15 @@ pub mod fixture {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             super::native::http401::begin(&self.owner, request, started)
+        }
+
+        #[cfg(windows)]
+        pub fn capture_fixture_permission_setup_failure(
+            &mut self,
+            request: &Code0WindowRequest,
+            started: std::time::Instant,
+        ) -> Result<NativePermissionReceipt, Code0SessionFailure> {
+            super::native::permission_setup_failure(&self.owner, request, started)
         }
 
         /// Read actual same-instance registration inventory. Never installs or loads.
@@ -20238,7 +20868,7 @@ pub mod fixture {
             }
             #[cfg(windows)]
             {
-                super::native::require_native_refusal_install(&self.owner, request)
+                super::native::refusal_inventory_receipt(&self.owner, request)
             }
             #[cfg(not(windows))]
             {

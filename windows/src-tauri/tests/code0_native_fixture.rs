@@ -56,6 +56,12 @@ mod smoke {
     const DOWNLOAD_REFUSAL_CASE: &str = "refusal-download-initial-data-empty";
     const POPUP_REFUSAL_CASE: &str = "refusal-popup-initial-blank";
     const HTTP401_CASE: &str = "refusal-http401-owned-loopback";
+    const PERMISSION_CASE: &str = "refusal-notification-owned-https";
+    use ai_token_meter_windows::platform::windows::code0_webview::fixture::{
+        NativePermissionFacts, NativePermissionReceipt, NativePermissionTiming,
+        merge_permission_native_facts, record_permission_browser_exit, record_permission_destroyed,
+        record_permission_session_failure,
+    };
     const CHOOSER_CASE: &str = "chooser-prebound-owned-empty-file";
     const CHOOSER_LEAF: &str = "code0-s3-chooser-empty.html";
     const DIALOG_REFUSAL_LEAF: &str = "code0-s2-dialog-empty.html";
@@ -1101,6 +1107,140 @@ mod smoke {
             }
         }
     }
+    #[derive(Default)]
+    struct PermissionEvidence {
+        facts: NativePermissionFacts,
+        installation: Option<NativeRefusalInstallReceipt>,
+        previous: Option<NativePermissionReceipt>,
+        timing: Option<NativePermissionTiming>,
+        matched: bool,
+    }
+    impl PermissionEvidence {
+        fn observe(
+            &mut self,
+            receipt: NativePermissionReceipt,
+            request: &Code0WindowRequest,
+            started: Instant,
+        ) -> bool {
+            let timing = receipt.timing();
+            let monotonic = self.previous.as_ref().is_none_or(|p| {
+                let old = p.facts();
+                let new = receipt.facts();
+                new.counts.action_receipts >= old.counts.action_receipts
+                    && new.counts.effect_receipts >= old.counts.effect_receipts
+                    && new.counts.final_receipts >= old.counts.final_receipts
+                    && (!old.unknown || new.unknown)
+                    && (!old.overflow || new.overflow)
+                    && self
+                        .timing
+                        .as_ref()
+                        .and_then(NativePermissionTiming::first_close)
+                        .is_none_or(|at| Some(at) == timing.first_close())
+            });
+            let matched = monotonic
+                && self
+                    .installation
+                    .as_ref()
+                    .is_some_and(|i| receipt.matches(request, i))
+                && self.previous.as_ref().is_none_or(|p| receipt.same_guard(p))
+                && timing.matches_start(started);
+            self.matched = if self.previous.is_none() {
+                matched
+            } else {
+                self.matched && matched
+            };
+            merge_permission_native_facts(&mut self.facts, receipt.facts());
+            self.timing = Some(timing);
+            self.previous = Some(receipt);
+            if !matched {
+                self.reject("permissionIdentityChanged");
+            }
+            matched
+        }
+        fn observe_setup_failure(
+            &mut self,
+            receipt: NativePermissionReceipt,
+            request: &Code0WindowRequest,
+            started: Instant,
+        ) {
+            let matched = receipt.matches_setup_failure(request, started);
+            merge_permission_native_facts(&mut self.facts, receipt.facts());
+            self.reject("permissionSetupRejected");
+            self.facts.unknown |= !matched;
+            self.timing = Some(receipt.timing());
+            self.previous = Some(receipt);
+            self.matched = false;
+        }
+        fn reject(&mut self, failure: &'static str) {
+            if self.facts.failure.is_none() {
+                self.facts.failure = Some(permission_failure(failure));
+            }
+        }
+        fn provisional(&self, native: &NativeRefusalEvidence, state: &Summary) -> bool {
+            self.matched
+                && self.facts.native_positive()
+                && native.receipts == 1
+                && native.native_instance_validated
+                && native.source_bound_registry
+                && native.required_mask == 1023
+                && native.installed_mask == 1023
+                && native.not_installed_hooks.is_empty()
+                && !native.navigation_not_issued
+                && !native.load_rejected
+                && state.sta_main
+                && state.callback_affinity
+                && state.no_inherited_override
+                && state.engine_ready
+                && state.bare_hidden_unfocused
+                && state.construction_observed
+                && !state.bare_window_violation
+                && state.profile_isolated
+                && state.destroyed
+                && state.owned_references_released
+        }
+        fn final_clock(&mut self, now: Instant, adopted: Option<Instant>) {
+            if let Some(timing) = &self.timing {
+                timing.record_final(&mut self.facts, now, adopted);
+            } else {
+                self.reject("permissionCleanupFailed");
+            }
+        }
+    }
+    fn permission_failure(failure: &'static str) -> &'static str {
+        match failure {
+            "none"
+            | "notCompleted"
+            | "watchdogTimeout"
+            | "fixtureSetupFailed"
+            | "inheritedWebview2Override"
+            | "uiAffinityFailed"
+            | "bareWindowViolation"
+            | "permissionSetupRejected"
+            | "permissionPreflightFailed"
+            | "permissionNativeTargetMissing"
+            | "permissionNativeMetadataFailed"
+            | "permissionNativeActionFailed"
+            | "permissionNativeStateMismatch"
+            | "permissionEffectMissing"
+            | "permissionEffectLate"
+            | "permissionIdentityChanged"
+            | "permissionProtocolRejected"
+            | "permissionDeadlineExceeded"
+            | "permissionCleanupFailed"
+            | "permissionOverflow"
+            | "permissionUnknown" => failure,
+            "closeEvidenceTimeout" | "profileCleanupFailed" | "browserExitReceiptInvalid" => {
+                "permissionCleanupFailed"
+            }
+            "nativeCreateDenied" | "profileLeaseDenied" => "fixtureSetupFailed",
+            "policyEnginePreconditionFailed"
+            | "nativeHookInstallFailed"
+            | "nativeHookInventoryPreconditionFailed"
+            | "nativeHooksMissing" => "permissionSetupRejected",
+            _ => "permissionUnknown",
+        }
+    }
+
     fn http401_failure(failure: &'static str) -> &'static str {
         match failure {
             "none"
@@ -1165,10 +1305,18 @@ mod smoke {
         capability: Option<CapabilityEvidence>,
         #[serde(skip)]
         http401: Option<Http401Evidence>,
+        #[serde(skip)]
+        permission: Option<PermissionEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(permission) = &self.permission {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| permission.provisional(native, lifecycle));
+            }
             if let Some(http) = &self.http401 {
                 return self
                     .native_refusal
@@ -1340,12 +1488,16 @@ mod smoke {
         capability: Option<&'a NativeCapabilityFacts>,
         #[serde(skip_serializing_if = "Option::is_none")]
         http401: Option<&'a NativeHttp401Facts>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        permission: Option<&'a NativePermissionFacts>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.http401.is_some() {
+                schema: if install.permission.is_some() {
+                    14
+                } else if install.http401.is_some() {
                     15
                 } else if install.capability.is_some() {
                     13
@@ -1367,7 +1519,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.http401.is_some() {
+                required_case: if install.permission.is_some() {
+                    PERMISSION_CASE
+                } else if install.http401.is_some() {
                     HTTP401_CASE
                 } else if let Some(capability) = &install.capability {
                     capability.facts.selector
@@ -1391,7 +1545,9 @@ mod smoke {
                 selected_cases: 1,
                 completed_cases: state.completed_cases,
                 pass: state.pass,
-                failure: if let Some(http) = &install.http401 {
+                failure: if let Some(permission) = &install.permission {
+                    permission_failure(permission.facts.failure.unwrap_or(state.failure))
+                } else if let Some(http) = &install.http401 {
                     http401_failure(http.facts.failure.unwrap_or(state.failure))
                 } else {
                     state.failure
@@ -1406,6 +1562,7 @@ mod smoke {
                 chooser: install.chooser.as_ref(),
                 capability: install.capability.as_ref().map(|c| &c.facts),
                 http401: install.http401.as_ref().map(|h| &h.facts),
+                permission: install.permission.as_ref().map(|p| &p.facts),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -2271,6 +2428,12 @@ mod smoke {
     }
 
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 14 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "permission summary exceeds bounded artifact cap",
+            ));
+        }
         if summary.schema == 15 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -2377,10 +2540,26 @@ mod smoke {
             true,
         )
     }
+    pub fn run_permission() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selection(
+            (true, false, false, false, false, false, false),
+            None,
+            false,
+            true,
+        )
+    }
     fn run_policy_selected_with_capability(
         selection: (bool, bool, bool, bool, bool, bool, bool),
         capability_selector: Option<NativeCapabilitySelector>,
         http_selected: bool,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selection(selection, capability_selector, http_selected, false)
+    }
+    fn run_policy_selection(
+        selection: (bool, bool, bool, bool, bool, bool, bool),
+        capability_selector: Option<NativeCapabilitySelector>,
+        http_selected: bool,
+        permission_selected: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let (
             native_refusal,
@@ -2423,6 +2602,7 @@ mod smoke {
             chooser: chooser_selected.then(ChooserEvidence::default),
             capability: capability_selector.map(CapabilityEvidence::new),
             http401: http_selected.then(Http401Evidence::default),
+            permission: permission_selected.then(PermissionEvidence::default),
             ..PolicyEvidence::default()
         }));
         write_policy_summary(
@@ -2443,7 +2623,7 @@ mod smoke {
         let watchdog_diagnostics = Arc::clone(&diagnostics);
         let watchdog = thread::spawn(move || {
             if watchdog_rx.recv_timeout(Duration::from_secs(75)).is_err() {
-                if http_selected {
+                if http_selected || permission_selected {
                     // The retained actual snapshot (or no valid artifact) and
                     // nonzero exit suffice. No lock/output/filesystem operation
                     // may become a prerequisite for the original75 exit.
@@ -2488,6 +2668,101 @@ mod smoke {
         );
         if outcome.is_err() {
             summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        if permission_selected {
+            let passed = finalize_http401_with_watchdog(
+                || {
+                    {
+                        let mut state = summary.lock().unwrap();
+                        let mut install = install.lock().unwrap();
+                        let permission = install.permission.as_mut().unwrap();
+                        let adopted = permission
+                            .timing
+                            .as_ref()
+                            .and_then(NativePermissionTiming::first_close)
+                            .filter(|_| permission.facts.timing.first_close_adopted == Some(true));
+                        if state.failure != "none" && state.failure != "notCompleted" {
+                            permission.reject(permission_failure(state.failure));
+                        }
+                        permission.final_clock(Instant::now(), adopted);
+                        let closed = state.run_returned
+                            && state.destroyed
+                            && state.owned_references_released
+                            && state.cleanup_succeeded
+                            && permission.facts.cleanup.released_ref_zero == Some(true)
+                            && permission.facts.cleanup.wake_join_succeeded == Some(true)
+                            && permission.facts.cleanup.temp_dir_close_succeeded == Some(true)
+                            && permission.facts.cleanup.temp_dir_result_dropped == Some(true);
+                        if closed {
+                            permission.facts.phase = "Closed";
+                        }
+                        permission.facts.status.terminal_result = Some(
+                            if state.pass && closed && permission.facts.failure.is_none() {
+                                "succeeded"
+                            } else {
+                                "failed"
+                            },
+                        );
+                        state.pass &= permission.facts.positive();
+                        if !state.pass
+                            && (state.failure == "none" || state.failure == "notCompleted")
+                        {
+                            state.failure = permission
+                                .facts
+                                .failure
+                                .unwrap_or("permissionCleanupFailed");
+                        }
+                    }
+                    let mut written = write_policy_summary(
+                        &mut evidence.lock().unwrap(),
+                        &PolicySummary::snapshot(
+                            &summary.lock().unwrap(),
+                            &install.lock().unwrap(),
+                        ),
+                    );
+                    if written.is_ok() {
+                        let mut state = summary.lock().unwrap();
+                        let mut install = install.lock().unwrap();
+                        let permission = install.permission.as_mut().unwrap();
+                        let adopted = permission
+                            .timing
+                            .as_ref()
+                            .and_then(NativePermissionTiming::first_close)
+                            .filter(|_| permission.facts.timing.first_close_adopted == Some(true));
+                        permission.final_clock(Instant::now(), adopted);
+                        if let Some(failure) = permission.facts.failure {
+                            state.pass = false;
+                            permission.facts.status.terminal_result = Some("failed");
+                            if state.failure == "none" || state.failure == "notCompleted" {
+                                state.failure = failure;
+                            }
+                            written = write_policy_summary(
+                                &mut evidence.lock().unwrap(),
+                                &PolicySummary::snapshot(&state, &install),
+                            );
+                        }
+                    }
+                    diagnostics.emit_once(false);
+                    written.is_ok() && outcome.is_ok()
+                },
+                || {
+                    let _ = watchdog_done.send(());
+                    watchdog.join().is_ok()
+                },
+                || {
+                    let state = summary.lock().unwrap();
+                    let mut install = install.lock().unwrap();
+                    let permission = install.permission.as_mut().unwrap();
+                    let adopted = permission
+                        .timing
+                        .as_ref()
+                        .and_then(NativePermissionTiming::first_close)
+                        .filter(|_| permission.facts.timing.first_close_adopted == Some(true));
+                    permission.final_clock(Instant::now(), adopted);
+                    state.pass && permission.facts.positive()
+                },
+            );
+            return Ok(passed);
         }
         if http_selected {
             let passed = finalize_http401_with_watchdog(
@@ -2851,6 +3126,9 @@ mod smoke {
         let http_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().http401.is_some());
+        let permission_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().permission.is_some());
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -3002,7 +3280,17 @@ mod smoke {
         let native_http_close = Rc::new(Cell::new(None::<Instant>));
         let observer_http_close = Rc::clone(&native_http_close);
         let final_http_close = Rc::clone(&native_http_close);
+        let native_permission_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_permission_close = Rc::clone(&native_permission_close);
+        let adopted_permission_close = Rc::new(Cell::new(None::<Instant>));
+        let final_permission_adopted = Rc::clone(&adopted_permission_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if permission_selected
+                && let NativeSmokeObservation::PermissionClosing { at } = &event
+                && observer_permission_close.get().is_none()
+            {
+                observer_permission_close.set(Some(*at));
+            }
             if http_selected
                 && let NativeSmokeObservation::Http401Closing { at } = &event
                 && observer_http_close.get().is_none()
@@ -3238,7 +3526,13 @@ mod smoke {
                 } else {
                     ui_diagnostics.observed(DM::Lease);
                     ui_diagnostics.phase(DP::Create, false);
-                    let created = driver.create_unloaded(request.clone());
+                    let created = if permission_selected {
+                        driver
+                            .select_fixture_permission(&request, started)
+                            .and_then(|_| driver.create_unloaded(request.clone()))
+                    } else {
+                        driver.create_unloaded(request.clone())
+                    };
                     ui_diagnostics.phase(DP::Create, true);
                     if created.is_err() {
                         create_failure = Some("nativeCreateDenied");
@@ -3279,7 +3573,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if http_selected {
+                if permission_selected {
+                    native_permission_close.get()
+                } else if http_selected {
                     native_http_close.get()
                 } else if capability_selected {
                     native_capability_close.get()
@@ -3307,7 +3603,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if http_selected {
+                if permission_selected {
+                    native_permission_close.get()
+                } else if http_selected {
                     native_http_close.get()
                 } else if capability_selected {
                     native_capability_close.get()
@@ -3327,6 +3625,10 @@ mod smoke {
                 &ui_diagnostics,
                 top_selected || child_selected,
             );
+            if permission_selected {
+                adopted_permission_close
+                    .set(closing_since.filter(|at| Some(*at) == native_permission_close.get()));
+            }
             ui_diagnostics.phase(DP::SummaryLock, false);
             let mut state = observed.lock().unwrap();
             ui_diagnostics.phase(DP::SummaryLock, true);
@@ -3344,6 +3646,19 @@ mod smoke {
                 && owned_label.as_ref() == Some(label)
             {
                 state.destroyed = true;
+                if permission_selected {
+                    record_permission_destroyed(
+                        &mut policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .permission
+                            .as_mut()
+                            .unwrap()
+                            .facts,
+                    );
+                }
             }
             // Pop in a helper so RefMut is dropped before an observer can enqueue.
             while let Some(observation) = next_observation(&queue) {
@@ -3402,8 +3717,14 @@ mod smoke {
                                 if native_selected {
                                     // All summary/install guards ended before the
                                     // explicit native installer or readonly getter.
-                                    let installed =
-                                        driver.install_fixture_native_refusal_handlers(&request);
+                                    let prepared = if permission_selected {
+                                        driver.prepare_fixture_permission(&request, started)
+                                    } else {
+                                        Ok(())
+                                    };
+                                    let installed = prepared.and_then(|_| {
+                                        driver.install_fixture_native_refusal_handlers(&request)
+                                    });
                                     let receipt =
                                         driver.require_fixture_native_refusal_install(&request);
                                     let mut install = policy.lock().unwrap();
@@ -3419,13 +3740,17 @@ mod smoke {
                                             || chooser_selected
                                             || capability_selected
                                             || http_selected
+                                            || permission_selected
                                         {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if http_selected {
+                                    if permission_selected {
+                                        install.permission.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if http_selected {
                                         install.http401.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if capability_selected {
@@ -3451,6 +3776,38 @@ mod smoke {
                                             saved_receipt;
                                     }
                                     drop(install);
+                                    let permission_submission_failure = if permission_selected {
+                                        let failed =
+                                            if installed.is_ok() && valid_inventory && !rejected {
+                                                driver
+                                                    .begin_fixture_permission(&request, started)
+                                                    .is_err()
+                                            } else {
+                                                true
+                                            };
+                                        if failed {
+                                            let partial = driver
+                                                .capture_fixture_permission_setup_failure(
+                                                    &request, started,
+                                                );
+                                            if let Ok(partial) = partial {
+                                                policy
+                                                    .lock()
+                                                    .unwrap()
+                                                    .permission
+                                                    .as_mut()
+                                                    .unwrap()
+                                                    .observe_setup_failure(
+                                                        partial, &request, started,
+                                                    );
+                                            }
+                                            Some("permissionSetupRejected")
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    };
                                     let http_submission_failure = if http_selected
                                         && installed.is_ok()
                                         && valid_inventory
@@ -3668,6 +4025,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = permission_submission_failure {
+                                        failure
                                     } else if let Some(failure) = http_submission_failure {
                                         failure
                                     } else if let Some(failure) = capability_submission_failure {
@@ -3727,6 +4086,53 @@ mod smoke {
                             ui_diagnostics.phase(DP::SummaryLock, true);
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
+                            }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::PermissionClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !permission_selected && state.failure == "notCompleted" {
+                            state.failure = "permissionIdentityChanged";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Permission(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread
+                            && callback_sta
+                            && receipt.callback_affinity();
+                        let valid = permission_selected
+                            && policy.as_ref().is_some_and(|policy| {
+                                let mut install = policy.lock().unwrap();
+                                if receipt.facts().counts.navigation != 0 {
+                                    install
+                                        .native_refusal
+                                        .as_mut()
+                                        .unwrap()
+                                        .navigation_not_issued = false;
+                                }
+                                install
+                                    .permission
+                                    .as_mut()
+                                    .unwrap()
+                                    .observe(*receipt, &request, started)
+                            });
+                        if !valid && state.failure == "notCompleted" {
+                            state.failure = "permissionIdentityChanged";
+                        }
+                        if permission_selected {
+                            let install = policy.as_ref().unwrap().lock().unwrap();
+                            if let Some(failure) =
+                                install.permission.as_ref().unwrap().facts.failure
+                                && state.failure == "notCompleted"
+                            {
+                                state.failure = failure;
                             }
                         }
                     }
@@ -4215,6 +4621,19 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if permission_selected {
+                            record_permission_browser_exit(
+                                &mut policy
+                                    .as_ref()
+                                    .unwrap()
+                                    .lock()
+                                    .unwrap()
+                                    .permission
+                                    .as_mut()
+                                    .unwrap()
+                                    .facts,
+                            );
+                        }
                         if http_selected {
                             policy
                                 .as_ref()
@@ -4333,7 +4752,53 @@ mod smoke {
                         callback_sta,
                     ) => {
                         ui_diagnostics.n4_session_stage(&reason, true);
-                        if http_selected {
+                        if permission_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let needs_partial = policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .permission
+                                .as_ref()
+                                .unwrap()
+                                .previous
+                                .is_none();
+                            if needs_partial {
+                                drop(state);
+                                let partial = driver
+                                    .capture_fixture_permission_setup_failure(&request, started);
+                                state = observed.lock().unwrap();
+                                if let Ok(partial) = partial {
+                                    state.callback_affinity &= partial.callback_affinity();
+                                    policy
+                                        .as_ref()
+                                        .unwrap()
+                                        .lock()
+                                        .unwrap()
+                                        .permission
+                                        .as_mut()
+                                        .unwrap()
+                                        .observe_setup_failure(partial, &request, started);
+                                }
+                            }
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let permission = install.permission.as_mut().unwrap();
+                            let before =
+                                permission.matched && permission.facts.qualified_action_history();
+                            record_permission_session_failure(
+                                &mut permission.facts,
+                                &reason,
+                                owned == request,
+                                before,
+                            );
+                            if let Some(failure) = permission.facts.failure
+                                && state.failure == "notCompleted"
+                            {
+                                state.failure = failure;
+                            }
+                        } else if http_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -4592,7 +5057,8 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = !http_selected
+            let native_install_observed = !permission_selected
+                && !http_selected
                 && !capability_selected
                 && !chooser_selected
                 && !download_selected
@@ -4608,6 +5074,8 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let permission_action_observed =
+                permission_selected && native_permission_close.get().is_some();
             let http_action_observed = http_selected && native_http_close.get().is_some();
             let capability_action_observed =
                 capability_selected && native_capability_close.get().is_some();
@@ -4623,7 +5091,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if http_selected {
+                state.failure = if permission_selected {
+                    "permissionDeadlineExceeded"
+                } else if http_selected {
                     "http401Deadline"
                 } else if capability_selected {
                     "capabilityTargetUnobserved"
@@ -4646,6 +5116,17 @@ mod smoke {
                 } else {
                     "installAcknowledgementsMissing"
                 };
+            }
+            if permission_selected && state.failure != "notCompleted" && state.failure != "none" {
+                policy
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .permission
+                    .as_mut()
+                    .unwrap()
+                    .reject(permission_failure(state.failure));
             }
             if http_selected && state.failure != "notCompleted" && state.failure != "none" {
                 policy
@@ -4671,12 +5152,15 @@ mod smoke {
                     || chooser_action_observed
                     || capability_action_observed
                     || http_action_observed
+                    || permission_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if http_selected {
+                let closing = if permission_selected {
+                    native_permission_close.get()
+                } else if http_selected {
                     native_http_close.get()
                 } else if capability_selected {
                     native_capability_close.get()
@@ -4712,7 +5196,9 @@ mod smoke {
                     // Retain/pump CleanupPending until real cleanup, or the
                     // original outer process watchdog fails.
                     let snapshot = ui_diagnostics.close_deadline_snapshot_once(closing);
-                    state.failure = if http_selected {
+                    state.failure = if permission_selected {
+                        "permissionCleanupFailed"
+                    } else if http_selected {
                         "http401Cleanup"
                     } else {
                         "closeEvidenceTimeout"
@@ -4890,6 +5376,23 @@ mod smoke {
         {
             capability.facts.temp_dir_closed = cleanup_succeeded && state.run_returned;
         }
+        if permission_selected && let Some(policy) = &final_policy {
+            let mut install = policy.lock().unwrap();
+            let permission = install.permission.as_mut().unwrap();
+            permission.facts.cleanup.wake_shutdown_issued = Some(true);
+            permission.facts.cleanup.wake_joins = 1;
+            permission.facts.cleanup.wake_join_succeeded = Some(wake_joined);
+            permission.facts.cleanup.temp_dir_close_attempts = 1;
+            permission.facts.cleanup.temp_dir_close_succeeded = Some(cleanup_succeeded);
+            permission.facts.cleanup.temp_dir_result_dropped = Some(true);
+            permission.final_clock(Instant::now(), final_permission_adopted.get());
+            if state.failure != "notCompleted" && state.failure != "none" {
+                permission.reject(permission_failure(state.failure));
+            }
+            if !cleanup_succeeded || !wake_joined || !state.run_returned {
+                permission.reject("permissionCleanupFailed");
+            }
+        }
         if http_selected && let Some(policy) = &final_policy {
             let mut install = policy.lock().unwrap();
             let http = install.http401.as_mut().unwrap();
@@ -4939,7 +5442,22 @@ mod smoke {
             && state.failure == "notCompleted"
             && positive
             && cleanup_succeeded
-            && http_final;
+            && http_final
+            && (!permission_selected
+                || final_policy
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .permission
+                    .as_ref()
+                    .is_some_and(|p| {
+                        p.matched
+                            && p.facts.failure.is_none()
+                            && p.facts.timing.final_within_close_deadline == Some(true)
+                            && p.facts.timing.first_close_adopted == Some(true)
+                            && wake_joined
+                    }));
         if state.pass {
             state.failure = "none";
         } else if !cleanup_succeeded {
@@ -4970,6 +5488,7 @@ fn main() {
             {
                 smoke::run_download_refusal()
             }
+            [selector] if selector == "--code0-policy-fixture=refusal-notification-owned-https" => smoke::run_permission(),
             [selector] if selector == "--code0-policy-fixture=refusal-http401-owned-loopback" => smoke::run_http401(),
             [selector] if selector=="--code0-policy-fixture=s4-capability-open-main" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::OpenMain),
             [selector] if selector=="--code0-policy-fixture=s4-capability-write-main" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::WriteMain),

@@ -2353,6 +2353,57 @@ jobs:
             ${{ runner.temp }}/code0-policy-s4-dispose-missing-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 permission evidence DATA validator
+        id: code0_permission_data
+        if: always()
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $LASTEXITCODE = $null
+          & python .ci/code0-permission-checker/selfcheck.py -v
+          if ($null -eq $LASTEXITCODE) { throw "Permission DATA selfcheck produced no actual exit code" }
+          exit ([int]$LASTEXITCODE)
+      - name: Test Code0 native notification permission refusal
+        if: always() && steps.code0_native_lint.outcome == 'success' && steps.code0_permission_data.outcome == 'success'
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-permission-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+          $LASTEXITCODE = $null
+          & cargo test --locked --features code0-native-fixture --test code0_native_fixture -- --code0-policy-fixture=refusal-notification-owned-https
+          if ($null -eq $LASTEXITCODE) { throw "Permission native invocation produced no actual exit code" }
+          $code = [int]$LASTEXITCODE
+          $exitPath = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID-exit.json"
+          $payload = [ordered]@{ schema = 1; runId = $env:AI_METER_CODE0_POLICY_RUN_ID; exitCode = $code } | ConvertTo-Json -Compress
+          $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
+          $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+          exit $code
+      - name: Verify Code0 native notification permission evidence
+        if: always()
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $runId = "code0-policy-permission-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $summaryPath = Join-Path $env:RUNNER_TEMP "$runId.json"
+          $exitPath = Join-Path $env:RUNNER_TEMP "$runId-exit.json"
+          $LASTEXITCODE = $null
+          & python .ci/code0-permission-checker/validator.py --summary $summaryPath --exit $exitPath --run-id $runId
+          if ($null -eq $LASTEXITCODE) { throw "Permission evidence validator produced no actual exit code" }
+          exit ([int]$LASTEXITCODE)
+      - name: Preserve Code0 native notification permission evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-native-permission-evidence
+          path: |
+            ${{ runner.temp }}/code0-policy-permission-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-permission-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Test Code0 native owned-loopback HTTP401 refusal
         if: always()
         working-directory: windows/src-tauri

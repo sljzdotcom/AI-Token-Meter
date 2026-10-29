@@ -1076,6 +1076,13 @@ impl Protocol {
         }
         self.enter_command(command, mark, boundary.ms)
     }
+    /// Copy-only preparation hint. This neither reserves an operation nor
+    /// attests readiness, current identity, Source, coverage or any deadline.
+    /// Native callers must still use evaluation_entered at actual call entry
+    /// and compare its returned U with the already prepared request's U.
+    pub fn selected_unique_context(&self) -> Option<Id> {
+        self.selected.context.map(|context| context.unique)
+    }
     /// Source is from the final actual same-core getter and postDrop recheck.
     /// This returns only U: there is no numeric contextId fallback.
     pub fn evaluation_entered(
@@ -1301,6 +1308,29 @@ impl Protocol {
                 Ok(native)
             }
             _ => self.reject(Problem::Replay, ms),
+        }
+    }
+    /// Import only an earlier actual native close after permanent revocation.
+    /// This changes no event/ticket/current mark and can only shorten close10.
+    pub fn adopt_native_close_origin(&mut self, ms: u64) {
+        if !self.revoked {
+            self.fail(Problem::Clock, self.last_ms);
+            return;
+        }
+        if let Some(old) = self.first_close_ms {
+            self.first_close_ms = Some(old.min(ms));
+        }
+    }
+    /// A missing native clock supplies no invented boundary. Keep only the last
+    /// genuine semantic time and permanently reject; caller retains unknown/null.
+    pub fn native_clock_failed(&mut self) {
+        self.fail(Problem::Clock, self.last_ms);
+    }
+    /// Adapter failure is a real negative boundary, not a lifecycle delivery,
+    /// native action, ticket, completion or permission grant.
+    pub fn native_adapter_failed(&mut self, boundary: Boundary) {
+        if self.boundary_mark(boundary, false).is_ok() {
+            self.fail(Problem::Native, boundary.ms);
         }
     }
     pub fn native_checked(
@@ -2056,5 +2086,107 @@ mod tests {
             p.completion_qualified(callback, at(15)).unwrap();
             assert_eq!(p.status().effect_qualified, Some(false));
         }
+    }
+    // Mutation: a peek reserves Evaluate or alters the protocol ledger.
+    #[test]
+    fn selected_unique_context_peek_is_copy_only_and_reserves_nothing() {
+        let mut p = assembled(false, &[0, 1, 2, 3]);
+        let before = p.status();
+        for _ in 0..3 {
+            assert_eq!(p.selected_unique_context(), Some(id("selected-context")));
+            assert_eq!(p.status(), before);
+        }
+        // Having a context is deliberately weaker than Armed.
+        assert!(p.evaluation_entered(FIXED_URL, at(12)).is_err());
+        assert_eq!(p.status().obligations, 0);
+        p.arm(at(13)).unwrap();
+        let prepared = p.selected_unique_context().unwrap();
+        let evaluation = p.evaluation_entered(FIXED_URL, at(14)).unwrap();
+        assert_eq!(evaluation.unique_context, prepared);
+        assert_eq!(p.status().obligations, 1);
+        assert!(p.evaluation_entered(FIXED_URL, at(15)).is_err());
+    }
+
+    // Mutation: a previously successful peek bypasses fresh Source/time/cutoff.
+    #[test]
+    fn selected_unique_context_peek_never_authorizes_after_source_time_or_cutoff_loss() {
+        let empty = Protocol::new(identity(), 0).unwrap();
+        assert_eq!(empty.selected_unique_context(), None);
+        for variant in 0..3 {
+            let mut p = assembled(false, &[0, 1, 2, 3]);
+            p.arm(at(12)).unwrap();
+            let prepared = p.selected_unique_context().unwrap();
+            let result = match variant {
+                0 => p.evaluation_entered("about:blank", at(13)),
+                1 => p.evaluation_entered(FIXED_URL, at(45_000)),
+                _ => {
+                    p.cutoff(CutoffReason::StopEntry, at(13));
+                    p.evaluation_entered(FIXED_URL, at(14))
+                }
+            };
+            assert!(result.is_err());
+            assert_eq!(p.status().obligations, 0);
+            assert_eq!(p.selected_unique_context(), Some(prepared));
+            assert!(p.status().action_revoked);
+        }
+    }
+}
+
+#[cfg(test)]
+mod native_failure_fix2_tests {
+    use super::*;
+
+    // Mutation: a local native/counter failure leaves authority live or restarts close10.
+    #[test]
+    fn adapter_failure_revokes_without_inventing_delivery_ticket_or_restarting_close() {
+        let identity = Identity {
+            request: 1,
+            generation: 2,
+            installation: 3,
+            core: 4,
+        };
+        let mut protocol = Protocol::new(identity, 0).unwrap();
+        protocol.native_adapter_failed(Boundary { identity, ms: 1 });
+        let first = protocol.status();
+        assert!(first.action_revoked);
+        assert_eq!(first.first_close_ms, Some(1));
+        assert_eq!(first.failure, Some(Problem::Native));
+        assert_eq!(first.deliveries.value, 0);
+        assert_eq!(first.obligations, 0);
+        protocol.native_adapter_failed(Boundary { identity, ms: 999 });
+        assert_eq!(protocol.status().first_close_ms, Some(1));
+        protocol.adopt_native_close_origin(0);
+        assert_eq!(protocol.status().first_close_ms, Some(0));
+        protocol.adopt_native_close_origin(500);
+        assert_eq!(protocol.status().first_close_ms, Some(0));
+        assert!(
+            protocol
+                .native_entered(Boundary { identity, ms: 1000 })
+                .is_err()
+        );
+        assert_eq!(protocol.status().obligations, 0);
+    }
+}
+
+#[cfg(test)]
+mod native_clock_fix2_tests {
+    use super::*;
+
+    // Mutation: unavailable native clock invents a new observed time or grants a ticket.
+    #[test]
+    fn unavailable_native_clock_is_negative_and_retains_last_known_semantic_time() {
+        let identity = Identity {
+            request: 1,
+            generation: 2,
+            installation: 3,
+            core: 4,
+        };
+        let mut protocol = Protocol::new(identity, 0).unwrap();
+        protocol.native_clock_failed();
+        assert_eq!(protocol.status().failure, Some(Problem::Clock));
+        assert_eq!(protocol.status().first_close_ms, Some(0));
+        assert!(protocol.status().action_revoked);
+        assert_eq!(protocol.status().deliveries.value, 0);
+        assert_eq!(protocol.status().obligations, 0);
     }
 }
