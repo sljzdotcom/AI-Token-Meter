@@ -1919,6 +1919,9 @@ mod smoke {
         )?;
         let evidence = Arc::new(Mutex::new(file));
         let diagnostics = Arc::new(Diagnostics::from_env());
+        if popup_refusal {
+            diagnostics.arm_popup_initial_blank();
+        }
         let (watchdog_done, watchdog_rx) = mpsc::channel();
         let hard_run_id = summary.lock().unwrap().run_id.clone();
         let hard_evidence = Arc::clone(&evidence);
@@ -2996,6 +2999,7 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
+                        ui_diagnostics.n4_popup_stage(receipt.stage(), true);
                         state.callback_affinity &= callback_thread == main_thread && callback_sta;
                         let valid = popup_selected
                             && policy.as_ref().is_some_and(|p| {
@@ -3402,6 +3406,7 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
+                        ui_diagnostics.n4_session_stage(&reason, true);
                         if download_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
@@ -3690,6 +3695,7 @@ mod smoke {
                     if let Some(snapshot) = snapshot {
                         drop(state);
                         snapshot.emit();
+                        ui_diagnostics.emit_popup_close_deadline();
                         state = observed.lock().unwrap();
                     }
                 }

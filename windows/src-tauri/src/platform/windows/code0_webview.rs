@@ -259,6 +259,20 @@ mod native {
         }};
     }
 
+    // N4 diagnostic begin.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    fn n4_note(
+        callbacks: &Callbacks,
+        cause: crate::platform::windows::code0_webview::fixture::N4Cause,
+        site: u16,
+        bits: u16,
+    ) {
+        if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+            diagnostic.n4_first(cause, site, bits);
+        }
+    }
+    // N4 diagnostic end.
+
     #[derive(Default)]
     struct Callbacks {
         pending: AtomicUsize,
@@ -422,9 +436,16 @@ mod native {
         ui_thread == thread::current().id() && is_sta()
     }
 
-    fn callback_on_ui(ui: ThreadId, callbacks: &Callbacks) -> bool {
+    fn callback_on_ui(ui: ThreadId, callbacks: &Callbacks, _n4_site: u16) -> bool {
         let valid = thread::current().id() == ui && is_sta();
         if !valid {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n4_note(
+                callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                _n4_site,
+                0,
+            );
             callbacks.affinity_failed.store(true, Ordering::SeqCst);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
@@ -444,6 +465,13 @@ mod native {
     fn failed(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) {
         if let Some(instance) = matching(&mut owner.borrow_mut(), request) {
             instance.failed = true;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n4_note(
+                &instance.callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                447,
+                0,
+            );
             instance.closing = true;
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_popup_close(instance);
@@ -632,6 +660,13 @@ mod native {
                 if let Some(diagnostic) = instance.callbacks.diagnostics.as_ref() {
                     diagnostic.uncertainty(DU::cleanup(US::WindowBuild, UR::Condition, None));
                 }
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                    635,
+                    0,
+                );
                 instance.cleanup_blocked = true;
                 drop(state);
                 failed(owner, &request);
@@ -692,7 +727,7 @@ mod native {
                     }
                 }
                 let active = Active::enter(&callbacks);
-                if callback_on_ui(ui, &callbacks) {
+                if callback_on_ui(ui, &callbacks, 695) {
                     environment_completed(&weak, &owned_request, result, environment);
                 } else {
                     drop(environment);
@@ -728,10 +763,32 @@ mod native {
     fn browser_exit_unknown(owner: &Rc<RefCell<Owner>>, request: &Code0WindowRequest) {
         let mut state = owner.borrow_mut();
         if let Some(instance) = matching(&mut state, request) {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n4_note(
+                &instance.callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                731,
+                0,
+            );
             instance.browser_exit = BrowserExitState::Unknown;
             instance.failed = true;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n4_note(
+                &instance.callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                733,
+                0,
+            );
             instance.closing = true;
         } else {
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Some(diagnostic) = state.diagnostics.as_ref() {
+                diagnostic.n4_first(
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                    735,
+                    0,
+                );
+            }
             state.unmatched = true;
         }
     }
@@ -771,7 +828,7 @@ mod native {
             if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
                 diagnostic.phase(DP::ExitCallback, false);
             }
-            if callback_on_ui(ui, &callbacks)
+            if callback_on_ui(ui, &callbacks, 774)
                 && let Some(owner) = weak.upgrade()
                 && browser_process_exited(&owner, &owned_request, sender.as_ref(), args.as_ref())
                     .is_err()
@@ -923,6 +980,14 @@ mod native {
         let has_environment = {
             let mut state = owner.borrow_mut();
             let Some(instance) = matching(&mut state, request) else {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = state.diagnostics.as_ref() {
+                    diagnostic.n4_first(
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        926,
+                        0,
+                    );
+                }
                 state.unmatched = true;
                 if let Some(environment) = environment {
                     state
@@ -934,6 +999,13 @@ mod native {
             instance.environment = environment;
             if result.is_err() || instance.environment.is_none() {
                 instance.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    937,
+                    0,
+                );
                 instance.closing = true;
             }
             instance.environment.is_some()
@@ -946,6 +1018,14 @@ mod native {
             let mut state = owner.borrow_mut();
             let ui = state.ui_thread;
             let Some(instance) = matching(&mut state, request) else {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = state.diagnostics.as_ref() {
+                    diagnostic.n4_first(
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        949,
+                        0,
+                    );
+                }
                 state.unmatched = true;
                 return;
             };
@@ -987,7 +1067,7 @@ mod native {
                     }
                 }
                 let active = Active::enter(&callbacks);
-                if callback_on_ui(ui, &callbacks) {
+                if callback_on_ui(ui, &callbacks, 990) {
                     controller_completed(&weak, &owned_request, result, controller);
                 } else {
                     drop(controller);
@@ -1028,6 +1108,14 @@ mod native {
         let current = {
             let mut state = owner.borrow_mut();
             let Some(instance) = matching(&mut state, request) else {
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                if let Some(diagnostic) = state.diagnostics.as_ref() {
+                    diagnostic.n4_first(
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        1031,
+                        0,
+                    );
+                }
                 state.unmatched = true;
                 if let Some(controller) = controller {
                     state.unmatched_objects.push(UnmatchedObject::Controller {
@@ -1040,6 +1128,13 @@ mod native {
             instance.controller = controller;
             if result.is_err() || instance.controller.is_none() {
                 instance.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    1043,
+                    0,
+                );
                 instance.closing = true;
             }
             !instance.closing
@@ -1124,7 +1219,7 @@ mod native {
             // COM handler releases it, including failed add/remove paths.
             let _lifetime = &lifetime;
             let active = Active::enter(&callbacks);
-            if callback_on_ui(ui, &callbacks)
+            if callback_on_ui(ui, &callbacks, 1127)
                 && let Some(owner) = weak.upgrade()
             {
                 message_received(&owner, &owned_request, sender.as_ref(), args.as_ref());
@@ -1234,6 +1329,13 @@ mod native {
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             p1::mark_stale_close(instance, unmatched);
             // Revoke before any external Stop/Close/removal can reenter.
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n4_note(
+                &instance.callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                1237,
+                0,
+            );
             instance.closing = true;
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_child_close(instance);
@@ -1270,6 +1372,13 @@ mod native {
             }
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 instance.destroyed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    1273,
+                    0,
+                );
                 instance.closing = true;
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 let _ = s2::mark_popup_close(instance);
@@ -1303,6 +1412,13 @@ mod native {
                 diagnostic.uncertainty(detail);
             }
             instance.failed = true;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n4_note(
+                &instance.callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                1306,
+                0,
+            );
             instance.cleanup_blocked = true;
         }
     }
@@ -1341,6 +1457,7 @@ mod native {
                 | (u32::from(instance.controls_disposed) << 20)
                 | (u32::from(instance.exit_remove_attempted) << 21)
                 | (u32::from(matches!(instance.browser_exit, BrowserExitState::Unknown)) << 22);
+            s2::diagnose_popup(instance, state.unmatched);
             diagnostic.publish_inventory(
                 instance.callbacks.pending.load(Ordering::SeqCst),
                 instance.callbacks.active.load(Ordering::SeqCst),
@@ -1417,13 +1534,43 @@ mod native {
                     ));
                 }
                 instance.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    1420,
+                    0,
+                );
                 instance.closing = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                    1421,
+                    u16::from(unmatched)
+                        | (u16::from(instance.callbacks.affinity_failed.load(Ordering::SeqCst))
+                            << 1),
+                );
                 instance.cleanup_blocked = true;
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if instance.refusal_registry.unknown() {
                 instance.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    1426,
+                    0,
+                );
                 instance.closing = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &instance.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                    1427,
+                    0,
+                );
                 instance.cleanup_blocked = true;
             }
             if !instance.closing
@@ -1681,6 +1828,12 @@ mod native {
                 s2::publish_popup_final(owner);
                 s2::publish_download_final(owner);
             }
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            if let Code0WindowEvent::Failed(reason) = &event
+                && let Some(diagnostic) = owner.borrow().diagnostics.as_ref()
+            {
+                diagnostic.n4_session_stage(reason, false);
+            }
             events(request, event);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if released {
@@ -1775,6 +1928,18 @@ mod native {
             || !matches!(i.browser_exit, BrowserExitState::Unarmed)
             || i.callbacks.affinity_failed.load(Ordering::SeqCst)
         {
+            n4_note(
+                &i.callbacks,
+                crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                1751,
+                u16::from(state.unmatched)
+                    | (u16::from(&i.request != request) << 1)
+                    | (u16::from(i.closing) << 2)
+                    | (u16::from(i.failed) << 3)
+                    | (u16::from(i.cleanup_blocked) << 4)
+                    | (u16::from(i.released) << 5)
+                    | (u16::from(i.refusal_registry.complete()) << 6),
+            );
             return Err(Code0SessionFailure::PolicyRejected);
         }
         // Read only actual same-emitter token inventory; never install or load.
@@ -2068,6 +2233,13 @@ mod native {
                     return;
                 };
                 i.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    2071,
+                    0,
+                );
                 i.closing = true;
                 (
                     mark_top_close(i).map(|at| (i.observer.clone(), at)),
@@ -2207,7 +2379,7 @@ mod native {
             ) -> windows::core::Result<()> {
                 let _active = Active::enter(&self.callbacks);
                 // No UI Weak/Rc/RefCell, raw read or allocation before this gate.
-                if !callback_on_ui(self.ui, &self.callbacks) {
+                if !callback_on_ui(self.ui, &self.callbacks, 2210) {
                     self.installation.store(true, Ordering::SeqCst);
                     if let Some(mailbox) = self.mailbox.upgrade() {
                         mailbox.invalid.store(true, Ordering::SeqCst);
@@ -2586,7 +2758,7 @@ mod native {
             ) -> windows::core::Result<()> {
                 let _active = Active::enter(&self.callbacks);
                 // No UI-local Weak/Rc/RefCell, raw read or allocation before STA.
-                if !callback_on_ui(self.ui, &self.callbacks) {
+                if !callback_on_ui(self.ui, &self.callbacks, 2589) {
                     self.installation.store(true, Ordering::SeqCst);
                     if let Some(m) = self.mailbox.upgrade() {
                         m.invalid.store(true, Ordering::SeqCst);
@@ -2708,9 +2880,23 @@ mod native {
                 }
                 if unknown {
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        2711,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                 }
                 i.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    2714,
+                    0,
+                );
                 i.closing = true;
                 mark_dialog_close(i).map(|at| (i.observer.clone(), at))
             };
@@ -3013,9 +3199,35 @@ mod native {
                 if result.is_ok() {
                     i.refusal_registry.entries[index].token = Some(token);
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        3016,
+                        0,
+                    );
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3016,
+                        0,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        3018,
+                        0,
+                    );
                     i.closing = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        3019,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                 }
             }
@@ -3071,6 +3283,12 @@ mod native {
                         .facts
                         .completed_handler_added = true;
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3074,
+                        0,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                 }
             }
@@ -3626,6 +3844,12 @@ mod native {
                         .facts
                         .completed_remove_succeeded = true;
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3629,
+                        0,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                 }
             }
@@ -3659,6 +3883,112 @@ mod native {
                 emit_dialog(owner, &request, &installation, NativeDialogStage::Final);
             }
         }
+
+        // N4 diagnostic begin: called under existing UI inventory borrow only.
+        pub(super) fn diagnose_popup(i: &Instance, unmatched: bool) {
+            let Some(diagnostic) = i.callbacks.diagnostics.as_ref().filter(|d| d.n4_enabled())
+            else {
+                return;
+            };
+            let mut words = [0u64; 12];
+            words[0] = (u64::from(i.refusal_registry.unknown()) << 9)
+                | (u64::from(i.failed) << 10)
+                | (u64::from(i.failure_sent) << 11)
+                | (u64::from(i.cleanup_blocked) << 12)
+                | (u64::from(i.environment.is_some()) << 13)
+                | (u64::from(i.environment5.is_some()) << 14)
+                | (u64::from(i.exit_token.is_some()) << 15)
+                | (u64::from(i.exit_remove_attempted) << 16)
+                | (u64::from(i.controls_disposed) << 17)
+                | (u64::from(i.closing) << 18)
+                | (u64::from(i.released) << 19)
+                | (u64::from(i.callbacks.affinity_failed.load(Ordering::SeqCst)) << 20)
+                | (u64::from(unmatched) << 21);
+            words[7] = i.callbacks.handlers.load(Ordering::SeqCst) as u64;
+            let pending = i.callbacks.pending.load(Ordering::SeqCst);
+            let active = i.callbacks.active.load(Ordering::SeqCst);
+            words[8] = pending.min(u32::MAX as usize) as u64
+                | ((active.min(u32::MAX as usize) as u64) << 32);
+            words[0] |= (u64::from(pending > u32::MAX as usize) << 24)
+                | (u64::from(active > u32::MAX as usize) << 25);
+            words[9] = diagnostic.n4_time(Instant::now());
+            words[11] = match i.browser_exit {
+                BrowserExitState::NotStarted => 0,
+                BrowserExitState::Unarmed => 1,
+                BrowserExitState::Armed(_) => 2,
+                BrowserExitState::Observed => 3,
+                BrowserExitState::Unknown => 4,
+            };
+            if let Some(p) = i.refusal_registry.popup.as_ref() {
+                words[0] |= 1
+                    | (u64::from(p.completion_seen) << 2)
+                    | (u64::from(p.closing_published) << 3)
+                    | (u64::from(p.closing_since.is_some()) << 4);
+                words[1] = u64::from(p.facts.script_submissions)
+                    | (u64::from(p.facts.popup_events) << 8)
+                    | (u64::from(p.facts.handled_attempts) << 16)
+                    | (u64::from(p.facts.handled_returns) << 24)
+                    | (u64::from(p.facts.handled_successes) << 32)
+                    | (u64::from(p.facts.handled_readbacks) << 40)
+                    | (u64::from(p.facts.script_completions) << 48);
+                words[2] = u64::from(p.facts.settings_before_stimulus)
+                    | (u64::from(p.facts.initial_source_matched) << 1)
+                    | (u64::from(p.facts.source_after_drop_timely) << 2)
+                    | (u64::from(p.facts.script_submission_returned) << 3)
+                    | (u64::from(p.facts.script_submit_ok) << 4)
+                    | (u64::from(p.facts.script_return_timely) << 5)
+                    | (u64::from(p.facts.popup_sender_matched) << 6)
+                    | (u64::from(p.facts.request_generation_live_matched) << 7)
+                    | (u64::from(p.facts.issued_before_event) << 8)
+                    | (u64::from(p.facts.target_uri_getter_succeeded) << 9)
+                    | (u64::from(p.facts.target_uri_matched) << 10)
+                    | (u64::from(p.facts.non_user_getter_succeeded) << 11)
+                    | (u64::from(p.facts.non_user) << 12)
+                    | (u64::from(p.facts.handled_readback_succeeded) << 13)
+                    | (u64::from(p.facts.native_handled_true) << 14)
+                    | (u64::from(p.facts.live_after_calls) << 15)
+                    | (u64::from(p.facts.target_after_drop_timely) << 16)
+                    | (u64::from(p.facts.no_new_window_assignment) << 17)
+                    | (u64::from(p.facts.first_closing_observed) << 18)
+                    | (u64::from(p.facts.completion_identity_matched) << 19)
+                    | (u64::from(p.facts.completion_hresult_succeeded) << 20)
+                    | (u64::from(p.facts.bounded_result_valid) << 21)
+                    | (u64::from(p.facts.fixed_result_matched) << 22)
+                    | (u64::from(p.facts.completion_before_release) << 23)
+                    | (u64::from(p.facts.completion_within_deadline) << 24)
+                    | (u64::from(p.facts.completion_disposition_consumed) << 25)
+                    | (u64::from(p.facts.completion_obligation_drained) << 26)
+                    | (u64::from(p.facts.completion_handlers_drained) << 27);
+                words[3] = p.deadline.n4_deadline_time(diagnostic);
+                words[4] = p
+                    .first_close
+                    .n4_first_close()
+                    .map_or(0, |at| diagnostic.n4_time(at));
+                words[0] |= (u64::from(p.first_close.n4_first_close().is_some()) << 26)
+                    | (u64::from(p.deadline.n4_expired()) << 27);
+                if let Some(m) = p.mailbox.as_ref() {
+                    words[0] |= (1 << 1)
+                        | (u64::from(m.invoked.load(Ordering::SeqCst)) << 5)
+                        | (u64::from(m.invalid.load(Ordering::SeqCst)) << 6);
+                    words[5] = m.obligation.load(Ordering::SeqCst) as u64;
+                    words[6] = m.handlers.load(Ordering::SeqCst) as u64;
+                    // Never block even on UI. Unknown/poisoned/busy stays explicit.
+                    match m.disposition.try_lock() {
+                        Ok(slot) => words[0] |= u64::from(slot.is_some()) << 7,
+                        Err(_) => words[0] |= 1 << 22,
+                    }
+                    match m.closing_since.try_lock() {
+                        Ok(at) => {
+                            words[0] |= u64::from(at.is_some()) << 8;
+                            words[10] = at.map_or(0, |at| diagnostic.n4_time(at));
+                        }
+                        Err(_) => words[0] |= 1 << 23,
+                    }
+                }
+            }
+            diagnostic.n4_publish_popup(words);
+        }
+        // N4 diagnostic end.
 
         // N4 has no creation Pending and no additional emitter registration.
         // Its first revocation exists before Source/handler preparation; only an
@@ -3700,6 +4030,8 @@ mod native {
             hresult_succeeded: bool,
             bounded_result_valid: bool,
             fixed_result_matched: bool,
+            diagnostic_result_class: u8,
+            diagnostic_hresult: i32,
         }
         struct PopupHandlerLifetime {
             mailbox: std::sync::Weak<PopupMailbox>,
@@ -3731,24 +4063,49 @@ mod native {
             ) -> windows::core::Result<()> {
                 let _active = Active::enter(&self.callbacks);
                 // UI/STA before raw copying, allocation, or UI-local references.
-                if !callback_on_ui(self.ui, &self.callbacks) {
+                if !callback_on_ui(self.ui, &self.callbacks, 3734) {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3735,
+                        1,
+                    );
                     self.installation.store(true, Ordering::SeqCst);
                     if let Some(m) = self.mailbox.upgrade() {
+                        n4_note(
+                            &self.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            3737,
+                            1,
+                        );
                         m.invalid.store(true, Ordering::SeqCst);
                     }
                     return Ok(());
                 }
                 let Some(m) = self.mailbox.upgrade() else {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3742,
+                        0,
+                    );
                     self.installation.store(true, Ordering::SeqCst);
                     return Ok(());
                 };
                 if m.invoked.swap(true, Ordering::SeqCst) {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3746,
+                        2,
+                    );
                     m.invalid.store(true, Ordering::SeqCst);
                     self.installation.store(true, Ordering::SeqCst);
                     return Ok(());
                 }
                 let received_at = Instant::now();
-                let (bounded_result_valid, fixed_result_matched) = popup_result(*result);
+                let (bounded_result_valid, fixed_result_matched, diagnostic_result_class) =
+                    popup_result(*result, self.callbacks.diagnostics.as_deref());
                 let disposition = PopupDisposition {
                     request: self.request.clone(),
                     generation: self.generation,
@@ -3757,9 +4114,17 @@ mod native {
                     hresult_succeeded: errorcode.is_ok(),
                     bounded_result_valid,
                     fixed_result_matched,
+                    diagnostic_result_class,
+                    diagnostic_hresult: errorcode.0,
                 };
                 let mut slot = m.disposition.lock().unwrap();
                 if slot.is_some() {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        3763,
+                        3,
+                    );
                     m.invalid.store(true, Ordering::SeqCst);
                     self.installation.store(true, Ordering::SeqCst);
                 } else {
@@ -3768,9 +4133,9 @@ mod native {
                 Ok(())
             }
         }
-        fn popup_result(raw: PCWSTR) -> (bool, bool) {
+        fn popup_result(raw: PCWSTR, diagnostics: Option<&Diagnostics>) -> (bool, bool, u8) {
             if raw.is_null() {
-                return (false, false);
+                return (false, false, 0);
             }
             let mut copied = [0u16; 64];
             for length in 0..copied.len() {
@@ -3778,11 +4143,17 @@ mod native {
                 // an unbounded wrapper. Including NUL: at most 64 UTF16 reads.
                 let unit = unsafe { *raw.0.add(length) };
                 if unit == 0 {
-                    return popup_result_units(&copied[..length]);
+                    let real = popup_result_units(&copied[..length]);
+                    let class = if diagnostics.is_some_and(Diagnostics::n4_enabled) {
+                        super::super::fixture::n4_popup_result_class(&copied[..length], real)
+                    } else {
+                        0
+                    };
+                    return (real.0, real.1, class);
                 }
                 copied[length] = unit;
             }
-            (false, false)
+            (false, false, 5)
         }
         fn emit_popup(
             owner: &Rc<RefCell<Owner>>,
@@ -3801,6 +4172,7 @@ mod native {
                             && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
                     })
                     .and_then(|i| {
+                        diagnose_popup(i, state.unmatched);
                         i.refusal_registry.popup.as_ref().map(|p| {
                             (
                                 i.observer.clone(),
@@ -3815,6 +4187,9 @@ mod native {
                     })
             };
             if let Some((Some(observer), receipt)) = observation {
+                if let Some(diagnostic) = owner.borrow().diagnostics.as_ref() {
+                    diagnostic.n4_popup_stage(receipt.stage, false);
+                }
                 observer(NativeSmokeObservation::Popup(receipt));
             }
         }
@@ -3858,7 +4233,24 @@ mod native {
                         || i.refusal_registry.unknown();
                     if invalid {
                         i.failed = true;
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                            3861,
+                            0,
+                        );
                         i.closing = true;
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                            3862,
+                            u16::from(unmatched)
+                                | (u16::from(i.callbacks.affinity_failed.load(Ordering::SeqCst))
+                                    << 1)
+                                | (u16::from(i.refusal_registry.unknown()) << 2),
+                        );
                         i.cleanup_blocked = true;
                     }
                     if i.closing {
@@ -3883,6 +4275,13 @@ mod native {
                     return;
                 };
                 i.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    3886,
+                    0,
+                );
                 i.closing = true;
                 let _ = mark_popup_close(i);
             }
@@ -3936,6 +4335,16 @@ mod native {
                 )
                 .is_none()
             {
+                if let Some(callbacks) = owner.borrow().instance.as_ref().map(|i| &i.callbacks) {
+                    n4_note(
+                        callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        3939,
+                        u16::from(identity)
+                            | (u16::from(require_live) << 1)
+                            | (u16::from(deadline.n4_expired()) << 2),
+                    );
+                }
                 fail_popup(owner, request, installation);
                 return None;
             }
@@ -3951,6 +4360,14 @@ mod native {
             let result =
                 deadline.run_if_authorized_at(Instant::now(), live(owner, request), action);
             if result.is_none() {
+                if let Some(callbacks) = owner.borrow().instance.as_ref().map(|i| &i.callbacks) {
+                    n4_note(
+                        callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        3954,
+                        u16::from(deadline.n4_expired()),
+                    );
+                }
                 fail_popup(owner, request, installation);
             }
             result
@@ -3978,6 +4395,19 @@ mod native {
                     || i.refusal_registry.popup.is_some()
                     || i.refusal_registry.download.is_some()
                 {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        3980,
+                        u16::from(i.refusal_registry.complete())
+                            | (u16::from(i.refusal_registry.legacy.is_some()) << 1)
+                            | (u16::from(i.refusal_registry.top_target.is_some()) << 2)
+                            | (u16::from(i.refusal_registry.child.is_some()) << 3)
+                            | (u16::from(i.refusal_registry.dialog.is_some()) << 4)
+                            | (u16::from(i.refusal_registry.dialog_completed.is_some()) << 5)
+                            | (u16::from(i.refusal_registry.popup.is_some()) << 6)
+                            | (u16::from(i.refusal_registry.download.is_some()) << 7),
+                    );
                     return Err(denied());
                 }
                 let core = Rc::clone(i.refusal_registry.core.as_ref().ok_or_else(denied)?);
@@ -4009,6 +4439,8 @@ mod native {
             let source_matched = source
                 .as_ref()
                 .is_some_and(|r| r.as_ref().is_ok_and(|s| s == "about:blank"));
+            let source_diagnostic = u16::from(source.is_some())
+                | (u16::from(source.as_ref().is_some_and(|r| r.is_err())) << 1);
             drop(source);
             let source_timely = popup_authorized(owner, request, &installation, true).is_some();
             {
@@ -4023,6 +4455,14 @@ mod native {
                 p.facts.source_after_drop_timely = source_timely;
             }
             if !source_matched || !source_timely {
+                n4_note(
+                    &callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    4026,
+                    source_diagnostic
+                        | (u16::from(source_matched) << 2)
+                        | (u16::from(source_timely) << 3),
+                );
                 fail_popup(owner, request, &installation);
                 drop(core);
                 drop(active);
@@ -4067,6 +4507,9 @@ mod native {
                     // event/completion entry. No earlier preparation is a ticket.
                     p.mailbox = Some(Arc::clone(&mailbox));
                     p.facts.script_submissions = 1;
+                    if let Some(i) = state.instance.as_ref() {
+                        diagnose_popup(i, state.unmatched);
+                    }
                 }
                 unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) }
             });
@@ -4097,6 +4540,12 @@ mod native {
                 emit_popup(owner, request, &installation, NativePopupStage::Submitted);
             }
             if !native_ok || !timely {
+                n4_note(
+                    &callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    4100,
+                    u16::from(returned) | (u16::from(native_ok) << 1) | (u16::from(timely) << 2),
+                );
                 fail_popup(owner, request, &installation);
                 return Err(denied());
             }
@@ -4110,11 +4559,12 @@ mod native {
                             Arc::clone(m),
                             i.request.clone(),
                             Arc::clone(&i.refusal_registry.unknown),
+                            i.callbacks.diagnostics.clone(),
                         )
                     })
                 })
             });
-            let Some((mailbox, request, installation)) = binding else {
+            let Some((mailbox, request, installation, diagnostics)) = binding else {
                 return;
             };
             let disposition = mailbox.disposition.lock().unwrap().take();
@@ -4123,6 +4573,18 @@ mod native {
             {
                 let mut state = owner.borrow_mut();
                 let unmatched = state.unmatched;
+                let diagnostic_binding = state.instance.as_ref().map_or(0, |i| {
+                    u16::from(i.request == request)
+                        | (u16::from(i.refusal_registry.generation == GENERATION) << 1)
+                        | (u16::from(Arc::ptr_eq(&i.refusal_registry.unknown, &installation)) << 2)
+                        | (u16::from(
+                            i.refusal_registry
+                                .popup
+                                .as_ref()
+                                .and_then(|p| p.mailbox.as_ref())
+                                .is_some_and(|m| Arc::ptr_eq(m, &mailbox)),
+                        ) << 3)
+                });
                 let Some(i) = matching(&mut state, &request).filter(|i| {
                     i.refusal_registry.generation == GENERATION
                         && Arc::ptr_eq(&i.refusal_registry.unknown, &installation)
@@ -4132,11 +4594,24 @@ mod native {
                             .and_then(|p| p.mailbox.as_ref())
                             .is_some_and(|m| Arc::ptr_eq(m, &mailbox))
                 }) else {
+                    if let Some(diagnostic) = diagnostics.as_ref() {
+                        diagnostic.n4_first(
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            4135,
+                            diagnostic_binding,
+                        );
+                    }
                     installation.store(true, Ordering::SeqCst);
                     mailbox.invalid.store(true, Ordering::SeqCst);
                     return;
                 };
                 if mailbox.invalid.load(Ordering::SeqCst) {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        4140,
+                        0,
+                    );
                     installation.store(true, Ordering::SeqCst);
                 }
                 if let Some(d) = disposition {
@@ -4168,6 +4643,47 @@ mod native {
                             fixed_result_matched: d.fixed_result_matched,
                         },
                     );
+                    if let Some(diagnostic) = i.callbacks.diagnostics.as_ref()
+                        && diagnostic.n4_enabled()
+                    {
+                        let components = u64::from(same)
+                            | (u64::from(!unmatched) << 1)
+                            | (u64::from(d.request == i.request) << 2)
+                            | (u64::from(d.generation == i.refusal_registry.generation) << 3)
+                            | (u64::from(Arc::ptr_eq(&installation, &d.installation)) << 4)
+                            | (u64::from(!p.completion_seen) << 5)
+                            | (u64::from(p.facts.script_submissions == 1) << 6)
+                            | (u64::from(mailbox.obligation.load(Ordering::SeqCst) == 1) << 7)
+                            | (u64::from(!i.released) << 8)
+                            | (u64::from(!i.cleanup_blocked) << 9)
+                            | (u64::from(!i.callbacks.affinity_failed.load(Ordering::SeqCst))
+                                << 10)
+                            | (u64::from(!mailbox.invalid.load(Ordering::SeqCst)) << 11)
+                            | (u64::from(!installation.load(Ordering::SeqCst)) << 12)
+                            | (u64::from(d.hresult_succeeded) << 13)
+                            | (u64::from(d.bounded_result_valid) << 14)
+                            | (u64::from(d.fixed_result_matched) << 15)
+                            | (u64::from(d.diagnostic_result_class) << 16)
+                            | (u64::from(d.diagnostic_hresult as u32) << 32);
+                        diagnostic.n4_publish_disposition([
+                            components,
+                            diagnostic.n4_time(d.received_at),
+                            diagnostic.n4_time(Instant::now()),
+                            u64::from(outcome.timely)
+                                | (u64::from(outcome.disposable) << 1)
+                                | (u64::from(outcome.successful) << 2),
+                        ]);
+                        if !outcome.disposable {
+                            diagnostic.n4_first(
+                                crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                                4182,
+                                components as u16,
+                            );
+                        }
+                        if !outcome.successful {
+                            diagnostic.n4_first(crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 4189, components as u16);
+                        }
+                    }
                     p.facts.completion_identity_matched = same;
                     p.facts.completion_hresult_succeeded = d.hresult_succeeded;
                     p.facts.bounded_result_valid = d.bounded_result_valid;
@@ -4186,6 +4702,13 @@ mod native {
                 }
             }
             if failed {
+                if let Some(diagnostic) = diagnostics.as_ref() {
+                    diagnostic.n4_first(
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        4189,
+                        0,
+                    );
+                }
                 fail_popup(owner, &request, &installation);
             }
             latch_unknown(owner);
@@ -4240,6 +4763,12 @@ mod native {
                 let issued = p.facts.script_submissions == 1 && p.mailbox.is_some();
                 p.facts.issued_before_event = issued;
                 if p.facts.popup_events != 1 || !issued {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        4243,
+                        u16::from(p.facts.popup_events != 1) | (u16::from(!issued) << 1),
+                    );
                     self.unknown.store(true, Ordering::SeqCst);
                     return false;
                 }
@@ -4321,6 +4850,13 @@ mod native {
                 if facts.handled_readbacks == 1
                     && (!facts.handled_readback_succeeded || !facts.native_handled_true)
                 {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        4324,
+                        u16::from(!facts.handled_readback_succeeded)
+                            | (u16::from(!facts.native_handled_true) << 1),
+                    );
                     self.unknown.store(true, Ordering::SeqCst);
                 }
                 if action_ok {
@@ -4338,6 +4874,12 @@ mod native {
                     let Some(i) =
                         matching(&mut state, &self.request).filter(|i| self.matches_instance(i))
                     else {
+                        n4_note(
+                            &self.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            4341,
+                            0,
+                        );
                         self.unknown.store(true, Ordering::SeqCst);
                         return;
                     };
@@ -4395,7 +4937,13 @@ mod native {
             let context = Context::new(owner, request);
             let handler = NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
-                if !callback_on_ui(context.ui, &context.callbacks) {
+                if !callback_on_ui(context.ui, &context.callbacks, 4398) {
+                    n4_note(
+                        &context.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        4399,
+                        context.diagnostic_hook_bits(),
+                    );
                     context.unknown.store(true, Ordering::SeqCst);
                     drop(args);
                     drop(sender);
@@ -4435,9 +4983,35 @@ mod native {
                 if result.is_ok() {
                     i.refusal_registry.entries[index].token = Some(token);
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        4438,
+                        index as u16,
+                    );
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        4438,
+                        index as u16,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        4440,
+                        0,
+                    );
                     i.closing = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        4441,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                 }
             }
@@ -4517,7 +5091,7 @@ mod native {
             ) -> windows::core::Result<()> {
                 let _active = Active::enter(&self.callbacks);
                 // UI/STA before raw copying, allocation, or UI-local references.
-                if !callback_on_ui(self.ui, &self.callbacks) {
+                if !callback_on_ui(self.ui, &self.callbacks, 4520) {
                     self.installation.store(true, Ordering::SeqCst);
                     if let Some(m) = self.mailbox.upgrade() {
                         m.invalid.store(true, Ordering::SeqCst);
@@ -4644,7 +5218,21 @@ mod native {
                         || i.refusal_registry.unknown();
                     if invalid {
                         i.failed = true;
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                            4647,
+                            0,
+                        );
                         i.closing = true;
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                            4648,
+                            0,
+                        );
                         i.cleanup_blocked = true;
                     }
                     if i.closing {
@@ -4669,6 +5257,13 @@ mod native {
                     return;
                 };
                 i.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    4672,
+                    0,
+                );
                 i.closing = true;
                 let _ = mark_download_close(i);
             }
@@ -5229,7 +5824,13 @@ mod native {
             let context = Context::new(owner, request);
             let handler = DownloadStartingEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
-                if !callback_on_ui(context.ui, &context.callbacks) {
+                if !callback_on_ui(context.ui, &context.callbacks, 5232) {
+                    n4_note(
+                        &context.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        5233,
+                        context.diagnostic_hook_bits(),
+                    );
                     context.unknown.store(true, Ordering::SeqCst);
                     drop(args);
                     drop(sender);
@@ -5278,9 +5879,35 @@ mod native {
                 if result.is_ok() {
                     i.refusal_registry.entries[index].token = Some(token);
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5281,
+                        index as u16,
+                    );
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        5281,
+                        index as u16,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5283,
+                        0,
+                    );
                     i.closing = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        5284,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                 }
             }
@@ -5329,7 +5956,21 @@ mod native {
                     && i.refusal_registry.unknown.load(Ordering::SeqCst)
                 {
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5332,
+                        0,
+                    );
                     i.closing = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        5333,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                     (
                         mark_child_close(i).map(|at| (i.observer.clone(), at)),
@@ -5358,6 +5999,7 @@ mod native {
             ui: ThreadId,
             callbacks: Arc<Callbacks>,
             unknown: Arc<AtomicBool>,
+            diagnostic_hook: u8,
             _lifetime: HandlerLifetime,
         }
         impl Context {
@@ -5370,10 +6012,18 @@ mod native {
                     request: request.clone(),
                     generation: GENERATION,
                     ui: state.ui_thread,
+                    diagnostic_hook: i
+                        .refusal_registry
+                        .entries
+                        .last()
+                        .map_or(255, |e| e.hook as u8),
                     unknown: Arc::clone(&i.refusal_registry.unknown),
                     _lifetime: HandlerLifetime::new(&callbacks),
                     callbacks,
                 }
+            }
+            fn diagnostic_hook_bits(&self) -> u16 {
+                u16::from(self.diagnostic_hook) << 8
             }
             fn matches_instance(&self, i: &Instance) -> bool {
                 i.request == self.request
@@ -5438,7 +6088,13 @@ mod native {
                 sender: Option<&ICoreWebView2>,
                 mut action: impl FnMut(bool) -> windows::core::Result<bool>,
             ) -> windows::core::Result<()> {
-                if !callback_on_ui(self.ui, &self.callbacks) {
+                if !callback_on_ui(self.ui, &self.callbacks, 5441) {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        5442,
+                        self.diagnostic_hook_bits(),
+                    );
                     self.unknown.store(true, Ordering::SeqCst);
                     return Err(rejection());
                 }
@@ -5453,9 +6109,13 @@ mod native {
                         .cloned() // Clones only the Rc wrapper, never COM under this borrow.
                 });
                 // Native identity queries occur after the Owner borrow ends.
+                let mut identity_diagnostic =
+                    u16::from(binding.is_some()) | (u16::from(sender.is_some()) << 1);
                 let identity = binding.as_ref().zip(sender).is_some_and(|(core, sender)| {
                     let expected = core.cast::<IUnknown>();
                     let actual = sender.cast::<IUnknown>();
+                    identity_diagnostic |=
+                        (u16::from(expected.is_ok()) << 2) | (u16::from(actual.is_ok()) << 3);
                     expected
                         .ok()
                         .zip(actual.ok())
@@ -5496,6 +6156,17 @@ mod native {
                         .is_some_and(|i| self.matches_instance(i))
                 });
                 if !identity || !same_installation || result.is_err() {
+                    n4_note(
+                        &self.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        5499,
+                        identity_diagnostic
+                            | (u16::from(!same_installation) << 4)
+                            | (u16::from(result.is_err()) << 5)
+                            | (u16::from(identity) << 6)
+                            | (u16::from(eligible) << 7)
+                            | self.diagnostic_hook_bits(),
+                    );
                     self.unknown.store(true, Ordering::SeqCst);
                 }
                 let mut top_close = None;
@@ -5510,12 +6181,19 @@ mod native {
                     {
                         if self.unknown.load(Ordering::SeqCst) {
                             i.failed = true;
+                            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                            n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 5513, 0);
                             i.closing = true;
+                            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                            n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock, 5514, 0);
                             i.cleanup_blocked = true;
                         } else if result.as_ref().is_ok_and(|refused| *refused) {
+                            n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 5519, self.diagnostic_hook_bits() | u16::from(identity) | (u16::from(same_installation) << 1) | (u16::from(eligible) << 2));
                             // Existing poll delivers Failed(PolicyRejected),
                             // outside this borrow and without session reentry.
                             i.failed = true;
+                            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                            n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 5519, 0);
                             i.closing = true;
                         }
                         if i.closing {
@@ -5928,9 +6606,35 @@ mod native {
                 if result.is_ok() {
                     i.refusal_registry.entries[index].token = Some(token);
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5931,
+                        index as u16,
+                    );
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        5931,
+                        index as u16,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5933,
+                        0,
+                    );
                     i.closing = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        5934,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                 }
             }
@@ -5983,9 +6687,35 @@ mod native {
                 if result.is_ok() {
                     i.refusal_registry.entries[index].token = Some(token);
                 } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5986,
+                        index as u16,
+                    );
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        5986,
+                        index as u16,
+                    );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        5988,
+                        0,
+                    );
                     i.closing = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        5989,
+                        0,
+                    );
                     i.cleanup_blocked = true;
                 }
             }
@@ -6019,9 +6749,35 @@ mod native {
                         i.refusal_registry.entries[$index].token = Some(token);
                     } else {
                         // A failed add cannot prove no handler was retained.
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                            6022,
+                            $index as u16,
+                        );
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            6022,
+                            $index as u16,
+                        );
                         i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                         i.failed = true;
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                            6024,
+                            0,
+                        );
                         i.closing = true;
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                            6025,
+                            0,
+                        );
                         i.cleanup_blocked = true;
                     }
                 }
@@ -6212,6 +6968,15 @@ mod native {
                 Ok(())
             })();
             result.map_err(|_| {
+                if let Some(i) = owner.borrow().instance.as_ref() {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        6212,
+                        i.refusal_registry.installed_mask()
+                            | (u16::from(i.refusal_registry.settings_acknowledged) << 10),
+                    );
+                }
                 failed(owner, request);
                 Code0SessionFailure::PolicyRejected
             })
@@ -6288,6 +7053,20 @@ mod native {
                     if result.is_ok() {
                         i.refusal_registry.entries[index].token = None;
                     } else {
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                            6291,
+                            hook as u16
+                                | ((match emitter.as_ref() {
+                                    Emitter::Core(_) => 0u16,
+                                    Emitter::External(_) => 1,
+                                    Emitter::Download(_) => 2,
+                                    Emitter::Authentication(_) => 3,
+                                    Emitter::Certificate(_) => 4,
+                                    Emitter::Tls(_) => 5,
+                                }) << 8),
+                        );
                         i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                     }
                 }
@@ -7187,7 +7966,7 @@ mod native {
                 WebResourceRequestedEventHandler::create(Box::new(move |sender, args| {
                     let _lifetime = &lifetime;
                     let active = Active::enter(&callbacks);
-                    let result = if callback_on_ui(ui, &callbacks) {
+                    let result = if callback_on_ui(ui, &callbacks, 7190) {
                         if let Some(owner) = weak.upgrade() {
                             let mut trace = ResourceTrace::new();
                             let result = resource(
@@ -7283,11 +8062,11 @@ mod native {
             let weak = Rc::downgrade(owner);
             let owned = request.clone();
             let generation = GENERATION;
-            let handler =
-                DevToolsProtocolEventReceivedEventHandler::create(Box::new(move |sender, args| {
+            let handler = DevToolsProtocolEventReceivedEventHandler::create(Box::new(
+                move |sender, args| {
                     let _lifetime = &lifetime;
                     let active = Active::enter(&callbacks);
-                    if callback_on_ui(ui, &callbacks)
+                    if callback_on_ui(ui, &callbacks, 7290)
                         && let Some(owner) = weak.upgrade()
                     {
                         // No chooser stimulus belongs to this benign case. Even a
@@ -7299,6 +8078,8 @@ mod native {
                                 .is_some_and(|p| p.generation == generation)
                         {
                             i.failed = true;
+                            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                            n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 7302, 0);
                             i.closing = true;
                         } else {
                             state.unmatched = true;
@@ -7308,7 +8089,8 @@ mod native {
                     drop(sender);
                     drop(active);
                     Ok(())
-                }));
+                },
+            ));
             let mut token = 0;
             let registered =
                 unsafe { receiver.add_DevToolsProtocolEventReceived(&handler, &mut token) };
@@ -7743,6 +8525,8 @@ mod native {
                                 }
                                 if !valid {
                                     i.failed = true;
+                                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                                    n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 7746, 0);
                                     i.closing = true;
                                 }
                                 target
@@ -7785,6 +8569,8 @@ mod native {
                                     i.policy_fault.application[1] = true;
                                 } else {
                                     i.failed = true;
+                                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                                    n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 7788, 0);
                                     i.closing = true;
                                 }
                             } else {
@@ -7838,6 +8624,8 @@ mod native {
                                 }
                                 if !valid {
                                     i.failed = true;
+                                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                                    n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 7841, 0);
                                     i.closing = true;
                                 }
                                 target
@@ -7874,6 +8662,8 @@ mod native {
                                     i.policy_fault.application[2] = true;
                                 } else {
                                     i.failed = true;
+                                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                                    n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 7877, 0);
                                     i.closing = true;
                                 }
                             } else {
@@ -7889,6 +8679,13 @@ mod native {
                 let mut state = owner.borrow_mut();
                 if let Some(i) = state.instance.as_mut() {
                     i.failed = true;
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        7892,
+                        0,
+                    );
                     i.closing = true;
                     if mailbox.unknown.load(Ordering::SeqCst) {
                         if let Some(diagnostic) = i.callbacks.diagnostics.as_ref() {
@@ -7898,6 +8695,13 @@ mod native {
                                 None,
                             ));
                         }
+                        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                        n4_note(
+                            &i.callbacks,
+                            crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                            7901,
+                            0,
+                        );
                         i.cleanup_blocked = true;
                     }
                 }
@@ -7927,8 +8731,22 @@ mod native {
                 if let Some(m) = &i.policy_mailbox {
                     m.unknown.store(true, Ordering::SeqCst);
                 }
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                    7930,
+                    0,
+                );
                 i.cleanup_blocked = true;
                 i.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    7932,
+                    0,
+                );
                 i.closing = true;
             }
             valid
@@ -8172,10 +8990,24 @@ mod native {
                     return;
                 };
                 i.failed = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                    8175,
+                    0,
+                );
                 i.closing = true;
                 if let Some(diagnostic) = i.callbacks.diagnostics.as_ref() {
                     diagnostic.uncertainty(detail);
                 }
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n4_note(
+                    &i.callbacks,
+                    crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                    8179,
+                    0,
+                );
                 i.cleanup_blocked = true;
                 let Some(policy) = i.policy.as_ref().filter(|p| p.generation == GENERATION) else {
                     // Native Drop may reenter after the policy group was taken.
@@ -8785,6 +9617,14 @@ pub mod fixture {
         expired: std::cell::Cell<bool>,
     }
     impl NativeDialogDeadline {
+        // N4 diagnostic begin: read-only absolute deadline, never calls expiry gate.
+        pub(super) fn n4_deadline_time(&self, diagnostics: &Diagnostics) -> u64 {
+            diagnostics.n4_time(self.expires_at)
+        }
+        pub(super) fn n4_expired(&self) -> bool {
+            self.expired.get()
+        }
+        // N4 diagnostic end.
         pub fn from_attempt_started(started: std::time::Instant) -> Option<Self> {
             Some(Self {
                 expires_at: started.checked_add(std::time::Duration::from_secs(45))?,
@@ -8895,6 +9735,10 @@ pub mod fixture {
     impl LegacyChildClose {
         pub(super) fn new() -> Self {
             Self { first: None }
+        }
+        // N4 scalar read only; never installs or resets a close timestamp.
+        pub(super) fn n4_first_close(&self) -> Option<std::time::Instant> {
+            self.first
         }
         pub(super) fn mark_at(
             &mut self,
@@ -10761,6 +11605,173 @@ pub mod fixture {
         }
     }
 
+    // N4 diagnostic begin: focused helper regressions; execution is separately owned.
+    #[cfg(test)]
+    mod n4_diagnostic_tests {
+        use super::*;
+        #[test]
+        fn n4_snapshot_never_accepts_mixed_concurrent_publications() {
+            let copy = std::sync::Arc::new(N4DiagnosticCopy::<12>::default());
+            let a = std::sync::Arc::clone(&copy);
+            let b = std::sync::Arc::clone(&copy);
+            let first = std::thread::spawn(move || {
+                for _ in 0..10000 {
+                    a.publish([0x1111111111111111; 12]);
+                }
+            });
+            let second = std::thread::spawn(move || {
+                for _ in 0..10000 {
+                    b.publish([0xeeeeeeeeeeeeeeee; 12]);
+                }
+            });
+            for _ in 0..10000 {
+                let (status, values) = copy.snapshot();
+                if status == 0 {
+                    assert!(
+                        values == [0x1111111111111111; 12] || values == [0xeeeeeeeeeeeeeeee; 12]
+                    );
+                } else {
+                    assert!(status <= 3);
+                }
+            }
+            first.join().unwrap();
+            second.join().unwrap();
+            let (status, values) = copy.snapshot();
+            assert_eq!(status, 0);
+            assert!(values == [0x1111111111111111; 12] || values == [0xeeeeeeeeeeeeeeee; 12]);
+        }
+        #[test]
+        fn n4_first_cause_survives_later_writers_and_time_saturation_is_explicit() {
+            let diagnostics = Diagnostics {
+                enabled: true,
+                origin: Some(std::time::Instant::now()),
+                ..Diagnostics::default()
+            };
+            diagnostics.arm_popup_initial_blank();
+            diagnostics.n4_first(N4Cause::Unknown, 3746, 2);
+            let first = diagnostics.n4_causes[1].load(std::sync::atomic::Ordering::Acquire);
+            std::thread::scope(|scope| {
+                for _ in 0..8 {
+                    scope.spawn(|| diagnostics.n4_first(N4Cause::Unknown, 5499, 255));
+                }
+            });
+            assert_eq!(
+                diagnostics.n4_causes[1].load(std::sync::atomic::Ordering::Acquire),
+                first
+            );
+            assert_eq!(first & 0xffff, 3746);
+            assert_ne!(n4_first_word(1, 0, u64::MAX) & (1 << 63), 0);
+        }
+        #[test]
+        fn n4_result_classes_do_not_promote_precondition_null_or_other_tokens() {
+            for (text, class) in [
+                ("\"code0-popup-submitted-v1\"", 1),
+                ("\"code0-popup-precondition-v1\"", 2),
+                ("null", 3),
+                ("\"other\"", 4),
+                ("broken", 4),
+            ] {
+                let units: Vec<u16> = text.encode_utf16().collect();
+                let real = popup_result_units(&units);
+                assert_eq!(n4_popup_result_class(&units, real), class);
+                assert_eq!(real.1, class == 1);
+            }
+        }
+    }
+    // N4 diagnostic end.
+
+    // N4 diagnostic begin: fixed scalar copies, no owner/native references.
+    #[derive(Clone, Copy)]
+    #[repr(usize)]
+    pub(super) enum N4Cause {
+        Revocation,
+        Unknown,
+        CleanupBlock,
+    }
+
+    // One atomic word is the complete first record: site16, bits16, ms1(31),
+    // bit63=time saturation. CAS is the commit: no pending/torn metadata state.
+    fn n4_first_word(site: u16, bits: u16, ms1: u64) -> u64 {
+        u64::from(site)
+            | (u64::from(bits) << 16)
+            | (ms1.min(0x7fffffff) << 32)
+            | (u64::from(ms1 > 0x7fffffff) << 63)
+    }
+
+    struct N4DiagnosticCopy<const N: usize> {
+        sequence: std::sync::atomic::AtomicU64,
+        missed: std::sync::atomic::AtomicBool,
+        words: [std::sync::atomic::AtomicU64; N],
+    }
+    impl<const N: usize> Default for N4DiagnosticCopy<N> {
+        fn default() -> Self {
+            Self {
+                sequence: Default::default(),
+                missed: Default::default(),
+                words: std::array::from_fn(|_| Default::default()),
+            }
+        }
+    }
+    impl<const N: usize> N4DiagnosticCopy<N> {
+        fn publish(&self, words: [u64; N]) {
+            use std::sync::atomic::Ordering::{AcqRel, Acquire, Release};
+            let sequence = self.sequence.load(Acquire);
+            if sequence & 1 != 0
+                || sequence >= u64::MAX - 1
+                || self
+                    .sequence
+                    .compare_exchange(sequence, sequence + 1, AcqRel, Acquire)
+                    .is_err()
+            {
+                self.missed.store(true, Release);
+                return;
+            }
+            for (slot, value) in self.words.iter().zip(words) {
+                slot.store(value, Release);
+            }
+            self.sequence.store(sequence + 2, Release);
+        }
+        // status0 coherent;1 never published;2 in progress;3 changed during copy.
+        // No spin, retry, mailbox lock, Owner access, or native call on readers.
+        fn snapshot(&self) -> (u8, [u64; N]) {
+            use std::sync::atomic::Ordering::Acquire;
+            let before = self.sequence.load(Acquire);
+            if before == 0 {
+                return (1, [0; N]);
+            }
+            if before & 1 != 0 {
+                return (2, [0; N]);
+            }
+            let words = std::array::from_fn(|n| self.words[n].load(Acquire));
+            std::sync::atomic::fence(Acquire);
+            if self.sequence.load(Acquire) != before {
+                (3, [0; N])
+            } else {
+                (0, words)
+            }
+        }
+    }
+
+    // Classification only: the authoritative bounded parser tuple is unchanged.
+    // Its first bool means bounded UTF16 copy, not full JSON validation; class4
+    // therefore honestly includes bounded-other/malformed, never "valid JSON".
+    pub(super) fn n4_popup_result_class(units: &[u16], real: (bool, bool)) -> u8 {
+        if real.1 {
+            1
+        } else if units
+            .iter()
+            .copied()
+            .eq("\"code0-popup-precondition-v1\"".encode_utf16())
+        {
+            2
+        } else if units.iter().copied().eq("null".encode_utf16()) {
+            3
+        } else {
+            4
+        }
+    }
+    // N4 diagnostic end.
+
     #[derive(Default)]
     pub struct Diagnostics {
         enabled: bool,
@@ -10777,6 +11788,14 @@ pub mod fixture {
         heartbeat: std::sync::atomic::AtomicU64,
         milestones: std::sync::atomic::AtomicU64,
         inventory: std::sync::atomic::AtomicU64,
+        // N4 diagnostic begin.
+        n4_armed: std::sync::atomic::AtomicBool,
+        n4_deadline_emitted: std::sync::atomic::AtomicBool,
+        n4_causes: [std::sync::atomic::AtomicU64; 3],
+        n4_snapshot: N4DiagnosticCopy<12>,
+        n4_disposition: N4DiagnosticCopy<4>,
+        n4_stages: [std::sync::atomic::AtomicU64; 14],
+        // N4 diagnostic end.
         first_failure: std::sync::atomic::AtomicU64,
         #[cfg(windows)]
         first_uncertainty: std::sync::atomic::AtomicU64,
@@ -10799,6 +11818,154 @@ pub mod fixture {
     }
 
     impl Diagnostics {
+        // N4 diagnostic begin. Only the fixed selected N4 fixture arms this.
+        pub fn arm_popup_initial_blank(&self) {
+            if self.enabled {
+                self.n4_armed
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+        pub(super) fn n4_enabled(&self) -> bool {
+            self.enabled && self.n4_armed.load(std::sync::atomic::Ordering::Acquire)
+        }
+        pub(super) fn n4_time(&self, at: std::time::Instant) -> u64 {
+            self.origin.map_or(0, |origin| {
+                let value = at
+                    .saturating_duration_since(origin)
+                    .as_millis()
+                    .saturating_add(1);
+                (value.min(u128::from(u64::MAX >> 1)) as u64)
+                    | (u64::from(value > u128::from(u64::MAX >> 1)) << 63)
+            })
+        }
+        pub(super) fn n4_publish_popup(&self, words: [u64; 12]) {
+            if self.n4_enabled() {
+                self.n4_snapshot.publish(words);
+            }
+        }
+        pub(super) fn n4_publish_disposition(&self, words: [u64; 4]) {
+            if self.n4_enabled() {
+                self.n4_disposition.publish(words);
+            }
+        }
+        pub(super) fn n4_first(&self, cause: N4Cause, site: u16, bits: u16) {
+            if self.n4_enabled() {
+                let word = n4_first_word(site, bits, self.n4_time(std::time::Instant::now()));
+                let _ = self.n4_causes[cause as usize].compare_exchange(
+                    0,
+                    word,
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                );
+            }
+        }
+        // Fixed indices: native Popup0..3, native FailedPolicy4/FailedCleanup5/
+        // other6; fixture Popup7..10, FailedPolicy11/FailedCleanup12/other13.
+        // Values are first producer/consumer time+1, not receipt totals or proof.
+        pub fn n4_popup_stage(&self, stage: NativePopupStage, consumed: bool) {
+            let index = match stage {
+                NativePopupStage::Submitted => 0,
+                NativePopupStage::Refusal => 1,
+                NativePopupStage::Completion => 2,
+                NativePopupStage::Final => 3,
+            } + if consumed { 7 } else { 0 };
+            self.n4_stage(index);
+        }
+        pub fn n4_session_stage(&self, reason: &Code0SessionFailure, consumed: bool) {
+            let index = match reason {
+                Code0SessionFailure::PolicyRejected => 4,
+                Code0SessionFailure::CleanupFailed => 5,
+                _ => 6,
+            } + if consumed { 7 } else { 0 };
+            self.n4_stage(index);
+        }
+        fn n4_stage(&self, index: usize) {
+            if self.n4_enabled() {
+                let _ = self.n4_stages[index].compare_exchange(
+                    0,
+                    self.n4_time(std::time::Instant::now()),
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                );
+            }
+        }
+        pub fn emit_popup_close_deadline(&self) {
+            if !self
+                .n4_deadline_emitted
+                .swap(true, std::sync::atomic::Ordering::Relaxed)
+            {
+                self.emit_n4(1);
+            }
+        }
+        fn emit_n4(&self, kind: u8) {
+            use std::io::Write as _;
+            use std::sync::atomic::Ordering::Acquire;
+            if !self.n4_enabled() {
+                return;
+            }
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeN4Causes schema=1 kind={} revocation={:016x} unknown={:016x} cleanupBlock={:016x}",
+                kind,
+                self.n4_causes[0].load(Acquire),
+                self.n4_causes[1].load(Acquire),
+                self.n4_causes[2].load(Acquire)
+            );
+            let (status, w) = self.n4_snapshot.snapshot();
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeN4Snapshot schema=1 kind={} status={} missed={} state={:016x} counts={:016x} facts={:016x} deadlineMs1={:016x} firstCloseMs1={:016x} obligation={:016x} popupHandlers={:016x} aggregateHandlers={:016x} pendingActive={:016x} sampleMs1={:016x} mailboxCloseMs1={:016x} exitState={:016x}",
+                kind,
+                status,
+                u8::from(self.n4_snapshot.missed.load(Acquire)),
+                w[0],
+                w[1],
+                w[2],
+                w[3],
+                w[4],
+                w[5],
+                w[6],
+                w[7],
+                w[8],
+                w[9],
+                w[10],
+                w[11]
+            );
+            let (status, w) = self.n4_disposition.snapshot();
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeN4Disposition schema=1 kind={} status={} missed={} components={:016x} receivedMs1={:016x} consumedSampleMs1={:016x} outcome={:016x}",
+                kind,
+                status,
+                u8::from(self.n4_disposition.missed.load(Acquire)),
+                w[0],
+                w[1],
+                w[2],
+                w[3]
+            );
+            let s: [u64; 14] = std::array::from_fn(|n| self.n4_stages[n].load(Acquire));
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeN4Stages schema=1 kind={} n0={:016x} n1={:016x} n2={:016x} n3={:016x} n4={:016x} n5={:016x} n6={:016x} c0={:016x} c1={:016x} c2={:016x} c3={:016x} c4={:016x} c5={:016x} c6={:016x}",
+                kind,
+                s[0],
+                s[1],
+                s[2],
+                s[3],
+                s[4],
+                s[5],
+                s[6],
+                s[7],
+                s[8],
+                s[9],
+                s[10],
+                s[11],
+                s[12],
+                s[13]
+            );
+        }
+        // N4 diagnostic end.
+
         pub fn boundary(self: &std::sync::Arc<Self>, phase: DiagnosticPhase) -> DiagnosticBoundary {
             use std::sync::atomic::Ordering::Relaxed;
             if self.enabled && self.boundary_depth.fetch_add(1, Relaxed) == 0 {
@@ -11047,6 +12214,7 @@ pub mod fixture {
                 if !self.close_final_emitted.swap(true, Relaxed) {
                     self.close_snapshot(2, watchdog, 0).emit();
                 }
+                self.emit_n4(2);
                 #[cfg(windows)]
                 let uncertainty = self.first_uncertainty.load(Relaxed);
                 #[cfg(windows)]
