@@ -7,6 +7,8 @@ pub mod code0_dispatcher;
 pub mod code0_profile_lease;
 #[cfg(all(test, windows))]
 mod code0_runtime;
+#[cfg(all(test, windows))]
+mod code0_tick;
 pub mod code0_web_session;
 pub mod code0_webview;
 pub mod conpty;
