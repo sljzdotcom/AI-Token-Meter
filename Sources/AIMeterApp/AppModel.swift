@@ -115,6 +115,7 @@ final class AppModel {
     private var code0FrozenSnapshot: UsageSnapshot?
     private var code0PresentationRevision: UInt64 = 0
     private var code0TickTask: Task<Void, Never>?
+    var currentCode0TickTaskForTesting: Task<Void, Never>? { code0TickTask }
     private var code0TickID: UUID?
     private var code0StopWatch: Task<Void, Never>?
     private var code0LastAction: Code0SessionActionResult?

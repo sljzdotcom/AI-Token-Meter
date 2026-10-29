@@ -77,20 +77,39 @@ struct Code0AppRuntimeTests {
         _ = model.snapshots; _ = model.code0SessionState; _ = model.serviceAccounts
         #expect(await sleeper.entries == 0)
         #expect(session.actions.isEmpty)
-        #expect(model.performCode0ServiceAction(.connect) == .started)
-        let firstWait = await code0AppWait { await sleeper.entries == 1 }
-        await sleeper.releaseAll()
-        let nextWait = await code0AppWait { await sleeper.entries == 2 }
-        #expect(firstWait && nextWait)
-        #expect(session.ticks == 1)
+        #expect(session.ticks == 0)
+        do {
+            #expect(model.performCode0ServiceAction(.connect) == .started)
+            let firstWait = await code0AppWait { await sleeper.entries == 1 }
+            await sleeper.releaseAll()
+            let nextWait = await code0AppWait { await sleeper.entries == 2 }
+            #expect(firstWait && nextWait)
+            try #require(nextWait)
+            #expect(session.ticks == 1)
+            let actualTickTask = try #require(model.currentCode0TickTaskForTesting)
+            model.stop()
+            let stoppedTicks = session.ticks
+            await sleeper.releaseAll()
+            var joinedTickTask = false
+            let waiter = Task { @MainActor in
+                await actualTickTask.value
+                joinedTickTask = true
+            }
+            let completedTickTask = await code0AppWait { joinedTickTask }
+            waiter.cancel()
+            try #require(completedTickTask)
+            let exitedSleep = await code0AppWait { await sleeper.exits == 2 }
+            #expect(exitedSleep)
+            #expect(session.stops == 1)
+            #expect(session.ticks == stoppedTicks)
+            #expect(session.actions == [.connect])
+        } catch {
+            model.stop()
+            await sleeper.releaseAll()
+            throw error
+        }
         model.stop()
-        let stoppedTicks = session.ticks
         await sleeper.releaseAll()
-        let exitedSleep = await code0AppWait { await sleeper.exits == 2 }
-        #expect(exitedSleep)
-        #expect(session.stops == 1)
-        #expect(session.ticks == stoppedTicks)
-        #expect(session.actions == [.connect])
     }
 
     @Test func restartRebindsColdSessionAndOldCallbackCannotPublish() throws {

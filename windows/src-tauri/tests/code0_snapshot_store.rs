@@ -616,6 +616,52 @@ fn save_rejects_invalid_site_credit_values_without_replacing_a_snapshot() {
 }
 
 #[test]
+fn save_rejects_negative_or_noncanonical_timestamps_without_replacing_committed_a() {
+    let temporary = tempdir().expect("isolated temporary directory");
+    let root = temporary.path().join("Code0");
+    let lease = Code0ProfileLease::acquire(&root).expect("acquire profile lease");
+    let mut store = Code0SnapshotStore::new(&root, Some(lease));
+    store
+        .save_atomic(&expected_snapshot())
+        .expect("commit snapshot A before rejected timestamp saves");
+    let snapshot_path = root.join("snapshot.json");
+    let committed_a = fs::read(&snapshot_path).expect("committed A bytes");
+
+    for fetched_at in [
+        "1969-12-31T23:59:59Z",
+        "2026-10-27T05:05:06+01:00",
+        "2026-10-27T04:05:06+00:00",
+    ] {
+        let mut invalid_b = candidate_snapshot();
+        invalid_b.fetched_at = fetched_at.to_owned();
+        assert_eq!(
+            store.save_atomic(&invalid_b),
+            Err(Code0StoreError::InvalidSnapshot),
+            "invalid candidate timestamp {fetched_at} must not replace A"
+        );
+        assert_eq!(
+            fs::read(&snapshot_path).expect("A bytes after rejected save"),
+            committed_a
+        );
+        for loaded in [store.load(), Code0SnapshotStore::new(&root, None).load()] {
+            let restored_a = loaded
+                .expect("A remains readable after rejected save")
+                .expect("A remains present after rejected save");
+            assert_eq!(restored_a.status, UsageStatus::Cached);
+            assert_eq!(restored_a.fetched_at, FETCHED_AT);
+            assert_eq!(restored_a.primary_metric.expect("A balance").current, 123.5);
+            assert_eq!(
+                restored_a
+                    .secondary_metric
+                    .expect("A cumulative usage")
+                    .current,
+                456.75
+            );
+        }
+    }
+}
+
+#[test]
 fn load_rejects_non_exact_or_oversized_projection_fields() {
     let temporary = tempdir().expect("isolated temporary directory");
     let root = temporary.path().join("Code0");
@@ -639,6 +685,9 @@ fn load_rejects_non_exact_or_oversized_projection_fields() {
         br#"{"schemaVersion":1,"balance":true,"cumulativeUsage":2,"fetchedAt":"2026-10-27T04:05:06Z","sourceVersion":"website"}"#.to_vec(),
         br#"{"schemaVersion":1,"balance":-1,"cumulativeUsage":2,"fetchedAt":"2026-10-27T04:05:06Z","sourceVersion":"website"}"#.to_vec(),
         br#"{"schemaVersion":1,"balance":1,"cumulativeUsage":2,"fetchedAt":"tomorrow","sourceVersion":"website"}"#.to_vec(),
+        br#"{"schemaVersion":1,"balance":1,"cumulativeUsage":2,"fetchedAt":"1969-12-31T23:59:59Z","sourceVersion":"website"}"#.to_vec(),
+        br#"{"schemaVersion":1,"balance":1,"cumulativeUsage":2,"fetchedAt":"2026-10-27T05:05:06+01:00","sourceVersion":"website"}"#.to_vec(),
+        br#"{"schemaVersion":1,"balance":1,"cumulativeUsage":2,"fetchedAt":"2026-10-27T04:05:06+00:00","sourceVersion":"website"}"#.to_vec(),
     ];
     for bytes in invalid_projections {
         fs::write(&snapshot_path, bytes).expect("write synthetic malformed projection");
@@ -652,6 +701,10 @@ fn load_rejects_non_exact_or_oversized_projection_fields() {
             Err(Code0StoreError::Unavailable)
         );
         fs::write(&snapshot_path, &valid).expect("restore valid owned bytes");
+        assert_eq!(
+            fs::read(&snapshot_path).expect("restored owned bytes"),
+            valid
+        );
         assert!(store.load().unwrap().is_some());
         assert!(
             Code0SnapshotStore::new(&root, None)
@@ -659,6 +712,24 @@ fn load_rejects_non_exact_or_oversized_projection_fields() {
                 .unwrap()
                 .is_some()
         );
+        for loaded in [store.load(), Code0SnapshotStore::new(&root, None).load()] {
+            let restored = loaded
+                .expect("restored valid projection is readable")
+                .expect("restored valid projection is present");
+            assert_eq!(restored.status, UsageStatus::Cached);
+            assert_eq!(restored.fetched_at, FETCHED_AT);
+            assert_eq!(
+                restored.primary_metric.expect("restored balance").current,
+                123.5
+            );
+            assert_eq!(
+                restored
+                    .secondary_metric
+                    .expect("restored cumulative usage")
+                    .current,
+                456.75
+            );
+        }
     }
 
     fs::write(&snapshot_path, vec![b'x'; 4097]).expect("write oversized projection");
