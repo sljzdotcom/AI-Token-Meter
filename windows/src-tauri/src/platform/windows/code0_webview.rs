@@ -12,12 +12,15 @@ use super::code0_web_session::{
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod chooser_protocol;
 
-#[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod http401_protocol;
 
 #[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
 #[doc(hidden)]
 pub mod permission_protocol;
+
+#[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
+mod permission_wire;
 
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 #[doc(hidden)]
@@ -317,6 +320,11 @@ mod native {
     }
     // N3 diagnostic end.
 
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) mod http401 {
+        include!("code0_webview/http401_native.rs");
+    }
+
     #[derive(Default)]
     struct Callbacks {
         pending: AtomicUsize,
@@ -453,6 +461,10 @@ mod native {
         chooser: Option<s3::State>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         capability: Option<s4::State>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        http401: Option<http401::State>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        http401_selected: Arc<AtomicBool>,
     }
 
     impl Owner {
@@ -529,11 +541,18 @@ mod native {
             s3::revoke(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s4::mark_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            http401::external_close(instance);
         }
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_download_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        {
+            http401::cleanup(owner);
+            http401::publish_close(owner);
+        }
     }
 
     fn inventory_empty(instance: &Instance) -> bool {
@@ -558,6 +577,7 @@ mod native {
                         && instance.refusal_registry.references_empty()
                         && s3::quiescent(instance)
                         && s4::quiescent(instance)
+                        && http401::quiescent(instance)
                 }
                 #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                 {
@@ -681,6 +701,10 @@ mod native {
             chooser: None,
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             capability: None,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            http401: None,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            http401_selected: Arc::new(AtomicBool::new(false)),
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -1407,12 +1431,19 @@ mod native {
             s3::mark_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s4::mark_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            http401::external_close(instance);
         }
         drop(state);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_download_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        {
+            http401::cleanup(owner);
+            http401::publish_close(owner);
+        }
         // Only a later UI poll can certify actual inventory and release.
     }
 
@@ -1450,6 +1481,8 @@ mod native {
                 s3::mark_close(instance);
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 s4::mark_close(instance);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                http401::external_close(instance);
                 instance.window.take()
             } else {
                 None
@@ -1463,6 +1496,11 @@ mod native {
         s2::publish_popup_close(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_download_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        {
+            http401::cleanup(owner);
+            http401::publish_close(owner);
+        }
     }
 
     fn cleanup_result(
@@ -1562,6 +1600,8 @@ mod native {
         publish_inventory(owner);
         // Installation progress and receipt publication happen only on a later
         // UI poll, after all previous callbacks and outer actions have settled.
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        http401::advance(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         p1::advance(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1670,6 +1710,8 @@ mod native {
             s3::mark_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s4::mark_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            http401::mark_close(instance);
             if !instance.closing
                 || {
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1698,6 +1740,8 @@ mod native {
         s3::remove(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s4::remove(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        http401::remove(owner);
         let remove = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1781,6 +1825,7 @@ mod native {
                             && s2::registrations_removed(instance)
                             && s3::removed(instance)
                             && s4::removed(instance)
+                            && http401::removed(instance)
                     }
                     #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                     {
@@ -1807,6 +1852,8 @@ mod native {
                     s3::take_controls(instance),
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s4::take_controls(instance),
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    http401::take_controls(instance),
                 ))
             } else {
                 None
@@ -1959,6 +2006,7 @@ mod native {
                 s2::publish_download_final(owner);
                 s3::publish_final(owner);
                 s4::publish_final(owner);
+                http401::publish_final(owner);
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Code0WindowEvent::Failed(reason) = &event
@@ -2050,6 +2098,7 @@ mod native {
             || i.destroyed
             || i.inline_loaded
             || i.capability.is_some()
+            || i.http401.is_some()
             || i.policy.is_some()
             || i.policy_mailbox.is_some()
             || i.core.is_none()
@@ -2231,6 +2280,22 @@ mod native {
                     popup: None,
                     download: None,
                 }
+            }
+            pub(super) fn http_available(&self) -> bool {
+                self.complete()
+                    && self.legacy.is_none()
+                    && self.top_target.is_none()
+                    && self.child.is_none()
+                    && self.dialog.is_none()
+                    && self.dialog_completed.is_none()
+                    && self.popup.is_none()
+                    && self.download.is_none()
+            }
+            pub(super) fn http_generation(&self) -> u64 {
+                self.generation
+            }
+            pub(super) fn http_core(&self) -> Option<Rc<ICoreWebView2>> {
+                self.core.as_ref().map(Rc::clone)
             }
             pub(super) fn installed_mask(&self) -> u16 {
                 self.entries.iter().fold(0, |mask, entry| {
@@ -6628,6 +6693,8 @@ mod native {
                         if i.closing {
                             s3::revoke(i);
                             s4::mark_close(i);
+                            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                            http401::mark_close(i);
                             top_close = mark_top_close(i).map(|at| (i.observer.clone(), at));
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
@@ -6636,6 +6703,10 @@ mod native {
                                 mark_download_close(i).map(|at| (i.observer.clone(), at));
                         }
                     }
+                }
+                if let Some(owner) = owner.as_ref() {
+                    http401::cleanup(owner);
+                    http401::publish_close(owner);
                 }
                 if let Some((Some(observer), at)) = top_close {
                     observer(NativeSmokeObservation::TopClosing { at });
@@ -7002,8 +7073,25 @@ mod native {
             core: &ICoreWebView2,
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
+            let http_context = http401::Context::new(owner, request);
             let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
+                if http_context.selected() {
+                    if !callback_on_ui(http_context.ui, &http_context.callbacks, 8603) {
+                        http_context.lost();
+                        drop(args);
+                        drop(sender);
+                        drop(active);
+                        return Err(rejection());
+                    }
+                    let candidate =
+                        http401::top_callback(&http_context, sender.as_ref(), args.as_ref());
+                    drop(args);
+                    drop(sender);
+                    http401::finish_top(&http_context, candidate);
+                    drop(active);
+                    return Ok(());
+                }
                 let mut receipt = None;
                 let mut event = LegacyRefusalEvent::new();
                 let mut dialog_selected = false;
@@ -7086,6 +7174,85 @@ mod native {
             require_live(owner, request)
         }
 
+        fn add_authentication(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            index: usize,
+            core: &ICoreWebView2_10,
+        ) -> windows::core::Result<()> {
+            let context = Context::new(owner, request);
+            let http_context = http401::Context::new(owner, request);
+            let handler =
+                BasicAuthenticationRequestedEventHandler::create(Box::new(move |sender, args| {
+                    let active = Active::enter(&context.callbacks);
+                    if http_context.selected() {
+                        if !callback_on_ui(http_context.ui, &http_context.callbacks, 8604) {
+                            http_context.lost();
+                            drop(args);
+                            drop(sender);
+                            drop(active);
+                            return Err(rejection());
+                        }
+                        let candidate =
+                            http401::auth_callback(&http_context, sender.as_ref(), args.as_ref());
+                        drop(args);
+                        drop(sender);
+                        http401::finish_auth(&http_context, candidate);
+                        drop(active);
+                        return Ok(());
+                    }
+                    let result = context.invoke(sender.as_ref(), |_| {
+                        let args = args.as_ref().ok_or_else(rejection)?;
+                        unsafe { args.SetCancel(true) }.map(|()| true)
+                    });
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    result
+                }));
+            let mut token = 0;
+            let result = unsafe { core.add_BasicAuthenticationRequested(&handler, &mut token) };
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                if result.is_ok() {
+                    i.refusal_registry.entries[index].token = Some(token);
+                } else {
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        6022,
+                        index as u16,
+                    );
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Unknown,
+                        6022,
+                        index as u16,
+                    );
+                    i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    i.failed = true;
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::Revocation,
+                        6024,
+                        0,
+                    );
+                    i.closing = true;
+                    n4_note(
+                        &i.callbacks,
+                        crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock,
+                        6025,
+                        0,
+                    );
+                    i.cleanup_blocked = true;
+                }
+            }
+            drop(handler);
+            result?;
+            require_live(owner, request)
+        }
+
         fn add_child_navigation(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
@@ -7093,16 +7260,34 @@ mod native {
             core: &ICoreWebView2,
         ) -> windows::core::Result<()> {
             let context = Context::new(owner, request);
+            let http_context = http401::Context::new(owner, request);
             let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
                 let mut receipt = None;
                 let mut event = LegacyRefusalEvent::new();
-                let result = context.invoke(sender.as_ref(), |eligible| {
-                    let args = args.as_ref().ok_or_else(rejection)?;
-                    context.child_navigation(args, eligible, &mut event, &mut receipt)
-                });
+                let mut http_child = None;
+                let result = http401::dispatch_child(
+                    http_context.selected(),
+                    || {
+                        if !callback_on_ui(http_context.ui, &http_context.callbacks, 8605) {
+                            http_context.lost();
+                            return Err(rejection());
+                        }
+                        http_child = Some(http401::child_callback(&http_context, args.as_ref()));
+                        Ok(())
+                    },
+                    || {
+                        context.invoke(sender.as_ref(), |eligible| {
+                            let args = args.as_ref().ok_or_else(rejection)?;
+                            context.child_navigation(args, eligible, &mut event, &mut receipt)
+                        })
+                    },
+                );
                 drop(args);
                 drop(sender);
+                if let Some(candidate) = http_child {
+                    http401::finish_child(&http_context, candidate);
+                }
                 if let Some(mut receipt) = receipt {
                     let timely = context.legacy_after_drop(&mut event);
                     receipt.facts.live_after_getters &= timely;
@@ -7289,18 +7474,9 @@ mod native {
                     }
                     .map(|()| true)
                 ),
-                (Hook::BasicAuthentication, Emitter::Authentication(core)) => add_handler!(
-                    owner,
-                    request,
-                    index,
-                    core,
-                    BasicAuthenticationRequestedEventHandler,
-                    add_BasicAuthenticationRequested,
-                    |args: &ICoreWebView2BasicAuthenticationRequestedEventArgs, _| unsafe {
-                        args.SetCancel(true)
-                    }
-                    .map(|()| true)
-                ),
+                (Hook::BasicAuthentication, Emitter::Authentication(core)) => {
+                    add_authentication(owner, request, index, core)
+                }
                 (Hook::ClientCertificate, Emitter::Certificate(core)) => add_handler!(
                     owner,
                     request,
@@ -7567,6 +7743,62 @@ mod native {
                 .refusal_registry
                 .unknown
                 .load(Ordering::SeqCst)
+        }
+        #[cfg(test)]
+        mod http401_child_tests {
+            use super::*;
+            use std::cell::Cell;
+
+            #[test]
+            fn selected_official_child_cancels_once_and_fails_before_reentry() {
+                let uri = "https://console.code0.ai/console";
+                assert!(official(uri));
+                let cancels = Cell::new(0);
+                let failed = Cell::new(false);
+                let existing = Cell::new(0);
+                let refused = http401::dispatch_child(
+                    true,
+                    || {
+                        http401::restrict_child(
+                            || failed.set(true),
+                            || {
+                                assert!(failed.get());
+                                cancels.set(cancels.get() + 1);
+                                true
+                            },
+                        )
+                    },
+                    || {
+                        existing.set(existing.get() + 1);
+                        !official(uri)
+                    },
+                );
+                assert!(refused);
+                assert!(failed.get());
+                assert_eq!(cancels.get(), 1);
+                assert_eq!(existing.get(), 0);
+            }
+
+            #[test]
+            fn nonselected_official_child_keeps_the_existing_allowance() {
+                let uri = "https://console.code0.ai/console";
+                let selected = Cell::new(0);
+                let existing = Cell::new(0);
+                let refused = http401::dispatch_child(
+                    false,
+                    || {
+                        selected.set(selected.get() + 1);
+                        true
+                    },
+                    || {
+                        existing.set(existing.get() + 1);
+                        !official(uri)
+                    },
+                );
+                assert!(!refused);
+                assert_eq!(selected.get(), 0);
+                assert_eq!(existing.get(), 1);
+            }
         }
     }
 
@@ -15921,6 +16153,12 @@ pub mod fixture {
     use std::path::PathBuf;
     use std::rc::Rc;
 
+    #[cfg(windows)]
+    pub use super::native::http401::{
+        Facts as NativeHttp401Facts, FinalClock as NativeHttp401FinalClock,
+        Receipt as NativeHttp401Receipt, Timing as NativeHttp401Timing,
+        finalize_http401_with_watchdog, merge_http401_native_facts, record_http401_session_failure,
+    };
     use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
 
     /// Trusted debug-fixture handoff of the actual attempt's absolute end.
@@ -18504,6 +18742,12 @@ pub mod fixture {
     }
 
     pub enum NativeSmokeObservation {
+        #[cfg(windows)]
+        Http401(NativeHttp401Receipt),
+        #[cfg(windows)]
+        Http401Closing {
+            at: std::time::Instant,
+        },
         /// Actual bare Window, synchronously immediately after build, before any
         /// correction/getter or asynchronous environment/controller creation.
         WindowConstructed {
@@ -19885,6 +20129,22 @@ pub mod fixture {
                 let _ = request;
                 Err(Code0SessionFailure::PolicyRejected)
             }
+        }
+
+        #[cfg(windows)]
+        pub fn begin_fixture_http401(
+            &mut self,
+            request: &Code0WindowRequest,
+            started: std::time::Instant,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            super::native::http401::begin(&self.owner, request, started)
         }
 
         /// Read actual same-instance registration inventory. Never installs or loads.

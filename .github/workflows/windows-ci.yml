@@ -2353,6 +2353,357 @@ jobs:
             ${{ runner.temp }}/code0-policy-s4-dispose-missing-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 native owned-loopback HTTP401 refusal
+        if: always()
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $env:AI_METER_CODE0_POLICY_RUN_ID = "code0-policy-http401-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_POLICY_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID.json"
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+          $LASTEXITCODE = $null
+          & cargo test --locked --features code0-native-fixture --test code0_native_fixture -- --code0-policy-fixture=refusal-http401-owned-loopback
+          if ($null -eq $LASTEXITCODE) { throw "HTTP401 native invocation produced no actual exit code" }
+          $code = [int]$LASTEXITCODE
+          $exitPath = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_POLICY_RUN_ID-exit.json"
+          $payload = [ordered]@{ schema = 1; runId = $env:AI_METER_CODE0_POLICY_RUN_ID; exitCode = $code } | ConvertTo-Json -Compress
+          $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
+          $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+          exit $code
+      - name: Verify Code0 native owned-loopback HTTP401 refusal evidence
+        if: always()
+        shell: python
+        run: |
+          """Schema15 isolated-CI acceptance; DATA self-checks are not native evidence."""
+          import copy
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          SELECTOR = 'refusal-http401-owned-loopback'
+          LIFE = ('staMain', 'callbackAffinity', 'noInheritedOverride', 'engineReady',
+                  'bareHiddenUnfocused', 'constructionObserved', 'profileIsolated',
+                  'destroyed', 'ownedReferencesReleased', 'runReturned', 'cleanupSucceeded')
+          COUNTS = ('submissions', 'barrierReceipts', 'firstLoadReceipts', 'documentReceipts')
+          FLAGS = ('submissionAccepted', 'installRejected', 'scriptAcknowledged',
+                   'cdpAcknowledged', 'sourceMatched', 'syntheticResponseApplied',
+                   'canonicalReadyControl', 'ackBeforeFirstLoad')
+          SERVER_TRUE = ('startupSucceeded', 'version22', 'exclusiveAck', 'listenerLingerOff',
+                         'listenerNonblocking', 'boundEndpointMatched', 'listenSucceeded',
+                         'acceptedLocalMatched', 'acceptedPeerMatched', 'streamLingerOff',
+                         'streamNonblocking', 'requestValid', 'responseComplete',
+                         'finalInventoryObserved')
+          SERVER_ONCE = ('startupAttempts', 'socketCreates', 'binds', 'listens', 'accepts',
+                         'parsedRequests', 'listenerCloseAttempts', 'listenerCloseSuccesses',
+                         'streamCloseAttempts', 'streamCloseSuccesses', 'cleanupAttempts',
+                         'cleanupSuccesses')
+          TIMES = ('targetAtMs', 'firstCloseAtMs', 'finalAtMs', 'cleanupElapsedMs')
+          RANGES = {'requestBytes': (1, 4096), 'headerCount': (1, 32), 'ioAttempts': (3, 2048)}
+          U64_MAX = 18446744073709551615
+
+
+          def unique(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate evidence member')
+                  result[key] = value
+              return result
+
+
+          def invalid_number(_):
+              raise ValueError('noninteger JSON number')
+
+
+          def decode(raw):
+              if len(raw) > 8192 or not raw.isascii():
+                  raise ValueError('oversize or non-ASCII evidence')
+              return json.loads(raw.decode('utf-8'), object_pairs_hook=unique,
+                                parse_constant=invalid_number, parse_float=invalid_number)
+
+
+          def read(path):
+              with path.open('rb') as source:
+                  return decode(source.read(8193))
+
+
+          def exact(actual, wanted):
+              if type(actual) is not type(wanted):
+                  raise ValueError('wrong evidence type')
+              if type(wanted) is dict:
+                  if set(actual) != set(wanted):
+                      raise ValueError('wrong evidence keys')
+                  for key in wanted:
+                      exact(actual[key], wanted[key])
+              elif type(wanted) is list:
+                  if len(actual) != len(wanted):
+                      raise ValueError('wrong evidence list')
+                  for item, expected_item in zip(actual, wanted):
+                      exact(item, expected_item)
+              elif actual != wanted:
+                  raise ValueError('evidence mismatch')
+
+
+          def expected(run_id, early):
+              if type(early) is not int or early not in (0, 1):
+                  raise ValueError('invalid provisional completion count')
+              profile = None if early == 0 else {
+                  'senderMatched': True, 'navigationIdMatched': True,
+                  'args2QuerySucceeded': True, 'isSuccess': False,
+                  'httpStatusCode': 401,
+                  'webErrorStatus': 'validAuthenticationCredentialsRequired',
+                  'fullWireBeforeCallback': True, 'liveAtEntry': True, 'postDropCurrent': True,
+              }
+              return {
+                  'schema': 15, 'runId': run_id, 'requiredCase': SELECTOR,
+                  'selectedCases': 1, 'completedCases': 1, 'pass': True, 'failure': 'none',
+                  'install': {**dict.fromkeys(COUNTS, 0), **dict.fromkeys(FLAGS, False)},
+                  'lifecycle': {**dict.fromkeys(LIFE, True), 'bareWindowViolation': False,
+                                'runtimeVersion': '<actual>'},
+                  'nativeRefusal': {
+                      'receipts': 1, 'nativeInstanceValidated': True, 'sourceBoundRegistry': True,
+                      'navigationNotIssued': False, 'loadRejected': False, 'requiredMask': 1023,
+                      'installedMask': 1023, 'notInstalledHooks': [],
+                  },
+                  'http401': {
+                      'version': 1, 'selector': SELECTOR, 'phase': 'Closed',
+                      'unknown': False, 'overflow': False,
+                      'receipts': {'target': 1, 'final': 1},
+                      'binding': dict.fromkeys(('requestMatched', 'generationMatched',
+                                               'coreMatched', 's2InstallMatched',
+                                               'guardInstallMatched', 'postDropCurrent'), True),
+                      'install': {
+                          'core22QuerySucceeded': True, 'guardAdds': 1, 'guardRemoves': 1,
+                          'filterAdds': 1, 'filterRemoves': 1, 'completedAdds': 1,
+                          'completedRemoves': 1, 'handlersDrained': True,
+                      },
+                      'navigation': {
+                          'attempts': 1, 'topEvents': 1, 'grants': 1,
+                          'hresultSucceeded': True, 'qualificationMatched': True,
+                          'navigationIdReadable': True, 'cancelFalse': True,
+                      },
+                      'resource': {
+                          'total': 1, 'passed': 1, 'refused': 0,
+                          'exactDocumentGet': True, 'qualificationMatched': True,
+                      },
+                      'server': {
+                          **dict.fromkeys(SERVER_TRUE, True), **dict.fromkeys(SERVER_ONCE, 1),
+                          'requestBytes': 1, 'headerCount': 1, 'sentBytes': 139,
+                          'setupCalls': 9, 'acceptedSetupCalls': 4, 'ioAttempts': 3,
+                          'socketsRemaining': 0, 'startupRemaining': 0,
+                          'serverThreads': 0, 'serverJoins': 0,
+                      },
+                      'auth': {
+                          'callbacks': 1, 'cancelAttempts': 1, 'cancelSuccesses': 1,
+                          'cancelReadbacks': 1, 'cancelTrue': True, 'uriMatched': True,
+                          'challengeMatched': True, 'senderMatched': True,
+                          'postDropCurrent': True, 'withinAttemptDeadline': True,
+                      },
+                      'early401': {'count': early, 'profile': profile},
+                      'session': {
+                          'failures': 1, 'reason': 'PolicyRejected',
+                          'requestMatched': True, 'actionBeforeFailure': True,
+                      },
+                      'cleanup': {
+                          'authorityRevoked': True, 'actionsDrained': True,
+                          'nativeInventoryDrained': True, 'browserProcessExitedOnce': True,
+                          'firstCloseAdopted': True, 'withinCloseDeadline': True,
+                          'tempDirCloseCount': 1, 'targetAtMs': 100, 'firstCloseAtMs': 100,
+                          'finalAtMs': 105, 'cleanupElapsedMs': 5,
+                      },
+                  },
+              }
+
+
+          def integer(value, low, high):
+              if type(value) is not int or not low <= value <= high:
+                  raise ValueError('out-of-range or unavailable integer')
+              return value
+
+
+          def validate(data, exit_data, run_id):
+              if type(run_id) is not str or re.fullmatch(r'[A-Za-z0-9_-]{1,64}', run_id) is None:
+                  raise ValueError('invalid expected run identity')
+              if type(data) is not dict or type(data.get('lifecycle')) is not dict:
+                  raise ValueError('missing shared evidence object')
+              http = data.get('http401')
+              if type(http) is not dict or any(type(http.get(key)) is not dict
+                                              for key in ('server', 'cleanup', 'early401')):
+                  raise ValueError('missing HTTP evidence object')
+              early = integer(http['early401'].get('count'), 0, 1)
+              wanted = expected(run_id, early)
+              runtime = data['lifecycle'].get('runtimeVersion')
+              if type(runtime) is not str or re.fullmatch(r'[0-9.]{1,128}', runtime) is None:
+                  raise ValueError('missing actual runtime')
+              wanted['lifecycle']['runtimeVersion'] = runtime
+              for key, (low, high) in RANGES.items():
+                  wanted['http401']['server'][key] = integer(http['server'].get(key), low, high)
+              timing = {key: integer(http['cleanup'].get(key), 0, U64_MAX) for key in TIMES}
+              if (timing['targetAtMs'] >= 45000
+                      or timing['targetAtMs'] > timing['finalAtMs']
+                      or timing['firstCloseAtMs'] > timing['finalAtMs']
+                      or timing['cleanupElapsedMs'] >= 10000
+                      or timing['finalAtMs'] - timing['firstCloseAtMs']
+                      not in (timing['cleanupElapsedMs'], timing['cleanupElapsedMs'] + 1)):
+                  raise ValueError('invalid original timing evidence')
+              wanted['http401']['cleanup'].update(timing)
+              # Exact positive flags independently require the precise, original clock
+              # checks. Rounded timestamps cannot substitute for those producer facts.
+              exact(data, wanted)
+              exact(exit_data, {'schema': 1, 'runId': run_id, 'exitCode': 0})
+
+
+          def changed(data, path, value):
+              result = copy.deepcopy(data)
+              node = result
+              for key in path[:-1]:
+                  node = node[key]
+              node[path[-1]] = value
+              return result
+
+
+          def leaves(value, path=()):
+              if type(value) is dict:
+                  for key, item in value.items():
+                      yield from leaves(item, path + (key,))
+              else:
+                  yield path, value
+
+
+          def objects(value, path=()):
+              if type(value) is dict:
+                  yield path, value
+                  for key, item in value.items():
+                      yield from objects(item, path + (key,))
+
+
+          def at(value, path):
+              for key in path:
+                  value = value[key]
+              return value
+
+
+          def must_reject(data, exit_data):
+              try:
+                  validate(data, exit_data, 'canary')
+              except (ValueError, TypeError, AttributeError):
+                  return
+              raise ValueError('HTTP401 parser accepted negative DATA')
+
+
+          def reject_raw(raw):
+              try:
+                  decode(raw)
+              except (ValueError, UnicodeError):
+                  return
+              raise ValueError('HTTP401 JSON decoder accepted invalid DATA')
+
+
+          def duplicate_json(value, target, path=()):
+              if type(value) is not dict:
+                  return json.dumps(value, separators=(',', ':'))
+              entries = [(json.dumps(key), duplicate_json(item, target, path + (key,)))
+                         for key, item in value.items()]
+              if path == target:
+                  entries.append(entries[0])
+              return '{' + ','.join(key + ':' + item for key, item in entries) + '}'
+
+
+          def data_self_check():
+              exit_data = {'schema': 1, 'runId': 'canary', 'exitCode': 0}
+              dynamic = {('lifecycle', 'runtimeVersion'), ('http401', 'early401', 'count')}
+              dynamic.update(('http401', 'server', key) for key in RANGES)
+              dynamic.update(('http401', 'cleanup', key) for key in TIMES)
+              for early in (0, 1):
+                  canary = expected('canary', early)
+                  canary['lifecycle']['runtimeVersion'] = '1.2.3.4'
+                  validate(canary, exit_data, 'canary')
+                  validate(decode(json.dumps(canary, separators=(',', ':')).encode('ascii') + b'\n'), exit_data, 'canary')
+                  for path, value in leaves(canary):
+                      if path == ('pass',):
+                          continue
+                      if path not in dynamic:
+                          wrong = (not value) if type(value) is bool else (value + 1) if type(value) is int else ['extra'] if type(value) is list else 'wrong'
+                          must_reject(changed(canary, path, wrong), exit_data)
+                      if value is not None:
+                          must_reject(changed(canary, path, None), exit_data)
+                      if type(value) is bool:
+                          must_reject(changed(canary, path, int(value)), exit_data)
+                      if type(value) is int:
+                          for wrong in (True, False, 1.0, -1, U64_MAX + 1):
+                              must_reject(changed(canary, path, wrong), exit_data)
+                  for path, value in objects(canary):
+                      for key in value:
+                          missing = copy.deepcopy(canary)
+                          del at(missing, path)[key]
+                          must_reject(missing, exit_data)
+                      extra = copy.deepcopy(canary)
+                      at(extra, path)['unexpected'] = True
+                      must_reject(extra, exit_data)
+                      reject_raw(duplicate_json(canary, path).encode('ascii'))
+                  for key, (low, high) in RANGES.items():
+                      for boundary in (low, high):
+                          validate(changed(canary, ('http401', 'server', key), boundary), exit_data, 'canary')
+                      for wrong in (low - 1, high + 1):
+                          must_reject(changed(canary, ('http401', 'server', key), wrong), exit_data)
+                  for wrong in (0, 1, 2, None):
+                      if wrong != early:
+                          must_reject(changed(canary, ('http401', 'early401', 'count'), wrong), exit_data)
+                  for key, wrong in (('targetAtMs', 45000), ('targetAtMs', 106),
+                                     ('firstCloseAtMs', 106), ('finalAtMs', 99),
+                                     ('cleanupElapsedMs', 10000), ('cleanupElapsedMs', 3),
+                                     ('cleanupElapsedMs', 6)):
+                      must_reject(changed(canary, ('http401', 'cleanup', key), wrong), exit_data)
+                  # Rounding difference1 is valid only alongside precise true flags.
+                  rounded = changed(canary, ('http401', 'cleanup', 'finalAtMs'), 106)
+                  validate(rounded, exit_data, 'canary')
+                  must_reject(changed(rounded, ('http401', 'cleanup', 'withinCloseDeadline'), False), exit_data)
+                  for wrong in ('', 'x', '1' * 129):
+                      must_reject(changed(canary, ('lifecycle', 'runtimeVersion'), wrong), exit_data)
+                  for schema in range(15):
+                      must_reject(changed(canary, ('schema',), schema), exit_data)
+                  for wrong in (False, 1, None, 'true'):
+                      must_reject(changed(canary, ('pass',), wrong), exit_data)
+                  for wrong in (None, False, 0, [], 'wrong'):
+                      must_reject(wrong, exit_data)
+                      must_reject(canary, wrong)
+                  for path, value in leaves(exit_data):
+                      must_reject(canary, changed(exit_data, path, True))
+                      must_reject(canary, changed(exit_data, path, 'stale'))
+                  must_reject(canary, {**exit_data, 'exitCode': 1})
+                  must_reject(canary, {**exit_data, 'extra': True})
+                  for key in exit_data:
+                      must_reject(canary, {k: v for k, v in exit_data.items() if k != key})
+                  for raw in (b'\xef\xbb\xbf{}', b'\xff', b'{}{}', b'{} trailing',
+                              b'{"schema":1,"\\u0073chema":1}',
+                              b'{"v":NaN}', b'{"v":Infinity}', b'{"v":-Infinity}',
+                              b'{"v":1.0}', b'{"v":1e99}', b' ' * 8193):
+                      reject_raw(raw)
+              reject_raw(duplicate_json(exit_data, ()).encode('ascii'))
+
+
+          if __name__ == '__main__':
+              try:
+                  data_self_check()
+                  run_id = f"code0-policy-http401-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+                  base = Path(os.environ['RUNNER_TEMP'])
+                  validate(read(base / f'{run_id}.json'), read(base / f'{run_id}-exit.json'), run_id)
+              except (OSError, ValueError, TypeError, AttributeError, UnicodeError):
+                  raise SystemExit('Code0 HTTP401 actual target, refusal, session, original deadline, inventory or cleanup evidence failed; uncovered is not PASS') from None
+              print('Code0 finite owned HTTP401 native refusal GREEN; other challenges and production integration remain unverified.')
+      - name: Preserve Code0 native owned-loopback HTTP401 refusal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-policy-http401
+          path: |
+            ${{ runner.temp }}/code0-policy-http401-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-policy-http401-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug

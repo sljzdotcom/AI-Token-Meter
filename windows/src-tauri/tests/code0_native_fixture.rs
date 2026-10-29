@@ -20,7 +20,9 @@ mod smoke {
     use ai_token_meter_windows::platform::windows::code0_webview::fixture::{
         NativeCapabilityFacts, NativeCapabilityFailure, NativeCapabilityReceipt,
         NativeCapabilityResult, NativeCapabilitySelector, NativeCapabilityStage,
-        NativeChooserFacts, NativeChooserReceipt, NativeChooserStage,
+        NativeChooserFacts, NativeChooserReceipt, NativeChooserStage, NativeHttp401Facts,
+        NativeHttp401Receipt, NativeHttp401Timing, finalize_http401_with_watchdog,
+        merge_http401_native_facts, record_http401_session_failure,
     };
     use ai_token_meter_windows::platform::windows::code0_webview::{
         Code0NativeDriver,
@@ -53,6 +55,7 @@ mod smoke {
     const DIALOG_REFUSAL_CASE: &str = "refusal-dialog-owned-empty-html";
     const DOWNLOAD_REFUSAL_CASE: &str = "refusal-download-initial-data-empty";
     const POPUP_REFUSAL_CASE: &str = "refusal-popup-initial-blank";
+    const HTTP401_CASE: &str = "refusal-http401-owned-loopback";
     const CHOOSER_CASE: &str = "chooser-prebound-owned-empty-file";
     const CHOOSER_LEAF: &str = "code0-s3-chooser-empty.html";
     const DIALOG_REFUSAL_LEAF: &str = "code0-s2-dialog-empty.html";
@@ -970,6 +973,165 @@ mod smoke {
     // This positive oracle catches premature installation readiness, a first
     // load before actual async ACKs, and a document without native Source/bridge
     // evidence. Submission Ok and EngineReady cannot satisfy any receipt.
+    // This evidence only joins opaque native receipts and the independently
+    // delivered Session/lifecycle events. It cannot construct a native receipt.
+    #[derive(Default)]
+    struct Http401Evidence {
+        facts: NativeHttp401Facts,
+        installation: Option<NativeRefusalInstallReceipt>,
+        previous: Option<NativeHttp401Receipt>,
+        timing: Option<NativeHttp401Timing>,
+        matched: bool,
+    }
+    impl Http401Evidence {
+        fn observe(
+            &mut self,
+            receipt: NativeHttp401Receipt,
+            request: &Code0WindowRequest,
+            started: Instant,
+        ) -> bool {
+            let timing = receipt.timing();
+            let monotonic = self.previous.as_ref().is_none_or(|previous| {
+                let prior = previous.facts();
+                let current = receipt.facts();
+                current.receipts.target >= prior.receipts.target
+                    && current.receipts.final_receipt >= prior.receipts.final_receipt
+                    && (!prior.unknown || current.unknown)
+                    && (!prior.overflow || current.overflow)
+                    && (self
+                        .timing
+                        .as_ref()
+                        .and_then(NativeHttp401Timing::first_close)
+                        .is_none()
+                        || self
+                            .timing
+                            .as_ref()
+                            .and_then(NativeHttp401Timing::first_close)
+                            == timing.first_close())
+            });
+            let matched = monotonic
+                && self
+                    .installation
+                    .as_ref()
+                    .is_some_and(|i| receipt.matches(request, i))
+                && self.previous.as_ref().is_none_or(|p| receipt.same_guard(p))
+                && timing.matches_start(started);
+            self.matched = if self.previous.is_none() {
+                matched
+            } else {
+                self.matched && matched
+            };
+            // Native snapshots never supply the Session or browser-exit producer.
+            merge_http401_native_facts(&mut self.facts, receipt.facts());
+            self.timing = Some(timing);
+            self.previous = Some(receipt);
+            if !matched {
+                self.reject("http401Binding");
+            }
+            matched
+        }
+        fn reject(&mut self, failure: &'static str) {
+            if self.facts.failure.is_none() {
+                self.facts.failure = Some(failure);
+            }
+        }
+        fn target(&self) -> bool {
+            self.matched
+                && self.facts.failure.is_none()
+                && !self.facts.unknown
+                && !self.facts.overflow
+                && self.facts.receipts.target == 1
+                && self.facts.auth.callbacks == 1
+                && self.facts.auth.cancel_attempts == 1
+                && self.facts.auth.cancel_successes == 1
+                && self.facts.auth.cancel_readbacks == 1
+                && [
+                    self.facts.auth.cancel_true,
+                    self.facts.auth.uri_matched,
+                    self.facts.auth.challenge_matched,
+                    self.facts.auth.sender_matched,
+                    self.facts.auth.post_drop_current,
+                    self.facts.auth.within_attempt_deadline,
+                ]
+                .into_iter()
+                .all(|v| v == Some(true))
+        }
+        fn provisional(&self, native: &NativeRefusalEvidence, state: &Summary) -> bool {
+            self.matched
+                && self.facts.native_positive()
+                && self.facts.session.failures == 1
+                && self.facts.session.reason == Some("PolicyRejected")
+                && self.facts.session.request_matched == Some(true)
+                && self.facts.session.action_before_failure == Some(true)
+                && self.facts.cleanup.browser_process_exited_once == Some(true)
+                && native.receipts == 1
+                && native.native_instance_validated
+                && native.source_bound_registry
+                && native.required_mask == 1023
+                && native.installed_mask == 1023
+                && native.not_installed_hooks.is_empty()
+                && !native.navigation_not_issued
+                && !native.load_rejected
+                && state.sta_main
+                && state.callback_affinity
+                && state.no_inherited_override
+                && state.engine_ready
+                && state.bare_hidden_unfocused
+                && state.construction_observed
+                && !state.bare_window_violation
+                && state.profile_isolated
+                && state.destroyed
+                && state.owned_references_released
+        }
+        fn final_clock(&mut self, now: Instant, adopted: Option<Instant>) {
+            if let Some(timing) = &self.timing {
+                let clock = timing.final_clock(now);
+                self.facts.cleanup.target_at_ms = clock.target;
+                self.facts.cleanup.first_close_at_ms = clock.close;
+                self.facts.cleanup.final_at_ms = clock.final_at;
+                self.facts.cleanup.cleanup_elapsed_ms = clock.elapsed;
+                self.facts.cleanup.first_close_adopted =
+                    Some(adopted.is_some() && adopted == timing.first_close());
+                self.facts.cleanup.within_close_deadline = Some(clock.within_close);
+                if !clock.within_close {
+                    self.reject("http401Cleanup");
+                }
+            } else {
+                self.reject("http401Cleanup");
+            }
+        }
+    }
+    fn http401_failure(failure: &'static str) -> &'static str {
+        match failure {
+            "none"
+            | "notCompleted"
+            | "watchdogTimeout"
+            | "fixtureSetupFailed"
+            | "inheritedWebview2Override"
+            | "uiAffinityFailed"
+            | "bareWindowViolation"
+            | "http401Precondition"
+            | "http401Install"
+            | "http401Navigation"
+            | "http401Resource"
+            | "http401Socket"
+            | "http401Request"
+            | "http401Wire"
+            | "http401Completion"
+            | "http401Auth"
+            | "http401Binding"
+            | "http401Deadline"
+            | "http401Session"
+            | "http401Cleanup"
+            | "http401Overflow"
+            | "http401Unknown" => failure,
+            "closeEvidenceTimeout" | "profileCleanupFailed" | "browserExitReceiptInvalid" => {
+                "http401Cleanup"
+            }
+            _ => "http401Precondition",
+        }
+    }
+
     #[derive(Default, Serialize)]
     #[serde(rename_all = "camelCase")]
     struct PolicyEvidence {
@@ -1001,10 +1163,18 @@ mod smoke {
         chooser: Option<ChooserEvidence>,
         #[serde(skip)]
         capability: Option<CapabilityEvidence>,
+        #[serde(skip)]
+        http401: Option<Http401Evidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(http) = &self.http401 {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| http.provisional(native, lifecycle));
+            }
             if let Some(capability) = &self.capability {
                 return self
                     .native_refusal
@@ -1168,12 +1338,16 @@ mod smoke {
         chooser: Option<&'a ChooserEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         capability: Option<&'a NativeCapabilityFacts>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        http401: Option<&'a NativeHttp401Facts>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.capability.is_some() {
+                schema: if install.http401.is_some() {
+                    15
+                } else if install.capability.is_some() {
                     13
                 } else if install.chooser.is_some() {
                     11
@@ -1193,7 +1367,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if let Some(capability) = &install.capability {
+                required_case: if install.http401.is_some() {
+                    HTTP401_CASE
+                } else if let Some(capability) = &install.capability {
                     capability.facts.selector
                 } else if install.chooser.is_some() {
                     CHOOSER_CASE
@@ -1215,7 +1391,11 @@ mod smoke {
                 selected_cases: 1,
                 completed_cases: state.completed_cases,
                 pass: state.pass,
-                failure: state.failure,
+                failure: if let Some(http) = &install.http401 {
+                    http401_failure(http.facts.failure.unwrap_or(state.failure))
+                } else {
+                    state.failure
+                },
                 install,
                 native_refusal: install.native_refusal.as_ref(),
                 top_refusal: install.top_refusal.as_ref(),
@@ -1225,6 +1405,7 @@ mod smoke {
                 download_refusal: install.download_refusal.as_ref(),
                 chooser: install.chooser.as_ref(),
                 capability: install.capability.as_ref().map(|c| &c.facts),
+                http401: install.http401.as_ref().map(|h| &h.facts),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -2090,6 +2271,12 @@ mod smoke {
     }
 
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 15 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "HTTP401 summary exceeds fixed bound",
+            ));
+        }
         if summary.schema == 13 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -2171,6 +2358,7 @@ mod smoke {
                 chooser_selected,
             ),
             None,
+            false,
         )
     }
     pub fn run_capability(
@@ -2179,11 +2367,20 @@ mod smoke {
         run_policy_selected_with_capability(
             (true, false, false, false, false, false, false),
             Some(selector),
+            false,
+        )
+    }
+    pub fn run_http401() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected_with_capability(
+            (true, false, false, false, false, false, false),
+            None,
+            true,
         )
     }
     fn run_policy_selected_with_capability(
         selection: (bool, bool, bool, bool, bool, bool, bool),
         capability_selector: Option<NativeCapabilitySelector>,
+        http_selected: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let (
             native_refusal,
@@ -2225,6 +2422,7 @@ mod smoke {
             download_refusal: download_refusal.then(DownloadRefusalEvidence::default),
             chooser: chooser_selected.then(ChooserEvidence::default),
             capability: capability_selector.map(CapabilityEvidence::new),
+            http401: http_selected.then(Http401Evidence::default),
             ..PolicyEvidence::default()
         }));
         write_policy_summary(
@@ -2245,6 +2443,12 @@ mod smoke {
         let watchdog_diagnostics = Arc::clone(&diagnostics);
         let watchdog = thread::spawn(move || {
             if watchdog_rx.recv_timeout(Duration::from_secs(75)).is_err() {
+                if http_selected {
+                    // The retained actual snapshot (or no valid artifact) and
+                    // nonzero exit suffice. No lock/output/filesystem operation
+                    // may become a prerequisite for the original75 exit.
+                    std::process::exit(124);
+                }
                 watchdog_diagnostics.emit_once(true);
                 let failed = Summary {
                     run_id: hard_run_id,
@@ -2284,6 +2488,110 @@ mod smoke {
         );
         if outcome.is_err() {
             summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        if http_selected {
+            let passed = finalize_http401_with_watchdog(
+                || {
+                    // Prepare a candidate only after native/wake/TempDir/result
+                    // obligations. Its exact exit envelope remains independent.
+                    {
+                        let mut state = summary.lock().unwrap();
+                        let mut install = install.lock().unwrap();
+                        let http = install.http401.as_mut().unwrap();
+                        let adopted = http
+                            .timing
+                            .as_ref()
+                            .and_then(NativeHttp401Timing::first_close)
+                            .filter(|_| http.facts.cleanup.first_close_adopted == Some(true));
+                        if state.failure != "none" && state.failure != "notCompleted" {
+                            http.reject(http401_failure(state.failure));
+                        }
+                        http.final_clock(Instant::now(), adopted);
+                        if state.pass && http.facts.failure.is_none() {
+                            http.facts.phase = "Closed";
+                        }
+                        state.pass &= http.facts.positive();
+                        if !state.pass {
+                            http.facts.phase = "Revoked";
+                            if state.failure == "none" || state.failure == "notCompleted" {
+                                state.failure = http.facts.failure.unwrap_or("http401Cleanup");
+                            }
+                        }
+                    }
+                    // Every potentially blocking write/flush/sync stays before
+                    // watchdog shutdown, including the optional failed rewrite.
+                    let mut write_result = write_policy_summary(
+                        &mut evidence.lock().unwrap(),
+                        &PolicySummary::snapshot(
+                            &summary.lock().unwrap(),
+                            &install.lock().unwrap(),
+                        ),
+                    );
+                    if write_result.is_ok() {
+                        let now = Instant::now();
+                        let mut state = summary.lock().unwrap();
+                        let mut install = install.lock().unwrap();
+                        let http = install.http401.as_mut().unwrap();
+                        if !http
+                            .timing
+                            .as_ref()
+                            .is_some_and(|t| t.final_clock(now).within_close)
+                        {
+                            let adopted = http
+                                .timing
+                                .as_ref()
+                                .and_then(NativeHttp401Timing::first_close)
+                                .filter(|_| http.facts.cleanup.first_close_adopted == Some(true));
+                            http.final_clock(now, adopted);
+                            http.reject("http401Cleanup");
+                            http.facts.phase = "Revoked";
+                            state.pass = false;
+                            if state.failure == "none" || state.failure == "notCompleted" {
+                                state.failure = "http401Cleanup";
+                            }
+                            write_result = write_policy_summary(
+                                &mut evidence.lock().unwrap(),
+                                &PolicySummary::snapshot(&state, &install),
+                            );
+                        }
+                    }
+                    diagnostics.emit_once(false);
+                    write_result.is_ok() && outcome.is_ok()
+                },
+                || {
+                    let _ = watchdog_done.send(());
+                    watchdog.join().is_ok()
+                },
+                || {
+                    // This final same-origin check is strictly memory-only.
+                    // Late/join-failed/writer-failed disposition returns nonzero;
+                    // there is no post-join rewrite or diagnostic output.
+                    let state = summary.lock().unwrap();
+                    let mut install = install.lock().unwrap();
+                    let http = install.http401.as_mut().unwrap();
+                    let adopted = http
+                        .timing
+                        .as_ref()
+                        .and_then(NativeHttp401Timing::first_close)
+                        .filter(|_| http.facts.cleanup.first_close_adopted == Some(true));
+                    http.final_clock(Instant::now(), adopted);
+                    state.pass && http.facts.positive()
+                },
+            );
+            if !passed {
+                let mut state = summary.lock().unwrap();
+                let mut install = install.lock().unwrap();
+                let http = install.http401.as_mut().unwrap();
+                http.reject("http401Cleanup");
+                http.facts.phase = "Revoked";
+                state.pass = false;
+                if state.failure == "none" || state.failure == "notCompleted" {
+                    state.failure = http.facts.failure.unwrap_or("http401Cleanup");
+                }
+            }
+            // Do not route late writer/setup errors to main's post-join stderr.
+            // The independent exact actual exit1 rejects any prior positive file.
+            return Ok(passed);
         }
         let passed = summary.lock().unwrap().pass;
         let write_result = write_policy_summary(
@@ -2540,6 +2848,9 @@ mod smoke {
                 .and_then(|c| NativeCapabilitySelector::parse(c.facts.selector))
         });
         let capability_selected = capability_selector.is_some();
+        let http_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().http401.is_some());
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -2688,7 +2999,16 @@ mod smoke {
         let observer_chooser_close = Rc::clone(&native_chooser_close);
         let native_child_close = Rc::new(Cell::new(None::<Instant>));
         let observer_child_close = Rc::clone(&native_child_close);
+        let native_http_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_http_close = Rc::clone(&native_http_close);
+        let final_http_close = Rc::clone(&native_http_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if http_selected
+                && let NativeSmokeObservation::Http401Closing { at } = &event
+                && observer_http_close.get().is_none()
+            {
+                observer_http_close.set(Some(*at));
+            }
             if capability_selected
                 && let NativeSmokeObservation::CapabilityClosing { at } = &event
                 && observer_capability_close.get().is_none()
@@ -2959,7 +3279,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if capability_selected {
+                if http_selected {
+                    native_http_close.get()
+                } else if capability_selected {
                     native_capability_close.get()
                 } else if chooser_selected {
                     native_chooser_close.get()
@@ -2985,7 +3307,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if capability_selected {
+                if http_selected {
+                    native_http_close.get()
+                } else if capability_selected {
                     native_capability_close.get()
                 } else if chooser_selected {
                     native_chooser_close.get()
@@ -3094,13 +3418,17 @@ mod smoke {
                                             || download_selected
                                             || chooser_selected
                                             || capability_selected
+                                            || http_selected
                                         {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if capability_selected {
+                                    if http_selected {
+                                        install.http401.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if capability_selected {
                                         install.capability.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if chooser_selected {
@@ -3123,6 +3451,18 @@ mod smoke {
                                             saved_receipt;
                                     }
                                     drop(install);
+                                    let http_submission_failure = if http_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        driver
+                                            .begin_fixture_http401(&request, started)
+                                            .err()
+                                            .map(|_| "http401Install")
+                                    } else {
+                                        None
+                                    };
                                     let capability_submission_failure = if capability_selected
                                         && installed.is_ok()
                                         && valid_inventory
@@ -3328,6 +3668,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = http_submission_failure {
+                                        failure
                                     } else if let Some(failure) = capability_submission_failure {
                                         failure
                                     } else if let Some(failure) = chooser_submission_failure {
@@ -3385,6 +3727,50 @@ mod smoke {
                             ui_diagnostics.phase(DP::SummaryLock, true);
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
+                            }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Http401Closing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !http_selected {
+                            state.failure = "http401Binding";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Http401(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = http_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                let mut install = p.lock().unwrap();
+                                if receipt.facts().navigation.attempts != 0 {
+                                    install
+                                        .native_refusal
+                                        .as_mut()
+                                        .unwrap()
+                                        .navigation_not_issued = false;
+                                }
+                                install
+                                    .http401
+                                    .as_mut()
+                                    .unwrap()
+                                    .observe(receipt, &request, started)
+                            });
+                        if !valid && state.failure == "notCompleted" {
+                            state.failure = "http401Binding";
+                        }
+                        if http_selected {
+                            let install = policy.as_ref().unwrap().lock().unwrap();
+                            if let Some(failure) = install.http401.as_ref().unwrap().facts.failure
+                                && state.failure == "notCompleted"
+                            {
+                                state.failure = failure;
                             }
                         }
                     }
@@ -3829,6 +4215,19 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if http_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .http401
+                                .as_mut()
+                                .unwrap()
+                                .facts
+                                .cleanup
+                                .browser_process_exited_once = Some(browser_exit_count == 1);
+                        }
                         if capability_selected {
                             policy
                                 .as_ref()
@@ -3934,7 +4333,32 @@ mod smoke {
                         callback_sta,
                     ) => {
                         ui_diagnostics.n4_session_stage(&reason, true);
-                        if capability_selected {
+                        if http_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let http = install.http401.as_mut().unwrap();
+                            let prior = http.target();
+                            record_http401_session_failure(&mut http.facts);
+                            let s = &mut http.facts.session;
+                            s.reason = Some(if reason == Code0SessionFailure::PolicyRejected {
+                                "PolicyRejected"
+                            } else {
+                                "other"
+                            });
+                            s.request_matched = Some(owned == request);
+                            s.action_before_failure = Some(prior);
+                            if s.failures != 1
+                                || s.reason != Some("PolicyRejected")
+                                || s.request_matched != Some(true)
+                                || !prior
+                            {
+                                http.reject("http401Session");
+                                if state.failure == "notCompleted" {
+                                    state.failure = "http401Session";
+                                }
+                            }
+                        } else if capability_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -4168,7 +4592,8 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = !capability_selected
+            let native_install_observed = !http_selected
+                && !capability_selected
                 && !chooser_selected
                 && !download_selected
                 && !popup_selected
@@ -4183,6 +4608,7 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let http_action_observed = http_selected && native_http_close.get().is_some();
             let capability_action_observed =
                 capability_selected && native_capability_close.get().is_some();
             let chooser_action_observed = chooser_selected && native_chooser_close.get().is_some();
@@ -4197,7 +4623,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if capability_selected {
+                state.failure = if http_selected {
+                    "http401Deadline"
+                } else if capability_selected {
                     "capabilityTargetUnobserved"
                 } else if chooser_selected {
                     "chooserTargetUnobserved"
@@ -4219,6 +4647,17 @@ mod smoke {
                     "installAcknowledgementsMissing"
                 };
             }
+            if http_selected && state.failure != "notCompleted" && state.failure != "none" {
+                policy
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .http401
+                    .as_mut()
+                    .unwrap()
+                    .reject(http401_failure(state.failure));
+            }
             if !object_free_failure
                 && closing_since.is_none()
                 && (state.renderer_message
@@ -4231,12 +4670,15 @@ mod smoke {
                     || download_action_observed
                     || chooser_action_observed
                     || capability_action_observed
+                    || http_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if capability_selected {
+                let closing = if http_selected {
+                    native_http_close.get()
+                } else if capability_selected {
                     native_capability_close.get()
                 } else if chooser_selected {
                     native_chooser_close.get()
@@ -4270,7 +4712,11 @@ mod smoke {
                     // Retain/pump CleanupPending until real cleanup, or the
                     // original outer process watchdog fails.
                     let snapshot = ui_diagnostics.close_deadline_snapshot_once(closing);
-                    state.failure = "closeEvidenceTimeout";
+                    state.failure = if http_selected {
+                        "http401Cleanup"
+                    } else {
+                        "closeEvidenceTimeout"
+                    };
                     if let Some(snapshot) = snapshot {
                         drop(state);
                         snapshot.emit();
@@ -4309,6 +4755,19 @@ mod smoke {
                     }
                     if coverage.is_some() && !positive && state.failure == "notCompleted" {
                         state.failure = "coveragePositiveOracleMismatch";
+                    }
+                    if http_selected && !positive && state.failure == "notCompleted" {
+                        state.failure = policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .http401
+                            .as_ref()
+                            .unwrap()
+                            .facts
+                            .failure
+                            .unwrap_or("http401Cleanup");
                     }
                     if capability_selected && !positive && state.failure == "notCompleted" {
                         state.failure = policy
@@ -4395,10 +4854,10 @@ mod smoke {
         diagnostics.observed(DM::RunReturned);
         let _ = wake_done.send(());
         diagnostics.phase(DP::WakeJoin, false);
-        {
+        let wake_joined = {
             let _boundary = diagnostics.boundary(DP::WakeJoin);
-            let _ = wake.join();
-        }
+            wake.join().is_ok()
+        };
         diagnostics.phase(DP::WakeJoin, true);
         diagnostics.observed(DM::WakeJoined);
         // run_return has dropped its callback and UI-local driver before TempDir cleanup.
@@ -4431,6 +4890,20 @@ mod smoke {
         {
             capability.facts.temp_dir_closed = cleanup_succeeded && state.run_returned;
         }
+        if http_selected && let Some(policy) = &final_policy {
+            let mut install = policy.lock().unwrap();
+            let http = install.http401.as_mut().unwrap();
+            http.facts.cleanup.temp_dir_close_count = 1; // This branch follows the one actual temp.close() and its Result drop.
+            if state.failure != "notCompleted" {
+                http.reject(http401_failure(state.failure));
+            }
+            http.final_clock(Instant::now(), final_http_close.get());
+            if !cleanup_succeeded || !state.run_returned || !wake_joined {
+                http.reject("http401Cleanup");
+            }
+            // The watchdog join and final clock still remain in the caller.
+            http.facts.phase = "Revoked";
+        }
         let positive = final_policy.as_ref().map_or_else(
             || state.positive(),
             |policy| {
@@ -4446,8 +4919,27 @@ mod smoke {
                 )
             },
         );
-        state.pass =
-            exit_code == 0 && state.failure == "notCompleted" && positive && cleanup_succeeded;
+        let http_final = !http_selected
+            || final_policy
+                .as_ref()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .http401
+                .as_ref()
+                .is_some_and(|http| {
+                    http.matched
+                        && http.facts.failure.is_none()
+                        && http.facts.cleanup.temp_dir_close_count == 1
+                        && http.facts.cleanup.first_close_adopted == Some(true)
+                        && http.facts.cleanup.within_close_deadline == Some(true)
+                        && wake_joined
+                });
+        state.pass = exit_code == 0
+            && state.failure == "notCompleted"
+            && positive
+            && cleanup_succeeded
+            && http_final;
         if state.pass {
             state.failure = "none";
         } else if !cleanup_succeeded {
@@ -4478,6 +4970,7 @@ fn main() {
             {
                 smoke::run_download_refusal()
             }
+            [selector] if selector == "--code0-policy-fixture=refusal-http401-owned-loopback" => smoke::run_http401(),
             [selector] if selector=="--code0-policy-fixture=s4-capability-open-main" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::OpenMain),
             [selector] if selector=="--code0-policy-fixture=s4-capability-write-main" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::WriteMain),
             [selector] if selector=="--code0-policy-fixture=s4-capability-open-child-prototype" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::OpenChildPrototype),
