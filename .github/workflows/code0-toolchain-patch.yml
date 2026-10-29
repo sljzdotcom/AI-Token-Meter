@@ -1,0 +1,345 @@
+name: Code0 isolated toolchain patch
+
+# Temporary evidence workflow. Exclude this file from main integration.
+on:
+  push:
+    branches: [codex/code0-toolchain-patch]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-toolchain:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    # Job-local Git configuration; never change runner/global settings.
+    env:
+      GIT_CONFIG_COUNT: '2'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      GIT_CONFIG_KEY_1: core.eol
+      GIT_CONFIG_VALUE_1: lf
+    steps:
+      - name: Check out immutable candidate without retained credentials
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up compliant Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '>=24.15.0 <25'
+      - name: Generate narrow lock candidate and collect actual frontend evidence
+        shell: python
+        env:
+          EVIDENCE: ${{ runner.temp }}/code0-toolchain-patch
+        run: |
+          import copy, hashlib, json, os, re, shutil, socket, subprocess, time, traceback, urllib.request
+          from pathlib import Path
+
+          root = Path.cwd()
+          windows = root / 'windows'
+          evidence = Path(os.environ['EVIDENCE'])
+          evidence.mkdir(parents=True, exist_ok=False)
+          baseline = '588a9652afacc8c88c13e4dd54898e2443915c08'
+          workflow = '.github/workflows/code0-toolchain-patch.yml'
+          manifest = windows / 'package.json'
+          lock = windows / 'package-lock.json'
+          steps = []
+          summary = {'baseline': baseline, 'githubSha': os.environ['GITHUB_SHA'],
+                     'runId': os.environ['GITHUB_RUN_ID'], 'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                     'steps': steps, 'pass': False}
+          candidate = manifest.read_bytes()
+          accepted_lock = None
+          gates_passed = False
+          temporary = []
+          source_hashes = {}
+          required = ['resolve-temporary-undici', 'resolve-without-override', 'npm-ci', 'original-test',
+                      'original-build', 'original-density', 'bundle-inventory-build',
+                      'dev-owned-tree-cleanup', 'npm-audit']
+
+          def save(name, value):
+              (evidence / name).write_text(json.dumps(value, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          def digest(data):
+              return {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+
+          def command(name, args, *, cwd=root, timeout=180, accepted=(0,)):
+              record = {'name': name, 'args': [str(a) for a in args], 'timeoutSeconds': timeout}
+              steps.append(record)
+              started = time.monotonic()
+              try:
+                  with (evidence / (name + '.log')).open('wb') as output:
+                      process = subprocess.Popen(args, cwd=cwd, stdin=subprocess.DEVNULL,
+                                                 stdout=output, stderr=subprocess.STDOUT)
+                      record['pid'] = process.pid
+                      try:
+                          record['exitCode'] = process.wait(timeout=timeout)
+                      except subprocess.TimeoutExpired:
+                          record['timedOut'] = True
+                          cleanup = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                                                   stdout=output, stderr=subprocess.STDOUT, timeout=10)
+                          record['ownedTreeCleanupExitCode'] = cleanup.returncode
+                          record['exitCode'] = process.wait(timeout=5)
+                          raise RuntimeError(name + ' timed out')
+              finally:
+                  record['elapsedSeconds'] = round(time.monotonic() - started, 3)
+                  save('steps.json', steps)
+              if record['exitCode'] not in accepted:
+                  raise RuntimeError(name + ' failed: ' + str(record['exitCode']))
+              return (evidence / (name + '.log')).read_bytes()
+
+          def npm(name, args, **options):
+              return command(name, [node, npm_cli, *args], cwd=windows, **options)
+
+          try:
+              head = command('git-head', ['git', 'rev-parse', 'HEAD']).decode().strip()
+              summary['checkoutSha'] = head
+              assert head == os.environ['GITHUB_SHA'], 'checkout does not match event SHA'
+              command('baseline-ancestor', ['git', 'merge-base', '--is-ancestor', baseline, head])
+              changed = command('git-paths', ['git', 'diff', '--name-only', baseline, head]).decode().splitlines()
+              assert set(changed) == {'windows/package.json', workflow}, 'unapproved source delta'
+              command('git-status-before', ['git', 'status', '--porcelain=v1', '--untracked-files=all'])
+              assert not (evidence / 'git-status-before.log').read_bytes().strip(), 'checkout is dirty'
+              command('git-source-u10', ['git', 'diff', '--no-ext-diff', '--binary', '-U10', baseline, head])
+              tracked = command('git-tracked-paths', ['git', 'ls-files', '-z']).decode().split('\0')[:-1]
+              source_hashes = {p: digest((root / p).read_bytes()) for p in tracked if (root / p).is_file()}
+              save('source-before.json', source_hashes)
+              for path, name, size, sha in [
+                  ('windows/package.json', 'baseline-package.json', 959,
+                   'd77b306ffd1e7b51cc2cfa2a279bd472e720955c825612a6d7a11e175c75d74f'),
+                  ('windows/package-lock.json', 'baseline-package-lock.json', 91480,
+                   '3aaf1d305258a5c3eec211029cae71801da56b2387f468574da846f89fdd42da')]:
+                  data = command('read-' + name, ['git', 'show', baseline + ':' + path])
+                  (evidence / name).write_bytes(data)
+                  assert digest(data) == {'bytes': size, 'sha256': sha}, 'immutable baseline mismatch'
+              old_manifest = (evidence / 'baseline-package.json').read_bytes()
+              expected = old_manifest.replace(b'"vite": "8.2.2"', b'"vite": "8.2.4"').replace(
+                  b'"vitest": "4.1.11"', b'"vitest": "4.1.12"')
+              assert candidate == expected, 'candidate manifest differs beyond two exact pins'
+              assert lock.read_bytes() == (evidence / 'baseline-package-lock.json').read_bytes(), 'host lock changed'
+              (evidence / 'candidate-package.json').write_bytes(candidate)
+              node = shutil.which('node')
+              assert node, 'Node missing'
+              npm_cli = Path(node).parent / 'node_modules/npm/bin/npm-cli.js'
+              assert npm_cli.is_file(), 'expected setup-node npm CLI missing'
+              node_version = command('node-version', [node, '--version']).decode().strip()
+              assert re.fullmatch(r'v24\.[0-9]+\.[0-9]+', node_version), 'Node must be stable 24'
+              assert tuple(map(int, node_version[1:].split('.'))) >= (24, 15, 0), 'jsdom engine not met'
+              npm_version = npm('npm-version', ['--version']).decode().strip()
+              summary.update(nodeVersion=node_version, npmVersion=npm_version)
+              registry = npm('npm-registry', ['config', 'get', 'registry']).decode().strip()
+              assert registry == 'https://registry.npmjs.org/', 'unexpected npm registry'
+
+              # Only inert lock generation is permitted before validating the complete diff.
+              recipe = ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']
+              data = json.loads(candidate)
+              assert 'overrides' not in data and 'undici' not in data.get('dependencies', {})
+              assert 'undici' not in data.get('devDependencies', {})
+              data['overrides'] = {'undici': '8.12.2'}
+              try:
+                  manifest.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+                  npm('resolve-temporary-undici', recipe)
+              finally:
+                  manifest.write_bytes(candidate)
+              (evidence / 'first-pass-package-lock.json').write_bytes(lock.read_bytes())
+              npm('resolve-without-override', recipe)
+              assert manifest.read_bytes() == candidate, 'manifest bytes changed after resolution'
+              generated_lock = lock.read_bytes()
+              (evidence / 'generated-package-lock.json').write_bytes(generated_lock)
+
+              # Fail closed: no added/removed nodes, unrelated metadata or new registry.
+              before = json.loads((evidence / 'baseline-package-lock.json').read_bytes())
+              after = json.loads(generated_lock)
+              assert set(before) == set(after), 'top-level lock fields changed'
+              assert {k:v for k,v in before.items() if k != 'packages'} == {
+                  k:v for k,v in after.items() if k != 'packages'}, 'top-level lock metadata changed'
+              old, new = before['packages'], after['packages']
+              assert set(old) == set(new), 'package nodes added or removed; review required'
+              family = {p: '4.1.12' for p in old if p.startswith('node_modules/@vitest/')}
+              allowed = {**family, 'node_modules/vite': '8.2.4', 'node_modules/vitest': '4.1.12',
+                         'node_modules/undici': '8.12.2'}
+              root_record = copy.deepcopy(old[''])
+              root_record['devDependencies'].update(vite='8.2.4', vitest='4.1.12')
+              assert new[''] == root_record, 'root lock dependency records changed unexpectedly'
+              delta = {}
+              for path in old:
+                  if path == '':
+                      continue
+                  if path not in allowed:
+                      assert new[path] == old[path], 'unrelated package changed: ' + path
+                      continue
+                  previous, current = old[path], new[path]
+                  wanted = copy.deepcopy(previous)
+                  version = allowed[path]
+                  wanted['version'] = version
+                  wanted['resolved'] = previous['resolved'].replace(previous['version'] + '.tgz', version + '.tgz')
+                  assert current.get('integrity') and current['integrity'] != previous['integrity'], 'missing new integrity'
+                  assert re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', current['integrity']), 'unexpected integrity format'
+                  wanted['integrity'] = current['integrity']
+                  for section in ('dependencies', 'optionalDependencies', 'peerDependencies'):
+                      for name, value in wanted.get(section, {}).items():
+                          if name.startswith('@vitest/') and value == '4.1.11':
+                              wanted[section][name] = '4.1.12'
+                  assert current == wanted, 'package metadata outside approved delta: ' + path
+                  delta[path] = {'before': previous, 'after': current}
+              assert sum(p.endswith('/undici') for p in new) == 1, 'unexpected Undici copies'
+              assert new['node_modules/@vitest/mocker']['version'] == '4.1.12'
+              assert json.loads(manifest.read_bytes()) == json.loads(candidate), 'temporary override retained'
+              save('accepted-lock-delta.json', delta)
+              accepted_lock = generated_lock
+              summary['lockShapeAccepted'] = True
+              (evidence / 'accepted-package-lock.json').write_bytes(accepted_lock)
+              npm('npm-ci', ['ci', '--no-audit', '--no-fund'], timeout=300)
+              assert manifest.read_bytes() == candidate, 'npm ci changed manifest'
+              assert lock.read_bytes() == accepted_lock, 'npm ci changed lock'
+              npm('original-test', ['test'], timeout=300)
+              npm('original-build', ['run', 'build'], timeout=240)
+              npm('original-density', ['run', 'test:density'], timeout=300)
+
+              # A separate build reuses the original config and records actual emitted chunk modules.
+              inventory_script = windows / '.toolchain-patch-inventory.mjs'
+              temporary.append(inventory_script)
+              inventory_script.write_text('''import { build, loadConfigFromFile } from "vite";
+          import { resolve } from "node:path";
+          import { writeFileSync } from "node:fs";
+          const loaded = await loadConfigFromFile({ command: "build", mode: "production" }, resolve("vite.config.ts"));
+          if (!loaded) throw new Error("Original Vite configuration not loaded");
+          await build({ ...loaded.config, configFile: false, build: { ...loaded.config.build,
+            outDir: resolve(process.env.EVIDENCE, "inventory-dist"), emptyOutDir: true },
+            plugins: [...(loaded.config.plugins ?? []), { name: "toolchain-module-inventory",
+              generateBundle(_options, bundle) {
+                const chunks = Object.values(bundle).filter(x => x.type === "chunk").map(x => ({
+                  fileName: x.fileName, modules: Object.keys(x.modules).sort(),
+                  imports: x.imports, dynamicImports: x.dynamicImports }));
+                writeFileSync(resolve(process.env.EVIDENCE, "build-modules.json"), JSON.stringify(chunks, null, 2));
+              } }] });
+          ''', encoding='utf-8')
+              command('bundle-inventory-build', [node, inventory_script], cwd=windows, timeout=240)
+              chunks = json.loads((evidence / 'build-modules.json').read_bytes())
+              assert chunks and any(c['modules'] for c in chunks), 'empty module inventory'
+              forbidden = []
+              for chunk in chunks:
+                  for target in chunk['imports'] + chunk['dynamicImports']:
+                      if re.search(r'^(?:node:|vite(?:/|$)|vitest(?:/|$)|@vitest/|undici(?:/|$))', target):
+                          forbidden.append(target)
+                  for module in chunk['modules']:
+                      module = module.replace('\\', '/')
+                      if re.search(r'/node_modules/(?:@vitest/|vitest/|undici/)', module):
+                          forbidden.append(module)
+                      if '/node_modules/vite/' in module and '/node_modules/vite/dist/client/' not in module:
+                          forbidden.append(module)
+              save('bundle-module-check.json', {'forbidden': forbidden, 'chunkCount': len(chunks)})
+              assert not forbidden, 'Node tooling implementation in production bundle'
+
+              # Normal dev startup; only this directly owned Node process/tree is terminated.
+              dev = {'url': 'http://127.0.0.1:1420/', 'ready': False, 'cleanup': False}
+              with socket.socket() as probe:
+                  probe.bind(('127.0.0.1', 1420))
+              with (evidence / 'dev-server.log').open('wb') as output:
+                  process = subprocess.Popen([node, 'node_modules/vite/bin/vite.js'], cwd=windows,
+                                             stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
+                  dev['pid'] = process.pid
+                  try:
+                      deadline = time.monotonic() + 15
+                      while time.monotonic() < deadline:
+                          assert process.poll() is None, 'owned dev server exited before ready'
+                          try:
+                              with urllib.request.urlopen(dev['url'], timeout=1) as response:
+                                  body = response.read(1024 * 1024)
+                                  if response.status == 200 and b'/src/main.tsx' in body:
+                                      dev.update(ready=True, httpStatus=response.status, response=digest(body))
+                                      break
+                          except (OSError, TimeoutError):
+                              pass
+                          time.sleep(0.1)
+                      assert dev['ready'], 'dev HTTP readiness not observed'
+                      assert process.poll() is None, 'owned dev server exited after ready'
+                  finally:
+                      try:
+                          if process.poll() is None:
+                              command('dev-owned-tree-cleanup', ['taskkill', '/PID', str(process.pid), '/T', '/F'], timeout=10)
+                          dev['exitCode'] = process.wait(timeout=5)
+                          deadline = time.monotonic() + 3
+                          while time.monotonic() < deadline:
+                              with socket.socket() as probe:
+                                  probe.settimeout(0.2)
+                                  if probe.connect_ex(('127.0.0.1', 1420)) != 0:
+                                      dev['cleanup'] = True
+                                      break
+                              time.sleep(0.1)
+                          assert dev['cleanup'], 'dev listener survived cleanup'
+                      finally:
+                          save('dev-smoke.json', dev)
+
+              audit = npm('npm-audit', ['audit', '--json'], timeout=120, accepted=(0, 1))
+              (evidence / 'audit.json').write_bytes(audit)
+              audit_data = json.loads(audit)
+              assert 'error' not in audit_data, 'audit service error'
+              counts = audit_data['metadata']['vulnerabilities']
+              assert type(counts['total']) is int and counts['total'] == 0, 'audit vulnerabilities remain'
+              assert steps[-1]['exitCode'] == 0, 'nonzero audit exit'
+              gates_passed = True
+          except BaseException as error:
+              summary['failure'] = str(error)
+              (evidence / 'failure.log').write_text(traceback.format_exc(), encoding='utf-8')
+              raise
+          finally:
+              # Observe both dependency files before restoration can hide a mutation.
+              protection = {'lockAcceptanceReached': accepted_lock is not None, 'files': {}, 'errors': []}
+              summary['finalDependencyProtection'] = protection
+              observed_lock = None
+              try:
+                  for source, target, wanted in [
+                      (manifest, 'observed-final-package.json', candidate),
+                      (lock, 'observed-final-package-lock.json', accepted_lock)]:
+                      record = {'expected': digest(wanted) if wanted is not None else None,
+                                'comparison': 'required' if wanted is not None else 'not-accepted'}
+                      protection['files'][source.name] = record
+                      try:
+                          observed = source.read_bytes() if source.is_file() else None
+                          if source == lock:
+                              observed_lock = observed
+                          record['observed'] = digest(observed) if observed is not None else None
+                          if wanted is not None:
+                              record['matchesExpected'] = observed == wanted
+                              if not record['matchesExpected']:
+                                  protection['errors'].append(source.name + ': final bytes differ from expected')
+                          if observed is not None:
+                              (evidence / target).write_bytes(observed)
+                      except Exception as error:
+                          record['captureError'] = str(error)
+                          protection['errors'].append(source.name + ': final observation/evidence failed')
+              finally:
+                  # Restore exact candidate formatting even if observation or resolution fails.
+                  manifest.write_bytes(candidate)
+              for path in temporary:
+                  path.unlink(missing_ok=True)
+              source_after = {p: digest((root / p).read_bytes()) if (root / p).is_file() else None
+                              for p in source_hashes}
+              save('source-after.json', source_after)
+              summary['unexpectedSourceChanges'] = [p for p in source_hashes
+                  if p != 'windows/package-lock.json' and source_after[p] != source_hashes[p]]
+              summary['notRun'] = [name for name in required if not any(s['name'] == name for s in steps)]
+              summary['pass'] = (gates_passed and accepted_lock is not None
+                                 and not protection['errors'] and not summary['unexpectedSourceChanges'])
+              (evidence / 'final-package.json').write_bytes(manifest.read_bytes())
+              if observed_lock is not None:
+                  (evidence / 'final-package-lock.json').write_bytes(observed_lock)
+              for directory in ['dist', 'dist-density']:
+                  if (windows / directory).is_dir():
+                      shutil.copytree(windows / directory, evidence / directory)
+              save('summary.json', summary)
+              files = {p.relative_to(evidence).as_posix(): digest(p.read_bytes())
+                       for p in sorted(evidence.rglob('*')) if p.is_file()}
+              save('artifact-manifest.json', files)
+              if not summary['pass']:
+                  raise SystemExit(1)
+      - name: Preserve complete evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-toolchain-patch-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/code0-toolchain-patch
+          if-no-files-found: error
+          retention-days: 14
