@@ -11071,37 +11071,18 @@ if(m.k==="detach"&&((phase===4&&c!=="s4-capability-dispose-missing")||(phase===2
                             }
                         }
                         Decoded::Opened(frame) => {
-                            if s.root.as_ref() == Some(&frame.id) {
-                                if s.phase != Phase::AwaitMutationTrace
-                                    || s.facts.before_ordinal.is_none()
-                                    || s.facts.document_opened_ordinal.is_some()
-                                    || !s.root.as_ref().is_some_and(|r| frame.matches_main_root(r))
-                                {
-                                    failure = Some(Failure::StimulusNotObserved);
-                                } else {
-                                    s.facts.document_opened_ordinal = Some(entry.0);
-                                    s.facts.root_loader_matched =
-                                        Some(s.loader.as_ref() == Some(&frame.loader_id));
-                                    // Meaningful RED: the actual event is retained, while this
-                                    // sole document-open authority hook is explicitly absent.
-                                    // Do not close/revoke before the first eligible held consumer.
-                                    s.facts.failure = Some(Failure::CapabilityApprovalMissing);
-                                }
-                            } else if frame.parent_id.as_ref() != s.root.as_ref() {
-                                failure = Some(Failure::Metadata);
-                            }
+                            failure = observe_document_opened(s, frame, entry.0);
                         }
                         Decoded::Destroyed(context) => {
-                            if s.root_context == Some(context.id) {
-                                failure = Some(Failure::ContextChanged);
-                            } else if s.permit.is_some()
-                                && (s.contexts.get(context.id).is_none()
-                                    || context.unique_id.as_ref().is_some_and(|u| {
-                                        s.contexts
-                                            .get(context.id)
-                                            .and_then(|c| c.unique_id.as_ref())
-                                            != Some(u)
-                                    }))
+                            if s.root_context == Some(context.id)
+                                || (s.permit.is_some()
+                                    && (s.contexts.get(context.id).is_none()
+                                        || context.unique_id.as_ref().is_some_and(|u| {
+                                            s.contexts
+                                                .get(context.id)
+                                                .and_then(|c| c.unique_id.as_ref())
+                                                != Some(u)
+                                        })))
                             {
                                 failure = Some(Failure::ContextChanged);
                             }
@@ -11124,6 +11105,29 @@ if(m.k==="detach"&&((phase===4&&c!=="s4-capability-dispose-missing")||(phase===2
                 return false;
             }
             true
+        }
+        fn observe_document_opened(
+            s: &mut State,
+            frame: wire::Frame,
+            entry: u8,
+        ) -> Option<Failure> {
+            if s.root.as_ref() == Some(&frame.id) {
+                if s.phase != Phase::AwaitMutationTrace
+                    || s.facts.before_ordinal.is_none()
+                    || s.facts.document_opened_ordinal.is_some()
+                    || !s.root.as_ref().is_some_and(|r| frame.matches_main_root(r))
+                {
+                    return Some(Failure::StimulusNotObserved);
+                }
+                s.facts.document_opened_ordinal = Some(entry);
+                s.facts.root_loader_matched = Some(s.loader.as_ref() == Some(&frame.loader_id));
+                // Invalidate the same native permit before the later entry snapshot.
+                // Observation stays nonterminal; the original held consumer still runs.
+                revoke(s);
+            } else if frame.parent_id.as_ref() != s.root.as_ref() {
+                return Some(Failure::Metadata);
+            }
+            None
         }
         fn apply_binding(s: &mut State, message: wire::BindingMessage, entry: (u8, bool)) -> bool {
             let root = s.root_context == Some(message.context_id);
@@ -11645,7 +11649,6 @@ if(m.k==="detach"&&((phase===4&&c!=="s4-capability-dispose-missing")||(phase===2
                     core.PostWebMessageAsJson(PCWSTR(wide.as_ptr()))
                 });
             drop(wide);
-            drop(control);
             good && if kind == ControlKind::Detach {
                 c.window(owner)
             } else {
@@ -12824,6 +12827,216 @@ if(m.k==="detach"&&((phase===4&&c!=="s4-capability-dispose-missing")||(phase===2
                     .is_some()
                 );
                 assert_eq!(s.phase, Phase::AwaitMutationTrace);
+            }
+            fn green_message(
+                s: &State,
+                context: u32,
+                kind: &str,
+                sequence: u8,
+                flags: u8,
+            ) -> wire::BindingMessage {
+                let payload = if kind == "ready" {
+                    serde_json::json!({"version":1,"nonce":"nonce","document":"document","sequence":sequence,"kind":"ready"})
+                } else {
+                    serde_json::json!({"p":"s4c1","n":"nonce","c":s.selector.name(),"s":sequence,"k":kind,"f":flags})
+                }
+                .to_string();
+                let bytes = serde_json::to_vec(&serde_json::json!({"name":"__aiMeterS4Capability","executionContextId":context,"payload":payload})).unwrap();
+                wire::parse_binding(&bytes, &s.identity).unwrap()
+            }
+            fn green_frame(child: bool) -> wire::Frame {
+                let bytes: &[u8] = if child {
+                    br#"{"frame":{"id":"child","parentId":"root","loaderId":"child-loader","url":"https://console.code0.ai/__ai_meter_fixture__/s4-capability-child","securityOrigin":"https://console.code0.ai","mimeType":"text/html"}}"#
+                } else {
+                    br#"{"frame":{"id":"root","loaderId":"loader","url":"https://console.code0.ai/__ai_meter_fixture__/s4-capability-main","securityOrigin":"https://console.code0.ai","mimeType":"text/html"}}"#
+                };
+                wire::parse_frame(bytes).unwrap()
+            }
+            fn green_armed_state(started: Instant, selector: Selector) -> State {
+                let mut s = state(started);
+                s.selector = selector;
+                s.identity = wire::ProtocolIdentity::new(
+                    "nonce",
+                    "document",
+                    wire::Selector::parse(selector.name()).unwrap(),
+                )
+                .unwrap();
+                s.phase = Phase::AwaitParsed;
+                s.prepare_sent = false;
+                s.mutate_sent = false;
+                s.held = None;
+                s.consumer_due = false;
+                s.facts = Facts::new(selector);
+                s.facts.initial_native_join = true;
+                s.facts.root_metadata_joined = true;
+                let ready = green_message(&s, 4, "ready", 1, 0);
+                assert!(apply_binding(&mut s, ready, (9, false)));
+                let parsed = green_message(&s, 4, "parsed", 1, 0);
+                assert!(apply_binding(&mut s, parsed, (10, false)));
+                assert!(
+                    reserve_control_at(
+                        &mut s,
+                        authority(),
+                        ControlKind::Prepare,
+                        started + Duration::from_secs(1)
+                    )
+                    .is_some()
+                );
+                if selector == Selector::OpenChildPrototype {
+                    s.contexts.insert(wire::parse_context_created(br#"{"context":{"id":8,"uniqueId":"unique-child","origin":"https://console.code0.ai","name":"","auxData":{"frameId":"child","isDefault":true,"type":"default"}}}"#).unwrap()).unwrap();
+                    let child = green_message(&s, 8, "childProbe", 1, 0);
+                    assert!(apply_binding(&mut s, child, (11, false)));
+                    assert_eq!(s.facts.child_probe_refused, Some(true));
+                }
+                let candidate = green_message(&s, 4, "candidate", 2, 0);
+                assert!(apply_binding(&mut s, candidate, (12, false)));
+                assert!(
+                    reserve_control_at(
+                        &mut s,
+                        authority(),
+                        ControlKind::Mutate,
+                        started + Duration::from_secs(1)
+                    )
+                    .is_some()
+                );
+                let before = green_message(&s, 4, "beforeOpen", 3, 0);
+                assert!(apply_binding(&mut s, before, (16, false)));
+                s
+            }
+            fn green_consume_after_later(s: &mut State, now: Instant) -> Consumed {
+                let permit = Rc::clone(s.permit.as_ref().unwrap());
+                let entry_revoked = permit.revoked.get();
+                let after = green_message(s, 4, "afterOpen", 4, 31);
+                assert!(apply_binding(s, after, (18, entry_revoked)));
+                let later = green_message(s, 4, "later", 5, 0);
+                assert!(apply_binding(s, later, (19, permit.revoked.get())));
+                let handoff = take_handoff_at(s, authority(), now).unwrap().unwrap();
+                assert!(Rc::ptr_eq(&handoff.permit, &permit));
+                assert!(handoff.binding.is_some());
+                let consumed = handoff.consume_at(now);
+                record_consumption(s, &consumed);
+                assert!(s.held.is_none());
+                assert!(take_handoff_at(s, authority(), now).unwrap().is_none());
+                consumed
+            }
+            // Removing the actual root observer's revoke must change this to Applied1.
+            #[test]
+            fn parsed_root_document_open_revokes_same_held_candidate_before_after_entry() {
+                let started = Instant::now();
+                for selector in [
+                    Selector::OpenMain,
+                    Selector::WriteMain,
+                    Selector::OpenChildPrototype,
+                ] {
+                    let mut s = green_armed_state(started, selector);
+                    let permit = Rc::clone(s.permit.as_ref().unwrap());
+                    let binding = permit.binding.clone();
+                    let generation = s.generation;
+                    assert!(binding.is_some());
+                    assert_eq!(
+                        binding.as_ref().unwrap().end,
+                        started + Duration::from_secs(45)
+                    );
+                    assert!(Rc::ptr_eq(&s.held.as_ref().unwrap().permit, &permit));
+                    assert_eq!(
+                        observe_document_opened(&mut s, green_frame(false), 17),
+                        None
+                    );
+                    assert!(permit.revoked.get());
+                    assert!(Rc::ptr_eq(s.permit.as_ref().unwrap(), &permit));
+                    assert!(Rc::ptr_eq(&s.held.as_ref().unwrap().permit, &permit));
+                    assert_eq!(s.generation, generation);
+                    assert_eq!(s.held.as_ref().unwrap().generation, generation);
+                    assert!(permit.binding == binding);
+                    assert_eq!(s.phase, Phase::AwaitMutationTrace);
+                    assert!(!s.terminal);
+                    assert!(s.closing.is_none());
+                    assert_eq!(s.facts.failure, None);
+                    assert_eq!(s.facts.document_opened_ordinal, Some(17));
+                    assert_eq!(s.facts.root_loader_matched, Some(true));
+                    let consumed =
+                        green_consume_after_later(&mut s, started + Duration::from_secs(2));
+                    assert_eq!(consumed.outcome, Delivery::RejectedRevokedPermit);
+                    assert_eq!(consumed.failure, None);
+                    assert_eq!(consumed.applied, 0);
+                    assert_eq!(permit.applied.get(), 0);
+                    assert!(permit.revoked.get());
+                    assert_eq!(s.facts.permit_revoked_at_after_entry, Some(true));
+                    assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                    assert_eq!(
+                        s.facts.candidate_delivery_outcome,
+                        Delivery::RejectedRevokedPermit
+                    );
+                    assert_eq!(s.facts.candidate_applied, 0);
+                    assert!(mutation_trace(&s));
+                    assert!(!s.terminal);
+                    assert!(s.closing.is_none());
+                    assert_eq!(s.facts.result, ResultKind::NotEstablished);
+                }
+            }
+            // A child-only event or omitting the root hook cannot fake a revoked rejection.
+            #[test]
+            fn no_root_hook_and_child_only_document_open_leave_actual_application_live() {
+                let started = Instant::now();
+                for child_only in [false, true] {
+                    let mut s = green_armed_state(started, Selector::OpenChildPrototype);
+                    let permit = Rc::clone(s.permit.as_ref().unwrap());
+                    if child_only {
+                        assert_eq!(observe_document_opened(&mut s, green_frame(true), 17), None);
+                    }
+                    assert!(!permit.revoked.get());
+                    assert_eq!(s.facts.document_opened_ordinal, None);
+                    let consumed =
+                        green_consume_after_later(&mut s, started + Duration::from_secs(2));
+                    assert_eq!(consumed.outcome, Delivery::Applied);
+                    assert_eq!(consumed.failure, None);
+                    assert_eq!(permit.applied.get(), 1);
+                    assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                    assert_eq!(s.facts.candidate_applied, 1);
+                    assert_eq!(s.facts.permit_revoked_at_after_entry, Some(false));
+                    assert_eq!(s.facts.failure, None);
+                    assert!(!mutation_trace(&s));
+                    assert!(!s.terminal);
+                    assert!(s.closing.is_none());
+                }
+            }
+            // Removing phase/before/root-shape/duplicate rejection must fail closed here.
+            #[test]
+            fn invalid_and_duplicate_root_document_open_cannot_regrant_or_apply() {
+                let started = Instant::now();
+                for invalid in 0..4 {
+                    let mut s = green_armed_state(started, Selector::OpenMain);
+                    let permit = Rc::clone(s.permit.as_ref().unwrap());
+                    let mut frame = green_frame(false);
+                    match invalid {
+                        0 => s.phase = Phase::AwaitCandidate,
+                        1 => s.facts.before_ordinal = None,
+                        2 => frame.url = wire::FrameUrl::Other,
+                        3 => assert_eq!(
+                            observe_document_opened(&mut s, green_frame(false), 17),
+                            None
+                        ),
+                        _ => unreachable!(),
+                    }
+                    let failure = observe_document_opened(&mut s, frame, 20).unwrap();
+                    assert_eq!(failure, Failure::StimulusNotObserved);
+                    // Native receive routes this returned failure through reject/terminal_failure.
+                    terminal_failure(&mut s, failure, false);
+                    assert!(s.terminal);
+                    assert_eq!(s.phase, Phase::ClosingAwaitDispose);
+                    assert!(permit.revoked.get());
+                    assert_eq!(permit.applied.get(), 0);
+                    assert_eq!(s.facts.failure, Some(Failure::StimulusNotObserved));
+                    assert!(s.held.is_none());
+                    assert!(!s.grant);
+                    assert!(!commit_join_at(
+                        &mut s,
+                        authority(),
+                        Phase::AwaitInitialJoin,
+                        started + Duration::from_secs(2)
+                    ));
+                    assert!(Rc::ptr_eq(s.permit.as_ref().unwrap(), &permit));
+                }
             }
             fn state(started: Instant) -> State {
                 let request = Code0WindowRequest {
