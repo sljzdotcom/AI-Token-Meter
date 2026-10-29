@@ -12,6 +12,13 @@ use super::code0_web_session::{
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod chooser_protocol;
 
+#[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
+mod http401_protocol;
+
+#[cfg(all(test, windows, debug_assertions, feature = "code0-native-fixture"))]
+#[doc(hidden)]
+pub mod permission_protocol;
+
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 #[doc(hidden)]
 pub mod s4_capability_protocol;
