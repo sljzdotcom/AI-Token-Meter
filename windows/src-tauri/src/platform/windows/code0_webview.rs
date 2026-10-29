@@ -445,7 +445,11 @@ mod native {
         if let Some(instance) = matching(&mut owner.borrow_mut(), request) {
             instance.failed = true;
             instance.closing = true;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let _ = s2::mark_popup_close(instance);
         }
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::publish_popup_close(owner);
     }
 
     fn inventory_empty(instance: &Instance) -> bool {
@@ -1231,7 +1235,12 @@ mod native {
             let _ = s2::mark_child_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_dialog_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let _ = s2::mark_popup_close(instance);
         }
+        drop(state);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::publish_popup_close(owner);
         // Only a later UI poll can certify actual inventory and release.
     }
 
@@ -1254,6 +1263,8 @@ mod native {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 instance.destroyed = true;
                 instance.closing = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                let _ = s2::mark_popup_close(instance);
                 instance.window.take()
             } else {
                 None
@@ -1263,6 +1274,8 @@ mod native {
             milestone!(owner, WindowDestroyed);
         }
         drop(window);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::publish_popup_close(owner);
     }
 
     fn cleanup_result(
@@ -1347,6 +1360,8 @@ mod native {
         s2::advance_child(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::advance_dialog(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::advance_popup(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -1364,6 +1379,8 @@ mod native {
                 }
             }
         }
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::synchronize_popup_close(owner);
         {
             let mut state = owner.borrow_mut();
             let unmatched = state.unmatched;
@@ -1645,6 +1662,7 @@ mod native {
                 p1::publish_final_coverage(owner);
                 s2::publish_child_final(owner);
                 s2::publish_dialog_final(owner);
+                s2::publish_popup_final(owner);
             }
             events(request, event);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1793,6 +1811,15 @@ mod native {
         s2::navigate_dialog_owned_empty_html(owner, request, owned_root, deadline)
     }
 
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn submit_popup_initial_blank(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        deadline: super::fixture::NativeDialogDeadline,
+    ) -> Result<(), Code0SessionFailure> {
+        s2::submit_popup_initial_blank(owner, request, deadline)
+    }
+
     /// Debug-only refusal registration and finite N1 audit; never production authority.
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     mod s2 {
@@ -1813,8 +1840,9 @@ mod native {
         const GENERATION: u64 = 1;
         use super::super::fixture::{
             LegacyChildClose, LegacyCompletionInput, LegacyRefusalEvent, NativeDialogDeadline,
-            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeRefusalDeadline,
-            legacy_completion_disposition_at,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativePopupFacts,
+            NativePopupReceipt, NativePopupStage, NativeRefusalDeadline,
+            legacy_completion_disposition_at, popup_result_units,
         };
         const DIALOG_LEAF: &str = "code0-s2-dialog-empty.html";
         const DIALOG_MESSAGE: &str = "code0-native-dialog-refusal-v1";
@@ -1823,6 +1851,7 @@ mod native {
         const CHILD_TARGET: &str = "data:text/html,";
         const CHILD_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.querySelector('iframe')!==null){throw new Error('code0-child-precondition');}const f=document.createElement('iframe');f.src='data:text/html,';document.documentElement.appendChild(f);return 'code0-child-submitted-v1';})()";
         const CHILD_RESULT: &str = "\"code0-child-submitted-v1\"";
+        const POPUP_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||document.querySelector('iframe,frame')!==null){return 'code0-popup-precondition-v1';}window.open('about:blank','_blank');return 'code0-popup-submitted-v1';})()";
 
         enum Emitter {
             Core(Rc<ICoreWebView2>),
@@ -1853,6 +1882,7 @@ mod native {
             child: Option<ChildState>,
             dialog: Option<DialogState>,
             dialog_completed: Option<DialogRegistration>,
+            popup: Option<PopupState>,
         }
         impl Registry {
             pub(super) fn not_installed() -> Self {
@@ -1870,6 +1900,7 @@ mod native {
                     child: None,
                     dialog: None,
                     dialog_completed: None,
+                    popup: None,
                 }
             }
             pub(super) fn installed_mask(&self) -> u16 {
@@ -1898,6 +1929,7 @@ mod native {
                     && self.child.as_ref().is_none_or(ChildState::quiescent)
                     && self.dialog_completed.is_none()
                     && self.dialog.as_ref().is_none_or(DialogState::quiescent)
+                    && self.popup.as_ref().is_none_or(PopupState::quiescent)
             }
         }
         pub(super) struct Controls {
@@ -1939,6 +1971,7 @@ mod native {
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
+                    || i.refusal_registry.popup.is_some()
                 {
                     return Err(denied());
                 }
@@ -3036,6 +3069,7 @@ mod native {
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
                     || i.refusal_registry.dialog_completed.is_some()
+                    || i.refusal_registry.popup.is_some()
                 {
                     return Err(denied());
                 }
@@ -3592,6 +3626,791 @@ mod native {
             }
         }
 
+        // N4 has no creation Pending and no additional emitter registration.
+        // Its first revocation exists before Source/handler preparation; only an
+        // actual final native invocation installs a completion obligation.
+        struct PopupState {
+            deadline: Rc<NativeDialogDeadline>,
+            core: Weak<ICoreWebView2>,
+            closing_since: Option<Instant>,
+            first_close: LegacyChildClose,
+            closing_published: bool,
+            mailbox: Option<Arc<PopupMailbox>>,
+            completion_seen: bool,
+            facts: NativePopupFacts,
+        }
+        impl PopupState {
+            fn quiescent(&self) -> bool {
+                self.mailbox.as_ref().is_none_or(|m| {
+                    self.completion_seen
+                        && m.obligation.load(Ordering::SeqCst) == 0
+                        && m.handlers.load(Ordering::SeqCst) == 0
+                        && !m.invalid.load(Ordering::SeqCst)
+                        && m.disposition.lock().unwrap().is_none()
+                })
+            }
+        }
+        struct PopupMailbox {
+            disposition: Mutex<Option<PopupDisposition>>,
+            invoked: AtomicBool,
+            invalid: AtomicBool,
+            obligation: AtomicUsize,
+            handlers: AtomicUsize,
+            closing_since: Mutex<Option<Instant>>,
+        }
+        struct PopupDisposition {
+            request: Code0WindowRequest,
+            generation: u64,
+            installation: Arc<AtomicBool>,
+            received_at: Instant,
+            hresult_succeeded: bool,
+            bounded_result_valid: bool,
+            fixed_result_matched: bool,
+        }
+        struct PopupHandlerLifetime {
+            mailbox: std::sync::Weak<PopupMailbox>,
+            _aggregate: HandlerLifetime,
+        }
+        impl Drop for PopupHandlerLifetime {
+            fn drop(&mut self) {
+                if let Some(m) = self.mailbox.upgrade() {
+                    m.handlers.fetch_sub(1, Ordering::SeqCst);
+                }
+                // Only a real matching invocation disposition settles its ticket.
+            }
+        }
+        #[windows::core::implement(ICoreWebView2ExecuteScriptCompletedHandler, Agile = false)]
+        struct PopupCompletion {
+            mailbox: std::sync::Weak<PopupMailbox>,
+            callbacks: Arc<Callbacks>,
+            installation: Arc<AtomicBool>,
+            request: Code0WindowRequest,
+            generation: u64,
+            ui: ThreadId,
+            _lifetime: PopupHandlerLifetime,
+        }
+        impl ICoreWebView2ExecuteScriptCompletedHandler_Impl for PopupCompletion_Impl {
+            fn Invoke(
+                &self,
+                errorcode: windows::core::HRESULT,
+                result: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                let _active = Active::enter(&self.callbacks);
+                // UI/STA before raw copying, allocation, or UI-local references.
+                if !callback_on_ui(self.ui, &self.callbacks) {
+                    self.installation.store(true, Ordering::SeqCst);
+                    if let Some(m) = self.mailbox.upgrade() {
+                        m.invalid.store(true, Ordering::SeqCst);
+                    }
+                    return Ok(());
+                }
+                let Some(m) = self.mailbox.upgrade() else {
+                    self.installation.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                if m.invoked.swap(true, Ordering::SeqCst) {
+                    m.invalid.store(true, Ordering::SeqCst);
+                    self.installation.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let received_at = Instant::now();
+                let (bounded_result_valid, fixed_result_matched) = popup_result(*result);
+                let disposition = PopupDisposition {
+                    request: self.request.clone(),
+                    generation: self.generation,
+                    installation: Arc::clone(&self.installation),
+                    received_at,
+                    hresult_succeeded: errorcode.is_ok(),
+                    bounded_result_valid,
+                    fixed_result_matched,
+                };
+                let mut slot = m.disposition.lock().unwrap();
+                if slot.is_some() {
+                    m.invalid.store(true, Ordering::SeqCst);
+                    self.installation.store(true, Ordering::SeqCst);
+                } else {
+                    *slot = Some(disposition);
+                }
+                Ok(())
+            }
+        }
+        fn popup_result(raw: PCWSTR) -> (bool, bool) {
+            if raw.is_null() {
+                return (false, false);
+            }
+            let mut copied = [0u16; 64];
+            for length in 0..copied.len() {
+                // Borrowed callback memory, never retained/freed or converted by
+                // an unbounded wrapper. Including NUL: at most 64 UTF16 reads.
+                let unit = unsafe { *raw.0.add(length) };
+                if unit == 0 {
+                    return popup_result_units(&copied[..length]);
+                }
+                copied[length] = unit;
+            }
+            (false, false)
+        }
+        fn emit_popup(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            stage: NativePopupStage,
+        ) {
+            let observation = {
+                let state = owner.borrow();
+                state
+                    .instance
+                    .as_ref()
+                    .filter(|i| {
+                        &i.request == request
+                            && i.refusal_registry.generation == GENERATION
+                            && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                    })
+                    .and_then(|i| {
+                        i.refusal_registry.popup.as_ref().map(|p| {
+                            (
+                                i.observer.clone(),
+                                NativePopupReceipt {
+                                    request: request.clone(),
+                                    installation: Arc::clone(installation),
+                                    stage,
+                                    facts: p.facts,
+                                },
+                            )
+                        })
+                    })
+            };
+            if let Some((Some(observer), receipt)) = observation {
+                observer(NativeSmokeObservation::Popup(receipt));
+            }
+        }
+        pub(super) fn mark_popup_close(i: &mut Instance) -> Option<Instant> {
+            let p = i.refusal_registry.popup.as_mut()?;
+            let at = p
+                .first_close
+                .mark_at(Instant::now(), Some(&mut p.closing_since))?;
+            p.facts.first_closing_observed = true;
+            if let Some(m) = p.mailbox.as_ref() {
+                *m.closing_since.lock().unwrap() = Some(at);
+            }
+            Some(at)
+        }
+        pub(super) fn publish_popup_close(owner: &Rc<RefCell<Owner>>) {
+            let notification = {
+                let mut state = owner.borrow_mut();
+                state.instance.as_mut().and_then(|i| {
+                    let p = i.refusal_registry.popup.as_mut()?;
+                    let at = p.closing_since?;
+                    if p.closing_published {
+                        return None;
+                    }
+                    p.closing_published = true;
+                    Some((i.observer.clone(), at))
+                })
+            };
+            if let Some((Some(observer), at)) = notification {
+                observer(NativeSmokeObservation::PopupClosing { at });
+            }
+        }
+        pub(super) fn synchronize_popup_close(owner: &Rc<RefCell<Owner>>) {
+            {
+                let mut state = owner.borrow_mut();
+                let unmatched = state.unmatched;
+                if let Some(i) = state.instance.as_mut()
+                    && i.refusal_registry.popup.is_some()
+                {
+                    let invalid = unmatched
+                        || i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                        || i.refusal_registry.unknown();
+                    if invalid {
+                        i.failed = true;
+                        i.closing = true;
+                        i.cleanup_blocked = true;
+                    }
+                    if i.closing {
+                        let _ = mark_popup_close(i);
+                    }
+                }
+            }
+            publish_popup_close(owner);
+        }
+        fn fail_popup(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+        ) {
+            {
+                let mut state = owner.borrow_mut();
+                let Some(i) = matching(&mut state, request).filter(|i| {
+                    i.refusal_registry.generation == GENERATION
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                        && i.refusal_registry.popup.is_some()
+                }) else {
+                    return;
+                };
+                i.failed = true;
+                i.closing = true;
+                let _ = mark_popup_close(i);
+            }
+            publish_popup_close(owner);
+        }
+        fn popup_deadline(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+        ) -> Option<Rc<NativeDialogDeadline>> {
+            let state = owner.borrow();
+            let i = state.instance.as_ref()?;
+            if &i.request != request
+                || i.refusal_registry.generation != GENERATION
+                || !Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+            {
+                return None;
+            }
+            let p = i.refusal_registry.popup.as_ref()?;
+            let core = i.refusal_registry.core.as_ref()?;
+            if !Weak::ptr_eq(&p.core, &Rc::downgrade(core)) {
+                return None;
+            }
+            Some(Rc::clone(&p.deadline))
+        }
+        fn popup_authorized(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            require_live: bool,
+        ) -> Option<Rc<NativeDialogDeadline>> {
+            let deadline = popup_deadline(owner, request, installation)?;
+            let identity = {
+                let state = owner.borrow();
+                !state.unmatched
+                    && state.instance.as_ref().is_some_and(|i| {
+                        &i.request == request
+                            && i.refusal_registry.generation == GENERATION
+                            && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                            && !i.released
+                            && !i.cleanup_blocked
+                            && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && !i.refusal_registry.unknown()
+                    })
+            };
+            if deadline
+                .run_if_authorized_at(
+                    Instant::now(),
+                    identity && (!require_live || live(owner, request)),
+                    || (),
+                )
+                .is_none()
+            {
+                fail_popup(owner, request, installation);
+                return None;
+            }
+            Some(deadline)
+        }
+        fn popup_step<T>(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            action: impl FnOnce() -> T,
+        ) -> Option<T> {
+            let deadline = popup_authorized(owner, request, installation, true)?;
+            let result =
+                deadline.run_if_authorized_at(Instant::now(), live(owner, request), action);
+            if result.is_none() {
+                fail_popup(owner, request, installation);
+            }
+            result
+        }
+        pub(super) fn submit_popup_initial_blank(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            let denied = || Code0SessionFailure::PolicyRejected;
+            super::require_native_refusal_install(owner, request)?;
+            let (callbacks, ui, core, installation) = {
+                let mut state = owner.borrow_mut();
+                let ui = state.ui_thread;
+                if state.unmatched {
+                    return Err(denied());
+                }
+                let i = matching(&mut state, request).ok_or_else(denied)?;
+                if !i.refusal_registry.complete()
+                    || i.refusal_registry.legacy.is_some()
+                    || i.refusal_registry.top_target.is_some()
+                    || i.refusal_registry.child.is_some()
+                    || i.refusal_registry.dialog.is_some()
+                    || i.refusal_registry.dialog_completed.is_some()
+                    || i.refusal_registry.popup.is_some()
+                {
+                    return Err(denied());
+                }
+                let core = Rc::clone(i.refusal_registry.core.as_ref().ok_or_else(denied)?);
+                i.refusal_registry.popup = Some(PopupState {
+                    deadline: Rc::new(deadline),
+                    core: Rc::downgrade(&core),
+                    closing_since: None,
+                    first_close: LegacyChildClose::new(),
+                    closing_published: false,
+                    mailbox: None,
+                    completion_seen: false,
+                    facts: NativePopupFacts {
+                        settings_before_stimulus: i.refusal_registry.settings_acknowledged,
+                        no_new_window_assignment: true,
+                        ..NativePopupFacts::default()
+                    },
+                });
+                (
+                    Arc::clone(&i.callbacks),
+                    ui,
+                    core,
+                    Arc::clone(&i.refusal_registry.unknown),
+                )
+            };
+            let active = Active::enter(&callbacks);
+            let source = popup_step(owner, request, &installation, || {
+                allocated_string(2048, |raw| unsafe { core.Source(raw) })
+            });
+            let source_matched = source
+                .as_ref()
+                .is_some_and(|r| r.as_ref().is_ok_and(|s| s == "about:blank"));
+            drop(source);
+            let source_timely = popup_authorized(owner, request, &installation, true).is_some();
+            {
+                let mut state = owner.borrow_mut();
+                let p = matching(&mut state, request)
+                    .unwrap()
+                    .refusal_registry
+                    .popup
+                    .as_mut()
+                    .unwrap();
+                p.facts.initial_source_matched = source_matched;
+                p.facts.source_after_drop_timely = source_timely;
+            }
+            if !source_matched || !source_timely {
+                fail_popup(owner, request, &installation);
+                drop(core);
+                drop(active);
+                let _ = popup_authorized(owner, request, &installation, false);
+                return Err(denied());
+            }
+            let mailbox = Arc::new(PopupMailbox {
+                disposition: Mutex::new(None),
+                invoked: AtomicBool::new(false),
+                invalid: AtomicBool::new(false),
+                obligation: AtomicUsize::new(1),
+                handlers: AtomicUsize::new(1),
+                closing_since: Mutex::new(None),
+            });
+            let handler: ICoreWebView2ExecuteScriptCompletedHandler = PopupCompletion {
+                mailbox: Arc::downgrade(&mailbox),
+                callbacks: Arc::clone(&callbacks),
+                installation: Arc::clone(&installation),
+                request: request.clone(),
+                generation: GENERATION,
+                ui,
+                _lifetime: PopupHandlerLifetime {
+                    mailbox: Arc::downgrade(&mailbox),
+                    _aggregate: HandlerLifetime::new(&callbacks),
+                },
+            }
+            .into();
+            let wide: Vec<u16> = POPUP_SCRIPT
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+            let result = popup_step(owner, request, &installation, || {
+                {
+                    let mut state = owner.borrow_mut();
+                    let p = matching(&mut state, request)
+                        .unwrap()
+                        .refusal_registry
+                        .popup
+                        .as_mut()
+                        .unwrap();
+                    // The final native-call commitment, before possible synchronous
+                    // event/completion entry. No earlier preparation is a ticket.
+                    p.mailbox = Some(Arc::clone(&mailbox));
+                    p.facts.script_submissions = 1;
+                }
+                unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) }
+            });
+            let returned = result.is_some();
+            let native_ok = result.as_ref().is_some_and(|r| r.is_ok());
+            drop(result);
+            let _ = popup_authorized(owner, request, &installation, false);
+            drop(handler);
+            let _ = popup_authorized(owner, request, &installation, false);
+            drop(core);
+            let _ = popup_authorized(owner, request, &installation, false);
+            drop(wide);
+            drop(active);
+            let timely = popup_authorized(owner, request, &installation, false).is_some();
+            {
+                let mut state = owner.borrow_mut();
+                let p = matching(&mut state, request)
+                    .unwrap()
+                    .refusal_registry
+                    .popup
+                    .as_mut()
+                    .unwrap();
+                p.facts.script_submission_returned = returned;
+                p.facts.script_submit_ok = native_ok;
+                p.facts.script_return_timely = timely;
+            }
+            if returned {
+                emit_popup(owner, request, &installation, NativePopupStage::Submitted);
+            }
+            if !native_ok || !timely {
+                fail_popup(owner, request, &installation);
+                return Err(denied());
+            }
+            Ok(())
+        }
+        pub(super) fn advance_popup(owner: &Rc<RefCell<Owner>>) {
+            let binding = owner.borrow().instance.as_ref().and_then(|i| {
+                i.refusal_registry.popup.as_ref().and_then(|p| {
+                    p.mailbox.as_ref().map(|m| {
+                        (
+                            Arc::clone(m),
+                            i.request.clone(),
+                            Arc::clone(&i.refusal_registry.unknown),
+                        )
+                    })
+                })
+            });
+            let Some((mailbox, request, installation)) = binding else {
+                return;
+            };
+            let disposition = mailbox.disposition.lock().unwrap().take();
+            let mut failed = false;
+            let mut publish = false;
+            {
+                let mut state = owner.borrow_mut();
+                let unmatched = state.unmatched;
+                let Some(i) = matching(&mut state, &request).filter(|i| {
+                    i.refusal_registry.generation == GENERATION
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, &installation)
+                        && i.refusal_registry
+                            .popup
+                            .as_ref()
+                            .and_then(|p| p.mailbox.as_ref())
+                            .is_some_and(|m| Arc::ptr_eq(m, &mailbox))
+                }) else {
+                    installation.store(true, Ordering::SeqCst);
+                    mailbox.invalid.store(true, Ordering::SeqCst);
+                    return;
+                };
+                if mailbox.invalid.load(Ordering::SeqCst) {
+                    installation.store(true, Ordering::SeqCst);
+                }
+                if let Some(d) = disposition {
+                    let p = i.refusal_registry.popup.as_mut().unwrap();
+                    p.facts.script_completions =
+                        p.facts.script_completions.saturating_add(1).min(2);
+                    let same = !unmatched
+                        && d.request == i.request
+                        && d.generation == i.refusal_registry.generation
+                        && Arc::ptr_eq(&installation, &d.installation)
+                        && !p.completion_seen
+                        && p.facts.script_submissions == 1
+                        && mailbox.obligation.load(Ordering::SeqCst) == 1;
+                    let closing = *mailbox.closing_since.lock().unwrap();
+                    let outcome = legacy_completion_disposition_at(
+                        &p.deadline,
+                        d.received_at,
+                        Instant::now(),
+                        closing,
+                        LegacyCompletionInput {
+                            identity_valid: same
+                                && !i.released
+                                && !i.cleanup_blocked
+                                && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                                && !mailbox.invalid.load(Ordering::SeqCst)
+                                && !installation.load(Ordering::SeqCst),
+                            hresult_succeeded: d.hresult_succeeded,
+                            bounded_result_valid: d.bounded_result_valid,
+                            fixed_result_matched: d.fixed_result_matched,
+                        },
+                    );
+                    p.facts.completion_identity_matched = same;
+                    p.facts.completion_hresult_succeeded = d.hresult_succeeded;
+                    p.facts.bounded_result_valid = d.bounded_result_valid;
+                    p.facts.fixed_result_matched = d.fixed_result_matched;
+                    p.facts.completion_before_release = !i.released;
+                    p.facts.completion_within_deadline = outcome.timely;
+                    if outcome.disposable {
+                        p.completion_seen = true;
+                        mailbox.obligation.store(0, Ordering::SeqCst);
+                        p.facts.completion_disposition_consumed = true;
+                    } else {
+                        installation.store(true, Ordering::SeqCst);
+                    }
+                    failed = !outcome.successful;
+                    publish = true;
+                }
+            }
+            if failed {
+                fail_popup(owner, &request, &installation);
+            }
+            latch_unknown(owner);
+            if publish {
+                emit_popup(owner, &request, &installation, NativePopupStage::Completion);
+            }
+        }
+        pub(super) fn publish_popup_final(owner: &Rc<RefCell<Owner>>) {
+            let binding = {
+                let mut state = owner.borrow_mut();
+                state.instance.as_mut().and_then(|i| {
+                    i.refusal_registry.popup.as_mut().map(|p| {
+                        p.facts.completion_obligation_drained = p.completion_seen
+                            && p.mailbox
+                                .as_ref()
+                                .is_some_and(|m| m.obligation.load(Ordering::SeqCst) == 0);
+                        p.facts.completion_handlers_drained = p
+                            .mailbox
+                            .as_ref()
+                            .is_some_and(|m| m.handlers.load(Ordering::SeqCst) == 0)
+                            && i.callbacks.handlers.load(Ordering::SeqCst) == 0;
+                        (i.request.clone(), Arc::clone(&i.refusal_registry.unknown))
+                    })
+                })
+            };
+            if let Some((request, installation)) = binding {
+                emit_popup(owner, &request, &installation, NativePopupStage::Final);
+            }
+        }
+        impl Context {
+            fn popup_selected(&self) -> bool {
+                self.owner.upgrade().is_some_and(|owner| {
+                    owner.borrow().instance.as_ref().is_some_and(|i| {
+                        self.matches_instance(i) && i.refusal_registry.popup.is_some()
+                    })
+                })
+            }
+            fn reserve_popup_target(&self) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let mut state = owner.borrow_mut();
+                let Some(i) =
+                    matching(&mut state, &self.request).filter(|i| self.matches_instance(i))
+                else {
+                    return false;
+                };
+                let Some(p) = i.refusal_registry.popup.as_mut() else {
+                    return false;
+                };
+                p.facts.popup_events = p.facts.popup_events.saturating_add(1).min(2);
+                let issued = p.facts.script_submissions == 1 && p.mailbox.is_some();
+                p.facts.issued_before_event = issued;
+                if p.facts.popup_events != 1 || !issued {
+                    self.unknown.store(true, Ordering::SeqCst);
+                    return false;
+                }
+                true
+            }
+            fn popup_observe(
+                &self,
+                event: &mut LegacyRefusalEvent,
+                require_live: bool,
+                eligible: bool,
+            ) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let Some(deadline) = popup_deadline(&owner, &self.request, &self.unknown) else {
+                    return false;
+                };
+                let identity =
+                    popup_authorized(&owner, &self.request, &self.unknown, require_live).is_some();
+                event.observe_at(&deadline, Instant::now(), identity && eligible)
+            }
+            fn popup_after_drop(&self, event: &mut LegacyRefusalEvent) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let Some(deadline) = popup_deadline(&owner, &self.request, &self.unknown) else {
+                    return false;
+                };
+                let identity =
+                    popup_authorized(&owner, &self.request, &self.unknown, false).is_some();
+                event.qualify_at(&deadline, Instant::now(), identity)
+            }
+            fn popup_opening(
+                &self,
+                args: &ICoreWebView2NewWindowRequestedEventArgs,
+                eligible: bool,
+                event: &mut LegacyRefusalEvent,
+                facts: &mut NativePopupFacts,
+            ) -> windows::core::Result<bool> {
+                // Restriction is unconditional even if eligibility/metadata fails.
+                // No other native action is performed before this single setter.
+                facts.popup_sender_matched = eligible;
+                facts.request_generation_live_matched = eligible;
+                let initial = self.popup_observe(event, true, eligible);
+                facts.handled_attempts = 1;
+                let action = event
+                    .cancel_once(|| unsafe { args.SetHandled(true) })
+                    .ok_or_else(rejection)?;
+                facts.handled_returns = 1;
+                facts.handled_successes = u8::from(action.is_ok());
+                let action_ok = action.is_ok();
+                drop(action);
+                let mut timely = self.popup_observe(event, true, true) && initial;
+                if action_ok && timely {
+                    let mut handled = BOOL::from(false);
+                    facts.handled_readbacks = 1;
+                    let readback = unsafe { args.Handled(&mut handled) };
+                    facts.handled_readback_succeeded = readback.is_ok();
+                    facts.native_handled_true = readback.is_ok() && handled.as_bool();
+                    drop(readback);
+                    timely &= self.popup_observe(event, true, true);
+                }
+                if action_ok && timely && facts.native_handled_true {
+                    let uri = allocated_string(2048, |raw| unsafe { args.Uri(raw) });
+                    facts.target_uri_getter_succeeded = uri.is_ok();
+                    facts.target_uri_matched = uri.as_ref().is_ok_and(|s| s == "about:blank");
+                    drop(uri);
+                    timely &= self.popup_observe(event, true, true);
+                }
+                if action_ok && timely && facts.target_uri_matched {
+                    let mut user = BOOL::from(true);
+                    let gesture = unsafe { args.IsUserInitiated(&mut user) };
+                    facts.non_user_getter_succeeded = gesture.is_ok();
+                    facts.non_user = gesture.is_ok() && !user.as_bool();
+                    drop(gesture);
+                    timely &= self.popup_observe(event, true, true);
+                }
+                facts.live_after_calls = timely;
+                if facts.handled_readbacks == 1
+                    && (!facts.handled_readback_succeeded || !facts.native_handled_true)
+                {
+                    self.unknown.store(true, Ordering::SeqCst);
+                }
+                if action_ok {
+                    Ok(true)
+                } else {
+                    Err(rejection())
+                }
+            }
+            fn publish_popup_target(&self, target: NativePopupFacts, timely: bool) {
+                let Some(owner) = self.owner.upgrade() else {
+                    return;
+                };
+                {
+                    let mut state = owner.borrow_mut();
+                    let Some(i) =
+                        matching(&mut state, &self.request).filter(|i| self.matches_instance(i))
+                    else {
+                        self.unknown.store(true, Ordering::SeqCst);
+                        return;
+                    };
+                    let Some(p) = i.refusal_registry.popup.as_mut() else {
+                        return;
+                    };
+                    // Never overwrite invocation/completion or duplicate counters
+                    // with the callback's earlier local snapshot.
+                    p.facts.handled_attempts = p
+                        .facts
+                        .handled_attempts
+                        .saturating_add(target.handled_attempts)
+                        .min(2);
+                    p.facts.handled_returns = p
+                        .facts
+                        .handled_returns
+                        .saturating_add(target.handled_returns)
+                        .min(2);
+                    p.facts.handled_successes = p
+                        .facts
+                        .handled_successes
+                        .saturating_add(target.handled_successes)
+                        .min(2);
+                    p.facts.handled_readbacks = p
+                        .facts
+                        .handled_readbacks
+                        .saturating_add(target.handled_readbacks)
+                        .min(2);
+                    p.facts.popup_sender_matched = target.popup_sender_matched;
+                    p.facts.request_generation_live_matched =
+                        target.request_generation_live_matched;
+                    p.facts.target_uri_getter_succeeded = target.target_uri_getter_succeeded;
+                    p.facts.target_uri_matched = target.target_uri_matched;
+                    p.facts.non_user_getter_succeeded = target.non_user_getter_succeeded;
+                    p.facts.non_user = target.non_user;
+                    p.facts.handled_readback_succeeded = target.handled_readback_succeeded;
+                    p.facts.native_handled_true = target.native_handled_true;
+                    p.facts.live_after_calls = target.live_after_calls;
+                    p.facts.target_after_drop_timely = timely;
+                }
+                emit_popup(
+                    &owner,
+                    &self.request,
+                    &self.unknown,
+                    NativePopupStage::Refusal,
+                );
+            }
+        }
+        fn add_popup(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            index: usize,
+            core: &ICoreWebView2,
+        ) -> windows::core::Result<()> {
+            let context = Context::new(owner, request);
+            let handler = NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
+                let active = Active::enter(&context.callbacks);
+                if !callback_on_ui(context.ui, &context.callbacks) {
+                    context.unknown.store(true, Ordering::SeqCst);
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    return Err(rejection());
+                }
+                let selected = context.popup_selected();
+                // Reserve before Context's fallible native IUnknown queries.
+                let reserved = selected && context.reserve_popup_target();
+                let mut event = LegacyRefusalEvent::new();
+                let mut facts = NativePopupFacts::default();
+                let result = context.invoke(sender.as_ref(), |eligible| {
+                    let args = args.as_ref().ok_or_else(rejection)?;
+                    if selected {
+                        context.popup_opening(args, eligible && reserved, &mut event, &mut facts)
+                    } else {
+                        unsafe { args.SetHandled(true) }.map(|()| true)
+                    }
+                });
+                let failed = result.is_err();
+                drop(result);
+                drop(args);
+                drop(sender);
+                let timely = !selected || context.popup_after_drop(&mut event);
+                drop(active);
+                let timely = timely && (!selected || context.popup_after_drop(&mut event));
+                if selected {
+                    context.publish_popup_target(facts, timely);
+                }
+                if failed { Err(rejection()) } else { Ok(()) }
+            }));
+            let mut token = 0;
+            let result = unsafe { core.add_NewWindowRequested(&handler, &mut token) };
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                if result.is_ok() {
+                    i.refusal_registry.entries[index].token = Some(token);
+                } else {
+                    i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    i.failed = true;
+                    i.closing = true;
+                    i.cleanup_blocked = true;
+                }
+            }
+            drop(handler);
+            result?;
+            require_live(owner, request)
+        }
+
         fn rejection() -> windows::core::Error {
             // Empty ErrorInfo: construction and HRESULT conversion perform no
             // thread-error-info calls, including the off-STA callback path.
@@ -3634,13 +4453,19 @@ mod native {
                     i.failed = true;
                     i.closing = true;
                     i.cleanup_blocked = true;
-                    mark_child_close(i).map(|at| (i.observer.clone(), at))
+                    (
+                        mark_child_close(i).map(|at| (i.observer.clone(), at)),
+                        mark_popup_close(i).map(|at| (i.observer.clone(), at)),
+                    )
                 } else {
-                    None
+                    (None, None)
                 }
             };
-            if let Some((Some(observer), at)) = observation {
+            if let Some((Some(observer), at)) = observation.0 {
                 observer(NativeSmokeObservation::ChildClosing { at });
+            }
+            if observation.1.is_some() {
+                publish_popup_close(owner);
             }
         }
 
@@ -3794,6 +4619,7 @@ mod native {
                 let mut top_close = None;
                 let mut child_close = None;
                 let mut dialog_close = None;
+                let mut popup_close = None;
                 if let Some(owner) = owner.as_ref() {
                     let mut state = owner.borrow_mut();
                     if let Some(i) = matching(&mut state, &self.request)
@@ -3813,6 +4639,7 @@ mod native {
                             top_close = mark_top_close(i).map(|at| (i.observer.clone(), at));
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
+                            popup_close = mark_popup_close(i).map(|at| (i.observer.clone(), at));
                         }
                     }
                 }
@@ -3824,6 +4651,11 @@ mod native {
                 }
                 if let Some((Some(observer), at)) = dialog_close {
                     observer(NativeSmokeObservation::DialogClosing { at });
+                }
+                if popup_close.is_some()
+                    && let Some(owner) = owner.as_ref()
+                {
+                    publish_popup_close(owner);
                 }
                 if !identity || !same_installation {
                     return Err(rejection());
@@ -4349,18 +5181,7 @@ mod native {
                     }
                     .map(|()| true)
                 ),
-                (Hook::NewWindow, Emitter::Core(core)) => add_handler!(
-                    owner,
-                    request,
-                    index,
-                    core,
-                    NewWindowRequestedEventHandler,
-                    add_NewWindowRequested,
-                    |args: &ICoreWebView2NewWindowRequestedEventArgs, _| unsafe {
-                        args.SetHandled(true)
-                    }
-                    .map(|()| true)
-                ),
+                (Hook::NewWindow, Emitter::Core(core)) => add_popup(owner, request, index, core),
                 (Hook::Download, Emitter::Download(core)) => add_handler!(
                     owner,
                     request,
@@ -7245,6 +8066,47 @@ pub mod fixture {
         }
     }
 
+    pub(super) fn popup_result_units(units: &[u16]) -> (bool, bool) {
+        let valid =
+            units.len() < 64 && char::decode_utf16(units.iter().copied()).all(|v| v.is_ok());
+        (
+            valid,
+            valid
+                && units
+                    .iter()
+                    .copied()
+                    .eq("\"code0-popup-submitted-v1\"".encode_utf16()),
+        )
+    }
+
+    #[cfg(test)]
+    mod popup_contract_tests {
+        use super::popup_result_units;
+
+        // A permissive JSON/string parser would accept preflight failure,
+        // a missing quoted token, malformed UTF16 or an oversized callback.
+        #[test]
+        fn popup_completion_accepts_only_bounded_exact_json_token() {
+            let exact: Vec<u16> = "\"code0-popup-submitted-v1\"".encode_utf16().collect();
+            assert_eq!(popup_result_units(&exact), (true, true));
+            for text in [
+                "code0-popup-submitted-v1",
+                "null",
+                "\"code0-popup-precondition-v1\"",
+                "\"code0-popup-submitted-v1\" ",
+                "",
+            ] {
+                assert_eq!(
+                    popup_result_units(&text.encode_utf16().collect::<Vec<_>>()),
+                    (true, false)
+                );
+            }
+            assert_eq!(popup_result_units(&[0xd800]), (false, false));
+            assert_eq!(popup_result_units(&[65; 63]), (true, false));
+            assert_eq!(popup_result_units(&[65; 64]), (false, false));
+        }
+    }
+
     #[cfg(test)]
     mod legacy_original_deadline_tests {
         use super::{LegacyRefusalEvent, NativeDialogDeadline};
@@ -8143,6 +9005,120 @@ pub mod fixture {
         }
     }
 
+    /// N4 finite scalar facts. no_new_window_assignment is a reviewed source
+    /// invariant; it is never a typed nullable NewWindow getter interpretation.
+    #[derive(Clone, Copy, Default, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NativePopupFacts {
+        pub script_submissions: u8,
+        pub popup_events: u8,
+        pub handled_attempts: u8,
+        pub handled_returns: u8,
+        pub handled_successes: u8,
+        pub handled_readbacks: u8,
+        pub script_completions: u8,
+        pub settings_before_stimulus: bool,
+        pub initial_source_matched: bool,
+        pub source_after_drop_timely: bool,
+        pub script_submission_returned: bool,
+        pub script_submit_ok: bool,
+        pub script_return_timely: bool,
+        pub popup_sender_matched: bool,
+        pub request_generation_live_matched: bool,
+        pub issued_before_event: bool,
+        pub target_uri_getter_succeeded: bool,
+        pub target_uri_matched: bool,
+        pub non_user_getter_succeeded: bool,
+        pub non_user: bool,
+        pub handled_readback_succeeded: bool,
+        pub native_handled_true: bool,
+        pub live_after_calls: bool,
+        pub target_after_drop_timely: bool,
+        pub no_new_window_assignment: bool,
+        pub first_closing_observed: bool,
+        pub completion_identity_matched: bool,
+        pub completion_hresult_succeeded: bool,
+        pub bounded_result_valid: bool,
+        pub fixed_result_matched: bool,
+        pub completion_before_release: bool,
+        pub completion_within_deadline: bool,
+        pub completion_disposition_consumed: bool,
+        pub completion_obligation_drained: bool,
+        pub completion_handlers_drained: bool,
+    }
+    impl NativePopupFacts {
+        pub fn target_positive(&self) -> bool {
+            self.popup_events == 1
+                && self.handled_attempts == 1
+                && self.handled_returns == 1
+                && self.handled_successes == 1
+                && self.handled_readbacks == 1
+                && self.popup_sender_matched
+                && self.request_generation_live_matched
+                && self.issued_before_event
+                && self.target_uri_getter_succeeded
+                && self.target_uri_matched
+                && self.non_user_getter_succeeded
+                && self.non_user
+                && self.handled_readback_succeeded
+                && self.native_handled_true
+                && self.live_after_calls
+                && self.target_after_drop_timely
+                && self.no_new_window_assignment
+                && self.first_closing_observed
+        }
+        pub fn positive(&self) -> bool {
+            self.script_submissions == 1
+                && self.script_completions == 1
+                && self.settings_before_stimulus
+                && self.initial_source_matched
+                && self.source_after_drop_timely
+                && self.script_submission_returned
+                && self.script_submit_ok
+                && self.script_return_timely
+                && self.target_positive()
+                && self.completion_identity_matched
+                && self.completion_hresult_succeeded
+                && self.bounded_result_valid
+                && self.fixed_result_matched
+                && self.completion_before_release
+                && self.completion_within_deadline
+                && self.completion_disposition_consumed
+                && self.completion_obligation_drained
+                && self.completion_handlers_drained
+        }
+    }
+    #[derive(Clone, Copy)]
+    pub enum NativePopupStage {
+        Submitted,
+        Refusal,
+        Completion,
+        Final,
+    }
+    pub struct NativePopupReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) stage: NativePopupStage,
+        pub(super) facts: NativePopupFacts,
+    }
+    impl NativePopupReceipt {
+        pub fn matches(
+            &self,
+            request: &Code0WindowRequest,
+            install: &NativeRefusalInstallReceipt,
+        ) -> bool {
+            &self.request == request
+                && install.matches(request)
+                && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        pub fn stage(&self) -> NativePopupStage {
+            self.stage
+        }
+        pub fn facts(&self) -> NativePopupFacts {
+            self.facts
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum PolicyFixtureCase {
         InstallAckBeforeFirstLoad,
@@ -8439,6 +9415,10 @@ pub mod fixture {
         ChildRefusal(NativeChildRefusalReceipt),
         ChildCompletion(NativeChildCompletionReceipt),
         ChildFinal(NativeChildFinalReceipt),
+        PopupClosing {
+            at: std::time::Instant,
+        },
+        Popup(NativePopupReceipt),
         DialogClosing {
             at: std::time::Instant,
         },
@@ -9178,6 +10158,30 @@ pub mod fixture {
             #[cfg(windows)]
             {
                 super::native::submit_child_initial_data(&self.owner, request, deadline)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (request, deadline);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// One fixed non-user N4 popup operation on the actual initial blank.
+        pub fn submit_fixture_popup_initial_blank(
+            &mut self,
+            request: &Code0WindowRequest,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::submit_popup_initial_blank(&self.owner, request, deadline)
             }
             #[cfg(not(windows))]
             {

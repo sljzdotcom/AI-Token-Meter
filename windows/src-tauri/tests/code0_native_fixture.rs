@@ -23,7 +23,8 @@ mod smoke {
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
             NativeChildCompletionReceipt, NativeChildFinalReceipt, NativeChildRefusalFacts,
             NativeChildRefusalReceipt, NativeChildSubmissionReceipt, NativeDialogDeadline,
-            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeRefusalDeadline,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativePopupFacts,
+            NativePopupReceipt, NativePopupStage, NativeRefusalDeadline,
             NativeRefusalInstallReceipt, NativeSmokeObservation, NativeTopRefusalFacts,
             NativeTopRefusalReceipt, NativeTopSubmissionReceipt, PolicyFaultReceipt,
             PolicyFixtureCase, PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
@@ -45,6 +46,7 @@ mod smoke {
     const CHILD_REFUSAL_CASE: &str = "refusal-child-initial-data";
     const TOP_REFUSAL_CASE: &str = "refusal-top-owned-file";
     const DIALOG_REFUSAL_CASE: &str = "refusal-dialog-owned-empty-html";
+    const POPUP_REFUSAL_CASE: &str = "refusal-popup-initial-blank";
     const DIALOG_REFUSAL_LEAF: &str = "code0-s2-dialog-empty.html";
     const TOP_REFUSAL_LEAF: &str = "code0-s2-top-denied.txt";
     const NATIVE_REFUSAL_HOOKS: [&str; 10] = [
@@ -124,6 +126,107 @@ mod smoke {
                 && lifecycle.profile_isolated
                 && lifecycle.destroyed
                 && lifecycle.owned_references_released
+        }
+    }
+
+    // Finite N4: event/action, actual Session failure and strict completion have
+    // independent producers. No installation or script flag supplies another.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PopupRefusalEvidence {
+        submission_receipts: u8,
+        target_receipts: u8,
+        completion_receipts: u8,
+        final_receipts: u8,
+        receipt_installation_matched: bool,
+        receipt_consumption_timely: bool,
+        policy_failures: u8,
+        action_before_policy_failure: bool,
+        browser_process_exited_once: bool,
+        #[serde(flatten)]
+        facts: NativePopupFacts,
+        #[serde(skip)]
+        installation: Option<NativeRefusalInstallReceipt>,
+    }
+    impl PopupRefusalEvidence {
+        fn observe(
+            &mut self,
+            receipt: NativePopupReceipt,
+            request: &Code0WindowRequest,
+            attempt_started: Instant,
+        ) -> bool {
+            let before = attempt_started.elapsed() < Duration::from_secs(45);
+            let success_stage = !matches!(receipt.stage(), NativePopupStage::Final);
+            let first_success = self.submission_receipts == 0
+                && self.target_receipts == 0
+                && self.completion_receipts == 0;
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| receipt.matches(request, i));
+            let first = self.submission_receipts == 0
+                && self.target_receipts == 0
+                && self.completion_receipts == 0
+                && self.final_receipts == 0;
+            self.receipt_installation_matched = if first {
+                matched
+            } else {
+                self.receipt_installation_matched && matched
+            };
+            let count = match receipt.stage() {
+                NativePopupStage::Submitted => &mut self.submission_receipts,
+                NativePopupStage::Refusal => &mut self.target_receipts,
+                NativePopupStage::Completion => &mut self.completion_receipts,
+                NativePopupStage::Final => &mut self.final_receipts,
+            };
+            *count = count.saturating_add(1).min(2);
+            let once = *count == 1;
+            self.facts = receipt.facts();
+            drop(receipt);
+            let timely = before && attempt_started.elapsed() < Duration::from_secs(45);
+            if success_stage {
+                self.receipt_consumption_timely = if first_success {
+                    timely
+                } else {
+                    self.receipt_consumption_timely && timely
+                };
+            }
+            matched && once && (!success_stage || timely)
+        }
+        fn target_positive(&self) -> bool {
+            self.target_receipts == 1
+                && self.receipt_installation_matched
+                && self.receipt_consumption_timely
+                && self.facts.target_positive()
+        }
+        fn positive(&self, native: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.submission_receipts == 1
+                && self.target_positive()
+                && self.completion_receipts == 1
+                && self.final_receipts == 1
+                && self.policy_failures == 1
+                && self.action_before_policy_failure
+                && self.browser_process_exited_once
+                && self.facts.positive()
+                && native.positive(lifecycle)
+        }
+        fn failure(&self) -> &'static str {
+            if !self.facts.initial_source_matched || !self.facts.source_after_drop_timely {
+                "popupInitialBlankPreconditionFailed"
+            } else if !self.target_positive() {
+                "popupTargetUnobserved"
+            } else if self.completion_receipts != 1
+                || !self.facts.completion_hresult_succeeded
+                || !self.facts.fixed_result_matched
+            {
+                "popupStrictCompletionFailed"
+            } else if !self.facts.completion_obligation_drained
+                || !self.facts.completion_handlers_drained
+            {
+                "popupCompletionNotDrained"
+            } else {
+                "popupPositiveOracleMismatch"
+            }
         }
     }
 
@@ -557,10 +660,18 @@ mod smoke {
         child_refusal: Option<ChildRefusalEvidence>,
         #[serde(skip)]
         dialog_refusal: Option<DialogRefusalEvidence>,
+        #[serde(skip)]
+        popup_refusal: Option<PopupRefusalEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(popup) = &self.popup_refusal {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| popup.positive(native, lifecycle));
+            }
             if let Some(dialog) = &self.dialog_refusal {
                 return self
                     .native_refusal
@@ -692,12 +803,16 @@ mod smoke {
         child_refusal: Option<&'a ChildRefusalEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         dialog_refusal: Option<&'a DialogRefusalEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        popup_refusal: Option<&'a PopupRefusalEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.dialog_refusal.is_some() {
+                schema: if install.popup_refusal.is_some() {
+                    10
+                } else if install.dialog_refusal.is_some() {
                     9
                 } else if install.child_refusal.is_some() {
                     8
@@ -709,7 +824,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.dialog_refusal.is_some() {
+                required_case: if install.popup_refusal.is_some() {
+                    POPUP_REFUSAL_CASE
+                } else if install.dialog_refusal.is_some() {
                     DIALOG_REFUSAL_CASE
                 } else if install.child_refusal.is_some() {
                     CHILD_REFUSAL_CASE
@@ -729,6 +846,7 @@ mod smoke {
                 top_refusal: install.top_refusal.as_ref(),
                 child_refusal: install.child_refusal.as_ref(),
                 dialog_refusal: install.dialog_refusal.as_ref(),
+                popup_refusal: install.popup_refusal.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1594,6 +1712,12 @@ mod smoke {
     }
 
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 10 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "N4 summary exceeds fixed bound",
+            ));
+        }
         if summary.schema == 9 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -1604,19 +1728,23 @@ mod smoke {
     }
 
     pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(native_refusal, false, false, false)
+        run_policy_selected(native_refusal, false, false, false, false)
     }
 
     pub fn run_top_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, true, false, false)
+        run_policy_selected(true, true, false, false, false)
     }
 
     pub fn run_child_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, true, false)
+        run_policy_selected(true, false, true, false, false)
     }
 
     pub fn run_dialog_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, false, true)
+        run_policy_selected(true, false, false, true, false)
+    }
+
+    pub fn run_popup_refusal() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(true, false, false, false, true)
     }
 
     fn run_policy_selected(
@@ -1624,6 +1752,7 @@ mod smoke {
         top_refusal: bool,
         child_refusal: bool,
         dialog_refusal: bool,
+        popup_refusal: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
@@ -1652,6 +1781,7 @@ mod smoke {
             top_refusal: top_refusal.then(TopRefusalEvidence::default),
             child_refusal: child_refusal.then(ChildRefusalEvidence::default),
             dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
+            popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
             ..PolicyEvidence::default()
         }));
         write_policy_summary(
@@ -1682,6 +1812,7 @@ mod smoke {
                                 top_refusal: top_refusal.then(TopRefusalEvidence::default),
                                 child_refusal: child_refusal.then(ChildRefusalEvidence::default),
                                 dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
+                                popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -1939,6 +2070,9 @@ mod smoke {
         let dialog_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().dialog_refusal.is_some());
+        let popup_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().popup_refusal.is_some());
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -2056,9 +2190,17 @@ mod smoke {
         let observer_top_close = Rc::clone(&native_top_close);
         let native_dialog_close = Rc::new(Cell::new(None::<Instant>));
         let observer_dialog_close = Rc::clone(&native_dialog_close);
+        let native_popup_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_popup_close = Rc::clone(&native_popup_close);
         let native_child_close = Rc::new(Cell::new(None::<Instant>));
         let observer_child_close = Rc::clone(&native_child_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if popup_selected
+                && let NativeSmokeObservation::PopupClosing { at } = &event
+                && observer_popup_close.get().is_none()
+            {
+                observer_popup_close.set(Some(*at));
+            }
             if dialog_selected
                 && let NativeSmokeObservation::DialogClosing { at } = &event
                 && observer_dialog_close.get().is_none()
@@ -2175,6 +2317,11 @@ mod smoke {
         } else {
             None
         };
+        let mut popup_deadline = if popup_selected {
+            NativeDialogDeadline::from_attempt_started(started)
+        } else {
+            None
+        };
         let mut closing_since = None;
         let mut started_create = false;
         let mut object_free_failure = false;
@@ -2285,7 +2432,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if dialog_selected {
+                if popup_selected {
+                    native_popup_close.get()
+                } else if dialog_selected {
                     native_dialog_close.get()
                 } else if child_selected {
                     native_child_close.get()
@@ -2303,7 +2452,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if dialog_selected {
+                if popup_selected {
+                    native_popup_close.get()
+                } else if dialog_selected {
                     native_dialog_close.get()
                 } else if child_selected {
                     native_child_close.get()
@@ -2397,13 +2548,20 @@ mod smoke {
                                     let mut saved_receipt = None;
                                     let valid_inventory = receipt.is_ok_and(|receipt| {
                                         let valid = native.observe(&receipt, &request);
-                                        if top_selected || child_selected || dialog_selected {
+                                        if top_selected
+                                            || child_selected
+                                            || dialog_selected
+                                            || popup_selected
+                                        {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if dialog_selected {
+                                    if popup_selected {
+                                        install.popup_refusal.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if dialog_selected {
                                         install.dialog_refusal.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if child_selected {
@@ -2414,6 +2572,26 @@ mod smoke {
                                             saved_receipt;
                                     }
                                     drop(install);
+                                    let popup_submission_failure = if popup_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        let result = match popup_deadline.take() {
+                                            Some(deadline) => driver
+                                                .submit_fixture_popup_initial_blank(
+                                                    &request, deadline,
+                                                ),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        };
+                                        if result.is_err() {
+                                            Some("popupNativeSubmissionFailed")
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    };
                                     // No summary/install/queue guard crosses native Navigate.
                                     let dialog_submission = if dialog_selected
                                         && installed.is_ok()
@@ -2546,6 +2724,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = popup_submission_failure {
+                                        failure
                                     } else if let Some(failure) = dialog_submission_failure {
                                         failure
                                     } else if let Some(failure) = child_submission_failure {
@@ -2596,6 +2776,34 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::PopupClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !popup_selected {
+                            state.failure = "unexpectedPopupClosing";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Popup(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = popup_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                p.lock()
+                                    .unwrap()
+                                    .popup_refusal
+                                    .as_mut()
+                                    .is_some_and(|popup| popup.observe(receipt, &request, started))
+                            });
+                        if !valid {
+                            state.failure = "popupNativeReceiptInvalid";
                         }
                     }
                     Observation::Native(
@@ -2909,6 +3117,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if popup_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .popup_refusal
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         if dialog_selected {
                             policy
                                 .as_ref()
@@ -2969,7 +3188,25 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
-                        if dialog_selected {
+                        if popup_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let popup = install.popup_refusal.as_mut().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                // The actual native events -> Observation::Session channel
+                                // alone increments this count, joined to the native receipt.
+                                popup.policy_failures =
+                                    popup.policy_failures.saturating_add(1).min(2);
+                                popup.action_before_policy_failure = popup.target_positive();
+                                if popup.policy_failures != 1 || !popup.action_before_policy_failure
+                                {
+                                    state.failure = "popupFailureWithoutNativeAction";
+                                }
+                            } else {
+                                state.failure = "popupUnexpectedNativeFailure";
+                            }
+                        } else if dialog_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -3127,7 +3364,8 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = !top_selected
+            let native_install_observed = !popup_selected
+                && !top_selected
                 && !child_selected
                 && !dialog_selected
                 && policy.as_ref().is_some_and(|policy| {
@@ -3138,6 +3376,7 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let popup_action_observed = popup_selected && native_popup_close.get().is_some();
             let dialog_action_observed = dialog_selected && native_dialog_close.get().is_some();
             let top_action_observed = top_selected && native_top_close.get().is_some();
             let child_action_observed = child_selected && native_child_close.get().is_some();
@@ -3146,7 +3385,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if dialog_selected {
+                state.failure = if popup_selected {
+                    "popupTargetUnobserved"
+                } else if dialog_selected {
                     "dialogTargetUnobserved"
                 } else if child_selected {
                     "childTargetUnobserved"
@@ -3168,12 +3409,15 @@ mod smoke {
                     || top_action_observed
                     || child_action_observed
                     || dialog_action_observed
+                    || popup_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if dialog_selected {
+                let closing = if popup_selected {
+                    native_popup_close.get()
+                } else if dialog_selected {
                     native_dialog_close.get()
                 } else if child_selected {
                     native_child_close.get()
@@ -3237,6 +3481,17 @@ mod smoke {
                     }
                     if coverage.is_some() && !positive && state.failure == "notCompleted" {
                         state.failure = "coveragePositiveOracleMismatch";
+                    }
+                    if popup_selected && !positive && state.failure == "notCompleted" {
+                        state.failure = policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .popup_refusal
+                            .as_ref()
+                            .unwrap()
+                            .failure();
                     }
                     if dialog_selected && !positive && state.failure == "notCompleted" {
                         state.failure = policy
@@ -3351,6 +3606,9 @@ fn main() {
                     == "--code0-policy-fixture=install-native-refusal-hooks-before-load" =>
             {
                 smoke::run_policy(true)
+            }
+            [selector] if selector == "--code0-policy-fixture=refusal-popup-initial-blank" => {
+                smoke::run_popup_refusal()
             }
             [selector] if selector == "--code0-policy-fixture=refusal-dialog-owned-empty-html" => {
                 smoke::run_dialog_refusal()
