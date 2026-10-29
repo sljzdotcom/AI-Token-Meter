@@ -1,4 +1,4 @@
-name: Code0 isolated terminal-readiness prerequisite GREEN
+name: Code0 isolated runtime terminal-join semantic RED
 
 on:
   push:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   runtime-cleanup:
-    name: Complete249 library with all nine terminal prerequisites GREEN
+    name: Complete253 library with250 PASS and three terminal-join semantic RED
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -39,16 +39,16 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 2
-      - name: Verify sole f47826c parent four changed paths and all nine payload bytes
+      - name: Verify sole e501 parent three changed paths and all nine payload bytes
         shell: python {0}
         run: |
           import hashlib, json, os, re, subprocess
           from pathlib import Path
-          base = 'f47826c8195d35671ae5c854bf3caeb4f58e38ce'
+          base = 'e5014999d64e6f88306bc1bf10b4cfe42dd2b7e0'
           expected = {
               "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
-                  "bytes": 70277,
-                  "sha256": "ee9fc00e00407de67307fe88dbaa3b05e919461cf8386ae7763b3453f20a9804"
+                  "bytes": 109686,
+                  "sha256": "65ef63b7381fec2bb755e676f5c70074c8e1169fcce158cd9172d6f7f5167a98"
               },
               "windows/src-tauri/src/platform/windows/code0_web_session.rs": {
                   "bytes": 75055,
@@ -75,12 +75,12 @@ jobs:
                   "sha256": "1a0ea68c77ee338d128d791018c5b378c6781b857b522bb483156d8d57fe017e"
               },
               "scripts/test-code0-runtime-cleanup.py": {
-                  "bytes": 48607,
-                  "sha256": "1552d28646472ff86b82495dae72e9556bf17bb860d8666f5c667c0fb7ebb0b0"
+                  "bytes": 53920,
+                  "sha256": "bf4feaf7fc4c24d0c0a13399b99f71a98c7ac8c03bf3f5d9f3bc2988d032afc0"
               }
           }
           workflow = '.github/workflows/code0-runtime-cleanup.yml'
-          expected_changes = [['M', '.github/workflows/code0-runtime-cleanup.yml'], ['M', 'scripts/test-code0-runtime-cleanup.py'], ['M', 'windows/src-tauri/src/platform/windows/code0_dispatcher.rs'], ['M', 'windows/src-tauri/src/platform/windows/code0_web_session.rs']]
+          expected_changes = [['M', '.github/workflows/code0-runtime-cleanup.yml'], ['M', 'scripts/test-code0-runtime-cleanup.py'], ['M', 'windows/src-tauri/src/platform/windows/code0_runtime.rs']]
           run, attempt, sha = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_SHA'))
           if (re.fullmatch(r'[0-9]{1,20}', run) is None
                   or re.fullmatch(r'[0-9]{1,6}', attempt) is None
@@ -91,7 +91,7 @@ jobs:
           changes = [line.split('\t') for line in subprocess.check_output(
               ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', base, 'HEAD'], text=True).splitlines()]
           if actual != sha or parents != [actual, base] or sorted(changes) != expected_changes:
-              raise SystemExit('Terminal-readiness checkout is not the exact four-path f47826c child')
+              raise SystemExit('Runtime terminal/join checkout is not the exact three-path e501 child')
           observed = {}
           for name in sorted(set(expected) | {workflow}):
               raw = Path(name).read_bytes()
@@ -100,7 +100,7 @@ jobs:
               observed[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
               if raw != blob or mode != '100644' or (name in expected and observed[name] != expected[name]):
                   raise SystemExit('Runtime payload bytes or mode differ')
-          out = Path(os.environ['RUNNER_TEMP']) / f'code0-terminal-readiness-green-{run}-{attempt}'
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-terminal-join-red-{run}-{attempt}'
           out.mkdir(exist_ok=False)
           host_keys = ('RUNNER_OS', 'RUNNER_ARCH', 'RUNNER_NAME', 'RUNNER_ENVIRONMENT',
                        'ImageOS', 'ImageVersion', 'ACTIONS_RUNNER_VERSION')
@@ -139,13 +139,13 @@ jobs:
       - name: Check candidate formatting
         working-directory: windows/src-tauri
         run: cargo fmt --check
-      - name: Require strict build then complete249 library prerequisite GREEN
+      - name: Require strict build then complete253 library exact terminal-join RED
         shell: python {0}
         run: |
           import hashlib, json, os, subprocess, sys, time
           from pathlib import Path
           run, attempt = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'))
-          out = Path(os.environ['RUNNER_TEMP']) / f'code0-terminal-readiness-green-{run}-{attempt}'
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-terminal-join-red-{run}-{attempt}'
           argv = [sys.executable, 'scripts/test-code0-runtime-cleanup.py']
           result = {'schema': 1, 'runId': run, 'attempt': attempt,
                     'checkout': os.environ['GITHUB_SHA'], 'argv': argv,
@@ -179,12 +179,12 @@ jobs:
                   or result['error'] != 'none'
                   or result['collectorElapsedSeconds'] is None
                   or result['collectorElapsedSeconds'] >= 1500):
-              raise SystemExit('Terminal-readiness collector did not return complete prerequisite GREEN evidence')
-      - name: Preserve complete source gates and exact terminal-readiness prerequisite GREEN evidence
+              raise SystemExit('Runtime terminal/join collector did not return exact semantic RED evidence')
+      - name: Preserve complete source gates and exact runtime terminal-join RED evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: code0-terminal-readiness-green-evidence
-          path: ${{ runner.temp }}/code0-terminal-readiness-green-${{ github.run_id }}-${{ github.run_attempt }}/
+          name: code0-runtime-terminal-join-red-evidence
+          path: ${{ runner.temp }}/code0-runtime-terminal-join-red-${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: error
           retention-days: 7

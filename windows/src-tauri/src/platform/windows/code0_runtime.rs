@@ -62,9 +62,17 @@ impl CallbackSink {
         self.proxy.cleanup(self.binding, request, result)
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NativeTerminalState {
+    Pending,
+    Quiescent,
+}
 trait UiBackend: Code0WindowDriving {
     fn on_window_event(&mut self, label: &str, event: &tauri::WindowEvent);
     fn poll_cleanup(&mut self);
+    fn terminal_state(&self) -> NativeTerminalState {
+        NativeTerminalState::Pending
+    }
 }
 struct DriverFacade<B> {
     binding: u64,
@@ -117,6 +125,8 @@ trait LocalRecord {
     fn committed_view(&self) -> Code0SessionDto;
     fn queue_window(&self, event: QueuedWindow) -> Result<(), Code0DispatchError>;
     fn settled(&self) -> TurnResult;
+    fn request_terminal(&self) -> Result<(), Code0DispatchError>;
+    fn terminal_progress(&self);
 }
 struct RegistrySlot {
     installing: bool,
@@ -152,6 +162,22 @@ pub(super) fn mark_tick(binding: u64) {
     if let Some(record) = lookup(binding) {
         record.mark_tick();
     }
+}
+fn request_terminal(binding: u64) -> Result<(), Code0DispatchError> {
+    lookup(binding)
+        .ok_or(Code0DispatchError::Unavailable)?
+        .request_terminal()
+}
+// Deliberately not Clone/Copy: a later GREEN owner must mint and consume once.
+struct TerminalPermit {
+    binding: u64,
+    operation: u64,
+}
+struct TerminalJoinReceipt {
+    binding: u64,
+    operation: u64,
+    result: std::thread::Result<super::code0_tick::TickExit>,
+    thread: std::thread::ThreadId,
 }
 struct InstallGuard;
 impl Drop for InstallGuard {
@@ -191,7 +217,12 @@ fn settled_turn(binding: u64) -> TurnResult {
     let Some(record) = lookup(binding) else {
         return TurnResult::Missing;
     };
-    record.settled()
+    let result = record.settled();
+    if result == TurnResult::Settled {
+        // The guarded poll/drain/reply turn has returned before terminal progress.
+        record.terminal_progress();
+    }
+    result
 }
 struct InstallInputs<C, S, F> {
     clock: C,
@@ -210,6 +241,9 @@ struct Runtime<C, B, S> {
     tick_ack: RefCell<Option<super::code0_tick::TickAcknowledgement>>,
     in_turn: Cell<bool>,
     windows: RefCell<VecDeque<QueuedWindow>>,
+    terminal_tick: RefCell<Option<super::code0_tick::TickProducer>>,
+    terminal_operation: Cell<Option<u64>>,
+    terminal_join: RefCell<Option<TerminalJoinReceipt>>,
 }
 impl<C, B, S> Runtime<C, B, S> {
     fn passive_view(&self) -> Code0SessionDto {
@@ -220,6 +254,50 @@ impl<C, B, S> Runtime<C, B, S> {
         reply(Err(Code0DispatchError::Unavailable));
     }
 }
+impl<C, B, S> Runtime<C, B, S>
+where
+    C: Code0SessionClock,
+    B: UiBackend,
+    S: Code0SnapshotStoring,
+{
+    fn adopt_tick(
+        &self,
+        producer: super::code0_tick::TickProducer,
+    ) -> Result<(), Code0DispatchError> {
+        let mut slot = self.terminal_tick.borrow_mut();
+        if slot.is_some() || !self.tick_attached(&producer.acknowledgement()) {
+            return Err(Code0DispatchError::Unavailable);
+        }
+        *slot = Some(producer);
+        Ok(())
+    }
+    fn terminal_conditions_met(&self) -> bool {
+        !self.in_turn.get()
+            && !self.pending.get()
+            && !self.tick_due.get()
+            && self.windows.borrow().is_empty()
+            && self.terminal_operation.get().is_some()
+            && self.backend.borrow().terminal_state() == NativeTerminalState::Quiescent
+            && self.dispatcher.terminal_prerequisites_met()
+    }
+    fn take_terminal_permit(&self) -> Option<TerminalPermit> {
+        // RED seam: retaining a producer/Stop/empty queues never proves a join.
+        None
+    }
+    fn consume_terminal_permit(&self, permit: TerminalPermit) -> bool {
+        let current = lookup(permit.binding);
+        permit.binding == self.binding
+            && current.is_some_and(|record| record.binding() == self.binding)
+            && self.terminal_operation.get() == Some(permit.operation)
+            && self.terminal_conditions_met()
+            && self.terminal_join.borrow().as_ref().is_some_and(|receipt| {
+                receipt.binding == permit.binding
+                    && receipt.operation == permit.operation
+                    && matches!(receipt.result, Ok(super::code0_tick::TickExit::Cancelled))
+                    && receipt.thread != std::thread::current().id()
+            })
+    }
+}
 impl<C, B, S> LocalRecord for Runtime<C, B, S>
 where
     C: Code0SessionClock,
@@ -228,6 +306,20 @@ where
 {
     fn binding(&self) -> u64 {
         self.binding
+    }
+    fn request_terminal(&self) -> Result<(), Code0DispatchError> {
+        if self.terminal_operation.get().is_none() {
+            // A registry binding is process-unique and this record has one lifetime
+            // terminal operation. Repeated requests retain the same private key.
+            self.terminal_operation.set(Some(self.binding));
+            self.proxy.begin_terminal_stop();
+        }
+        Ok(())
+    }
+    fn terminal_progress(&self) {
+        // Intentionally conservative RED: evaluate the real settled conditions,
+        // retaining the owned producer until an actual join owner is implemented.
+        let _ = self.terminal_conditions_met();
     }
     fn mark_pending(&self) {
         self.pending.set(true);
@@ -385,6 +477,9 @@ where
         tick_ack: RefCell::new(None),
         in_turn: Cell::new(false),
         windows: RefCell::new(VecDeque::new()),
+        terminal_tick: RefCell::new(None),
+        terminal_operation: Cell::new(None),
+        terminal_join: RefCell::new(None),
     });
     let record: Rc<dyn LocalRecord> = runtime.clone();
     REGISTRY.with(|slot| slot.borrow_mut().record = Some(record));
@@ -1804,6 +1899,797 @@ mod tests {
             assert_eq!(creates, 2);
             assert_eq!(view["state"], "paused");
             assert!(matches!(read_reply, Some(Ok(Code0Reply::View(_)))));
+        }
+    }
+    // RED contract: the runtime, not fixture teardown, must own the terminal join.
+    mod terminal_join_tests {
+        use super::super::super::code0_tick::{TickExit, TickProducer};
+        use super::*;
+        use std::sync::mpsc::{self, Receiver, Sender};
+        use std::time::Instant;
+
+        const OBSERVE: Duration = Duration::from_millis(1250);
+        const GATE_LIMIT: Duration = Duration::from_secs(5);
+
+        struct TerminalExecutor {
+            ui: ThreadId,
+            jobs: Mutex<VecDeque<UiJob>>,
+            pulses: Sender<bool>,
+            completion_posts: Sender<ThreadId>,
+            completion_jobs: Mutex<VecDeque<UiJob>>,
+            gate: Mutex<Receiver<()>>,
+            release: Sender<()>,
+            hold_first: AtomicBool,
+            panic_worker: AtomicBool,
+            reject: AtomicBool,
+            gate_expired: AtomicBool,
+        }
+        impl TerminalExecutor {
+            fn new() -> (Arc<Self>, Receiver<bool>, Receiver<ThreadId>) {
+                let (pulses, events) = mpsc::channel();
+                let (completion_posts, completions) = mpsc::channel();
+                let (release, gate) = mpsc::channel();
+                (
+                    Arc::new(Self {
+                        ui: thread::current().id(),
+                        jobs: Mutex::new(VecDeque::new()),
+                        pulses,
+                        completion_posts,
+                        completion_jobs: Mutex::new(VecDeque::new()),
+                        gate: Mutex::new(gate),
+                        release,
+                        hold_first: AtomicBool::new(true),
+                        panic_worker: AtomicBool::new(false),
+                        reject: AtomicBool::new(false),
+                        gate_expired: AtomicBool::new(false),
+                    }),
+                    events,
+                    completions,
+                )
+            }
+            fn take_jobs(&self) -> VecDeque<UiJob> {
+                std::mem::take(&mut *self.jobs.lock().unwrap())
+            }
+            fn take_completion_jobs(&self) -> VecDeque<UiJob> {
+                std::mem::take(&mut *self.completion_jobs.lock().unwrap())
+            }
+            fn flush(&self) {
+                for job in self.take_jobs() {
+                    job();
+                }
+                for job in self.take_completion_jobs() {
+                    job();
+                }
+            }
+            fn open_gate(&self) {
+                let _ = self.release.send(());
+            }
+        }
+        impl MainThreadExecutor for TerminalExecutor {
+            fn post(&self, job: UiJob) -> Result<(), Code0DispatchError> {
+                let current = thread::current();
+                let worker = current.name() == Some("code0-tick");
+                let rejected = self.reject.load(Ordering::SeqCst);
+                if !rejected {
+                    if current.id() == self.ui {
+                        job();
+                    } else if worker {
+                        self.jobs.lock().unwrap().push_back(job);
+                    } else {
+                        // The only other background posts in this fixture are
+                        // the product join's actual completion delivery jobs.
+                        self.completion_jobs.lock().unwrap().push_back(job);
+                        let _ = self.completion_posts.send(current.id());
+                    }
+                }
+                if worker {
+                    let _ = self.pulses.send(rejected);
+                    if self.hold_first.swap(false, Ordering::SeqCst)
+                        && self.gate.lock().unwrap().recv_timeout(GATE_LIMIT).is_err()
+                    {
+                        self.gate_expired.store(true, Ordering::SeqCst);
+                    }
+                    assert!(
+                        !self.panic_worker.load(Ordering::SeqCst),
+                        "controlled actual tick executor panic"
+                    );
+                }
+                if rejected {
+                    Err(Code0DispatchError::Unavailable)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+        #[derive(Clone)]
+        struct TerminalClock(Rc<Cell<Duration>>);
+        impl Code0SessionClock for TerminalClock {
+            fn now(&self) -> Duration {
+                self.0.get()
+            }
+            fn wall_now(&self) -> String {
+                "2026-10-30T00:00:00Z".into()
+            }
+        }
+        struct TerminalBackendState {
+            native: NativeTerminalState,
+            held: bool,
+            current: Option<Code0WindowRequest>,
+            windows: VecDeque<(Code0WindowRequest, Code0WindowEvent)>,
+            cleanups: Vec<Code0CleanupRequest>,
+            results: VecDeque<(Code0CleanupRequest, Result<(), Code0SessionFailure>)>,
+            polls: usize,
+            closes: usize,
+            releases: usize,
+            delivery_failures: usize,
+        }
+        struct TerminalBackend {
+            callbacks: CallbackSink,
+            state: Rc<RefCell<TerminalBackendState>>,
+        }
+        impl Code0WindowDriving for TerminalBackend {
+            fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+                self.state.borrow_mut().held = true;
+                Ok(())
+            }
+            fn release_profile_lease(&mut self) {
+                self.state.borrow_mut().held = false;
+            }
+            fn create_unloaded(
+                &mut self,
+                request: Code0WindowRequest,
+            ) -> Result<(), Code0SessionFailure> {
+                self.state.borrow_mut().current = Some(request);
+                Ok(())
+            }
+            fn navigate(&mut self, _: &str) -> Result<(), Code0SessionFailure> {
+                Ok(())
+            }
+            fn close(&mut self, _: &str) {
+                self.state.borrow_mut().closes += 1;
+            }
+            fn clear_website_data(
+                &mut self,
+                request: Code0CleanupRequest,
+            ) -> Result<(), Code0SessionFailure> {
+                self.state.borrow_mut().cleanups.push(request);
+                Ok(())
+            }
+        }
+        impl UiBackend for TerminalBackend {
+            fn on_window_event(&mut self, _: &str, _: &tauri::WindowEvent) {}
+            fn poll_cleanup(&mut self) {
+                let (windows, results) = {
+                    let mut state = self.state.borrow_mut();
+                    state.polls += 1;
+                    (
+                        std::mem::take(&mut state.windows),
+                        std::mem::take(&mut state.results),
+                    )
+                };
+                for (request, event) in windows {
+                    if matches!(event, Code0WindowEvent::Released) {
+                        let mut state = self.state.borrow_mut();
+                        state.current = None;
+                        state.releases += 1;
+                    }
+                    if self.callbacks.window(request, event).is_err() {
+                        self.state.borrow_mut().delivery_failures += 1;
+                    }
+                }
+                for (request, result) in results {
+                    if self.callbacks.cleanup(request, result).is_err() {
+                        self.state.borrow_mut().delivery_failures += 1;
+                    }
+                }
+            }
+            fn terminal_state(&self) -> NativeTerminalState {
+                self.state.borrow().native
+            }
+        }
+        type TerminalRuntime = Runtime<TerminalClock, TerminalBackend, Store>;
+        struct CleanupEvidence {
+            thread: ThreadId,
+            worker: Option<TickExit>,
+            panicked: bool,
+        }
+        struct TerminalFixture {
+            runtime: Rc<TerminalRuntime>,
+            executor: Arc<TerminalExecutor>,
+            pulses: Receiver<bool>,
+            completion_posts: Receiver<ThreadId>,
+            backend: Rc<RefCell<TerminalBackendState>>,
+            elapsed: Rc<Cell<Duration>>,
+            escaped: Option<thread::JoinHandle<TickExit>>,
+            setup: bool,
+            requests_ok: Cell<bool>,
+            turns_settled: Cell<bool>,
+        }
+        impl TerminalFixture {
+            fn new() -> Self {
+                let (executor, pulses, completion_posts) = TerminalExecutor::new();
+                let backend = Rc::new(RefCell::new(TerminalBackendState {
+                    native: NativeTerminalState::Pending,
+                    held: false,
+                    current: None,
+                    windows: VecDeque::new(),
+                    cleanups: Vec::new(),
+                    results: VecDeque::new(),
+                    polls: 0,
+                    closes: 0,
+                    releases: 0,
+                    delivery_failures: 0,
+                }));
+                let elapsed = Rc::new(Cell::new(Duration::ZERO));
+                let state = backend.clone();
+                let runtime = install(
+                    executor.clone(),
+                    InstallInputs {
+                        clock: TerminalClock(elapsed.clone()),
+                        store: Store(Rc::new(RefCell::new(StoreState::default()))),
+                        backend: move |callbacks| TerminalBackend { callbacks, state },
+                        emit: Box::new(|_| {}),
+                    },
+                )
+                .unwrap(); // No worker exists before installation succeeds.
+                let mut producer = TickProducer::prepare(runtime.binding, executor.clone());
+                let attached = attach_tick(runtime.binding, producer.acknowledgement()).is_ok();
+                let started = producer.start().is_ok();
+                let adopted = runtime.adopt_tick(producer).is_ok();
+                Self {
+                    runtime,
+                    executor,
+                    pulses,
+                    completion_posts,
+                    backend,
+                    elapsed,
+                    escaped: None,
+                    setup: attached && started && adopted,
+                    requests_ok: Cell::new(true),
+                    turns_settled: Cell::new(true),
+                }
+            }
+            fn turn(&self) -> TurnResult {
+                let result = settled_turn(self.runtime.binding);
+                self.turns_settled
+                    .set(self.turns_settled.get() && result == TurnResult::Settled);
+                result
+            }
+            fn request(&self) -> bool {
+                let accepted = request_terminal(self.runtime.binding).is_ok();
+                self.requests_ok.set(self.requests_ok.get() && accepted);
+                accepted
+            }
+            fn claim(&self) -> bool {
+                self.runtime
+                    .take_terminal_permit()
+                    .is_some_and(|permit| self.runtime.consume_terminal_permit(permit))
+            }
+            fn joined(&self) -> Option<(u64, u64, Option<TickExit>, ThreadId)> {
+                self.runtime.terminal_join.borrow().as_ref().map(|receipt| {
+                    (
+                        receipt.binding,
+                        receipt.operation,
+                        receipt.result.as_ref().ok().copied(),
+                        receipt.thread,
+                    )
+                })
+            }
+            fn pump(&self) {
+                let deadline = Instant::now() + OBSERVE;
+                while Instant::now() < deadline && self.joined().is_none() {
+                    self.executor.flush();
+                    self.turn();
+                    thread::sleep(Duration::from_millis(2));
+                }
+                self.executor.flush();
+                self.turn();
+            }
+            fn genuine_later_pulse(&self) -> bool {
+                let polls = self.backend.borrow().polls;
+                let pulse = self.pulses.recv_timeout(OBSERVE).ok();
+                self.executor.flush();
+                self.turn();
+                pulse == Some(false) && self.backend.borrow().polls > polls
+            }
+            fn view(&self) -> serde_json::Value {
+                serde_json::to_value(self.runtime.proxy.committed()).unwrap()
+            }
+            fn remove_record(&self) {
+                let retired = REGISTRY.with(|slot| {
+                    let mut slot = slot.borrow_mut();
+                    if slot
+                        .record
+                        .as_ref()
+                        .is_some_and(|r| r.binding() == self.runtime.binding)
+                    {
+                        slot.record.take()
+                    } else {
+                        None
+                    }
+                });
+                drop(retired);
+            }
+            // Fixture safety only. This never deposits a runtime receipt or permit.
+            fn cleanup(&mut self) -> CleanupEvidence {
+                self.executor.open_gate();
+                let producer = self.runtime.terminal_tick.borrow_mut().take();
+                let escaped = self.escaped.take();
+                thread::scope(|scope| {
+                    scope
+                        .spawn(move || {
+                            let mut producer = producer;
+                            if let Some(producer) = producer.as_ref() {
+                                producer.cancel();
+                            }
+                            let handle = escaped
+                                .or_else(|| producer.as_mut().and_then(TickProducer::take_join));
+                            let result = handle.map(|handle| handle.join());
+                            CleanupEvidence {
+                                thread: thread::current().id(),
+                                worker: result
+                                    .as_ref()
+                                    .and_then(|result| result.as_ref().ok())
+                                    .copied(),
+                                panicked: result.is_some_and(|result| result.is_err()),
+                            }
+                        })
+                        .join()
+                        .unwrap()
+                })
+            }
+        }
+        impl Drop for TerminalFixture {
+            fn drop(&mut self) {
+                let _ = self.cleanup();
+                self.remove_record();
+            }
+        }
+        fn scoped<T>(
+            body: impl FnOnce(&mut TerminalFixture) -> T,
+        ) -> (T, CleanupEvidence, bool, bool) {
+            let mut fixture = TerminalFixture::new();
+            let observed = body(&mut fixture);
+            let cleanup = fixture.cleanup();
+            let setup = fixture.setup
+                && fixture.requests_ok.get()
+                && fixture.turns_settled.get()
+                && fixture.backend.borrow().delivery_failures == 0;
+            let gate_expired = fixture.executor.gate_expired.load(Ordering::SeqCst);
+            fixture.remove_record();
+            (observed, cleanup, setup, gate_expired)
+        }
+        fn check_cleanup(cleanup: &CleanupEvidence, setup: bool, gate_expired: bool) {
+            assert!(setup, "terminal fixture failed real attach/start/adopt");
+            assert!(
+                !gate_expired,
+                "terminal path blocked UI until the safety gate expired"
+            );
+            assert_ne!(
+                cleanup.thread,
+                thread::current().id(),
+                "fixture actual worker join ran on UI"
+            );
+        }
+
+        // Mutation: cancel/join blocks UI, grants before worker return, or never grants after real join.
+        #[test]
+        fn terminal_join_waits_for_real_worker_and_ui_keeps_progressing() {
+            let (
+                (first, requested, turn, elapsed, reply, early, joined, claims, key),
+                cleanup,
+                setup,
+                expired,
+            ) = scoped(|f| {
+                let first = f.pulses.recv_timeout(OBSERVE).ok();
+                f.executor.flush(); // Real tick binding job ACK while worker post remains held.
+                f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                let start = Instant::now();
+                let requested = f.request();
+                let turn = f.turn();
+                let read = slot();
+                f.runtime.proxy.read(reply_to(&read));
+                f.turn();
+                let elapsed = start.elapsed();
+                let reply = read.lock().unwrap().clone();
+                let early = f.claim();
+                let key = f.runtime.terminal_operation.get();
+                f.executor.open_gate();
+                f.pump();
+                let joined = f.joined();
+                let claims = [f.claim(), f.claim()];
+                (
+                    first, requested, turn, elapsed, reply, early, joined, claims, key,
+                )
+            });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false), "no genuine held worker submission");
+            assert!(requested);
+            assert_eq!(turn, TurnResult::Settled);
+            assert!(
+                elapsed < OBSERVE,
+                "terminal call blocked the UI worker gate"
+            );
+            assert!(
+                matches!(reply, Some(Ok(Code0Reply::View(_)))),
+                "held join starved actual queued read"
+            );
+            assert!(!early, "held actual worker allowed early permission");
+            assert_eq!(
+                claims,
+                [true, false],
+                "TJ-R1 actual joined terminal operation must yield one consumed permit"
+            );
+            assert!(
+                joined.is_some_and(|(_, operation, result, on)| Some(operation) == key
+                    && result == Some(TickExit::Cancelled)
+                    && on != thread::current().id()),
+                "terminal permit lacked actual off-UI Cancelled join evidence"
+            );
+            assert!(
+                cleanup.worker.is_none(),
+                "fixture teardown, rather than runtime, still owned the join"
+            );
+        }
+
+        // Mutation: Stop/physical zero cancels polling before matching reserved Released is consumed.
+        #[test]
+        fn terminal_retains_poll_until_matching_release() {
+            let ((first, held, pulse, same_key, released, claims, joined), cleanup, setup, expired) =
+                scoped(|f| {
+                    let first = f.pulses.recv_timeout(OBSERVE).ok();
+                    f.executor.flush();
+                    f.runtime
+                        .proxy
+                        .action(Code0Action::SyncNow, Box::new(|_| {}));
+                    f.turn();
+                    let request = f.backend.borrow().current.clone();
+                    let _ = f.request();
+                    f.turn();
+                    let key = f.runtime.terminal_operation.get();
+                    let polls = f.backend.borrow().polls;
+                    let held = f.view()["state"] == "closing" && !f.claim() && f.joined().is_none();
+                    f.executor.open_gate();
+                    let pulse = f.pulses.recv_timeout(OBSERVE).ok();
+                    f.executor.flush();
+                    f.turn();
+                    let pulse = pulse == Some(false)
+                        && f.backend.borrow().polls > polls
+                        && f.joined().is_none();
+                    for _ in 0..8 {
+                        let _ = f.request();
+                    }
+                    let same_key = key.is_some() && f.runtime.terminal_operation.get() == key;
+                    if let Some(request) = request {
+                        let mut state = f.backend.borrow_mut();
+                        state
+                            .windows
+                            .push_back((request, Code0WindowEvent::Released));
+                        state.native = NativeTerminalState::Quiescent;
+                    }
+                    f.turn();
+                    f.pump();
+                    let released =
+                        f.backend.borrow().releases == 1 && f.view()["state"] == "paused";
+                    (
+                        first,
+                        held,
+                        pulse,
+                        same_key,
+                        released,
+                        [f.claim(), f.claim()],
+                        f.joined(),
+                    )
+                });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false));
+            assert!(
+                held,
+                "Stop retired an owned Session before matching Released"
+            );
+            assert!(pulse, "held owner stopped genuine worker polling");
+            assert!(
+                same_key,
+                "duplicate terminal requests replaced the operation"
+            );
+            assert!(
+                released,
+                "matching reserved Released did not settle real Session"
+            );
+            assert_eq!(
+                claims,
+                [true, false],
+                "TJ-R2 matching release must permit one runtime-owned joined terminal operation"
+            );
+            assert!(
+                joined.is_some_and(|(_, _, exit, on)| exit == Some(TickExit::Cancelled)
+                    && on != thread::current().id())
+            );
+            assert!(cleanup.worker.is_none());
+        }
+
+        // Controls: real failed/expired cleanup, retained work, native unknown and worker faults stay unsafe.
+        #[test]
+        fn terminal_failed_cleanup_and_retained_work_never_permit() {
+            for expire in [false, true] {
+                let ((first, pending, progress, denied), cleanup, setup, expired) = scoped(|f| {
+                    let first = f.pulses.recv_timeout(OBSERVE).ok();
+                    f.executor.flush();
+                    f.runtime
+                        .proxy
+                        .action(Code0Action::Disconnect, Box::new(|_| {}));
+                    f.turn();
+                    let request = f.backend.borrow().cleanups.first().cloned();
+                    if expire {
+                        f.elapsed.set(Duration::from_secs(10));
+                        let _ = f.runtime.proxy.tick(f.runtime.binding, f.runtime.binding);
+                    } else if let Some(request) = request.clone() {
+                        f.backend
+                            .borrow_mut()
+                            .results
+                            .push_back((request, Err(Code0SessionFailure::CleanupFailed)));
+                    }
+                    let _ = f.request();
+                    f.turn();
+                    f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                    f.turn();
+                    f.executor.open_gate();
+                    let progress = f.genuine_later_pulse();
+                    let failed = request.is_some()
+                        && f.view()["state"] == "cleanupPending"
+                        && f.view()["failure"] == "cleanupFailed";
+                    (first, failed, progress, !f.claim() && f.joined().is_none())
+                });
+                check_cleanup(&cleanup, setup, expired);
+                assert_eq!(first, Some(false));
+                assert!(pending, "real failed/expired cleanup was healed");
+                assert!(
+                    progress,
+                    "failed/expired cleanup cancelled the genuine worker or starved backend polls"
+                );
+                assert!(denied, "cleanup failure allowed terminal permission");
+                assert_eq!(cleanup.worker, Some(TickExit::Cancelled));
+            }
+            let (
+                (first, unknown, progress, retained, after_partial, stopped),
+                cleanup,
+                setup,
+                expired,
+            ) = scoped(|f| {
+                let first = f.pulses.recv_timeout(OBSERVE).ok();
+                f.executor.flush();
+                let _ = f.request();
+                f.turn();
+                f.executor.open_gate();
+                let progress = f.genuine_later_pulse();
+                let unknown = !f.backend.borrow().held
+                    && f.backend.borrow().native == NativeTerminalState::Pending
+                    && !f.claim()
+                    && f.joined().is_none();
+                f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                let binding = f.runtime.binding;
+                let callback = Arc::new(Mutex::new(None));
+                let observed = callback.clone();
+                f.runtime.proxy.stop(Box::new(move |reply| {
+                    let record = lookup(binding);
+                    *observed.lock().unwrap() =
+                        Some(matches!(reply, Ok(Code0Reply::Stopped)) && record.is_some());
+                    let _ = window_event(binding, "retained".into(), tauri::WindowEvent::Destroyed);
+                }));
+                let retained = !f.runtime.dispatcher.terminal_prerequisites_met() && !f.claim();
+                f.turn();
+                let after_partial = f.runtime.pending.get() && !f.claim() && f.joined().is_none();
+                let stopped = *callback.lock().unwrap();
+                (first, unknown, progress, retained, after_partial, stopped)
+            });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false));
+            assert!(
+                unknown,
+                "is_held=false substituted for explicit native quiescence"
+            );
+            assert!(
+                progress,
+                "unknown native state cancelled the genuine worker or starved backend polls"
+            );
+            assert!(
+                retained && after_partial,
+                "queued work or partial drain granted permission"
+            );
+            assert_eq!(
+                stopped,
+                Some(true),
+                "Stopped callback retired registry prematurely"
+            );
+            assert_eq!(cleanup.worker, Some(TickExit::Cancelled));
+
+            for fault in ["control-lost", "panic", "delivery"] {
+                let ((first, denied, actual_fault, joined, join_panicked), cleanup, setup, expired) =
+                    scoped(|f| {
+                        let first = f.pulses.recv_timeout(OBSERVE).ok();
+                        f.executor.flush();
+                        match fault {
+                            "control-lost" => {
+                                f.escaped = f
+                                    .runtime
+                                    .terminal_tick
+                                    .borrow_mut()
+                                    .as_mut()
+                                    .and_then(TickProducer::take_join);
+                            }
+                            "panic" => f.executor.panic_worker.store(true, Ordering::SeqCst),
+                            _ => f.executor.reject.store(true, Ordering::SeqCst),
+                        }
+                        let _ = f.request();
+                        f.turn();
+                        f.executor.open_gate();
+                        let actual_fault = if fault == "delivery" {
+                            let rejected = f.pulses.recv_timeout(OBSERVE).ok() == Some(true);
+                            let deadline = Instant::now() + OBSERVE;
+                            while Instant::now() < deadline
+                                && !f
+                                    .runtime
+                                    .tick_ack
+                                    .borrow()
+                                    .as_ref()
+                                    .is_some_and(|ack| ack.faulted())
+                            {
+                                thread::sleep(Duration::from_millis(2));
+                            }
+                            rejected
+                                && f.runtime
+                                    .tick_ack
+                                    .borrow()
+                                    .as_ref()
+                                    .is_some_and(|ack| ack.faulted())
+                        } else {
+                            true // Actual ControlLost/panic outcome is asserted after off-UI teardown below.
+                        };
+                        f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                        f.pump();
+                        let joined = f.joined();
+                        let join_panicked = f
+                            .runtime
+                            .terminal_join
+                            .borrow()
+                            .as_ref()
+                            .is_some_and(|receipt| receipt.result.is_err());
+                        (first, !f.claim(), actual_fault, joined, join_panicked)
+                    });
+                check_cleanup(&cleanup, setup, expired);
+                assert_eq!(first, Some(false));
+                assert!(
+                    denied && actual_fault,
+                    "real worker fault allowed a terminal permit: {fault}"
+                );
+                let actual_exit = joined.and_then(|(_, _, exit, _)| exit).or(cleanup.worker);
+                match fault {
+                    "control-lost" => assert_eq!(actual_exit, Some(TickExit::ControlLost)),
+                    "panic" => assert!(
+                        join_panicked || cleanup.panicked,
+                        "worker did not actually panic"
+                    ),
+                    _ => assert_eq!(actual_exit, Some(TickExit::Cancelled)),
+                }
+            }
+        }
+
+        // Mutation: a receipt bypasses fresh queue/current-binding checks or old jobs affect replacement.
+        #[test]
+        fn terminal_join_receipt_rechecks_current_record() {
+            let (
+                (first, handoff, completion, during, partial, claims, joined, stale_safe),
+                cleanup,
+                setup,
+                expired,
+            ) = scoped(|f| {
+                let first = f.pulses.recv_timeout(OBSERVE).ok();
+                let mut old_jobs = f.executor.take_jobs(); // Genuine original tick binding job.
+                f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                let _ = f.request();
+                f.turn();
+                // This observes actual producer ownership, never a joined flag.
+                // The inert RED seam must fail this immediate behavioral endpoint;
+                // a timeout after a real handoff is a separate setup failure.
+                let handoff = f.runtime.terminal_tick.borrow().is_none();
+                if !handoff {
+                    return (
+                        first,
+                        handoff,
+                        None,
+                        false,
+                        false,
+                        [f.claim(), f.claim()],
+                        f.joined(),
+                        false,
+                    );
+                }
+                f.executor.open_gate();
+                // Do not run settled turns while waiting. The executor retains
+                // the genuine product completion job before any UI execution.
+                let completion = f.completion_posts.recv_timeout(OBSERVE).ok();
+                let completion_jobs = f.executor.take_completion_jobs();
+                let completion = completion
+                    .filter(|on| *on != thread::current().id() && completion_jobs.len() == 1);
+                old_jobs.extend(completion_jobs);
+                let binding = f.runtime.binding;
+                let read = slot();
+                let output = read.clone();
+                f.runtime.proxy.read(Box::new(move |reply| {
+                    *output.lock().unwrap() = Some(reply);
+                    let _ =
+                        window_event(binding, "during-join".into(), tauri::WindowEvent::Destroyed);
+                }));
+                let during = !f.claim() && !f.runtime.dispatcher.terminal_prerequisites_met();
+                // Fixed transport deposits real outcome DATA before posting its
+                // binding mark. The mailbox is ready while this FnOnce mark is
+                // withheld; no mark delivery is claimed. This direct settled poll
+                // consumes actual receipt DATA after the read callback leaves
+                // window work beyond this turn's original window snapshot.
+                f.turn();
+                let receipt = f.joined();
+                let partial = receipt.is_some_and(|(seen_binding, operation, result, on)| {
+                    seen_binding == binding
+                        && Some(operation) == f.runtime.terminal_operation.get()
+                        && result == Some(TickExit::Cancelled)
+                        && on != thread::current().id()
+                }) && f.runtime.pending.get()
+                    && !f.runtime.windows.borrow().is_empty()
+                    && !f.claim()
+                    && matches!(*read.lock().unwrap(), Some(Ok(Code0Reply::View(_))));
+                // Only now consume the real retained window work truthfully.
+                f.turn();
+                let joined = f.joined();
+                let claims = [f.claim(), f.claim()];
+                let stale_safe =
+                    if claims == [true, false] && joined.is_some() && old_jobs.len() >= 2 {
+                        // Only actual product completion can enter retirement.
+                        f.remove_record();
+                        let replacement = Fixture::new();
+                        for job in old_jobs {
+                            job();
+                        }
+                        let safe = !replacement.runtime.pending.get()
+                            && replacement.backend.borrow().calls.is_empty()
+                            && request_terminal(binding) == Err(Code0DispatchError::Unavailable)
+                            && replacement.view()["state"] == "paused";
+                        replacement.remove_record();
+                        safe
+                    } else {
+                        false
+                    };
+                (
+                    first, handoff, completion, during, partial, claims, joined, stale_safe,
+                )
+            });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false));
+            assert!(
+                handoff,
+                "TJ-R4 terminal join must transfer the actual worker into a retained completion obligation"
+            );
+            assert!(
+                completion.is_some(),
+                "terminal fixture lacked a genuine completion post after actual worker handoff"
+            );
+            assert!(
+                during && partial,
+                "receipt bypassed actual retained work/partial settlement"
+            );
+            assert_eq!(
+                claims,
+                [true, false],
+                "TJ-R4 current record must recheck receipt then yield one consumed permit after truthful settlement"
+            );
+            assert!(
+                joined.is_some_and(|(_, _, result, on)| result == Some(TickExit::Cancelled)
+                    && on != thread::current().id())
+            );
+            assert!(
+                stale_safe,
+                "actual retired operation jobs marked/polled/acted on replacement"
+            );
+            assert!(cleanup.worker.is_none());
         }
     }
 }
