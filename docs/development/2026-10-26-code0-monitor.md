@@ -1232,3 +1232,14 @@ HTTP fix3 N-only双独审3653/094040b8与6761/b325b530均C0/I0/M0，Root全文�
 ### 2026-10-30 终止缺陷复现接受及编译修复获审
 
 terminal249修正后实际独审12257/77a71273经Root全文读取，准确242PASS/7预期RED、strict/no-run0、六阶段与collector0/reaped，有限C0/I0/M0已接受；仅向新Sol6.1/high作者授予两文件cfg(test)前置GREEN源码GO，保留全部九测试与嵌套drain行为，尚无功能GREEN。主编译窄修独审4998/e0552280与DATA3469/083b69c9经Root全文读取C0/I0/M0；准确D7行helper+N1参数改名已应用，其余跟踪路径、两文档WIP和真实index保持。此修复的编译/原生/全部回归仍UNRUN，现准备四路径提交及完整检查点后隔离CI。共享slot真实driver可见性补充6621/038200dd已全文读，仅准备，无SOURCE GO。
+
+
+### 2026-10-30 权限lint窄修与终止GREEN隔离门禁
+
+主cb606已推送，macOS40949987592四job/32step成功，原始证据独审待完成；此前48ea的macOS独审14064/8527d492已全文接受有限C0/I0/M0，736实际通过及hosted补12、15未观察边界保持。cb606 Windows40949987709和dispatcher40949987599仍失败；dispatcher实际独审7568/a0ed3b7e确认旧六作用域和未用参数错误本轮未报告，权限模块三条严格Clippy阻断基线，23+2与四mutation未运行。
+
+Root仅删除无Drop的inline decoded显式drop（保留实际text释放边界）、等价map改inspect、旧overflow测试初始化语法修正；P候选manifest1020/b4a1b052，独审SOURCE C0/I0/M0全文接受，实际编译仍UNRUN。43旧测试体精确保留，唯一初始化例外保留原调用和全部断言。精确单P已应用，其他跟踪字节和真实index保持。
+
+终止前置两源码GREEN独审10681/99799ecb及CI独审9481/4c557f19均全文接受有限SOURCE C0/I0/M0；辅助e5014999 sole f47826c、tree0db3bd0f准备仅Session/Dispatcher/runner/WF四路径，主HEAD/index/两文档保持。要求完整249逐名全PASS、strict/no-run0和全部六阶段正常回收；旧预期RED不能作为GREEN。实际尚未运行，下一步完整持久备份后隔离CI。
+
+真实shared-slot Stage A RED候选REPORT13499/e4001081已全文读，独审进行中。范围仅真实driver acquire后的slot/store缺失复现及正常释放，预期driverAcquireDidNotPublishSharedSlot仍UNRUN；未实现GREEN接线、native Cleanup/Profile2、真实runtime join或生产终止许可。用户再次明确的Sol6.1/high与全部正常门禁后直接发布授权保持，无需新决定；保留全部失败、候选和原期限，未合并main或发布。

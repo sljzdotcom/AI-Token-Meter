@@ -3133,7 +3133,6 @@ impl ICoreWebView2CallDevToolsProtocolMethodCompletedHandler_Impl for Completion
                 }
             });
         }
-        drop(decoded);
         drop(text);
         if let (Some(callback), Some(boundary)) = (callback, ctx.disposal_boundary(&owner)) {
             let positive = ctx.positive(&owner);
@@ -4131,9 +4130,8 @@ fn publish(owner: &Rc<RefCell<Owner>>) {
             }
         }
         let closing = if !s.first_close_published {
-            s.timing.first_close.map(|at| {
+            s.timing.first_close.inspect(|_| {
                 s.first_close_published = true;
-                at
             })
         } else {
             None
@@ -5958,8 +5956,10 @@ mod permission_native_tests {
     // Mutation: saturation fabricates an exact relation between lower bounds.
     #[test]
     fn lifecycle_overflow_keeps_each_actual_lower_bound() {
-        let mut facts = Observations::default();
-        facts.deliveries = u16::MAX;
+        let mut facts = Observations {
+            deliveries: u16::MAX,
+            ..Observations::default()
+        };
         facts.enter(2, Phase::Registering, false);
         assert_eq!(facts.deliveries, u16::MAX);
         assert_eq!(facts.bootstrap_deliveries, 1);
