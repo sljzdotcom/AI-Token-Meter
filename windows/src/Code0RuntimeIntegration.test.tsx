@@ -85,6 +85,56 @@ it.each([false, true])("native detail ignores late ordinary Code0 payloads after
   expect(actionCalls()).toEqual([])
 })
 
+it.each([false, true])("native Code0 reopen gets a full auto-hide interval with current B or null (clear=%s)", async clear => {
+  const settings = deferred<unknown>()
+  const invoke = native.invoke.getMockImplementation()!
+  native.invoke.mockImplementation((command, args) => command === "app_settings" ? settings.promise : invoke(command, args))
+  const current = clear ? code0Session({revision: 3, state: "disconnected", snapshot: null}) : b
+  const fixture = code0BridgeFixture(Promise.resolve(current))
+  const closeCalls = () => native.invoke.mock.calls.filter(([command]) => command === "close_provider_detail")
+  const expectCurrentDetail = () => {
+    const detail = screen.getByRole("dialog", {name: "Code0 details"})
+    expect(within(detail).queryByText("101 site credits")).not.toBeInTheDocument()
+    expect(fixture.bridge.perform).not.toHaveBeenCalled()
+    expect(actionCalls()).toEqual([])
+    if (clear) expect(detail.querySelector("time")).toBeNull()
+    else {
+      expect(within(detail).getByText("8.00 site credits")).toBeVisible()
+      expect(detail.querySelector("time")).toHaveAttribute("dateTime", b.snapshot!.fetchedAt)
+    }
+  }
+  let view: ReturnType<typeof render> | undefined
+  vi.useFakeTimers()
+  try {
+    view = render(<DetailSurface code0Bridge={fixture.bridge} />)
+    await act(async () => {
+      settings.resolve({locale: "en", detailAutoHideSeconds: 8, stripPreferences: visiblePreferences})
+      await settings.promise
+    })
+    act(() => emit("active-detail-changed", a)) // t=0
+    expectCurrentDetail()
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000) })
+    act(() => emit("detail-closed", null)) // native hide at t=6; the surface stays mounted
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+    act(() => { emit("snapshot-updated", a); emit("active-detail-changed", a) }) // t=7
+    expectCurrentDetail()
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) }) // old expiry at t=8
+    expect(closeCalls()).toEqual([])
+    expectCurrentDetail()
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_999) }) // t=14.999
+    expect(closeCalls()).toEqual([])
+    expectCurrentDetail()
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) }) // reopened expiry at t=15
+    expect(closeCalls()).toHaveLength(1)
+    expect(screen.queryByRole("dialog", {name: "Code0 details"})).not.toBeInTheDocument()
+    expect(fixture.bridge.perform).not.toHaveBeenCalled()
+    expect(actionCalls()).toEqual([])
+  } finally {
+    try { view?.unmount() }
+    finally { vi.useRealTimers() }
+  }
+})
+
 const actions: Array<{action: Code0Action; state: Code0SessionState; value: boolean; en: string; zh: string}> = [
   {action: "connect", state: "disconnected", value: false, en: "Connect Code0", zh: "连接 Code0"},
   {action: "loginCompleted", state: "connecting", value: false, en: "I've finished signing in", zh: "我已完成登录"},

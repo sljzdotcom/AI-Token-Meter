@@ -1,0 +1,109 @@
+name: Code0 detail interval regression
+
+on:
+  push:
+    branches: [codex/code0-detail-interval-red]
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Existing detail baseline then retained reopen regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install locked frontend dependencies
+        working-directory: windows
+        run: npm ci
+      - name: Verify fixed source and retain test inputs
+        shell: python
+        run: |
+          import hashlib, os, subprocess
+          from pathlib import Path
+          baseline = '8a19d853725cf395044b5dac2ff9c07bc05182da'
+          target = Path('windows/src/Code0RuntimeIntegration.test.tsx')
+          candidate = target.read_bytes()
+          shell = Path('windows/src/Shell.tsx').read_bytes()
+          base = Path(os.environ['RUNNER_TEMP']) / 'code0-detail-interval'
+          base.mkdir()
+          (base / 'candidate.test.tsx').write_bytes(candidate)
+          (base / 'Shell.tsx').write_bytes(shell)
+          assert hashlib.sha256(candidate).hexdigest() == '5a1db4f7c6143f17481c19512c5c59ea63da2827ce58fdcf76bdd52e856910d0'
+          assert hashlib.sha256(shell).hexdigest() == '13bd0429f7f0846be6556aaf4d159dee1b2a86132a43342dd60d6c6169ab975f'
+          old = subprocess.check_output(['git', 'show', baseline + ':' + str(target)])
+          (base / 'baseline.test.tsx').write_bytes(old)
+          assert hashlib.sha256(old).hexdigest() == '2e7b95d3b73c99839a39eb958850bd53a60bb8b43b01adfa0b6512cb08f69aed'
+          target.write_bytes(old)
+      - name: Run unchanged baseline detail tests
+        working-directory: windows
+        shell: bash
+        run: |
+          set +e
+          npm test -- src/Code0RuntimeIntegration.test.tsx > "$RUNNER_TEMP/code0-detail-interval/baseline.log" 2>&1
+          code=$?
+          printf '%s\n' "$code" > "$RUNNER_TEMP/code0-detail-interval/baseline.exit"
+          cat "$RUNNER_TEMP/code0-detail-interval/baseline.log"
+          exit "$code"
+      - name: Restore retained regression bytes
+        shell: python
+        run: |
+          import hashlib, os
+          from pathlib import Path
+          candidate = (Path(os.environ['RUNNER_TEMP']) / 'code0-detail-interval/candidate.test.tsx').read_bytes()
+          assert hashlib.sha256(candidate).hexdigest() == '5a1db4f7c6143f17481c19512c5c59ea63da2827ce58fdcf76bdd52e856910d0'
+          Path('windows/src/Code0RuntimeIntegration.test.tsx').write_bytes(candidate)
+      - name: Run retained reopen behavior regression
+        working-directory: windows
+        shell: bash
+        run: |
+          set +e
+          npm test -- src/Code0RuntimeIntegration.test.tsx > "$RUNNER_TEMP/code0-detail-interval/regression.log" 2>&1
+          code=$?
+          printf '%s\n' "$code" > "$RUNNER_TEMP/code0-detail-interval/regression.exit"
+          cat "$RUNNER_TEMP/code0-detail-interval/regression.log"
+          exit "$code"
+      - name: Record actual exits and input hashes
+        if: always()
+        shell: python
+        run: |
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          base = Path(os.environ['RUNNER_TEMP']) / 'code0-detail-interval'
+          base.mkdir(exist_ok=True)
+          files = {}
+          for name in ('Shell.tsx', 'candidate.test.tsx', 'baseline.test.tsx', 'baseline.log', 'baseline.exit', 'regression.log', 'regression.exit'):
+              p = base / name
+              if p.is_file():
+                  raw = p.read_bytes()
+                  files[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+          exits = {}
+          for name in ('baseline', 'regression'):
+              p = base / (name + '.exit')
+              exits[name] = int(p.read_text().strip()) if p.is_file() else None
+          try:
+              checkout = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True, stderr=subprocess.DEVNULL).strip()
+              checkout_status = 'available'
+          except (OSError, subprocess.CalledProcessError):
+              checkout = None
+              checkout_status = 'unavailable'
+          record = {'schema': 1, 'runId': os.environ['GITHUB_RUN_ID'], 'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'], 'requestedSha': os.environ.get('GITHUB_SHA'), 'checkoutSha': checkout, 'checkoutStatus': checkout_status, 'exits': exits, 'files': files}
+          (base / 'evidence.json').write_text(json.dumps(record, sort_keys=True) + '\n')
+      - name: Preserve exact regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-detail-interval-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/code0-detail-interval/
+          if-no-files-found: error
+          retention-days: 7
