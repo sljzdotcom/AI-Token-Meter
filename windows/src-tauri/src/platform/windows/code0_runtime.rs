@@ -4,8 +4,9 @@
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, SyncSender, TryRecvError};
+use std::sync::{Arc, Mutex};
 
 use super::code0_dispatcher::{
     Code0Action, Code0DispatchError, Code0Dispatcher, Code0Proxy, Code0ReplySink, Code0Revision,
@@ -62,9 +63,17 @@ impl CallbackSink {
         self.proxy.cleanup(self.binding, request, result)
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NativeTerminalState {
+    Pending,
+    Quiescent,
+}
 trait UiBackend: Code0WindowDriving {
     fn on_window_event(&mut self, label: &str, event: &tauri::WindowEvent);
     fn poll_cleanup(&mut self);
+    fn terminal_state(&self) -> NativeTerminalState {
+        NativeTerminalState::Pending
+    }
 }
 struct DriverFacade<B> {
     binding: u64,
@@ -117,6 +126,8 @@ trait LocalRecord {
     fn committed_view(&self) -> Code0SessionDto;
     fn queue_window(&self, event: QueuedWindow) -> Result<(), Code0DispatchError>;
     fn settled(&self) -> TurnResult;
+    fn request_terminal(&self) -> Result<(), Code0DispatchError>;
+    fn terminal_progress(&self);
 }
 struct RegistrySlot {
     installing: bool,
@@ -152,6 +163,296 @@ pub(super) fn mark_tick(binding: u64) {
     if let Some(record) = lookup(binding) {
         record.mark_tick();
     }
+}
+fn request_terminal(binding: u64) -> Result<(), Code0DispatchError> {
+    lookup(binding)
+        .ok_or(Code0DispatchError::Unavailable)?
+        .request_terminal()
+}
+// Deliberately not Clone/Copy: issuance and final consumption are one-use.
+struct TerminalPermit {
+    binding: u64,
+    operation: u64,
+    epoch: u64,
+}
+struct TerminalJoinReceipt {
+    binding: u64,
+    operation: u64,
+    result: std::thread::Result<super::code0_tick::TickExit>,
+    thread: std::thread::ThreadId,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TerminalPhase {
+    Running,
+    Joining,
+    Joined,
+    Ready,
+    Issued,
+    Consumed,
+    Failed,
+}
+#[derive(Clone, Copy)]
+#[repr(u8)]
+enum TerminalFailure {
+    NoProducer = 1,
+    MissingWorker,
+    MissingBlockingTask,
+    SpawnBlocking,
+    SpawnContinuation,
+    BlockingTask,
+    Mailbox,
+    Delivery,
+    PostPanicked,
+    ContinuationLost,
+    Retired,
+    ForeignReceipt,
+    DuplicateReceipt,
+    ControlLost,
+    WorkerPanicked,
+    TickFault,
+    InvalidPermit,
+    EpochExhausted,
+    RetentionConflict,
+    Unresolved,
+}
+enum TerminalCompletion {
+    Joined(TerminalJoinReceipt),
+    Failed(TerminalFailure),
+}
+const DELIVERY_PENDING: u8 = 0;
+const DELIVERY_POSTED: u8 = 1;
+const DELIVERY_FAILED: u8 = 2;
+type WorkerJoin = std::thread::JoinHandle<super::code0_tick::TickExit>;
+type BlockingJoin = tauri::async_runtime::JoinHandle<TerminalCompletion>;
+struct TerminalJoinObligation {
+    worker: Arc<Mutex<Option<WorkerJoin>>>,
+    blocking: Option<Arc<Mutex<BlockingJoin>>>,
+    delivery: AtomicU8,
+    failure: AtomicU8,
+}
+struct RetainedTerminalJoin {
+    obligation: Arc<TerminalJoinObligation>,
+    continuation: Option<tauri::async_runtime::JoinHandle<()>>,
+}
+// These retain concrete pending handles, not UI records or success permissions.
+static TERMINAL_JOINS: Mutex<Vec<RetainedTerminalJoin>> = Mutex::new(Vec::new());
+static UNRESOLVED_TICKS: Mutex<Vec<super::code0_tick::TickProducer>> = Mutex::new(Vec::new());
+fn retain_unresolved_tick(producer: super::code0_tick::TickProducer) {
+    if let Ok(mut ticks) = UNRESOLVED_TICKS.try_lock() {
+        ticks.push(producer);
+    } else {
+        // One concrete input producer stays owned on this exceptional path.
+        // No cancel/detach, exit permission or hidden mem::forget is performed.
+        let _retained = Box::leak(Box::new(producer));
+    }
+}
+fn retain_terminal_join(join: RetainedTerminalJoin) {
+    if let Ok(mut joins) = TERMINAL_JOINS.try_lock() {
+        joins.push(join);
+    } else {
+        join.obligation.fail(TerminalFailure::RetentionConflict);
+        // Exactly one registration per operation. The complete object, including
+        // its concrete blocking/continuation handles, remains permanently owned.
+        let _retained = Box::leak(Box::new(join));
+    }
+}
+struct ContinuationGuard(Arc<TerminalJoinObligation>);
+impl Drop for ContinuationGuard {
+    fn drop(&mut self) {
+        if self.0.delivery.load(Ordering::Acquire) == DELIVERY_PENDING {
+            self.0.fail(TerminalFailure::ContinuationLost);
+        }
+    }
+}
+impl TerminalJoinObligation {
+    fn new(worker: WorkerJoin, binding: u64, operation: u64) -> Arc<Self> {
+        let worker = Arc::new(Mutex::new(Some(worker)));
+        let escrow = Arc::clone(&worker);
+        // Even a scheduling panic leaves the actual std handle in escrow.
+        // The only blocking lock/take/join is inside this blocking-thread job.
+        let blocking = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tauri::async_runtime::spawn_blocking(move || {
+                let handle = escrow
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                match handle {
+                    Some(handle) => TerminalCompletion::Joined(TerminalJoinReceipt {
+                        binding,
+                        operation,
+                        result: handle.join(),
+                        thread: std::thread::current().id(),
+                    }),
+                    None => TerminalCompletion::Failed(TerminalFailure::MissingWorker),
+                }
+            })
+        }));
+        let (blocking, failure) = match blocking {
+            Ok(handle) => (Some(Arc::new(Mutex::new(handle))), None),
+            Err(_) => (None, Some(TerminalFailure::SpawnBlocking)),
+        };
+        let obligation = Arc::new(Self {
+            worker,
+            blocking,
+            delivery: AtomicU8::new(DELIVERY_PENDING),
+            failure: AtomicU8::new(0),
+        });
+        if let Some(reason) = failure {
+            obligation.fail(reason);
+        }
+        obligation
+    }
+    fn fail(&self, reason: TerminalFailure) {
+        let _ = self
+            .failure
+            .compare_exchange(0, reason as u8, Ordering::AcqRel, Ordering::Acquire);
+        self.delivery.store(DELIVERY_FAILED, Ordering::Release);
+    }
+    fn failure(&self) -> Option<TerminalFailure> {
+        if self.delivery.load(Ordering::Acquire) != DELIVERY_FAILED {
+            return None;
+        }
+        let code = self.failure.load(Ordering::Acquire);
+        let reasons = [
+            TerminalFailure::NoProducer,
+            TerminalFailure::MissingWorker,
+            TerminalFailure::MissingBlockingTask,
+            TerminalFailure::SpawnBlocking,
+            TerminalFailure::SpawnContinuation,
+            TerminalFailure::BlockingTask,
+            TerminalFailure::Mailbox,
+            TerminalFailure::Delivery,
+            TerminalFailure::PostPanicked,
+            TerminalFailure::ContinuationLost,
+            TerminalFailure::Retired,
+            TerminalFailure::ForeignReceipt,
+            TerminalFailure::DuplicateReceipt,
+            TerminalFailure::ControlLost,
+            TerminalFailure::WorkerPanicked,
+            TerminalFailure::TickFault,
+            TerminalFailure::InvalidPermit,
+            TerminalFailure::EpochExhausted,
+            TerminalFailure::RetentionConflict,
+            TerminalFailure::Unresolved,
+        ];
+        Some(
+            reasons
+                .into_iter()
+                .find(|reason| *reason as u8 == code)
+                .unwrap_or(TerminalFailure::Unresolved),
+        )
+    }
+    fn start(
+        self: &Arc<Self>,
+        binding: u64,
+        sender: SyncSender<TerminalCompletion>,
+        executor: Arc<dyn MainThreadExecutor>,
+    ) {
+        let continuation = if self.blocking.is_some() {
+            let obligation = Arc::clone(self);
+            // Construct before the future: never-polled cancellation is also loss.
+            let guard = ContinuationGuard(Arc::clone(self));
+            let future = async move {
+                let _guard = guard;
+                let outcome = std::future::poll_fn(|context| {
+                    let Some(blocking) = obligation.blocking.as_ref() else {
+                        return std::task::Poll::Ready(Err(TerminalFailure::MissingBlockingTask));
+                    };
+                    let Ok(mut handle) = blocking.try_lock() else {
+                        // No lost-waker Pending and no self-wake busy loop.
+                        // Fail immediately while the concrete handle stays owned.
+                        return std::task::Poll::Ready(Err(TerminalFailure::RetentionConflict));
+                    };
+                    // Poll in place: cancellation never drops a pending await
+                    // handle. The keeper owns it before, during and after await.
+                    std::future::Future::poll(std::pin::Pin::new(&mut *handle), context)
+                        .map(|result| result.map_err(|_| TerminalFailure::BlockingTask))
+                })
+                .await;
+                let completion = match outcome {
+                    Ok(TerminalCompletion::Joined(receipt)) => TerminalCompletion::Joined(receipt),
+                    Ok(TerminalCompletion::Failed(reason)) | Err(reason) => {
+                        obligation.fail(reason);
+                        TerminalCompletion::Failed(reason)
+                    }
+                };
+                // Actual outcome DATA precedes the binding-only mark.
+                if sender.try_send(completion).is_err() {
+                    obligation.fail(TerminalFailure::Mailbox);
+                    return;
+                }
+                let posted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Schedule { binding, executor }.schedule()
+                }));
+                match posted {
+                    Ok(Ok(())) => {
+                        let _ = obligation.delivery.compare_exchange(
+                            DELIVERY_PENDING,
+                            DELIVERY_POSTED,
+                            Ordering::AcqRel,
+                            Ordering::Acquire,
+                        );
+                    }
+                    Ok(Err(_)) => obligation.fail(TerminalFailure::Delivery),
+                    Err(_) => obligation.fail(TerminalFailure::PostPanicked),
+                }
+            };
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                tauri::async_runtime::spawn(future)
+            })) {
+                Ok(handle) => Some(handle),
+                Err(_) => {
+                    self.fail(TerminalFailure::SpawnContinuation);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        // One operation, one registration, including every scheduling failure.
+        retain_terminal_join(RetainedTerminalJoin {
+            obligation: Arc::clone(self),
+            continuation,
+        });
+    }
+}
+impl RetainedTerminalJoin {
+    fn completed(&self) -> bool {
+        self.obligation.delivery.load(Ordering::Acquire) == DELIVERY_POSTED
+            && self
+                .obligation
+                .worker
+                .try_lock()
+                .is_ok_and(|worker| worker.is_none())
+            && self.obligation.blocking.as_ref().is_some_and(|blocking| {
+                blocking
+                    .try_lock()
+                    .is_ok_and(|handle| handle.inner().is_finished())
+            })
+            && self
+                .continuation
+                .as_ref()
+                .is_some_and(|task| task.inner().is_finished())
+    }
+}
+fn reap_completed_terminal_joins() {
+    let mut retired = Vec::new();
+    {
+        let Ok(mut obligations) = TERMINAL_JOINS.try_lock() else {
+            return;
+        };
+        let mut index = 0;
+        while index < obligations.len() {
+            if obligations[index].completed() {
+                retired.push(obligations.swap_remove(index));
+            } else {
+                index += 1;
+            }
+        }
+    }
+    // POST is reachable only after actual Ready/Joined DATA; both concrete
+    // task handles are finished. Never use metadata reaping as permit proof.
+    drop(retired);
 }
 struct InstallGuard;
 impl Drop for InstallGuard {
@@ -191,7 +492,12 @@ fn settled_turn(binding: u64) -> TurnResult {
     let Some(record) = lookup(binding) else {
         return TurnResult::Missing;
     };
-    record.settled()
+    let result = record.settled();
+    if result == TurnResult::Settled {
+        // The guarded poll/drain/reply turn has returned before terminal progress.
+        record.terminal_progress();
+    }
+    result
 }
 struct InstallInputs<C, S, F> {
     clock: C,
@@ -210,6 +516,29 @@ struct Runtime<C, B, S> {
     tick_ack: RefCell<Option<super::code0_tick::TickAcknowledgement>>,
     in_turn: Cell<bool>,
     windows: RefCell<VecDeque<QueuedWindow>>,
+    terminal_tick: RefCell<Option<super::code0_tick::TickProducer>>,
+    terminal_operation: Cell<Option<u64>>,
+    terminal_join: RefCell<Option<TerminalJoinReceipt>>,
+    terminal_executor: Arc<dyn MainThreadExecutor>,
+    terminal_receive: RefCell<Option<Receiver<TerminalCompletion>>>,
+    terminal_obligation: RefCell<Option<Arc<TerminalJoinObligation>>>,
+    terminal_phase: Cell<TerminalPhase>,
+    terminal_failure: Cell<Option<TerminalFailure>>,
+    terminal_advancing: Cell<bool>,
+    terminal_epoch: Cell<u64>,
+}
+impl<C, B, S> Drop for Runtime<C, B, S> {
+    fn drop(&mut self) {
+        if let Some(producer) = self.terminal_tick.get_mut().take() {
+            retain_unresolved_tick(producer);
+        }
+        if self.terminal_phase.get() != TerminalPhase::Consumed
+            && let Some(obligation) = self.terminal_obligation.get_mut().as_ref()
+        {
+            obligation.fail(TerminalFailure::Retired);
+        }
+        reap_completed_terminal_joins();
+    }
 }
 impl<C, B, S> Runtime<C, B, S> {
     fn passive_view(&self) -> Code0SessionDto {
@@ -218,6 +547,221 @@ impl<C, B, S> Runtime<C, B, S> {
     /// The real product policy/chooser/clear/terminal routes are not ready.
     fn production_action(&self, _: Code0Action, reply: Code0ReplySink) {
         reply(Err(Code0DispatchError::Unavailable));
+    }
+}
+impl<C, B, S> Runtime<C, B, S>
+where
+    C: Code0SessionClock,
+    B: UiBackend,
+    S: Code0SnapshotStoring,
+{
+    fn adopt_tick(
+        &self,
+        producer: super::code0_tick::TickProducer,
+    ) -> Result<(), Code0DispatchError> {
+        if self.terminal_operation.get().is_some()
+            || !self.tick_attached(&producer.acknowledgement())
+        {
+            retain_unresolved_tick(producer);
+            return Err(Code0DispatchError::Unavailable);
+        }
+        let mut producer = Some(producer);
+        {
+            if let Ok(mut slot) = self.terminal_tick.try_borrow_mut()
+                && slot.is_none()
+            {
+                *slot = producer.take();
+            }
+        }
+        if let Some(producer) = producer {
+            retain_unresolved_tick(producer);
+            Err(Code0DispatchError::Unavailable)
+        } else {
+            Ok(())
+        }
+    }
+    fn terminal_conditions_met(&self) -> bool {
+        let epoch = self.terminal_epoch.get();
+        if self.in_turn.get()
+            || self.pending.get()
+            || self.tick_due.get()
+            || !self
+                .windows
+                .try_borrow()
+                .is_ok_and(|events| events.is_empty())
+            || self.terminal_operation.get().is_none()
+        {
+            return false;
+        }
+        let native = self
+            .backend
+            .try_borrow()
+            .ok()
+            .map(|backend| backend.terminal_state());
+        native == Some(NativeTerminalState::Quiescent)
+            && self.dispatcher.terminal_prerequisites_met()
+            && !self.in_turn.get()
+            && !self.pending.get()
+            && !self.tick_due.get()
+            && self
+                .windows
+                .try_borrow()
+                .is_ok_and(|events| events.is_empty())
+            && self.terminal_epoch.get() == epoch
+            && lookup(self.binding).is_some_and(|record| record.binding() == self.binding)
+    }
+    fn terminal_fail(&self, reason: TerminalFailure) {
+        self.terminal_failure.set(Some(reason));
+        self.terminal_phase.set(TerminalPhase::Failed);
+    }
+    fn terminal_work_changed(&self) {
+        if let Some(epoch) = self.terminal_epoch.get().checked_add(1) {
+            self.terminal_epoch.set(epoch);
+        } else {
+            self.terminal_fail(TerminalFailure::EpochExhausted);
+        }
+    }
+    fn terminal_receipt_valid(&self) -> bool {
+        self.terminal_join.borrow().as_ref().is_some_and(|receipt| {
+            receipt.binding == self.binding
+                && Some(receipt.operation) == self.terminal_operation.get()
+                && matches!(receipt.result, Ok(super::code0_tick::TickExit::Cancelled))
+                && receipt.thread != std::thread::current().id()
+        })
+    }
+    fn terminal_delivery_ready(&self) -> bool {
+        self.terminal_obligation
+            .borrow()
+            .as_ref()
+            .is_some_and(|join| join.delivery.load(Ordering::Acquire) == DELIVERY_POSTED)
+    }
+    fn observe_terminal_completion(&self) {
+        use super::code0_tick::TickExit;
+
+        let completion = {
+            let receive = self.terminal_receive.borrow();
+            receive.as_ref().map(Receiver::try_recv)
+        };
+        match completion {
+            Some(Ok(TerminalCompletion::Joined(receipt))) => {
+                if self.terminal_join.borrow().is_some() {
+                    self.terminal_fail(TerminalFailure::DuplicateReceipt);
+                    return;
+                }
+                if self.terminal_phase.get() != TerminalPhase::Joining
+                    || receipt.binding != self.binding
+                    || Some(receipt.operation) != self.terminal_operation.get()
+                    || receipt.thread == std::thread::current().id()
+                {
+                    self.terminal_fail(TerminalFailure::ForeignReceipt);
+                    return;
+                }
+                let failure = match &receipt.result {
+                    Ok(TickExit::Cancelled) => None,
+                    Ok(TickExit::ControlLost) => Some(TerminalFailure::ControlLost),
+                    Err(_) => Some(TerminalFailure::WorkerPanicked),
+                };
+                *self.terminal_join.borrow_mut() = Some(receipt);
+                if let Some(reason) = failure {
+                    self.terminal_fail(reason);
+                } else {
+                    self.terminal_phase.set(TerminalPhase::Joined);
+                }
+            }
+            Some(Ok(TerminalCompletion::Failed(reason))) => self.terminal_fail(reason),
+            Some(Err(TryRecvError::Disconnected))
+                if self.terminal_join.borrow().is_none()
+                    && self.terminal_phase.get() == TerminalPhase::Joining =>
+            {
+                self.terminal_fail(TerminalFailure::ContinuationLost);
+            }
+            _ => {}
+        }
+        let failed = self
+            .terminal_obligation
+            .borrow()
+            .as_ref()
+            .and_then(|obligation| obligation.failure());
+        if let Some(reason) = failed {
+            self.terminal_fail(reason);
+        }
+    }
+    fn begin_terminal_join(&self) {
+        // Caller has returned from the complete guarded turn and checked every
+        // real queue/Session/native prerequisite. Transfer once before externals.
+        let Some(operation) = self.terminal_operation.get() else {
+            self.terminal_fail(TerminalFailure::ForeignReceipt);
+            return;
+        };
+        self.terminal_phase.set(TerminalPhase::Joining);
+        let producer = self.terminal_tick.borrow_mut().take();
+        let Some(mut producer) = producer else {
+            self.terminal_fail(TerminalFailure::NoProducer);
+            return;
+        };
+        producer.cancel();
+        let Some(worker) = producer.take_join() else {
+            // Never-started or unexpectedly missing real handle is not success.
+            *self.terminal_tick.borrow_mut() = Some(producer);
+            self.terminal_fail(TerminalFailure::MissingWorker);
+            return;
+        };
+        drop(producer); // Real handle is owned below, never detached by Drop.
+        let obligation = TerminalJoinObligation::new(worker, self.binding, operation);
+        let (sender, receive) = std::sync::mpsc::sync_channel(1);
+        *self.terminal_receive.borrow_mut() = Some(receive);
+        *self.terminal_obligation.borrow_mut() = Some(Arc::clone(&obligation));
+        obligation.start(self.binding, sender, Arc::clone(&self.terminal_executor));
+    }
+    fn take_terminal_permit(&self) -> Option<TerminalPermit> {
+        if self.terminal_phase.get() != TerminalPhase::Ready
+            || self.in_turn.get()
+            || self.terminal_advancing.replace(true)
+        {
+            return None;
+        }
+        let _advance = TurnGuard(&self.terminal_advancing);
+        let epoch = self.terminal_epoch.get();
+        if self.terminal_failure.get().is_some()
+            || !self.terminal_receipt_valid()
+            || !self.terminal_delivery_ready()
+            || lookup(self.binding).is_none_or(|record| record.binding() != self.binding)
+            || !self.terminal_conditions_met()
+            || self.terminal_epoch.get() != epoch
+        {
+            return None;
+        }
+        let operation = self.terminal_operation.get()?;
+        self.terminal_phase.set(TerminalPhase::Issued);
+        Some(TerminalPermit {
+            binding: self.binding,
+            operation,
+            epoch,
+        })
+    }
+    fn consume_terminal_permit(&self, permit: TerminalPermit) -> bool {
+        if self.in_turn.get() || self.terminal_advancing.replace(true) {
+            self.terminal_fail(TerminalFailure::InvalidPermit);
+            return false;
+        }
+        let _advance = TurnGuard(&self.terminal_advancing);
+        let current = lookup(permit.binding);
+        let accepted = self.terminal_phase.get() == TerminalPhase::Issued
+            && self.terminal_failure.get().is_none()
+            && permit.binding == self.binding
+            && current.is_some_and(|record| record.binding() == self.binding)
+            && self.terminal_operation.get() == Some(permit.operation)
+            && self.terminal_epoch.get() == permit.epoch
+            && self.terminal_receipt_valid()
+            && self.terminal_delivery_ready()
+            && self.terminal_conditions_met()
+            && self.terminal_epoch.get() == permit.epoch;
+        if accepted {
+            self.terminal_phase.set(TerminalPhase::Consumed);
+        } else {
+            self.terminal_fail(TerminalFailure::InvalidPermit);
+        }
+        accepted
     }
 }
 impl<C, B, S> LocalRecord for Runtime<C, B, S>
@@ -229,8 +773,62 @@ where
     fn binding(&self) -> u64 {
         self.binding
     }
+    fn request_terminal(&self) -> Result<(), Code0DispatchError> {
+        if self.terminal_operation.get().is_none() {
+            // A registry binding is process-unique and this record has one lifetime
+            // terminal operation. Repeated requests retain the same private key.
+            self.terminal_operation.set(Some(self.binding));
+            self.proxy.begin_terminal_stop();
+        }
+        Ok(())
+    }
+    fn terminal_progress(&self) {
+        if self.in_turn.get() || self.terminal_advancing.replace(true) {
+            self.mark_pending();
+            return;
+        }
+        let _advance = TurnGuard(&self.terminal_advancing);
+        reap_completed_terminal_joins();
+        if self.terminal_operation.get().is_none() {
+            return;
+        }
+        // DATA is consumed even when fresh retained work forbids permission.
+        self.observe_terminal_completion();
+        if self.terminal_phase.get() == TerminalPhase::Failed {
+            return;
+        }
+        if self.terminal_phase.get() == TerminalPhase::Running
+            && self
+                .tick_ack
+                .borrow()
+                .as_ref()
+                .is_some_and(|ack| ack.faulted())
+        {
+            self.terminal_fail(TerminalFailure::TickFault);
+            return;
+        }
+        if self.terminal_phase.get() == TerminalPhase::Running && self.terminal_conditions_met() {
+            self.begin_terminal_join();
+        }
+        if matches!(
+            self.terminal_phase.get(),
+            TerminalPhase::Joined | TerminalPhase::Ready
+        ) {
+            self.terminal_phase.set(
+                if self.terminal_receipt_valid()
+                    && self.terminal_delivery_ready()
+                    && self.terminal_conditions_met()
+                {
+                    TerminalPhase::Ready
+                } else {
+                    TerminalPhase::Joined
+                },
+            );
+        }
+    }
     fn mark_pending(&self) {
         self.pending.set(true);
+        self.terminal_work_changed();
     }
     fn attach_tick(
         &self,
@@ -255,7 +853,7 @@ where
             && ack.delivered(self.binding)
         {
             self.tick_due.set(true);
-            self.pending.set(true);
+            self.mark_pending();
         }
     }
     fn committed_view(&self) -> Code0SessionDto {
@@ -273,7 +871,7 @@ where
                 true
             }
         };
-        self.pending.set(true);
+        self.mark_pending();
         if !accepted {
             self.proxy.stop(Box::new(|_| {}));
             Err(Code0DispatchError::Unavailable)
@@ -282,6 +880,10 @@ where
         }
     }
     fn settled(&self) -> TurnResult {
+        if self.terminal_advancing.get() {
+            self.mark_pending();
+            return TurnResult::Deferred;
+        }
         if self.in_turn.replace(true) {
             self.pending.set(true);
             return TurnResult::Deferred;
@@ -353,7 +955,10 @@ where
     let binding = NEXT_BINDING
         .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_add(1))
         .map_err(|_| Code0DispatchError::Unavailable)?;
-    let schedule = Arc::new(Schedule { binding, executor });
+    let schedule = Arc::new(Schedule {
+        binding,
+        executor: Arc::clone(&executor),
+    });
     let proxy = Code0Proxy::new(schedule, Code0Revision::new(0)?);
     let backend = Rc::new(RefCell::new((inputs.backend)(CallbackSink {
         binding,
@@ -385,6 +990,16 @@ where
         tick_ack: RefCell::new(None),
         in_turn: Cell::new(false),
         windows: RefCell::new(VecDeque::new()),
+        terminal_tick: RefCell::new(None),
+        terminal_operation: Cell::new(None),
+        terminal_join: RefCell::new(None),
+        terminal_executor: executor,
+        terminal_receive: RefCell::new(None),
+        terminal_obligation: RefCell::new(None),
+        terminal_phase: Cell::new(TerminalPhase::Running),
+        terminal_failure: Cell::new(None),
+        terminal_advancing: Cell::new(false),
+        terminal_epoch: Cell::new(0),
     });
     let record: Rc<dyn LocalRecord> = runtime.clone();
     REGISTRY.with(|slot| slot.borrow_mut().record = Some(record));
@@ -402,6 +1017,15 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::thread::{self, ThreadId};
     use std::time::Duration;
+
+    // Hold through the whole runtime test, including replacement and Drop.
+    static RUNTIME_TEST_LIFECYCLE: Mutex<()> = Mutex::new(());
+
+    fn runtime_test_lifecycle_guard() -> std::sync::MutexGuard<'static, ()> {
+        RUNTIME_TEST_LIFECYCLE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
 
     type ReplySlot = Arc<Mutex<Option<Result<Code0Reply, Code0DispatchError>>>>;
     fn slot() -> ReplySlot {
@@ -661,6 +1285,7 @@ mod tests {
     // Mutation: install/read/action admission acquires or creates instead of staying cold.
     #[test]
     fn cold_install_passive_read_and_production_action_are_inert() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         assert_eq!(passive_read(0), Err(Code0DispatchError::Unavailable));
         let f = Fixture::new();
         assert_eq!(f.view()["state"], "paused");
@@ -679,6 +1304,7 @@ mod tests {
     // RED: omitting the real settled dispatcher drain leaves the worker's accepted RPC unanswered.
     #[test]
     fn settled_worker_action_replies_on_the_ui_owner() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         let reply = slot();
         let output = Arc::clone(&reply);
@@ -710,6 +1336,7 @@ mod tests {
     // RED: a queued read must return the already committed view at a settled boundary.
     #[test]
     fn settled_read_replies_without_starting_native_work() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         let reply = slot();
         f.runtime.proxy.read(reply_to(&reply));
@@ -728,6 +1355,7 @@ mod tests {
     // RED: real controlled backend event callbacks enqueue, but only settled routing updates Session.
     #[test]
     fn window_event_and_poll_callbacks_reach_the_real_session() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         f.runtime
             .proxy
@@ -753,6 +1381,7 @@ mod tests {
     // Mutation: reserve after create drops its inline Released, including a failed-create return.
     #[test]
     fn failed_create_keeps_its_inline_released_reservation() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         {
             let mut s = f.backend.borrow_mut();
@@ -770,6 +1399,7 @@ mod tests {
     // Mutation: missing pre-clear reservation loses the actual backend's inline cleanup disposition.
     #[test]
     fn inline_cleanup_is_reserved_before_the_backend_call() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         f.backend.borrow_mut().cleanup_inline = true;
         f.runtime
@@ -830,6 +1460,7 @@ mod tests {
     // Mutation: lookup by reused label/current owner lets an old Send closure mark the replacement.
     #[test]
     fn stale_binding_cannot_mark_or_forward_to_a_replacement() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let old = Fixture::new();
         old.executor.hold.store(true, Ordering::SeqCst);
         Schedule {
@@ -858,6 +1489,7 @@ mod tests {
     // Mutation: inline schedule/nested settled entry drains or reborrows the active backend.
     #[test]
     fn nested_schedule_and_window_turn_are_deferred_without_reborrowing() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         let binding = f.runtime.binding;
         let proxy = f.runtime.proxy.clone();
@@ -878,6 +1510,7 @@ mod tests {
     // Mutation: treating scheduling failure as admission or physical release starts native work.
     #[test]
     fn scheduling_failure_returns_unavailable_without_forged_release() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let f = Fixture::new();
         let before = f.runtime.passive_view();
         f.executor.fail.store(true, Ordering::SeqCst);
@@ -896,6 +1529,7 @@ mod tests {
     // Mutation: dropping null revocation or invoking emitter/reply before commit hides removed authority.
     #[test]
     fn committed_null_revocation_is_emitted_before_the_action_reply() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
         let executor = Arc::new(Executor::new());
         let backend = Rc::new(RefCell::new(BackendState::default()));
         let store = Rc::new(RefCell::new(StoreState {
@@ -1015,6 +1649,7 @@ mod tests {
         // Mutation: no periodic executor post leaves an idle installed record unmarked.
         #[test]
         fn tick_idle_worker_posts_to_the_real_matching_record() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let ui = thread::current().id();
             let (executor, events) = TickExecutor::new(false);
@@ -1047,6 +1682,7 @@ mod tests {
         // Mutations: repeated unacknowledged posts grow work; missing actual UI ACK stalls rearm.
         #[test]
         fn tick_one_unacknowledged_job_coalesces_and_real_ui_ack_rearms() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let (executor, events) = TickExecutor::new(false);
             let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor.clone()));
@@ -1083,6 +1719,7 @@ mod tests {
         // Mutation: post errors are ignored, or a tight retry loop bypasses the250ms wait.
         #[test]
         fn tick_failed_post_sets_fault_and_waits_before_recovery() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let (executor, events) = TickExecutor::new(true);
             let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
@@ -1118,6 +1755,7 @@ mod tests {
         // Control: cancellation has a real independent thread exit, not an ACK/UI dependency.
         #[test]
         fn tick_cancel_interrupts_wait_and_transfers_one_real_join_handle() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let (executor, _) = TickExecutor::new(false);
             let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
@@ -1134,6 +1772,7 @@ mod tests {
         // Control: channel loss is observed by the worker and cannot certify cancellation.
         #[test]
         fn tick_control_channel_loss_is_not_a_cancelled_receipt() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let (executor, _) = TickExecutor::new(false);
             let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
@@ -1148,6 +1787,7 @@ mod tests {
         // Control: absent/wrong binding and duplicate attachment cannot replace a live ACK port.
         #[test]
         fn tick_attach_is_bound_once_and_retired_marks_leave_replacement_cold() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let (executor, _) = TickExecutor::new(false);
             let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor.clone()));
@@ -1173,6 +1813,7 @@ mod tests {
         // Control: no unattached or already-cancelled preparation can start a producer.
         #[test]
         fn tick_preparation_stays_cold_until_attached_and_start_is_one_way() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let f = Fixture::new();
             let (executor, _) = TickExecutor::new(false);
             let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor.clone()));
@@ -1597,6 +2238,7 @@ mod tests {
         // Mutation: a genuine worker ACK never queues the real dispatcher clock tick.
         #[test]
         fn pulse_reads_real_elapsed_299_then_admits_at_300() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(299_000);
@@ -1623,6 +2265,7 @@ mod tests {
         // Mutation: elapsed is frozen/synthetic, or a suspend gap creates catchup attempts.
         #[test]
         fn pulse_suspend_jump_admits_one_attempt_without_catchup() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(3_600_000);
@@ -1646,6 +2289,7 @@ mod tests {
         // Control: forward/backward wall jumps cannot replace elapsed admission or save again.
         #[test]
         fn wall_only_jumps_leave_elapsed299_active_and_snapshot_unchanged() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(299_000);
@@ -1672,6 +2316,7 @@ mod tests {
         // Mutation: the real worker never advances the original, unreset45s attempt expiry.
         #[test]
         fn pulse_expires_original_attempt_at_45_not_early() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(300_000);
@@ -1703,6 +2348,7 @@ mod tests {
         // Mutation: a sticky real post fault remains unobserved at the later settled UI turn.
         #[test]
         fn sticky_post_fault_fences_new_actions_after_recovered_ui_delivery() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(300_000);
@@ -1728,6 +2374,7 @@ mod tests {
         // Control: an ordinary settled turn must not manufacture a missing worker pulse.
         #[test]
         fn held_worker_job_does_not_admit_elapsed300_before_real_delivery() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(300_000);
@@ -1750,6 +2397,7 @@ mod tests {
         // Control: finish the cold old worker, then deliver its actual queued binding-only job.
         #[test]
         fn retired_worker_job_cannot_pulse_the_real_replacement_clock() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut old = PulseFixture::new();
             let old_job = old.wait_event();
             let old_join = old.finish();
@@ -1771,6 +2419,7 @@ mod tests {
         // Control: post failure must not disable normal polling of a retained matching release.
         #[test]
         fn sticky_fault_keeps_backend_poll_and_matching_released_delivery_live() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
             let mut f = PulseFixture::new();
             f.activate();
             f.elapsed.set(300_000);
@@ -1804,6 +2453,813 @@ mod tests {
             assert_eq!(creates, 2);
             assert_eq!(view["state"], "paused");
             assert!(matches!(read_reply, Some(Ok(Code0Reply::View(_)))));
+        }
+    }
+    // RED contract: the runtime, not fixture teardown, must own the terminal join.
+    mod terminal_join_tests {
+        use super::super::super::code0_tick::{TickExit, TickProducer};
+        use super::*;
+        use std::sync::mpsc::{self, Receiver, Sender};
+        use std::time::Instant;
+
+        const OBSERVE: Duration = Duration::from_millis(1250);
+        const GATE_LIMIT: Duration = Duration::from_secs(5);
+
+        struct TerminalExecutor {
+            ui: ThreadId,
+            jobs: Mutex<VecDeque<UiJob>>,
+            pulses: Sender<bool>,
+            completion_posts: Sender<ThreadId>,
+            completion_jobs: Mutex<VecDeque<UiJob>>,
+            gate: Mutex<Receiver<()>>,
+            release: Sender<()>,
+            hold_first: AtomicBool,
+            panic_worker: AtomicBool,
+            reject: AtomicBool,
+            gate_expired: AtomicBool,
+        }
+        impl TerminalExecutor {
+            fn new() -> (Arc<Self>, Receiver<bool>, Receiver<ThreadId>) {
+                let (pulses, events) = mpsc::channel();
+                let (completion_posts, completions) = mpsc::channel();
+                let (release, gate) = mpsc::channel();
+                (
+                    Arc::new(Self {
+                        ui: thread::current().id(),
+                        jobs: Mutex::new(VecDeque::new()),
+                        pulses,
+                        completion_posts,
+                        completion_jobs: Mutex::new(VecDeque::new()),
+                        gate: Mutex::new(gate),
+                        release,
+                        hold_first: AtomicBool::new(true),
+                        panic_worker: AtomicBool::new(false),
+                        reject: AtomicBool::new(false),
+                        gate_expired: AtomicBool::new(false),
+                    }),
+                    events,
+                    completions,
+                )
+            }
+            fn take_jobs(&self) -> VecDeque<UiJob> {
+                std::mem::take(&mut *self.jobs.lock().unwrap())
+            }
+            fn take_completion_jobs(&self) -> VecDeque<UiJob> {
+                std::mem::take(&mut *self.completion_jobs.lock().unwrap())
+            }
+            fn flush(&self) {
+                for job in self.take_jobs() {
+                    job();
+                }
+                for job in self.take_completion_jobs() {
+                    job();
+                }
+            }
+            fn open_gate(&self) {
+                let _ = self.release.send(());
+            }
+        }
+        impl MainThreadExecutor for TerminalExecutor {
+            fn post(&self, job: UiJob) -> Result<(), Code0DispatchError> {
+                let current = thread::current();
+                let worker = current.name() == Some("code0-tick");
+                let rejected = self.reject.load(Ordering::SeqCst);
+                if !rejected {
+                    if current.id() == self.ui {
+                        job();
+                    } else if worker {
+                        self.jobs.lock().unwrap().push_back(job);
+                    } else {
+                        // The only other background posts in this fixture are
+                        // the product join's actual completion delivery jobs.
+                        self.completion_jobs.lock().unwrap().push_back(job);
+                        let _ = self.completion_posts.send(current.id());
+                    }
+                }
+                if worker {
+                    let _ = self.pulses.send(rejected);
+                    if self.hold_first.swap(false, Ordering::SeqCst)
+                        && self.gate.lock().unwrap().recv_timeout(GATE_LIMIT).is_err()
+                    {
+                        self.gate_expired.store(true, Ordering::SeqCst);
+                    }
+                    assert!(
+                        !self.panic_worker.load(Ordering::SeqCst),
+                        "controlled actual tick executor panic"
+                    );
+                }
+                if rejected {
+                    Err(Code0DispatchError::Unavailable)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+        #[derive(Clone)]
+        struct TerminalClock(Rc<Cell<Duration>>);
+        impl Code0SessionClock for TerminalClock {
+            fn now(&self) -> Duration {
+                self.0.get()
+            }
+            fn wall_now(&self) -> String {
+                "2026-10-30T00:00:00Z".into()
+            }
+        }
+        struct TerminalBackendState {
+            native: NativeTerminalState,
+            held: bool,
+            current: Option<Code0WindowRequest>,
+            windows: VecDeque<(Code0WindowRequest, Code0WindowEvent)>,
+            cleanups: Vec<Code0CleanupRequest>,
+            results: VecDeque<(Code0CleanupRequest, Result<(), Code0SessionFailure>)>,
+            polls: usize,
+            closes: usize,
+            releases: usize,
+            delivery_failures: usize,
+        }
+        struct TerminalBackend {
+            callbacks: CallbackSink,
+            state: Rc<RefCell<TerminalBackendState>>,
+        }
+        impl Code0WindowDriving for TerminalBackend {
+            fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+                self.state.borrow_mut().held = true;
+                Ok(())
+            }
+            fn release_profile_lease(&mut self) {
+                self.state.borrow_mut().held = false;
+            }
+            fn create_unloaded(
+                &mut self,
+                request: Code0WindowRequest,
+            ) -> Result<(), Code0SessionFailure> {
+                self.state.borrow_mut().current = Some(request);
+                Ok(())
+            }
+            fn navigate(&mut self, _: &str) -> Result<(), Code0SessionFailure> {
+                Ok(())
+            }
+            fn close(&mut self, _: &str) {
+                self.state.borrow_mut().closes += 1;
+            }
+            fn clear_website_data(
+                &mut self,
+                request: Code0CleanupRequest,
+            ) -> Result<(), Code0SessionFailure> {
+                self.state.borrow_mut().cleanups.push(request);
+                Ok(())
+            }
+        }
+        impl UiBackend for TerminalBackend {
+            fn on_window_event(&mut self, _: &str, _: &tauri::WindowEvent) {}
+            fn poll_cleanup(&mut self) {
+                let (windows, results) = {
+                    let mut state = self.state.borrow_mut();
+                    state.polls += 1;
+                    (
+                        std::mem::take(&mut state.windows),
+                        std::mem::take(&mut state.results),
+                    )
+                };
+                for (request, event) in windows {
+                    if matches!(event, Code0WindowEvent::Released) {
+                        let mut state = self.state.borrow_mut();
+                        state.current = None;
+                        state.releases += 1;
+                    }
+                    if self.callbacks.window(request, event).is_err() {
+                        self.state.borrow_mut().delivery_failures += 1;
+                    }
+                }
+                for (request, result) in results {
+                    if self.callbacks.cleanup(request, result).is_err() {
+                        self.state.borrow_mut().delivery_failures += 1;
+                    }
+                }
+            }
+            fn terminal_state(&self) -> NativeTerminalState {
+                self.state.borrow().native
+            }
+        }
+        type TerminalRuntime = Runtime<TerminalClock, TerminalBackend, Store>;
+        struct CleanupEvidence {
+            thread: ThreadId,
+            worker: Option<TickExit>,
+            panicked: bool,
+        }
+        struct TerminalFixture {
+            runtime: Rc<TerminalRuntime>,
+            executor: Arc<TerminalExecutor>,
+            pulses: Receiver<bool>,
+            completion_posts: Receiver<ThreadId>,
+            backend: Rc<RefCell<TerminalBackendState>>,
+            elapsed: Rc<Cell<Duration>>,
+            escaped: Option<thread::JoinHandle<TickExit>>,
+            setup: bool,
+            requests_ok: Cell<bool>,
+            turns_settled: Cell<bool>,
+        }
+        impl TerminalFixture {
+            fn new() -> Self {
+                let (executor, pulses, completion_posts) = TerminalExecutor::new();
+                let backend = Rc::new(RefCell::new(TerminalBackendState {
+                    native: NativeTerminalState::Pending,
+                    held: false,
+                    current: None,
+                    windows: VecDeque::new(),
+                    cleanups: Vec::new(),
+                    results: VecDeque::new(),
+                    polls: 0,
+                    closes: 0,
+                    releases: 0,
+                    delivery_failures: 0,
+                }));
+                let elapsed = Rc::new(Cell::new(Duration::ZERO));
+                let state = backend.clone();
+                let runtime = install(
+                    executor.clone(),
+                    InstallInputs {
+                        clock: TerminalClock(elapsed.clone()),
+                        store: Store(Rc::new(RefCell::new(StoreState::default()))),
+                        backend: move |callbacks| TerminalBackend { callbacks, state },
+                        emit: Box::new(|_| {}),
+                    },
+                )
+                .unwrap(); // No worker exists before installation succeeds.
+                let mut producer = TickProducer::prepare(runtime.binding, executor.clone());
+                let attached = attach_tick(runtime.binding, producer.acknowledgement()).is_ok();
+                let started = producer.start().is_ok();
+                let adopted = runtime.adopt_tick(producer).is_ok();
+                Self {
+                    runtime,
+                    executor,
+                    pulses,
+                    completion_posts,
+                    backend,
+                    elapsed,
+                    escaped: None,
+                    setup: attached && started && adopted,
+                    requests_ok: Cell::new(true),
+                    turns_settled: Cell::new(true),
+                }
+            }
+            fn turn(&self) -> TurnResult {
+                let result = settled_turn(self.runtime.binding);
+                self.turns_settled
+                    .set(self.turns_settled.get() && result == TurnResult::Settled);
+                result
+            }
+            fn request(&self) -> bool {
+                let accepted = request_terminal(self.runtime.binding).is_ok();
+                self.requests_ok.set(self.requests_ok.get() && accepted);
+                accepted
+            }
+            fn claim(&self) -> bool {
+                self.runtime
+                    .take_terminal_permit()
+                    .is_some_and(|permit| self.runtime.consume_terminal_permit(permit))
+            }
+            fn joined(&self) -> Option<(u64, u64, Option<TickExit>, ThreadId)> {
+                self.runtime.terminal_join.borrow().as_ref().map(|receipt| {
+                    (
+                        receipt.binding,
+                        receipt.operation,
+                        receipt.result.as_ref().ok().copied(),
+                        receipt.thread,
+                    )
+                })
+            }
+            fn pump(&self) {
+                let deadline = Instant::now() + OBSERVE;
+                while Instant::now() < deadline && self.joined().is_none() {
+                    self.executor.flush();
+                    self.turn();
+                    thread::sleep(Duration::from_millis(2));
+                }
+                self.executor.flush();
+                self.turn();
+            }
+            fn positive_claims(&self) -> [bool; 2] {
+                let deadline = Instant::now() + OBSERVE;
+                loop {
+                    self.executor.flush();
+                    self.turn();
+                    let claimed = self.claim();
+                    if claimed || Instant::now() >= deadline {
+                        return [claimed, self.claim()];
+                    }
+                    thread::sleep(Duration::from_millis(2));
+                }
+            }
+            fn genuine_later_pulse(&self) -> bool {
+                let polls = self.backend.borrow().polls;
+                let pulse = self.pulses.recv_timeout(OBSERVE).ok();
+                self.executor.flush();
+                self.turn();
+                pulse == Some(false) && self.backend.borrow().polls > polls
+            }
+            fn view(&self) -> serde_json::Value {
+                serde_json::to_value(self.runtime.proxy.committed()).unwrap()
+            }
+            fn remove_record(&self) {
+                let retired = REGISTRY.with(|slot| {
+                    let mut slot = slot.borrow_mut();
+                    if slot
+                        .record
+                        .as_ref()
+                        .is_some_and(|r| r.binding() == self.runtime.binding)
+                    {
+                        slot.record.take()
+                    } else {
+                        None
+                    }
+                });
+                drop(retired);
+            }
+            // Fixture safety only. This never deposits a runtime receipt or permit.
+            fn cleanup(&mut self) -> CleanupEvidence {
+                self.executor.open_gate();
+                let producer = self.runtime.terminal_tick.borrow_mut().take();
+                let escaped = self.escaped.take();
+                thread::scope(|scope| {
+                    scope
+                        .spawn(move || {
+                            let mut producer = producer;
+                            if let Some(producer) = producer.as_ref() {
+                                producer.cancel();
+                            }
+                            let handle = escaped
+                                .or_else(|| producer.as_mut().and_then(TickProducer::take_join));
+                            let result = handle.map(|handle| handle.join());
+                            CleanupEvidence {
+                                thread: thread::current().id(),
+                                worker: result
+                                    .as_ref()
+                                    .and_then(|result| result.as_ref().ok())
+                                    .copied(),
+                                panicked: result.is_some_and(|result| result.is_err()),
+                            }
+                        })
+                        .join()
+                        .unwrap()
+                })
+            }
+        }
+        impl Drop for TerminalFixture {
+            fn drop(&mut self) {
+                let _ = self.cleanup();
+                self.remove_record();
+            }
+        }
+        fn scoped<T>(
+            body: impl FnOnce(&mut TerminalFixture) -> T,
+        ) -> (T, CleanupEvidence, bool, bool) {
+            let mut fixture = TerminalFixture::new();
+            let observed = body(&mut fixture);
+            let cleanup = fixture.cleanup();
+            let setup = fixture.setup
+                && fixture.requests_ok.get()
+                && fixture.turns_settled.get()
+                && fixture.backend.borrow().delivery_failures == 0;
+            let gate_expired = fixture.executor.gate_expired.load(Ordering::SeqCst);
+            fixture.remove_record();
+            (observed, cleanup, setup, gate_expired)
+        }
+        fn check_cleanup(cleanup: &CleanupEvidence, setup: bool, gate_expired: bool) {
+            assert!(setup, "terminal fixture failed real attach/start/adopt");
+            assert!(
+                !gate_expired,
+                "terminal path blocked UI until the safety gate expired"
+            );
+            assert_ne!(
+                cleanup.thread,
+                thread::current().id(),
+                "fixture actual worker join ran on UI"
+            );
+        }
+
+        // Mutation: cancel/join blocks UI, grants before worker return, or never grants after real join.
+        #[test]
+        fn terminal_join_waits_for_real_worker_and_ui_keeps_progressing() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
+            let (
+                (first, requested, turn, elapsed, reply, early, joined, claims, key),
+                cleanup,
+                setup,
+                expired,
+            ) = scoped(|f| {
+                let first = f.pulses.recv_timeout(OBSERVE).ok();
+                f.executor.flush(); // Real tick binding job ACK while worker post remains held.
+                f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                let start = Instant::now();
+                let requested = f.request();
+                let turn = f.turn();
+                let read = slot();
+                f.runtime.proxy.read(reply_to(&read));
+                f.turn();
+                let elapsed = start.elapsed();
+                let reply = read.lock().unwrap().clone();
+                let early = f.claim();
+                let key = f.runtime.terminal_operation.get();
+                f.executor.open_gate();
+                f.pump();
+                let joined = f.joined();
+                let claims = f.positive_claims();
+                (
+                    first, requested, turn, elapsed, reply, early, joined, claims, key,
+                )
+            });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false), "no genuine held worker submission");
+            assert!(requested);
+            assert_eq!(turn, TurnResult::Settled);
+            assert!(
+                elapsed < OBSERVE,
+                "terminal call blocked the UI worker gate"
+            );
+            assert!(
+                matches!(reply, Some(Ok(Code0Reply::View(_)))),
+                "held join starved actual queued read"
+            );
+            assert!(!early, "held actual worker allowed early permission");
+            assert_eq!(
+                claims,
+                [true, false],
+                "TJ-R1 actual joined terminal operation must yield one consumed permit"
+            );
+            assert!(
+                joined.is_some_and(|(_, operation, result, on)| Some(operation) == key
+                    && result == Some(TickExit::Cancelled)
+                    && on != thread::current().id()),
+                "terminal permit lacked actual off-UI Cancelled join evidence"
+            );
+            assert!(
+                cleanup.worker.is_none(),
+                "fixture teardown, rather than runtime, still owned the join"
+            );
+        }
+
+        // Mutation: Stop/physical zero cancels polling before matching reserved Released is consumed.
+        #[test]
+        fn terminal_retains_poll_until_matching_release() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
+            let ((first, held, pulse, same_key, released, claims, joined), cleanup, setup, expired) =
+                scoped(|f| {
+                    let first = f.pulses.recv_timeout(OBSERVE).ok();
+                    f.executor.flush();
+                    f.runtime
+                        .proxy
+                        .action(Code0Action::SyncNow, Box::new(|_| {}));
+                    f.turn();
+                    let request = f.backend.borrow().current.clone();
+                    let _ = f.request();
+                    f.turn();
+                    let key = f.runtime.terminal_operation.get();
+                    let polls = f.backend.borrow().polls;
+                    let held = f.view()["state"] == "closing" && !f.claim() && f.joined().is_none();
+                    f.executor.open_gate();
+                    let pulse = f.pulses.recv_timeout(OBSERVE).ok();
+                    f.executor.flush();
+                    f.turn();
+                    let pulse = pulse == Some(false)
+                        && f.backend.borrow().polls > polls
+                        && f.joined().is_none();
+                    for _ in 0..8 {
+                        let _ = f.request();
+                    }
+                    let same_key = key.is_some() && f.runtime.terminal_operation.get() == key;
+                    if let Some(request) = request {
+                        let mut state = f.backend.borrow_mut();
+                        state
+                            .windows
+                            .push_back((request, Code0WindowEvent::Released));
+                        state.native = NativeTerminalState::Quiescent;
+                    }
+                    f.turn();
+                    f.pump();
+                    let released =
+                        f.backend.borrow().releases == 1 && f.view()["state"] == "paused";
+                    (
+                        first,
+                        held,
+                        pulse,
+                        same_key,
+                        released,
+                        f.positive_claims(),
+                        f.joined(),
+                    )
+                });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false));
+            assert!(
+                held,
+                "Stop retired an owned Session before matching Released"
+            );
+            assert!(pulse, "held owner stopped genuine worker polling");
+            assert!(
+                same_key,
+                "duplicate terminal requests replaced the operation"
+            );
+            assert!(
+                released,
+                "matching reserved Released did not settle real Session"
+            );
+            assert_eq!(
+                claims,
+                [true, false],
+                "TJ-R2 matching release must permit one runtime-owned joined terminal operation"
+            );
+            assert!(
+                joined.is_some_and(|(_, _, exit, on)| exit == Some(TickExit::Cancelled)
+                    && on != thread::current().id())
+            );
+            assert!(cleanup.worker.is_none());
+        }
+
+        // Controls: real failed/expired cleanup, retained work, native unknown and worker faults stay unsafe.
+        #[test]
+        fn terminal_failed_cleanup_and_retained_work_never_permit() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
+            for expire in [false, true] {
+                let ((first, pending, progress, denied), cleanup, setup, expired) = scoped(|f| {
+                    let first = f.pulses.recv_timeout(OBSERVE).ok();
+                    f.executor.flush();
+                    f.runtime
+                        .proxy
+                        .action(Code0Action::Disconnect, Box::new(|_| {}));
+                    f.turn();
+                    let request = f.backend.borrow().cleanups.first().cloned();
+                    if expire {
+                        f.elapsed.set(Duration::from_secs(10));
+                        let _ = f.runtime.proxy.tick(f.runtime.binding, f.runtime.binding);
+                    } else if let Some(request) = request.clone() {
+                        f.backend
+                            .borrow_mut()
+                            .results
+                            .push_back((request, Err(Code0SessionFailure::CleanupFailed)));
+                    }
+                    let _ = f.request();
+                    f.turn();
+                    f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                    f.turn();
+                    f.executor.open_gate();
+                    let progress = f.genuine_later_pulse();
+                    let failed = request.is_some()
+                        && f.view()["state"] == "cleanupPending"
+                        && f.view()["failure"] == "cleanupFailed";
+                    (first, failed, progress, !f.claim() && f.joined().is_none())
+                });
+                check_cleanup(&cleanup, setup, expired);
+                assert_eq!(first, Some(false));
+                assert!(pending, "real failed/expired cleanup was healed");
+                assert!(
+                    progress,
+                    "failed/expired cleanup cancelled the genuine worker or starved backend polls"
+                );
+                assert!(denied, "cleanup failure allowed terminal permission");
+                assert_eq!(cleanup.worker, Some(TickExit::Cancelled));
+            }
+            let (
+                (first, unknown, progress, retained, after_partial, stopped),
+                cleanup,
+                setup,
+                expired,
+            ) = scoped(|f| {
+                let first = f.pulses.recv_timeout(OBSERVE).ok();
+                f.executor.flush();
+                let _ = f.request();
+                f.turn();
+                f.executor.open_gate();
+                let progress = f.genuine_later_pulse();
+                let unknown = !f.backend.borrow().held
+                    && f.backend.borrow().native == NativeTerminalState::Pending
+                    && !f.claim()
+                    && f.joined().is_none();
+                f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                let binding = f.runtime.binding;
+                let callback = Arc::new(Mutex::new(None));
+                let observed = callback.clone();
+                f.runtime.proxy.stop(Box::new(move |reply| {
+                    let record = lookup(binding);
+                    *observed.lock().unwrap() =
+                        Some(matches!(reply, Ok(Code0Reply::Stopped)) && record.is_some());
+                    let _ = window_event(binding, "retained".into(), tauri::WindowEvent::Destroyed);
+                }));
+                let retained = !f.runtime.dispatcher.terminal_prerequisites_met() && !f.claim();
+                f.turn();
+                let after_partial = f.runtime.pending.get() && !f.claim() && f.joined().is_none();
+                let stopped = *callback.lock().unwrap();
+                (first, unknown, progress, retained, after_partial, stopped)
+            });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false));
+            assert!(
+                unknown,
+                "is_held=false substituted for explicit native quiescence"
+            );
+            assert!(
+                progress,
+                "unknown native state cancelled the genuine worker or starved backend polls"
+            );
+            assert!(
+                retained && after_partial,
+                "queued work or partial drain granted permission"
+            );
+            assert_eq!(
+                stopped,
+                Some(true),
+                "Stopped callback retired registry prematurely"
+            );
+            assert_eq!(cleanup.worker, Some(TickExit::Cancelled));
+
+            for fault in ["control-lost", "panic", "delivery"] {
+                let ((first, denied, actual_fault, joined, join_panicked), cleanup, setup, expired) =
+                    scoped(|f| {
+                        let first = f.pulses.recv_timeout(OBSERVE).ok();
+                        f.executor.flush();
+                        match fault {
+                            "control-lost" => {
+                                f.escaped = f
+                                    .runtime
+                                    .terminal_tick
+                                    .borrow_mut()
+                                    .as_mut()
+                                    .and_then(TickProducer::take_join);
+                            }
+                            "panic" => f.executor.panic_worker.store(true, Ordering::SeqCst),
+                            _ => f.executor.reject.store(true, Ordering::SeqCst),
+                        }
+                        let _ = f.request();
+                        f.turn();
+                        f.executor.open_gate();
+                        let actual_fault = if fault == "delivery" {
+                            let rejected = f.pulses.recv_timeout(OBSERVE).ok() == Some(true);
+                            let deadline = Instant::now() + OBSERVE;
+                            while Instant::now() < deadline
+                                && !f
+                                    .runtime
+                                    .tick_ack
+                                    .borrow()
+                                    .as_ref()
+                                    .is_some_and(|ack| ack.faulted())
+                            {
+                                thread::sleep(Duration::from_millis(2));
+                            }
+                            rejected
+                                && f.runtime
+                                    .tick_ack
+                                    .borrow()
+                                    .as_ref()
+                                    .is_some_and(|ack| ack.faulted())
+                        } else {
+                            true // Actual ControlLost/panic outcome is asserted after off-UI teardown below.
+                        };
+                        f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                        f.pump();
+                        let joined = f.joined();
+                        let join_panicked = f
+                            .runtime
+                            .terminal_join
+                            .borrow()
+                            .as_ref()
+                            .is_some_and(|receipt| receipt.result.is_err());
+                        (first, !f.claim(), actual_fault, joined, join_panicked)
+                    });
+                check_cleanup(&cleanup, setup, expired);
+                assert_eq!(first, Some(false));
+                assert!(
+                    denied && actual_fault,
+                    "real worker fault allowed a terminal permit: {fault}"
+                );
+                let actual_exit = joined.and_then(|(_, _, exit, _)| exit).or(cleanup.worker);
+                match fault {
+                    "control-lost" => assert_eq!(actual_exit, Some(TickExit::ControlLost)),
+                    "panic" => assert!(
+                        join_panicked || cleanup.panicked,
+                        "worker did not actually panic"
+                    ),
+                    _ => assert_eq!(actual_exit, Some(TickExit::Cancelled)),
+                }
+            }
+        }
+
+        // Mutation: a receipt bypasses fresh queue/current-binding checks or old jobs affect replacement.
+        #[test]
+        fn terminal_join_receipt_rechecks_current_record() {
+            let _runtime_lifecycle = runtime_test_lifecycle_guard();
+            let (
+                (first, handoff, completion, during, partial, claims, joined, stale_safe),
+                cleanup,
+                setup,
+                expired,
+            ) = scoped(|f| {
+                let first = f.pulses.recv_timeout(OBSERVE).ok();
+                let mut old_jobs = f.executor.take_jobs(); // Genuine original tick binding job.
+                f.backend.borrow_mut().native = NativeTerminalState::Quiescent;
+                let _ = f.request();
+                f.turn();
+                // This observes actual producer ownership, never a joined flag.
+                // The inert RED seam must fail this immediate behavioral endpoint;
+                // a timeout after a real handoff is a separate setup failure.
+                let handoff = f.runtime.terminal_tick.borrow().is_none();
+                if !handoff {
+                    return (
+                        first,
+                        handoff,
+                        None,
+                        false,
+                        false,
+                        [f.claim(), f.claim()],
+                        f.joined(),
+                        false,
+                    );
+                }
+                f.executor.open_gate();
+                // Do not run settled turns while waiting. The executor retains
+                // the genuine product completion job before any UI execution.
+                let completion = f.completion_posts.recv_timeout(OBSERVE).ok();
+                let completion_jobs = f.executor.take_completion_jobs();
+                let completion = completion
+                    .filter(|on| *on != thread::current().id() && completion_jobs.len() == 1);
+                old_jobs.extend(completion_jobs);
+                let binding = f.runtime.binding;
+                let read = slot();
+                let output = read.clone();
+                f.runtime.proxy.read(Box::new(move |reply| {
+                    *output.lock().unwrap() = Some(reply);
+                    let _ =
+                        window_event(binding, "during-join".into(), tauri::WindowEvent::Destroyed);
+                }));
+                let during = !f.claim() && !f.runtime.dispatcher.terminal_prerequisites_met();
+                // Fixed transport deposits real outcome DATA before posting its
+                // binding mark. The mailbox is ready while this FnOnce mark is
+                // withheld; no mark delivery is claimed. This direct settled poll
+                // consumes actual receipt DATA after the read callback leaves
+                // window work beyond this turn's original window snapshot.
+                f.turn();
+                let receipt = f.joined();
+                let partial = receipt.is_some_and(|(seen_binding, operation, result, on)| {
+                    seen_binding == binding
+                        && Some(operation) == f.runtime.terminal_operation.get()
+                        && result == Some(TickExit::Cancelled)
+                        && on != thread::current().id()
+                }) && f.runtime.pending.get()
+                    && !f.runtime.windows.borrow().is_empty()
+                    && !f.claim()
+                    && matches!(*read.lock().unwrap(), Some(Ok(Code0Reply::View(_))));
+                // Only now consume the real retained window work truthfully.
+                f.turn();
+                let joined = f.joined();
+                let claims = f.positive_claims();
+                let stale_safe =
+                    if claims == [true, false] && joined.is_some() && old_jobs.len() >= 2 {
+                        // Only actual product completion can enter retirement.
+                        f.remove_record();
+                        let replacement = Fixture::new();
+                        for job in old_jobs {
+                            job();
+                        }
+                        let safe = !replacement.runtime.pending.get()
+                            && replacement.backend.borrow().calls.is_empty()
+                            && request_terminal(binding) == Err(Code0DispatchError::Unavailable)
+                            && replacement.view()["state"] == "paused";
+                        replacement.remove_record();
+                        safe
+                    } else {
+                        false
+                    };
+                (
+                    first, handoff, completion, during, partial, claims, joined, stale_safe,
+                )
+            });
+            check_cleanup(&cleanup, setup, expired);
+            assert_eq!(first, Some(false));
+            assert!(
+                handoff,
+                "TJ-R4 terminal join must transfer the actual worker into a retained completion obligation"
+            );
+            assert!(
+                completion.is_some(),
+                "terminal fixture lacked a genuine completion post after actual worker handoff"
+            );
+            assert!(
+                during && partial,
+                "receipt bypassed actual retained work/partial settlement"
+            );
+            assert_eq!(
+                claims,
+                [true, false],
+                "TJ-R4 current record must recheck receipt then yield one consumed permit after truthful settlement"
+            );
+            assert!(
+                joined.is_some_and(|(_, _, result, on)| result == Some(TickExit::Cancelled)
+                    && on != thread::current().id())
+            );
+            assert!(
+                stale_safe,
+                "actual retired operation jobs marked/polled/acted on replacement"
+            );
+            assert!(cleanup.worker.is_none());
         }
     }
 }

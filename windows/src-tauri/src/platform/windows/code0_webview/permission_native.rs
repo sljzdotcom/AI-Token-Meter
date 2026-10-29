@@ -1126,6 +1126,7 @@ impl State {
         self.facts.observations.blank_branch = status.blank_branch.map(|b| match b {
             semantic::BlankBranch::ZeroObserved => "ZeroObserved",
             semantic::BlankBranch::Observed => "Observed",
+            semantic::BlankBranch::ObservedInitialStopOnly => "ObservedInitialStopOnly",
         });
         self.facts.commands.obligations = Some(u16::from(status.obligations));
         self.facts.commands.handlers = Some(u16::from(status.command_handlers));
@@ -4449,7 +4450,10 @@ impl Facts {
             && cmd.obligations == Some(0)
             && cmd.handlers == Some(0)
             && cmd.in_flight == Some(0)
-            && matches!(obs.blank_branch, Some("ZeroObserved" | "Observed"))
+            && matches!(
+                obs.blank_branch,
+                Some("ZeroObserved" | "Observed" | "ObservedInitialStopOnly")
+            )
             && (4..=16).contains(&obs.bootstrap_deliveries)
             && obs.post_arm_pre_cutoff == 0
             && !obs.counter_overflow

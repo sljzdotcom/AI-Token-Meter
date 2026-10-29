@@ -141,6 +141,12 @@ def positive(branch='ZeroObserved'):
         data['permission']['observations'].update(
             bootstrapDeliveries=6, deliveries=6,
             byReceiver=[2, 1, 0, 0, 0, 1, 0, 0, 1, 1])
+    elif branch == 'ObservedInitialStopOnly':
+        # Literal synthetic history: BContext+Stop, real B destroy, selected full pair.
+        # Its false/true initial flags are proven by Protocol tests, not this DATA.
+        data['permission']['observations'].update(
+            bootstrapDeliveries=7, deliveries=7,
+            byReceiver=[2, 1, 0, 0, 0, 1, 0, 0, 1, 2])
     return data
 
 
@@ -535,6 +541,60 @@ class PermissionDataChecks(unittest.TestCase):
                 data = changed(positive(), ('permission', 'counts', key), 2)
                 self.assertIs(data['pass'], True)
                 self.reject(data)
+
+
+    # Mutation: a broad Observed* match or a preferred old branch hides the new closed variant.
+    def test_stop_only_closed_branch_and_realistic_synthetic_histories(self):
+        data = positive('ObservedInitialStopOnly')
+        self.accept(data)
+        self.assertEqual(data['permission']['observations']['byReceiver'],
+                         [2, 1, 0, 0, 0, 1, 0, 0, 1, 2])
+        # Same finite input history, optional BFrame and actual preselected clear.
+        # These are literal DATA histories, never a claim that native events ran.
+        data['permission']['observations'].update(
+            bootstrapDeliveries=8, deliveries=8,
+            byReceiver=[2, 0, 1, 0, 0, 2, 0, 0, 1, 2])
+        self.accept(data)
+        for branch in (None, True, 'ObservedInitial', 'ObservedInitialStopOnlyX',
+                       'ObservedInitialStartOnly', 'Observed*', ''):
+            self.reject(changed(data, ('permission', 'observations', 'blankBranch'), branch))
+        data['permission']['observations']['initialLoadMask'] = 2
+        self.reject(data)
+
+    # Mutation: recognizing this literal bypasses any existing native/effect/cleanup fact.
+    def test_stop_only_still_requires_every_existing_positive_leaf(self):
+        base = positive('ObservedInitialStopOnly')
+        self.accept(base)
+        for path, value in nodes(base):
+            if type(value) in (dict, list) or value is None:
+                continue
+            with self.subTest(path=path, mutation='missing'):
+                self.reject(changed(base, path, None))
+            if type(value) is bool:
+                self.reject(changed(base, path, not value))
+                self.reject(changed(base, path, int(value)))
+        for key in ('permissionEntries', 'denyAttempts', 'denySuccesses',
+                    'actionReceipts', 'effectReceipts', 'sessionPolicyFailures',
+                    'finalReceipts'):
+            bad = changed(base, ('permission', 'counts', key), 0)
+            self.assertIs(bad['pass'], True)
+            self.reject(bad)
+        self.reject(base, {**exit_canary(), 'exitCode': 1})
+
+    # Mutation: the new literal substitutes for actual navigation/target/effect evidence.
+    def test_stop_only_literal_never_substitutes_missing_navigation_target_or_effect(self):
+        base = positive('ObservedInitialStopOnly')
+        for key in ('navigation', 'permissionEntries', 'effectReceipts'):
+            bad = changed(base, ('permission', 'counts', key), 0)
+            self.assertIs(bad['pass'], True)
+            # Prove a legal bounded shape reaches the strict positive predicate.
+            subject.check_shape(bad, exit_canary(), 'canary')
+            self.reject(bad)
+        for key in ('navigationSucceeded', 'nativeQualified', 'effectQualified'):
+            bad = changed(base, ('permission', 'status', key), None)
+            self.assertIs(bad['pass'], True)
+            subject.check_shape(bad, exit_canary(), 'canary')
+            self.reject(bad)
 
 
 if __name__ == '__main__':

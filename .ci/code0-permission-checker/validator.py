@@ -191,7 +191,7 @@ SUMMARY = {
                      **fields(('obligations', 'handlers'), ('inventory', 4)),
                      'inFlight': ('inventory', 1)},
         'observations': {
-            'blankBranch': ('enum', (None, 'ZeroObserved', 'Observed')),
+            'blankBranch': ('enum', (None, 'ZeroObserved', 'Observed', 'ObservedInitialStopOnly')),
             **fields(('bootstrapDeliveries', 'disposalDeliveries', 'deliveries',
                       'postArmPreCutoff'), S16),
             'byReceiver': ('array', 10, S16), 'counterOverflow': B,
@@ -393,7 +393,7 @@ def validate(data, exit_data, run_id):
             and cmd['obligations'] == cmd['handlers'] == cmd['inFlight'] == 0,
             'missing fixed command invocation/disposition/handler drain')
     obs = p['observations']
-    require(obs['blankBranch'] in ('ZeroObserved', 'Observed')
+    require(obs['blankBranch'] in ('ZeroObserved', 'Observed', 'ObservedInitialStopOnly')
             and 4 <= obs['bootstrapDeliveries'] <= 16
             and obs['postArmPreCutoff'] == 0 and obs['counterOverflow'] is False,
             'missing closed blank/lifecycle assembly')
