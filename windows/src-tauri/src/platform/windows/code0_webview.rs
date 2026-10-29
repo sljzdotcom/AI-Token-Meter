@@ -18743,7 +18743,7 @@ pub mod fixture {
 
     pub enum NativeSmokeObservation {
         #[cfg(windows)]
-        Http401(NativeHttp401Receipt),
+        Http401(Box<NativeHttp401Receipt>),
         #[cfg(windows)]
         Http401Closing {
             at: std::time::Instant,

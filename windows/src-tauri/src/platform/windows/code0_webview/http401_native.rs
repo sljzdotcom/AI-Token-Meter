@@ -695,7 +695,7 @@ fn emit(owner: &Rc<RefCell<Owner>>) {
     };
     if let Some((observer, receipt)) = notification {
         observer(super::super::fixture::NativeSmokeObservation::Http401(
-            receipt,
+            Box::new(receipt),
         ));
     }
 }

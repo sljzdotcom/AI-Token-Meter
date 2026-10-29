@@ -3760,7 +3760,7 @@ mod smoke {
                                     .http401
                                     .as_mut()
                                     .unwrap()
-                                    .observe(receipt, &request, started)
+                                    .observe(*receipt, &request, started)
                             });
                         if !valid && state.failure == "notCompleted" {
                             state.failure = "http401Binding";
