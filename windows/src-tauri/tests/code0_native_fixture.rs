@@ -23,10 +23,11 @@ mod smoke {
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
             NativeChildCompletionReceipt, NativeChildFinalReceipt, NativeChildRefusalFacts,
             NativeChildRefusalReceipt, NativeChildSubmissionReceipt, NativeDialogDeadline,
-            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeRefusalInstallReceipt,
-            NativeSmokeObservation, NativeTopRefusalFacts, NativeTopRefusalReceipt,
-            NativeTopSubmissionReceipt, PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
-            StaleDispositionReceipt, StaleDispositionStage,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeRefusalDeadline,
+            NativeRefusalInstallReceipt, NativeSmokeObservation, NativeTopRefusalFacts,
+            NativeTopRefusalReceipt, NativeTopSubmissionReceipt, PolicyFaultReceipt,
+            PolicyFixtureCase, PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
+            adopt_legacy_native_close,
         },
     };
     use serde::Serialize;
@@ -307,7 +308,7 @@ mod smoke {
                 });
             self.stimulus_kind = "ownedFileTopNavigation";
             self.native_submit_ok = matched && receipt.native_submit_ok();
-            self.submissions == 1 && self.native_submit_ok
+            self.submissions == 1 && self.native_submit_ok && receipt.original_attempt_timely()
         }
         fn observe(
             &mut self,
@@ -429,7 +430,10 @@ mod smoke {
                     .is_some_and(|i| i.installed_mask() == 1023 && !i.load_rejected());
             self.stimulus_kind = "initialBlankFixedDataChild";
             self.native_submit_ok = matched && r.native_submit_ok();
-            self.submissions == 1 && self.initial_source_matched && self.native_submit_ok
+            self.submissions == 1
+                && self.initial_source_matched
+                && self.native_submit_ok
+                && r.original_attempt_timely()
         }
         fn observe(&mut self, r: NativeChildRefusalReceipt, request: &Code0WindowRequest) -> bool {
             self.target_receipts = self.target_receipts.saturating_add(1);
@@ -1893,7 +1897,18 @@ mod smoke {
         closing_since: &mut Option<Instant>,
         at: Option<Instant>,
         diagnostics: &Diagnostics,
+        legacy_selected: bool,
     ) {
+        if legacy_selected {
+            if let Some(closing) = adopt_legacy_native_close(closing_since, at) {
+                diagnostics.close_budget_started(closing);
+                diagnostics.phase(DP::CloseRequest, false);
+                driver.close(instance);
+                diagnostics.phase(DP::CloseRequest, true);
+                diagnostics.observed(DM::CloseRequested);
+            }
+            return;
+        }
         if closing_since.is_none()
             && let Some(closing) = at
         {
@@ -2057,12 +2072,12 @@ mod smoke {
                 observer_child_close.set(Some(*at));
             }
             if top_selected
-                && matches!(&event, NativeSmokeObservation::TopRefusal(_))
+                && let NativeSmokeObservation::TopClosing { at } = &event
                 && observer_top_close.get().is_none()
             {
                 // The real Context has already revoked this native instance.
                 // UI-local timestamp only, outside Owner/summary/queue borrows.
-                observer_top_close.set(Some(Instant::now()));
+                observer_top_close.set(Some(*at));
             }
             if let NativeSmokeObservation::WindowConstructed { window } = event {
                 // This receipt is synchronous at actual bare construction, before
@@ -2151,6 +2166,12 @@ mod smoke {
         // construct a newer 45-second authorization window.
         let mut dialog_deadline = if dialog_selected {
             NativeDialogDeadline::from_attempt_started(started)
+        } else {
+            None
+        };
+        // N1/N2 move exactly this original absolute clock once at submission.
+        let mut legacy_deadline = if top_selected || child_selected {
+            NativeRefusalDeadline::from_attempt_started(started)
         } else {
             None
         };
@@ -2272,6 +2293,7 @@ mod smoke {
                     native_top_close.get()
                 },
                 &ui_diagnostics,
+                top_selected || child_selected,
             );
             ui_diagnostics.phase(DP::Poll, false);
             driver.poll_cleanup();
@@ -2289,6 +2311,7 @@ mod smoke {
                     native_top_close.get()
                 },
                 &ui_diagnostics,
+                top_selected || child_selected,
             );
             ui_diagnostics.phase(DP::SummaryLock, false);
             let mut state = observed.lock().unwrap();
@@ -2429,7 +2452,13 @@ mod smoke {
                                         && valid_inventory
                                         && !rejected
                                     {
-                                        Some(driver.navigate_fixture_top_owned_file(&request))
+                                        Some(match legacy_deadline.take() {
+                                            Some(deadline) => driver
+                                                .navigate_fixture_top_owned_file(
+                                                    &request, deadline,
+                                                ),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        })
                                     } else {
                                         None
                                     };
@@ -2438,7 +2467,13 @@ mod smoke {
                                         && valid_inventory
                                         && !rejected
                                     {
-                                        Some(driver.submit_fixture_child_initial_data(&request))
+                                        Some(match legacy_deadline.take() {
+                                            Some(deadline) => driver
+                                                .submit_fixture_child_initial_data(
+                                                    &request, deadline,
+                                                ),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        })
                                     } else {
                                         None
                                     };
@@ -2447,6 +2482,8 @@ mod smoke {
                                         let mut install = policy.lock().unwrap();
                                         match result {
                                             Ok(receipt) => {
+                                                let original_timely =
+                                                    receipt.original_attempt_timely();
                                                 if !install
                                                     .child_refusal
                                                     .as_mut()
@@ -2454,7 +2491,11 @@ mod smoke {
                                                     .submission(receipt, &request)
                                                 {
                                                     child_submission_failure =
-                                                        Some("childNativeSubmissionFailed");
+                                                        Some(if !original_timely {
+                                                            "childOriginalAttemptExpired"
+                                                        } else {
+                                                            "childNativeSubmissionFailed"
+                                                        });
                                                 }
                                                 install
                                                     .native_refusal
@@ -2473,10 +2514,14 @@ mod smoke {
                                         let mut install = policy.lock().unwrap();
                                         match result {
                                             Ok(receipt) => {
+                                                let original_timely =
+                                                    receipt.original_attempt_timely();
                                                 let top = install.top_refusal.as_mut().unwrap();
                                                 if !top.submission(receipt, &request) {
                                                     top_submission_failure =
-                                                        Some(if !top.asset_binding_validated {
+                                                        Some(if !original_timely {
+                                                            "topOriginalAttemptExpired"
+                                                        } else if !top.asset_binding_validated {
                                                             "topSubmissionReceiptInvalid"
                                                         } else {
                                                             "topNativeSubmissionFailed"
@@ -2589,6 +2634,16 @@ mod smoke {
                             });
                         if !valid {
                             state.failure = "dialogNativeReceiptInvalid";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::TopClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !top_selected {
+                            state.failure = "unexpectedTopClosing";
                         }
                     }
                     Observation::Native(

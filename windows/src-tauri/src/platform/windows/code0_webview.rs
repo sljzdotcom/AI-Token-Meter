@@ -1769,16 +1769,18 @@ mod native {
         owner: &Rc<RefCell<Owner>>,
         request: &Code0WindowRequest,
         owned_root: &Path,
+        deadline: super::fixture::NativeRefusalDeadline,
     ) -> Result<super::fixture::NativeTopSubmissionReceipt, Code0SessionFailure> {
-        s2::navigate_top_owned_file(owner, request, owned_root)
+        s2::navigate_top_owned_file(owner, request, owned_root, deadline)
     }
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     pub(super) fn submit_child_initial_data(
         owner: &Rc<RefCell<Owner>>,
         request: &Code0WindowRequest,
+        deadline: super::fixture::NativeRefusalDeadline,
     ) -> Result<super::fixture::NativeChildSubmissionReceipt, Code0SessionFailure> {
-        s2::submit_child_initial_data(owner, request)
+        s2::submit_child_initial_data(owner, request, deadline)
     }
 
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1806,11 +1808,13 @@ mod native {
         use windows::core::BOOL;
 
         use std::sync::Mutex;
-        use std::time::{Duration, Instant};
+        use std::time::Instant;
 
         const GENERATION: u64 = 1;
         use super::super::fixture::{
-            NativeDialogDeadline, NativeDialogFacts, NativeDialogReceipt, NativeDialogStage,
+            LegacyChildClose, LegacyCompletionInput, LegacyRefusalEvent, NativeDialogDeadline,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeRefusalDeadline,
+            legacy_completion_disposition_at,
         };
         const DIALOG_LEAF: &str = "code0-s2-dialog-empty.html";
         const DIALOG_MESSAGE: &str = "code0-native-dialog-refusal-v1";
@@ -1845,6 +1849,7 @@ mod native {
             entries: Vec<Registration>,
             // Finite N1 reservation only; never a production load permission.
             top_target: Option<String>,
+            legacy: Option<LegacyState>,
             child: Option<ChildState>,
             dialog: Option<DialogState>,
             dialog_completed: Option<DialogRegistration>,
@@ -1861,6 +1866,7 @@ mod native {
                     settings: None,
                     entries: Vec::new(),
                     top_target: None,
+                    legacy: None,
                     child: None,
                     dialog: None,
                     dialog_completed: None,
@@ -1899,6 +1905,178 @@ mod native {
             _settings: Option<Rc<ICoreWebView2Settings>>,
             _entries: Vec<Registration>,
             _dialog_completed: Option<DialogRegistration>,
+        }
+
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum LegacyKind {
+            Top,
+            Child,
+        }
+        struct LegacyState {
+            kind: LegacyKind,
+            deadline: Rc<NativeRefusalDeadline>,
+            core: Weak<ICoreWebView2>,
+            top_closing: Option<Instant>,
+            child_closing: LegacyChildClose,
+        }
+        fn bind_legacy(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            deadline: NativeRefusalDeadline,
+            kind: LegacyKind,
+        ) -> Result<Arc<AtomicBool>, Code0SessionFailure> {
+            let denied = || Code0SessionFailure::PolicyRejected;
+            super::require_native_refusal_install(owner, request)?;
+            let deadline = Rc::new(deadline);
+            let installation = {
+                let mut state = owner.borrow_mut();
+                if state.unmatched {
+                    return Err(denied());
+                }
+                let i = matching(&mut state, request).ok_or_else(denied)?;
+                if !i.refusal_registry.complete()
+                    || i.refusal_registry.legacy.is_some()
+                    || i.refusal_registry.top_target.is_some()
+                    || i.refusal_registry.child.is_some()
+                    || i.refusal_registry.dialog.is_some()
+                {
+                    return Err(denied());
+                }
+                let core = i.refusal_registry.core.as_ref().ok_or_else(denied)?;
+                i.refusal_registry.legacy = Some(LegacyState {
+                    kind,
+                    deadline,
+                    core: Rc::downgrade(core),
+                    top_closing: None,
+                    child_closing: LegacyChildClose::new(),
+                });
+                Arc::clone(&i.refusal_registry.unknown)
+            };
+            if legacy_authorized(owner, request, &installation, true).is_none() {
+                return Err(denied());
+            }
+            Ok(installation)
+        }
+        fn legacy_deadline(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+        ) -> Option<Rc<NativeRefusalDeadline>> {
+            let state = owner.borrow();
+            let i = state.instance.as_ref()?;
+            if &i.request != request
+                || i.refusal_registry.generation != GENERATION
+                || !Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+            {
+                return None;
+            }
+            let legacy = i.refusal_registry.legacy.as_ref()?;
+            let core = i.refusal_registry.core.as_ref()?;
+            if !Weak::ptr_eq(&legacy.core, &Rc::downgrade(core)) {
+                return None;
+            }
+            Some(Rc::clone(&legacy.deadline))
+        }
+        fn mark_top_close(i: &mut Instance) -> Option<Instant> {
+            let legacy = i.refusal_registry.legacy.as_mut()?;
+            if legacy.kind != LegacyKind::Top || legacy.top_closing.is_some() {
+                return None;
+            }
+            let at = Instant::now();
+            legacy.top_closing = Some(at);
+            Some(at)
+        }
+        fn fail_legacy(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+        ) {
+            let (top, child) = {
+                let mut state = owner.borrow_mut();
+                let Some(i) = state.instance.as_mut().filter(|i| {
+                    &i.request == request
+                        && i.refusal_registry.generation == GENERATION
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                        && i.refusal_registry.legacy.is_some()
+                }) else {
+                    return;
+                };
+                i.failed = true;
+                i.closing = true;
+                (
+                    mark_top_close(i).map(|at| (i.observer.clone(), at)),
+                    mark_child_close(i).map(|at| (i.observer.clone(), at)),
+                )
+            };
+            if let Some((Some(observer), at)) = top {
+                observer(NativeSmokeObservation::TopClosing { at });
+            }
+            if let Some((Some(observer), at)) = child {
+                observer(NativeSmokeObservation::ChildClosing { at });
+            }
+        }
+        fn legacy_authorized(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            require_live: bool,
+        ) -> Option<Rc<NativeRefusalDeadline>> {
+            let deadline = legacy_deadline(owner, request, installation)?;
+            let identity = {
+                let state = owner.borrow();
+                !state.unmatched
+                    && state.instance.as_ref().is_some_and(|i| {
+                        &i.request == request
+                            && i.refusal_registry.generation == GENERATION
+                            && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                            && !i.released
+                            && !i.cleanup_blocked
+                            && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && !i.refusal_registry.unknown()
+                    })
+            };
+            if deadline
+                .run_if_authorized_at(
+                    Instant::now(),
+                    identity && (!require_live || live(owner, request)),
+                    || (),
+                )
+                .is_none()
+            {
+                fail_legacy(owner, request, installation);
+                return None;
+            }
+            Some(deadline)
+        }
+        fn legacy_step<T>(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            action: impl FnOnce() -> T,
+        ) -> Option<T> {
+            let deadline = legacy_authorized(owner, request, installation, true)?;
+            let value = deadline.run_if_authorized_at(Instant::now(), live(owner, request), action);
+            if value.is_none() {
+                fail_legacy(owner, request, installation);
+            }
+            value
+        }
+        fn legacy_setup_step<T, E>(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            action: impl FnOnce() -> Result<T, E>,
+        ) -> Result<T, Code0SessionFailure> {
+            let denied = || Code0SessionFailure::PolicyRejected;
+            let result = legacy_step(owner, request, installation, action).ok_or_else(denied)?;
+            let result = result.map_err(|error| {
+                drop(error);
+                denied()
+            });
+            if legacy_authorized(owner, request, installation, true).is_none() {
+                return Err(denied());
+            }
+            result
         }
 
         struct ChildMailbox {
@@ -2024,6 +2202,17 @@ mod native {
             (false, false)
         }
         pub(super) fn mark_child_close(i: &mut Instance) -> Option<Instant> {
+            if let Some(legacy) = i.refusal_registry.legacy.as_mut()
+                && legacy.kind == LegacyKind::Child
+            {
+                let now = Instant::now();
+                return if let Some(child) = i.refusal_registry.child.as_ref() {
+                    let mut closing = child.mailbox.closing_since.lock().unwrap();
+                    legacy.child_closing.mark_at(now, Some(&mut closing))
+                } else {
+                    legacy.child_closing.mark_at(now, None)
+                };
+            }
             let child = i.refusal_registry.child.as_ref()?;
             let mut closing = child.mailbox.closing_since.lock().unwrap();
             if closing.is_some() {
@@ -2034,39 +2223,74 @@ mod native {
             Some(at)
         }
         pub(super) fn advance_child(owner: &Rc<RefCell<Owner>>) {
-            let mailbox = owner.borrow().instance.as_ref().and_then(|i| {
-                i.refusal_registry
-                    .child
-                    .as_ref()
-                    .map(|c| Arc::clone(&c.mailbox))
+            let binding = owner.borrow().instance.as_ref().and_then(|i| {
+                i.refusal_registry.child.as_ref().map(|c| {
+                    (
+                        Arc::clone(&c.mailbox),
+                        i.request.clone(),
+                        Arc::clone(&i.refusal_registry.unknown),
+                    )
+                })
             });
-            let Some(mailbox) = mailbox else {
+            let Some((mailbox, request, installation)) = binding else {
                 return;
             };
             let disposition = mailbox.disposition.lock().unwrap().take();
             let mut observation = None;
+            let mut failed = None;
             {
                 let mut state = owner.borrow_mut();
                 let unmatched = state.unmatched;
-                let i = state.instance.as_mut().unwrap();
+                let Some(i) = state.instance.as_mut().filter(|i| {
+                    i.request == request
+                        && i.refusal_registry.generation == GENERATION
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, &installation)
+                        && i.refusal_registry
+                            .child
+                            .as_ref()
+                            .is_some_and(|c| Arc::ptr_eq(&c.mailbox, &mailbox))
+                }) else {
+                    // Stale work marks only its captured installation/mailbox.
+                    installation.store(true, Ordering::SeqCst);
+                    mailbox.invalid.store(true, Ordering::SeqCst);
+                    return;
+                };
                 if mailbox.invalid.load(Ordering::SeqCst) {
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
                 }
                 if let Some(d) = disposition {
-                    let child = i.refusal_registry.child.as_mut().unwrap();
+                    let Some(child) = i.refusal_registry.child.as_mut() else {
+                        return;
+                    };
                     let same = !unmatched
                         && i.request == d.request
                         && i.refusal_registry.generation == d.generation
                         && Arc::ptr_eq(&i.refusal_registry.unknown, &d.installation)
                         && Arc::ptr_eq(&child.mailbox, &mailbox)
-                        && !child.completion_seen;
+                        && !child.completion_seen
+                        && mailbox.obligation.load(Ordering::SeqCst) == 1;
                     let closing = *mailbox.closing_since.lock().unwrap();
-                    let within_deadline = closing.is_none_or(|at| {
-                        Instant::now().duration_since(at) < Duration::from_secs(10)
-                            && d.received_at
-                                .checked_duration_since(at)
-                                .is_none_or(|elapsed| elapsed < Duration::from_secs(10))
+                    let original = i.refusal_registry.legacy.as_ref().map(|l| {
+                        legacy_completion_disposition_at(
+                            &l.deadline,
+                            d.received_at,
+                            Instant::now(),
+                            closing,
+                            LegacyCompletionInput {
+                                identity_valid: same
+                                    && !i.released
+                                    && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                                    && !mailbox.invalid.load(Ordering::SeqCst)
+                                    && !i.refusal_registry.unknown.load(Ordering::SeqCst),
+                                hresult_succeeded: d.hresult_succeeded,
+                                bounded_result_valid: d.bounded_result_valid,
+                                fixed_result_matched: d.fixed_result_matched,
+                            },
+                        )
                     });
+                    let within_deadline = original.as_ref().is_some_and(|v| v.timely);
+                    let disposable = original.as_ref().is_some_and(|v| v.disposable);
+                    let successful = original.as_ref().is_some_and(|v| v.successful);
                     let facts = super::super::fixture::NativeChildCompletionFacts {
                         identity_matched: same,
                         hresult_succeeded: d.hresult_succeeded,
@@ -2075,22 +2299,16 @@ mod native {
                         before_release: !i.released,
                         within_deadline,
                     };
-                    // This is a cleanup disposition gate, deliberately not
-                    // Context::authorized: legitimate closing completion drains.
-                    let valid = same
-                        && !i.released
-                        && within_deadline
-                        && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
-                        && !mailbox.invalid.load(Ordering::SeqCst)
-                        && d.hresult_succeeded
-                        && d.bounded_result_valid
-                        && d.fixed_result_matched;
-                    if same {
+                    // A real matching late/error callback may dispose under the
+                    // original close10. Its success evidence still requires t0+45.
+                    if disposable {
                         child.completion_seen = true;
                         mailbox.obligation.store(0, Ordering::SeqCst);
-                    }
-                    if !valid {
+                    } else {
                         i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    }
+                    if !successful {
+                        failed = Some((d.request.clone(), Arc::clone(&d.installation)));
                     }
                     observation = Some((
                         i.observer.clone(),
@@ -2102,11 +2320,15 @@ mod native {
                     ));
                 }
             }
+            if let Some((request, installation)) = failed {
+                fail_legacy(owner, &request, &installation);
+            }
             latch_unknown(owner);
             if let Some((Some(observer), receipt)) = observation {
                 observer(NativeSmokeObservation::ChildCompletion(receipt));
             }
         }
+
         pub(super) fn publish_child_final(owner: &Rc<RefCell<Owner>>) {
             let observation = {
                 let state = owner.borrow();
@@ -2133,36 +2355,33 @@ mod native {
         pub(super) fn submit_child_initial_data(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
+            deadline: NativeRefusalDeadline,
         ) -> Result<super::super::fixture::NativeChildSubmissionReceipt, Code0SessionFailure>
         {
-            super::require_native_refusal_install(owner, request)?;
             let denied = || Code0SessionFailure::PolicyRejected;
-            let (callbacks, ui) = {
+            let installation = bind_legacy(owner, request, deadline, LegacyKind::Child)?;
+            let (callbacks, ui, core) = {
                 let state = owner.borrow();
                 let i = state.instance.as_ref().ok_or_else(denied)?;
-                (Arc::clone(&i.callbacks), state.ui_thread)
+                (
+                    Arc::clone(&i.callbacks),
+                    state.ui_thread,
+                    Rc::clone(i.refusal_registry.core.as_ref().ok_or_else(denied)?),
+                )
             };
             let active = Active::enter(&callbacks);
-            let core = {
-                let state = owner.borrow();
-                let i = state.instance.as_ref().ok_or_else(denied)?;
-                if !i.refusal_registry.complete()
-                    || i.refusal_registry.dialog.is_some()
-                    || i.refusal_registry.child.is_some()
-                    || i.refusal_registry.top_target.is_some()
-                {
-                    return Err(denied());
-                }
-                i.refusal_registry
-                    .core
-                    .as_ref()
-                    .map(Rc::clone)
-                    .ok_or_else(denied)?
-            };
-            let source = allocated_string(64, |raw| unsafe { core.Source(raw) });
-            let source_matched = source.as_ref().is_ok_and(|s| s == "about:blank");
+            let source = legacy_step(owner, request, &installation, || {
+                allocated_string(64, |raw| unsafe { core.Source(raw) })
+            });
+            let source_matched = source
+                .as_ref()
+                .is_some_and(|r| r.as_ref().is_ok_and(|s| s == "about:blank"));
             drop(source);
-            if !source_matched || !live(owner, request) {
+            let source_timely = legacy_authorized(owner, request, &installation, true).is_some();
+            if !source_matched || !source_timely {
+                drop(core);
+                drop(active);
+                let _ = legacy_authorized(owner, request, &installation, false);
                 return Err(denied());
             }
             let mailbox = Arc::new(ChildMailbox {
@@ -2173,25 +2392,6 @@ mod native {
                 handlers: AtomicUsize::new(1),
                 closing_since: Mutex::new(None),
             });
-            let installation = {
-                let mut state = owner.borrow_mut();
-                let i = matching(&mut state, request).ok_or_else(denied)?;
-                if !i.refusal_registry.complete()
-                    || i.refusal_registry.dialog.is_some()
-                    || i.refusal_registry.child.is_some()
-                    || i.refusal_registry
-                        .core
-                        .as_ref()
-                        .is_none_or(|actual| !Rc::ptr_eq(actual, &core))
-                {
-                    return Err(denied());
-                }
-                i.refusal_registry.child = Some(ChildState {
-                    mailbox: Arc::clone(&mailbox),
-                    completion_seen: false,
-                });
-                Arc::clone(&i.refusal_registry.unknown)
-            };
             let handler: ICoreWebView2ExecuteScriptCompletedHandler = ChildCompletion {
                 mailbox: Arc::downgrade(&mailbox),
                 callbacks: Arc::clone(&callbacks),
@@ -2209,18 +2409,38 @@ mod native {
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
-            // Reservation + handler inventory precede this only native submission.
-            let result = unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) };
-            let native_submit_ok = result.is_ok();
+            // Prepared handler ownership is distinct from a submitted invocation.
+            // Commit exactly at the last authorized call, before synchronous reentry.
+            let result = legacy_step(owner, request, &installation, || {
+                {
+                    let mut state = owner.borrow_mut();
+                    let i = matching(&mut state, request).unwrap();
+                    i.refusal_registry.child = Some(ChildState {
+                        mailbox: Arc::clone(&mailbox),
+                        completion_seen: false,
+                    });
+                }
+                unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) }
+            });
+            let native_submit_ok = result.as_ref().is_some_and(|r| r.is_ok());
+            let submitted = result.is_some();
             drop(result);
+            let _ = legacy_authorized(owner, request, &installation, false);
             drop(handler);
+            let _ = legacy_authorized(owner, request, &installation, false);
             drop(core);
+            let _ = legacy_authorized(owner, request, &installation, false);
             drop(active);
+            let original_timely = legacy_authorized(owner, request, &installation, false).is_some();
+            if !submitted {
+                return Err(denied());
+            }
             Ok(super::super::fixture::NativeChildSubmissionReceipt {
                 request: request.clone(),
                 installation,
                 native_submit_ok,
                 initial_source_matched: source_matched,
+                original_timely,
             })
         }
 
@@ -2811,7 +3031,8 @@ mod native {
             let core = {
                 let state = owner.borrow();
                 let i = state.instance.as_ref().ok_or_else(denied)?;
-                if i.refusal_registry.top_target.is_some()
+                if i.refusal_registry.legacy.is_some()
+                    || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
                     || i.refusal_registry.dialog_completed.is_some()
@@ -3469,6 +3690,42 @@ mod native {
                             && i.refusal_registry.complete()
                     })
             }
+            fn legacy_selected(&self) -> bool {
+                self.owner.upgrade().is_some_and(|owner| {
+                    owner.borrow().instance.as_ref().is_some_and(|i| {
+                        self.matches_instance(i) && i.refusal_registry.legacy.is_some()
+                    })
+                })
+            }
+            fn legacy_live(&self, owner: &Rc<RefCell<Owner>>, require_live: bool) -> bool {
+                legacy_authorized(owner, &self.request, &self.unknown, require_live).is_some()
+            }
+            fn legacy_observe(&self, event: &mut LegacyRefusalEvent, require_live: bool) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let Some(deadline) = legacy_deadline(&owner, &self.request, &self.unknown) else {
+                    return false;
+                };
+                let identity = self.legacy_live(&owner, require_live);
+                event.observe_at(&deadline, Instant::now(), identity)
+            }
+            fn legacy_after_drop(&self, event: &mut LegacyRefusalEvent) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let Some(deadline) = legacy_deadline(&owner, &self.request, &self.unknown) else {
+                    return false;
+                };
+                let identity = self.legacy_live(&owner, false);
+                event.qualify_at(&deadline, Instant::now(), identity)
+            }
+            fn legacy_expired(&self) -> bool {
+                self.owner
+                    .upgrade()
+                    .and_then(|owner| legacy_deadline(&owner, &self.request, &self.unknown))
+                    .is_some_and(|deadline| !deadline.before_original_at(Instant::now()))
+            }
             fn invoke(
                 &self,
                 sender: Option<&ICoreWebView2>,
@@ -3501,6 +3758,14 @@ mod native {
                 // again only after those calls and their temporary drops end.
                 let eligible =
                     identity && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                // Keep the original sender/live-at-entry observation truthful.
+                // Selected legacy time authority is a separate revocation/witness
+                // gate; an expired safely-STA event still receives its refusal.
+                if self.legacy_selected()
+                    && let Some(owner) = owner.as_ref()
+                {
+                    let _ = self.legacy_live(owner, true);
+                }
                 // Invalid/stale senders still receive the restrictive native
                 // action on STA. They never authorize official navigation.
                 let mut result = action(eligible);
@@ -3508,6 +3773,7 @@ mod native {
                     && !owner.as_ref().is_some_and(|owner| {
                         self.authorized(owner)
                             && (!self.dialog_selected() || self.dialog_live(owner))
+                            && (!self.legacy_selected() || self.legacy_live(owner, true))
                     })
                 {
                     // Only an allowed navigation can return false. If its URI
@@ -3525,6 +3791,7 @@ mod native {
                 if !identity || !same_installation || result.is_err() {
                     self.unknown.store(true, Ordering::SeqCst);
                 }
+                let mut top_close = None;
                 let mut child_close = None;
                 let mut dialog_close = None;
                 if let Some(owner) = owner.as_ref() {
@@ -3543,10 +3810,14 @@ mod native {
                             i.closing = true;
                         }
                         if i.closing {
+                            top_close = mark_top_close(i).map(|at| (i.observer.clone(), at));
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
                         }
                     }
+                }
+                if let Some((Some(observer), at)) = top_close {
+                    observer(NativeSmokeObservation::TopClosing { at });
                 }
                 if let Some((Some(observer), at)) = child_close {
                     observer(NativeSmokeObservation::ChildClosing { at });
@@ -3606,14 +3877,16 @@ mod native {
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
             owned_root: &Path,
+            deadline: NativeRefusalDeadline,
         ) -> Result<super::super::fixture::NativeTopSubmissionReceipt, Code0SessionFailure>
         {
             use std::path::{Component, Prefix};
             let denied = || Code0SessionFailure::PolicyRejected;
-            super::require_native_refusal_install(owner, request)?;
-            let root = owned_root.canonicalize().map_err(|_| denied())?;
+            let installation = bind_legacy(owner, request, deadline, LegacyKind::Top)?;
+            let root =
+                legacy_setup_step(owner, request, &installation, || owned_root.canonicalize())?;
             let fixed = root.join("code0-s2-top-denied.txt");
-            let target = fixed.canonicalize().map_err(|_| denied())?;
+            let target = legacy_setup_step(owner, request, &installation, || fixed.canonicalize())?;
             let local = |path: &Path| {
                 path.is_absolute()
                     && matches!(
@@ -3629,11 +3902,13 @@ mod native {
             {
                 return Err(denied());
             }
-            let metadata = target.metadata().map_err(|_| denied())?;
+            let metadata = legacy_setup_step(owner, request, &installation, || target.metadata())?;
             if !metadata.is_file() || metadata.len() != 0 {
                 return Err(denied());
             }
-            let url = reqwest::Url::from_file_path(&target).map_err(|_| denied())?;
+            let url = legacy_setup_step(owner, request, &installation, || {
+                reqwest::Url::from_file_path(&target)
+            })?;
             if url.scheme() != "file"
                 || url.host_str().is_some()
                 || !url.username().is_empty()
@@ -3647,7 +3922,7 @@ mod native {
             }
             let target = url.to_string();
             let wide: Vec<u16> = target.encode_utf16().chain(std::iter::once(0)).collect();
-            let (core, callbacks, installation) = {
+            let (core, callbacks) = {
                 let mut state = owner.borrow_mut();
                 if state.unmatched {
                     return Err(denied());
@@ -3674,27 +3949,39 @@ mod native {
                     .as_ref()
                     .map(Rc::clone)
                     .ok_or(Code0SessionFailure::PolicyRejected)?;
-                // Reserve once immediately before the only native call. Neither
-                // getter nor COM AddRef runs between this reservation and Navigate.
-                i.refusal_registry.top_target = Some(target);
-                (
-                    core,
-                    Arc::clone(&i.callbacks),
-                    Arc::clone(&i.refusal_registry.unknown),
-                )
+                (core, Arc::clone(&i.callbacks))
             };
             let active = Active::enter(&callbacks);
-            let result = unsafe { core.Navigate(PCWSTR(wide.as_ptr())) };
-            let native_submit_ok = result.is_ok();
+            let result = legacy_step(owner, request, &installation, || {
+                // Only this last original-clock grant reserves the one Navigate.
+                // The Owner borrow ends before the native call or any reentry.
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .refusal_registry
+                    .top_target = Some(target);
+                unsafe { core.Navigate(PCWSTR(wide.as_ptr())) }
+            });
+            let native_submit_ok = result.as_ref().is_some_and(|r| r.is_ok());
+            let submitted = result.is_some();
             // Any HRESULT ErrorInfo and the action-local interface wrapper end
             // while the callback inventory still protects this native action.
             drop(result);
+            let _ = legacy_authorized(owner, request, &installation, false);
             drop(core);
+            let _ = legacy_authorized(owner, request, &installation, false);
             drop(active);
+            let original_timely = legacy_authorized(owner, request, &installation, false).is_some();
+            if !submitted {
+                return Err(denied());
+            }
             Ok(super::super::fixture::NativeTopSubmissionReceipt {
                 request: request.clone(),
                 installation,
                 native_submit_ok,
+                original_timely,
             })
         }
 
@@ -3703,6 +3990,7 @@ mod native {
                 &self,
                 args: &ICoreWebView2NavigationStartingEventArgs,
                 eligible: bool,
+                event: &mut LegacyRefusalEvent,
                 receipt: &mut Option<super::super::fixture::NativeTopRefusalReceipt>,
             ) -> windows::core::Result<bool> {
                 if self.dialog_selected() {
@@ -3720,19 +4008,29 @@ mod native {
                 let Some(target) = target else {
                     return navigation(args, eligible);
                 };
+                let _ = self.legacy_observe(event, true);
                 // All metadata is fallible and may reenter. None of its errors
                 // can bypass the original restrictive native SetCancel action.
                 let uri = allocated_string(2048, |raw| unsafe { args.Uri(raw) });
+                let _ = self.legacy_observe(event, true);
                 let mut navigation_id = 0u64;
                 let id_result = unsafe { args.NavigationId(&mut navigation_id) };
+                let _ = self.legacy_observe(event, true);
                 let mut redirected = BOOL::from(false);
                 let redirected_result = unsafe { args.IsRedirected(&mut redirected) };
-                let live_after_metadata =
-                    eligible && owner.as_ref().is_some_and(|owner| self.authorized(owner));
-                let canceled = unsafe { args.SetCancel(true) };
+                let metadata_timely = self.legacy_observe(event, true);
+                let live_after_metadata = metadata_timely
+                    && eligible
+                    && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                let canceled = event
+                    .cancel_once(|| unsafe { args.SetCancel(true) })
+                    .ok_or_else(rejection)?;
+                let _ = self.legacy_observe(event, false);
                 let mut cancel = BOOL::from(false);
                 let readback = unsafe { args.Cancel(&mut cancel) };
-                let live_after_getters = live_after_metadata
+                let readback_timely = self.legacy_observe(event, false);
+                let live_after_getters = readback_timely
+                    && live_after_metadata
                     && owner.as_ref().is_some_and(|owner| self.authorized(owner));
                 let facts = super::super::fixture::NativeTopRefusalFacts {
                     event_kind: "topNavigationStarting",
@@ -3763,7 +4061,7 @@ mod native {
                 redirected_result?;
                 canceled?;
                 readback?;
-                if !cancel.as_bool() || !live_after_getters {
+                if !cancel.as_bool() || (!live_after_getters && !self.legacy_expired()) {
                     return Err(rejection());
                 }
                 Ok(true)
@@ -3775,6 +4073,7 @@ mod native {
                 &self,
                 args: &ICoreWebView2NavigationStartingEventArgs,
                 eligible: bool,
+                event: &mut LegacyRefusalEvent,
                 receipt: &mut Option<super::super::fixture::NativeChildRefusalReceipt>,
             ) -> windows::core::Result<bool> {
                 if self.dialog_selected() {
@@ -3791,9 +4090,11 @@ mod native {
                     return navigation(args, eligible);
                 }
                 let target = CHILD_TARGET;
+                let _ = self.legacy_observe(event, true);
                 // All metadata is fallible and may reenter. None of its errors
                 // can bypass the original restrictive native SetCancel action.
                 let uri = allocated_string(2048, |raw| unsafe { args.Uri(raw) });
+                let _ = self.legacy_observe(event, true);
                 if uri.as_ref().is_ok_and(|uri| uri != target) {
                     // An earlier blank/other child keeps the original delegate.
                     // It cannot be relabeled as this target or delayed for it.
@@ -3801,14 +4102,22 @@ mod native {
                 }
                 let mut navigation_id = 0u64;
                 let id_result = unsafe { args.NavigationId(&mut navigation_id) };
+                let _ = self.legacy_observe(event, true);
                 let mut redirected = BOOL::from(false);
                 let redirected_result = unsafe { args.IsRedirected(&mut redirected) };
-                let live_after_metadata =
-                    eligible && owner.as_ref().is_some_and(|owner| self.authorized(owner));
-                let canceled = unsafe { args.SetCancel(true) };
+                let metadata_timely = self.legacy_observe(event, true);
+                let live_after_metadata = metadata_timely
+                    && eligible
+                    && owner.as_ref().is_some_and(|owner| self.authorized(owner));
+                let canceled = event
+                    .cancel_once(|| unsafe { args.SetCancel(true) })
+                    .ok_or_else(rejection)?;
+                let _ = self.legacy_observe(event, false);
                 let mut cancel = BOOL::from(false);
                 let readback = unsafe { args.Cancel(&mut cancel) };
-                let live_after_getters = live_after_metadata
+                let readback_timely = self.legacy_observe(event, false);
+                let live_after_getters = readback_timely
+                    && live_after_metadata
                     && owner.as_ref().is_some_and(|owner| self.authorized(owner));
                 let facts = super::super::fixture::NativeChildRefusalFacts {
                     event_kind: "frameNavigationStarting",
@@ -3841,7 +4150,7 @@ mod native {
                 redirected_result?;
                 canceled?;
                 readback?;
-                if !cancel.as_bool() || !live_after_getters {
+                if !cancel.as_bool() || (!live_after_getters && !self.legacy_expired()) {
                     return Err(rejection());
                 }
                 Ok(true)
@@ -3858,13 +4167,22 @@ mod native {
             let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
                 let mut receipt = None;
+                let mut event = LegacyRefusalEvent::new();
                 let mut dialog_selected = false;
                 let result = context.invoke(sender.as_ref(), |eligible| {
                     let args = args.as_ref().ok_or_else(rejection)?;
                     dialog_selected = context.dialog_selected();
-                    context.top_navigation(args, eligible, &mut receipt)
+                    context.top_navigation(args, eligible, &mut event, &mut receipt)
                 });
-                if let Some(receipt) = receipt {
+                drop(args);
+                drop(sender);
+                if dialog_selected {
+                    let _ = context.dialog_after_drop();
+                }
+                if let Some(mut receipt) = receipt {
+                    let timely = context.legacy_after_drop(&mut event);
+                    receipt.facts.live_after_getters &= timely;
+                    receipt.facts.request_generation_live_matched &= timely;
                     let observer = context.owner.upgrade().and_then(|owner| {
                         let state = owner.borrow();
                         state
@@ -3876,11 +4194,6 @@ mod native {
                     if let Some(observer) = observer {
                         observer(NativeSmokeObservation::TopRefusal(receipt));
                     }
-                }
-                drop(args);
-                drop(sender);
-                if dialog_selected {
-                    let _ = context.dialog_after_drop();
                 }
                 drop(active);
                 result
@@ -3914,11 +4227,17 @@ mod native {
             let handler = NavigationStartingEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
                 let mut receipt = None;
+                let mut event = LegacyRefusalEvent::new();
                 let result = context.invoke(sender.as_ref(), |eligible| {
                     let args = args.as_ref().ok_or_else(rejection)?;
-                    context.child_navigation(args, eligible, &mut receipt)
+                    context.child_navigation(args, eligible, &mut event, &mut receipt)
                 });
-                if let Some(receipt) = receipt {
+                drop(args);
+                drop(sender);
+                if let Some(mut receipt) = receipt {
+                    let timely = context.legacy_after_drop(&mut event);
+                    receipt.facts.live_after_getters &= timely;
+                    receipt.facts.request_generation_live_matched &= timely;
                     let observer = context.owner.upgrade().and_then(|owner| {
                         let state = owner.borrow();
                         state
@@ -3931,8 +4250,6 @@ mod native {
                         observer(NativeSmokeObservation::ChildRefusal(receipt));
                     }
                 }
-                drop(args);
-                drop(sender);
                 drop(active);
                 result
             }));
@@ -6816,6 +7133,467 @@ pub mod fixture {
         }
     }
 
+    /// The same immutable 45-second handoff, restricted to selected N1/N2.
+    pub type NativeRefusalDeadline = NativeDialogDeadline;
+
+    // One native event owns one refusal action. Time/identity observations can
+    // only remove its eventual positive witness; they never suppress refusal.
+    pub(super) struct LegacyRefusalEvent {
+        canceled: bool,
+        timely: bool,
+    }
+    impl LegacyRefusalEvent {
+        pub(super) fn new() -> Self {
+            Self {
+                canceled: false,
+                timely: true,
+            }
+        }
+        pub(super) fn cancel_once<T>(&mut self, action: impl FnOnce() -> T) -> Option<T> {
+            if self.canceled {
+                return None;
+            }
+            self.canceled = true;
+            Some(action())
+        }
+        pub(super) fn observe_at(
+            &mut self,
+            deadline: &NativeDialogDeadline,
+            now: std::time::Instant,
+            identity: bool,
+        ) -> bool {
+            let original = deadline.before_original_at(now);
+            self.timely &= original && identity;
+            self.timely
+        }
+        pub(super) fn qualify_at(
+            &mut self,
+            deadline: &NativeDialogDeadline,
+            now: std::time::Instant,
+            identity: bool,
+        ) -> bool {
+            self.observe_at(deadline, now, identity) && self.canceled
+        }
+    }
+    /// Debug N1/N2 cleanup adoption only; preserves the native first timestamp.
+    /// It confers no target or completion success and never resets close10.
+    pub fn adopt_legacy_native_close(
+        closing: &mut Option<std::time::Instant>,
+        native: Option<std::time::Instant>,
+    ) -> Option<std::time::Instant> {
+        if closing.is_some() {
+            return None;
+        }
+        let at = native?;
+        *closing = Some(at);
+        Some(at)
+    }
+    // Selected Child's first revocation exists before an invocation/mailbox.
+    // Optional actual submitted budget is synchronized, never manufactured.
+    pub(super) struct LegacyChildClose {
+        first: Option<std::time::Instant>,
+    }
+    impl LegacyChildClose {
+        pub(super) fn new() -> Self {
+            Self { first: None }
+        }
+        pub(super) fn mark_at(
+            &mut self,
+            now: std::time::Instant,
+            submitted_closing: Option<&mut Option<std::time::Instant>>,
+        ) -> Option<std::time::Instant> {
+            let first_publication = self.first.is_none();
+            let existing = submitted_closing.as_ref().and_then(|closing| **closing);
+            let at = *self.first.get_or_insert(existing.unwrap_or(now));
+            if let Some(closing) = submitted_closing {
+                *closing = Some(at);
+            }
+            first_publication.then_some(at)
+        }
+    }
+    pub(super) struct LegacyCompletionInput {
+        pub(super) identity_valid: bool,
+        pub(super) hresult_succeeded: bool,
+        pub(super) bounded_result_valid: bool,
+        pub(super) fixed_result_matched: bool,
+    }
+    pub(super) struct LegacyCompletionDisposition {
+        pub(super) timely: bool,
+        pub(super) disposable: bool,
+        pub(super) successful: bool,
+    }
+    pub(super) fn legacy_completion_disposition_at(
+        deadline: &NativeDialogDeadline,
+        received: std::time::Instant,
+        consumed: std::time::Instant,
+        closing: Option<std::time::Instant>,
+        input: LegacyCompletionInput,
+    ) -> LegacyCompletionDisposition {
+        let timely = deadline.completion_timely_at(received, consumed, closing);
+        let disposable = input.identity_valid
+            && NativeDialogDeadline::disposal_within_close_at(received, consumed, closing)
+            && (!input.hresult_succeeded
+                || input.bounded_result_valid && input.fixed_result_matched);
+        LegacyCompletionDisposition {
+            timely,
+            disposable,
+            successful: disposable
+                && timely
+                && input.hresult_succeeded
+                && input.bounded_result_valid
+                && input.fixed_result_matched,
+        }
+    }
+
+    #[cfg(test)]
+    mod legacy_original_deadline_tests {
+        use super::{LegacyRefusalEvent, NativeDialogDeadline};
+        use std::cell::Cell;
+        use std::time::{Duration, Instant};
+
+        fn at(start: Instant, millis: u64) -> Instant {
+            start.checked_add(Duration::from_millis(millis)).unwrap()
+        }
+
+        #[test]
+        fn child_no_submission_first_close_survives_delayed_return_and_adoption() {
+            for revoked_at_ms in [44999, 45001] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                let mut native_close = super::LegacyChildClose::new();
+                // Primitive optional submitted budget only: no ChildState,
+                // handler/mailbox, invocation or completion ticket exists.
+                let mut submitted_closing = None::<Option<Instant>>;
+                let t_c = at(start, revoked_at_ms);
+                let publication = native_close.mark_at(t_c, submitted_closing.as_mut());
+                assert_eq!(publication, Some(t_c));
+                assert_eq!(submitted_closing, None);
+                let returned_at = Cell::new(t_c);
+                struct ReturnLocal<'a>(&'a Cell<Instant>, Instant);
+                impl Drop for ReturnLocal<'_> {
+                    fn drop(&mut self) {
+                        self.0.set(self.1);
+                    }
+                }
+                drop(ReturnLocal(&returned_at, at(start, revoked_at_ms + 12000)));
+                let mut adopted = None;
+                assert_eq!(
+                    super::adopt_legacy_native_close(&mut adopted, publication),
+                    Some(t_c)
+                );
+                assert_ne!(adopted, Some(returned_at.get()));
+                let repeated_publication =
+                    native_close.mark_at(returned_at.get(), submitted_closing.as_mut());
+                assert!(repeated_publication.is_none());
+                assert!(
+                    super::adopt_legacy_native_close(&mut adopted, repeated_publication).is_none()
+                );
+                assert_eq!(adopted, Some(t_c));
+                assert_eq!(submitted_closing, None);
+                let invocations = Cell::new(0);
+                assert!(
+                    deadline
+                        .run_if_authorized_at(returned_at.get(), true, || invocations
+                            .set(invocations.get() + 1))
+                        .is_none()
+                );
+                assert_eq!(invocations.get(), 0);
+                assert!(NativeDialogDeadline::disposal_within_close_at(
+                    t_c,
+                    at(start, revoked_at_ms + 9999),
+                    adopted
+                ));
+                assert!(!NativeDialogDeadline::disposal_within_close_at(
+                    t_c,
+                    at(start, revoked_at_ms + 10000),
+                    adopted
+                ));
+            }
+        }
+
+        #[test]
+        fn child_submitted_budget_and_independent_first_close_stay_the_same() {
+            let start = Instant::now();
+            let mut first = super::LegacyChildClose::new();
+            let mut submitted = None;
+            assert_eq!(
+                first.mark_at(at(start, 44000), Some(&mut submitted)),
+                Some(at(start, 44000))
+            );
+            assert_eq!(submitted, Some(at(start, 44000)));
+            assert!(
+                first
+                    .mark_at(at(start, 48000), Some(&mut submitted))
+                    .is_none()
+            );
+            assert_eq!(submitted, Some(at(start, 44000)));
+            // An already recorded actual submitted budget cannot be rebased.
+            let mut adopted_existing = super::LegacyChildClose::new();
+            assert_eq!(
+                adopted_existing.mark_at(at(start, 50000), Some(&mut submitted)),
+                Some(at(start, 44000))
+            );
+            assert_eq!(submitted, Some(at(start, 44000)));
+        }
+
+        #[test]
+        fn delayed_ready_uses_original_end_for_both_selected_actions() {
+            for _ in ["N1", "N2"] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                let calls = Cell::new(0);
+                assert!(
+                    deadline
+                        .run_if_authorized_at(at(start, 45000), true, || calls.set(calls.get() + 1))
+                        .is_none()
+                );
+                assert!(
+                    deadline
+                        .run_if_authorized_at(at(start, 44999), true, || calls.set(calls.get() + 1))
+                        .is_none()
+                );
+                assert_eq!(calls.get(), 0);
+            }
+        }
+
+        #[test]
+        fn reentrant_source_and_native_local_drop_deny_the_next_privileged_step() {
+            let start = Instant::now();
+            let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+            let source_calls = Cell::new(0);
+            let submit_calls = Cell::new(0);
+            let clock = Cell::new(at(start, 44999));
+            struct NativeLocal<'a>(&'a Cell<Instant>, Instant);
+            impl Drop for NativeLocal<'_> {
+                fn drop(&mut self) {
+                    self.0.set(self.1);
+                }
+            }
+            let local = deadline
+                .run_if_authorized_at(clock.get(), true, || {
+                    source_calls.set(source_calls.get() + 1);
+                    NativeLocal(&clock, at(start, 45001))
+                })
+                .unwrap();
+            drop(local);
+            assert!(
+                deadline
+                    .run_if_authorized_at(clock.get(), true, || submit_calls
+                        .set(submit_calls.get() + 1))
+                    .is_none()
+            );
+            assert_eq!(source_calls.get(), 1);
+            assert_eq!(submit_calls.get(), 0);
+        }
+
+        #[test]
+        fn getters_native_errors_and_local_drops_cannot_publish_late_witnesses() {
+            for boundary in [
+                "identity",
+                "metadata",
+                "nativeReadback",
+                "errorDrop",
+                "argsDrop",
+                "senderDrop",
+            ] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                let mut event = LegacyRefusalEvent::new();
+                let cancels = Cell::new(0);
+                assert!(event.observe_at(&deadline, at(start, 44999), true));
+                let drop_time = Cell::new(at(start, 44999));
+                struct Local<'a>(&'a Cell<Instant>, Instant);
+                impl Drop for Local<'_> {
+                    fn drop(&mut self) {
+                        self.0.set(self.1);
+                    }
+                }
+                let local = Local(&drop_time, at(start, 45001));
+                let native_result: Result<Local<'_>, Local<'_>> = event
+                    .cancel_once(|| {
+                        cancels.set(cancels.get() + 1);
+                        if boundary == "errorDrop" {
+                            Err(local)
+                        } else {
+                            Ok(local)
+                        }
+                    })
+                    .unwrap();
+                drop(native_result);
+                let publishes = Cell::new(0);
+                if event.qualify_at(&deadline, drop_time.get(), true) {
+                    publishes.set(publishes.get() + 1);
+                }
+                assert_eq!(cancels.get(), 1, "{boundary}");
+                assert_eq!(publishes.get(), 0, "{boundary}");
+            }
+        }
+
+        #[test]
+        fn refusal_runs_once_at_before_exact_and_after_end_but_witness_is_strict() {
+            for millis in [44999, 45000, 45001] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                let mut event = LegacyRefusalEvent::new();
+                let cancels = Cell::new(0);
+                event.observe_at(&deadline, at(start, millis), true);
+                assert!(
+                    event
+                        .cancel_once(|| cancels.set(cancels.get() + 1))
+                        .is_some()
+                );
+                assert!(
+                    event
+                        .cancel_once(|| cancels.set(cancels.get() + 1))
+                        .is_none()
+                );
+                assert_eq!(cancels.get(), 1);
+                assert_eq!(
+                    event.qualify_at(&deadline, at(start, millis), true),
+                    millis < 45000
+                );
+            }
+        }
+
+        #[test]
+        fn closing_adoption_cannot_revive_pre_adoption_or_same_tick_expiry() {
+            for close_already_visible in [true, false] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                let mut event = LegacyRefusalEvent::new();
+                let first_close = Cell::new(None);
+                assert!(
+                    event
+                        .cancel_once(|| first_close.set(Some(at(start, 44999))))
+                        .is_some()
+                );
+                let mut adopted = None;
+                let adopts = Cell::new(0);
+                if close_already_visible
+                    && super::adopt_legacy_native_close(&mut adopted, first_close.get()).is_some()
+                {
+                    adopts.set(adopts.get() + 1);
+                }
+                assert!(!event.qualify_at(&deadline, at(start, 45001), true));
+                if super::adopt_legacy_native_close(&mut adopted, first_close.get()).is_some() {
+                    adopts.set(adopts.get() + 1);
+                }
+                assert_eq!(adopts.get(), 1);
+                assert_eq!(adopted, Some(at(start, 44999)));
+                assert!(!event.qualify_at(&deadline, at(start, 44999), true));
+            }
+        }
+
+        #[test]
+        fn completion_original_received_consumed_and_close_bounds_are_independent() {
+            for (received, consumed, timely) in [
+                (44998, 44999, true),
+                (45000, 45001, false),
+                (44999, 45000, false),
+            ] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                let closing = Some(at(start, 44000));
+                assert_eq!(
+                    deadline.completion_timely_at(
+                        at(start, received),
+                        at(start, consumed),
+                        closing
+                    ),
+                    timely
+                );
+                let disposed = Cell::new(0);
+                if NativeDialogDeadline::disposal_within_close_at(
+                    at(start, received),
+                    at(start, consumed),
+                    closing,
+                ) {
+                    disposed.set(disposed.get() + 1);
+                }
+                assert_eq!(disposed.get(), 1);
+            }
+            let start = Instant::now();
+            assert!(!NativeDialogDeadline::disposal_within_close_at(
+                at(start, 45001),
+                at(start, 54000),
+                Some(at(start, 44000))
+            ));
+        }
+
+        #[test]
+        fn timely_completion_allows_cleanup_after45_but_never_resets_first_close10() {
+            let start = Instant::now();
+            let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+            let mut event = LegacyRefusalEvent::new();
+            let native_close = Some(at(start, 44000));
+            assert!(event.cancel_once(|| ()).is_some());
+            assert!(event.qualify_at(&deadline, at(start, 44001), true));
+            let completion = super::legacy_completion_disposition_at(
+                &deadline,
+                at(start, 44998),
+                at(start, 44999),
+                native_close,
+                super::LegacyCompletionInput {
+                    identity_valid: true,
+                    hresult_succeeded: true,
+                    bounded_result_valid: true,
+                    fixed_result_matched: true,
+                },
+            );
+            assert!(completion.successful && completion.disposable);
+            let mut adopted = None;
+            assert_eq!(
+                super::adopt_legacy_native_close(&mut adopted, native_close),
+                native_close
+            );
+            assert!(
+                super::adopt_legacy_native_close(&mut adopted, Some(at(start, 50000))).is_none()
+            );
+            assert_eq!(adopted, native_close);
+            assert!(NativeDialogDeadline::disposal_within_close_at(
+                at(start, 44998),
+                at(start, 53999),
+                adopted
+            ));
+            assert!(!NativeDialogDeadline::disposal_within_close_at(
+                at(start, 44998),
+                at(start, 54000),
+                adopted
+            ));
+        }
+
+        #[test]
+        fn actual_failed_or_late_completion_disposes_without_success_or_revival() {
+            for hresult_ok in [true, false] {
+                let start = Instant::now();
+                let deadline = NativeDialogDeadline::from_attempt_started(start).unwrap();
+                assert!(!deadline.before_original_at(at(start, 45000)));
+                let disposition = super::legacy_completion_disposition_at(
+                    &deadline,
+                    at(start, 45001),
+                    at(start, 45002),
+                    Some(at(start, 44000)),
+                    super::LegacyCompletionInput {
+                        identity_valid: true,
+                        hresult_succeeded: hresult_ok,
+                        bounded_result_valid: hresult_ok,
+                        fixed_result_matched: hresult_ok,
+                    },
+                );
+                assert!(disposition.disposable);
+                assert!(!disposition.timely);
+                assert!(!disposition.successful);
+                for _later in ["token", "SessionFailure", "Released"] {
+                    assert!(
+                        deadline
+                            .run_if_authorized_at(at(start, 44999), true, || ())
+                            .is_none()
+                    );
+                }
+            }
+        }
+    }
+
     #[cfg(test)]
     mod dialog_original_deadline_tests {
         use super::NativeDialogDeadline;
@@ -7099,6 +7877,7 @@ pub mod fixture {
         pub(super) request: Code0WindowRequest,
         pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
         pub(super) native_submit_ok: bool,
+        pub(super) original_timely: bool,
     }
     impl NativeTopSubmissionReceipt {
         pub fn matches(
@@ -7109,6 +7888,10 @@ pub mod fixture {
             &self.request == request
                 && install.matches(request)
                 && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        /// Internal attempt qualification, never serialized as a native return.
+        pub fn original_attempt_timely(&self) -> bool {
+            self.original_timely
         }
         pub fn native_submit_ok(&self) -> bool {
             self.native_submit_ok
@@ -7146,6 +7929,7 @@ pub mod fixture {
         pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
         pub(super) native_submit_ok: bool,
         pub(super) initial_source_matched: bool,
+        pub(super) original_timely: bool,
     }
     #[derive(Clone, Copy)]
     pub struct NativeChildCompletionFacts {
@@ -7192,6 +7976,10 @@ pub mod fixture {
         }
     }
     impl NativeChildSubmissionReceipt {
+        /// Internal attempt qualification, never serialized as a native return.
+        pub fn original_attempt_timely(&self) -> bool {
+            self.original_timely
+        }
         pub fn native_submit_ok(&self) -> bool {
             self.native_submit_ok
         }
@@ -7640,6 +8428,10 @@ pub mod fixture {
         BrowserProcessExited,
         /// Actual registered N1 top callback; opaque source-bound primitive audit.
         TopRefusal(NativeTopRefusalReceipt),
+        /// First actual N1 revocation, before callback-local Drops or receipt delivery.
+        TopClosing {
+            at: std::time::Instant,
+        },
         /// First actual N2 closing transition, timestamp only; no authority.
         ChildClosing {
             at: std::time::Instant,
@@ -8311,6 +9103,7 @@ pub mod fixture {
         pub fn navigate_fixture_top_owned_file(
             &mut self,
             request: &Code0WindowRequest,
+            deadline: NativeRefusalDeadline,
         ) -> Result<NativeTopSubmissionReceipt, Code0SessionFailure> {
             if !self
                 .lease
@@ -8327,11 +9120,11 @@ pub mod fixture {
                 .ok_or(Code0SessionFailure::PolicyRejected)?;
             #[cfg(windows)]
             {
-                super::native::navigate_top_owned_file(&self.owner, request, owned_root)
+                super::native::navigate_top_owned_file(&self.owner, request, owned_root, deadline)
             }
             #[cfg(not(windows))]
             {
-                let _ = (request, owned_root);
+                let _ = (request, owned_root, deadline);
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }
@@ -8373,6 +9166,7 @@ pub mod fixture {
         pub fn submit_fixture_child_initial_data(
             &mut self,
             request: &Code0WindowRequest,
+            deadline: NativeRefusalDeadline,
         ) -> Result<NativeChildSubmissionReceipt, Code0SessionFailure> {
             if !self
                 .lease
@@ -8383,11 +9177,11 @@ pub mod fixture {
             }
             #[cfg(windows)]
             {
-                super::native::submit_child_initial_data(&self.owner, request)
+                super::native::submit_child_initial_data(&self.owner, request, deadline)
             }
             #[cfg(not(windows))]
             {
-                let _ = request;
+                let _ = (request, deadline);
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }
