@@ -22,7 +22,7 @@ mod smoke {
         NativeCapabilityResult, NativeCapabilitySelector, NativeCapabilityStage,
         NativeChooserFacts, NativeChooserReceipt, NativeChooserStage, NativeHttp401Facts,
         NativeHttp401Receipt, NativeHttp401Timing, finalize_http401_with_watchdog,
-        merge_http401_native_facts, record_http401_session_failure,
+        http401_snapshot_monotonic, merge_http401_native_facts, record_http401_session_failure,
     };
     use ai_token_meter_windows::platform::windows::code0_webview::{
         Code0NativeDriver,
@@ -988,6 +988,8 @@ mod smoke {
         previous: Option<NativeHttp401Receipt>,
         timing: Option<NativeHttp401Timing>,
         matched: bool,
+        seen: bool,
+        historical_target: bool,
     }
     impl Http401Evidence {
         fn observe(
@@ -998,22 +1000,12 @@ mod smoke {
         ) -> bool {
             let timing = receipt.timing();
             let monotonic = self.previous.as_ref().is_none_or(|previous| {
-                let prior = previous.facts();
-                let current = receipt.facts();
-                current.receipts.target >= prior.receipts.target
-                    && current.receipts.final_receipt >= prior.receipts.final_receipt
-                    && (!prior.unknown || current.unknown)
-                    && (!prior.overflow || current.overflow)
-                    && (self
+                http401_snapshot_monotonic(previous.facts(), receipt.facts())
+                    && self
                         .timing
                         .as_ref()
                         .and_then(NativeHttp401Timing::first_close)
-                        .is_none()
-                        || self
-                            .timing
-                            .as_ref()
-                            .and_then(NativeHttp401Timing::first_close)
-                            == timing.first_close())
+                        .is_none_or(|at| Some(at) == timing.first_close())
             });
             let matched = monotonic
                 && self
@@ -1022,19 +1014,61 @@ mod smoke {
                     .is_some_and(|i| receipt.matches(request, i))
                 && self.previous.as_ref().is_none_or(|p| receipt.same_guard(p))
                 && timing.matches_start(started);
-            self.matched = if self.previous.is_none() {
-                matched
+            self.matched = (!self.seen || self.matched) && matched;
+            self.seen = true;
+            if matched {
+                // This is the immutable genuine earlier action, not permission
+                // to perform another action or a final verdict after new failure.
+                self.historical_target |= receipt.facts().target_history();
+                let current = receipt.live_facts();
+                merge_http401_native_facts(&mut self.facts, &current);
+                self.timing = Some(timing);
+                self.previous = Some(receipt);
             } else {
-                self.matched && matched
-            };
-            // Native snapshots never supply the Session or browser-exit producer.
-            merge_http401_native_facts(&mut self.facts, receipt.facts());
-            self.timing = Some(timing);
-            self.previous = Some(receipt);
-            if !matched {
+                // An unbound/regressing snapshot cannot replace the first real
+                // history/proof. The existing actor's live ledger is still read.
+                self.facts = self.live_facts();
+                self.facts.unknown = true;
                 self.reject("http401Binding");
             }
             matched
+        }
+        fn observe_setup_failure(
+            &mut self,
+            receipt: NativeHttp401Receipt,
+            request: &Code0WindowRequest,
+            started: Instant,
+        ) {
+            self.matched = false;
+            self.seen = true;
+            if receipt.partial_matches(request, started) {
+                let current = receipt.live_facts();
+                merge_http401_native_facts(&mut self.facts, &current);
+                if self.timing.is_none() {
+                    self.timing = Some(receipt.timing());
+                }
+                self.previous = Some(receipt);
+            } else {
+                self.facts.unknown = true;
+                self.reject("http401Binding");
+            }
+            self.reject("http401Install");
+        }
+        fn live_facts(&self) -> NativeHttp401Facts {
+            let mut facts = self.facts.clone();
+            if let Some(receipt) = self.previous.as_ref() {
+                merge_http401_native_facts(&mut facts, &receipt.live_facts());
+            }
+            // Closed is the fixture's completed physical/terminal observation,
+            // not the native auth phase. New uncertainty can only revoke it.
+            if self.facts.phase == "Closed" {
+                facts.phase = if facts.failure.is_none() && !facts.unknown && !facts.overflow {
+                    "Closed"
+                } else {
+                    "Revoked"
+                };
+            }
+            facts
         }
         fn reject(&mut self, failure: &'static str) {
             if self.facts.failure.is_none() {
@@ -1042,34 +1076,19 @@ mod smoke {
             }
         }
         fn target(&self) -> bool {
-            self.matched
-                && self.facts.failure.is_none()
-                && !self.facts.unknown
-                && !self.facts.overflow
-                && self.facts.receipts.target == 1
-                && self.facts.auth.callbacks == 1
-                && self.facts.auth.cancel_attempts == 1
-                && self.facts.auth.cancel_successes == 1
-                && self.facts.auth.cancel_readbacks == 1
-                && [
-                    self.facts.auth.cancel_true,
-                    self.facts.auth.uri_matched,
-                    self.facts.auth.challenge_matched,
-                    self.facts.auth.sender_matched,
-                    self.facts.auth.post_drop_current,
-                    self.facts.auth.within_attempt_deadline,
-                ]
-                .into_iter()
-                .all(|v| v == Some(true))
+            // Used only when the real matching Session Failed event is consumed.
+            // A later native failure cannot erase the earlier qualified action.
+            self.historical_target
         }
         fn provisional(&self, native: &NativeRefusalEvidence, state: &Summary) -> bool {
+            let facts = self.live_facts();
             self.matched
-                && self.facts.native_positive()
-                && self.facts.session.failures == 1
-                && self.facts.session.reason == Some("PolicyRejected")
-                && self.facts.session.request_matched == Some(true)
-                && self.facts.session.action_before_failure == Some(true)
-                && self.facts.cleanup.browser_process_exited_once == Some(true)
+                && facts.native_positive()
+                && facts.session.failures == 1
+                && facts.session.reason == Some("PolicyRejected")
+                && facts.session.request_matched == Some(true)
+                && facts.session.action_before_failure == Some(true)
+                && facts.cleanup.browser_process_exited_once == Some(true)
                 && native.receipts == 1
                 && native.native_instance_validated
                 && native.source_bound_registry
@@ -1090,6 +1109,7 @@ mod smoke {
                 && state.owned_references_released
         }
         fn final_clock(&mut self, now: Instant, adopted: Option<Instant>) {
+            self.facts = self.live_facts();
             if let Some(timing) = &self.timing {
                 let clock = timing.final_clock(now);
                 self.facts.cleanup.target_at_ms = clock.target;
@@ -1498,7 +1518,7 @@ mod smoke {
                 schema: if install.permission.is_some() {
                     14
                 } else if install.http401.is_some() {
-                    15
+                    16
                 } else if install.capability.is_some() {
                     13
                 } else if install.chooser.is_some() {
@@ -3526,13 +3546,13 @@ mod smoke {
                 } else {
                     ui_diagnostics.observed(DM::Lease);
                     ui_diagnostics.phase(DP::Create, false);
-                    let created = if permission_selected {
-                        driver
-                            .select_fixture_permission(&request, started)
-                            .and_then(|_| driver.create_unloaded(request.clone()))
-                    } else {
-                        driver.create_unloaded(request.clone())
+                    let selected = match (http_selected, permission_selected) {
+                        (true, false) => driver.select_fixture_http401(&request, started),
+                        (false, true) => driver.select_fixture_permission(&request, started),
+                        (false, false) => Ok(()),
+                        (true, true) => Err(Code0SessionFailure::PolicyRejected),
                     };
+                    let created = selected.and_then(|()| driver.create_unloaded(request.clone()));
                     ui_diagnostics.phase(DP::Create, true);
                     if created.is_err() {
                         create_failure = Some("nativeCreateDenied");
@@ -3820,6 +3840,30 @@ mod smoke {
                                     } else {
                                         None
                                     };
+                                    let http_setup_failure = if http_selected
+                                        && (installed.is_err()
+                                            || !valid_inventory
+                                            || rejected
+                                            || http_submission_failure.is_some())
+                                    {
+                                        Some(driver.capture_fixture_http401_setup_failure(
+                                            &request, started,
+                                        ))
+                                    } else {
+                                        None
+                                    };
+                                    if let Some(partial) = http_setup_failure {
+                                        let mut install = policy.lock().unwrap();
+                                        let http = install.http401.as_mut().unwrap();
+                                        match partial {
+                                            Ok(receipt) => http
+                                                .observe_setup_failure(receipt, &request, started),
+                                            Err(_) => {
+                                                http.facts.unknown = true;
+                                                http.reject("http401Install")
+                                            }
+                                        }
+                                    }
                                     let capability_submission_failure = if capability_selected
                                         && installed.is_ok()
                                         && valid_inventory

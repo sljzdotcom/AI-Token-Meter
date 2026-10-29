@@ -2427,7 +2427,7 @@ jobs:
         if: always()
         shell: python
         run: |
-          """Schema15 isolated-CI acceptance; DATA self-checks are not native evidence."""
+          """Schema16 HTTP401 v2 acceptance; DATA definitions are not native evidence."""
           import copy
           import json
           import os
@@ -2454,6 +2454,11 @@ jobs:
           TIMES = ('targetAtMs', 'firstCloseAtMs', 'finalAtMs', 'cleanupElapsedMs')
           RANGES = {'requestBytes': (1, 4096), 'headerCount': (1, 32), 'ioAttempts': (3, 2048)}
           U64_MAX = 18446744073709551615
+          COMMON_PROOF = ('uiMatched', 'targetEstablishedAtEntry', 'closingAdmittedAtEntry',
+                          'requestMatched', 'generationMatched', 'coreMatched',
+                          's2InstallMatched', 'guardInstallMatched', 'registrationMatched',
+                          'notReleased', 'notDestroyed', 'noPriorFailure', 'entryOrderCurrent',
+                          'postDropCurrent', 'withinAttemptDeadline', 'withinCloseDeadline')
 
 
           def unique(pairs):
@@ -2498,7 +2503,31 @@ jobs:
                   raise ValueError('evidence mismatch')
 
 
-          def expected(run_id, early):
+          def expected_post_target(top_count, resource_count):
+              rows = {}
+              for kind, count in (('top', top_count), ('resource', resource_count)):
+                  if type(count) is not int or count not in (0, 1):
+                      raise ValueError('invalid disposal count')
+                  proof = None
+                  if count == 1:
+                      proof = {**dict.fromkeys(COMMON_PROOF, True), 'entryAtMs': 0, 'settledAtMs': 0}
+                      if kind == 'top':
+                          proof.update({'cancelAttempts': 1, 'cancelSuccesses': 1,
+                                        'cancelReadbacks': 1, 'cancelTrue': True})
+                      else:
+                          proof.update({'emptyStreamCreated': True, 'seekSucceeded': True,
+                                        'fixedResponseCreated': True, 'responseSetAttempts': 1,
+                                        'responseSetSuccesses': 1, 'responseReadbacks': 1,
+                                        'responseMatched': True, 'statusCode': 403,
+                                        'contentQuerySucceeded': True, 'statSucceeded': True,
+                                        'contentBytes': 0})
+                  rows[kind] = {'deliveries': 1 + count, 'active': 1, 'qualifiedDisposal': count,
+                                'invalid': 0, 'pending': 0, 'candidates': count, 'proof': proof}
+              return {'version': 1, 'admission': {'count': 1, 'qualified': True,
+                                                'firstCloseMatched': True}, **rows}
+
+
+          def expected(run_id, early, top_count, resource_count):
               if type(early) is not int or early not in (0, 1):
                   raise ValueError('invalid provisional completion count')
               profile = None if early == 0 else {
@@ -2509,7 +2538,7 @@ jobs:
                   'fullWireBeforeCallback': True, 'liveAtEntry': True, 'postDropCurrent': True,
               }
               return {
-                  'schema': 15, 'runId': run_id, 'requiredCase': SELECTOR,
+                  'schema': 16, 'runId': run_id, 'requiredCase': SELECTOR,
                   'selectedCases': 1, 'completedCases': 1, 'pass': True, 'failure': 'none',
                   'install': {**dict.fromkeys(COUNTS, 0), **dict.fromkeys(FLAGS, False)},
                   'lifecycle': {**dict.fromkeys(LIFE, True), 'bareWindowViolation': False,
@@ -2520,7 +2549,7 @@ jobs:
                       'installedMask': 1023, 'notInstalledHooks': [],
                   },
                   'http401': {
-                      'version': 1, 'selector': SELECTOR, 'phase': 'Closed',
+                      'version': 2, 'selector': SELECTOR, 'phase': 'Closed',
                       'unknown': False, 'overflow': False,
                       'receipts': {'target': 1, 'final': 1},
                       'binding': dict.fromkeys(('requestMatched', 'generationMatched',
@@ -2532,12 +2561,12 @@ jobs:
                           'completedRemoves': 1, 'handlersDrained': True,
                       },
                       'navigation': {
-                          'attempts': 1, 'topEvents': 1, 'grants': 1,
+                          'attempts': 1, 'topEvents': 1 + top_count, 'grants': 1,
                           'hresultSucceeded': True, 'qualificationMatched': True,
                           'navigationIdReadable': True, 'cancelFalse': True,
                       },
                       'resource': {
-                          'total': 1, 'passed': 1, 'refused': 0,
+                          'total': 1 + resource_count, 'passed': 1, 'refused': resource_count,
                           'exactDocumentGet': True, 'qualificationMatched': True,
                       },
                       'server': {
@@ -2554,6 +2583,7 @@ jobs:
                           'postDropCurrent': True, 'withinAttemptDeadline': True,
                       },
                       'early401': {'count': early, 'profile': profile},
+                      'postTarget': expected_post_target(top_count, resource_count),
                       'session': {
                           'failures': 1, 'reason': 'PolicyRejected',
                           'requestMatched': True, 'actionBeforeFailure': True,
@@ -2582,10 +2612,15 @@ jobs:
                   raise ValueError('missing shared evidence object')
               http = data.get('http401')
               if type(http) is not dict or any(type(http.get(key)) is not dict
-                                              for key in ('server', 'cleanup', 'early401')):
+                                              for key in ('server', 'cleanup', 'early401', 'postTarget')):
                   raise ValueError('missing HTTP evidence object')
+              post = http['postTarget']
+              if any(type(post.get(key)) is not dict for key in ('admission', 'top', 'resource')):
+                  raise ValueError('missing disposal evidence object')
               early = integer(http['early401'].get('count'), 0, 1)
-              wanted = expected(run_id, early)
+              top_count = integer(post['top'].get('qualifiedDisposal'), 0, 1)
+              resource_count = integer(post['resource'].get('qualifiedDisposal'), 0, 1)
+              wanted = expected(run_id, early, top_count, resource_count)
               runtime = data['lifecycle'].get('runtimeVersion')
               if type(runtime) is not str or re.fullmatch(r'[0-9.]{1,128}', runtime) is None:
                   raise ValueError('missing actual runtime')
@@ -2594,6 +2629,7 @@ jobs:
                   wanted['http401']['server'][key] = integer(http['server'].get(key), low, high)
               timing = {key: integer(http['cleanup'].get(key), 0, U64_MAX) for key in TIMES}
               if (timing['targetAtMs'] >= 45000
+                      or timing['firstCloseAtMs'] > timing['targetAtMs']
                       or timing['targetAtMs'] > timing['finalAtMs']
                       or timing['firstCloseAtMs'] > timing['finalAtMs']
                       or timing['cleanupElapsedMs'] >= 10000
@@ -2601,8 +2637,26 @@ jobs:
                       not in (timing['cleanupElapsedMs'], timing['cleanupElapsedMs'] + 1)):
                   raise ValueError('invalid original timing evidence')
               wanted['http401']['cleanup'].update(timing)
-              # Exact positive flags independently require the precise, original clock
-              # checks. Rounded timestamps cannot substitute for those producer facts.
+              for kind, count in (('top', top_count), ('resource', resource_count)):
+                  row = post[kind]
+                  if count == 1:
+                      proof = row.get('proof')
+                      if type(proof) is not dict:
+                          raise ValueError('missing actual refusal proof')
+                      entry = integer(proof.get('entryAtMs'), 0, U64_MAX)
+                      settled = integer(proof.get('settledAtMs'), 0, U64_MAX)
+                      if (not timing['targetAtMs'] <= entry <= settled <= timing['finalAtMs']
+                              or entry >= 45000 or settled >= 45000
+                              or settled - timing['firstCloseAtMs'] > 10000):
+                          raise ValueError('invalid disposal timing evidence')
+                      wanted['http401']['postTarget'][kind]['proof'].update({
+                          'entryAtMs': entry, 'settledAtMs': settled,
+                      })
+              # Recursive exact positive shapes enforce both partitions and all crosscounts:
+              # active1, invalid/pending0, candidates=qualifiedDisposal0or1, proof null iff0;
+              # deliveries=1+qualifiedDisposal=topEvents/resource.total, refused=resource disposal.
+              # Rounded values additionally require EVERY precise original-clock/Drop/identity
+              # flag true. These producer claims cannot be established by this DATA checker.
               exact(data, wanted)
               exact(exit_data, {'schema': 1, 'runId': run_id, 'exitCode': 0})
 
@@ -2653,87 +2707,212 @@ jobs:
               raise ValueError('HTTP401 JSON decoder accepted invalid DATA')
 
 
-          def duplicate_json(value, target, path=()):
+          def duplicate_json(value, target, path=(), escaped=False):
               if type(value) is not dict:
                   return json.dumps(value, separators=(',', ':'))
-              entries = [(json.dumps(key), duplicate_json(item, target, path + (key,)))
+              entries = [(json.dumps(key), duplicate_json(item, target, path + (key,), escaped))
                          for key, item in value.items()]
               if path == target:
-                  entries.append(entries[0])
+                  name, encoded = entries[0]
+                  if escaped:
+                      first = next(iter(value))
+                      name = '"\\u%04x%s"' % (ord(first[0]), first[1:])
+                  entries.append((name, encoded))
               return '{' + ','.join(key + ':' + item for key, item in entries) + '}'
 
 
+          # SOURCE definitions only. These call the real inline validate/decode at CI time.
+          # No definition or imported candidate code has been executed on the author host.
+          CANARY_JSON = '{"schema":16,"runId":"canary","requiredCase":"refusal-http401-owned-loopback","selectedCases":1,"completedCases":1,"pass":true,"failure":"none","install":{"submissions":0,"barrierReceipts":0,"firstLoadReceipts":0,"documentReceipts":0,"submissionAccepted":false,"installRejected":false,"scriptAcknowledged":false,"cdpAcknowledged":false,"sourceMatched":false,"syntheticResponseApplied":false,"canonicalReadyControl":false,"ackBeforeFirstLoad":false},"lifecycle":{"staMain":true,"callbackAffinity":true,"noInheritedOverride":true,"engineReady":true,"bareHiddenUnfocused":true,"constructionObserved":true,"profileIsolated":true,"destroyed":true,"ownedReferencesReleased":true,"runReturned":true,"cleanupSucceeded":true,"bareWindowViolation":false,"runtimeVersion":"1.2.3.4"},"nativeRefusal":{"receipts":1,"nativeInstanceValidated":true,"sourceBoundRegistry":true,"navigationNotIssued":false,"loadRejected":false,"requiredMask":1023,"installedMask":1023,"notInstalledHooks":[]},"http401":{"version":2,"selector":"refusal-http401-owned-loopback","phase":"Closed","unknown":false,"overflow":false,"receipts":{"target":1,"final":1},"binding":{"requestMatched":true,"generationMatched":true,"coreMatched":true,"s2InstallMatched":true,"guardInstallMatched":true,"postDropCurrent":true},"install":{"core22QuerySucceeded":true,"guardAdds":1,"guardRemoves":1,"filterAdds":1,"filterRemoves":1,"completedAdds":1,"completedRemoves":1,"handlersDrained":true},"navigation":{"attempts":1,"topEvents":1,"grants":1,"hresultSucceeded":true,"qualificationMatched":true,"navigationIdReadable":true,"cancelFalse":true},"resource":{"total":1,"passed":1,"refused":0,"exactDocumentGet":true,"qualificationMatched":true},"server":{"startupSucceeded":true,"version22":true,"exclusiveAck":true,"listenerLingerOff":true,"listenerNonblocking":true,"boundEndpointMatched":true,"listenSucceeded":true,"acceptedLocalMatched":true,"acceptedPeerMatched":true,"streamLingerOff":true,"streamNonblocking":true,"requestValid":true,"responseComplete":true,"finalInventoryObserved":true,"startupAttempts":1,"socketCreates":1,"binds":1,"listens":1,"accepts":1,"parsedRequests":1,"listenerCloseAttempts":1,"listenerCloseSuccesses":1,"streamCloseAttempts":1,"streamCloseSuccesses":1,"cleanupAttempts":1,"cleanupSuccesses":1,"requestBytes":1,"headerCount":1,"sentBytes":139,"setupCalls":9,"acceptedSetupCalls":4,"ioAttempts":3,"socketsRemaining":0,"startupRemaining":0,"serverThreads":0,"serverJoins":0},"auth":{"callbacks":1,"cancelAttempts":1,"cancelSuccesses":1,"cancelReadbacks":1,"cancelTrue":true,"uriMatched":true,"challengeMatched":true,"senderMatched":true,"postDropCurrent":true,"withinAttemptDeadline":true},"early401":{"count":0,"profile":null},"session":{"failures":1,"reason":"PolicyRejected","requestMatched":true,"actionBeforeFailure":true},"cleanup":{"authorityRevoked":true,"actionsDrained":true,"nativeInventoryDrained":true,"browserProcessExitedOnce":true,"firstCloseAdopted":true,"withinCloseDeadline":true,"tempDirCloseCount":1,"targetAtMs":100,"firstCloseAtMs":100,"finalAtMs":105,"cleanupElapsedMs":5},"postTarget":{"version":1,"admission":{"count":1,"qualified":true,"firstCloseMatched":true},"top":{"deliveries":1,"active":1,"qualifiedDisposal":0,"invalid":0,"pending":0,"candidates":0,"proof":null},"resource":{"deliveries":1,"active":1,"qualifiedDisposal":0,"invalid":0,"pending":0,"candidates":0,"proof":null}}}}'
+
+
+          def positive_canary(early, top_count, resource_count):
+              value = json.loads(CANARY_JSON)
+              if early == 1:
+                  value['http401']['early401'] = {'count': 1, 'profile': {
+                      'senderMatched': True, 'navigationIdMatched': True,
+                      'args2QuerySucceeded': True, 'isSuccess': False,
+                      'httpStatusCode': 401,
+                      'webErrorStatus': 'validAuthenticationCredentialsRequired',
+                      'fullWireBeforeCallback': True, 'liveAtEntry': True, 'postDropCurrent': True,
+                  }}
+              # These independent literal proofs do not call expected() or its proof builder.
+              top_proof = {
+                  'uiMatched': True, 'targetEstablishedAtEntry': True,
+                  'closingAdmittedAtEntry': True, 'requestMatched': True,
+                  'generationMatched': True, 'coreMatched': True, 's2InstallMatched': True,
+                  'guardInstallMatched': True, 'registrationMatched': True,
+                  'notReleased': True, 'notDestroyed': True, 'noPriorFailure': True,
+                  'entryOrderCurrent': True, 'postDropCurrent': True,
+                  'withinAttemptDeadline': True, 'withinCloseDeadline': True,
+                  'entryAtMs': 101, 'settledAtMs': 103,
+                  'cancelAttempts': 1, 'cancelSuccesses': 1, 'cancelReadbacks': 1,
+                  'cancelTrue': True,
+              }
+              resource_proof = {
+                  'uiMatched': True, 'targetEstablishedAtEntry': True,
+                  'closingAdmittedAtEntry': True, 'requestMatched': True,
+                  'generationMatched': True, 'coreMatched': True, 's2InstallMatched': True,
+                  'guardInstallMatched': True, 'registrationMatched': True,
+                  'notReleased': True, 'notDestroyed': True, 'noPriorFailure': True,
+                  'entryOrderCurrent': True, 'postDropCurrent': True,
+                  'withinAttemptDeadline': True, 'withinCloseDeadline': True,
+                  'entryAtMs': 101, 'settledAtMs': 103,
+                  'emptyStreamCreated': True, 'seekSucceeded': True,
+                  'fixedResponseCreated': True, 'responseSetAttempts': 1,
+                  'responseSetSuccesses': 1, 'responseReadbacks': 1,
+                  'responseMatched': True, 'statusCode': 403,
+                  'contentQuerySucceeded': True, 'statSucceeded': True, 'contentBytes': 0,
+              }
+              for kind, count, proof in (('top', top_count, top_proof),
+                                         ('resource', resource_count, resource_proof)):
+                  if count == 1:
+                      value['http401']['postTarget'][kind] = {
+                          'deliveries': 2, 'active': 1, 'qualifiedDisposal': 1,
+                          'invalid': 0, 'pending': 0, 'candidates': 1, 'proof': proof,
+                      }
+              value['http401']['navigation']['topEvents'] = 1 + top_count
+              value['http401']['resource']['total'] = 1 + resource_count
+              value['http401']['resource']['refused'] = resource_count
+              return value
+
+
           def data_self_check():
+              # Catch loss of any old positive predicate or new proof, while pass remains true.
               exit_data = {'schema': 1, 'runId': 'canary', 'exitCode': 0}
-              dynamic = {('lifecycle', 'runtimeVersion'), ('http401', 'early401', 'count')}
+              dynamic = {('lifecycle', 'runtimeVersion')}
               dynamic.update(('http401', 'server', key) for key in RANGES)
               dynamic.update(('http401', 'cleanup', key) for key in TIMES)
+              for kind in ('top', 'resource'):
+                  dynamic.update(('http401', 'postTarget', kind, 'proof', key)
+                                 for key in ('entryAtMs', 'settledAtMs'))
               for early in (0, 1):
-                  canary = expected('canary', early)
-                  canary['lifecycle']['runtimeVersion'] = '1.2.3.4'
+                  for top_count in (0, 1):
+                      for resource_count in (0, 1):
+                          canary = positive_canary(early, top_count, resource_count)
+                          validate(canary, exit_data, 'canary')
+                          encoded = json.dumps(canary, separators=(',', ':')).encode('ascii')
+                          validate(decode(encoded + b'\n'), exit_data, 'canary')
+                          validate(decode(encoded + b' ' * (8192 - len(encoded))), exit_data, 'canary')
+                          reject_raw(encoded + b' ' * (8193 - len(encoded)))
+                          for path, value in leaves(canary):
+                              if path == ('pass',):
+                                  continue
+                              if path not in dynamic:
+                                  wrong = ((not value) if type(value) is bool else
+                                           (value + 1) if type(value) is int else
+                                           ['extra'] if type(value) is list else
+                                           {} if value is None else 'wrong')
+                                  must_reject(changed(canary, path, wrong), exit_data)
+                              if value is not None:
+                                  must_reject(changed(canary, path, None), exit_data)
+                              if type(value) is bool:
+                                  must_reject(changed(canary, path, int(value)), exit_data)
+                              if type(value) is int:
+                                  for wrong in (True, False, 1.0, -1, U64_MAX + 1):
+                                      must_reject(changed(canary, path, wrong), exit_data)
+                          for path, value in objects(canary):
+                              for key in value:
+                                  missing = copy.deepcopy(canary)
+                                  del at(missing, path)[key]
+                                  must_reject(missing, exit_data)
+                              extra = copy.deepcopy(canary)
+                              at(extra, path)['unexpected'] = True
+                              must_reject(extra, exit_data)
+                              reject_raw(duplicate_json(canary, path).encode('ascii'))
+                              reject_raw(duplicate_json(canary, path, escaped=True).encode('ascii'))
+                          for key, (low, high) in RANGES.items():
+                              for boundary in (low, high):
+                                  validate(changed(canary, ('http401', 'server', key), boundary), exit_data, 'canary')
+                              for wrong in (low - 1, high + 1):
+                                  must_reject(changed(canary, ('http401', 'server', key), wrong), exit_data)
+                          for wrong in (0, 1, 2, None):
+                              if wrong != early:
+                                  must_reject(changed(canary, ('http401', 'early401', 'count'), wrong), exit_data)
+                          for key, wrong in (('targetAtMs', 45000), ('targetAtMs', 106),
+                                             ('firstCloseAtMs', 101), ('finalAtMs', 99),
+                                             ('cleanupElapsedMs', 10000), ('cleanupElapsedMs', 3),
+                                             ('cleanupElapsedMs', 6)):
+                              must_reject(changed(canary, ('http401', 'cleanup', key), wrong), exit_data)
+                          rounded = changed(canary, ('http401', 'cleanup', 'finalAtMs'), 106)
+                          validate(rounded, exit_data, 'canary')
+                          must_reject(changed(rounded, ('http401', 'cleanup', 'withinCloseDeadline'), False), exit_data)
+                          for kind, count in (('top', top_count), ('resource', resource_count)):
+                              row = ('http401', 'postTarget', kind)
+                              # History plus extra counts without a real proof cannot qualify.
+                              for key, wrong in (('deliveries', 3), ('active', 2), ('invalid', 1),
+                                                 ('pending', 1), ('candidates', 2), ('qualifiedDisposal', 2)):
+                                  must_reject(changed(canary, row + (key,), wrong), exit_data)
+                              if count == 1:
+                                  for key, wrong in (('entryAtMs', 99), ('entryAtMs', 104),
+                                                     ('settledAtMs', 100), ('settledAtMs', 106),
+                                                     ('entryAtMs', 45000), ('settledAtMs', 45000)):
+                                      must_reject(changed(canary, row + ('proof', key), wrong), exit_data)
+                                  must_reject(changed(canary, row + ('proof',), None), exit_data)
+                              else:
+                                  # A proof cannot claim a never-observed/candidate-free branch.
+                                  donor = positive_canary(early, 1, 1)
+                                  must_reject(changed(canary, row + ('proof',), at(donor, row + ('proof',))), exit_data)
+                          for wrong in ('', 'x', '1' * 129):
+                              must_reject(changed(canary, ('lifecycle', 'runtimeVersion'), wrong), exit_data)
+                          for schema in range(16):
+                              must_reject(changed(canary, ('schema',), schema), exit_data)
+                          for wrong in (False, 1, None, 'true'):
+                              must_reject(changed(canary, ('pass',), wrong), exit_data)
+                          for wrong in (None, False, 0, [], 'wrong'):
+                              must_reject(wrong, exit_data)
+                              must_reject(canary, wrong)
+                          for path, value in leaves(exit_data):
+                              must_reject(canary, changed(exit_data, path, True))
+                              must_reject(canary, changed(exit_data, path, 'stale'))
+                          for wrong in (1, -1, 124, 101, None, False, 0.0):
+                              must_reject(canary, {**exit_data, 'exitCode': wrong})
+                          must_reject(canary, {**exit_data, 'extra': True})
+                          for key in exit_data:
+                              must_reject(canary, {k: v for k, v in exit_data.items() if k != key})
+              # Independent legal varying clocks, both rounding relations, and near limits.
+              for clock in ((0, 0, 0, 0, 0, 0), (5, 6, 10004, 10005, 10005, 9999),
+                            (44990, 44991, 44992, 44999, 50000, 5009)):
+                  first, target, entry, settled, final, elapsed = clock
+                  canary = positive_canary(1, 1, 1)
+                  canary['http401']['cleanup'].update({
+                      'firstCloseAtMs': first, 'targetAtMs': target,
+                      'finalAtMs': final, 'cleanupElapsedMs': elapsed,
+                  })
+                  for kind in ('top', 'resource'):
+                      canary['http401']['postTarget'][kind]['proof'].update({
+                          'entryAtMs': entry, 'settledAtMs': settled,
+                      })
                   validate(canary, exit_data, 'canary')
-                  validate(decode(json.dumps(canary, separators=(',', ':')).encode('ascii') + b'\n'), exit_data, 'canary')
-                  for path, value in leaves(canary):
-                      if path == ('pass',):
-                          continue
-                      if path not in dynamic:
-                          wrong = (not value) if type(value) is bool else (value + 1) if type(value) is int else ['extra'] if type(value) is list else 'wrong'
-                          must_reject(changed(canary, path, wrong), exit_data)
-                      if value is not None:
-                          must_reject(changed(canary, path, None), exit_data)
-                      if type(value) is bool:
-                          must_reject(changed(canary, path, int(value)), exit_data)
-                      if type(value) is int:
-                          for wrong in (True, False, 1.0, -1, U64_MAX + 1):
-                              must_reject(changed(canary, path, wrong), exit_data)
-                  for path, value in objects(canary):
-                      for key in value:
-                          missing = copy.deepcopy(canary)
-                          del at(missing, path)[key]
-                          must_reject(missing, exit_data)
-                      extra = copy.deepcopy(canary)
-                      at(extra, path)['unexpected'] = True
-                      must_reject(extra, exit_data)
-                      reject_raw(duplicate_json(canary, path).encode('ascii'))
-                  for key, (low, high) in RANGES.items():
-                      for boundary in (low, high):
-                          validate(changed(canary, ('http401', 'server', key), boundary), exit_data, 'canary')
-                      for wrong in (low - 1, high + 1):
-                          must_reject(changed(canary, ('http401', 'server', key), wrong), exit_data)
-                  for wrong in (0, 1, 2, None):
-                      if wrong != early:
-                          must_reject(changed(canary, ('http401', 'early401', 'count'), wrong), exit_data)
-                  for key, wrong in (('targetAtMs', 45000), ('targetAtMs', 106),
-                                     ('firstCloseAtMs', 106), ('finalAtMs', 99),
-                                     ('cleanupElapsedMs', 10000), ('cleanupElapsedMs', 3),
-                                     ('cleanupElapsedMs', 6)):
-                      must_reject(changed(canary, ('http401', 'cleanup', key), wrong), exit_data)
-                  # Rounding difference1 is valid only alongside precise true flags.
-                  rounded = changed(canary, ('http401', 'cleanup', 'finalAtMs'), 106)
-                  validate(rounded, exit_data, 'canary')
-                  must_reject(changed(rounded, ('http401', 'cleanup', 'withinCloseDeadline'), False), exit_data)
-                  for wrong in ('', 'x', '1' * 129):
-                      must_reject(changed(canary, ('lifecycle', 'runtimeVersion'), wrong), exit_data)
-                  for schema in range(15):
-                      must_reject(changed(canary, ('schema',), schema), exit_data)
-                  for wrong in (False, 1, None, 'true'):
-                      must_reject(changed(canary, ('pass',), wrong), exit_data)
-                  for wrong in (None, False, 0, [], 'wrong'):
-                      must_reject(wrong, exit_data)
-                      must_reject(canary, wrong)
-                  for path, value in leaves(exit_data):
-                      must_reject(canary, changed(exit_data, path, True))
-                      must_reject(canary, changed(exit_data, path, 'stale'))
-                  must_reject(canary, {**exit_data, 'exitCode': 1})
-                  must_reject(canary, {**exit_data, 'extra': True})
-                  for key in exit_data:
-                      must_reject(canary, {k: v for k, v in exit_data.items() if k != key})
-                  for raw in (b'\xef\xbb\xbf{}', b'\xff', b'{}{}', b'{} trailing',
-                              b'{"schema":1,"\\u0073chema":1}',
-                              b'{"v":NaN}', b'{"v":Infinity}', b'{"v":-Infinity}',
-                              b'{"v":1.0}', b'{"v":1e99}', b' ' * 8193):
-                      reject_raw(raw)
+                  for kind in ('top', 'resource'):
+                      for key in ('withinAttemptDeadline', 'withinCloseDeadline', 'postDropCurrent'):
+                          must_reject(changed(canary, ('http401', 'postTarget', kind, 'proof', key), False), exit_data)
+              # Late disposal cannot be rescued by its historical target and true flags.
+              late = positive_canary(0, 1, 1)
+              late['http401']['cleanup'].update({'firstCloseAtMs': 0, 'targetAtMs': 1,
+                                                'finalAtMs': 10002, 'cleanupElapsedMs': 9999})
+              for kind in ('top', 'resource'):
+                  late['http401']['postTarget'][kind]['proof'].update({'entryAtMs': 10001, 'settledAtMs': 10001})
+              must_reject(late, exit_data)
+              old = positive_canary(0, 0, 0)
+              old['schema'] = 15
+              old['http401']['version'] = 1
+              del old['http401']['postTarget']
+              must_reject(old, exit_data)
+              for run in ('', 'x' * 65, 'bad/run', 'canary\n', '\u00e9'):
+                  try:
+                      validate(positive_canary(0, 0, 0), exit_data, run)
+                  except (ValueError, TypeError, AttributeError):
+                      pass
+                  else:
+                      raise ValueError('invalid expected run identity accepted')
+              for raw in (b'\xef\xbb\xbf{}', b'\xff', b'{}{}', b'{} trailing',
+                          b'{"schema":1,"\\u0073chema":1}', b'{"v":NaN}',
+                          b'{"v":Infinity}', b'{"v":-Infinity}', b'{"v":1.0}',
+                          b'{"v":1e99}', b' ' * 8193):
+                  reject_raw(raw)
               reject_raw(duplicate_json(exit_data, ()).encode('ascii'))
+              reject_raw(duplicate_json(exit_data, (), escaped=True).encode('ascii'))
 
 
           if __name__ == '__main__':
