@@ -136,7 +136,7 @@ jobs:
               data = json.loads(candidate)
               assert 'overrides' not in data and 'undici' not in data.get('dependencies', {})
               assert 'undici' not in data.get('devDependencies', {})
-              data['overrides'] = {'undici': '8.12.2'}
+              data['overrides'] = {'undici': '8.12.2', 'chai': '6.2.2', 'tinyrainbow': '3.1.1'}
               try:
                   manifest.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
                   npm('resolve-temporary-undici', recipe)
@@ -179,7 +179,10 @@ jobs:
                   wanted['integrity'] = current['integrity']
                   for section in ('dependencies', 'optionalDependencies', 'peerDependencies'):
                       for name, value in wanted.get(section, {}).items():
-                          if name.startswith('@vitest/') and value == '4.1.11':
+                          if (path == 'node_modules/vitest' and section == 'peerDependencies'
+                                  and name == '@vitest/browser-webdriverio' and value == '4.1.11'):
+                              wanted[section][name] = '^4.1.11'
+                          elif name.startswith('@vitest/') and value == '4.1.11':
                               wanted[section][name] = '4.1.12'
                   assert current == wanted, 'package metadata outside approved delta: ' + path
                   delta[path] = {'before': previous, 'after': current}
