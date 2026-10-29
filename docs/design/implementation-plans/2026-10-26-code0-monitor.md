@@ -265,3 +265,21 @@ N5下载准备26063/efbbd0c6+Root3158/3bf83a82+独立20475/1a164f57已Root全文
 2026-10-29 legacy original45 fix2双SOURCE复审均C0/I0/M0：SPEC15907/e601a297、QUALITY13588/e416cf49已Root完整核读，原I1/I2及Root I3均ADDRESSED；37冻结成员和当前两源码/工作流/四parked逐字核对通过。D391027/ffc2dacd、F157090/1bd0c1ca，私有完成输入分组、ChildNone首native closing生产者及未用导入修正获源码接受；legacy10+N3六条共16回归、编译/Clippy/native尚未运行，下一步精确本地提交、完整备份后单批隔离CI，不提前合并发布。
 
  获审两源码已精确本地提交98a1fb48b31a739fd15c2faa8c71c757763abdf9，373文档、公开扫描与差异检查通过；实际16回归/编译/native未运行。
+
+2026-10-29 本批N3+legacy已推候选HEAD8a19d853725cf395044b5dac2ff9c07bc05182da：Windows40792192995、Mac40792193050、独立dispatcher40792193064均已启动；20文件全Git检查点manifest823a1e143435769e2adf09dd00e2c36682b8cde3a0e15ff9907ae7b80eb1da5e完整读回，19本地证据refs未推。四parked保持、无合并发布。当前三CI结束前不推下一头/不取消。下一单片选择已预审N4固定空白popup，分配schema10、S3预留11、N5预留12，唯一作者仅两源码；Root负责WF及正式记录，新SOURCE双审前无N4执行许可。
+
+2026-10-29 8a19批次实际Mac40792193050与Windows40792192995均completedSUCCESS，实际merge99dbeacbd764b7fafb6335b03752b1f9f3c6b42a/全tree同head8a19并由raw checkout绑定。Windows raw640999/68b58b1c、9组22JSON下载0；Root严格类型/字段比对N1/N2/N3全正向，16新增回归逐条唯一实际ok，15真实normal close+15 TempClose成功，N3原关闭预算至run_return759ms。Mac raw1499547/dcadd5c8、受控CLI v2产物3份已保存，独立实际复核进行中；Windows独立验收待报告，dispatcher40792193064仍运行。这里仅新鲜CI和Root数据核对，不冒充双平台独立验收或Task4/5完成；当前N4唯一作者候选静态工作，未SOURCE接受/执行。
+
+2026-10-29 Mac40792193050独立实际审查16699/b3455b45已Root全文接受C0/I0/M0，仅本轮配置门禁：4job32step全成功、strict v2两臂与旧4失败组通过。main763含27skip、hosted补12仍15未观察；raw736start仅665逐条pass，按完整framework汇总/退出验收且保留71日志粒度缺口，不虚造逐条结果。Windows整轮成功正独立实际复核，dispatcher仍运行，整Task4/5未完。新challenge可行性22857/601999e9已Root全文读，仅研究：当前gate无三类路线，未来有限loopback401/TLS需新合同/审查，clientcert仍缺正常信任与回调可达前提；不改信任/CA、不冒充实际覆盖，也不因此停N4。
+
+2026-10-29 Windows40792192995独立实际报告25753/00ee27a9已Root按两连续字节段完整核读，有限C0/I0/M0接受：N3真实alert/严格成功token/实际driver Session失败/正常清理，61字段、16共享边界回归各actual ok、396唯一Rust/前端302/strict Clippy/47step、15真实运行45正常诊断及TempClose均通过。原生时序为及时正例，未伪称真实COM跨45秒复现；N3关闭至run_return759ms，旧历史首因未知保留。Mac本轮actual C0已接受；dispatcher40792193064尚运行，后续N4候选和S3-S5/Task5未完成，未合并发布。
+
+2026-10-29 Task5既存M1详情重开8秒期限回归另作隔离test-only RED采证：原Shell28819/13bd0429未改，已独审四parked中TS14757/5a1db4f7仅复制到专用支线，不挪动当前四parked/N4源码或推新PR67头。使用单独frontend-only CI先旧测试对照再真实新断言，未实际RED前不修Shell；主Windows/Mac实际C0保持、dispatcher当前轮继续。原生N4作者/当前优先级不改变。
+
+2026-10-29 第22轮dispatcher40792193064完整独立实际C0/I0/M0已Root全文读16683/94ad6519追加并核225459/463927df总报告与原208776/df56前缀：25基线/四严格编译后精确语义kill/全部清理/最终verifier、21保留hash及22成员通过，job1729s/mutation1654s，原期限不改，当前private过滤67/68真实推导。8a19三组CI及各自有限实际独审均接受，20本地证据refs保持不推；整Task4/5尚未完成。N4两源码候选已STOP/封52成员8a6e938d和报告26531/bfc2bc7e，D435629/a29aa7f8、F169501/dcf35a8c，新1严格parser测试+原16逐字保持，新编译/17测试/native全部未运行；下一Root接WF并三文件双审，非SOURCE已接受或发布。
+
+2026-10-29 Task5M1专用支线f98a7dc/CI40797644046已确认有效行为RED：实际Shell28819/13bd、原测试23全过；新增B/null两case均在逻辑t8的122行no-close断言观察到close_provider_detail提前一次，25项中旧23过/新增2失败，真实exit0/1、准备/编译/超时无失败。raw77407/6c6bfc5d与8文件完整artifact（实际Shell/old/new测试、日志/exit）已保存并Root核源/身份/摘要；仅失败后的Node缓存post-hook skipped，非测试跳过。其失败是独立回归的预期真实行为失败，不抵销已接受8a19三组CI；先持久保存RED，再唯一作者只修Shell展示计时，原8秒/测试/独立Code0数值/动作语义保持，后续GREEN与独审仍待验。
+
+2026-10-29 N4完整三源码双审已Root全文接受SOURCE C0/I0/M0：SPEC20293/c1eed1cf、QUALITY25894/c3639a87均独立完整读122191/50b956差异及真实producer/时钟/借用/lifetime/WF；Root全文读报告和新WF、机械重建native109282，不冒称Root本人逐行读全native补丁。当前D435629/a29aa7f8、F169501/dcf3、WF110150/78db，schema10精确11root/44popup/原WF可整份逆还原。新17测试/编译/strictClippy/nativepopup/token/清理仍未运行，只选择性本地检查点，不称功能GREEN/整项完成或发布。
+
+2026-10-29 N4获审三源码已本地精确提交df0622d2c50444e7608dfb44e0752307439fe96e（新编译/17测试/native仍UNRUN，远端main候选仍8a19）。Task5M1 Shell最小3增1删候选28971/72f0及Root定向WF5309/120f完整6222/0ba90双角色SOURCE独审16656/1c12e982已Root全文接受C0/I0/M0，原8秒/测试/独立会话数值与动作未改；有效RED40797644046保留，后续先支线target25+全前端/类型构建GREEN，未提前整合主分支或发布。
