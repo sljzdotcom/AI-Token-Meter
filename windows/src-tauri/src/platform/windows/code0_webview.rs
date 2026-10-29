@@ -447,9 +447,13 @@ mod native {
             instance.closing = true;
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_popup_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let _ = s2::mark_download_close(instance);
         }
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::publish_download_close(owner);
     }
 
     fn inventory_empty(instance: &Instance) -> bool {
@@ -1237,10 +1241,14 @@ mod native {
             let _ = s2::mark_dialog_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_popup_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let _ = s2::mark_download_close(instance);
         }
         drop(state);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::publish_download_close(owner);
         // Only a later UI poll can certify actual inventory and release.
     }
 
@@ -1265,6 +1273,8 @@ mod native {
                 instance.closing = true;
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 let _ = s2::mark_popup_close(instance);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                let _ = s2::mark_download_close(instance);
                 instance.window.take()
             } else {
                 None
@@ -1276,6 +1286,8 @@ mod native {
         drop(window);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::publish_download_close(owner);
     }
 
     fn cleanup_result(
@@ -1362,6 +1374,8 @@ mod native {
         s2::advance_dialog(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::advance_popup(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::advance_download(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -1381,6 +1395,8 @@ mod native {
         }
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::synchronize_popup_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s2::synchronize_download_close(owner);
         {
             let mut state = owner.borrow_mut();
             let unmatched = state.unmatched;
@@ -1663,6 +1679,7 @@ mod native {
                 s2::publish_child_final(owner);
                 s2::publish_dialog_final(owner);
                 s2::publish_popup_final(owner);
+                s2::publish_download_final(owner);
             }
             events(request, event);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1820,6 +1837,15 @@ mod native {
         s2::submit_popup_initial_blank(owner, request, deadline)
     }
 
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn submit_download_initial_data_empty(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        deadline: super::fixture::NativeDialogDeadline,
+    ) -> Result<(), Code0SessionFailure> {
+        s2::submit_download_initial_data_empty(owner, request, deadline)
+    }
+
     /// Debug-only refusal registration and finite N1 audit; never production authority.
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     mod s2 {
@@ -1840,8 +1866,9 @@ mod native {
         const GENERATION: u64 = 1;
         use super::super::fixture::{
             LegacyChildClose, LegacyCompletionInput, LegacyRefusalEvent, NativeDialogDeadline,
-            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativePopupFacts,
-            NativePopupReceipt, NativePopupStage, NativeRefusalDeadline,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeDownloadFacts,
+            NativeDownloadReceipt, NativeDownloadStage, NativePopupFacts, NativePopupReceipt,
+            NativePopupStage, NativeRefusalDeadline, download_result_units,
             legacy_completion_disposition_at, popup_result_units,
         };
         const DIALOG_LEAF: &str = "code0-s2-dialog-empty.html";
@@ -1851,6 +1878,8 @@ mod native {
         const CHILD_TARGET: &str = "data:text/html,";
         const CHILD_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.querySelector('iframe')!==null){throw new Error('code0-child-precondition');}const f=document.createElement('iframe');f.src='data:text/html,';document.documentElement.appendChild(f);return 'code0-child-submitted-v1';})()";
         const CHILD_RESULT: &str = "\"code0-child-submitted-v1\"";
+        const DOWNLOAD_TARGET: &str = "data:application/octet-stream,";
+        const DOWNLOAD_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||!document.body||document.querySelector('iframe,frame,a,base')!==null){return 'code0-download-precondition-v1';}const a=document.createElement('a');a.href='data:application/octet-stream,';a.setAttribute('download','');a.target='_self';document.body.appendChild(a);try{a.click();}finally{a.remove();}return 'code0-download-submitted-v1';})()";
         const POPUP_SCRIPT: &str = "(()=>{if(top!==self||location.href!=='about:blank'||!document.documentElement||document.documentElement.tagName!=='HTML'||document.querySelector('iframe,frame')!==null){return 'code0-popup-precondition-v1';}window.open('about:blank','_blank');return 'code0-popup-submitted-v1';})()";
 
         enum Emitter {
@@ -1883,6 +1912,7 @@ mod native {
             dialog: Option<DialogState>,
             dialog_completed: Option<DialogRegistration>,
             popup: Option<PopupState>,
+            download: Option<DownloadState>,
         }
         impl Registry {
             pub(super) fn not_installed() -> Self {
@@ -1901,6 +1931,7 @@ mod native {
                     dialog: None,
                     dialog_completed: None,
                     popup: None,
+                    download: None,
                 }
             }
             pub(super) fn installed_mask(&self) -> u16 {
@@ -1930,6 +1961,7 @@ mod native {
                     && self.dialog_completed.is_none()
                     && self.dialog.as_ref().is_none_or(DialogState::quiescent)
                     && self.popup.as_ref().is_none_or(PopupState::quiescent)
+                    && self.download.as_ref().is_none_or(DownloadState::quiescent)
             }
         }
         pub(super) struct Controls {
@@ -1972,6 +2004,7 @@ mod native {
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
                     || i.refusal_registry.popup.is_some()
+                    || i.refusal_registry.download.is_some()
                 {
                     return Err(denied());
                 }
@@ -3070,6 +3103,7 @@ mod native {
                     || i.refusal_registry.dialog.is_some()
                     || i.refusal_registry.dialog_completed.is_some()
                     || i.refusal_registry.popup.is_some()
+                    || i.refusal_registry.download.is_some()
                 {
                     return Err(denied());
                 }
@@ -3942,6 +3976,7 @@ mod native {
                     || i.refusal_registry.dialog.is_some()
                     || i.refusal_registry.dialog_completed.is_some()
                     || i.refusal_registry.popup.is_some()
+                    || i.refusal_registry.download.is_some()
                 {
                     return Err(denied());
                 }
@@ -4411,6 +4446,849 @@ mod native {
             require_live(owner, request)
         }
 
+        // N5 has no creation Pending and no additional emitter registration.
+        // Its first revocation exists before Source/handler preparation; only an
+        // actual final native invocation installs a completion obligation.
+        struct DownloadState {
+            deadline: Rc<NativeDialogDeadline>,
+            core: Weak<ICoreWebView2>,
+            closing_since: Option<Instant>,
+            first_close: LegacyChildClose,
+            closing_published: bool,
+            mailbox: Option<Arc<DownloadMailbox>>,
+            completion_seen: bool,
+            facts: NativeDownloadFacts,
+        }
+        impl DownloadState {
+            fn quiescent(&self) -> bool {
+                self.mailbox.as_ref().is_none_or(|m| {
+                    self.completion_seen
+                        && m.obligation.load(Ordering::SeqCst) == 0
+                        && m.handlers.load(Ordering::SeqCst) == 0
+                        && !m.invalid.load(Ordering::SeqCst)
+                        && m.disposition.lock().unwrap().is_none()
+                })
+            }
+        }
+        struct DownloadMailbox {
+            disposition: Mutex<Option<DownloadDisposition>>,
+            invoked: AtomicBool,
+            invalid: AtomicBool,
+            obligation: AtomicUsize,
+            handlers: AtomicUsize,
+            closing_since: Mutex<Option<Instant>>,
+        }
+        struct DownloadDisposition {
+            request: Code0WindowRequest,
+            generation: u64,
+            installation: Arc<AtomicBool>,
+            received_at: Instant,
+            hresult_succeeded: bool,
+            bounded_result_valid: bool,
+            fixed_result_matched: bool,
+        }
+        struct DownloadHandlerLifetime {
+            mailbox: std::sync::Weak<DownloadMailbox>,
+            _aggregate: HandlerLifetime,
+        }
+        impl Drop for DownloadHandlerLifetime {
+            fn drop(&mut self) {
+                if let Some(m) = self.mailbox.upgrade() {
+                    m.handlers.fetch_sub(1, Ordering::SeqCst);
+                }
+                // Only a real matching invocation disposition settles its ticket.
+            }
+        }
+        #[windows::core::implement(ICoreWebView2ExecuteScriptCompletedHandler, Agile = false)]
+        struct DownloadCompletion {
+            mailbox: std::sync::Weak<DownloadMailbox>,
+            callbacks: Arc<Callbacks>,
+            installation: Arc<AtomicBool>,
+            request: Code0WindowRequest,
+            generation: u64,
+            ui: ThreadId,
+            _lifetime: DownloadHandlerLifetime,
+        }
+        impl ICoreWebView2ExecuteScriptCompletedHandler_Impl for DownloadCompletion_Impl {
+            fn Invoke(
+                &self,
+                errorcode: windows::core::HRESULT,
+                result: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                let _active = Active::enter(&self.callbacks);
+                // UI/STA before raw copying, allocation, or UI-local references.
+                if !callback_on_ui(self.ui, &self.callbacks) {
+                    self.installation.store(true, Ordering::SeqCst);
+                    if let Some(m) = self.mailbox.upgrade() {
+                        m.invalid.store(true, Ordering::SeqCst);
+                    }
+                    return Ok(());
+                }
+                let Some(m) = self.mailbox.upgrade() else {
+                    self.installation.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                if m.invoked.swap(true, Ordering::SeqCst) {
+                    m.invalid.store(true, Ordering::SeqCst);
+                    self.installation.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let received_at = Instant::now();
+                let (bounded_result_valid, fixed_result_matched) = download_result(*result);
+                let disposition = DownloadDisposition {
+                    request: self.request.clone(),
+                    generation: self.generation,
+                    installation: Arc::clone(&self.installation),
+                    received_at,
+                    hresult_succeeded: errorcode.is_ok(),
+                    bounded_result_valid,
+                    fixed_result_matched,
+                };
+                let mut slot = m.disposition.lock().unwrap();
+                if slot.is_some() {
+                    m.invalid.store(true, Ordering::SeqCst);
+                    self.installation.store(true, Ordering::SeqCst);
+                } else {
+                    *slot = Some(disposition);
+                }
+                Ok(())
+            }
+        }
+        fn download_result(raw: PCWSTR) -> (bool, bool) {
+            if raw.is_null() {
+                return (false, false);
+            }
+            let mut copied = [0u16; 64];
+            for length in 0..copied.len() {
+                // Borrowed callback memory, never retained/freed or converted by
+                // an unbounded wrapper. Including NUL: at most 64 UTF16 reads.
+                let unit = unsafe { *raw.0.add(length) };
+                if unit == 0 {
+                    return download_result_units(&copied[..length]);
+                }
+                copied[length] = unit;
+            }
+            (false, false)
+        }
+        fn emit_download(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            stage: NativeDownloadStage,
+        ) {
+            let observation = {
+                let state = owner.borrow();
+                state
+                    .instance
+                    .as_ref()
+                    .filter(|i| {
+                        &i.request == request
+                            && i.refusal_registry.generation == GENERATION
+                            && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                    })
+                    .and_then(|i| {
+                        i.refusal_registry.download.as_ref().map(|p| {
+                            (
+                                i.observer.clone(),
+                                NativeDownloadReceipt {
+                                    request: request.clone(),
+                                    installation: Arc::clone(installation),
+                                    stage,
+                                    facts: p.facts,
+                                },
+                            )
+                        })
+                    })
+            };
+            if let Some((Some(observer), receipt)) = observation {
+                observer(NativeSmokeObservation::Download(receipt));
+            }
+        }
+        pub(super) fn mark_download_close(i: &mut Instance) -> Option<Instant> {
+            let p = i.refusal_registry.download.as_mut()?;
+            let at = p
+                .first_close
+                .mark_at(Instant::now(), Some(&mut p.closing_since))?;
+            p.facts.first_closing_observed = true;
+            if let Some(m) = p.mailbox.as_ref() {
+                *m.closing_since.lock().unwrap() = Some(at);
+            }
+            Some(at)
+        }
+        pub(super) fn publish_download_close(owner: &Rc<RefCell<Owner>>) {
+            let notification = {
+                let mut state = owner.borrow_mut();
+                state.instance.as_mut().and_then(|i| {
+                    let p = i.refusal_registry.download.as_mut()?;
+                    let at = p.closing_since?;
+                    if p.closing_published {
+                        return None;
+                    }
+                    p.closing_published = true;
+                    Some((i.observer.clone(), at))
+                })
+            };
+            if let Some((Some(observer), at)) = notification {
+                observer(NativeSmokeObservation::DownloadClosing { at });
+            }
+        }
+        pub(super) fn synchronize_download_close(owner: &Rc<RefCell<Owner>>) {
+            {
+                let mut state = owner.borrow_mut();
+                let unmatched = state.unmatched;
+                if let Some(i) = state.instance.as_mut()
+                    && i.refusal_registry.download.is_some()
+                {
+                    let invalid = unmatched
+                        || i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                        || i.refusal_registry.unknown();
+                    if invalid {
+                        i.failed = true;
+                        i.closing = true;
+                        i.cleanup_blocked = true;
+                    }
+                    if i.closing {
+                        let _ = mark_download_close(i);
+                    }
+                }
+            }
+            publish_download_close(owner);
+        }
+        fn fail_download(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+        ) {
+            {
+                let mut state = owner.borrow_mut();
+                let Some(i) = matching(&mut state, request).filter(|i| {
+                    i.refusal_registry.generation == GENERATION
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                        && i.refusal_registry.download.is_some()
+                }) else {
+                    return;
+                };
+                i.failed = true;
+                i.closing = true;
+                let _ = mark_download_close(i);
+            }
+            publish_download_close(owner);
+        }
+        fn download_deadline(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+        ) -> Option<Rc<NativeDialogDeadline>> {
+            let state = owner.borrow();
+            let i = state.instance.as_ref()?;
+            if &i.request != request
+                || i.refusal_registry.generation != GENERATION
+                || !Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+            {
+                return None;
+            }
+            let p = i.refusal_registry.download.as_ref()?;
+            let core = i.refusal_registry.core.as_ref()?;
+            if !Weak::ptr_eq(&p.core, &Rc::downgrade(core)) {
+                return None;
+            }
+            Some(Rc::clone(&p.deadline))
+        }
+        fn download_authorized(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            require_live: bool,
+        ) -> Option<Rc<NativeDialogDeadline>> {
+            let deadline = download_deadline(owner, request, installation)?;
+            let identity = {
+                let state = owner.borrow();
+                !state.unmatched
+                    && state.instance.as_ref().is_some_and(|i| {
+                        &i.request == request
+                            && i.refusal_registry.generation == GENERATION
+                            && Arc::ptr_eq(&i.refusal_registry.unknown, installation)
+                            && !i.released
+                            && !i.cleanup_blocked
+                            && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && !i.refusal_registry.unknown()
+                    })
+            };
+            if deadline
+                .run_if_authorized_at(
+                    Instant::now(),
+                    identity && (!require_live || live(owner, request)),
+                    || (),
+                )
+                .is_none()
+            {
+                fail_download(owner, request, installation);
+                return None;
+            }
+            Some(deadline)
+        }
+        fn download_step<T>(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            installation: &Arc<AtomicBool>,
+            action: impl FnOnce() -> T,
+        ) -> Option<T> {
+            let deadline = download_authorized(owner, request, installation, true)?;
+            let result =
+                deadline.run_if_authorized_at(Instant::now(), live(owner, request), action);
+            if result.is_none() {
+                fail_download(owner, request, installation);
+            }
+            result
+        }
+        pub(super) fn submit_download_initial_data_empty(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            let denied = || Code0SessionFailure::PolicyRejected;
+            super::require_native_refusal_install(owner, request)?;
+            let (callbacks, ui, core, installation) = {
+                let mut state = owner.borrow_mut();
+                let ui = state.ui_thread;
+                if state.unmatched {
+                    return Err(denied());
+                }
+                let i = matching(&mut state, request).ok_or_else(denied)?;
+                if !i.refusal_registry.complete()
+                    || i.refusal_registry.legacy.is_some()
+                    || i.refusal_registry.top_target.is_some()
+                    || i.refusal_registry.child.is_some()
+                    || i.refusal_registry.dialog.is_some()
+                    || i.refusal_registry.dialog_completed.is_some()
+                    || i.refusal_registry.popup.is_some()
+                    || i.refusal_registry.download.is_some()
+                {
+                    return Err(denied());
+                }
+                let core = Rc::clone(i.refusal_registry.core.as_ref().ok_or_else(denied)?);
+                i.refusal_registry.download = Some(DownloadState {
+                    deadline: Rc::new(deadline),
+                    core: Rc::downgrade(&core),
+                    closing_since: None,
+                    first_close: LegacyChildClose::new(),
+                    closing_published: false,
+                    mailbox: None,
+                    completion_seen: false,
+                    facts: NativeDownloadFacts {
+                        settings_before_stimulus: i.refusal_registry.settings_acknowledged,
+                        ..NativeDownloadFacts::default()
+                    },
+                });
+                (
+                    Arc::clone(&i.callbacks),
+                    ui,
+                    core,
+                    Arc::clone(&i.refusal_registry.unknown),
+                )
+            };
+            let active = Active::enter(&callbacks);
+            let source = download_step(owner, request, &installation, || {
+                allocated_string(2048, |raw| unsafe { core.Source(raw) })
+            });
+            let source_matched = source
+                .as_ref()
+                .is_some_and(|r| r.as_ref().is_ok_and(|s| s == "about:blank"));
+            drop(source);
+            let source_timely = download_authorized(owner, request, &installation, true).is_some();
+            {
+                let mut state = owner.borrow_mut();
+                let p = matching(&mut state, request)
+                    .unwrap()
+                    .refusal_registry
+                    .download
+                    .as_mut()
+                    .unwrap();
+                p.facts.initial_source_matched = source_matched;
+                p.facts.source_after_drop_timely = source_timely;
+            }
+            if !source_matched || !source_timely {
+                fail_download(owner, request, &installation);
+                drop(core);
+                drop(active);
+                let _ = download_authorized(owner, request, &installation, false);
+                return Err(denied());
+            }
+            let mailbox = Arc::new(DownloadMailbox {
+                disposition: Mutex::new(None),
+                invoked: AtomicBool::new(false),
+                invalid: AtomicBool::new(false),
+                obligation: AtomicUsize::new(1),
+                handlers: AtomicUsize::new(1),
+                closing_since: Mutex::new(None),
+            });
+            let handler: ICoreWebView2ExecuteScriptCompletedHandler = DownloadCompletion {
+                mailbox: Arc::downgrade(&mailbox),
+                callbacks: Arc::clone(&callbacks),
+                installation: Arc::clone(&installation),
+                request: request.clone(),
+                generation: GENERATION,
+                ui,
+                _lifetime: DownloadHandlerLifetime {
+                    mailbox: Arc::downgrade(&mailbox),
+                    _aggregate: HandlerLifetime::new(&callbacks),
+                },
+            }
+            .into();
+            let wide: Vec<u16> = DOWNLOAD_SCRIPT
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+            let result = download_step(owner, request, &installation, || {
+                {
+                    let mut state = owner.borrow_mut();
+                    let p = matching(&mut state, request)
+                        .unwrap()
+                        .refusal_registry
+                        .download
+                        .as_mut()
+                        .unwrap();
+                    // The final native-call commitment, before possible synchronous
+                    // event/completion entry. No earlier preparation is a ticket.
+                    p.mailbox = Some(Arc::clone(&mailbox));
+                    p.facts.script_submissions = 1;
+                }
+                unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) }
+            });
+            let returned = result.is_some();
+            let native_ok = result.as_ref().is_some_and(|r| r.is_ok());
+            drop(result);
+            let _ = download_authorized(owner, request, &installation, false);
+            drop(handler);
+            let _ = download_authorized(owner, request, &installation, false);
+            drop(core);
+            let _ = download_authorized(owner, request, &installation, false);
+            drop(wide);
+            drop(active);
+            let timely = download_authorized(owner, request, &installation, false).is_some();
+            {
+                let mut state = owner.borrow_mut();
+                let p = matching(&mut state, request)
+                    .unwrap()
+                    .refusal_registry
+                    .download
+                    .as_mut()
+                    .unwrap();
+                p.facts.script_submission_returned = returned;
+                p.facts.script_submit_ok = native_ok;
+                p.facts.script_return_timely = timely;
+            }
+            if returned {
+                emit_download(
+                    owner,
+                    request,
+                    &installation,
+                    NativeDownloadStage::Submitted,
+                );
+            }
+            if !native_ok || !timely {
+                fail_download(owner, request, &installation);
+                return Err(denied());
+            }
+            Ok(())
+        }
+        pub(super) fn advance_download(owner: &Rc<RefCell<Owner>>) {
+            let binding = owner.borrow().instance.as_ref().and_then(|i| {
+                i.refusal_registry.download.as_ref().and_then(|p| {
+                    p.mailbox.as_ref().map(|m| {
+                        (
+                            Arc::clone(m),
+                            i.request.clone(),
+                            Arc::clone(&i.refusal_registry.unknown),
+                        )
+                    })
+                })
+            });
+            let Some((mailbox, request, installation)) = binding else {
+                return;
+            };
+            let disposition = mailbox.disposition.lock().unwrap().take();
+            let mut failed = false;
+            let mut publish = false;
+            {
+                let mut state = owner.borrow_mut();
+                let unmatched = state.unmatched;
+                let Some(i) = matching(&mut state, &request).filter(|i| {
+                    i.refusal_registry.generation == GENERATION
+                        && Arc::ptr_eq(&i.refusal_registry.unknown, &installation)
+                        && i.refusal_registry
+                            .download
+                            .as_ref()
+                            .and_then(|p| p.mailbox.as_ref())
+                            .is_some_and(|m| Arc::ptr_eq(m, &mailbox))
+                }) else {
+                    installation.store(true, Ordering::SeqCst);
+                    mailbox.invalid.store(true, Ordering::SeqCst);
+                    return;
+                };
+                if mailbox.invalid.load(Ordering::SeqCst) {
+                    installation.store(true, Ordering::SeqCst);
+                }
+                if let Some(d) = disposition {
+                    let p = i.refusal_registry.download.as_mut().unwrap();
+                    p.facts.script_completions =
+                        p.facts.script_completions.saturating_add(1).min(2);
+                    let same = !unmatched
+                        && d.request == i.request
+                        && d.generation == i.refusal_registry.generation
+                        && Arc::ptr_eq(&installation, &d.installation)
+                        && !p.completion_seen
+                        && p.facts.script_submissions == 1
+                        && mailbox.obligation.load(Ordering::SeqCst) == 1;
+                    let closing = *mailbox.closing_since.lock().unwrap();
+                    let outcome = legacy_completion_disposition_at(
+                        &p.deadline,
+                        d.received_at,
+                        Instant::now(),
+                        closing,
+                        LegacyCompletionInput {
+                            identity_valid: same
+                                && !i.released
+                                && !i.cleanup_blocked
+                                && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                                && !mailbox.invalid.load(Ordering::SeqCst)
+                                && !installation.load(Ordering::SeqCst),
+                            hresult_succeeded: d.hresult_succeeded,
+                            bounded_result_valid: d.bounded_result_valid,
+                            fixed_result_matched: d.fixed_result_matched,
+                        },
+                    );
+                    p.facts.completion_identity_matched = same;
+                    p.facts.completion_hresult_succeeded = d.hresult_succeeded;
+                    p.facts.bounded_result_valid = d.bounded_result_valid;
+                    p.facts.fixed_result_matched = d.fixed_result_matched;
+                    p.facts.completion_before_release = !i.released;
+                    p.facts.completion_within_deadline = outcome.timely;
+                    if outcome.disposable {
+                        p.completion_seen = true;
+                        mailbox.obligation.store(0, Ordering::SeqCst);
+                        p.facts.completion_disposition_consumed = true;
+                    } else {
+                        installation.store(true, Ordering::SeqCst);
+                    }
+                    failed = !outcome.successful;
+                    publish = true;
+                }
+            }
+            if failed {
+                fail_download(owner, &request, &installation);
+            }
+            latch_unknown(owner);
+            if publish {
+                emit_download(
+                    owner,
+                    &request,
+                    &installation,
+                    NativeDownloadStage::Completion,
+                );
+            }
+        }
+        pub(super) fn publish_download_final(owner: &Rc<RefCell<Owner>>) {
+            let binding = {
+                let mut state = owner.borrow_mut();
+                state.instance.as_mut().and_then(|i| {
+                    i.refusal_registry.download.as_mut().map(|p| {
+                        p.facts.completion_obligation_drained = p.completion_seen
+                            && p.mailbox
+                                .as_ref()
+                                .is_some_and(|m| m.obligation.load(Ordering::SeqCst) == 0);
+                        p.facts.completion_handlers_drained = p
+                            .mailbox
+                            .as_ref()
+                            .is_some_and(|m| m.handlers.load(Ordering::SeqCst) == 0)
+                            && i.callbacks.handlers.load(Ordering::SeqCst) == 0;
+                        (i.request.clone(), Arc::clone(&i.refusal_registry.unknown))
+                    })
+                })
+            };
+            if let Some((request, installation)) = binding {
+                emit_download(owner, &request, &installation, NativeDownloadStage::Final);
+            }
+        }
+        impl Context {
+            fn download_selected(&self) -> bool {
+                self.owner.upgrade().is_some_and(|owner| {
+                    owner.borrow().instance.as_ref().is_some_and(|i| {
+                        self.matches_instance(i) && i.refusal_registry.download.is_some()
+                    })
+                })
+            }
+            fn reserve_download_target(&self) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let mut state = owner.borrow_mut();
+                let Some(i) =
+                    matching(&mut state, &self.request).filter(|i| self.matches_instance(i))
+                else {
+                    return false;
+                };
+                let Some(p) = i.refusal_registry.download.as_mut() else {
+                    return false;
+                };
+                p.facts.download_events = p.facts.download_events.saturating_add(1).min(2);
+                let issued = p.facts.script_submissions == 1 && p.mailbox.is_some();
+                p.facts.issued_before_event = issued;
+                if p.facts.download_events != 1 || !issued {
+                    self.unknown.store(true, Ordering::SeqCst);
+                    return false;
+                }
+                true
+            }
+            fn download_observe(
+                &self,
+                event: &mut LegacyRefusalEvent,
+                require_live: bool,
+                eligible: bool,
+            ) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let Some(deadline) = download_deadline(&owner, &self.request, &self.unknown) else {
+                    return false;
+                };
+                let identity =
+                    download_authorized(&owner, &self.request, &self.unknown, require_live)
+                        .is_some();
+                event.observe_at(&deadline, Instant::now(), identity && eligible)
+            }
+            fn download_after_drop(&self, event: &mut LegacyRefusalEvent) -> bool {
+                let Some(owner) = self.owner.upgrade() else {
+                    return false;
+                };
+                let Some(deadline) = download_deadline(&owner, &self.request, &self.unknown) else {
+                    return false;
+                };
+                let identity =
+                    download_authorized(&owner, &self.request, &self.unknown, false).is_some();
+                event.qualify_at(&deadline, Instant::now(), identity)
+            }
+            fn download_starting(
+                &self,
+                args: &ICoreWebView2DownloadStartingEventArgs,
+                eligible: bool,
+                event: &mut LegacyRefusalEvent,
+                facts: &mut NativeDownloadFacts,
+            ) -> windows::core::Result<bool> {
+                facts.download_sender_matched = eligible;
+                facts.request_generation_live_matched = eligible;
+                let mut timely = self.download_observe(event, true, eligible);
+                // Both restrictive setters run once before any optional metadata.
+                // No Result propagation or qualification can skip either action.
+                facts.cancel_attempts = 1;
+                let canceled = event.cancel_once(|| unsafe { args.SetCancel(true) });
+                facts.cancel_returns = u8::from(canceled.is_some());
+                facts.cancel_successes = u8::from(canceled.as_ref().is_some_and(|r| r.is_ok()));
+                facts.handled_attempts = 1;
+                let handled = unsafe { args.SetHandled(true) };
+                facts.handled_returns = 1;
+                facts.handled_successes = u8::from(handled.is_ok());
+                let action_ok = facts.cancel_successes == 1 && handled.is_ok();
+                drop(canceled);
+                drop(handled);
+                timely &= self.download_observe(event, true, true);
+                // Real readbacks are independent too, including setter failure.
+                let mut cancel = BOOL::from(false);
+                facts.cancel_readbacks = 1;
+                let cancel_readback = unsafe { args.Cancel(&mut cancel) };
+                facts.cancel_readback_succeeded = cancel_readback.is_ok();
+                facts.native_cancel_true = cancel_readback.is_ok() && cancel.as_bool();
+                drop(cancel_readback);
+                timely &= self.download_observe(event, true, true);
+                let mut handled = BOOL::from(false);
+                facts.handled_readbacks = 1;
+                let handled_readback = unsafe { args.Handled(&mut handled) };
+                facts.handled_readback_succeeded = handled_readback.is_ok();
+                facts.native_handled_true = handled_readback.is_ok() && handled.as_bool();
+                drop(handled_readback);
+                timely &= self.download_observe(event, true, true);
+                if action_ok && timely && facts.native_cancel_true && facts.native_handled_true {
+                    // This args-derived operation is a distinct COM object, never
+                    // compared to the core's IUnknown or retained past Active.
+                    let operation = unsafe { args.DownloadOperation() };
+                    facts.operation_getter_succeeded = operation.is_ok();
+                    timely &= self.download_observe(event, true, true);
+                    if timely && let Ok(operation) = operation.as_ref() {
+                        let uri = allocated_string(2048, |raw| unsafe { operation.Uri(raw) });
+                        facts.target_uri_getter_succeeded = uri.is_ok();
+                        facts.target_uri_matched = uri.as_ref().is_ok_and(|s| s == DOWNLOAD_TARGET);
+                        drop(uri);
+                        timely &= self.download_observe(event, true, true);
+                    }
+                    drop(operation);
+                    timely &= self.download_observe(event, true, true);
+                }
+                facts.live_after_calls = timely;
+                if !action_ok
+                    || !facts.cancel_readback_succeeded
+                    || !facts.native_cancel_true
+                    || !facts.handled_readback_succeeded
+                    || !facts.native_handled_true
+                    || !facts.operation_getter_succeeded
+                    || !facts.target_uri_getter_succeeded
+                    || !facts.target_uri_matched
+                    || !timely
+                {
+                    self.unknown.store(true, Ordering::SeqCst);
+                }
+                if action_ok {
+                    Ok(true)
+                } else {
+                    Err(rejection())
+                }
+            }
+            fn publish_download_target(&self, target: NativeDownloadFacts, timely: bool) {
+                let Some(owner) = self.owner.upgrade() else {
+                    return;
+                };
+                {
+                    let mut state = owner.borrow_mut();
+                    let Some(i) =
+                        matching(&mut state, &self.request).filter(|i| self.matches_instance(i))
+                    else {
+                        self.unknown.store(true, Ordering::SeqCst);
+                        return;
+                    };
+                    let Some(p) = i.refusal_registry.download.as_mut() else {
+                        return;
+                    };
+                    // Never overwrite invocation/completion or duplicate counters
+                    // with the callback's earlier local snapshot.
+                    p.facts.cancel_attempts = p
+                        .facts
+                        .cancel_attempts
+                        .saturating_add(target.cancel_attempts)
+                        .min(2);
+                    p.facts.cancel_returns = p
+                        .facts
+                        .cancel_returns
+                        .saturating_add(target.cancel_returns)
+                        .min(2);
+                    p.facts.cancel_successes = p
+                        .facts
+                        .cancel_successes
+                        .saturating_add(target.cancel_successes)
+                        .min(2);
+                    p.facts.cancel_readbacks = p
+                        .facts
+                        .cancel_readbacks
+                        .saturating_add(target.cancel_readbacks)
+                        .min(2);
+                    p.facts.handled_attempts = p
+                        .facts
+                        .handled_attempts
+                        .saturating_add(target.handled_attempts)
+                        .min(2);
+                    p.facts.handled_returns = p
+                        .facts
+                        .handled_returns
+                        .saturating_add(target.handled_returns)
+                        .min(2);
+                    p.facts.handled_successes = p
+                        .facts
+                        .handled_successes
+                        .saturating_add(target.handled_successes)
+                        .min(2);
+                    p.facts.handled_readbacks = p
+                        .facts
+                        .handled_readbacks
+                        .saturating_add(target.handled_readbacks)
+                        .min(2);
+                    p.facts.download_sender_matched = target.download_sender_matched;
+                    p.facts.request_generation_live_matched =
+                        target.request_generation_live_matched;
+                    p.facts.target_uri_getter_succeeded = target.target_uri_getter_succeeded;
+                    p.facts.target_uri_matched = target.target_uri_matched;
+                    p.facts.operation_getter_succeeded = target.operation_getter_succeeded;
+                    p.facts.cancel_readback_succeeded = target.cancel_readback_succeeded;
+                    p.facts.native_cancel_true = target.native_cancel_true;
+                    p.facts.handled_readback_succeeded = target.handled_readback_succeeded;
+                    p.facts.native_handled_true = target.native_handled_true;
+                    p.facts.live_after_calls = target.live_after_calls;
+                    p.facts.target_after_drop_timely = timely;
+                }
+                emit_download(
+                    &owner,
+                    &self.request,
+                    &self.unknown,
+                    NativeDownloadStage::Refusal,
+                );
+            }
+        }
+        fn add_download(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            index: usize,
+            core: &ICoreWebView2_4,
+        ) -> windows::core::Result<()> {
+            let context = Context::new(owner, request);
+            let handler = DownloadStartingEventHandler::create(Box::new(move |sender, args| {
+                let active = Active::enter(&context.callbacks);
+                if !callback_on_ui(context.ui, &context.callbacks) {
+                    context.unknown.store(true, Ordering::SeqCst);
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    return Err(rejection());
+                }
+                let selected = context.download_selected();
+                // Reserve before Context's fallible native IUnknown queries.
+                let reserved = selected && context.reserve_download_target();
+                let mut event = LegacyRefusalEvent::new();
+                let mut facts = NativeDownloadFacts::default();
+                let result = context.invoke(sender.as_ref(), |eligible| {
+                    let args = args.as_ref().ok_or_else(rejection)?;
+                    if selected {
+                        context.download_starting(
+                            args,
+                            eligible && reserved,
+                            &mut event,
+                            &mut facts,
+                        )
+                    } else {
+                        let canceled = unsafe { args.SetCancel(true) };
+                        let handled = unsafe { args.SetHandled(true) };
+                        canceled?;
+                        handled?;
+                        Ok(true)
+                    }
+                });
+                let failed = result.is_err();
+                drop(result);
+                drop(args);
+                drop(sender);
+                let timely = !selected || context.download_after_drop(&mut event);
+                drop(active);
+                let timely = timely && (!selected || context.download_after_drop(&mut event));
+                if selected {
+                    context.publish_download_target(facts, timely);
+                }
+                if failed { Err(rejection()) } else { Ok(()) }
+            }));
+            let mut token = 0;
+            let result = unsafe { core.add_DownloadStarting(&handler, &mut token) };
+            {
+                let mut state = owner.borrow_mut();
+                let i = matching(&mut state, request).unwrap();
+                if result.is_ok() {
+                    i.refusal_registry.entries[index].token = Some(token);
+                } else {
+                    i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    i.failed = true;
+                    i.closing = true;
+                    i.cleanup_blocked = true;
+                }
+            }
+            drop(handler);
+            result?;
+            require_live(owner, request)
+        }
+
         fn rejection() -> windows::core::Error {
             // Empty ErrorInfo: construction and HRESULT conversion perform no
             // thread-error-info calls, including the off-STA callback path.
@@ -4456,9 +5334,10 @@ mod native {
                     (
                         mark_child_close(i).map(|at| (i.observer.clone(), at)),
                         mark_popup_close(i).map(|at| (i.observer.clone(), at)),
+                        mark_download_close(i).map(|at| (i.observer.clone(), at)),
                     )
                 } else {
-                    (None, None)
+                    (None, None, None)
                 }
             };
             if let Some((Some(observer), at)) = observation.0 {
@@ -4466,6 +5345,9 @@ mod native {
             }
             if observation.1.is_some() {
                 publish_popup_close(owner);
+            }
+            if observation.2.is_some() {
+                publish_download_close(owner);
             }
         }
 
@@ -4620,6 +5502,7 @@ mod native {
                 let mut child_close = None;
                 let mut dialog_close = None;
                 let mut popup_close = None;
+                let mut download_close = None;
                 if let Some(owner) = owner.as_ref() {
                     let mut state = owner.borrow_mut();
                     if let Some(i) = matching(&mut state, &self.request)
@@ -4640,6 +5523,8 @@ mod native {
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
                             popup_close = mark_popup_close(i).map(|at| (i.observer.clone(), at));
+                            download_close =
+                                mark_download_close(i).map(|at| (i.observer.clone(), at));
                         }
                     }
                 }
@@ -4656,6 +5541,11 @@ mod native {
                     && let Some(owner) = owner.as_ref()
                 {
                     publish_popup_close(owner);
+                }
+                if download_close.is_some()
+                    && let Some(owner) = owner.as_ref()
+                {
+                    publish_download_close(owner);
                 }
                 if !identity || !same_installation {
                     return Err(rejection());
@@ -5182,21 +6072,9 @@ mod native {
                     .map(|()| true)
                 ),
                 (Hook::NewWindow, Emitter::Core(core)) => add_popup(owner, request, index, core),
-                (Hook::Download, Emitter::Download(core)) => add_handler!(
-                    owner,
-                    request,
-                    index,
-                    core,
-                    DownloadStartingEventHandler,
-                    add_DownloadStarting,
-                    |args: &ICoreWebView2DownloadStartingEventArgs, _| {
-                        let canceled = unsafe { args.SetCancel(true) };
-                        let handled = unsafe { args.SetHandled(true) };
-                        canceled?;
-                        handled?;
-                        Ok(true)
-                    }
-                ),
+                (Hook::Download, Emitter::Download(core)) => {
+                    add_download(owner, request, index, core)
+                }
                 (Hook::ScriptDialog, Emitter::Core(core)) => {
                     add_script_dialog(owner, request, index, core)
                 }
@@ -8066,6 +8944,19 @@ pub mod fixture {
         }
     }
 
+    pub(super) fn download_result_units(units: &[u16]) -> (bool, bool) {
+        let valid =
+            units.len() < 64 && char::decode_utf16(units.iter().copied()).all(|v| v.is_ok());
+        (
+            valid,
+            valid
+                && units
+                    .iter()
+                    .copied()
+                    .eq("\"code0-download-submitted-v1\"".encode_utf16()),
+        )
+    }
+
     pub(super) fn popup_result_units(units: &[u16]) -> (bool, bool) {
         let valid =
             units.len() < 64 && char::decode_utf16(units.iter().copied()).all(|v| v.is_ok());
@@ -8077,6 +8968,34 @@ pub mod fixture {
                     .copied()
                     .eq("\"code0-popup-submitted-v1\"".encode_utf16()),
         )
+    }
+
+    #[cfg(test)]
+    mod download_contract_tests {
+        use super::download_result_units;
+
+        // A permissive JSON/string parser would accept preflight failure,
+        // a missing quoted token, malformed UTF16 or an oversized callback.
+        #[test]
+        fn download_completion_accepts_only_bounded_exact_json_token() {
+            let exact: Vec<u16> = "\"code0-download-submitted-v1\"".encode_utf16().collect();
+            assert_eq!(download_result_units(&exact), (true, true));
+            for text in [
+                "code0-download-submitted-v1",
+                "null",
+                "\"code0-download-precondition-v1\"",
+                "\"code0-download-submitted-v1\" ",
+                "",
+            ] {
+                assert_eq!(
+                    download_result_units(&text.encode_utf16().collect::<Vec<_>>()),
+                    (true, false)
+                );
+            }
+            assert_eq!(download_result_units(&[0xd800]), (false, false));
+            assert_eq!(download_result_units(&[65; 63]), (true, false));
+            assert_eq!(download_result_units(&[65; 64]), (false, false));
+        }
     }
 
     #[cfg(test)]
@@ -9119,6 +10038,127 @@ pub mod fixture {
         }
     }
 
+    /// N5 finite facts from this real download action and strict completion.
+    #[derive(Clone, Copy, Default, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NativeDownloadFacts {
+        pub script_submissions: u8,
+        pub download_events: u8,
+        pub cancel_attempts: u8,
+        pub cancel_returns: u8,
+        pub cancel_successes: u8,
+        pub cancel_readbacks: u8,
+        pub handled_attempts: u8,
+        pub handled_returns: u8,
+        pub handled_successes: u8,
+        pub handled_readbacks: u8,
+        pub script_completions: u8,
+        pub settings_before_stimulus: bool,
+        pub initial_source_matched: bool,
+        pub source_after_drop_timely: bool,
+        pub script_submission_returned: bool,
+        pub script_submit_ok: bool,
+        pub script_return_timely: bool,
+        pub download_sender_matched: bool,
+        pub request_generation_live_matched: bool,
+        pub issued_before_event: bool,
+        pub target_uri_getter_succeeded: bool,
+        pub target_uri_matched: bool,
+        pub operation_getter_succeeded: bool,
+        pub cancel_readback_succeeded: bool,
+        pub native_cancel_true: bool,
+        pub handled_readback_succeeded: bool,
+        pub native_handled_true: bool,
+        pub live_after_calls: bool,
+        pub target_after_drop_timely: bool,
+        pub first_closing_observed: bool,
+        pub completion_identity_matched: bool,
+        pub completion_hresult_succeeded: bool,
+        pub bounded_result_valid: bool,
+        pub fixed_result_matched: bool,
+        pub completion_before_release: bool,
+        pub completion_within_deadline: bool,
+        pub completion_disposition_consumed: bool,
+        pub completion_obligation_drained: bool,
+        pub completion_handlers_drained: bool,
+    }
+    impl NativeDownloadFacts {
+        pub fn target_positive(&self) -> bool {
+            self.download_events == 1
+                && self.cancel_attempts == 1
+                && self.cancel_returns == 1
+                && self.cancel_successes == 1
+                && self.cancel_readbacks == 1
+                && self.handled_attempts == 1
+                && self.handled_returns == 1
+                && self.handled_successes == 1
+                && self.handled_readbacks == 1
+                && self.download_sender_matched
+                && self.request_generation_live_matched
+                && self.issued_before_event
+                && self.target_uri_getter_succeeded
+                && self.target_uri_matched
+                && self.operation_getter_succeeded
+                && self.cancel_readback_succeeded
+                && self.native_cancel_true
+                && self.handled_readback_succeeded
+                && self.native_handled_true
+                && self.live_after_calls
+                && self.target_after_drop_timely
+                && self.first_closing_observed
+        }
+        pub fn positive(&self) -> bool {
+            self.script_submissions == 1
+                && self.script_completions == 1
+                && self.settings_before_stimulus
+                && self.initial_source_matched
+                && self.source_after_drop_timely
+                && self.script_submission_returned
+                && self.script_submit_ok
+                && self.script_return_timely
+                && self.target_positive()
+                && self.completion_identity_matched
+                && self.completion_hresult_succeeded
+                && self.bounded_result_valid
+                && self.fixed_result_matched
+                && self.completion_before_release
+                && self.completion_within_deadline
+                && self.completion_disposition_consumed
+                && self.completion_obligation_drained
+                && self.completion_handlers_drained
+        }
+    }
+    #[derive(Clone, Copy)]
+    pub enum NativeDownloadStage {
+        Submitted,
+        Refusal,
+        Completion,
+        Final,
+    }
+    pub struct NativeDownloadReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) stage: NativeDownloadStage,
+        pub(super) facts: NativeDownloadFacts,
+    }
+    impl NativeDownloadReceipt {
+        pub fn matches(
+            &self,
+            request: &Code0WindowRequest,
+            install: &NativeRefusalInstallReceipt,
+        ) -> bool {
+            &self.request == request
+                && install.matches(request)
+                && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        pub fn stage(&self) -> NativeDownloadStage {
+            self.stage
+        }
+        pub fn facts(&self) -> NativeDownloadFacts {
+            self.facts
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum PolicyFixtureCase {
         InstallAckBeforeFirstLoad,
@@ -9419,6 +10459,10 @@ pub mod fixture {
             at: std::time::Instant,
         },
         Popup(NativePopupReceipt),
+        DownloadClosing {
+            at: std::time::Instant,
+        },
+        Download(NativeDownloadReceipt),
         DialogClosing {
             at: std::time::Instant,
         },
@@ -10182,6 +11226,30 @@ pub mod fixture {
             #[cfg(windows)]
             {
                 super::native::submit_popup_initial_blank(&self.owner, request, deadline)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (request, deadline);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// One fixed non-user N5 download operation on the actual initial blank.
+        pub fn submit_fixture_download_initial_data_empty(
+            &mut self,
+            request: &Code0WindowRequest,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::submit_download_initial_data_empty(&self.owner, request, deadline)
             }
             #[cfg(not(windows))]
             {

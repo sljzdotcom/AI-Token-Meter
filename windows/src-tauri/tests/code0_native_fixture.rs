@@ -23,12 +23,12 @@ mod smoke {
             ContainmentReceipt, DiagnosticMilestone as DM, DiagnosticPhase as DP, Diagnostics,
             NativeChildCompletionReceipt, NativeChildFinalReceipt, NativeChildRefusalFacts,
             NativeChildRefusalReceipt, NativeChildSubmissionReceipt, NativeDialogDeadline,
-            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativePopupFacts,
-            NativePopupReceipt, NativePopupStage, NativeRefusalDeadline,
-            NativeRefusalInstallReceipt, NativeSmokeObservation, NativeTopRefusalFacts,
-            NativeTopRefusalReceipt, NativeTopSubmissionReceipt, PolicyFaultReceipt,
-            PolicyFixtureCase, PolicyObservation, StaleDispositionReceipt, StaleDispositionStage,
-            adopt_legacy_native_close,
+            NativeDialogFacts, NativeDialogReceipt, NativeDialogStage, NativeDownloadFacts,
+            NativeDownloadReceipt, NativeDownloadStage, NativePopupFacts, NativePopupReceipt,
+            NativePopupStage, NativeRefusalDeadline, NativeRefusalInstallReceipt,
+            NativeSmokeObservation, NativeTopRefusalFacts, NativeTopRefusalReceipt,
+            NativeTopSubmissionReceipt, PolicyFaultReceipt, PolicyFixtureCase, PolicyObservation,
+            StaleDispositionReceipt, StaleDispositionStage, adopt_legacy_native_close,
         },
     };
     use serde::Serialize;
@@ -46,6 +46,7 @@ mod smoke {
     const CHILD_REFUSAL_CASE: &str = "refusal-child-initial-data";
     const TOP_REFUSAL_CASE: &str = "refusal-top-owned-file";
     const DIALOG_REFUSAL_CASE: &str = "refusal-dialog-owned-empty-html";
+    const DOWNLOAD_REFUSAL_CASE: &str = "refusal-download-initial-data-empty";
     const POPUP_REFUSAL_CASE: &str = "refusal-popup-initial-blank";
     const DIALOG_REFUSAL_LEAF: &str = "code0-s2-dialog-empty.html";
     const TOP_REFUSAL_LEAF: &str = "code0-s2-top-denied.txt";
@@ -126,6 +127,107 @@ mod smoke {
                 && lifecycle.profile_isolated
                 && lifecycle.destroyed
                 && lifecycle.owned_references_released
+        }
+    }
+
+    // Finite N5: event/action, actual Session failure and strict completion have
+    // independent producers. No installation or script flag supplies another.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct DownloadRefusalEvidence {
+        submission_receipts: u8,
+        target_receipts: u8,
+        completion_receipts: u8,
+        final_receipts: u8,
+        receipt_installation_matched: bool,
+        receipt_consumption_timely: bool,
+        policy_failures: u8,
+        action_before_policy_failure: bool,
+        browser_process_exited_once: bool,
+        #[serde(flatten)]
+        facts: NativeDownloadFacts,
+        #[serde(skip)]
+        installation: Option<NativeRefusalInstallReceipt>,
+    }
+    impl DownloadRefusalEvidence {
+        fn observe(
+            &mut self,
+            receipt: NativeDownloadReceipt,
+            request: &Code0WindowRequest,
+            attempt_started: Instant,
+        ) -> bool {
+            let before = attempt_started.elapsed() < Duration::from_secs(45);
+            let success_stage = !matches!(receipt.stage(), NativeDownloadStage::Final);
+            let first_success = self.submission_receipts == 0
+                && self.target_receipts == 0
+                && self.completion_receipts == 0;
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| receipt.matches(request, i));
+            let first = self.submission_receipts == 0
+                && self.target_receipts == 0
+                && self.completion_receipts == 0
+                && self.final_receipts == 0;
+            self.receipt_installation_matched = if first {
+                matched
+            } else {
+                self.receipt_installation_matched && matched
+            };
+            let count = match receipt.stage() {
+                NativeDownloadStage::Submitted => &mut self.submission_receipts,
+                NativeDownloadStage::Refusal => &mut self.target_receipts,
+                NativeDownloadStage::Completion => &mut self.completion_receipts,
+                NativeDownloadStage::Final => &mut self.final_receipts,
+            };
+            *count = count.saturating_add(1).min(2);
+            let once = *count == 1;
+            self.facts = receipt.facts();
+            drop(receipt);
+            let timely = before && attempt_started.elapsed() < Duration::from_secs(45);
+            if success_stage {
+                self.receipt_consumption_timely = if first_success {
+                    timely
+                } else {
+                    self.receipt_consumption_timely && timely
+                };
+            }
+            matched && once && (!success_stage || timely)
+        }
+        fn target_positive(&self) -> bool {
+            self.target_receipts == 1
+                && self.receipt_installation_matched
+                && self.receipt_consumption_timely
+                && self.facts.target_positive()
+        }
+        fn positive(&self, native: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.submission_receipts == 1
+                && self.target_positive()
+                && self.completion_receipts == 1
+                && self.final_receipts == 1
+                && self.policy_failures == 1
+                && self.action_before_policy_failure
+                && self.browser_process_exited_once
+                && self.facts.positive()
+                && native.positive(lifecycle)
+        }
+        fn failure(&self) -> &'static str {
+            if !self.facts.initial_source_matched || !self.facts.source_after_drop_timely {
+                "downloadInitialBlankPreconditionFailed"
+            } else if !self.target_positive() {
+                "downloadTargetUnobserved"
+            } else if self.completion_receipts != 1
+                || !self.facts.completion_hresult_succeeded
+                || !self.facts.fixed_result_matched
+            {
+                "downloadStrictCompletionFailed"
+            } else if !self.facts.completion_obligation_drained
+                || !self.facts.completion_handlers_drained
+            {
+                "downloadCompletionNotDrained"
+            } else {
+                "downloadPositiveOracleMismatch"
+            }
         }
     }
 
@@ -662,10 +764,18 @@ mod smoke {
         dialog_refusal: Option<DialogRefusalEvidence>,
         #[serde(skip)]
         popup_refusal: Option<PopupRefusalEvidence>,
+        #[serde(skip)]
+        download_refusal: Option<DownloadRefusalEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(download) = &self.download_refusal {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| download.positive(native, lifecycle));
+            }
             if let Some(popup) = &self.popup_refusal {
                 return self
                     .native_refusal
@@ -805,12 +915,16 @@ mod smoke {
         dialog_refusal: Option<&'a DialogRefusalEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         popup_refusal: Option<&'a PopupRefusalEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        download_refusal: Option<&'a DownloadRefusalEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.popup_refusal.is_some() {
+                schema: if install.download_refusal.is_some() {
+                    12
+                } else if install.popup_refusal.is_some() {
                     10
                 } else if install.dialog_refusal.is_some() {
                     9
@@ -824,7 +938,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.popup_refusal.is_some() {
+                required_case: if install.download_refusal.is_some() {
+                    DOWNLOAD_REFUSAL_CASE
+                } else if install.popup_refusal.is_some() {
                     POPUP_REFUSAL_CASE
                 } else if install.dialog_refusal.is_some() {
                     DIALOG_REFUSAL_CASE
@@ -847,6 +963,7 @@ mod smoke {
                 child_refusal: install.child_refusal.as_ref(),
                 dialog_refusal: install.dialog_refusal.as_ref(),
                 popup_refusal: install.popup_refusal.as_ref(),
+                download_refusal: install.download_refusal.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1712,6 +1829,12 @@ mod smoke {
     }
 
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 12 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "N5 summary exceeds fixed bound",
+            ));
+        }
         if summary.schema == 10 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -1728,23 +1851,27 @@ mod smoke {
     }
 
     pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(native_refusal, false, false, false, false)
+        run_policy_selected(native_refusal, false, false, false, false, false)
     }
 
     pub fn run_top_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, true, false, false, false)
+        run_policy_selected(true, true, false, false, false, false)
     }
 
     pub fn run_child_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, true, false, false)
+        run_policy_selected(true, false, true, false, false, false)
     }
 
     pub fn run_dialog_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, false, true, false)
+        run_policy_selected(true, false, false, true, false, false)
     }
 
     pub fn run_popup_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, false, false, true)
+        run_policy_selected(true, false, false, false, true, false)
+    }
+
+    pub fn run_download_refusal() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(true, false, false, false, false, true)
     }
 
     fn run_policy_selected(
@@ -1753,6 +1880,7 @@ mod smoke {
         child_refusal: bool,
         dialog_refusal: bool,
         popup_refusal: bool,
+        download_refusal: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
@@ -1782,6 +1910,7 @@ mod smoke {
             child_refusal: child_refusal.then(ChildRefusalEvidence::default),
             dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
             popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
+            download_refusal: download_refusal.then(DownloadRefusalEvidence::default),
             ..PolicyEvidence::default()
         }));
         write_policy_summary(
@@ -1813,6 +1942,8 @@ mod smoke {
                                 child_refusal: child_refusal.then(ChildRefusalEvidence::default),
                                 dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
                                 popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
+                                download_refusal: download_refusal
+                                    .then(DownloadRefusalEvidence::default),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -2070,6 +2201,9 @@ mod smoke {
         let dialog_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().dialog_refusal.is_some());
+        let download_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().download_refusal.is_some());
         let popup_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().popup_refusal.is_some());
@@ -2190,11 +2324,19 @@ mod smoke {
         let observer_top_close = Rc::clone(&native_top_close);
         let native_dialog_close = Rc::new(Cell::new(None::<Instant>));
         let observer_dialog_close = Rc::clone(&native_dialog_close);
+        let native_download_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_download_close = Rc::clone(&native_download_close);
         let native_popup_close = Rc::new(Cell::new(None::<Instant>));
         let observer_popup_close = Rc::clone(&native_popup_close);
         let native_child_close = Rc::new(Cell::new(None::<Instant>));
         let observer_child_close = Rc::clone(&native_child_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if download_selected
+                && let NativeSmokeObservation::DownloadClosing { at } = &event
+                && observer_download_close.get().is_none()
+            {
+                observer_download_close.set(Some(*at));
+            }
             if popup_selected
                 && let NativeSmokeObservation::PopupClosing { at } = &event
                 && observer_popup_close.get().is_none()
@@ -2317,6 +2459,11 @@ mod smoke {
         } else {
             None
         };
+        let mut download_deadline = if download_selected {
+            NativeDialogDeadline::from_attempt_started(started)
+        } else {
+            None
+        };
         let mut popup_deadline = if popup_selected {
             NativeDialogDeadline::from_attempt_started(started)
         } else {
@@ -2432,7 +2579,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if popup_selected {
+                if download_selected {
+                    native_download_close.get()
+                } else if popup_selected {
                     native_popup_close.get()
                 } else if dialog_selected {
                     native_dialog_close.get()
@@ -2452,7 +2601,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if popup_selected {
+                if download_selected {
+                    native_download_close.get()
+                } else if popup_selected {
                     native_popup_close.get()
                 } else if dialog_selected {
                     native_dialog_close.get()
@@ -2552,13 +2703,17 @@ mod smoke {
                                             || child_selected
                                             || dialog_selected
                                             || popup_selected
+                                            || download_selected
                                         {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if popup_selected {
+                                    if download_selected {
+                                        install.download_refusal.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if popup_selected {
                                         install.popup_refusal.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if dialog_selected {
@@ -2572,6 +2727,26 @@ mod smoke {
                                             saved_receipt;
                                     }
                                     drop(install);
+                                    let download_submission_failure = if download_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        let result = match download_deadline.take() {
+                                            Some(deadline) => driver
+                                                .submit_fixture_download_initial_data_empty(
+                                                    &request, deadline,
+                                                ),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        };
+                                        if result.is_err() {
+                                            Some("downloadNativeSubmissionFailed")
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    };
                                     let popup_submission_failure = if popup_selected
                                         && installed.is_ok()
                                         && valid_inventory
@@ -2724,6 +2899,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = download_submission_failure {
+                                        failure
                                     } else if let Some(failure) = popup_submission_failure {
                                         failure
                                     } else if let Some(failure) = dialog_submission_failure {
@@ -2776,6 +2953,32 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::DownloadClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !download_selected {
+                            state.failure = "unexpectedDownloadClosing";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Download(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = download_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                p.lock().unwrap().download_refusal.as_mut().is_some_and(
+                                    |download| download.observe(receipt, &request, started),
+                                )
+                            });
+                        if !valid {
+                            state.failure = "downloadNativeReceiptInvalid";
                         }
                     }
                     Observation::Native(
@@ -3117,6 +3320,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if download_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .download_refusal
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         if popup_selected {
                             policy
                                 .as_ref()
@@ -3188,7 +3402,28 @@ mod smoke {
                         callback_thread,
                         callback_sta,
                     ) => {
-                        if popup_selected {
+                        if download_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let download = install.download_refusal.as_mut().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                // Only this actual Session event joined to the prior
+                                // genuine download action may increment N5's count.
+                                download.action_before_policy_failure = download.target_positive();
+                                if download.action_before_policy_failure {
+                                    download.policy_failures =
+                                        download.policy_failures.saturating_add(1).min(2);
+                                }
+                                if download.policy_failures != 1
+                                    || !download.action_before_policy_failure
+                                {
+                                    state.failure = "downloadPreemptedOrTargetUnobserved";
+                                }
+                            } else {
+                                state.failure = "downloadUnexpectedNativeFailure";
+                            }
+                        } else if popup_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -3364,7 +3599,8 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = !popup_selected
+            let native_install_observed = !download_selected
+                && !popup_selected
                 && !top_selected
                 && !child_selected
                 && !dialog_selected
@@ -3376,6 +3612,8 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let download_action_observed =
+                download_selected && native_download_close.get().is_some();
             let popup_action_observed = popup_selected && native_popup_close.get().is_some();
             let dialog_action_observed = dialog_selected && native_dialog_close.get().is_some();
             let top_action_observed = top_selected && native_top_close.get().is_some();
@@ -3385,7 +3623,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if popup_selected {
+                state.failure = if download_selected {
+                    "downloadTargetUnobserved"
+                } else if popup_selected {
                     "popupTargetUnobserved"
                 } else if dialog_selected {
                     "dialogTargetUnobserved"
@@ -3410,12 +3650,15 @@ mod smoke {
                     || child_action_observed
                     || dialog_action_observed
                     || popup_action_observed
+                    || download_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if popup_selected {
+                let closing = if download_selected {
+                    native_download_close.get()
+                } else if popup_selected {
                     native_popup_close.get()
                 } else if dialog_selected {
                     native_dialog_close.get()
@@ -3481,6 +3724,17 @@ mod smoke {
                     }
                     if coverage.is_some() && !positive && state.failure == "notCompleted" {
                         state.failure = "coveragePositiveOracleMismatch";
+                    }
+                    if download_selected && !positive && state.failure == "notCompleted" {
+                        state.failure = policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .download_refusal
+                            .as_ref()
+                            .unwrap()
+                            .failure();
                     }
                     if popup_selected && !positive && state.failure == "notCompleted" {
                         state.failure = policy
@@ -3606,6 +3860,11 @@ fn main() {
                     == "--code0-policy-fixture=install-native-refusal-hooks-before-load" =>
             {
                 smoke::run_policy(true)
+            }
+            [selector]
+                if selector == "--code0-policy-fixture=refusal-download-initial-data-empty" =>
+            {
+                smoke::run_download_refusal()
             }
             [selector] if selector == "--code0-policy-fixture=refusal-popup-initial-blank" => {
                 smoke::run_popup_refusal()
