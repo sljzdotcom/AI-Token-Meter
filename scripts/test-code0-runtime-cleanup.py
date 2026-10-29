@@ -1,4 +1,4 @@
-"""Temporary hosted Windows collector: runtime eleven GREEN and cleanup five exact REDs."""
+"""Temporary hosted Windows collector: complete 217-test library with runtime and cleanup GREEN."""
 import hashlib
 import json
 import os
@@ -8,10 +8,11 @@ import subprocess
 import sys
 import time
 
-COLLECTOR_VERSION = 1
-BASE = 'f53e3da12a1aaebe5e49b2cb1f03109d10a9e28f'
+COLLECTOR_VERSION = 2
+BASE = 'f91e0b29e0e58231d707079a81c7cd53c7ae81c1'
 REF = 'refs/heads/codex/code0-runtime-cleanup-20261029'
 PREFIX = 'platform::windows::code0_web_session::cleanup_deadline_red_tests::'
+GREEN_PREFIX = 'platform::windows::code0_web_session::cleanup_deadline_green_tests::'
 SOURCE = 'windows/src-tauri/src/platform/windows/code0_runtime.rs'
 SESSION = 'windows/src-tauri/src/platform/windows/code0_web_session.rs'
 RUNTIME_PREFIX = 'platform::windows::code0_runtime::tests::'
@@ -20,9 +21,9 @@ MOD = 'windows/src-tauri/src/platform/windows/mod.rs'
 SELF = 'scripts/test-code0-runtime-cleanup.py'
 WORKFLOW = '.github/workflows/code0-runtime-cleanup.yml'
 PATHS = {SOURCE, SESSION, MOD, SELF, WORKFLOW}
-SOURCE_PINS = {'windows/src-tauri/src/platform/windows/code0_runtime.rs': {'bytes': 30994, 'sha256': '5ec1d0401aa17eeb6fef5d5459988fa94d77aa2e31de8c2b39291ce66eb36ec3'}, 'windows/src-tauri/src/platform/windows/code0_web_session.rs': {'bytes': 47603, 'sha256': 'ce11731b67921390d49b6414a7bdf9d343ad04b55931d7931f395b83b1a5ffad'}, 'windows/src-tauri/src/platform/windows/mod.rs': {'bytes': 696, 'sha256': 'f1b5ca5f97a68e4a7d1df1087d64a66c37fb91275b5e08b312ad8fd99eb9e5bf'}}
-FAILURES = {'ownerless_disconnect_deadline_starts_before_lease_side_effect': {'line': 1158, 'column': 9, 'kind': 'equality', 'message': 'ownerless Disconnect must expire at admission+10s, including lease work', 'left': 'Closing', 'right': 'CleanupPending'}, 'old_owner_released_near_end_does_not_reset_disconnect_deadline': {'line': 1185, 'column': 9, 'kind': 'equality', 'message': 'old owner release must not restart the admitted Disconnect budget', 'left': 'Closing', 'right': 'CleanupPending'}, 'completion_available_before_end_but_consumed_at_end_is_not_success': {'line': 1208, 'column': 9, 'kind': 'equality', 'message': 'matching cleanup success consumed at the absolute end must fail', 'left': 'Disconnected', 'right': 'CleanupPending'}, 'wrong_cleanup_identities_cannot_extend_the_original_deadline': {'line': 1283, 'column': 13, 'kind': 'equality', 'message': 'wrong cleanup identity cannot extend the absolute Disconnect end', 'left': 'Disconnected', 'right': 'CleanupPending'}, 'stop_does_not_disable_the_admitted_cleanup_deadline': {'line': 1346, 'column': 9, 'kind': 'equality', 'message': 'Stop must still expire the original admitted cleanup operation', 'left': 'Closing', 'right': 'CleanupPending'}}
-CONTROLS = {'matching_cleanup_consumed_one_millisecond_before_end_succeeds', 'stop_allows_admitted_cleanup_before_end_without_reopening_actions', 'wrong_cleanup_identities_do_not_consume_the_matching_result'}
+SOURCE_PINS = {'windows/src-tauri/src/platform/windows/code0_runtime.rs': {'bytes': 30994, 'sha256': '5ec1d0401aa17eeb6fef5d5459988fa94d77aa2e31de8c2b39291ce66eb36ec3'}, 'windows/src-tauri/src/platform/windows/code0_web_session.rs': {'bytes': 67713, 'sha256': '6594382b83171125d9f075bb961e8f4f8991f0db2a23744710fc8d1fd04801f2'}, 'windows/src-tauri/src/platform/windows/mod.rs': {'bytes': 696, 'sha256': 'f1b5ca5f97a68e4a7d1df1087d64a66c37fb91275b5e08b312ad8fd99eb9e5bf'}}
+CLEANUP_ORIGINAL = ['ownerless_disconnect_deadline_starts_before_lease_side_effect', 'old_owner_released_near_end_does_not_reset_disconnect_deadline', 'completion_available_before_end_but_consumed_at_end_is_not_success', 'matching_cleanup_consumed_one_millisecond_before_end_succeeds', 'wrong_cleanup_identities_do_not_consume_the_matching_result', 'wrong_cleanup_identities_cannot_extend_the_original_deadline', 'stop_allows_admitted_cleanup_before_end_without_reopening_actions', 'stop_does_not_disable_the_admitted_cleanup_deadline']
+CLEANUP_ADDITIONAL = ['earlier_old_close_bound_survives_disconnect_and_cleanup', 'expiry_then_late_matching_success_never_heals_or_releases', 'backwards_cleanup_clock_cannot_accept_matching_success', 'overflowing_admission_fails_before_lease_cache_or_native_work', 'cold_reads_are_inert_and_driver_observes_the_same_bound_budget', 'clear_start_error_keeps_failed_identity_without_late_healing', 'lease_return_at_end_cannot_start_a_new_cleanup_budget', 'dropped_session_revokes_reader_without_synthesizing_native_release']
 LOG_CAP = 4194304
 TOTAL_SECONDS = 1500
 
@@ -47,11 +48,11 @@ def check_payloads(root, identity):
     parents = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', 'HEAD'], cwd=root, text=True).split()
     if parents != [actual, BASE]:
         raise ValueError('wrong_exact_parent')
-    expected_changes = sorted([['A', SOURCE], ['M', SESSION], ['M', MOD], ['A', SELF], ['A', WORKFLOW]])
+    expected_changes = sorted([['M', SESSION], ['M', SELF], ['M', WORKFLOW]])
     changes = [line.split('\t') for line in subprocess.check_output(
         ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', BASE, 'HEAD'], cwd=root, text=True).splitlines()]
     if sorted(changes) != expected_changes:
-        raise ValueError('wrong_five_path_delta')
+        raise ValueError('wrong_three_path_delta')
     if type(identity.get('payloads')) is not dict or set(identity['payloads']) != PATHS:
         raise ValueError('wrong_identity_payload_set')
     for name in sorted(PATHS):
@@ -108,59 +109,28 @@ def run_stage(root, out, state, name, argv, seconds, overall_started):
         stage['elapsedSeconds'] = round(time.monotonic() - started, 3)
 
 
-def exact_runtime_green(stage, stdout, stderr):
+def exact_library_green(stage, stdout, stderr):
     rows = re.findall(r'^test (\S+) \.\.\. (ok|FAILED)$', stdout, re.MULTILINE)
-    expected = sorted(RUNTIME_PREFIX + name for name in RUNTIME_TESTS)
-    actual = sorted(name for name, result in rows if result == 'ok')
-    if (stage['exitCode'] != 0 or not stage['childReaped'] or len(rows) != 11
-            or actual != expected or len(set(actual)) != 11
+    passed = [name for name, result in rows if result == 'ok']
+    expected_groups = {
+        RUNTIME_PREFIX: RUNTIME_TESTS,
+        PREFIX: CLEANUP_ORIGINAL,
+        GREEN_PREFIX: CLEANUP_ADDITIONAL,
+    }
+    if (stage['exitCode'] != 0 or not stage['childReaped'] or len(rows) != 217
+            or len(passed) != 217 or len(set(passed)) != 217
             or any(result != 'ok' for _, result in rows)
-            or len(re.findall(r'^running 11 tests$', stdout, re.MULTILINE)) != 1
-            or len(re.findall(r'^test result: ok\. 11 passed; 0 failed; 0 ignored; 0 measured; 198 filtered out; finished in ', stdout, re.MULTILINE)) != 1
+            or len(re.findall(r'^running 217 tests$', stdout, re.MULTILINE)) != 1
+            or len(re.findall(r'^test result: ok\. 217 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in ', stdout, re.MULTILINE)) != 1
             or 'panicked at' in stdout or 'panicked at' in stderr):
-        raise ValueError('runtime_eleven_did_not_pass')
-    return actual
-
-
-def exact_behavior(stage, stdout, stderr):
-    rows = re.findall(r'^test (\S+) \.\.\. (ok|FAILED)$', stdout, re.MULTILINE)
-    failed = sorted(name for name, result in rows if result == 'FAILED')
-    controls = sorted(name for name, result in rows if result == 'ok')
-    if (stage['exitCode'] != 101 or not stage['childReaped'] or len(rows) != 8
-            or failed != sorted(PREFIX + name for name in FAILURES)
-            or controls != sorted(PREFIX + name for name in CONTROLS)
-            or len(re.findall(r'^running 8 tests$', stdout, re.MULTILINE)) != 1
-            or len(re.findall(r'^test result: FAILED\. 3 passed; 5 failed; 0 ignored; 0 measured; 201 filtered out; finished in ', stdout, re.MULTILINE)) != 1):
-        raise ValueError('wrong_selected_results')
-    normalized = stderr.replace('\\', '/')
-    if len(re.findall(r'^thread .+ panicked at ', normalized, re.MULTILINE)) != 5:
-        raise ValueError('wrong_panic_count')
-    blocks = {}
-    for block in re.split(r"\n(?=thread ')", '\n' + normalized):
-        match = re.search(r"^\n?thread '([^']+)' panicked at ([^\n]+):\n", block)
-        if match:
-            name, location = match.groups()
-            if name in blocks:
-                raise ValueError('duplicate_test_panic')
-            blocks[name] = (location, block)
-    if set(blocks) != {PREFIX + name for name in FAILURES}:
-        raise ValueError('wrong_panic_identities')
-    for name, expected in FAILURES.items():
-        location, block = blocks[PREFIX + name]
-        suffix = f"src/platform/windows/code0_web_session.rs:{expected['line']}:{expected['column']}"
-        if not (location == suffix or location.endswith('/' + suffix)):
-            raise ValueError('wrong_assertion_location')
-        message = re.escape(expected['message'])
-        if expected['kind'] == 'message':
-            # assert!(condition, "message") prints the custom message itself.
-            good = re.search(r'^' + message + r'$', block, re.MULTILINE) is not None
-        else:
-            good = (re.search(r'^assertion `left == right` failed: ' + message + r'$', block, re.MULTILINE) is not None
-                    and re.search(r'^\s*left: ' + re.escape(expected['left']) + r'$', block, re.MULTILINE) is not None
-                    and re.search(r'^\s*right: ' + re.escape(expected['right']) + r'$', block, re.MULTILINE) is not None)
-        if not good:
-            raise ValueError('wrong_concrete_assertion')
-    return failed, controls
+        raise ValueError('complete_library_did_not_pass')
+    groups = {}
+    for prefix, names in expected_groups.items():
+        selected = sorted(name for name in passed if name.startswith(prefix))
+        if selected != sorted(prefix + name for name in names):
+            raise ValueError('wrong_exact_runtime_or_cleanup_cohort')
+        groups[prefix] = selected
+    return sorted(passed), groups
 
 
 def main():
@@ -179,7 +149,7 @@ def main():
             or re.fullmatch(r'[0-9]{1,6}', attempt) is None
             or re.fullmatch(r'[0-9a-f]{40}', sha) is None):
         raise SystemExit('Invalid CI identity')
-    out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-{run}-{attempt}'
+    out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-green-{run}-{attempt}'
     identity_path = out / 'identity.json'
     identity_raw = identity_path.read_bytes()
     if len(identity_raw) > 16384:
@@ -198,7 +168,7 @@ def main():
              'collectorArgv': [sys.executable, *sys.argv],
              'python': sys.version, 'runnerHost': identity['runnerHost'],
              'result': 'incomplete', 'childReaped': False, 'stages': [],
-             'semanticFailures': [], 'controls': [], 'runtimePassed': [], 'toolVersions': {}, 'error': 'none'}
+             'libraryPassed': [], 'cohorts': {}, 'toolVersions': {}, 'error': 'none'}
     started = time.monotonic()
     try:
         check_payloads(root, identity)
@@ -225,22 +195,15 @@ def main():
             raise ValueError('compile_no_run_did_not_pass')
         stage['result'] = 'gate_passed'
         check_payloads(root, identity)
-        stage, stdout, stderr = run_stage(root, out, state, 'runtime-green',
-            ['cargo', 'test', '--locked', '--offline', '--features', 'code0-native-fixture', '--lib', RUNTIME_PREFIX,
+        stage, stdout, stderr = run_stage(root, out, state, 'complete-library',
+            ['cargo', 'test', '--locked', '--offline', '--features', 'code0-native-fixture', '--lib',
              '--', '--nocapture', '--test-threads=1'], 300, started)
-        state['runtimePassed'] = exact_runtime_green(stage, stdout, stderr)
-        stage['result'] = 'eleven_original_runtime_tests_passed'
-        check_payloads(root, identity)
-        stage, stdout, stderr = run_stage(root, out, state, 'cleanup-behavior',
-            ['cargo', 'test', '--locked', '--offline', '--features', 'code0-native-fixture', '--lib', PREFIX,
-             '--', '--nocapture', '--test-threads=1'], 300, started)
-        failed, controls = exact_behavior(stage, stdout, stderr)
+        state['libraryPassed'], state['cohorts'] = exact_library_green(stage, stdout, stderr)
         check_payloads(root, identity)
         if time.monotonic() - started >= TOTAL_SECONDS:
             raise ValueError('final_collector_deadline')
-        stage['result'] = 'five_exact_cleanup_assertion_failures'
-        state['semanticFailures'], state['controls'] = failed, controls
-        state['result'] = 'runtime_green_and_cleanup_expected_red'
+        stage['result'] = 'all_217_library_tests_passed'
+        state['result'] = 'complete_library_green'
     except (OSError, ValueError, UnicodeError, subprocess.CalledProcessError) as error:
         state['error'] = str(error) if isinstance(error, ValueError) else type(error).__name__
     finally:
@@ -255,9 +218,9 @@ def main():
     if time.monotonic() - started >= TOTAL_SECONDS:
         raise SystemExit('Late collector return is not accepted')
     print(json.dumps(state, indent=2))
-    if state['result'] != 'runtime_green_and_cleanup_expected_red':
-        raise SystemExit('Runtime/cleanup candidate did not establish eleven passes and five exact failures')
-    print('Runtime eleven GREEN and cleanup three controls/five exact RED assertions observed; no production/native acceptance.')
+    if state['result'] != 'complete_library_green':
+        raise SystemExit('Runtime/cleanup candidate did not establish all 217 library passes')
+    print('All 217 library tests passed, including original runtime11 and original/additional cleanup8+8; no production/native acceptance.')
 
 
 if __name__ == '__main__':

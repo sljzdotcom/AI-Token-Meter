@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 use std::time::Duration;
 
 use crate::collectors::code0_bridge::{Code0BridgeContext, Code0BridgeEvent, Code0BridgeValidator};
@@ -60,6 +62,137 @@ pub struct Code0WindowRequest {
 pub struct Code0CleanupRequest {
     pub connection_epoch: String,
     pub cleanup_id: String,
+}
+
+/// Timing facts for one Session-bound cleanup request, not a native completion
+/// or ownership receipt. Mutating this owned copy cannot alter the Session.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Code0CleanupBudgetSnapshot {
+    pub request: Code0CleanupRequest,
+    pub admitted_at: Duration,
+    pub deadline: Duration,
+    pub failed: bool,
+}
+
+/// UI-local read-only view of the Session's one cleanup operation. There is no
+/// public constructor or write/arm method. Reads neither sample a clock nor grant
+/// native authority; a future caller must also check its current monotonic time.
+/// Weak ownership makes a retained reader unavailable when its Session is gone.
+#[derive(Clone)]
+pub struct Code0CleanupBudgetHandle {
+    state: Weak<RefCell<Option<CleanupBudgetEntry>>>,
+}
+
+impl Code0CleanupBudgetHandle {
+    pub fn read(&self, request: &Code0CleanupRequest) -> Option<Code0CleanupBudgetSnapshot> {
+        let shared = self.state.upgrade()?;
+        let state = shared.borrow();
+        let entry = state.as_ref()?;
+        if entry.request.as_ref() != Some(request) {
+            return None;
+        }
+        Some(Code0CleanupBudgetSnapshot {
+            request: request.clone(),
+            admitted_at: entry.admitted_at,
+            deadline: entry.deadline?,
+            failed: entry.failed,
+        })
+    }
+}
+
+struct CleanupBudgetEntry {
+    admitted_at: Duration,
+    deadline: Option<Duration>,
+    last_observed: Duration,
+    request: Option<Code0CleanupRequest>,
+    failed: bool,
+}
+
+/// Only the Session owns this write end. An unbound admission is deliberately
+/// invisible through the native handle until a real full request is installed.
+struct CleanupBudgetContext {
+    state: Rc<RefCell<Option<CleanupBudgetEntry>>>,
+}
+
+impl CleanupBudgetContext {
+    fn new() -> Self {
+        Self {
+            state: Rc::new(RefCell::new(None)),
+        }
+    }
+
+    fn arm(&self, admitted_at: Duration, earlier_close: Option<Duration>) -> bool {
+        let deadline = admitted_at
+            .checked_add(Duration::from_secs(10))
+            .map(|end| earlier_close.map_or(end, |earlier| earlier.min(end)));
+        let failed = deadline.is_none_or(|end| admitted_at >= end);
+        *self.state.borrow_mut() = Some(CleanupBudgetEntry {
+            admitted_at,
+            deadline,
+            last_observed: admitted_at,
+            request: None,
+            failed,
+        });
+        !failed
+    }
+
+    fn active(&self) -> bool {
+        self.state.borrow().is_some()
+    }
+
+    fn deadline(&self) -> Option<Duration> {
+        self.state
+            .borrow()
+            .as_ref()
+            .and_then(|entry| entry.deadline)
+    }
+
+    fn expired(&self, now: Duration) -> bool {
+        let mut state = self.state.borrow_mut();
+        let Some(entry) = state.as_mut() else {
+            return false;
+        };
+        if now < entry.last_observed || entry.deadline.is_none_or(|end| now >= end) {
+            entry.failed = true;
+        }
+        if now >= entry.last_observed {
+            entry.last_observed = now;
+        }
+        entry.failed
+    }
+
+    fn bind(&self, request: &Code0CleanupRequest) -> bool {
+        let mut state = self.state.borrow_mut();
+        let Some(entry) = state.as_mut() else {
+            return false;
+        };
+        if entry.failed || entry.request.is_some() || entry.deadline.is_none() {
+            return false;
+        }
+        entry.request = Some(request.clone());
+        true
+    }
+
+    fn matches(&self, request: &Code0CleanupRequest) -> bool {
+        self.state
+            .borrow()
+            .as_ref()
+            .is_some_and(|entry| entry.request.as_ref() == Some(request))
+    }
+
+    fn fail(&self) -> bool {
+        let mut state = self.state.borrow_mut();
+        if let Some(entry) = state.as_mut() {
+            entry.failed = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn clear(&self) {
+        *self.state.borrow_mut() = None;
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -141,6 +274,7 @@ pub struct Code0WebSession<C, D, S> {
     epoch: Option<String>,
     owned: Option<Code0WindowRequest>,
     cleanup: Option<Code0CleanupRequest>,
+    cleanup_budget: CleanupBudgetContext,
     // Bounded collision exclusions, not persisted identities or account data.
     last_owned: Option<Code0WindowRequest>,
     last_cleanup: Option<Code0CleanupRequest>,
@@ -181,6 +315,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
             epoch: None,
             owned: None,
             cleanup: None,
+            cleanup_budget: CleanupBudgetContext::new(),
             last_owned: None,
             last_cleanup: None,
             validator: None,
@@ -231,6 +366,13 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
 
     pub fn is_automatically_syncing(&self) -> bool {
         self.automatically_syncing
+    }
+
+    /// Clone the same cold, read-only UI-local slot for the future native facade.
+    pub fn cleanup_budget_handle(&self) -> Code0CleanupBudgetHandle {
+        Code0CleanupBudgetHandle {
+            state: Rc::downgrade(&self.cleanup_budget.state),
+        }
     }
 
     pub fn connect(&mut self) -> Code0SessionActionResult {
@@ -342,8 +484,23 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         {
             return Code0SessionActionResult::Denied;
         }
+        // One admission origin precedes lease/cache/native side effects. Keep a
+        // physical close's earlier bound; no later phase may restart this clock.
+        if !self
+            .cleanup_budget
+            .arm(self.clock.now(), self.close_deadline)
+        {
+            self.reject_disconnect_budget();
+            return Code0SessionActionResult::Denied;
+        }
         self.state = Code0SessionState::Closing;
         if !self.acquire_lease() {
+            // No request/native cleanup was issued and no lease was acquired.
+            self.cleanup_budget.clear();
+            return Code0SessionActionResult::Denied;
+        }
+        if self.expire_cleanup_budget(self.clock.now()) {
+            self.reject_disconnect_budget();
             return Code0SessionActionResult::Denied;
         }
         let epoch = match self.next_id(&[]) {
@@ -356,6 +513,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
                 self.revoke_capture();
                 self.snapshot = None;
                 self.failure = Some(reason);
+                self.cleanup_budget.fail();
                 self.begin_close(ClosePlan::CleanupFailure);
                 (self.on_snapshot_change)(None);
                 return Code0SessionActionResult::Denied;
@@ -378,6 +536,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         }
         let now = self.clock.now();
         if matches!(&event, Code0WindowEvent::Released) {
+            self.expire_cleanup_budget(now);
             self.expire_close(now);
             if self.close_plan.is_none() {
                 self.failure = Some(if self.attempt_deadline.is_some_and(|end| now >= end) {
@@ -406,7 +565,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         if self.stopped || self.epoch.as_deref() != Some(request.connection_epoch.as_str()) {
             return;
         }
-        if self.expire_close(now) || self.expire_attempt(now) {
+        if self.expire_cleanup_budget(now) || self.expire_close(now) || self.expire_attempt(now) {
             return;
         }
         match event {
@@ -490,11 +649,17 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         if self.cleanup.as_ref() != Some(request) {
             return;
         }
+        // A queued/captured result is checked at actual consumption. Matching
+        // terminal delivery may retire correlation after failure, never heal it.
+        let failed = self.expire_cleanup_budget(self.clock.now())
+            || !self.cleanup_budget.matches(request)
+            || self.state == Code0SessionState::CleanupPending;
         self.last_cleanup = self.cleanup.take();
-        if result.is_err() {
-            self.fail_cleanup(Code0SessionFailure::CleanupFailed);
+        if failed || result.is_err() {
+            self.fail_cleanup(self.failure.unwrap_or(Code0SessionFailure::CleanupFailed));
             return;
         }
+        self.cleanup_budget.clear();
         self.close_plan = None;
         self.has_connection = false;
         self.last_sync_start = None;
@@ -506,7 +671,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
 
     pub fn process_scheduled_work(&mut self) {
         let now = self.clock.now();
-        if self.expire_close(now) || self.stopped {
+        if self.expire_cleanup_budget(now) || self.expire_close(now) || self.stopped {
             return;
         }
         if self.expire_attempt(now) {
@@ -708,6 +873,23 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         }
     }
 
+    fn reject_disconnect_budget(&mut self) {
+        self.epoch = None;
+        self.snapshot = None;
+        self.fail_cleanup(Code0SessionFailure::CleanupFailed);
+        self.request_close();
+        (self.on_snapshot_change)(None);
+    }
+
+    fn expire_cleanup_budget(&mut self, now: Duration) -> bool {
+        if self.cleanup_budget.expired(now) {
+            self.fail_cleanup(self.failure.unwrap_or(Code0SessionFailure::CleanupFailed));
+            true
+        } else {
+            false
+        }
+    }
+
     fn expire_close(&mut self, now: Duration) -> bool {
         if self.owned.is_some() && self.close_deadline.is_some_and(|deadline| now >= deadline) {
             self.close_deadline = None;
@@ -770,10 +952,17 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
     fn prepare_close(&mut self, plan: ClosePlan) {
         self.revoke_capture();
         self.attempt_deadline = None;
+        if self.cleanup_budget.active() && self.expire_cleanup_budget(self.clock.now()) {
+            return;
+        }
         self.close_plan = Some(plan);
         self.state = Code0SessionState::Closing;
         if self.owned.is_some() && self.close_deadline.is_none() {
-            self.close_deadline = self.clock.now().checked_add(Duration::from_secs(10));
+            self.close_deadline = if plan == ClosePlan::Disconnect {
+                self.cleanup_budget.deadline()
+            } else {
+                self.clock.now().checked_add(Duration::from_secs(10))
+            };
             if self.close_deadline.is_none() {
                 self.demote_activation();
                 self.fail_cleanup(Code0SessionFailure::CleanupFailed);
@@ -786,7 +975,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         if self.owned.is_some() {
             self.request_close();
         } else {
-            self.finish_close(plan);
+            self.finish_close(self.close_plan.unwrap_or(plan));
         }
     }
 
@@ -861,7 +1050,14 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
     }
 
     fn begin_data_cleanup(&mut self) {
-        if self.owned.is_some() || self.cleanup.is_some() || !self.lease_held {
+        if self.expire_cleanup_budget(self.clock.now()) {
+            return;
+        }
+        if !self.cleanup_budget.active()
+            || self.owned.is_some()
+            || self.cleanup.is_some()
+            || !self.lease_held
+        {
             self.fail_cleanup(Code0SessionFailure::CleanupFailed);
             return;
         }
@@ -869,6 +1065,9 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         self.close_plan = Some(ClosePlan::Disconnect);
         if self.invalidate_cache().is_err() {
             self.fail_cleanup(Code0SessionFailure::StorageFailed);
+            return;
+        }
+        if self.expire_cleanup_budget(self.clock.now()) {
             return;
         }
         let request = (|| {
@@ -888,11 +1087,17 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
                 return;
             }
         };
+        if self.expire_cleanup_budget(self.clock.now()) || !self.cleanup_budget.bind(&request) {
+            self.fail_cleanup(self.failure.unwrap_or(Code0SessionFailure::CleanupFailed));
+            return;
+        }
         self.cleanup = Some(request.clone());
         if self.driver.clear_website_data(request).is_err() {
-            self.last_cleanup = self.cleanup.take();
+            // A start error is not proof that adopted native liabilities vanished.
+            // Keep the actual full request until matching terminal delivery.
             self.fail_cleanup(Code0SessionFailure::CleanupFailed);
         }
+        self.expire_cleanup_budget(self.clock.now());
     }
 
     fn invalidate_cache(&mut self) -> Result<(), Code0StoreError> {
@@ -902,6 +1107,11 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
     }
 
     fn fail_cleanup(&mut self, reason: Code0SessionFailure) {
+        if self.cleanup_budget.fail() {
+            // Even an eventual old-owner Released or late matching Ok cannot
+            // restart cleanup or turn a failed admitted operation into success.
+            self.close_plan = Some(ClosePlan::CleanupFailure);
+        }
         self.failure = Some(reason);
         self.revoke_capture();
         self.state = Code0SessionState::CleanupPending;
@@ -1355,5 +1565,347 @@ mod cleanup_deadline_red_tests {
         assert_eq!(f.session.connect(), Code0SessionActionResult::Denied);
         assert_eq!(f.session.sync_now(), Code0SessionActionResult::Denied);
         assert_eq!(f.facts.borrow().release_commands, 0);
+    }
+}
+
+#[cfg(test)]
+mod cleanup_deadline_green_tests {
+    use std::cell::{Cell, RefCell};
+    use std::rc::Rc;
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct Clock(Rc<Cell<Duration>>);
+
+    impl Code0SessionClock for Clock {
+        fn now(&self) -> Duration {
+            self.0.get()
+        }
+
+        fn wall_now(&self) -> String {
+            "2026-10-29T00:00:00Z".to_owned()
+        }
+    }
+
+    #[derive(Default)]
+    struct Facts {
+        lease_calls: usize,
+        release_calls: usize,
+        removals: usize,
+        windows: Vec<Code0WindowRequest>,
+        cleanups: Vec<Code0CleanupRequest>,
+        budgets_during_clear: Vec<Option<Code0CleanupBudgetSnapshot>>,
+    }
+
+    struct Driver {
+        clock: Clock,
+        facts: Rc<RefCell<Facts>>,
+        budget_slot: Rc<RefCell<Option<Code0CleanupBudgetHandle>>>,
+        lease_finishes_at: Option<Duration>,
+        clear_error: bool,
+    }
+
+    impl Code0WindowDriving for Driver {
+        fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+            self.facts.borrow_mut().lease_calls += 1;
+            if let Some(now) = self.lease_finishes_at.take() {
+                self.clock.0.set(now);
+            }
+            Ok(())
+        }
+
+        fn release_profile_lease(&mut self) {
+            self.facts.borrow_mut().release_calls += 1;
+        }
+
+        fn create_unloaded(
+            &mut self,
+            request: Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.facts.borrow_mut().windows.push(request);
+            Ok(())
+        }
+
+        fn navigate(&mut self, _instance_id: &str) -> Result<(), Code0SessionFailure> {
+            Ok(())
+        }
+
+        fn close(&mut self, _instance_id: &str) {}
+
+        fn clear_website_data(
+            &mut self,
+            request: Code0CleanupRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            // This calls the real read-only handle inside the driver command.
+            // A Session-held context borrow would panic rather than be hidden.
+            let observed = self
+                .budget_slot
+                .borrow()
+                .as_ref()
+                .and_then(|handle| handle.read(&request));
+            let mut facts = self.facts.borrow_mut();
+            facts.budgets_during_clear.push(observed);
+            facts.cleanups.push(request);
+            if self.clear_error {
+                Err(Code0SessionFailure::CleanupFailed)
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    struct Store {
+        value: Option<UsageSnapshot>,
+        facts: Rc<RefCell<Facts>>,
+    }
+
+    impl Code0SnapshotStoring for Store {
+        fn load(&self) -> Result<Option<UsageSnapshot>, Code0StoreError> {
+            Ok(self.value.clone())
+        }
+
+        fn save_atomic(&mut self, snapshot: &UsageSnapshot) -> Result<(), Code0StoreError> {
+            self.value = Some(snapshot.clone());
+            Ok(())
+        }
+
+        fn remove(&mut self) -> Result<(), Code0StoreError> {
+            self.facts.borrow_mut().removals += 1;
+            self.value = None;
+            Ok(())
+        }
+    }
+
+    type Subject = Code0WebSession<Clock, Driver, Store>;
+
+    struct Fixture {
+        session: Subject,
+        clock: Clock,
+        facts: Rc<RefCell<Facts>>,
+        budget: Code0CleanupBudgetHandle,
+    }
+
+    impl Fixture {
+        fn new(cached: bool, lease_finishes_at: Option<Duration>, clear_error: bool) -> Self {
+            let clock = Clock(Rc::new(Cell::new(Duration::from_millis(1000))));
+            let facts = Rc::new(RefCell::new(Facts::default()));
+            let budget_slot = Rc::new(RefCell::new(None));
+            let value = cached.then(|| {
+                Code0WebsiteCapture {
+                    balance: 2.0,
+                    cumulative_usage: 1.0,
+                }
+                .make_snapshot("2026-10-28T00:00:00Z")
+                .expect("numeric cache fixture")
+            });
+            let session = Code0WebSession::new(
+                clock.clone(),
+                Driver {
+                    clock: clock.clone(),
+                    facts: facts.clone(),
+                    budget_slot: budget_slot.clone(),
+                    lease_finishes_at,
+                    clear_error,
+                },
+                Store {
+                    value,
+                    facts: facts.clone(),
+                },
+                Box::new(|_| {}),
+            );
+            let budget = session.cleanup_budget_handle();
+            *budget_slot.borrow_mut() = Some(budget.clone());
+            Self {
+                session,
+                clock,
+                facts,
+                budget,
+            }
+        }
+
+        fn at(&self, millis: u64) {
+            self.clock.0.set(Duration::from_millis(millis));
+        }
+
+        fn cleanup(&self) -> Code0CleanupRequest {
+            let facts = self.facts.borrow();
+            assert_eq!(facts.cleanups.len(), 1);
+            facts.cleanups[0].clone()
+        }
+    }
+
+    // Detects replacing an earlier physical-close bound with admission+10s.
+    #[test]
+    fn earlier_old_close_bound_survives_disconnect_and_cleanup() {
+        let mut f = Fixture::new(true, None, false);
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Started);
+        let window = f.facts.borrow().windows[0].clone();
+        f.at(2000);
+        f.session.receive_window_event(
+            &window,
+            Code0WindowEvent::Failed(Code0SessionFailure::NavigationFailed),
+        );
+        f.at(5000);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        f.at(11999);
+        f.session
+            .receive_window_event(&window, Code0WindowEvent::Released);
+        let cleanup = f.cleanup();
+        let budget = f.budget.read(&cleanup).expect("same bound operation");
+        assert_eq!(budget.admitted_at, Duration::from_millis(5000));
+        assert_eq!(budget.deadline, Duration::from_millis(12000));
+        f.at(12000);
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        assert_eq!(f.facts.borrow().release_calls, 0);
+    }
+
+    // Detects late Ok healing the state or releasing the held lease after expiry.
+    #[test]
+    fn expiry_then_late_matching_success_never_heals_or_releases() {
+        let mut f = Fixture::new(true, None, false);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let cleanup = f.cleanup();
+        f.at(11000);
+        f.session.process_scheduled_work();
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        f.at(11001);
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        assert!(
+            f.budget
+                .read(&cleanup)
+                .expect("failed identity retained")
+                .failed
+        );
+        assert_eq!(f.facts.borrow().release_calls, 0);
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Busy);
+    }
+
+    // Detects a backwards observed sample granting success before the deadline.
+    #[test]
+    fn backwards_cleanup_clock_cannot_accept_matching_success() {
+        for backwards in [999, 1500] {
+            let mut f = Fixture::new(true, None, false);
+            assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+            let cleanup = f.cleanup();
+            f.at(2000);
+            f.session.process_scheduled_work();
+            f.at(backwards);
+            f.session.receive_cleanup_result(&cleanup, Ok(()));
+            assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+            assert_eq!(
+                f.session.failure(),
+                Some(Code0SessionFailure::CleanupFailed)
+            );
+            assert_eq!(f.facts.borrow().release_calls, 0);
+        }
+    }
+
+    // Detects saturating overflow or lease/cache/native work before checked arm.
+    #[test]
+    fn overflowing_admission_fails_before_lease_cache_or_native_work() {
+        let mut f = Fixture::new(true, None, false);
+        f.clock.0.set(Duration::MAX);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Denied);
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        let facts = f.facts.borrow();
+        assert_eq!(facts.lease_calls, 0);
+        assert_eq!(facts.removals, 0);
+        assert!(facts.windows.is_empty() && facts.cleanups.is_empty());
+        assert_eq!(facts.release_calls, 0);
+    }
+
+    // Detects read-side arming, wrong-request visibility or a borrow crossing clear.
+    #[test]
+    fn cold_reads_are_inert_and_driver_observes_the_same_bound_budget() {
+        let mut cold = Fixture::new(false, None, false);
+        let unknown = Code0CleanupRequest {
+            connection_epoch: "unowned-epoch".to_owned(),
+            cleanup_id: "unowned-cleanup".to_owned(),
+        };
+        assert!(cold.budget.read(&unknown).is_none());
+        assert_eq!(cold.session.disconnect(), Code0SessionActionResult::Denied);
+        assert!(cold.budget.read(&unknown).is_none());
+        assert_eq!(cold.facts.borrow().lease_calls, 0);
+        assert_eq!(cold.facts.borrow().removals, 0);
+        let mut f = Fixture::new(true, None, false);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let cleanup = f.cleanup();
+        let bound = f.budget.read(&cleanup).expect("Session bound before clear");
+        assert_eq!(bound.request, cleanup);
+        assert_eq!(bound.admitted_at, Duration::from_millis(1000));
+        assert_eq!(bound.deadline, Duration::from_millis(11000));
+        assert!(!bound.failed);
+        assert_eq!(
+            f.facts.borrow().budgets_during_clear,
+            vec![Some(bound.clone())]
+        );
+        let mut wrong = cleanup.clone();
+        wrong.cleanup_id.push('x');
+        assert!(f.budget.read(&wrong).is_none());
+        wrong = cleanup.clone();
+        wrong.connection_epoch.push('x');
+        assert!(f.budget.read(&wrong).is_none());
+        assert_eq!(f.budget.read(&cleanup), Some(bound));
+        f.at(10999);
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        assert!(f.budget.read(&cleanup).is_none());
+        assert_eq!(f.session.state(), Code0SessionState::Disconnected);
+        assert_eq!(f.facts.borrow().release_calls, 1);
+    }
+
+    // Detects discarding correlation on start Err or treating late Ok as recovery.
+    #[test]
+    fn clear_start_error_keeps_failed_identity_without_late_healing() {
+        let mut f = Fixture::new(true, None, true);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let cleanup = f.cleanup();
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        assert!(f.budget.read(&cleanup).expect("liability identity").failed);
+        f.at(10999);
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        assert_eq!(f.facts.borrow().release_calls, 0);
+    }
+
+    // Detects issuing clear after lease work has consumed the entire operation.
+    #[test]
+    fn lease_return_at_end_cannot_start_a_new_cleanup_budget() {
+        let mut f = Fixture::new(true, Some(Duration::from_millis(11000)), false);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Denied);
+        assert_eq!(f.session.state(), Code0SessionState::CleanupPending);
+        let facts = f.facts.borrow();
+        assert_eq!(facts.lease_calls, 1);
+        assert_eq!(facts.removals, 0);
+        assert!(facts.cleanups.is_empty());
+        assert_eq!(facts.release_calls, 0);
+    }
+
+    // Detects a retained reader keeping a dropped writer's operation usable.
+    #[test]
+    fn dropped_session_revokes_reader_without_synthesizing_native_release() {
+        let mut f = Fixture::new(true, None, false);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let cleanup = f.cleanup();
+        let retained = f.budget.clone();
+        assert!(retained.read(&cleanup).is_some());
+        drop(f.session);
+        assert!(retained.read(&cleanup).is_none());
+        assert_eq!(f.facts.borrow().release_calls, 0);
     }
 }

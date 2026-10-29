@@ -1,4 +1,4 @@
-name: Code0 isolated runtime GREEN and cleanup RED
+name: Code0 isolated runtime and cleanup GREEN
 
 on:
   push:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   runtime-cleanup:
-    name: Runtime GREEN and cleanup deadline RED
+    name: Complete library with runtime and cleanup GREEN
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -39,35 +39,33 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 2
-      - name: Verify sole baseline parent five paths and all checkout bytes
+      - name: Verify sole f91 parent three changed paths and all five payload bytes
         shell: python {0}
         run: |
           import hashlib, json, os, re, subprocess
           from pathlib import Path
-          base = 'f53e3da12a1aaebe5e49b2cb1f03109d10a9e28f'
+          base = 'f91e0b29e0e58231d707079a81c7cd53c7ae81c1'
           expected = {
               "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
                   "bytes": 30994,
                   "sha256": "5ec1d0401aa17eeb6fef5d5459988fa94d77aa2e31de8c2b39291ce66eb36ec3"
               },
               "windows/src-tauri/src/platform/windows/code0_web_session.rs": {
-                  "bytes": 47603,
-                  "sha256": "ce11731b67921390d49b6414a7bdf9d343ad04b55931d7931f395b83b1a5ffad"
+                  "bytes": 67713,
+                  "sha256": "6594382b83171125d9f075bb961e8f4f8991f0db2a23744710fc8d1fd04801f2"
               },
               "windows/src-tauri/src/platform/windows/mod.rs": {
                   "bytes": 696,
                   "sha256": "f1b5ca5f97a68e4a7d1df1087d64a66c37fb91275b5e08b312ad8fd99eb9e5bf"
               },
               "scripts/test-code0-runtime-cleanup.py": {
-                  "bytes": 17366,
-                  "sha256": "f443008942d3c2ff0ffdde910f7e05b92d65ac0b30f148aaccc2ea09574fc8b1"
+                  "bytes": 14430,
+                  "sha256": "47dc679d3fc97a84b39347878dc3aee38c5af6270927bfff521996e08ec1ecd3"
               }
           }
           workflow = '.github/workflows/code0-runtime-cleanup.yml'
-          expected_changes = sorted([['A', 'windows/src-tauri/src/platform/windows/code0_runtime.rs'],
-                                     ['M', 'windows/src-tauri/src/platform/windows/code0_web_session.rs'],
-                                     ['M', 'windows/src-tauri/src/platform/windows/mod.rs'],
-                                     ['A', 'scripts/test-code0-runtime-cleanup.py'], ['A', workflow]])
+          expected_changes = sorted([['M', 'windows/src-tauri/src/platform/windows/code0_web_session.rs'],
+                                     ['M', 'scripts/test-code0-runtime-cleanup.py'], ['M', workflow]])
           run, attempt, sha = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_SHA'))
           if (re.fullmatch(r'[0-9]{1,20}', run) is None
                   or re.fullmatch(r'[0-9]{1,6}', attempt) is None
@@ -78,7 +76,7 @@ jobs:
           changes = [line.split('\t') for line in subprocess.check_output(
               ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', base, 'HEAD'], text=True).splitlines()]
           if actual != sha or parents != [actual, base] or sorted(changes) != expected_changes:
-              raise SystemExit('Runtime checkout is not the exact five-path f53 child')
+              raise SystemExit('Runtime checkout is not the exact three-path f91 child')
           observed = {}
           for name in sorted(set(expected) | {workflow}):
               raw = Path(name).read_bytes()
@@ -87,7 +85,7 @@ jobs:
               observed[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
               if raw != blob or mode != '100644' or (name in expected and observed[name] != expected[name]):
                   raise SystemExit('Runtime payload bytes or mode differ')
-          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-{run}-{attempt}'
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-green-{run}-{attempt}'
           out.mkdir(exist_ok=False)
           host_keys = ('RUNNER_OS', 'RUNNER_ARCH', 'RUNNER_NAME', 'RUNNER_ENVIRONMENT',
                        'ImageOS', 'ImageVersion', 'ACTIONS_RUNNER_VERSION')
@@ -126,13 +124,13 @@ jobs:
       - name: Check candidate formatting
         working-directory: windows/src-tauri
         run: cargo fmt --check
-      - name: Require strict build then eleven runtime passes and eight cleanup outcomes
+      - name: Require strict build and all 217 library tests including runtime and cleanup
         shell: python {0}
         run: |
           import hashlib, json, os, subprocess, sys, time
           from pathlib import Path
           run, attempt = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'))
-          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-{run}-{attempt}'
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-green-{run}-{attempt}'
           argv = [sys.executable, 'scripts/test-code0-runtime-cleanup.py']
           result = {'schema': 1, 'runId': run, 'attempt': attempt,
                     'checkout': os.environ['GITHUB_SHA'], 'argv': argv,
@@ -171,7 +169,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: code0-runtime-cleanup-evidence
-          path: ${{ runner.temp }}/code0-runtime-cleanup-${{ github.run_id }}-${{ github.run_attempt }}/
+          name: code0-runtime-cleanup-green-evidence
+          path: ${{ runner.temp }}/code0-runtime-cleanup-green-${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: error
           retention-days: 7
