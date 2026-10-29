@@ -1,4 +1,4 @@
-name: Code0 isolated runtime terminal-join semantic RED
+name: Code0 isolated runtime terminal-join GREEN
 
 on:
   push:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   runtime-cleanup:
-    name: Complete253 library with250 PASS and three terminal-join semantic RED
+    name: Complete253 library GREEN with joined worker negative control
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -39,16 +39,16 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 2
-      - name: Verify sole e501 parent three changed paths and all nine payload bytes
+      - name: Verify sole8721 parent three changed paths and all nine payload bytes
         shell: python {0}
         run: |
           import hashlib, json, os, re, subprocess
           from pathlib import Path
-          base = 'e5014999d64e6f88306bc1bf10b4cfe42dd2b7e0'
+          base = '8721b1a4f9242fb74508852eb1804838249134ce'
           expected = {
               "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
-                  "bytes": 109686,
-                  "sha256": "65ef63b7381fec2bb755e676f5c70074c8e1169fcce158cd9172d6f7f5167a98"
+                  "bytes": 130198,
+                  "sha256": "2dd5e09d18ece874e2dd4b8457c1353871d50a2c83cabe1fb1d986980ce67d96"
               },
               "windows/src-tauri/src/platform/windows/code0_web_session.rs": {
                   "bytes": 75055,
@@ -75,8 +75,8 @@ jobs:
                   "sha256": "1a0ea68c77ee338d128d791018c5b378c6781b857b522bb483156d8d57fe017e"
               },
               "scripts/test-code0-runtime-cleanup.py": {
-                  "bytes": 53920,
-                  "sha256": "bf4feaf7fc4c24d0c0a13399b99f71a98c7ac8c03bf3f5d9f3bc2988d032afc0"
+                  "bytes": 52299,
+                  "sha256": "82f92c15575090524b7248ca5c2bc14527e147a8a8f489930c764d8eaea302bd"
               }
           }
           workflow = '.github/workflows/code0-runtime-cleanup.yml'
@@ -100,7 +100,7 @@ jobs:
               observed[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
               if raw != blob or mode != '100644' or (name in expected and observed[name] != expected[name]):
                   raise SystemExit('Runtime payload bytes or mode differ')
-          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-terminal-join-red-{run}-{attempt}'
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-terminal-join-green-{run}-{attempt}'
           out.mkdir(exist_ok=False)
           host_keys = ('RUNNER_OS', 'RUNNER_ARCH', 'RUNNER_NAME', 'RUNNER_ENVIRONMENT',
                        'ImageOS', 'ImageVersion', 'ACTIONS_RUNNER_VERSION')
@@ -139,13 +139,13 @@ jobs:
       - name: Check candidate formatting
         working-directory: windows/src-tauri
         run: cargo fmt --check
-      - name: Require strict build then complete253 library exact terminal-join RED
+      - name: Require strict build then complete253 library exact terminal-join GREEN
         shell: python {0}
         run: |
           import hashlib, json, os, subprocess, sys, time
           from pathlib import Path
           run, attempt = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'))
-          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-terminal-join-red-{run}-{attempt}'
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-terminal-join-green-{run}-{attempt}'
           argv = [sys.executable, 'scripts/test-code0-runtime-cleanup.py']
           result = {'schema': 1, 'runId': run, 'attempt': attempt,
                     'checkout': os.environ['GITHUB_SHA'], 'argv': argv,
@@ -179,12 +179,12 @@ jobs:
                   or result['error'] != 'none'
                   or result['collectorElapsedSeconds'] is None
                   or result['collectorElapsedSeconds'] >= 1500):
-              raise SystemExit('Runtime terminal/join collector did not return exact semantic RED evidence')
-      - name: Preserve complete source gates and exact runtime terminal-join RED evidence
+              raise SystemExit('Runtime terminal/join collector did not return exact GREEN evidence')
+      - name: Preserve complete source gates and exact runtime terminal-join GREEN evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: code0-runtime-terminal-join-red-evidence
-          path: ${{ runner.temp }}/code0-runtime-terminal-join-red-${{ github.run_id }}-${{ github.run_attempt }}/
+          name: code0-runtime-terminal-join-green-evidence
+          path: ${{ runner.temp }}/code0-runtime-terminal-join-green-${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: error
           retention-days: 7

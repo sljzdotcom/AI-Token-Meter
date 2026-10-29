@@ -4,8 +4,9 @@
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, SyncSender, TryRecvError};
+use std::sync::{Arc, Mutex};
 
 use super::code0_dispatcher::{
     Code0Action, Code0DispatchError, Code0Dispatcher, Code0Proxy, Code0ReplySink, Code0Revision,
@@ -168,16 +169,290 @@ fn request_terminal(binding: u64) -> Result<(), Code0DispatchError> {
         .ok_or(Code0DispatchError::Unavailable)?
         .request_terminal()
 }
-// Deliberately not Clone/Copy: a later GREEN owner must mint and consume once.
+// Deliberately not Clone/Copy: issuance and final consumption are one-use.
 struct TerminalPermit {
     binding: u64,
     operation: u64,
+    epoch: u64,
 }
 struct TerminalJoinReceipt {
     binding: u64,
     operation: u64,
     result: std::thread::Result<super::code0_tick::TickExit>,
     thread: std::thread::ThreadId,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TerminalPhase {
+    Running,
+    Joining,
+    Joined,
+    Ready,
+    Issued,
+    Consumed,
+    Failed,
+}
+#[derive(Clone, Copy)]
+#[repr(u8)]
+enum TerminalFailure {
+    NoProducer = 1,
+    MissingWorker,
+    MissingBlockingTask,
+    SpawnBlocking,
+    SpawnContinuation,
+    BlockingTask,
+    Mailbox,
+    Delivery,
+    PostPanicked,
+    ContinuationLost,
+    Retired,
+    ForeignReceipt,
+    DuplicateReceipt,
+    ControlLost,
+    WorkerPanicked,
+    TickFault,
+    InvalidPermit,
+    EpochExhausted,
+    RetentionConflict,
+    Unresolved,
+}
+enum TerminalCompletion {
+    Joined(TerminalJoinReceipt),
+    Failed(TerminalFailure),
+}
+const DELIVERY_PENDING: u8 = 0;
+const DELIVERY_POSTED: u8 = 1;
+const DELIVERY_FAILED: u8 = 2;
+type WorkerJoin = std::thread::JoinHandle<super::code0_tick::TickExit>;
+type BlockingJoin = tauri::async_runtime::JoinHandle<TerminalCompletion>;
+struct TerminalJoinObligation {
+    worker: Arc<Mutex<Option<WorkerJoin>>>,
+    blocking: Option<Arc<Mutex<BlockingJoin>>>,
+    delivery: AtomicU8,
+    failure: AtomicU8,
+}
+struct RetainedTerminalJoin {
+    obligation: Arc<TerminalJoinObligation>,
+    continuation: Option<tauri::async_runtime::JoinHandle<()>>,
+}
+// These retain concrete pending handles, not UI records or success permissions.
+static TERMINAL_JOINS: Mutex<Vec<RetainedTerminalJoin>> = Mutex::new(Vec::new());
+static UNRESOLVED_TICKS: Mutex<Vec<super::code0_tick::TickProducer>> = Mutex::new(Vec::new());
+fn retain_unresolved_tick(producer: super::code0_tick::TickProducer) {
+    if let Ok(mut ticks) = UNRESOLVED_TICKS.try_lock() {
+        ticks.push(producer);
+    } else {
+        // One concrete input producer stays owned on this exceptional path.
+        // No cancel/detach, exit permission or hidden mem::forget is performed.
+        let _retained = Box::leak(Box::new(producer));
+    }
+}
+fn retain_terminal_join(join: RetainedTerminalJoin) {
+    if let Ok(mut joins) = TERMINAL_JOINS.try_lock() {
+        joins.push(join);
+    } else {
+        join.obligation.fail(TerminalFailure::RetentionConflict);
+        // Exactly one registration per operation. The complete object, including
+        // its concrete blocking/continuation handles, remains permanently owned.
+        let _retained = Box::leak(Box::new(join));
+    }
+}
+struct ContinuationGuard(Arc<TerminalJoinObligation>);
+impl Drop for ContinuationGuard {
+    fn drop(&mut self) {
+        if self.0.delivery.load(Ordering::Acquire) == DELIVERY_PENDING {
+            self.0.fail(TerminalFailure::ContinuationLost);
+        }
+    }
+}
+impl TerminalJoinObligation {
+    fn new(worker: WorkerJoin, binding: u64, operation: u64) -> Arc<Self> {
+        let worker = Arc::new(Mutex::new(Some(worker)));
+        let escrow = Arc::clone(&worker);
+        // Even a scheduling panic leaves the actual std handle in escrow.
+        // The only blocking lock/take/join is inside this blocking-thread job.
+        let blocking = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tauri::async_runtime::spawn_blocking(move || {
+                let handle = escrow
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                match handle {
+                    Some(handle) => TerminalCompletion::Joined(TerminalJoinReceipt {
+                        binding,
+                        operation,
+                        result: handle.join(),
+                        thread: std::thread::current().id(),
+                    }),
+                    None => TerminalCompletion::Failed(TerminalFailure::MissingWorker),
+                }
+            })
+        }));
+        let (blocking, failure) = match blocking {
+            Ok(handle) => (Some(Arc::new(Mutex::new(handle))), None),
+            Err(_) => (None, Some(TerminalFailure::SpawnBlocking)),
+        };
+        let obligation = Arc::new(Self {
+            worker,
+            blocking,
+            delivery: AtomicU8::new(DELIVERY_PENDING),
+            failure: AtomicU8::new(0),
+        });
+        if let Some(reason) = failure {
+            obligation.fail(reason);
+        }
+        obligation
+    }
+    fn fail(&self, reason: TerminalFailure) {
+        let _ = self
+            .failure
+            .compare_exchange(0, reason as u8, Ordering::AcqRel, Ordering::Acquire);
+        self.delivery.store(DELIVERY_FAILED, Ordering::Release);
+    }
+    fn failure(&self) -> Option<TerminalFailure> {
+        if self.delivery.load(Ordering::Acquire) != DELIVERY_FAILED {
+            return None;
+        }
+        let code = self.failure.load(Ordering::Acquire);
+        let reasons = [
+            TerminalFailure::NoProducer,
+            TerminalFailure::MissingWorker,
+            TerminalFailure::MissingBlockingTask,
+            TerminalFailure::SpawnBlocking,
+            TerminalFailure::SpawnContinuation,
+            TerminalFailure::BlockingTask,
+            TerminalFailure::Mailbox,
+            TerminalFailure::Delivery,
+            TerminalFailure::PostPanicked,
+            TerminalFailure::ContinuationLost,
+            TerminalFailure::Retired,
+            TerminalFailure::ForeignReceipt,
+            TerminalFailure::DuplicateReceipt,
+            TerminalFailure::ControlLost,
+            TerminalFailure::WorkerPanicked,
+            TerminalFailure::TickFault,
+            TerminalFailure::InvalidPermit,
+            TerminalFailure::EpochExhausted,
+            TerminalFailure::RetentionConflict,
+            TerminalFailure::Unresolved,
+        ];
+        Some(
+            reasons
+                .into_iter()
+                .find(|reason| *reason as u8 == code)
+                .unwrap_or(TerminalFailure::Unresolved),
+        )
+    }
+    fn start(
+        self: &Arc<Self>,
+        binding: u64,
+        sender: SyncSender<TerminalCompletion>,
+        executor: Arc<dyn MainThreadExecutor>,
+    ) {
+        let continuation = if self.blocking.is_some() {
+            let obligation = Arc::clone(self);
+            // Construct before the future: never-polled cancellation is also loss.
+            let guard = ContinuationGuard(Arc::clone(self));
+            let future = async move {
+                let _guard = guard;
+                let outcome = std::future::poll_fn(|context| {
+                    let Some(blocking) = obligation.blocking.as_ref() else {
+                        return std::task::Poll::Ready(Err(TerminalFailure::MissingBlockingTask));
+                    };
+                    let Ok(mut handle) = blocking.try_lock() else {
+                        // No lost-waker Pending and no self-wake busy loop.
+                        // Fail immediately while the concrete handle stays owned.
+                        return std::task::Poll::Ready(Err(TerminalFailure::RetentionConflict));
+                    };
+                    // Poll in place: cancellation never drops a pending await
+                    // handle. The keeper owns it before, during and after await.
+                    std::future::Future::poll(std::pin::Pin::new(&mut *handle), context)
+                        .map(|result| result.map_err(|_| TerminalFailure::BlockingTask))
+                })
+                .await;
+                let completion = match outcome {
+                    Ok(TerminalCompletion::Joined(receipt)) => TerminalCompletion::Joined(receipt),
+                    Ok(TerminalCompletion::Failed(reason)) | Err(reason) => {
+                        obligation.fail(reason);
+                        TerminalCompletion::Failed(reason)
+                    }
+                };
+                // Actual outcome DATA precedes the binding-only mark.
+                if sender.try_send(completion).is_err() {
+                    obligation.fail(TerminalFailure::Mailbox);
+                    return;
+                }
+                let posted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Schedule { binding, executor }.schedule()
+                }));
+                match posted {
+                    Ok(Ok(())) => {
+                        let _ = obligation.delivery.compare_exchange(
+                            DELIVERY_PENDING,
+                            DELIVERY_POSTED,
+                            Ordering::AcqRel,
+                            Ordering::Acquire,
+                        );
+                    }
+                    Ok(Err(_)) => obligation.fail(TerminalFailure::Delivery),
+                    Err(_) => obligation.fail(TerminalFailure::PostPanicked),
+                }
+            };
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                tauri::async_runtime::spawn(future)
+            })) {
+                Ok(handle) => Some(handle),
+                Err(_) => {
+                    self.fail(TerminalFailure::SpawnContinuation);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        // One operation, one registration, including every scheduling failure.
+        retain_terminal_join(RetainedTerminalJoin {
+            obligation: Arc::clone(self),
+            continuation,
+        });
+    }
+}
+impl RetainedTerminalJoin {
+    fn completed(&self) -> bool {
+        self.obligation.delivery.load(Ordering::Acquire) == DELIVERY_POSTED
+            && self
+                .obligation
+                .worker
+                .try_lock()
+                .is_ok_and(|worker| worker.is_none())
+            && self.obligation.blocking.as_ref().is_some_and(|blocking| {
+                blocking
+                    .try_lock()
+                    .is_ok_and(|handle| handle.inner().is_finished())
+            })
+            && self
+                .continuation
+                .as_ref()
+                .is_some_and(|task| task.inner().is_finished())
+    }
+}
+fn reap_completed_terminal_joins() {
+    let mut retired = Vec::new();
+    {
+        let Ok(mut obligations) = TERMINAL_JOINS.try_lock() else {
+            return;
+        };
+        let mut index = 0;
+        while index < obligations.len() {
+            if obligations[index].completed() {
+                retired.push(obligations.swap_remove(index));
+            } else {
+                index += 1;
+            }
+        }
+    }
+    // POST is reachable only after actual Ready/Joined DATA; both concrete
+    // task handles are finished. Never use metadata reaping as permit proof.
+    drop(retired);
 }
 struct InstallGuard;
 impl Drop for InstallGuard {
@@ -244,6 +519,26 @@ struct Runtime<C, B, S> {
     terminal_tick: RefCell<Option<super::code0_tick::TickProducer>>,
     terminal_operation: Cell<Option<u64>>,
     terminal_join: RefCell<Option<TerminalJoinReceipt>>,
+    terminal_executor: Arc<dyn MainThreadExecutor>,
+    terminal_receive: RefCell<Option<Receiver<TerminalCompletion>>>,
+    terminal_obligation: RefCell<Option<Arc<TerminalJoinObligation>>>,
+    terminal_phase: Cell<TerminalPhase>,
+    terminal_failure: Cell<Option<TerminalFailure>>,
+    terminal_advancing: Cell<bool>,
+    terminal_epoch: Cell<u64>,
+}
+impl<C, B, S> Drop for Runtime<C, B, S> {
+    fn drop(&mut self) {
+        if let Some(producer) = self.terminal_tick.get_mut().take() {
+            retain_unresolved_tick(producer);
+        }
+        if self.terminal_phase.get() != TerminalPhase::Consumed
+            && let Some(obligation) = self.terminal_obligation.get_mut().as_ref()
+        {
+            obligation.fail(TerminalFailure::Retired);
+        }
+        reap_completed_terminal_joins();
+    }
 }
 impl<C, B, S> Runtime<C, B, S> {
     fn passive_view(&self) -> Code0SessionDto {
@@ -264,38 +559,209 @@ where
         &self,
         producer: super::code0_tick::TickProducer,
     ) -> Result<(), Code0DispatchError> {
-        let mut slot = self.terminal_tick.borrow_mut();
-        if slot.is_some() || !self.tick_attached(&producer.acknowledgement()) {
+        if self.terminal_operation.get().is_some()
+            || !self.tick_attached(&producer.acknowledgement())
+        {
+            retain_unresolved_tick(producer);
             return Err(Code0DispatchError::Unavailable);
         }
-        *slot = Some(producer);
-        Ok(())
+        let mut producer = Some(producer);
+        {
+            if let Ok(mut slot) = self.terminal_tick.try_borrow_mut()
+                && slot.is_none()
+            {
+                *slot = producer.take();
+            }
+        }
+        if let Some(producer) = producer {
+            retain_unresolved_tick(producer);
+            Err(Code0DispatchError::Unavailable)
+        } else {
+            Ok(())
+        }
     }
     fn terminal_conditions_met(&self) -> bool {
-        !self.in_turn.get()
+        let epoch = self.terminal_epoch.get();
+        if self.in_turn.get()
+            || self.pending.get()
+            || self.tick_due.get()
+            || !self
+                .windows
+                .try_borrow()
+                .is_ok_and(|events| events.is_empty())
+            || self.terminal_operation.get().is_none()
+        {
+            return false;
+        }
+        let native = self
+            .backend
+            .try_borrow()
+            .ok()
+            .map(|backend| backend.terminal_state());
+        native == Some(NativeTerminalState::Quiescent)
+            && self.dispatcher.terminal_prerequisites_met()
+            && !self.in_turn.get()
             && !self.pending.get()
             && !self.tick_due.get()
-            && self.windows.borrow().is_empty()
-            && self.terminal_operation.get().is_some()
-            && self.backend.borrow().terminal_state() == NativeTerminalState::Quiescent
-            && self.dispatcher.terminal_prerequisites_met()
+            && self
+                .windows
+                .try_borrow()
+                .is_ok_and(|events| events.is_empty())
+            && self.terminal_epoch.get() == epoch
+            && lookup(self.binding).is_some_and(|record| record.binding() == self.binding)
+    }
+    fn terminal_fail(&self, reason: TerminalFailure) {
+        self.terminal_failure.set(Some(reason));
+        self.terminal_phase.set(TerminalPhase::Failed);
+    }
+    fn terminal_work_changed(&self) {
+        if let Some(epoch) = self.terminal_epoch.get().checked_add(1) {
+            self.terminal_epoch.set(epoch);
+        } else {
+            self.terminal_fail(TerminalFailure::EpochExhausted);
+        }
+    }
+    fn terminal_receipt_valid(&self) -> bool {
+        self.terminal_join.borrow().as_ref().is_some_and(|receipt| {
+            receipt.binding == self.binding
+                && Some(receipt.operation) == self.terminal_operation.get()
+                && matches!(receipt.result, Ok(super::code0_tick::TickExit::Cancelled))
+                && receipt.thread != std::thread::current().id()
+        })
+    }
+    fn terminal_delivery_ready(&self) -> bool {
+        self.terminal_obligation
+            .borrow()
+            .as_ref()
+            .is_some_and(|join| join.delivery.load(Ordering::Acquire) == DELIVERY_POSTED)
+    }
+    fn observe_terminal_completion(&self) {
+        use super::code0_tick::TickExit;
+
+        let completion = {
+            let receive = self.terminal_receive.borrow();
+            receive.as_ref().map(Receiver::try_recv)
+        };
+        match completion {
+            Some(Ok(TerminalCompletion::Joined(receipt))) => {
+                if self.terminal_join.borrow().is_some() {
+                    self.terminal_fail(TerminalFailure::DuplicateReceipt);
+                    return;
+                }
+                if self.terminal_phase.get() != TerminalPhase::Joining
+                    || receipt.binding != self.binding
+                    || Some(receipt.operation) != self.terminal_operation.get()
+                    || receipt.thread == std::thread::current().id()
+                {
+                    self.terminal_fail(TerminalFailure::ForeignReceipt);
+                    return;
+                }
+                let failure = match &receipt.result {
+                    Ok(TickExit::Cancelled) => None,
+                    Ok(TickExit::ControlLost) => Some(TerminalFailure::ControlLost),
+                    Err(_) => Some(TerminalFailure::WorkerPanicked),
+                };
+                *self.terminal_join.borrow_mut() = Some(receipt);
+                if let Some(reason) = failure {
+                    self.terminal_fail(reason);
+                } else {
+                    self.terminal_phase.set(TerminalPhase::Joined);
+                }
+            }
+            Some(Ok(TerminalCompletion::Failed(reason))) => self.terminal_fail(reason),
+            Some(Err(TryRecvError::Disconnected))
+                if self.terminal_join.borrow().is_none()
+                    && self.terminal_phase.get() == TerminalPhase::Joining =>
+            {
+                self.terminal_fail(TerminalFailure::ContinuationLost);
+            }
+            _ => {}
+        }
+        let failed = self
+            .terminal_obligation
+            .borrow()
+            .as_ref()
+            .and_then(|obligation| obligation.failure());
+        if let Some(reason) = failed {
+            self.terminal_fail(reason);
+        }
+    }
+    fn begin_terminal_join(&self) {
+        // Caller has returned from the complete guarded turn and checked every
+        // real queue/Session/native prerequisite. Transfer once before externals.
+        let Some(operation) = self.terminal_operation.get() else {
+            self.terminal_fail(TerminalFailure::ForeignReceipt);
+            return;
+        };
+        self.terminal_phase.set(TerminalPhase::Joining);
+        let producer = self.terminal_tick.borrow_mut().take();
+        let Some(mut producer) = producer else {
+            self.terminal_fail(TerminalFailure::NoProducer);
+            return;
+        };
+        producer.cancel();
+        let Some(worker) = producer.take_join() else {
+            // Never-started or unexpectedly missing real handle is not success.
+            *self.terminal_tick.borrow_mut() = Some(producer);
+            self.terminal_fail(TerminalFailure::MissingWorker);
+            return;
+        };
+        drop(producer); // Real handle is owned below, never detached by Drop.
+        let obligation = TerminalJoinObligation::new(worker, self.binding, operation);
+        let (sender, receive) = std::sync::mpsc::sync_channel(1);
+        *self.terminal_receive.borrow_mut() = Some(receive);
+        *self.terminal_obligation.borrow_mut() = Some(Arc::clone(&obligation));
+        obligation.start(self.binding, sender, Arc::clone(&self.terminal_executor));
     }
     fn take_terminal_permit(&self) -> Option<TerminalPermit> {
-        // RED seam: retaining a producer/Stop/empty queues never proves a join.
-        None
+        if self.terminal_phase.get() != TerminalPhase::Ready
+            || self.in_turn.get()
+            || self.terminal_advancing.replace(true)
+        {
+            return None;
+        }
+        let _advance = TurnGuard(&self.terminal_advancing);
+        let epoch = self.terminal_epoch.get();
+        if self.terminal_failure.get().is_some()
+            || !self.terminal_receipt_valid()
+            || !self.terminal_delivery_ready()
+            || !lookup(self.binding).is_some_and(|record| record.binding() == self.binding)
+            || !self.terminal_conditions_met()
+            || self.terminal_epoch.get() != epoch
+        {
+            return None;
+        }
+        let operation = self.terminal_operation.get()?;
+        self.terminal_phase.set(TerminalPhase::Issued);
+        Some(TerminalPermit {
+            binding: self.binding,
+            operation,
+            epoch,
+        })
     }
     fn consume_terminal_permit(&self, permit: TerminalPermit) -> bool {
+        if self.in_turn.get() || self.terminal_advancing.replace(true) {
+            self.terminal_fail(TerminalFailure::InvalidPermit);
+            return false;
+        }
+        let _advance = TurnGuard(&self.terminal_advancing);
         let current = lookup(permit.binding);
-        permit.binding == self.binding
+        let accepted = self.terminal_phase.get() == TerminalPhase::Issued
+            && self.terminal_failure.get().is_none()
+            && permit.binding == self.binding
             && current.is_some_and(|record| record.binding() == self.binding)
             && self.terminal_operation.get() == Some(permit.operation)
+            && self.terminal_epoch.get() == permit.epoch
+            && self.terminal_receipt_valid()
+            && self.terminal_delivery_ready()
             && self.terminal_conditions_met()
-            && self.terminal_join.borrow().as_ref().is_some_and(|receipt| {
-                receipt.binding == permit.binding
-                    && receipt.operation == permit.operation
-                    && matches!(receipt.result, Ok(super::code0_tick::TickExit::Cancelled))
-                    && receipt.thread != std::thread::current().id()
-            })
+            && self.terminal_epoch.get() == permit.epoch;
+        if accepted {
+            self.terminal_phase.set(TerminalPhase::Consumed);
+        } else {
+            self.terminal_fail(TerminalFailure::InvalidPermit);
+        }
+        accepted
     }
 }
 impl<C, B, S> LocalRecord for Runtime<C, B, S>
@@ -317,12 +783,52 @@ where
         Ok(())
     }
     fn terminal_progress(&self) {
-        // Intentionally conservative RED: evaluate the real settled conditions,
-        // retaining the owned producer until an actual join owner is implemented.
-        let _ = self.terminal_conditions_met();
+        if self.in_turn.get() || self.terminal_advancing.replace(true) {
+            self.mark_pending();
+            return;
+        }
+        let _advance = TurnGuard(&self.terminal_advancing);
+        reap_completed_terminal_joins();
+        if self.terminal_operation.get().is_none() {
+            return;
+        }
+        // DATA is consumed even when fresh retained work forbids permission.
+        self.observe_terminal_completion();
+        if self.terminal_phase.get() == TerminalPhase::Failed {
+            return;
+        }
+        if self.terminal_phase.get() == TerminalPhase::Running
+            && self
+                .tick_ack
+                .borrow()
+                .as_ref()
+                .is_some_and(|ack| ack.faulted())
+        {
+            self.terminal_fail(TerminalFailure::TickFault);
+            return;
+        }
+        if self.terminal_phase.get() == TerminalPhase::Running && self.terminal_conditions_met() {
+            self.begin_terminal_join();
+        }
+        if matches!(
+            self.terminal_phase.get(),
+            TerminalPhase::Joined | TerminalPhase::Ready
+        ) {
+            self.terminal_phase.set(
+                if self.terminal_receipt_valid()
+                    && self.terminal_delivery_ready()
+                    && self.terminal_conditions_met()
+                {
+                    TerminalPhase::Ready
+                } else {
+                    TerminalPhase::Joined
+                },
+            );
+        }
     }
     fn mark_pending(&self) {
         self.pending.set(true);
+        self.terminal_work_changed();
     }
     fn attach_tick(
         &self,
@@ -347,7 +853,7 @@ where
             && ack.delivered(self.binding)
         {
             self.tick_due.set(true);
-            self.pending.set(true);
+            self.mark_pending();
         }
     }
     fn committed_view(&self) -> Code0SessionDto {
@@ -365,7 +871,7 @@ where
                 true
             }
         };
-        self.pending.set(true);
+        self.mark_pending();
         if !accepted {
             self.proxy.stop(Box::new(|_| {}));
             Err(Code0DispatchError::Unavailable)
@@ -374,6 +880,10 @@ where
         }
     }
     fn settled(&self) -> TurnResult {
+        if self.terminal_advancing.get() {
+            self.mark_pending();
+            return TurnResult::Deferred;
+        }
         if self.in_turn.replace(true) {
             self.pending.set(true);
             return TurnResult::Deferred;
@@ -445,7 +955,10 @@ where
     let binding = NEXT_BINDING
         .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_add(1))
         .map_err(|_| Code0DispatchError::Unavailable)?;
-    let schedule = Arc::new(Schedule { binding, executor });
+    let schedule = Arc::new(Schedule {
+        binding,
+        executor: Arc::clone(&executor),
+    });
     let proxy = Code0Proxy::new(schedule, Code0Revision::new(0)?);
     let backend = Rc::new(RefCell::new((inputs.backend)(CallbackSink {
         binding,
@@ -480,6 +993,13 @@ where
         terminal_tick: RefCell::new(None),
         terminal_operation: Cell::new(None),
         terminal_join: RefCell::new(None),
+        terminal_executor: executor,
+        terminal_receive: RefCell::new(None),
+        terminal_obligation: RefCell::new(None),
+        terminal_phase: Cell::new(TerminalPhase::Running),
+        terminal_failure: Cell::new(None),
+        terminal_advancing: Cell::new(false),
+        terminal_epoch: Cell::new(0),
     });
     let record: Rc<dyn LocalRecord> = runtime.clone();
     REGISTRY.with(|slot| slot.borrow_mut().record = Some(record));
@@ -2185,6 +2705,18 @@ mod tests {
                 self.executor.flush();
                 self.turn();
             }
+            fn positive_claims(&self) -> [bool; 2] {
+                let deadline = Instant::now() + OBSERVE;
+                loop {
+                    self.executor.flush();
+                    self.turn();
+                    let claimed = self.claim();
+                    if claimed || Instant::now() >= deadline {
+                        return [claimed, self.claim()];
+                    }
+                    thread::sleep(Duration::from_millis(2));
+                }
+            }
             fn genuine_later_pulse(&self) -> bool {
                 let polls = self.backend.borrow().polls;
                 let pulse = self.pulses.recv_timeout(OBSERVE).ok();
@@ -2297,7 +2829,7 @@ mod tests {
                 f.executor.open_gate();
                 f.pump();
                 let joined = f.joined();
-                let claims = [f.claim(), f.claim()];
+                let claims = f.positive_claims();
                 (
                     first, requested, turn, elapsed, reply, early, joined, claims, key,
                 )
@@ -2377,7 +2909,7 @@ mod tests {
                         pulse,
                         same_key,
                         released,
-                        [f.claim(), f.claim()],
+                        f.positive_claims(),
                         f.joined(),
                     )
                 });
@@ -2640,7 +3172,7 @@ mod tests {
                 // Only now consume the real retained window work truthfully.
                 f.turn();
                 let joined = f.joined();
-                let claims = [f.claim(), f.claim()];
+                let claims = f.positive_claims();
                 let stale_safe =
                     if claims == [true, false] && joined.is_some() && old_jobs.len() >= 2 {
                         // Only actual product completion can enter retirement.
