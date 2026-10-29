@@ -232,6 +232,9 @@ pub enum Phase {
 pub enum BlankBranch {
     ZeroObserved,
     Observed,
+    /// Actual bound initial context+Stop, with no initial Start observation.
+    /// This never supplies a selected loading fact or actual context retirement.
+    ObservedInitialStopOnly,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Problem {
@@ -813,8 +816,10 @@ impl Protocol {
             }
             _ => return Err(Problem::Lifecycle),
         }
-        if self.branch == Some(BlankBranch::Observed)
-            && self.selected.root.is_some()
+        if matches!(
+            self.branch,
+            Some(BlankBranch::Observed | BlankBranch::ObservedInitialStopOnly)
+        ) && self.selected.root.is_some()
             && self.selected.root != self.blank.root
         {
             return Err(Problem::Root);
@@ -877,10 +882,14 @@ impl Protocol {
             return self.reject(Problem::Replay, boundary.ms);
         }
         if self.blank.root.is_some() {
-            if self.blank.context.is_none() || self.blank.started != self.blank.stopped {
+            if self.blank.context.is_none() {
                 return Err(Problem::NotReady);
             }
-            self.branch = Some(BlankBranch::Observed);
+            self.branch = Some(match (self.blank.started, self.blank.stopped) {
+                (true, false) => return Err(Problem::NotReady),
+                (false, true) => BlankBranch::ObservedInitialStopOnly,
+                (false, false) | (true, true) => BlankBranch::Observed,
+            });
         } else {
             self.branch = Some(BlankBranch::ZeroObserved);
         }
@@ -964,6 +973,12 @@ impl Protocol {
                 self.blank.context.is_some()
                     && (self.blank_destroyed || self.cleared)
                     && self.blank.started == self.blank.stopped
+            }
+            Some(BlankBranch::ObservedInitialStopOnly) => {
+                self.blank.context.is_some()
+                    && (self.blank_destroyed || self.cleared)
+                    && !self.blank.started
+                    && self.blank.stopped
             }
             None => false,
         };
@@ -1669,9 +1684,10 @@ mod tests {
             }
         }
     }
-    // Mutation: classifying an observed half-pair as zero-blank and reserving.
+    // Migration of the sole conflicting legacy test: orphan Stop remains blocked;
+    // context+Stop now selects the explicit third branch, and start-only still waits.
     #[test]
-    fn initial_loading_half_pair_prevents_reservation_until_resolved() {
+    fn initial_orphan_stop_and_start_only_require_their_missing_facts() {
         let mut p = enabling();
         p.lifecycle(Lifecycle::StoppedLoading(id("root")), at(4))
             .unwrap();
@@ -1681,11 +1697,30 @@ mod tests {
             at(6),
         )
         .unwrap();
-        assert_eq!(p.navigation_reserved(at(6)), Err(Problem::NotReady));
-        p.lifecycle(Lifecycle::StartedLoading(id("root")), at(7))
+        p.navigation_reserved(at(6)).unwrap();
+        assert_eq!(
+            p.status().blank_branch,
+            Some(BlankBranch::ObservedInitialStopOnly)
+        );
+        assert!(!p.blank.started);
+        assert!(p.blank.stopped);
+
+        let mut p = enabling();
+        p.lifecycle(
+            Lifecycle::ContextCreated(Document::Blank, context("b")),
+            at(4),
+        )
+        .unwrap();
+        p.lifecycle(Lifecycle::StartedLoading(id("root")), at(4))
             .unwrap();
-        p.navigation_reserved(at(8)).unwrap();
+        assert_eq!(p.navigation_reserved(at(5)), Err(Problem::NotReady));
+        assert_eq!(p.status().blank_branch, None);
+        p.lifecycle(Lifecycle::StoppedLoading(id("root")), at(6))
+            .unwrap();
+        p.navigation_reserved(at(7)).unwrap();
         assert_eq!(p.status().blank_branch, Some(BlankBranch::Observed));
+        assert!(p.blank.started);
+        assert!(p.blank.stopped);
     }
     // Mutation: allowing late recognizable blank adoption or reusing pre-reservation load end.
     #[test]
@@ -2200,6 +2235,767 @@ mod tests {
         #[test]
         fn stop_then_context_with_blank_frame_reserves_navigation() {
             assert_stop_only_reserves(false, true);
+        }
+    }
+    // Controlled Protocol inputs below are not native COM/event evidence.
+    // Mutation targets are named per test; no readiness/receipt is assigned directly.
+    mod initial_stop_only_green_tests {
+        use super::*;
+
+        fn prefix(context_first: bool, with_frame: bool) -> Protocol {
+            let mut p = enabling();
+            if with_frame {
+                p.lifecycle(
+                    Lifecycle::FrameNavigated(Document::Blank, frame("blank-loader")),
+                    at(4),
+                )
+                .unwrap();
+            }
+            let context = Lifecycle::ContextCreated(Document::Blank, context("blank-context"));
+            let stop = Lifecycle::StoppedLoading(id("root"));
+            for event in if context_first {
+                [context, stop]
+            } else {
+                [stop, context]
+            } {
+                p.lifecycle(event, at(4)).unwrap();
+            }
+            p
+        }
+        fn reserved(context_first: bool, with_frame: bool) -> Protocol {
+            let mut p = prefix(context_first, with_frame);
+            p.navigation_reserved(at(5)).unwrap();
+            assert_eq!(
+                p.status().blank_branch,
+                Some(BlankBranch::ObservedInitialStopOnly)
+            );
+            assert!(!p.blank.started);
+            assert!(p.blank.stopped);
+            assert_eq!(p.blank.frame.is_some(), with_frame);
+            assert!(!p.blank_destroyed);
+            assert!(!p.cleared);
+            assert!(p.selected.root.is_none());
+            assert!(!p.selected.started);
+            assert!(!p.selected.stopped);
+            p
+        }
+        fn selected_event(index: u8) -> Lifecycle {
+            match index {
+                0 => Lifecycle::FrameNavigated(Document::Selected, frame("selected-loader")),
+                1 => Lifecycle::ContextCreated(Document::Selected, context("selected-context")),
+                2 => Lifecycle::StartedLoading(id("root")),
+                3 => Lifecycle::StoppedLoading(id("root")),
+                _ => unreachable!(),
+            }
+        }
+        fn destroy_blank(p: &mut Protocol, ms: u64) {
+            p.lifecycle(
+                Lifecycle::ContextDestroyed {
+                    numeric: 7,
+                    unique: id("blank-context"),
+                },
+                at(ms),
+            )
+            .unwrap();
+        }
+        fn native_navigation(p: &mut Protocol) {
+            p.navigation_started(0, FIXED_URL, false, at(8)).unwrap();
+            p.navigation_completed(0, true, at(9)).unwrap();
+            p.navigation_returned(true, at(9)).unwrap();
+            p.main_response_installed(true, at(9)).unwrap();
+        }
+        fn ready_without_tree(retired: bool) -> Protocol {
+            let mut p = reserved(true, true);
+            if retired {
+                destroy_blank(&mut p, 6);
+            }
+            for index in 0..4 {
+                p.lifecycle(selected_event(index), at(7)).unwrap();
+            }
+            native_navigation(&mut p);
+            p
+        }
+        fn tree_and_source(p: &mut Protocol, ms: u64) {
+            let tree = p.command_entered(Command::GetFrameTree, at(ms)).unwrap();
+            complete(
+                p,
+                tree,
+                CompletionValue::FrameTree(&frame("selected-loader")),
+                ms,
+            );
+            p.source_after_navigation(FIXED_URL, at(ms + 1)).unwrap();
+        }
+        fn issued_stop_only() -> (Protocol, CommandTicket) {
+            let mut p = ready_without_tree(true);
+            tree_and_source(&mut p, 10);
+            p.arm(at(12)).unwrap();
+            let evaluation = p.evaluation_entered(FIXED_URL, at(13)).unwrap();
+            assert_eq!(evaluation.unique_context, id("selected-context"));
+            p.command_returned(evaluation.ticket, true, at(13)).unwrap();
+            (p, evaluation.ticket)
+        }
+        fn effect(p: &mut Protocol, command: CommandTicket, ms: u64) {
+            let callback = p.completion_entered(command, at(ms)).unwrap();
+            p.completion_captured(callback, true, CompletionValue::Denied, at(ms))
+                .unwrap();
+            p.completion_qualified(callback, at(ms)).unwrap();
+            p.completion_consumed(command, at(ms)).unwrap();
+            p.command_handler_dropped(command, at(ms)).unwrap();
+        }
+        fn all_removals_and_release(p: &mut Protocol, ms: u64) {
+            let mut keys = Vec::new();
+            for index in 0..10 {
+                keys.push(CoverageKey::S2Hook(index));
+            }
+            for receiver in Receiver::ALL {
+                keys.push(CoverageKey::Receiver(receiver));
+            }
+            keys.extend([
+                CoverageKey::NavigationCompleted,
+                CoverageKey::ResourceRequested,
+                CoverageKey::AllSourceFilter,
+                CoverageKey::CoreMessage,
+            ]);
+            for key in keys {
+                let ticket = p.removal_entered(key, at(ms)).unwrap();
+                p.removal_returned(ticket, true, at(ms)).unwrap();
+            }
+            p.cutoff(CutoffReason::StopEntry, at(ms));
+            p.cutoff(CutoffReason::ControllerCloseEntry, at(ms));
+            p.released(at(ms));
+        }
+
+        // Mutation: third branch invents a start/retirement or lets initial Stop fill selected Stop.
+        #[test]
+        fn all_prefixes_and_24_selected_orders_reach_checked_effect_and_protocol_release() {
+            let mut permutations = 0;
+            for a in 0..4 {
+                for b in 0..4 {
+                    for c in 0..4 {
+                        for d in 0..4 {
+                            if a == b || a == c || a == d || b == c || b == d || c == d {
+                                continue;
+                            }
+                            permutations += 1;
+                            for context_first in [false, true] {
+                                for with_frame in [false, true] {
+                                    for clear in [false, true] {
+                                        let mut p = reserved(context_first, with_frame);
+                                        if clear {
+                                            p.lifecycle(Lifecycle::ContextsCleared, at(6)).unwrap();
+                                        }
+                                        for index in [a, b, c, d] {
+                                            p.lifecycle(selected_event(index), at(7)).unwrap();
+                                        }
+                                        if !clear {
+                                            destroy_blank(&mut p, 7);
+                                        }
+                                        assert_eq!(p.blank_destroyed, !clear);
+                                        assert_eq!(p.cleared, clear);
+                                        native_navigation(&mut p);
+                                        tree_and_source(&mut p, 10);
+                                        p.arm(at(12)).unwrap();
+                                        let eval = p.evaluation_entered(FIXED_URL, at(13)).unwrap();
+                                        assert_eq!(eval.unique_context, id("selected-context"));
+                                        p.command_returned(eval.ticket, true, at(13)).unwrap();
+                                        native(&mut p, 14);
+                                        assert!(p.status().action_revoked);
+                                        assert_eq!(p.status().first_close_ms, Some(14));
+                                        effect(&mut p, eval.ticket, 15);
+                                        all_removals_and_release(&mut p, 16);
+                                        let status = p.status();
+                                        assert_eq!(status.phase, Phase::Released);
+                                        assert_eq!(status.failure, None);
+                                        assert_eq!(status.native_qualified, Some(true));
+                                        assert_eq!(status.effect_qualified, Some(true));
+                                        assert_eq!(status.obligations, 0);
+                                        assert_eq!(status.command_handlers, 0);
+                                        assert_eq!(status.owned_registrations, 0);
+                                        assert!(!p.blank.started);
+                                        assert!(p.blank.stopped);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert_eq!(permutations, 24);
+        }
+
+        // Mutation: broaden old Observed/Z or ignore an actual pre-reservation Start.
+        #[test]
+        fn old_empty_and_observed_none_or_full_pair_classifications_stay_exact() {
+            let mut zero = enabling();
+            zero.navigation_reserved(at(4)).unwrap();
+            assert_eq!(zero.status().blank_branch, Some(BlankBranch::ZeroObserved));
+            for with_frame in [false, true] {
+                for pair in [None, Some(true), Some(false)] {
+                    let mut p = enabling();
+                    if with_frame {
+                        p.lifecycle(
+                            Lifecycle::FrameNavigated(Document::Blank, frame("b")),
+                            at(4),
+                        )
+                        .unwrap();
+                    }
+                    p.lifecycle(
+                        Lifecycle::ContextCreated(Document::Blank, context("b")),
+                        at(4),
+                    )
+                    .unwrap();
+                    if let Some(start_first) = pair {
+                        let start = Lifecycle::StartedLoading(id("root"));
+                        let stop = Lifecycle::StoppedLoading(id("root"));
+                        for event in if start_first {
+                            [start, stop]
+                        } else {
+                            [stop, start]
+                        } {
+                            p.lifecycle(event, at(4)).unwrap();
+                        }
+                    }
+                    p.navigation_reserved(at(5)).unwrap();
+                    assert_eq!(p.status().blank_branch, Some(BlankBranch::Observed));
+                    assert_eq!(p.blank.started, pair.is_some());
+                    assert_eq!(p.blank.stopped, pair.is_some());
+                }
+            }
+        }
+
+        // Mutation: optional frame or orphan Stop authorizes without a qualified BContext.
+        #[test]
+        fn orphan_stop_or_frame_never_selects_zero_or_stop_only() {
+            for with_frame in [false, true] {
+                let mut p = enabling();
+                if with_frame {
+                    p.lifecycle(
+                        Lifecycle::FrameNavigated(Document::Blank, frame("b")),
+                        at(4),
+                    )
+                    .unwrap();
+                    assert_eq!(p.navigation_reserved(at(4)), Err(Problem::NotReady));
+                }
+                p.lifecycle(Lifecycle::StoppedLoading(id("root")), at(4))
+                    .unwrap();
+                assert_eq!(p.navigation_reserved(at(5)), Err(Problem::NotReady));
+                assert_eq!(p.status().blank_branch, None);
+                assert_eq!(p.status().failure, None);
+            }
+        }
+
+        // Mutation: duplicate/mismatched lifecycle inputs are hidden to obtain the new prefix.
+        #[test]
+        fn initial_duplicates_wrong_root_and_unsupported_events_are_sticky() {
+            for (bad, problem) in [
+                (Lifecycle::StoppedLoading(id("root")), Problem::Replay),
+                (
+                    Lifecycle::ContextCreated(Document::Blank, context("other-context")),
+                    Problem::Replay,
+                ),
+                (
+                    Lifecycle::FrameNavigated(Document::Blank, frame("other-loader")),
+                    Problem::Replay,
+                ),
+                (Lifecycle::StartedLoading(id("other-root")), Problem::Root),
+            ] {
+                let mut p = prefix(true, true);
+                assert_eq!(p.lifecycle(bad, at(5)), Err(problem));
+                assert_eq!(p.status().failure, Some(problem));
+                assert_eq!(p.navigation_reserved(at(6)), Err(Problem::NotReady));
+                assert_eq!(p.status().blank_branch, None);
+            }
+            for receiver in Receiver::ALL {
+                let mut p = prefix(false, false);
+                assert_eq!(
+                    p.lifecycle(Lifecycle::Unsupported(receiver), at(5)),
+                    Err(Problem::Lifecycle)
+                );
+                assert_eq!(p.navigation_reserved(at(6)), Err(Problem::NotReady));
+            }
+            for wrong in [
+                Lifecycle::StoppedLoading(id("other-root")),
+                Lifecycle::FrameNavigated(
+                    Document::Blank,
+                    Frame {
+                        id: id("other-root"),
+                        loader: id("b"),
+                    },
+                ),
+            ] {
+                let mut p = enabling();
+                p.lifecycle(
+                    Lifecycle::ContextCreated(Document::Blank, context("b")),
+                    at(4),
+                )
+                .unwrap();
+                assert_eq!(p.lifecycle(wrong, at(5)), Err(Problem::Root));
+                assert_eq!(p.navigation_reserved(at(6)), Err(Problem::NotReady));
+            }
+        }
+
+        // Mutation: selecting this branch bypasses actual Runtime ACK qualification/consumption.
+        #[test]
+        fn unconsumed_or_failed_enable_ack_cannot_reserve() {
+            for fail in [false, true] {
+                let mut p = installed();
+                let page = p.command_entered(Command::PageEnable, at(2)).unwrap();
+                complete(&mut p, page, CompletionValue::EmptyAck, 2);
+                let runtime = p.command_entered(Command::RuntimeEnable, at(3)).unwrap();
+                p.lifecycle(
+                    Lifecycle::ContextCreated(Document::Blank, context("b")),
+                    at(4),
+                )
+                .unwrap();
+                p.lifecycle(Lifecycle::StoppedLoading(id("root")), at(4))
+                    .unwrap();
+                assert_eq!(p.navigation_reserved(at(4)), Err(Problem::NotReady));
+                p.command_returned(runtime, true, at(4)).unwrap();
+                let callback = p.completion_entered(runtime, at(4)).unwrap();
+                p.completion_captured(callback, !fail, CompletionValue::EmptyAck, at(4))
+                    .unwrap();
+                assert_eq!(p.navigation_reserved(at(4)), Err(Problem::NotReady));
+                p.completion_qualified(callback, at(4)).unwrap();
+                assert_eq!(p.navigation_reserved(at(4)), Err(Problem::NotReady));
+                p.completion_consumed(runtime, at(4)).unwrap();
+                p.command_handler_dropped(runtime, at(4)).unwrap();
+                assert_eq!(p.status().blank_branch, None);
+                if fail {
+                    assert_eq!(p.status().failure, Some(Problem::Result));
+                    assert_eq!(p.navigation_reserved(at(5)), Err(Problem::NotReady));
+                } else {
+                    p.navigation_reserved(at(5)).unwrap();
+                    assert_eq!(
+                        p.status().blank_branch,
+                        Some(BlankBranch::ObservedInitialStopOnly)
+                    );
+                }
+            }
+        }
+
+        // Mutation: the third-branch admission short-circuits identity/coverage/cutoff/45 gates.
+        #[test]
+        fn reservation_keeps_current_identity_coverage_cutoff_and_original45() {
+            for field in 0..4 {
+                let mut p = prefix(true, false);
+                let mut boundary = at(5);
+                match field {
+                    0 => boundary.identity.request += 1,
+                    1 => boundary.identity.generation += 1,
+                    2 => boundary.identity.installation += 1,
+                    _ => boundary.identity.core += 1,
+                }
+                assert_eq!(p.navigation_reserved(boundary), Err(Problem::Identity));
+                assert_eq!(p.status().blank_branch, None);
+            }
+            for reason in [
+                CutoffReason::CoverageLost,
+                CutoffReason::RequiredRemovalAttempt,
+                CutoffReason::StopEntry,
+                CutoffReason::ControllerCloseEntry,
+                CutoffReason::ControlsDisposal,
+            ] {
+                let mut p = prefix(false, true);
+                p.cutoff(reason, at(5));
+                assert_eq!(p.navigation_reserved(at(5)), Err(Problem::NotReady));
+                assert_eq!(p.status().blank_branch, None);
+            }
+            let mut p = prefix(true, false);
+            p.affinity_lost();
+            assert_eq!(p.navigation_reserved(at(5)), Err(Problem::NotReady));
+            assert_eq!(p.status().failure, Some(Problem::Affinity));
+            let mut p = prefix(true, false);
+            assert_eq!(p.navigation_reserved(at(45_000)), Err(Problem::NotReady));
+            assert_eq!(p.status().failure, Some(Problem::Deadline));
+            assert_eq!(p.status().blank_branch, None);
+        }
+
+        // Mutation: initial Stop/branch is credited as one selected load event.
+        #[test]
+        fn missing_any_selected_fact_blocks_tree_source_arm_and_evaluate() {
+            for missing in 0..4 {
+                let mut p = reserved(true, true);
+                destroy_blank(&mut p, 6);
+                for index in 0..4 {
+                    if index != missing {
+                        p.lifecycle(selected_event(index), at(7)).unwrap();
+                    }
+                }
+                native_navigation(&mut p);
+                assert_eq!(
+                    p.command_entered(Command::GetFrameTree, at(10)),
+                    Err(Problem::NotReady)
+                );
+                assert_eq!(
+                    p.source_after_navigation(FIXED_URL, at(10)),
+                    Err(Problem::NotReady)
+                );
+                assert_eq!(p.arm(at(10)), Err(Problem::NotReady));
+                assert_eq!(
+                    p.evaluation_entered(FIXED_URL, at(10)),
+                    Err(Problem::NotReady)
+                );
+                assert!(!p.operations[Command::GetFrameTree as usize].issued);
+                assert!(!p.operations[Command::Evaluate as usize].issued);
+                p.lifecycle(selected_event(missing), at(11)).unwrap();
+                tree_and_source(&mut p, 12);
+                p.arm(at(14)).unwrap();
+                assert!(p.evaluation_entered(FIXED_URL, at(15)).is_ok());
+            }
+        }
+
+        // Mutation: observed Stop is treated as actual blank-context retirement.
+        #[test]
+        fn missing_retirement_blocks_until_actual_whole_pair_destroy() {
+            let mut p = ready_without_tree(false);
+            assert_eq!(
+                p.command_entered(Command::GetFrameTree, at(10)),
+                Err(Problem::NotReady)
+            );
+            assert_eq!(p.arm(at(10)), Err(Problem::NotReady));
+            assert!(!p.blank_destroyed);
+            assert!(!p.cleared);
+            destroy_blank(&mut p, 11);
+            tree_and_source(&mut p, 12);
+            p.arm(at(14)).unwrap();
+        }
+
+        // Mutation: third branch loses BF/BL/BU/tombstone and clear-order protections.
+        #[test]
+        fn selected_identity_retirement_and_late_blank_rules_are_unchanged() {
+            for (event, problem) in [
+                (
+                    Lifecycle::FrameNavigated(
+                        Document::Selected,
+                        Frame {
+                            id: id("other"),
+                            loader: id("s"),
+                        },
+                    ),
+                    Problem::Root,
+                ),
+                (
+                    Lifecycle::ContextCreated(
+                        Document::Selected,
+                        Context::new(id("other"), 7, id("s")).unwrap(),
+                    ),
+                    Problem::Root,
+                ),
+                (
+                    Lifecycle::FrameNavigated(Document::Selected, frame("blank-loader")),
+                    Problem::Root,
+                ),
+                (Lifecycle::StartedLoading(id("other")), Problem::Root),
+                (Lifecycle::StoppedLoading(id("other")), Problem::Root),
+                (
+                    Lifecycle::ContextCreated(Document::Selected, context("blank-context")),
+                    Problem::Context,
+                ),
+                (
+                    Lifecycle::ContextDestroyed {
+                        numeric: 8,
+                        unique: id("blank-context"),
+                    },
+                    Problem::Context,
+                ),
+                (
+                    Lifecycle::ContextDestroyed {
+                        numeric: 7,
+                        unique: id("wrong"),
+                    },
+                    Problem::Context,
+                ),
+                (
+                    Lifecycle::ContextDestroyed {
+                        numeric: 7,
+                        unique: id("selected-context"),
+                    },
+                    Problem::Context,
+                ),
+                (
+                    Lifecycle::FrameNavigated(Document::Blank, frame("late")),
+                    Problem::Lifecycle,
+                ),
+                (
+                    Lifecycle::ContextCreated(Document::Blank, context("late")),
+                    Problem::Lifecycle,
+                ),
+            ] {
+                let mut p = reserved(false, true);
+                assert_eq!(p.lifecycle(event, at(6)), Err(problem));
+                assert!(p.status().action_revoked);
+                assert_eq!(p.arm(at(7)), Err(Problem::NotReady));
+            }
+            let mut p = reserved(true, false);
+            p.lifecycle(selected_event(1), at(6)).unwrap();
+            assert_eq!(
+                p.lifecycle(Lifecycle::ContextsCleared, at(7)),
+                Err(Problem::Lifecycle)
+            );
+            let mut p = reserved(true, false);
+            destroy_blank(&mut p, 6);
+            assert_eq!(
+                p.lifecycle(
+                    Lifecycle::ContextDestroyed {
+                        numeric: 7,
+                        unique: id("blank-context")
+                    },
+                    at(7)
+                ),
+                Err(Problem::Context)
+            );
+        }
+
+        // Mutation: stop-only skips actual retirement or tombstone/clear ordering differs from Observed.
+        #[test]
+        fn real_redundant_retirement_signals_keep_tombstone_rules() {
+            for clear_first in [false, true] {
+                let mut p = reserved(true, true);
+                if clear_first {
+                    p.lifecycle(Lifecycle::ContextsCleared, at(6)).unwrap();
+                    destroy_blank(&mut p, 6);
+                } else {
+                    destroy_blank(&mut p, 6);
+                    p.lifecycle(Lifecycle::ContextsCleared, at(6)).unwrap();
+                }
+                for index in 0..4 {
+                    p.lifecycle(selected_event(index), at(7)).unwrap();
+                }
+                native_navigation(&mut p);
+                tree_and_source(&mut p, 10);
+                p.arm(at(12)).unwrap();
+                assert_eq!(
+                    p.lifecycle(
+                        Lifecycle::ContextDestroyed {
+                            numeric: 7,
+                            unique: id("blank-context")
+                        },
+                        at(13)
+                    ),
+                    Err(Problem::Lifecycle)
+                );
+            }
+            let mut p = reserved(true, false);
+            p.lifecycle(Lifecycle::ContextsCleared, at(6)).unwrap();
+            assert_eq!(
+                p.lifecycle(Lifecycle::ContextsCleared, at(7)),
+                Err(Problem::Lifecycle)
+            );
+        }
+
+        // Mutation: missing/failed native navigation or response is replaced by CDP facts.
+        #[test]
+        fn every_native_navigation_and_response_input_remains_mandatory() {
+            for missing in 0..4 {
+                let mut p = reserved(true, false);
+                destroy_blank(&mut p, 6);
+                for index in 0..4 {
+                    p.lifecycle(selected_event(index), at(7)).unwrap();
+                }
+                if missing != 0 {
+                    p.navigation_started(0, FIXED_URL, false, at(8)).unwrap();
+                }
+                if missing != 0 && missing != 1 {
+                    p.navigation_completed(0, true, at(9)).unwrap();
+                }
+                if missing != 2 {
+                    p.navigation_returned(true, at(9)).unwrap();
+                }
+                if missing != 3 {
+                    p.main_response_installed(true, at(9)).unwrap();
+                }
+                assert_eq!(
+                    p.command_entered(Command::GetFrameTree, at(10)),
+                    Err(Problem::NotReady)
+                );
+                assert_eq!(p.arm(at(10)), Err(Problem::NotReady));
+                match missing {
+                    0 => {
+                        p.navigation_started(0, FIXED_URL, false, at(11)).unwrap();
+                        p.navigation_completed(0, true, at(11)).unwrap();
+                    }
+                    1 => p.navigation_completed(0, true, at(11)).unwrap(),
+                    2 => p.navigation_returned(true, at(11)).unwrap(),
+                    _ => p.main_response_installed(true, at(11)).unwrap(),
+                }
+                tree_and_source(&mut p, 12);
+                p.arm(at(14)).unwrap();
+            }
+            for bad in 0..6 {
+                let mut p = reserved(true, false);
+                let result = match bad {
+                    0 => p.navigation_started(0, "about:blank", false, at(6)),
+                    1 => p.navigation_started(0, FIXED_URL, true, at(6)),
+                    2 | 3 => {
+                        p.navigation_started(0, FIXED_URL, false, at(6)).unwrap();
+                        p.navigation_completed(if bad == 2 { 1 } else { 0 }, bad == 2, at(7))
+                    }
+                    4 => p.navigation_returned(false, at(6)),
+                    _ => p.main_response_installed(false, at(6)),
+                };
+                assert_eq!(result, Err(Problem::Native));
+                assert_eq!(p.arm(at(8)), Err(Problem::NotReady));
+            }
+        }
+
+        // Mutation: tree ACK or fresh full Source becomes optional or adopts another loader.
+        #[test]
+        fn tree_and_both_source_boundaries_cannot_be_substituted() {
+            let mut p = ready_without_tree(true);
+            assert_eq!(
+                p.source_after_navigation(FIXED_URL, at(10)),
+                Err(Problem::NotReady)
+            );
+            assert_eq!(p.arm(at(10)), Err(Problem::NotReady));
+            let tree = p.command_entered(Command::GetFrameTree, at(11)).unwrap();
+            complete(
+                &mut p,
+                tree,
+                CompletionValue::FrameTree(&frame("wrong-loader")),
+                11,
+            );
+            assert_eq!(p.status().failure, Some(Problem::Result));
+            assert_eq!(p.arm(at(12)), Err(Problem::NotReady));
+            let mut p = ready_without_tree(true);
+            let tree = p.command_entered(Command::GetFrameTree, at(10)).unwrap();
+            complete(
+                &mut p,
+                tree,
+                CompletionValue::FrameTree(&frame("selected-loader")),
+                10,
+            );
+            assert_eq!(p.arm(at(11)), Err(Problem::NotReady));
+            assert_eq!(
+                p.source_after_navigation("https://console.code0.ai/", at(11)),
+                Err(Problem::Native)
+            );
+            let mut p = ready_without_tree(true);
+            tree_and_source(&mut p, 10);
+            p.arm(at(12)).unwrap();
+            assert_eq!(
+                p.evaluation_entered("about:blank", at(13)),
+                Err(Problem::Native)
+            );
+            assert!(!p.operations[Command::Evaluate as usize].issued);
+        }
+
+        // Mutation: reserved third branch can be reused or reopens lifecycle after arm.
+        #[test]
+        fn reservation_and_postarm_lifecycle_are_once_only() {
+            let mut p = reserved(true, true);
+            assert_eq!(p.navigation_reserved(at(6)), Err(Problem::NotReady));
+            assert_eq!(
+                p.status().blank_branch,
+                Some(BlankBranch::ObservedInitialStopOnly)
+            );
+            for index in 0..4 {
+                let mut p = ready_without_tree(true);
+                tree_and_source(&mut p, 10);
+                p.arm(at(12)).unwrap();
+                assert_eq!(
+                    p.lifecycle(selected_event(index), at(13)),
+                    Err(Problem::Lifecycle)
+                );
+                assert_eq!(p.status().failure, Some(Problem::Lifecycle));
+                assert!(p.evaluation_entered(FIXED_URL, at(14)).is_err());
+            }
+        }
+
+        // Mutation: a new branch bypasses denied-result/native-action/cutoff conjunctions.
+        #[test]
+        fn effect_needs_native_action_successful_closed_result_and_pre_cutoff_qualification() {
+            let (mut p, command) = issued_stop_only();
+            effect(&mut p, command, 14);
+            assert_eq!(p.status().effect_qualified, Some(false));
+            for (success, value) in [
+                (false, CompletionValue::Denied),
+                (true, CompletionValue::Default),
+                (true, CompletionValue::Granted),
+                (true, CompletionValue::Malformed),
+            ] {
+                let (mut p, command) = issued_stop_only();
+                native(&mut p, 14);
+                let callback = p.completion_entered(command, at(15)).unwrap();
+                p.completion_captured(callback, success, value, at(15))
+                    .unwrap();
+                p.completion_qualified(callback, at(15)).unwrap();
+                p.completion_consumed(command, at(16)).unwrap();
+                assert_eq!(p.status().effect_qualified, Some(false));
+                assert_eq!(p.status().obligations, 0);
+            }
+            for before_capture in [false, true] {
+                let (mut p, command) = issued_stop_only();
+                native(&mut p, 14);
+                let callback = p.completion_entered(command, at(15)).unwrap();
+                if before_capture {
+                    p.cutoff(CutoffReason::RequiredRemovalAttempt, at(15));
+                }
+                p.completion_captured(callback, true, CompletionValue::Denied, at(15))
+                    .unwrap();
+                if !before_capture {
+                    p.cutoff(CutoffReason::RequiredRemovalAttempt, at(15));
+                }
+                p.completion_qualified(callback, at(15)).unwrap();
+                p.completion_consumed(command, at(16)).unwrap();
+                assert_eq!(p.status().effect_qualified, Some(false));
+                assert_eq!(p.status().obligations, 0);
+            }
+        }
+
+        // Mutation: native DENY or real handler Drop is credited as an absent effect invocation.
+        #[test]
+        fn missing_effect_never_drains_and_native_failure_never_qualifies() {
+            let (mut p, command) = issued_stop_only();
+            native(&mut p, 14);
+            assert_eq!(p.status().native_qualified, Some(true));
+            assert_eq!(p.status().effect_qualified, None);
+            p.command_handler_dropped(command, at(15)).unwrap();
+            assert_eq!(p.status().obligations, 1);
+            assert_eq!(p.status().effect_qualified, None);
+            let (mut p, _) = issued_stop_only();
+            let ticket = p.native_entered(at(14)).unwrap();
+            for check in NativeCheck::ALL {
+                p.native_checked(ticket, check, check != NativeCheck::AfterDeny, at(14))
+                    .unwrap();
+                if check == NativeCheck::DenyAttempted {
+                    p.native_refused(ticket, at(14)).unwrap();
+                }
+            }
+            p.native_qualified(ticket, at(14)).unwrap();
+            assert_eq!(p.status().native_qualified, Some(false));
+            assert!(p.status().action_revoked);
+        }
+
+        // Mutation: new-branch receipt extends45/close10 or permits physical postStop evidence.
+        #[test]
+        fn original_and_close_equality_and_physical_entry_keep_their_negative_meanings() {
+            let (mut p, command) = issued_stop_only();
+            native(&mut p, 44_999);
+            effect(&mut p, command, 45_000);
+            assert_eq!(p.status().effect_qualified, Some(false));
+            assert_eq!(p.status().failure, Some(Problem::Deadline));
+            assert_eq!(p.status().first_close_ms, Some(44_999));
+            let (mut p, command) = issued_stop_only();
+            native(&mut p, 14);
+            assert_eq!(
+                p.completion_entered(command, at(10_014)),
+                Err(Problem::CloseDeadline)
+            );
+            assert_eq!(p.status().obligations, 1);
+            assert_eq!(p.status().first_close_ms, Some(14));
+            for reason in [
+                CutoffReason::StopEntry,
+                CutoffReason::ControllerCloseEntry,
+                CutoffReason::ControlsDisposal,
+            ] {
+                let (mut p, command) = issued_stop_only();
+                native(&mut p, 14);
+                p.cutoff(reason, at(15));
+                effect(&mut p, command, 16);
+                assert_eq!(p.status().effect_qualified, Some(false));
+                assert_eq!(p.status().obligations, 0);
+                assert!(p.status().action_revoked);
+            }
         }
     }
 }

@@ -1,0 +1,136 @@
+name: Code0 initial-stop-only protocol and DATA GREEN
+
+on:
+  push:
+    branches: [codex/code0-permission-initial-stop-only-green-20261030]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code0-permission-initial-stop-only-green-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  protocol-green:
+    name: Complete53 protocol and21 synthetic DATA GREEN
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Select byte-stable hosted Ubuntu checkout
+        shell: python {0}
+        run: |
+          import os
+          if (os.name != 'posix' or os.environ.get('RUNNER_OS') != 'Linux'
+                  or os.environ.get('GITHUB_ACTIONS') != 'true'
+                  or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'
+                  or os.environ.get('GITHUB_EVENT_NAME') != 'push'
+                  or os.environ.get('GITHUB_REF') != 'refs/heads/codex/code0-permission-initial-stop-only-green-20261030'):
+              raise SystemExit('Requires the exact hosted Ubuntu protocol push')
+          if any(k == 'GIT_CONFIG_COUNT' or k == 'GIT_CONFIG_PARAMETERS'
+                 or k.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_')) for k in os.environ):
+              raise SystemExit('Unexpected inherited Git runtime configuration')
+          entries = ('GIT_CONFIG_COUNT=2', 'GIT_CONFIG_KEY_0=core.autocrlf',
+                     'GIT_CONFIG_VALUE_0=false', 'GIT_CONFIG_KEY_1=core.eol', 'GIT_CONFIG_VALUE_1=lf')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8', newline='\n') as output:
+              output.write('\n'.join(entries) + '\n')
+      - name: Check out exact isolated candidate
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - name: Bind solebde child five paths and exact payload bytes
+        shell: python {0}
+        run: |
+          import hashlib, json, os, re, subprocess
+          from pathlib import Path
+          base = 'bde5808e0d478053848e1d069ddf62ce9e4191b6'
+          source = 'windows/src-tauri/src/platform/windows/code0_webview/permission_protocol.rs'
+          runner = 'scripts/test-code0-permission-initial-stop-only-green.py'
+          workflow = '.github/workflows/code0-permission-initial-stop-only-green.yml'
+          validator = '.ci/code0-permission-checker/validator.py'
+          selfcheck = '.ci/code0-permission-checker/selfcheck.py'
+          expected = {'windows/src-tauri/src/platform/windows/code0_webview/permission_protocol.rs': {'bytes': 118412, 'sha256': '9db326be50cd117cfcd7d3eff2f418eabc49447c3bd1ba9923af18ee9d5c6fb1'}, '.ci/code0-permission-checker/validator.py': {'bytes': 25162, 'sha256': '45aced4f4bf2ab8aaeec63517047ad51fefde6738a5503e7bb83f4667da6dec5'}, '.ci/code0-permission-checker/selfcheck.py': {'bytes': 31534, 'sha256': 'd4580e347ba799b0f2f0c0b87e23a7cb39caae10a78260f0cee682e8a93995f7'}, 'scripts/test-code0-permission-initial-stop-only-green.py': {'bytes': 20348, 'sha256': 'e9358a6b7f58faf619a36f553817024bec6b53963ff20c08a4b7de37c66ac158'}}
+          baselines = {'windows/src-tauri/src/platform/windows/code0_webview/permission_protocol.rs': {'bytes': 82833, 'sha256': '1b4b803e28e4a4a52ff76d345f85c25fbfa68bbe1c9c31117e17735c22ba35d3'}, '.ci/code0-permission-checker/validator.py': {'bytes': 25108, 'sha256': 'c8d0ca1b75829a2747dec8e0f07f855e8d3c3cd38e59ece9a79e5658223b6ddf'}, '.ci/code0-permission-checker/selfcheck.py': {'bytes': 28179, 'sha256': 'fabdbc6509e690d8557b8fff56e0527287fa4fac3190242bc9f66ed927de63bf'}}
+          run, attempt, sha = (os.environ[k] for k in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_SHA'))
+          if (re.fullmatch(r'[0-9]{1,20}', run) is None or re.fullmatch(r'[0-9]{1,6}', attempt) is None
+                  or re.fullmatch(r'[0-9a-f]{40}', sha) is None):
+              raise SystemExit('Invalid source identity')
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          parents = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', 'HEAD'], text=True).split()
+          changes = [line.split('\t') for line in subprocess.check_output(
+              ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', base, 'HEAD'], text=True).splitlines()]
+          if (head != sha or parents != [head, base]
+                  or sorted(changes) != sorted([['A', workflow], ['A', runner], ['M', source], ['M', validator], ['M', selfcheck]])):
+              raise SystemExit('Not the exact solebde five-path child')
+          for name, baseline in baselines.items():
+              old = subprocess.check_output(['git', 'show', base + ':' + name])
+              if {'bytes': len(old), 'sha256': hashlib.sha256(old).hexdigest()} != baseline:
+                  raise SystemExit('Wrong baseline payload bytes')
+          observed = {}
+          for name in sorted({source, validator, selfcheck, runner, workflow}):
+              raw = Path(name).read_bytes()
+              blob = subprocess.check_output(['git', 'show', 'HEAD:' + name])
+              mode = subprocess.check_output(['git', 'ls-tree', 'HEAD', '--', name], text=True).split()[0]
+              observed[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+              if raw != blob or mode != '100644' or (name in expected and observed[name] != expected[name]):
+                  raise SystemExit('Payload bytes/mode mismatch')
+          host = {k: os.environ.get(k) for k in ('RUNNER_OS', 'RUNNER_ARCH', 'RUNNER_ENVIRONMENT', 'ImageOS', 'ImageVersion')}
+          if any(v is not None and len(v) > 2048 for v in host.values()):
+              raise SystemExit('Oversize host identity')
+          identity = {'schema': 1, 'runId': run, 'attempt': attempt, 'checkout': head,
+                      'parent': base, 'ref': os.environ['GITHUB_REF'], 'event': 'push',
+                      'payloads': observed, 'runnerHost': host}
+          encoded = json.dumps(identity, indent=2) + '\n'
+          if len(encoded.encode('utf-8')) > 16384:
+              raise SystemExit('Oversize source identity')
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-permission-initial-stop-only-green-{run}-{attempt}'
+          out.mkdir(exist_ok=False)
+          with (out / 'identity.json').open('x', encoding='utf-8', newline='\n') as output:
+              output.write(encoded)
+          print(encoded)
+      - name: Install pinned Rust and rustfmt
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt
+      - name: Strict format compile complete53 protocol and21 DATA
+        shell: python {0}
+        run: |
+          import hashlib, json, os, subprocess, sys, time
+          from pathlib import Path
+          run, attempt = (os.environ[k] for k in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'))
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-permission-initial-stop-only-green-{run}-{attempt}'
+          argv = [sys.executable, 'scripts/test-code0-permission-initial-stop-only-green.py']
+          result = {'schema': 1, 'runId': run, 'attempt': attempt, 'checkout': os.environ['GITHUB_SHA'],
+                    'argv': argv, 'exitCode': None, 'collectorReaped': False,
+                    'collectorElapsedSeconds': None, 'error': 'none'}
+          paths = [out / 'collector.stdout.log', out / 'collector.stderr.log']
+          try:
+              with paths[0].open('xb') as stdout, paths[1].open('xb') as stderr:
+                  started = time.monotonic()
+                  child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr, shell=False)
+                  result['exitCode'] = child.wait()
+                  result['collectorElapsedSeconds'] = time.monotonic() - started
+                  result['collectorReaped'] = True
+                  if result['collectorElapsedSeconds'] >= 300:
+                      result['error'] = 'collector_total_deadline'
+              if any(path.stat().st_size > 1048576 for path in paths):
+                  result['error'] = 'collector_output_overflow'
+              else:
+                  result['logs'] = {path.name: {'bytes': path.stat().st_size,
+                                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest()} for path in paths}
+          except OSError as error:
+              result['error'] = type(error).__name__
+          finally:
+              with (out / 'collector-exit.json').open('x', encoding='utf-8', newline='\n') as output:
+                  json.dump(result, output, indent=2)
+                  output.write('\n')
+          print(json.dumps(result, indent=2))
+          if (result['exitCode'] != 0 or not result['collectorReaped'] or result['error'] != 'none'
+                  or result['collectorElapsedSeconds'] is None or result['collectorElapsedSeconds'] >= 300):
+              raise SystemExit('Collector did not return exact reaped protocol and DATA GREEN evidence')
+      - name: Preserve all raw protocol source gates logs binary and exits
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-permission-initial-stop-only-green-evidence
+          path: ${{ runner.temp }}/code0-permission-initial-stop-only-green-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          retention-days: 7
