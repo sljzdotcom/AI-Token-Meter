@@ -2934,6 +2934,148 @@ jobs:
             ${{ runner.temp }}/code0-policy-http401-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
           if-no-files-found: warn
           retention-days: 7
+      - name: Test Code0 shared-slot real-driver Stage A RED
+        if: ${{ !cancelled() && steps.code0_native_lint.outcome == 'success' }}
+        working-directory: windows/src-tauri
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $env:AI_METER_CODE0_NATIVE_RUN_ID = "code0-shared-slot-red-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          if ($env:AI_METER_CODE0_NATIVE_RUN_ID -cnotmatch '\A[A-Za-z0-9_-]{1,64}\z') { throw "Invalid shared-slot fresh run identity" }
+          $env:AI_METER_CODE0_NATIVE_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID.json"
+          $exitPath = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID-exit.json"
+          if ((Test-Path -LiteralPath $env:AI_METER_CODE0_NATIVE_SUMMARY) -or (Test-Path -LiteralPath $exitPath)) { throw "Shared-slot evidence paths must be fresh" }
+          $env:AI_METER_CODE0_NATIVE_DIAGNOSTICS = "1"
+          $global:LASTEXITCODE = $null
+          & cargo test --locked --features code0-native-fixture --test code0_native_fixture -- --code0-profile-fixture=shared-slot-driver
+          $code = $LASTEXITCODE
+          if ($null -eq $code -or $code -isnot [int]) { throw "Shared-slot invocation produced no actual integer exit code" }
+          $payload = [ordered]@{ schema = 1; runId = $env:AI_METER_CODE0_NATIVE_RUN_ID; exitCode = $code } | ConvertTo-Json -Compress
+          $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
+          $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+          try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+          if ($code -ne 1) { throw "Shared-slot expected actual exit 1; exit alone never proves the required RED" }
+          exit 0
+      - name: Verify Code0 shared-slot real-driver Stage A RED evidence
+        if: always()
+        shell: python {0}
+        run: |
+          """Only the exact fresh Stage A missing-publication RED may satisfy this gate."""
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+
+          def unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate JSON member')
+                  result[key] = value
+              return result
+
+
+          def invalid_number(_):
+              raise ValueError('non-integer or nonfinite JSON number')
+
+
+          def read(path, limit):
+              with path.open('rb') as source:
+                  raw = source.read(limit + 1)
+              if not raw or len(raw) > limit:
+                  raise ValueError('evidence byte bound exceeded or empty')
+              return json.loads(raw.decode('utf-8'), object_pairs_hook=unique_object,
+                                parse_constant=invalid_number, parse_float=invalid_number)
+
+
+          def exact(actual, expected):
+              if type(actual) is not type(expected):
+                  raise ValueError('evidence type mismatch')
+              if type(expected) is dict:
+                  if set(actual) != set(expected):
+                      raise ValueError('evidence member mismatch')
+                  for key, value in expected.items():
+                      exact(actual[key], value)
+              elif type(expected) is str:
+                  if len(actual) > 128 or actual != expected:
+                      raise ValueError('evidence string mismatch or bound exceeded')
+              elif actual != expected:
+                  raise ValueError('evidence value mismatch')
+
+
+          try:
+              run_id = f"code0-shared-slot-red-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+              if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', run_id) is None:
+                  raise ValueError('invalid fresh run identity')
+              base = Path(os.environ['RUNNER_TEMP'])
+              expected_exit = {'schema': 1, 'runId': run_id, 'exitCode': 1}
+              expected_summary = {
+                  'schema': 16,
+                  'runId': run_id,
+                  'requiredCase': 'shared-slot-driver',
+                  'selectedCases': 1,
+                  'completedCases': 1,
+                  'pass': False,
+                  'failure': 'driverAcquireDidNotPublishSharedSlot',
+                  'staMain': True,
+                  'callbackAffinity': True,
+                  'noInheritedOverride': True,
+                  'engineReady': False,
+                  'rendererMessage': False,
+                  'bareHiddenUnfocused': False,
+                  'constructionObserved': False,
+                  'bareWindowViolation': False,
+                  'profileIsolated': False,
+                  'destroyed': False,
+                  'ownedReferencesReleased': False,
+                  'runReturned': True,
+                  'cleanupSucceeded': True,
+                  'runtimeVersion': '',
+                  'sharedSlot': {
+                      'appBuilt': True,
+                      'profileRootFresh': True,
+                      'coldSlot': True,
+                      'acquireSucceeded': True,
+                      'firstTargetObserved': True,
+                      'firstTargetTimely': True,
+                      'firstSlotHeldAndBound': False,
+                      'firstStoreRoundtrip': False,
+                      'repeatAcquireSucceeded': None,
+                      'repeatLockPreserved': None,
+                      'createAttempted': False,
+                      'earlyReleaseCalled': False,
+                      'earlySlotPreserved': None,
+                      'matchingReleasedBeforeFinalRelease': False,
+                      'releaseCalls': 1,
+                      'failedBeforeCreateCleanup': True,
+                      'releasedSlotEmpty': None,
+                      'savedCloneRevoked': None,
+                      'staleStoreDenied': None,
+                      'reacquireSucceeded': None,
+                      'reacquiredStoreRoundtrip': None,
+                      'staleCloneStillDenied': None,
+                      'finalReleaseObserved': None,
+                      'laterChecksTimely': None,
+                      'wakeJoinSucceeded': True,
+                  },
+              }
+              exact(read(base / f'{run_id}-exit.json', 1024), expected_exit)
+              exact(read(base / f'{run_id}.json', 8192), expected_summary)
+          except (OSError, KeyError, ValueError, TypeError, UnicodeError, RecursionError):
+              raise SystemExit('Shared-slot Stage A evidence missing, malformed, stale, or not the exact first-target RED with normal cleanup') from None
+          print('Observed only the exact shared-slot first-target RED with normal cleanup; later stages remain UNOBSERVED.')
+      - name: Preserve Code0 shared-slot real-driver Stage A RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-windows-shared-slot-stage-a-red
+          path: |
+            ${{ runner.temp }}/code0-shared-slot-red-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-shared-slot-red-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Build Windows NSIS installer
         working-directory: windows
         run: npm run tauri build -- --debug

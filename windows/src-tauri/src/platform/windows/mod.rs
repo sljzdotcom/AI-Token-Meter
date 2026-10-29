@@ -1,7 +1,10 @@
 pub mod claude_workspace;
 #[cfg(all(test, windows))]
 mod code0_clock;
-#[cfg(all(test, windows))]
+#[cfg(all(
+    windows,
+    any(test, all(debug_assertions, feature = "code0-native-fixture"))
+))]
 mod code0_composition;
 pub mod code0_dispatcher;
 pub mod code0_profile_lease;

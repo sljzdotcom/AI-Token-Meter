@@ -1243,3 +1243,19 @@ Root仅删除无Drop的inline decoded显式drop（保留实际text释放边界�
 终止前置两源码GREEN独审10681/99799ecb及CI独审9481/4c557f19均全文接受有限SOURCE C0/I0/M0；辅助e5014999 sole f47826c、tree0db3bd0f准备仅Session/Dispatcher/runner/WF四路径，主HEAD/index/两文档保持。要求完整249逐名全PASS、strict/no-run0和全部六阶段正常回收；旧预期RED不能作为GREEN。实际尚未运行，下一步完整持久备份后隔离CI。
 
 真实shared-slot Stage A RED候选REPORT13499/e4001081已全文读，独审进行中。范围仅真实driver acquire后的slot/store缺失复现及正常释放，预期driverAcquireDidNotPublishSharedSlot仍UNRUN；未实现GREEN接线、native Cleanup/Profile2、真实runtime join或生产终止许可。用户再次明确的Sol6.1/high与全部正常门禁后直接发布授权保持，无需新决定；保留全部失败、候选和原期限，未合并main或发布。
+
+
+主权限等价lint窄修已本地提交e284164e（父cb606，treef8a41167），其他1008跟踪路径保护。新138成员全Git/三CIraw/终止GREEN两包及审查/StageA原包完整持久备份manifest30008/ff6a9294逐项回读；辅助e5014999已普通推送，249全通过实际40952752921进行中，主e284尚未推送。
+
+cb606 macOS新实际独审14648/307de59f已Root全文接受有限C0/I0/M0，主736/hosted12与15未观察边界保持；Windows完整独审12990/b96cf4eb全文接受失败事实C0/I1/M0，11有限native和18权限DATA通过，权限native因lint条件跳过；HTTP401真实exit1/目标前失败，status0/other/完整响应false，normalclose272ms及正常全部回收证明保留，底层原因仍未证。主推送先等待仅记录既有getter有限错误数值/阶段的诊断源码及独审，保留成功合同和45/10/75，不新增网络调用或盲重跑。
+
+共享slot StageA独立源审12535/1280b64a全文核读为C0/I1/M0：唯一格式门禁阻断，Rootcheck-only真实exit1；composition单独check0、所有旧代码保护。原作者只在新fix1包整理新插入/授权D/F/mod格式，语义不改。严格新RED工作流仅在独立私有包准备，不代表源码/actual接受；runtime真实join仍仅准备，须等待前置249实际GREEN及独审。
+
+
+### 2026-10-30 终止前置实际GREEN与原生组合准备
+
+辅助e501的40952752921完整249项逐名PASS，全部六阶段exit0/回收，独立实际9928/81625582和主分支两文件映射6149/00d87a8d经Root全文接受有限C0。Session/Dispatcher准确映射到主工作树，其他1007跟踪字节、两文档WIP及真实index保持；主HEAD仍e284，新主实际未运行。该结果只授权下一runtime真实join的保守RED源码，不代表生产终止许可。
+
+StageA FIX1独立8442/27aca96d与Root严格CI审查3182/41415346均源码C0；HTTP诊断FIX1独立4873/f165fad5关闭唯一静态nested-if发现，保留101旧测试/七结构片段和45/10/75。Root已全文读取相关修订及报告，准备五文件组合：共享D仅合并不相交delta，N/F/mod/WF保持各自获审after，原P和Session/Dispatcher保留。组合独审及实际编译/原生未运行；HTTP目标前失败原因仍未知，shared-slot只期待精确缺陷复现和正常回收，不冒称GREEN。原始包/失败/检查点保留，整体未合并或发布。
+
+组合独审9829/2bcede94已Root全文读取并接受有限C0/I0/M0，精确五路径已应用；1004其他跟踪路径（含当前两文档）、真实index与既有P/Session/Dispatcher均保留。全差异51827/9f76f1fb、逆差异及D四组不相交插入完全还原；schema16的22+25字段与三新CI节点逐值绑定，62旧节点逐字保留。四Rust文件check-only格式0；新完整编译/严格lint/原生行为尚未运行，下一步普通提交和完整持久检查点后推送隔离CI。

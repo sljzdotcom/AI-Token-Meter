@@ -2447,6 +2447,175 @@ mod smoke {
         Ok(passed)
     }
 
+    const SHARED_SLOT_CASE: &str = "shared-slot-driver";
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct SharedSlotEvidence {
+        app_built: bool,
+        profile_root_fresh: bool,
+        cold_slot: bool,
+        acquire_succeeded: bool,
+        first_target_observed: bool,
+        first_target_timely: bool,
+        first_slot_held_and_bound: bool,
+        first_store_roundtrip: bool,
+        repeat_acquire_succeeded: Option<bool>,
+        repeat_lock_preserved: Option<bool>,
+        create_attempted: bool,
+        early_release_called: bool,
+        early_slot_preserved: Option<bool>,
+        matching_released_before_final_release: bool,
+        release_calls: u8,
+        failed_before_create_cleanup: bool,
+        released_slot_empty: Option<bool>,
+        saved_clone_revoked: Option<bool>,
+        stale_store_denied: Option<bool>,
+        reacquire_succeeded: Option<bool>,
+        reacquired_store_roundtrip: Option<bool>,
+        stale_clone_still_denied: Option<bool>,
+        final_release_observed: Option<bool>,
+        later_checks_timely: Option<bool>,
+        wake_join_succeeded: bool,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct SharedSlotSummary<'a> {
+        #[serde(flatten)]
+        lifecycle: &'a Summary,
+        shared_slot: &'a SharedSlotEvidence,
+    }
+
+    impl SharedSlotEvidence {
+        fn positive(&self) -> bool {
+            self.app_built
+                && self.profile_root_fresh
+                && self.cold_slot
+                && self.acquire_succeeded
+                && self.first_target_observed
+                && self.first_target_timely
+                && self.first_slot_held_and_bound
+                && self.first_store_roundtrip
+                && self.repeat_acquire_succeeded == Some(true)
+                && self.repeat_lock_preserved == Some(true)
+                && self.create_attempted
+                && self.early_release_called
+                && self.early_slot_preserved == Some(true)
+                && self.matching_released_before_final_release
+                && self.released_slot_empty == Some(true)
+                && self.saved_clone_revoked == Some(true)
+                && self.stale_store_denied == Some(true)
+                && self.reacquire_succeeded == Some(true)
+                && self.reacquired_store_roundtrip == Some(true)
+                && self.stale_clone_still_denied == Some(true)
+                && self.final_release_observed == Some(true)
+                && self.later_checks_timely == Some(true)
+                && self.release_calls == 3
+                && self.wake_join_succeeded
+        }
+    }
+
+    pub fn run_shared_slot() -> Result<bool, Box<dyn std::error::Error>> {
+        let outer_started = Instant::now();
+        let run_id = std::env::var("AI_METER_CODE0_NATIVE_RUN_ID")?;
+        if run_id.is_empty()
+            || run_id.len() > 64
+            || !run_id
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || v == b'-' || v == b'_')
+        {
+            return Err("invalid fixture run ID".into());
+        }
+        let output = PathBuf::from(
+            std::env::var_os("AI_METER_CODE0_NATIVE_SUMMARY")
+                .ok_or("missing fresh summary path")?,
+        );
+        let diagnostics = Arc::new(Diagnostics::from_env());
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)?;
+        let evidence = Arc::new(Mutex::new(file));
+        let summary = Arc::new(Mutex::new(Summary {
+            schema: 16,
+            run_id,
+            required_case: SHARED_SLOT_CASE,
+            selected_cases: 1,
+            failure: "notCompleted",
+            ..Summary::default()
+        }));
+        let shared = Arc::new(Mutex::new(SharedSlotEvidence::default()));
+        let (watchdog_done, watchdog_rx) = mpsc::channel();
+        let hard_run_id = summary.lock().unwrap().run_id.clone();
+        let hard_evidence = Arc::clone(&evidence);
+        let watchdog_diagnostics = Arc::clone(&diagnostics);
+        // Same original 75 seconds, including fresh/final summary writes; no
+        // restarted timeout at Ready, target failure, native R, or final I/O.
+        let watchdog = thread::spawn(move || {
+            let remaining = Duration::from_secs(75).saturating_sub(outer_started.elapsed());
+            if watchdog_rx.recv_timeout(remaining).is_err() {
+                watchdog_diagnostics.emit_once(true);
+                let failed = Summary {
+                    schema: 16,
+                    run_id: hard_run_id,
+                    required_case: SHARED_SLOT_CASE,
+                    selected_cases: 1,
+                    failure: "watchdogTimeout",
+                    ..Summary::default()
+                };
+                if let Ok(mut file) = hard_evidence.try_lock() {
+                    let _ = write_summary(
+                        &mut file,
+                        &SharedSlotSummary {
+                            lifecycle: &failed,
+                            shared_slot: &SharedSlotEvidence::default(),
+                        },
+                    );
+                }
+                std::process::exit(124);
+            }
+        });
+        let initial_write = write_summary(
+            &mut evidence.lock().unwrap(),
+            &SharedSlotSummary {
+                lifecycle: &summary.lock().unwrap(),
+                shared_slot: &shared.lock().unwrap(),
+            },
+        );
+        // Keep watchdog shutdown/join even for a fresh-write/setup failure.
+        let outcome = initial_write
+            .map_err(|error| -> Box<dyn std::error::Error> { error.into() })
+            .and_then(|()| {
+                run_case_with_shared_slot(
+                    Arc::clone(&summary),
+                    Arc::clone(&diagnostics),
+                    None,
+                    None,
+                    None,
+                    Some(Arc::clone(&shared)),
+                )
+            });
+        if outcome.is_err() {
+            summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        let passed = summary.lock().unwrap().pass;
+        let write_result = write_summary(
+            &mut evidence.lock().unwrap(),
+            &SharedSlotSummary {
+                lifecycle: &summary.lock().unwrap(),
+                shared_slot: &shared.lock().unwrap(),
+            },
+        );
+        diagnostics.emit_once(false);
+        // Do not disarm the hard watchdog until actual final file I/O returns.
+        let _ = watchdog_done.send(());
+        let watchdog_joined = watchdog.join().is_ok();
+        write_result?;
+        outcome?;
+        Ok(passed && watchdog_joined)
+    }
+
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
         if summary.schema == 14 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
@@ -3115,6 +3284,18 @@ mod smoke {
         fault: Option<Arc<Mutex<FaultEvidence>>>,
         coverage: Option<Arc<Mutex<CoverageEvidence>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        run_case_with_shared_slot(summary, diagnostics, policy, fault, coverage, None)
+    }
+
+    fn run_case_with_shared_slot(
+        summary: Arc<Mutex<Summary>>,
+        diagnostics: Arc<Diagnostics>,
+        policy: Option<Arc<Mutex<PolicyEvidence>>>,
+        fault: Option<Arc<Mutex<FaultEvidence>>>,
+        coverage: Option<Arc<Mutex<CoverageEvidence>>>,
+        shared: Option<Arc<Mutex<SharedSlotEvidence>>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let shared_selected = shared.is_some();
         let fault_case = fault.as_ref().map(|fault| fault.lock().unwrap().case);
         let coverage_case = coverage
             .as_ref()
@@ -3180,7 +3361,11 @@ mod smoke {
         diagnostics.observed(DM::NoOverrides);
         let temp = tempfile::tempdir()?;
         let temp_root = temp.path().canonicalize()?;
-        let profile = temp.path().join("code0");
+        let profile = if shared_selected {
+            temp_root.join("AI Token Meter Code0")
+        } else {
+            temp.path().join("code0")
+        };
         if top_selected {
             // Exclusive creation in this very TempDir; never reuse or read a body.
             let asset = OpenOptions::new()
@@ -3259,18 +3444,32 @@ mod smoke {
         diagnostics.observed(DM::AppBuilt);
         let queue = Rc::new(RefCell::new(VecDeque::new()));
         let session_queue = Rc::clone(&queue);
-        let mut driver = Code0NativeDriver::new(
-            app.handle().clone(),
-            profile.clone(),
-            Rc::new(move |request, event| {
-                session_queue.borrow_mut().push_back(Observation::Session(
-                    request,
-                    event,
-                    thread::current().id(),
-                    is_sta(),
-                ));
-            }),
-        );
+        let session_events = Rc::new(move |request, event| {
+            session_queue.borrow_mut().push_back(Observation::Session(
+                request,
+                event,
+                thread::current().id(),
+                is_sta(),
+            ));
+        });
+        let (mut driver, mut shared_probe) = if let Some(shared) = &shared {
+            use ai_token_meter_windows::platform::windows::code0_webview::fixture::shared_slot_driver;
+            let (driver, probe) =
+                shared_slot_driver(app.handle().clone(), temp_root.clone(), session_events)
+                    .map_err(|_| "shared-slot factory setup failed")?;
+            let cold = probe.observe_cold();
+            let mut evidence = shared.lock().unwrap();
+            evidence.app_built = true;
+            evidence.profile_root_fresh = !profile.exists();
+            evidence.cold_slot =
+                cold.stage() == "cold" && cold.slot_empty() && !cold.held_and_bound();
+            (driver, Some(probe))
+        } else {
+            (
+                Code0NativeDriver::new(app.handle().clone(), profile.clone(), session_events),
+                None,
+            )
+        };
         driver.observe_fixture_diagnostics(Arc::clone(&diagnostics));
         let construction = Arc::new(Mutex::new(ConstructionEvidence {
             receipts: 0,
@@ -3487,6 +3686,7 @@ mod smoke {
         let final_policy = policy.clone();
         let final_fault = fault.clone();
         let final_coverage = coverage.clone();
+        let final_shared = shared.clone();
         let live_construction = Arc::clone(&construction);
         let ui_diagnostics = Arc::clone(&diagnostics);
         diagnostics.phase(DP::RunReturn, false);
@@ -3545,28 +3745,89 @@ mod smoke {
                     object_free_failure = true;
                 } else {
                     ui_diagnostics.observed(DM::Lease);
-                    ui_diagnostics.phase(DP::Create, false);
-                    let selected = match (http_selected, permission_selected) {
-                        (true, false) => driver.select_fixture_http401(&request, started),
-                        (false, true) => driver.select_fixture_permission(&request, started),
-                        (false, false) => Ok(()),
-                        (true, true) => Err(Code0SessionFailure::PolicyRejected),
-                    };
-                    let created = selected.and_then(|()| driver.create_unloaded(request.clone()));
-                    ui_diagnostics.phase(DP::Create, true);
-                    if created.is_err() {
-                        create_failure = Some("nativeCreateDenied");
-                        // A failed create can already own a bare Window, COM objects
-                        // or an in-flight completion. Retain the owner and lease and
-                        // keep pumping until actual close evidence arrives.
-                        let closing = Instant::now();
-                        closing_since = Some(closing);
-                        ui_diagnostics.close_budget_started(closing);
-                        ui_diagnostics.phase(DP::CloseRequest, false);
-                        driver.close(instance);
-                        ui_diagnostics.phase(DP::CloseRequest, true);
-                        ui_diagnostics.observed(DM::CloseRequested);
-                        object_free_failure = driver.fixture_creation_is_object_free(instance);
+                    if let (Some(shared), Some(probe)) = (&shared, &mut shared_probe) {
+                        let prerequisites = {
+                            let mut evidence = shared.lock().unwrap();
+                            evidence.acquire_succeeded = true;
+                            evidence.app_built && evidence.profile_root_fresh && evidence.cold_slot
+                        };
+                        if !prerequisites {
+                            create_failure = Some("sharedSlotPrerequisiteFailed");
+                            object_free_failure = true;
+                        } else {
+                            let receipt = probe.observe_acquired();
+                            let timely = started.elapsed() < Duration::from_secs(45);
+                            let target = receipt.stage() == "acquired"
+                                && receipt.held_and_bound()
+                                && receipt.store_roundtrip();
+                            {
+                                let mut evidence = shared.lock().unwrap();
+                                evidence.first_target_observed = true;
+                                evidence.first_target_timely = timely;
+                                evidence.first_slot_held_and_bound = receipt.held_and_bound();
+                                evidence.first_store_roundtrip = receipt.store_roundtrip();
+                            }
+                            if !timely || !target {
+                                create_failure = Some(if !timely {
+                                    "sharedSlotAttemptDeadlineExceeded"
+                                } else {
+                                    "driverAcquireDidNotPublishSharedSlot"
+                                });
+                                object_free_failure = true;
+                            } else {
+                                // This second acquire is another actual driver method.
+                                let repeated = driver.acquire_profile_lease().is_ok();
+                                let receipt = probe.observe_repeat_acquired();
+                                let preserved = receipt.stage() == "repeatAcquired"
+                                    && receipt.held_and_bound()
+                                    && receipt.original_lock_preserved();
+                                {
+                                    let mut evidence = shared.lock().unwrap();
+                                    evidence.repeat_acquire_succeeded = Some(repeated);
+                                    evidence.repeat_lock_preserved = Some(preserved);
+                                }
+                                if !repeated || !preserved {
+                                    create_failure =
+                                        Some("driverRepeatAcquireChangedSharedAuthority");
+                                    object_free_failure = true;
+                                }
+                            }
+                        }
+                    }
+                    if !object_free_failure {
+                        if let Some(shared) = &shared {
+                            shared.lock().unwrap().create_attempted = true;
+                        }
+                        ui_diagnostics.phase(DP::Create, false);
+                        let selected = match (http_selected, permission_selected) {
+                            (true, false) => driver.select_fixture_http401(&request, started),
+                            (false, true) => driver.select_fixture_permission(&request, started),
+                            (false, false) => Ok(()),
+                            (true, true) => Err(Code0SessionFailure::PolicyRejected),
+                        };
+                        let created =
+                            selected.and_then(|()| driver.create_unloaded(request.clone()));
+                        ui_diagnostics.phase(DP::Create, true);
+                        if created.is_err() {
+                            create_failure = Some("nativeCreateDenied");
+                            // A failed create can already own a bare Window, COM objects
+                            // or an in-flight completion. Retain the owner and lease and
+                            // keep pumping until actual close evidence arrives.
+                            let closing = Instant::now();
+                            closing_since = Some(closing);
+                            ui_diagnostics.close_budget_started(closing);
+                            ui_diagnostics.phase(DP::CloseRequest, false);
+                            driver.close(instance);
+                            ui_diagnostics.phase(DP::CloseRequest, true);
+                            ui_diagnostics.observed(DM::CloseRequested);
+                            object_free_failure = driver.fixture_creation_is_object_free(instance);
+                            // The new case never substitutes failed-create inventory
+                            // for actual matching Released after entering create.
+                            // Retain/pump normally; absent R is a non-RED timeout.
+                            if shared_selected {
+                                object_free_failure = false;
+                            }
+                        }
                     }
                 }
                 if object_free_failure {
@@ -3576,6 +3837,14 @@ mod smoke {
                     ui_diagnostics.phase(DP::SummaryLock, true);
                     terminal_exit_requested = true;
                     driver.release_profile_lease();
+                    if let (Some(shared), Some(probe)) = (&shared, &shared_probe) {
+                        let receipt = probe.observe_released();
+                        let mut evidence = shared.lock().unwrap();
+                        evidence.release_calls = evidence.release_calls.saturating_add(1);
+                        evidence.failed_before_create_cleanup = !evidence.create_attempted
+                            && receipt.stage() == "released"
+                            && receipt.slot_empty();
+                    }
                     ui_diagnostics.phase(DP::ExitRequest, false);
                     handle.exit(1);
                     ui_diagnostics.phase(DP::ExitRequest, true);
@@ -3714,6 +3983,26 @@ mod smoke {
                             });
                         if state.profile_isolated {
                             ui_diagnostics.observed(DM::ProfileMatched);
+                        }
+                        if let (Some(shared), Some(probe)) = (&shared, &shared_probe) {
+                            // Native ownership is live here, before normal close/R.
+                            // End Summary borrowing before the real driver entry.
+                            drop(state);
+                            driver.release_profile_lease();
+                            let receipt = probe.observe_early_released();
+                            let preserved = receipt.stage() == "earlyReleased"
+                                && receipt.held_and_bound()
+                                && receipt.original_lock_preserved();
+                            {
+                                let mut evidence = shared.lock().unwrap();
+                                evidence.early_release_called = true;
+                                evidence.release_calls = evidence.release_calls.saturating_add(1);
+                                evidence.early_slot_preserved = Some(preserved);
+                            }
+                            state = observed.lock().unwrap();
+                            if !preserved {
+                                state.failure = "driverEarlyReleaseClearedSharedSlot";
+                            }
                         }
                         if let Some(policy) = &policy {
                             if ready_count != 1 || !state.engine_ready || !state.profile_isolated {
@@ -5364,6 +5653,80 @@ mod smoke {
                     terminal_exit_requested = true;
                     drop(state);
                     driver.release_profile_lease();
+                    let code = if let (Some(shared), Some(probe)) = (&shared, &mut shared_probe) {
+                        // This path is entered only after actual matching native R
+                        // and Destroyed. The verdict follows real release/probes.
+                        let released = probe.observe_released();
+                        let released_ok = released.stage() == "released"
+                            && released.slot_empty()
+                            && released.saved_clone_revoked()
+                            && released.stale_store_denied();
+                        {
+                            let mut evidence = shared.lock().unwrap();
+                            evidence.matching_released_before_final_release = true;
+                            evidence.release_calls = evidence.release_calls.saturating_add(1);
+                            evidence.released_slot_empty = Some(released.slot_empty());
+                            evidence.saved_clone_revoked = Some(released.saved_clone_revoked());
+                            evidence.stale_store_denied = Some(released.stale_store_denied());
+                        }
+                        let mut shared_failure =
+                            (!released_ok).then_some("driverReleaseDidNotRevokeSharedSlot");
+                        if released_ok && code == 0 && started.elapsed() < Duration::from_secs(45) {
+                            let reacquired = driver.acquire_profile_lease().is_ok();
+                            let receipt = probe.observe_reacquired();
+                            let roundtrip = receipt.stage() == "reacquired"
+                                && receipt.held_and_bound()
+                                && receipt.store_roundtrip();
+                            let stale_denied =
+                                receipt.saved_clone_revoked() && receipt.stale_store_denied();
+                            {
+                                let mut evidence = shared.lock().unwrap();
+                                evidence.reacquire_succeeded = Some(reacquired);
+                                evidence.reacquired_store_roundtrip = Some(roundtrip);
+                                evidence.stale_clone_still_denied = Some(stale_denied);
+                            }
+                            // Even a failed later oracle closes its actual lease.
+                            driver.release_profile_lease();
+                            let final_receipt = probe.observe_final_released();
+                            let final_ok = final_receipt.stage() == "finalReleased"
+                                && final_receipt.slot_empty()
+                                && final_receipt.saved_clone_revoked()
+                                && final_receipt.stale_store_denied();
+                            {
+                                let mut evidence = shared.lock().unwrap();
+                                evidence.release_calls = evidence.release_calls.saturating_add(1);
+                                evidence.final_release_observed = Some(final_ok);
+                                evidence.later_checks_timely = Some(
+                                    started.elapsed() < Duration::from_secs(45)
+                                        && closing.elapsed() < Duration::from_secs(10),
+                                );
+                            }
+                            if !reacquired || !roundtrip || !stale_denied || !final_ok {
+                                shared_failure = Some("driverLaterAcquireSharedStoreFailed");
+                            } else if started.elapsed() >= Duration::from_secs(45)
+                                || closing.elapsed() >= Duration::from_secs(10)
+                            {
+                                shared_failure = Some("sharedSlotAttemptDeadlineExceeded");
+                            }
+                        } else if released_ok {
+                            shared_failure = Some(if code != 0 {
+                                "sharedSlotLifecyclePrerequisiteFailed"
+                            } else {
+                                "sharedSlotAttemptDeadlineExceeded"
+                            });
+                        }
+                        if let Some(failure) = shared_failure {
+                            let mut state = observed.lock().unwrap();
+                            if state.failure == "notCompleted" {
+                                state.failure = failure;
+                            }
+                            1
+                        } else {
+                            code
+                        }
+                    } else {
+                        code
+                    };
                     ui_diagnostics.phase(DP::ExitRequest, false);
                     handle.exit(code);
                     ui_diagnostics.phase(DP::ExitRequest, true);
@@ -5390,6 +5753,9 @@ mod smoke {
         };
         diagnostics.phase(DP::WakeJoin, true);
         diagnostics.observed(DM::WakeJoined);
+        if let Some(shared) = &final_shared {
+            shared.lock().unwrap().wake_join_succeeded = wake_joined;
+        }
         // run_return has dropped its callback and UI-local driver before TempDir cleanup.
         diagnostics.phase(DP::TempClose, false);
         let cleanup_result = {
@@ -5507,6 +5873,12 @@ mod smoke {
         } else if !cleanup_succeeded {
             state.failure = "profileCleanupFailed";
         }
+        if let Some(shared) = &final_shared {
+            state.pass &= shared.lock().unwrap().positive() && wake_joined;
+            if !state.pass && state.failure == "none" {
+                state.failure = "sharedSlotPositiveOracleMismatch";
+            }
+        }
         Ok(())
     }
 }
@@ -5518,6 +5890,9 @@ fn main() {
         let arguments: Vec<_> = std::env::args_os().skip(1).collect();
         match arguments.as_slice() {
             [] => smoke::run(),
+            [selector] if selector == "--code0-profile-fixture=shared-slot-driver" => {
+                smoke::run_shared_slot()
+            }
             [selector] if selector == "--code0-policy-fixture=install-ack-before-first-load" => {
                 smoke::run_policy(false)
             }

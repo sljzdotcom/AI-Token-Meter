@@ -5391,6 +5391,7 @@ pub(super) fn finish_auth(ctx: &Context, candidate: AuthCandidate) {
 }
 struct CompletedCandidate {
     profile: Option<EarlyProfile>,
+    diagnostic_web_error_status: Option<i32>,
     expected_id: Option<u64>,
     first: bool,
 }
@@ -5403,6 +5404,7 @@ fn completed_callback(
         ctx.lost();
         return CompletedCandidate {
             profile: None,
+            diagnostic_web_error_status: None,
             expected_id: None,
             first: false,
         };
@@ -5411,6 +5413,7 @@ fn completed_callback(
         ctx.lost();
         return CompletedCandidate {
             profile: None,
+            diagnostic_web_error_status: None,
             expected_id: None,
             first: false,
         };
@@ -5427,6 +5430,7 @@ fn completed_callback(
     if disposition {
         return CompletedCandidate {
             profile: None,
+            diagnostic_web_error_status: None,
             expected_id: id,
             first: false,
         };
@@ -5437,6 +5441,7 @@ fn completed_callback(
         full_wire_before_callback: Some(wire),
         ..EarlyProfile::default()
     };
+    let mut diagnostic_web_error_status = None;
     let first = {
         let mut o = owner.borrow_mut();
         let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
@@ -5467,6 +5472,9 @@ fn completed_callback(
         if ctx.qualified(&owner, true, Instant::now()) {
             let mut status = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
             let r = unsafe { args.WebErrorStatus(&mut status) };
+            if r.is_ok() {
+                diagnostic_web_error_status = Some(status.0);
+            }
             p.web_error_status = r.is_ok().then_some(
                 if status == COREWEBVIEW2_WEB_ERROR_STATUS_VALID_AUTHENTICATION_CREDENTIALS_REQUIRED
                 {
@@ -5493,6 +5501,7 @@ fn completed_callback(
     }
     CompletedCandidate {
         profile: Some(p),
+        diagnostic_web_error_status,
         expected_id: id,
         first,
     }
@@ -5509,12 +5518,37 @@ fn finish_completed(ctx: &Context, mut candidate: CompletedCandidate) {
         ctx.lost();
         return;
     }
-    profile.post_drop_current = Some(ctx.qualified(&owner, true, Instant::now()));
+    let now = Instant::now();
+    profile.post_drop_current = Some(ctx.qualified(&owner, true, now));
     let good = profile.positive() && candidate.expected_id.is_some();
     let unique = {
         let mut o = owner.borrow_mut();
         let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
         let unique = candidate.first && s.facts.early401.count == 1;
+        if let Some(diagnostic) = &ctx.callbacks.diagnostics
+            && diagnostic.http401_enabled()
+        {
+            // Observed here after native argument drops, never callback entry.
+            // Reuse the existing post-drop clock read; diagnostic only.
+            let at_ms = s.timing.ms(now);
+            let flags = u64::from(candidate.diagnostic_web_error_status.unwrap_or(0) as u32)
+                | (u64::from(candidate.diagnostic_web_error_status.is_some()) << 32)
+                | (u64::from(at_ms.is_some()) << 33)
+                | (u64::from(candidate.first) << 34)
+                | (u64::from(profile.post_drop_current == Some(true)) << 35)
+                | (u64::from(s.closing) << 36)
+                | (u64::from(s.in_action) << 37);
+            let counts = u64::from(s.setup)
+                | (u64::from(s.accepted_setup) << 8)
+                | (u64::from(s.facts.server.setup_calls) << 16)
+                | (u64::from(s.facts.server.accepted_setup_calls) << 32)
+                | (u64::from(s.facts.server.io_attempts) << 48);
+            let wire = u64::from(s.facts.server.accepts)
+                | (u64::from(s.facts.server.parsed_requests) << 16)
+                | (u64::from(s.facts.server.request_bytes) << 32)
+                | (u64::from(s.facts.server.sent_bytes) << 48);
+            diagnostic.http401_completion_snapshot([flags, counts, wire, at_ms.unwrap_or(0)]);
+        }
         if candidate.first {
             s.facts.early401.profile = Some(profile);
         }

@@ -16957,6 +16957,229 @@ pub mod fixture {
     };
     use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
 
+    /// Finite observation only: neither the shared slot nor any authority or
+    /// native identity leaves this Windows debug-fixture boundary.
+    #[cfg(windows)]
+    pub struct NativeSharedSlotReceipt {
+        stage: &'static str,
+        held_and_bound: bool,
+        slot_empty: bool,
+        store_roundtrip: bool,
+        original_lock_preserved: bool,
+        saved_clone_revoked: bool,
+        stale_store_denied: bool,
+    }
+
+    #[cfg(windows)]
+    impl NativeSharedSlotReceipt {
+        pub fn stage(&self) -> &'static str {
+            self.stage
+        }
+        pub fn held_and_bound(&self) -> bool {
+            self.held_and_bound
+        }
+        pub fn slot_empty(&self) -> bool {
+            self.slot_empty
+        }
+        pub fn store_roundtrip(&self) -> bool {
+            self.store_roundtrip
+        }
+        pub fn original_lock_preserved(&self) -> bool {
+            self.original_lock_preserved
+        }
+        pub fn saved_clone_revoked(&self) -> bool {
+            self.saved_clone_revoked
+        }
+        pub fn stale_store_denied(&self) -> bool {
+            self.stale_store_denied
+        }
+    }
+
+    /// Owns only observation clones and the existing real store facade. All
+    /// acquisition/release belongs to the actual driver; this probe never
+    /// acquires, releases, invalidates, or writes Some into the shared slot.
+    #[cfg(windows)]
+    pub struct NativeSharedSlotProbe {
+        root: PathBuf,
+        slot: crate::platform::windows::code0_composition::Code0LeaseSlot,
+        store: crate::platform::windows::code0_composition::Code0SlotSnapshotStore,
+        saved: Option<super::Code0ProfileLease>,
+        saved_identity: Option<crate::platform::windows::code0_profile_lease::Code0ProfileIdentity>,
+        later: Option<super::Code0ProfileLease>,
+    }
+
+    /// Deliberate buildable RED: old new(...) owns an independent lease. GREEN
+    /// must wire this SAME cold slot into the real driver, not fill it here.
+    #[cfg(windows)]
+    pub fn shared_slot_driver(
+        app: tauri::AppHandle,
+        isolated_parent: PathBuf,
+        events: super::Code0NativeEventSink,
+    ) -> Result<(Code0NativeDriver, NativeSharedSlotProbe), Code0SessionFailure> {
+        use crate::platform::windows::code0_composition::{
+            Code0SlotSnapshotStore, code0_profile_root, cold_code0_lease_slot,
+        };
+        let root = code0_profile_root(Some(isolated_parent.as_os_str()))
+            .map_err(|_| Code0SessionFailure::StorageFailed)?;
+        let slot = cold_code0_lease_slot();
+        let store = Code0SlotSnapshotStore::new(&root, slot.clone());
+        let driver = Code0NativeDriver::new(app, root.clone(), events);
+        Ok((
+            driver,
+            NativeSharedSlotProbe {
+                root,
+                slot,
+                store,
+                saved: None,
+                saved_identity: None,
+                later: None,
+            },
+        ))
+    }
+
+    #[cfg(windows)]
+    impl NativeSharedSlotProbe {
+        fn current(&self) -> Option<super::Code0ProfileLease> {
+            // End the borrow before validation or any store operation.
+            self.slot.try_borrow().ok().and_then(|slot| slot.clone())
+        }
+
+        fn empty(&self) -> bool {
+            self.slot.try_borrow().is_ok_and(|slot| slot.is_none())
+        }
+
+        fn snapshot() -> Option<crate::domain::UsageSnapshot> {
+            crate::collectors::code0_capture::Code0WebsiteCapture::decode_filtered_json(
+                br#"{"quota":49400,"usedQuota":182700,"divisor":400}"#,
+            )
+            .ok()?
+            .make_snapshot("2026-10-29T04:05:06Z")
+            .ok()
+        }
+
+        fn roundtrip(&mut self) -> bool {
+            use crate::platform::windows::code0_web_session::Code0SnapshotStoring;
+            let Some(snapshot) = Self::snapshot() else {
+                return false;
+            };
+            if self.store.save_atomic(&snapshot).is_err() {
+                return false;
+            }
+            let loaded = self.store.load();
+            // Always attempt real retirement after a successful save.
+            let removed = self.store.remove();
+            let empty = self.store.load();
+            loaded.is_ok_and(|loaded| {
+                loaded.is_some_and(|value| {
+                    value
+                        .primary_metric
+                        .is_some_and(|metric| metric.current == 123.5)
+                        && value
+                            .secondary_metric
+                            .is_some_and(|metric| metric.current == 456.75)
+                        && value.fetched_at == "2026-10-29T04:05:06Z"
+                })
+            }) && removed.is_ok()
+                && matches!(empty, Ok(None))
+        }
+
+        fn stale_denied(&self) -> bool {
+            use crate::platform::windows::code0_web_session::{
+                Code0SnapshotStoring, Code0StoreError,
+            };
+            let (Some(saved), Some(snapshot)) = (&self.saved, Self::snapshot()) else {
+                return false;
+            };
+            let mut stale =
+                crate::persistence::Code0SnapshotStore::new(&self.root, Some(saved.clone()));
+            let save = stale.save_atomic(&snapshot);
+            let load = stale.load();
+            let remove = stale.remove();
+            save == Err(Code0StoreError::Unavailable)
+                && load == Err(Code0StoreError::Unavailable)
+                && remove == Err(Code0StoreError::Unavailable)
+        }
+
+        fn receipt(&self, stage: &'static str) -> NativeSharedSlotReceipt {
+            let current = self.current();
+            let held_and_bound = current
+                .as_ref()
+                .is_some_and(|lease| lease.is_bound_to(&self.root));
+            let original_lock_preserved = self.saved_identity.is_some_and(|identity| {
+                current
+                    .as_ref()
+                    .is_some_and(|lease| lease.lock_identity_for_test() == Ok(identity))
+                    && self
+                        .saved
+                        .as_ref()
+                        .is_some_and(|lease| lease.is_bound_to(&self.root))
+            });
+            NativeSharedSlotReceipt {
+                stage,
+                held_and_bound,
+                slot_empty: self.empty(),
+                store_roundtrip: false,
+                original_lock_preserved,
+                saved_clone_revoked: self.saved.as_ref().is_some_and(|lease| !lease.is_held()),
+                stale_store_denied: false,
+            }
+        }
+
+        pub fn observe_cold(&self) -> NativeSharedSlotReceipt {
+            self.receipt("cold")
+        }
+
+        pub fn observe_acquired(&mut self) -> NativeSharedSlotReceipt {
+            let lease = self.current();
+            if self.saved.is_none()
+                && lease
+                    .as_ref()
+                    .is_some_and(|lease| lease.is_bound_to(&self.root))
+            {
+                self.saved_identity = lease
+                    .as_ref()
+                    .and_then(|lease| lease.lock_identity_for_test().ok());
+                self.saved = lease;
+            }
+            // This is the existing real store even on RED; None denies the save.
+            let roundtrip = self.roundtrip();
+            let mut receipt = self.receipt("acquired");
+            receipt.store_roundtrip = roundtrip;
+            receipt
+        }
+
+        pub fn observe_repeat_acquired(&self) -> NativeSharedSlotReceipt {
+            self.receipt("repeatAcquired")
+        }
+
+        pub fn observe_early_released(&self) -> NativeSharedSlotReceipt {
+            self.receipt("earlyReleased")
+        }
+
+        pub fn observe_released(&self) -> NativeSharedSlotReceipt {
+            let mut receipt = self.receipt("released");
+            receipt.stale_store_denied = self.stale_denied();
+            receipt
+        }
+
+        pub fn observe_reacquired(&mut self) -> NativeSharedSlotReceipt {
+            self.later = self.current();
+            let roundtrip = self.roundtrip();
+            let mut receipt = self.receipt("reacquired");
+            receipt.store_roundtrip = roundtrip;
+            receipt.stale_store_denied = self.stale_denied();
+            receipt
+        }
+
+        pub fn observe_final_released(&self) -> NativeSharedSlotReceipt {
+            let mut receipt = self.receipt("finalReleased");
+            receipt.saved_clone_revoked = receipt.saved_clone_revoked
+                && self.later.as_ref().is_some_and(|lease| !lease.is_held());
+            receipt.stale_store_denied = self.stale_denied();
+            receipt
+        }
+    }
+
     /// Trusted debug-fixture handoff of the actual attempt's absolute end.
     /// No URL/script/root or duration/clock callback is accepted by this type.
     pub struct NativeDialogDeadline {
@@ -20415,6 +20638,10 @@ pub mod fixture {
         http401_extra_claimed: [std::sync::atomic::AtomicBool; 2],
         #[cfg(windows)]
         http401_extra: [N4DiagnosticCopy<4>; 2],
+        #[cfg(windows)]
+        http401_completion_claimed: std::sync::atomic::AtomicBool,
+        #[cfg(windows)]
+        http401_completion: N4DiagnosticCopy<4>,
         first_failure: std::sync::atomic::AtomicU64,
         #[cfg(windows)]
         first_uncertainty: std::sync::atomic::AtomicU64,
@@ -20458,6 +20685,15 @@ pub mod fixture {
                 self.http401_extra[kind].publish(words);
             }
         }
+        pub(super) fn http401_completion_snapshot(&self, words: [u64; 4]) {
+            if self.http401_enabled()
+                && !self
+                    .http401_completion_claimed
+                    .swap(true, std::sync::atomic::Ordering::AcqRel)
+            {
+                self.http401_completion.publish(words);
+            }
+        }
         fn emit_http401(&self) {
             if !self.http401_enabled() {
                 return;
@@ -20483,6 +20719,39 @@ pub mod fixture {
                     words[3]
                 );
             }
+            let (status, words) = self.http401_completion.snapshot();
+            let missed = self
+                .http401_completion
+                .missed
+                .load(std::sync::atomic::Ordering::Acquire);
+            let coherent = status == 0 && !missed;
+            let words = if coherent { words } else { [0; 4] };
+            // Low32 preserve the getter's signed i32 bit pattern. Presence is
+            // separate: absent/failed getter and incoherent copies have no status.
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeHttp401Completion schema=1 copyStatus={} missed={} postNativeDrop={} webErrorPresent={} webErrorStatus={} atMsPresent={} atMs={} first={} postDropCurrent={} closing={} inAction={} setup={} acceptedSetup={} setupCalls={} acceptedSetupCalls={} ioAttempts={} accepts={} parsedRequests={} requestBytes={} sentBytes={}",
+                status,
+                u8::from(missed),
+                u8::from(coherent),
+                (words[0] >> 32) & 1,
+                words[0] as u32 as i32,
+                (words[0] >> 33) & 1,
+                words[3],
+                (words[0] >> 34) & 1,
+                (words[0] >> 35) & 1,
+                (words[0] >> 36) & 1,
+                (words[0] >> 37) & 1,
+                words[1] & 0xff,
+                (words[1] >> 8) & 0xff,
+                (words[1] >> 16) & 0xffff,
+                (words[1] >> 32) & 0xffff,
+                words[1] >> 48,
+                words[2] & 0xffff,
+                (words[2] >> 16) & 0xffff,
+                (words[2] >> 32) & 0xffff,
+                words[2] >> 48
+            );
         }
     }
 
