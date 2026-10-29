@@ -4078,7 +4078,7 @@ fn entry_owner(ctx: &Context, entry: EventEntry) -> Option<Rc<RefCell<Owner>>> {
         None
     }
 }
-fn reject_entry(ctx: &Context, entry: EventEntry, reason: &'static str, unknown: bool) {
+fn reject_entry(ctx: &Context, _entry: EventEntry, reason: &'static str, unknown: bool) {
     ctx.entries.note_failure(Instant::now());
     if let Some(owner) = ctx.owner.upgrade().filter(|o| ctx.actor_same(o)) {
         fail(&owner, reason, unknown);

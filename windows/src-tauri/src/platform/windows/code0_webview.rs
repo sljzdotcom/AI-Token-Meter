@@ -208,6 +208,13 @@ mod native {
     };
     use super::{Code0NativeEventSink, Code0SessionFailure, Code0WindowEvent, Code0WindowRequest};
 
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    fn rejection() -> windows::core::Error {
+        // Empty ErrorInfo also keeps off-STA refusal callbacks free of
+        // thread-error-info calls. Child adapters share this private helper.
+        windows::core::Error::from_hresult(E_FAIL)
+    }
+
     macro_rules! phase {
         ($owner:expr, $phase:ident, $returned:expr) => {
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
