@@ -1,4 +1,4 @@
-//! Conservative test-only tick transport baseline. Periodic posting is intentionally absent.
+//! Test-only periodic transport with one outstanding UI acknowledgement.
 //! Preparation attaches a UI ACK port before a real cancellable worker can start.
 
 use std::sync::Arc;
@@ -156,7 +156,7 @@ fn binding_job(binding: u64) -> UiJob {
 }
 fn run(
     binding: u64,
-    _executor: Arc<dyn MainThreadExecutor>,
+    executor: Arc<dyn MainThreadExecutor>,
     signals: Arc<Signals>,
     control: Receiver<Control>,
 ) -> TickExit {
@@ -176,9 +176,26 @@ fn run(
                 return TickExit::ControlLost;
             }
             Err(RecvTimeoutError::Timeout) => {
-                // Intentional RED baseline: no post, posted-CAS or error recovery.
-                // The binding-only mark job exists but is never submitted.
-                drop(binding_job(binding));
+                if signals.cancelled.load(Ordering::Acquire) {
+                    return TickExit::Cancelled;
+                }
+                if signals
+                    .posted
+                    .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                    .is_err()
+                {
+                    continue;
+                }
+                if signals.cancelled.load(Ordering::Acquire) {
+                    signals.posted.store(false, Ordering::Release);
+                    return TickExit::Cancelled;
+                }
+                if executor.post(binding_job(binding)).is_err() {
+                    signals.fault.store(true, Ordering::Release);
+                    signals.posted.store(false, Ordering::Release);
+                }
+                // Both success and error return to the next cancellable interval.
+                // Only the matching UI job ACK rearms a successful submission.
             }
         }
     }
