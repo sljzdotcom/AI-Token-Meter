@@ -205,6 +205,8 @@ struct Runtime<C, B, S> {
     dispatcher: Code0Dispatcher<C, DriverFacade<B>, S>,
     backend: Rc<RefCell<B>>,
     pending: Cell<bool>,
+    tick_due: Cell<bool>,
+    fault_handled: Cell<bool>,
     tick_ack: RefCell<Option<super::code0_tick::TickAcknowledgement>>,
     in_turn: Cell<bool>,
     windows: RefCell<VecDeque<QueuedWindow>>,
@@ -252,6 +254,7 @@ where
         if let Some(ack) = ack
             && ack.delivered(self.binding)
         {
+            self.tick_due.set(true);
             self.pending.set(true);
         }
     }
@@ -285,9 +288,21 @@ where
         }
         let _turn = TurnGuard(&self.in_turn);
         self.pending.set(false);
+        // Snapshot before external calls; a nested ACK remains due next turn.
+        let tick_due = self.tick_due.replace(false);
         // Only deliveries present at entry are forwarded in this turn. Nested
         // WindowEvents remain owned in the local queue for the next settled turn.
         let count = self.windows.borrow().len();
+        let faulted = self
+            .tick_ack
+            .borrow()
+            .as_ref()
+            .is_some_and(|ack| ack.faulted());
+        if faulted && !self.fault_handled.replace(true) {
+            // Fence admissions once, outside ACK/backend borrows. Stop does not
+            // cancel polling or prove terminal quiescence or a worker join.
+            self.proxy.stop(Box::new(|_| {}));
+        }
         for _ in 0..count {
             let event = self.windows.borrow_mut().pop_front();
             if let Some(event) = event {
@@ -304,6 +319,10 @@ where
         }
         // Native/backend borrows end before real queued work is dispatched.
         // The turn guard defers synchronous nested scheduling/window delivery.
+        if tick_due {
+            // install binds this dispatcher to (binding, binding) as its tick ID.
+            let _ = self.proxy.tick(self.binding, self.binding);
+        }
         self.dispatcher.drain();
         TurnResult::Settled
     }
@@ -361,6 +380,8 @@ where
         dispatcher,
         backend,
         pending: Cell::new(false),
+        tick_due: Cell::new(false),
+        fault_handled: Cell::new(false),
         tick_ack: RefCell::new(None),
         in_turn: Cell::new(false),
         windows: RefCell::new(VecDeque::new()),
