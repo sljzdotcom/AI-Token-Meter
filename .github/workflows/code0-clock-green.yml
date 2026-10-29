@@ -1,0 +1,93 @@
+name: Code0 isolated clock GREEN
+
+on:
+  push:
+    branches: [codex/code0-clock-green-20261029]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code0-clock-green-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  clock-green:
+    name: Seven fixed clock assertions and native binding
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Select byte-stable checkout
+        shell: python {0}
+        run: |
+          import os
+          if (os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true'
+                  or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'):
+              raise SystemExit('Clock candidate requires an isolated Windows job')
+          if any(key == 'GIT_CONFIG_COUNT' or key == 'GIT_CONFIG_PARAMETERS'
+                 or key.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_'))
+                 for key in os.environ):
+              raise SystemExit('Unexpected inherited Git runtime settings')
+          entries = ('GIT_CONFIG_COUNT=2', 'GIT_CONFIG_KEY_0=core.autocrlf',
+                     'GIT_CONFIG_VALUE_0=false', 'GIT_CONFIG_KEY_1=core.eol',
+                     'GIT_CONFIG_VALUE_1=lf')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8', newline='\n') as output:
+              output.write('\n'.join(entries) + '\n')
+      - name: Check out exact candidate source
+        uses: actions/checkout@v5
+      - name: Verify candidate bytes and actual checkout
+        shell: python {0}
+        run: |
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          expected = {
+              'windows/src-tauri/Cargo.toml': '1a0ea68c77ee338d128d791018c5b378c6781b857b522bb483156d8d57fe017e',
+              'windows/src-tauri/src/platform/windows/code0_clock.rs': 'a1a4760d4573c6f268a84ce3ab18fcd9ca0d80a78fab5df8d75fad46ee5ec84a',
+              'windows/src-tauri/src/platform/windows/mod.rs': '6632572cdd1660c84f3b5bcea6cccc491462e71dc1db8f464ebc6d0d51235c5a',
+              'scripts/test-code0-clock-green.py': '71245c7551bbcce0a0233e3674bc23146cc630e1128699e563ce9d65aa01f8f0',
+          }
+          observed = {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in expected}
+          actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if observed != expected or actual != os.environ['GITHUB_SHA']:
+              raise SystemExit('Clock source or checkout identity mismatch')
+          print(json.dumps({'checkout': actual, 'sourceHashes': observed}, sort_keys=True))
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy
+      - name: Select Rust toolchain
+        shell: pwsh
+        run: rustup default 1.88.0
+      - name: Install frontend dependencies
+        working-directory: windows
+        run: npm ci
+      - name: Build frontend resources
+        working-directory: windows
+        run: npm run build
+      - name: Check candidate formatting
+        working-directory: windows/src-tauri
+        run: cargo fmt --check
+      - name: Require strict candidate compilation and lint
+        working-directory: windows/src-tauri
+        run: cargo clippy --locked --all-targets --features code0-native-fixture -- -D warnings
+      - name: Compile clock tests before behavioral evidence
+        working-directory: windows/src-tauri
+        run: cargo test --locked --offline --features code0-native-fixture --lib --no-run
+      - name: Require all seven clock tests and native binding to pass
+        shell: pwsh
+        run: python scripts/test-code0-clock-green.py
+      - name: Preserve clock candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-clock-green-evidence
+          path: |
+            ${{ runner.temp }}/code0-clock-green-*/*.json
+            ${{ runner.temp }}/code0-clock-green-*/*.log
+          if-no-files-found: warn
+          retention-days: 7
