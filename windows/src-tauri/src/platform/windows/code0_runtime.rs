@@ -16,11 +16,11 @@ use super::code0_web_session::{
     Code0WebSession, Code0WindowDriving, Code0WindowEvent, Code0WindowRequest,
 };
 
-type UiJob = Box<dyn FnOnce() + Send + 'static>;
+pub(super) type UiJob = Box<dyn FnOnce() + Send + 'static>;
 type Emitter = Box<dyn FnMut(&Code0SessionDto)>;
 
 /// The eventual AppHandle adapter posts only a binding-mark job, never a local owner.
-trait MainThreadExecutor: Send + Sync {
+pub(super) trait MainThreadExecutor: Send + Sync {
     fn post(&self, job: UiJob) -> Result<(), Code0DispatchError>;
 }
 struct Schedule {
@@ -108,6 +108,12 @@ struct QueuedWindow {
 trait LocalRecord {
     fn binding(&self) -> u64;
     fn mark_pending(&self);
+    fn attach_tick(
+        &self,
+        ack: super::code0_tick::TickAcknowledgement,
+    ) -> Result<(), Code0DispatchError>;
+    fn mark_tick(&self);
+    fn tick_attached(&self, ack: &super::code0_tick::TickAcknowledgement) -> bool;
     fn committed_view(&self) -> Code0SessionDto;
     fn queue_window(&self, event: QueuedWindow) -> Result<(), Code0DispatchError>;
     fn settled(&self) -> TurnResult;
@@ -130,6 +136,22 @@ fn lookup(binding: u64) -> Option<Rc<dyn LocalRecord>> {
             .filter(|r| r.binding() == binding)
             .map(Rc::clone)
     })
+}
+pub(super) fn attach_tick(
+    binding: u64,
+    ack: super::code0_tick::TickAcknowledgement,
+) -> Result<(), Code0DispatchError> {
+    lookup(binding)
+        .ok_or(Code0DispatchError::Unavailable)?
+        .attach_tick(ack)
+}
+pub(super) fn tick_attached(binding: u64, ack: &super::code0_tick::TickAcknowledgement) -> bool {
+    lookup(binding).is_some_and(|record| record.tick_attached(ack))
+}
+pub(super) fn mark_tick(binding: u64) {
+    if let Some(record) = lookup(binding) {
+        record.mark_tick();
+    }
 }
 struct InstallGuard;
 impl Drop for InstallGuard {
@@ -183,6 +205,7 @@ struct Runtime<C, B, S> {
     dispatcher: Code0Dispatcher<C, DriverFacade<B>, S>,
     backend: Rc<RefCell<B>>,
     pending: Cell<bool>,
+    tick_ack: RefCell<Option<super::code0_tick::TickAcknowledgement>>,
     in_turn: Cell<bool>,
     windows: RefCell<VecDeque<QueuedWindow>>,
 }
@@ -206,6 +229,31 @@ where
     }
     fn mark_pending(&self) {
         self.pending.set(true);
+    }
+    fn attach_tick(
+        &self,
+        ack: super::code0_tick::TickAcknowledgement,
+    ) -> Result<(), Code0DispatchError> {
+        let mut slot = self.tick_ack.borrow_mut();
+        if slot.is_some() || !ack.attach(self.binding) {
+            return Err(Code0DispatchError::Unavailable);
+        }
+        *slot = Some(ack);
+        Ok(())
+    }
+    fn tick_attached(&self, ack: &super::code0_tick::TickAcknowledgement) -> bool {
+        self.tick_ack
+            .borrow()
+            .as_ref()
+            .is_some_and(|installed| installed.matches(ack))
+    }
+    fn mark_tick(&self) {
+        let ack = self.tick_ack.borrow().clone();
+        if let Some(ack) = ack
+            && ack.delivered(self.binding)
+        {
+            self.pending.set(true);
+        }
     }
     fn committed_view(&self) -> Code0SessionDto {
         self.passive_view()
@@ -313,6 +361,7 @@ where
         dispatcher,
         backend,
         pending: Cell::new(false),
+        tick_ack: RefCell::new(None),
         in_turn: Cell::new(false),
         windows: RefCell::new(VecDeque::new()),
     });
@@ -879,5 +928,250 @@ mod tests {
         assert_eq!(*trace.lock().unwrap(), vec!["emit", "reply"]);
         assert!(f.view()["snapshot"].is_null());
         assert_eq!(f.view()["state"], "cleanupPending");
+    }
+    // New tests use the existing real runtime registry/Fixture. No Session algorithm is copied.
+    mod tick_tests {
+        use super::super::super::code0_tick::{TickExit, TickProducer, TickStartFailure};
+        use super::*;
+        use std::sync::mpsc::{self, Receiver, SyncSender};
+        use std::time::Instant;
+
+        struct Posted {
+            job: Option<UiJob>,
+            at: Instant,
+            thread: ThreadId,
+        }
+        struct TickExecutor {
+            reject: bool,
+            sends: SyncSender<Posted>,
+            calls: std::sync::atomic::AtomicUsize,
+        }
+        impl TickExecutor {
+            fn new(reject: bool) -> (Arc<Self>, Receiver<Posted>) {
+                let (sends, receives) = mpsc::sync_channel(1);
+                (
+                    Arc::new(Self {
+                        reject,
+                        sends,
+                        calls: std::sync::atomic::AtomicUsize::new(0),
+                    }),
+                    receives,
+                )
+            }
+        }
+        impl MainThreadExecutor for TickExecutor {
+            fn post(&self, job: UiJob) -> Result<(), Code0DispatchError> {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                let event = Posted {
+                    job: (!self.reject).then_some(job),
+                    at: Instant::now(),
+                    thread: thread::current().id(),
+                };
+                let delivered = self.sends.try_send(event).is_ok();
+                if self.reject || !delivered {
+                    Err(Code0DispatchError::Unavailable)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+        // Test cleanup only. Closing control on take_join also terminates a worker
+        // if cancellation is accidentally broken; no worker ever waits for UI ACK.
+        struct Running(TickProducer);
+        impl Running {
+            fn finish(&mut self) -> Option<Option<TickExit>> {
+                self.0.cancel();
+                self.0.take_join().map(|handle| handle.join().ok())
+            }
+        }
+        impl Drop for Running {
+            fn drop(&mut self) {
+                let _ = self.finish();
+            }
+        }
+        const OBSERVE: Duration = Duration::from_millis(1250);
+
+        // Mutation: no periodic executor post leaves an idle installed record unmarked.
+        #[test]
+        fn tick_idle_worker_posts_to_the_real_matching_record() {
+            let f = Fixture::new();
+            let ui = thread::current().id();
+            let (executor, events) = TickExecutor::new(false);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
+            let attached = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let started = worker.0.start();
+            let event = events.recv_timeout(OBSERVE).ok();
+            let posted_on = event.as_ref().map(|v| v.thread);
+            if let Some(mut event) = event
+                && let Some(job) = event.job.take()
+            {
+                job();
+            }
+            let marked = f.runtime.pending.get();
+            let joined = worker.finish();
+            assert_eq!(attached, Ok(()));
+            assert_eq!(started, Ok(()));
+            assert_eq!(joined, Some(Some(TickExit::Cancelled)));
+            assert!(
+                posted_on.is_some_and(|id| id != ui),
+                "idle worker emitted no off-UI pulse"
+            );
+            assert!(
+                marked,
+                "matching binding pulse did not mark the actual runtime record"
+            );
+            assert!(f.backend.borrow().calls.is_empty());
+        }
+
+        // Mutations: repeated unacknowledged posts grow work; missing actual UI ACK stalls rearm.
+        #[test]
+        fn tick_one_unacknowledged_job_coalesces_and_real_ui_ack_rearms() {
+            let f = Fixture::new();
+            let (executor, events) = TickExecutor::new(false);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor.clone()));
+            let attached = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let started = worker.0.start();
+            let first = events.recv_timeout(OBSERVE).ok();
+            let mut held_calls = 0;
+            let mut extra = None;
+            let mut next = None;
+            if let Some(mut first) = first {
+                extra = events.recv_timeout(Duration::from_millis(650)).ok();
+                held_calls = executor.calls.load(Ordering::SeqCst);
+                if let Some(job) = first.job.take() {
+                    job(); // Real registry lookup/ACK/mark, never a manual ACK substitute.
+                }
+                next = events.recv_timeout(OBSERVE).ok();
+            }
+            let rearmed = next.is_some();
+            let joined = worker.finish();
+            assert_eq!(attached, Ok(()));
+            assert_eq!(started, Ok(()));
+            assert_eq!(joined, Some(Some(TickExit::Cancelled)));
+            assert_eq!(held_calls, 1, "one held pulse must be the only posted job");
+            assert!(
+                extra.is_none(),
+                "unacknowledged pulse accumulated another job"
+            );
+            assert!(
+                rearmed,
+                "actual UI ACK did not permit a later interval pulse"
+            );
+        }
+
+        // Mutation: post errors are ignored, or a tight retry loop bypasses the250ms wait.
+        #[test]
+        fn tick_failed_post_sets_fault_and_waits_before_recovery() {
+            let f = Fixture::new();
+            let (executor, events) = TickExecutor::new(true);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
+            let ack = worker.0.acknowledgement();
+            let attached = attach_tick(f.runtime.binding, ack.clone());
+            let started = worker.0.start();
+            let first = events.recv_timeout(OBSERVE).ok();
+            let second = if first.is_some() {
+                events.recv_timeout(OBSERVE).ok()
+            } else {
+                None
+            };
+            let spacing = first
+                .as_ref()
+                .zip(second.as_ref())
+                .map(|(a, b)| b.at.duration_since(a.at));
+            let fault = ack.faulted();
+            let joined = worker.finish();
+            assert_eq!(attached, Ok(()));
+            assert_eq!(started, Ok(()));
+            assert_eq!(joined, Some(Some(TickExit::Cancelled)));
+            assert!(first.is_some(), "worker never attempted its first post");
+            assert!(
+                spacing.is_some_and(|v| v >= Duration::from_millis(250)),
+                "failed post retried without a fresh interval or never recovered"
+            );
+            assert!(
+                fault,
+                "failed executor submission was not retained as a fault"
+            );
+        }
+
+        // Control: cancellation has a real independent thread exit, not an ACK/UI dependency.
+        #[test]
+        fn tick_cancel_interrupts_wait_and_transfers_one_real_join_handle() {
+            let f = Fixture::new();
+            let (executor, _) = TickExecutor::new(false);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
+            let attached = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let started = worker.0.start();
+            let joined = worker.finish();
+            let second_join = worker.0.take_join().is_none();
+            assert_eq!(attached, Ok(()));
+            assert_eq!(started, Ok(()));
+            assert_eq!(joined, Some(Some(TickExit::Cancelled)));
+            assert!(second_join);
+        }
+
+        // Control: channel loss is observed by the worker and cannot certify cancellation.
+        #[test]
+        fn tick_control_channel_loss_is_not_a_cancelled_receipt() {
+            let f = Fixture::new();
+            let (executor, _) = TickExecutor::new(false);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor));
+            let attached = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let started = worker.0.start();
+            let joined = worker.0.take_join().map(|handle| handle.join().ok());
+            assert_eq!(attached, Ok(()));
+            assert_eq!(started, Ok(()));
+            assert_eq!(joined, Some(Some(TickExit::ControlLost)));
+        }
+
+        // Control: absent/wrong binding and duplicate attachment cannot replace a live ACK port.
+        #[test]
+        fn tick_attach_is_bound_once_and_retired_marks_leave_replacement_cold() {
+            let f = Fixture::new();
+            let (executor, _) = TickExecutor::new(false);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor.clone()));
+            let wrong = TickProducer::prepare(f.runtime.binding + 1, executor);
+            let wrong_attach = attach_tick(f.runtime.binding, wrong.acknowledgement());
+            let attached = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let duplicate = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let old = f.runtime.binding;
+            f.remove_record();
+            let replacement = Fixture::new();
+            let retired_start = worker.0.start();
+            mark_tick(old);
+            let joined = worker.finish();
+            assert_eq!(retired_start, Err(TickStartFailure::NotAttached));
+            assert_eq!(joined, None);
+            assert_eq!(wrong_attach, Err(Code0DispatchError::Unavailable));
+            assert_eq!(attached, Ok(()));
+            assert_eq!(duplicate, Err(Code0DispatchError::Unavailable));
+            assert!(!replacement.runtime.pending.get());
+            assert!(replacement.backend.borrow().calls.is_empty());
+        }
+
+        // Control: no unattached or already-cancelled preparation can start a producer.
+        #[test]
+        fn tick_preparation_stays_cold_until_attached_and_start_is_one_way() {
+            let f = Fixture::new();
+            let (executor, _) = TickExecutor::new(false);
+            let mut worker = Running(TickProducer::prepare(f.runtime.binding, executor.clone()));
+            let cold = worker.0.start();
+            let attached = attach_tick(f.runtime.binding, worker.0.acknowledgement());
+            let first = worker.0.start();
+            let duplicate = worker.0.start();
+            let joined = worker.finish();
+            let restart = worker.0.start();
+            let mut cancelled = TickProducer::prepare(f.runtime.binding, executor);
+            cancelled.cancel();
+            let never_started = cancelled.start();
+            assert_eq!(cold, Err(TickStartFailure::NotAttached));
+            assert_eq!(attached, Ok(()));
+            assert_eq!(first, Ok(()));
+            assert_eq!(duplicate, Err(TickStartFailure::AlreadyStarted));
+            assert_eq!(joined, Some(Some(TickExit::Cancelled)));
+            assert_eq!(restart, Err(TickStartFailure::AlreadyStarted));
+            assert_eq!(never_started, Err(TickStartFailure::Cancelled));
+            assert!(cancelled.take_join().is_none());
+        }
     }
 }
