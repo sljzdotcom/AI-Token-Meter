@@ -44,11 +44,11 @@ jobs:
         run: |
           import hashlib, json, os, re, subprocess
           from pathlib import Path
-          base = '8721b1a4f9242fb74508852eb1804838249134ce'
+          base = '6056a557c8082d730938cb6d6599a00c3cf435ef'
           expected = {
               "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
-                  "bytes": 130198,
-                  "sha256": "2dd5e09d18ece874e2dd4b8457c1353871d50a2c83cabe1fb1d986980ce67d96"
+                  "bytes": 130196,
+                  "sha256": "cfaf0254c7b89a203211b2f4d6461c6e60d6d52f639d9f76d66028ee20540fa9"
               },
               "windows/src-tauri/src/platform/windows/code0_web_session.rs": {
                   "bytes": 75055,
@@ -76,7 +76,7 @@ jobs:
               },
               "scripts/test-code0-runtime-cleanup.py": {
                   "bytes": 52299,
-                  "sha256": "82f92c15575090524b7248ca5c2bc14527e147a8a8f489930c764d8eaea302bd"
+                  "sha256": "3cd5277e4b53f57228379444cab7c9bd575533a3bec99cfa3817a834ce9a45bc"
               }
           }
           workflow = '.github/workflows/code0-runtime-cleanup.yml'

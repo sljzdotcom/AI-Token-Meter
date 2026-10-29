@@ -725,7 +725,7 @@ where
         if self.terminal_failure.get().is_some()
             || !self.terminal_receipt_valid()
             || !self.terminal_delivery_ready()
-            || !lookup(self.binding).is_some_and(|record| record.binding() == self.binding)
+            || lookup(self.binding).is_none_or(|record| record.binding() != self.binding)
             || !self.terminal_conditions_met()
             || self.terminal_epoch.get() != epoch
         {
