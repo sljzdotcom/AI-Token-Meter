@@ -9,7 +9,7 @@ import sys
 import time
 
 COLLECTOR_VERSION = 7
-BASE = '713a6d8b47c16ddd1c4d0537105452c4c1a1f9db'
+BASE = '8fce641ced8b52b7f88417a447efef9e3e4a01e6'
 REF = 'refs/heads/codex/code0-runtime-cleanup-20261029'
 PREFIX = 'platform::windows::code0_web_session::cleanup_deadline_red_tests::'
 GREEN_PREFIX = 'platform::windows::code0_web_session::cleanup_deadline_green_tests::'
@@ -63,11 +63,11 @@ def check_payloads(root, identity):
     parents = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', 'HEAD'], cwd=root, text=True).split()
     if parents != [actual, BASE]:
         raise ValueError('wrong_exact_parent')
-    expected_changes = sorted([['M', SESSION], ['M', DISPATCHER], ['M', SELF], ['M', WORKFLOW]])
+    expected_changes = sorted([['M', SELF], ['M', WORKFLOW]])
     changes = [line.split('\t') for line in subprocess.check_output(
         ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', BASE, 'HEAD'], cwd=root, text=True).splitlines()]
     if sorted(changes) != expected_changes:
-        raise ValueError('wrong_four_path_delta')
+        raise ValueError('wrong_two_path_delta')
     if type(identity.get('payloads')) is not dict or set(identity['payloads']) != PATHS:
         raise ValueError('wrong_identity_payload_set')
     for name in sorted(PATHS):
@@ -141,7 +141,7 @@ def exact_terminal_readiness_red(stage, stdout, stderr):
                              + [CLOCK_PULSE_PREFIX + name for name in CLOCK_PULSE_TESTS]
                              + TERMINAL_CONTROLS)
     if (stage['exitCode'] != 101 or not stage['childReaped'] or len(rows) != 249
-            or len(re.findall(r'^test ', stdout, re.MULTILINE)) != 249
+            or len(re.findall(r'^test (?!result:)', stdout, re.MULTILINE)) != 249
             or len(set(name for name, _ in rows)) != 249
             or failed != expected_failed or passed != expected_passed
             or len(re.findall(r'^running [0-9]+ tests$', stdout, re.MULTILINE)) != 1

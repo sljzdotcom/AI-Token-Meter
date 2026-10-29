@@ -39,12 +39,12 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 2
-      - name: Verify sole 713a6d8 parent four changed paths and all nine payload bytes
+      - name: Verify sole 8fce641 parent two changed paths and all nine payload bytes
         shell: python {0}
         run: |
           import hashlib, json, os, re, subprocess
           from pathlib import Path
-          base = '713a6d8b47c16ddd1c4d0537105452c4c1a1f9db'
+          base = '8fce641ced8b52b7f88417a447efef9e3e4a01e6'
           expected = {
               "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
                   "bytes": 70277,
@@ -75,12 +75,12 @@ jobs:
                   "sha256": "1a0ea68c77ee338d128d791018c5b378c6781b857b522bb483156d8d57fe017e"
               },
               "scripts/test-code0-runtime-cleanup.py": {
-                  "bytes": 50970,
-                  "sha256": "c11fea476a1e14f3ff931c7621b0bbedbda1d558b6b9e713434aed3639d9223d"
+                  "bytes": 50945,
+                  "sha256": "69cf76b1c54c8020f4b4d9855d5658ba109f72a7c354932a6289a67bacf37aa0"
               }
           }
           workflow = '.github/workflows/code0-runtime-cleanup.yml'
-          expected_changes = [['M', '.github/workflows/code0-runtime-cleanup.yml'], ['M', 'scripts/test-code0-runtime-cleanup.py'], ['M', 'windows/src-tauri/src/platform/windows/code0_dispatcher.rs'], ['M', 'windows/src-tauri/src/platform/windows/code0_web_session.rs']]
+          expected_changes = [['M', '.github/workflows/code0-runtime-cleanup.yml'], ['M', 'scripts/test-code0-runtime-cleanup.py']]
           run, attempt, sha = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_SHA'))
           if (re.fullmatch(r'[0-9]{1,20}', run) is None
                   or re.fullmatch(r'[0-9]{1,6}', attempt) is None
@@ -91,7 +91,7 @@ jobs:
           changes = [line.split('\t') for line in subprocess.check_output(
               ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', base, 'HEAD'], text=True).splitlines()]
           if actual != sha or parents != [actual, base] or sorted(changes) != expected_changes:
-              raise SystemExit('Terminal-readiness checkout is not the exact four-path 713a6d8 child')
+              raise SystemExit('Terminal-readiness checkout is not the exact two-path 8fce641 child')
           observed = {}
           for name in sorted(set(expected) | {workflow}):
               raw = Path(name).read_bytes()
