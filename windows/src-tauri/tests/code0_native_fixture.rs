@@ -17,6 +17,9 @@ mod smoke {
         Code0SessionFailure, Code0WindowDriving, Code0WindowEvent, Code0WindowMode,
         Code0WindowRequest,
     };
+    use ai_token_meter_windows::platform::windows::code0_webview::fixture::{
+        NativeChooserFacts, NativeChooserReceipt, NativeChooserStage,
+    };
     use ai_token_meter_windows::platform::windows::code0_webview::{
         Code0NativeDriver,
         fixture::{
@@ -48,6 +51,8 @@ mod smoke {
     const DIALOG_REFUSAL_CASE: &str = "refusal-dialog-owned-empty-html";
     const DOWNLOAD_REFUSAL_CASE: &str = "refusal-download-initial-data-empty";
     const POPUP_REFUSAL_CASE: &str = "refusal-popup-initial-blank";
+    const CHOOSER_CASE: &str = "chooser-prebound-owned-empty-file";
+    const CHOOSER_LEAF: &str = "code0-s3-chooser-empty.html";
     const DIALOG_REFUSAL_LEAF: &str = "code0-s2-dialog-empty.html";
     const TOP_REFUSAL_LEAF: &str = "code0-s2-top-denied.txt";
     const NATIVE_REFUSAL_HOOKS: [&str; 10] = [
@@ -227,6 +232,130 @@ mod smoke {
                 "downloadCompletionNotDrained"
             } else {
                 "downloadPositiveOracleMismatch"
+            }
+        }
+    }
+
+    // S3 counts end at the real trusted cancel snapshot. Native target/effect,
+    // actual Session failure and normal lifecycle have independent producers.
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ChooserEvidence {
+        owned_file_prepared: bool,
+        started_receipts: u8,
+        target_receipts: u8,
+        effect_receipts: u8,
+        final_receipts: u8,
+        receipt_installation_matched: bool,
+        receipt_consumption_timely: bool,
+        policy_failures: u8,
+        action_before_policy_failure: bool,
+        browser_process_exited_once: bool,
+        #[serde(flatten)]
+        facts: NativeChooserFacts,
+        #[serde(skip)]
+        installation: Option<NativeRefusalInstallReceipt>,
+    }
+    impl ChooserEvidence {
+        fn observe(
+            &mut self,
+            receipt: NativeChooserReceipt,
+            request: &Code0WindowRequest,
+            started: Instant,
+        ) -> bool {
+            let before = started.elapsed() < Duration::from_secs(45);
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| receipt.matches(request, i));
+            let first = self.started_receipts == 0
+                && self.target_receipts == 0
+                && self.effect_receipts == 0
+                && self.final_receipts == 0;
+            self.receipt_installation_matched = if first {
+                matched
+            } else {
+                self.receipt_installation_matched && matched
+            };
+            let success_stage = !matches!(receipt.stage(), NativeChooserStage::Final);
+            let first_success = self.started_receipts == 0
+                && self.target_receipts == 0
+                && self.effect_receipts == 0;
+            let count = match receipt.stage() {
+                NativeChooserStage::Started => &mut self.started_receipts,
+                NativeChooserStage::Target => &mut self.target_receipts,
+                NativeChooserStage::Effect => &mut self.effect_receipts,
+                NativeChooserStage::Final => &mut self.final_receipts,
+            };
+            *count = count.saturating_add(1).min(2);
+            let once = *count == 1;
+            self.facts = receipt.facts();
+            drop(receipt);
+            let timely = before && started.elapsed() < Duration::from_secs(45);
+            if success_stage {
+                self.receipt_consumption_timely = if first_success {
+                    timely
+                } else {
+                    self.receipt_consumption_timely && timely
+                };
+            }
+            matched && once && (!success_stage || timely)
+        }
+        fn target_positive(&self) -> bool {
+            self.target_receipts == 1
+                && self.receipt_installation_matched
+                && self.receipt_consumption_timely
+                && self.facts.target_positive()
+        }
+        fn positive(&self, native: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.owned_file_prepared
+                && self.started_receipts == 1
+                && self.target_positive()
+                && self.effect_receipts == 1
+                && self.final_receipts == 1
+                && self.policy_failures == 1
+                && self.action_before_policy_failure
+                && self.browser_process_exited_once
+                && self.facts.positive()
+                && native.receipts == 1
+                && native.native_instance_validated
+                && native.source_bound_registry
+                && native.required_mask == 1023
+                && native.installed_mask == 1023
+                && native.not_installed_hooks.is_empty()
+                && !native.navigation_not_issued
+                && !native.load_rejected
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+        fn failure(&self) -> &'static str {
+            if !self.owned_file_prepared || !self.facts.fresh_document {
+                "chooserFreshDocumentUnproved"
+            } else if !self.target_positive() {
+                "chooserTargetUnobserved"
+            } else if self.effect_receipts != 1
+                || !self.facts.effect_pre_stop
+                || !self.facts.trusted_cancel_snapshot
+            {
+                "chooserPreStopCancelUnproved"
+            } else if self.policy_failures != 1 || !self.action_before_policy_failure {
+                "chooserSessionFailureUnproved"
+            } else if !self.facts.obligations_drained
+                || !self.facts.handlers_drained
+                || !self.facts.receivers_drained
+                || !self.facts.protocol_text_drained
+            {
+                "chooserDrainUnproved"
+            } else {
+                "chooserPositiveOracleMismatch"
             }
         }
     }
@@ -766,10 +895,18 @@ mod smoke {
         popup_refusal: Option<PopupRefusalEvidence>,
         #[serde(skip)]
         download_refusal: Option<DownloadRefusalEvidence>,
+        #[serde(skip)]
+        chooser: Option<ChooserEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(chooser) = &self.chooser {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| chooser.positive(native, lifecycle));
+            }
             if let Some(download) = &self.download_refusal {
                 return self
                     .native_refusal
@@ -917,12 +1054,16 @@ mod smoke {
         popup_refusal: Option<&'a PopupRefusalEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         download_refusal: Option<&'a DownloadRefusalEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        chooser: Option<&'a ChooserEvidence>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.download_refusal.is_some() {
+                schema: if install.chooser.is_some() {
+                    11
+                } else if install.download_refusal.is_some() {
                     12
                 } else if install.popup_refusal.is_some() {
                     10
@@ -938,7 +1079,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.download_refusal.is_some() {
+                required_case: if install.chooser.is_some() {
+                    CHOOSER_CASE
+                } else if install.download_refusal.is_some() {
                     DOWNLOAD_REFUSAL_CASE
                 } else if install.popup_refusal.is_some() {
                     POPUP_REFUSAL_CASE
@@ -964,6 +1107,7 @@ mod smoke {
                 dialog_refusal: install.dialog_refusal.as_ref(),
                 popup_refusal: install.popup_refusal.as_ref(),
                 download_refusal: install.download_refusal.as_ref(),
+                chooser: install.chooser.as_ref(),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1829,6 +1973,12 @@ mod smoke {
     }
 
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 11 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "S3 summary exceeds fixed bound",
+            ));
+        }
         if summary.schema == 12 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -1851,27 +2001,31 @@ mod smoke {
     }
 
     pub fn run_policy(native_refusal: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(native_refusal, false, false, false, false, false)
+        run_policy_selected(native_refusal, false, false, false, false, false, false)
     }
 
     pub fn run_top_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, true, false, false, false, false)
+        run_policy_selected(true, true, false, false, false, false, false)
     }
 
     pub fn run_child_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, true, false, false, false)
+        run_policy_selected(true, false, true, false, false, false, false)
     }
 
     pub fn run_dialog_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, false, true, false, false)
+        run_policy_selected(true, false, false, true, false, false, false)
     }
 
     pub fn run_popup_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, false, false, true, false)
+        run_policy_selected(true, false, false, false, true, false, false)
     }
 
     pub fn run_download_refusal() -> Result<bool, Box<dyn std::error::Error>> {
-        run_policy_selected(true, false, false, false, false, true)
+        run_policy_selected(true, false, false, false, false, true, false)
+    }
+
+    pub fn run_chooser() -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected(true, false, false, false, false, false, true)
     }
 
     fn run_policy_selected(
@@ -1881,6 +2035,7 @@ mod smoke {
         dialog_refusal: bool,
         popup_refusal: bool,
         download_refusal: bool,
+        chooser_selected: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
@@ -1911,6 +2066,7 @@ mod smoke {
             dialog_refusal: dialog_refusal.then(DialogRefusalEvidence::default),
             popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
             download_refusal: download_refusal.then(DownloadRefusalEvidence::default),
+            chooser: chooser_selected.then(ChooserEvidence::default),
             ..PolicyEvidence::default()
         }));
         write_policy_summary(
@@ -1947,6 +2103,7 @@ mod smoke {
                                 popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
                                 download_refusal: download_refusal
                                     .then(DownloadRefusalEvidence::default),
+                                chooser: chooser_selected.then(ChooserEvidence::default),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -2210,6 +2367,9 @@ mod smoke {
         let popup_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().popup_refusal.is_some());
+        let chooser_selected = policy
+            .as_ref()
+            .is_some_and(|p| p.lock().unwrap().chooser.is_some());
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -2287,6 +2447,27 @@ mod smoke {
                 .unwrap()
                 .owned_file_prepared = true;
         }
+        if chooser_selected {
+            let asset = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(temp_root.join(CHOOSER_LEAF))?;
+            let metadata = asset.metadata()?;
+            let empty = metadata.is_file() && metadata.len() == 0;
+            drop(asset);
+            if !empty {
+                return Err("owned chooser empty HTML setup failed".into());
+            }
+            policy
+                .as_ref()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .chooser
+                .as_mut()
+                .unwrap()
+                .owned_file_prepared = true;
+        }
         let mut context = tauri::generate_context!();
         context.config_mut().app.windows.clear();
         // No product run/setup/RuntimeState, plugins, commands or managed windows.
@@ -2331,9 +2512,17 @@ mod smoke {
         let observer_download_close = Rc::clone(&native_download_close);
         let native_popup_close = Rc::new(Cell::new(None::<Instant>));
         let observer_popup_close = Rc::clone(&native_popup_close);
+        let native_chooser_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_chooser_close = Rc::clone(&native_chooser_close);
         let native_child_close = Rc::new(Cell::new(None::<Instant>));
         let observer_child_close = Rc::clone(&native_child_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if chooser_selected
+                && let NativeSmokeObservation::ChooserClosing { at } = &event
+                && observer_chooser_close.get().is_none()
+            {
+                observer_chooser_close.set(Some(*at));
+            }
             if download_selected
                 && let NativeSmokeObservation::DownloadClosing { at } = &event
                 && observer_download_close.get().is_none()
@@ -2472,6 +2661,11 @@ mod smoke {
         } else {
             None
         };
+        let mut chooser_deadline = if chooser_selected {
+            NativeDialogDeadline::from_attempt_started(started)
+        } else {
+            None
+        };
         let mut closing_since = None;
         let mut started_create = false;
         let mut object_free_failure = false;
@@ -2582,7 +2776,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if download_selected {
+                if chooser_selected {
+                    native_chooser_close.get()
+                } else if download_selected {
                     native_download_close.get()
                 } else if popup_selected {
                     native_popup_close.get()
@@ -2604,7 +2800,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if download_selected {
+                if chooser_selected {
+                    native_chooser_close.get()
+                } else if download_selected {
                     native_download_close.get()
                 } else if popup_selected {
                     native_popup_close.get()
@@ -2707,13 +2905,17 @@ mod smoke {
                                             || dialog_selected
                                             || popup_selected
                                             || download_selected
+                                            || chooser_selected
                                         {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if download_selected {
+                                    if chooser_selected {
+                                        install.chooser.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if download_selected {
                                         install.download_refusal.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if popup_selected {
@@ -2730,6 +2932,20 @@ mod smoke {
                                             saved_receipt;
                                     }
                                     drop(install);
+                                    let chooser_submission_failure = if chooser_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        let result = match chooser_deadline.take() {
+                                            Some(deadline) => driver
+                                                .begin_fixture_prebound_chooser(&request, deadline),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        };
+                                        result.err().map(|_| "chooserNativeSubmissionFailed")
+                                    } else {
+                                        None
+                                    };
                                     let download_submission_failure = if download_selected
                                         && installed.is_ok()
                                         && valid_inventory
@@ -2902,6 +3118,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = chooser_submission_failure {
+                                        failure
                                     } else if let Some(failure) = download_submission_failure {
                                         failure
                                     } else if let Some(failure) = popup_submission_failure {
@@ -2956,6 +3174,41 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::ChooserClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !chooser_selected {
+                            state.failure = "unexpectedChooserClosing";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Chooser(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = chooser_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                let mut install = p.lock().unwrap();
+                                if receipt.facts().navigation_issued {
+                                    install
+                                        .native_refusal
+                                        .as_mut()
+                                        .unwrap()
+                                        .navigation_not_issued = false;
+                                }
+                                install
+                                    .chooser
+                                    .as_mut()
+                                    .is_some_and(|c| c.observe(receipt, &request, started))
+                            });
+                        if !valid {
+                            state.failure = "chooserNativeReceiptInvalid";
                         }
                     }
                     Observation::Native(
@@ -3324,6 +3577,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if chooser_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .chooser
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         if download_selected {
                             policy
                                 .as_ref()
@@ -3407,7 +3671,24 @@ mod smoke {
                         callback_sta,
                     ) => {
                         ui_diagnostics.n4_session_stage(&reason, true);
-                        if download_selected {
+                        if chooser_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let chooser = install.chooser.as_mut().unwrap();
+                            if owned == request && reason == Code0SessionFailure::PolicyRejected {
+                                chooser.policy_failures =
+                                    chooser.policy_failures.saturating_add(1).min(2);
+                                chooser.action_before_policy_failure = chooser.target_positive();
+                                if chooser.policy_failures != 1
+                                    || !chooser.action_before_policy_failure
+                                {
+                                    state.failure = "chooserFailureWithoutNativeTarget";
+                                }
+                            } else {
+                                state.failure = "chooserUnexpectedNativeFailure";
+                            }
+                        } else if download_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -3604,7 +3885,8 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = !download_selected
+            let native_install_observed = !chooser_selected
+                && !download_selected
                 && !popup_selected
                 && !top_selected
                 && !child_selected
@@ -3617,6 +3899,7 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let chooser_action_observed = chooser_selected && native_chooser_close.get().is_some();
             let download_action_observed =
                 download_selected && native_download_close.get().is_some();
             let popup_action_observed = popup_selected && native_popup_close.get().is_some();
@@ -3628,7 +3911,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if download_selected {
+                state.failure = if chooser_selected {
+                    "chooserTargetUnobserved"
+                } else if download_selected {
                     "downloadTargetUnobserved"
                 } else if popup_selected {
                     "popupTargetUnobserved"
@@ -3656,12 +3941,15 @@ mod smoke {
                     || dialog_action_observed
                     || popup_action_observed
                     || download_action_observed
+                    || chooser_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if download_selected {
+                let closing = if chooser_selected {
+                    native_chooser_close.get()
+                } else if download_selected {
                     native_download_close.get()
                 } else if popup_selected {
                     native_popup_close.get()
@@ -3730,6 +4018,17 @@ mod smoke {
                     }
                     if coverage.is_some() && !positive && state.failure == "notCompleted" {
                         state.failure = "coveragePositiveOracleMismatch";
+                    }
+                    if chooser_selected && !positive && state.failure == "notCompleted" {
+                        state.failure = policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .chooser
+                            .as_ref()
+                            .unwrap()
+                            .failure();
                     }
                     if download_selected && !positive && state.failure == "notCompleted" {
                         state.failure = policy
@@ -3871,6 +4170,11 @@ fn main() {
                 if selector == "--code0-policy-fixture=refusal-download-initial-data-empty" =>
             {
                 smoke::run_download_refusal()
+            }
+            [selector]
+                if selector == "--code0-policy-fixture=chooser-prebound-owned-empty-file" =>
+            {
+                smoke::run_chooser()
             }
             [selector] if selector == "--code0-policy-fixture=refusal-popup-initial-blank" => {
                 smoke::run_popup_refusal()

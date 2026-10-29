@@ -9,6 +9,9 @@ use super::code0_web_session::{
     Code0WindowRequest,
 };
 
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+mod chooser_protocol;
+
 pub type Code0NativeEventSink = Rc<dyn Fn(Code0WindowRequest, Code0WindowEvent)>;
 
 /// Rc deliberately keeps the native owner !Send/!Sync. Its caller must retain it
@@ -405,6 +408,8 @@ mod native {
         policy_fault: p1::FaultState,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         refusal_registry: NativeRefusalRegistry,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        chooser: Option<s3::State>,
     }
 
     impl Owner {
@@ -477,6 +482,8 @@ mod native {
             let _ = s2::mark_popup_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_download_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            s3::revoke(instance);
         }
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
@@ -504,6 +511,7 @@ mod native {
                     instance.policy.is_none()
                         && p1::mailbox_quiescent(instance)
                         && instance.refusal_registry.references_empty()
+                        && s3::quiescent(instance)
                 }
                 #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                 {
@@ -623,6 +631,8 @@ mod native {
             policy_fault: p1::FaultState::default(),
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             refusal_registry: NativeRefusalRegistry::not_installed(),
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            chooser: None,
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -1345,6 +1355,8 @@ mod native {
             let _ = s2::mark_popup_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             let _ = s2::mark_download_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            s3::mark_close(instance);
         }
         drop(state);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1384,6 +1396,8 @@ mod native {
                 let _ = s2::mark_popup_close(instance);
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 let _ = s2::mark_download_close(instance);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                s3::mark_close(instance);
                 instance.window.take()
             } else {
                 None
@@ -1493,6 +1507,8 @@ mod native {
         s2::advance_popup(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::advance_download(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s3::advance(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -1514,6 +1530,8 @@ mod native {
         s2::synchronize_popup_close(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::synchronize_download_close(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s3::synchronize(owner);
         {
             let mut state = owner.borrow_mut();
             let unmatched = state.unmatched;
@@ -1573,6 +1591,8 @@ mod native {
                 );
                 instance.cleanup_blocked = true;
             }
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            s3::mark_close(instance);
             if !instance.closing
                 || instance.callbacks.active.load(Ordering::SeqCst) != 0
                 || instance.callbacks.pending.load(Ordering::SeqCst) != 0
@@ -1587,6 +1607,8 @@ mod native {
         p1::remove_registrations(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::remove(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s3::remove(owner);
         let remove = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1620,7 +1642,11 @@ mod native {
             cleanup_at!(
                 owner,
                 Stop,
-                native_call!(owner, Stop, unsafe { core.Stop() }),
+                native_call!(owner, Stop, {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s3::stop_entry(owner);
+                    unsafe { core.Stop() }
+                }),
                 true
             );
         }
@@ -1638,7 +1664,11 @@ mod native {
             cleanup_at!(
                 owner,
                 ControllerClose,
-                native_call!(owner, ControllerClose, unsafe { controller.Close() }),
+                native_call!(owner, ControllerClose, {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s3::stop_entry(owner);
+                    unsafe { controller.Close() }
+                }),
                 true
             );
         }
@@ -1654,7 +1684,9 @@ mod native {
                 && {
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     {
-                        p1::registrations_removed(instance) && s2::registrations_removed(instance)
+                        p1::registrations_removed(instance)
+                            && s2::registrations_removed(instance)
+                            && s3::removed(instance)
                     }
                     #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                     {
@@ -1677,6 +1709,8 @@ mod native {
                     policy,
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s2::take_controls(instance),
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s3::take_controls(instance),
                 ))
             } else {
                 None
@@ -1827,6 +1861,7 @@ mod native {
                 s2::publish_dialog_final(owner);
                 s2::publish_popup_final(owner);
                 s2::publish_download_final(owner);
+                s3::publish_final(owner);
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Code0WindowEvent::Failed(reason) = &event
@@ -2164,6 +2199,7 @@ mod native {
                 }
                 let i = matching(&mut state, request).ok_or_else(denied)?;
                 if !i.refusal_registry.complete()
+                    || i.chooser.is_some()
                     || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
@@ -3315,7 +3351,8 @@ mod native {
             let core = {
                 let state = owner.borrow();
                 let i = state.instance.as_ref().ok_or_else(denied)?;
-                if i.refusal_registry.legacy.is_some()
+                if i.chooser.is_some()
+                    || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
@@ -4387,6 +4424,7 @@ mod native {
                 }
                 let i = matching(&mut state, request).ok_or_else(denied)?;
                 if !i.refusal_registry.complete()
+                    || i.chooser.is_some()
                     || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
@@ -5351,6 +5389,7 @@ mod native {
                 }
                 let i = matching(&mut state, request).ok_or_else(denied)?;
                 if !i.refusal_registry.complete()
+                    || i.chooser.is_some()
                     || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
@@ -6141,6 +6180,7 @@ mod native {
                         self.authorized(owner)
                             && (!self.dialog_selected() || self.dialog_live(owner))
                             && (!self.legacy_selected() || self.legacy_live(owner, true))
+                            && (!s3::selected(owner) || s3::authorized(owner, true))
                     })
                 {
                     // Only an allowed navigation can return false. If its URI
@@ -6197,6 +6237,7 @@ mod native {
                             i.closing = true;
                         }
                         if i.closing {
+                            s3::revoke(i);
                             top_close = mark_top_close(i).map(|at| (i.observer.clone(), at));
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
@@ -6337,6 +6378,7 @@ mod native {
                     || i.policy_mailbox.is_some()
                     || i.callbacks.affinity_failed.load(Ordering::SeqCst)
                     || !i.refusal_registry.complete()
+                    || i.chooser.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
@@ -6393,6 +6435,11 @@ mod native {
                 event: &mut LegacyRefusalEvent,
                 receipt: &mut Option<super::super::fixture::NativeTopRefusalReceipt>,
             ) -> windows::core::Result<bool> {
+                if let Some(owner) = self.owner.upgrade()
+                    && s3::selected(&owner)
+                {
+                    return s3::navigation(&owner, args, eligible);
+                }
                 if self.dialog_selected() {
                     return self.dialog_navigation(args, eligible);
                 }
@@ -6569,15 +6616,20 @@ mod native {
                 let mut receipt = None;
                 let mut event = LegacyRefusalEvent::new();
                 let mut dialog_selected = false;
+                let mut chooser_selected = false;
                 let result = context.invoke(sender.as_ref(), |eligible| {
                     let args = args.as_ref().ok_or_else(rejection)?;
                     dialog_selected = context.dialog_selected();
+                    chooser_selected = context.owner.upgrade().is_some_and(|o| s3::selected(&o));
                     context.top_navigation(args, eligible, &mut event, &mut receipt)
                 });
                 drop(args);
                 drop(sender);
                 if dialog_selected {
                     let _ = context.dialog_after_drop();
+                }
+                if chooser_selected && let Some(owner) = context.owner.upgrade() {
+                    s3::qualify_navigation(&owner);
                 }
                 if let Some(mut receipt) = receipt {
                     let timely = context.legacy_after_drop(&mut event);
@@ -6982,6 +7034,21 @@ mod native {
             })
         }
 
+        pub(super) fn chooser_core(i: &Instance) -> Option<Rc<ICoreWebView2>> {
+            if i.refusal_registry.legacy.is_some()
+                || i.refusal_registry.top_target.is_some()
+                || i.refusal_registry.child.is_some()
+                || i.refusal_registry.dialog.is_some()
+                || i.refusal_registry.dialog_completed.is_some()
+                || i.refusal_registry.popup.is_some()
+                || i.refusal_registry.download.is_some()
+                || !i.refusal_registry.complete()
+            {
+                return None;
+            }
+            i.refusal_registry.core.as_ref().map(Rc::clone)
+        }
+
         pub(super) fn registrations_removed(i: &Instance) -> bool {
             !i.refusal_registry.unknown.load(Ordering::SeqCst)
                 && i.refusal_registry.entries.iter().all(|e| e.token.is_none())
@@ -7091,6 +7158,1908 @@ mod native {
                 .refusal_registry
                 .unknown
                 .load(Ordering::SeqCst)
+        }
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn begin_chooser(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        root: &Path,
+        deadline: super::fixture::NativeDialogDeadline,
+    ) -> Result<(), Code0SessionFailure> {
+        s3::begin(owner, request, root, deadline)
+    }
+
+    /// Selected S3 fixture only; no public/general CDP executor.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    mod s3 {
+        use super::super::chooser_protocol::{
+            self as wire, Binding, Context as World, Epoch, Event, Frame, Id, Reply, ReplyKind,
+        };
+        use super::super::fixture::{
+            NativeChooserFacts, NativeChooserReceipt, NativeChooserStage, NativeDialogDeadline,
+        };
+        use super::*;
+        use std::time::Instant;
+        use webview2_com::{
+            DevToolsProtocolEventReceivedEventHandler, NavigationCompletedEventHandler,
+        };
+        use windows::core::BOOL;
+
+        struct Inventory {
+            handlers: AtomicUsize,
+            issued: AtomicUsize,
+            invoked: AtomicUsize,
+            consumed: AtomicUsize,
+            text: AtomicUsize,
+            invalid: AtomicBool,
+        }
+        impl Inventory {
+            fn new() -> Self {
+                Self {
+                    handlers: AtomicUsize::new(0),
+                    issued: AtomicUsize::new(0),
+                    invoked: AtomicUsize::new(0),
+                    consumed: AtomicUsize::new(0),
+                    text: AtomicUsize::new(0),
+                    invalid: AtomicBool::new(false),
+                }
+            }
+            fn once(&self, index: usize, slot: &AtomicUsize, required: usize) -> bool {
+                if index >= 11 {
+                    self.invalid.store(true, Ordering::SeqCst);
+                    return false;
+                }
+                let bit = 1usize << index;
+                let good = required & bit != 0 && slot.fetch_or(bit, Ordering::SeqCst) & bit == 0;
+                if !good {
+                    self.invalid.store(true, Ordering::SeqCst);
+                }
+                good
+            }
+            fn issue_once(&self, index: usize) -> bool {
+                self.once(index, &self.issued, 0x07ff)
+            }
+            fn invoke_once(&self, index: usize) -> bool {
+                self.once(index, &self.invoked, self.issued.load(Ordering::SeqCst))
+            }
+            fn consume_once(&self, index: usize) -> bool {
+                self.once(index, &self.consumed, self.invoked.load(Ordering::SeqCst))
+            }
+            fn drained(&self) -> bool {
+                let issued = self.issued.load(Ordering::SeqCst);
+                issued == self.invoked.load(Ordering::SeqCst)
+                    && issued == self.consumed.load(Ordering::SeqCst)
+            }
+        }
+        struct Text {
+            inventory: Arc<Inventory>,
+            bytes: usize,
+        }
+        impl Text {
+            fn reserve(inventory: &Arc<Inventory>, bytes: usize) -> Option<Self> {
+                if inventory
+                    .text
+                    .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                        n.checked_add(bytes).filter(|n| wire::text_fits(0, 0, *n))
+                    })
+                    .is_err()
+                {
+                    inventory.invalid.store(true, Ordering::SeqCst);
+                    return None;
+                }
+                Some(Self {
+                    inventory: Arc::clone(inventory),
+                    bytes,
+                })
+            }
+            fn shrink(&mut self, bytes: usize) {
+                self.inventory
+                    .text
+                    .fetch_sub(self.bytes - bytes, Ordering::SeqCst);
+                self.bytes = bytes;
+            }
+        }
+        impl Drop for Text {
+            fn drop(&mut self) {
+                self.inventory.text.fetch_sub(self.bytes, Ordering::SeqCst);
+            }
+        }
+        struct Lifetime {
+            inventory: Arc<Inventory>,
+            _aggregate: HandlerLifetime,
+        }
+        impl Lifetime {
+            fn new(callbacks: &Arc<Callbacks>, inventory: &Arc<Inventory>) -> Self {
+                inventory.handlers.fetch_add(1, Ordering::SeqCst);
+                Self {
+                    inventory: Arc::clone(inventory),
+                    _aggregate: HandlerLifetime::new(callbacks),
+                }
+            }
+        }
+        impl Drop for Lifetime {
+            fn drop(&mut self) {
+                self.inventory.handlers.fetch_sub(1, Ordering::SeqCst);
+            }
+        }
+        struct Receiver {
+            receiver: Rc<ICoreWebView2DevToolsProtocolEventReceiver>,
+            token: Option<i64>,
+            attempted: bool,
+        }
+        struct Completed {
+            core: Rc<ICoreWebView2>,
+            token: Option<i64>,
+            attempted: bool,
+        }
+        pub(super) struct Controls {
+            _core: Option<Rc<ICoreWebView2>>,
+            _receivers: Vec<Receiver>,
+            _completed: Option<Completed>,
+        }
+        struct Response {
+            index: usize,
+            received: Instant,
+            valid: Result<Reply, ()>,
+        }
+        pub(super) struct State {
+            request: Code0WindowRequest,
+            installation: Arc<AtomicBool>,
+            core: Option<Rc<ICoreWebView2>>,
+            inventory: Arc<Inventory>,
+            target: String,
+            _target_charge: Option<Text>,
+            _id_charge: Option<Text>,
+            epoch: Epoch,
+            closing: Option<Instant>,
+            closing_published: bool,
+            receivers: Vec<Receiver>,
+            completed: Option<Completed>,
+            ready: bool,
+            next: usize,
+            in_flight: bool,
+            response: Option<Response>,
+            candidate: Option<World>,
+            chooser: bool,
+            initial: Option<u32>,
+            file: Option<u32>,
+            destroyed: u8,
+            bootstrap_cleared: bool,
+            cleared: bool,
+            updated: bool,
+            detached: bool,
+            blank_frame: bool,
+            file_frame: bool,
+            world_ack: Option<u32>,
+            context: Option<u32>,
+            unique: Option<Id>,
+            frame: Option<Id>,
+            loader: Option<Id>,
+            root: u32,
+            node: u32,
+            backend: u32,
+            grant: bool,
+            start: Option<u64>,
+            completed_good: bool,
+            source_checked: bool,
+            facts: NativeChooserFacts,
+        }
+        struct Context {
+            owner: Weak<RefCell<Owner>>,
+            request: Code0WindowRequest,
+            installation: Arc<AtomicBool>,
+            inventory: Arc<Inventory>,
+            callbacks: Arc<Callbacks>,
+            ui: ThreadId,
+        }
+        impl Context {
+            fn new(owner: &Rc<RefCell<Owner>>) -> Self {
+                let o = owner.borrow();
+                let i = o.instance.as_ref().unwrap();
+                let s = i.chooser.as_ref().unwrap();
+                Self {
+                    owner: Rc::downgrade(owner),
+                    request: i.request.clone(),
+                    installation: Arc::clone(&s.installation),
+                    inventory: Arc::clone(&s.inventory),
+                    callbacks: Arc::clone(&i.callbacks),
+                    ui: o.ui_thread,
+                }
+            }
+            fn same(&self, owner: &Rc<RefCell<Owner>>) -> bool {
+                let o = owner.borrow();
+                !o.unmatched
+                    && o.instance.as_ref().is_some_and(|i| {
+                        i.request == self.request
+                            && Arc::ptr_eq(&i.callbacks, &self.callbacks)
+                            && i.chooser.as_ref().is_some_and(|s| {
+                                Arc::ptr_eq(&s.inventory, &self.inventory)
+                                    && Arc::ptr_eq(&s.installation, &self.installation)
+                            })
+                    })
+            }
+            fn sender(&self, owner: &Rc<RefCell<Owner>>, sender: Option<&ICoreWebView2>) -> bool {
+                if !callback_window(owner, self) {
+                    return false;
+                }
+                let core = {
+                    let o = owner.borrow();
+                    o.instance
+                        .as_ref()
+                        .and_then(|i| i.chooser.as_ref())
+                        .and_then(|s| s.core.as_ref())
+                        .map(Rc::clone)
+                };
+                let good = core.as_ref().zip(sender).is_some_and(|(core, sender)| {
+                    let expected = core.cast::<IUnknown>();
+                    if !callback_window(owner, self) {
+                        drop(expected);
+                        return false;
+                    }
+                    let actual = sender.cast::<IUnknown>();
+                    let same = callback_window(owner, self)
+                        && expected
+                            .as_ref()
+                            .ok()
+                            .zip(actual.as_ref().ok())
+                            .is_some_and(|(a, b)| a.as_raw() == b.as_raw());
+                    drop(actual);
+                    drop(expected);
+                    same && callback_window(owner, self)
+                });
+                drop(core);
+                good && callback_window(owner, self)
+            }
+        }
+        fn failure() -> Code0SessionFailure {
+            Code0SessionFailure::PolicyRejected
+        }
+        pub(super) fn selected(owner: &Rc<RefCell<Owner>>) -> bool {
+            owner
+                .borrow()
+                .instance
+                .as_ref()
+                .is_some_and(|i| i.chooser.is_some())
+        }
+        fn valid_identity(i: &Instance) -> bool {
+            !i.released
+                && !i.destroyed
+                && !i.cleanup_blocked
+                && !i.refusal_registry.unknown()
+                && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+        }
+        pub(super) fn authorized(owner: &Rc<RefCell<Owner>>, live: bool) -> bool {
+            let good = {
+                let o = owner.borrow();
+                !o.unmatched
+                    && o.instance.as_ref().is_some_and(|i| {
+                        valid_identity(i)
+                            && (!live || (!i.closing && !i.failed))
+                            && i.chooser.as_ref().is_some_and(|s| {
+                                s.request == i.request
+                                    && s.epoch.timely(Instant::now())
+                                    && !s.inventory.invalid.load(Ordering::SeqCst)
+                            })
+                    })
+            };
+            if !good {
+                fail(owner, false);
+            }
+            good
+        }
+        fn fail(owner: &Rc<RefCell<Owner>>, unknown: bool) {
+            {
+                let mut o = owner.borrow_mut();
+                if let Some(i) = o.instance.as_mut()
+                    && let Some(s) = i.chooser.as_mut()
+                {
+                    s.epoch.invalidate(10);
+                    i.failed = true;
+                    i.closing = true;
+                    if unknown {
+                        i.cleanup_blocked = true;
+                        s.installation.store(true, Ordering::SeqCst);
+                    }
+                    mark_close(i);
+                }
+            }
+            synchronize(owner);
+        }
+        pub(super) fn revoke(i: &mut Instance) {
+            if let Some(s) = i.chooser.as_mut() {
+                s.epoch.observe_revocation(true, false);
+            }
+            mark_close(i);
+        }
+        pub(super) fn mark_close(i: &mut Instance) {
+            let identity = valid_identity(i);
+            if i.closing
+                && let Some(s) = i.chooser.as_mut()
+            {
+                let chooser_caused = s.chooser && (identity || s.epoch.stop.is_some());
+                s.epoch.observe_revocation(true, chooser_caused);
+                if s.closing.is_none() {
+                    s.closing = Some(Instant::now());
+                    s.facts.first_closing_observed = true;
+                }
+            }
+        }
+        pub(super) fn synchronize(owner: &Rc<RefCell<Owner>>) {
+            let notification = {
+                let mut o = owner.borrow_mut();
+                o.instance.as_mut().and_then(|i| {
+                    mark_close(i);
+                    let s = i.chooser.as_mut()?;
+                    if s.closing_published {
+                        return None;
+                    }
+                    let at = s.closing?;
+                    s.closing_published = true;
+                    Some((i.observer.clone(), at))
+                })
+            };
+            if let Some((Some(f), at)) = notification {
+                f(NativeSmokeObservation::ChooserClosing { at });
+            }
+        }
+        pub(super) fn stop_entry(owner: &Rc<RefCell<Owner>>) {
+            cleanup_window(owner);
+            let mut o = owner.borrow_mut();
+            if let Some(s) = o.instance.as_mut().and_then(|i| i.chooser.as_mut()) {
+                s.epoch.stop_at(Instant::now());
+                s.facts.actual_stop_entry_observed = true;
+            }
+        }
+        fn emit(owner: &Rc<RefCell<Owner>>, stage: NativeChooserStage) {
+            let event = {
+                let o = owner.borrow();
+                o.instance.as_ref().and_then(|i| {
+                    i.chooser.as_ref().map(|s| {
+                        (
+                            i.observer.clone(),
+                            NativeChooserReceipt {
+                                request: i.request.clone(),
+                                installation: Arc::clone(&s.installation),
+                                stage,
+                                facts: s.facts,
+                            },
+                        )
+                    })
+                })
+            };
+            if let Some((Some(f), receipt)) = event {
+                f(NativeSmokeObservation::Chooser(receipt));
+            }
+        }
+        fn step<T>(owner: &Rc<RefCell<Owner>>, action: impl FnOnce() -> T) -> Option<T> {
+            if !authorized(owner, true) {
+                return None;
+            }
+            let result = action();
+            if authorized(owner, true) {
+                Some(result)
+            } else {
+                drop(result);
+                None
+            }
+        }
+        // Before dereferencing native callback text, and after every native getter
+        // and temporary Drop, rejoin the same installation and callback window.
+        // Known post-Stop cleanup gets only the original first-close ten seconds.
+        fn callback_window(owner: &Rc<RefCell<Owner>>, context: &Context) -> bool {
+            if !context.same(owner) {
+                return false;
+            }
+            let mut o = owner.borrow_mut();
+            o.instance.as_mut().is_some_and(|i| {
+                let identity = valid_identity(i);
+                let revoked = i.failed || i.closing;
+                i.chooser.as_mut().is_some_and(|s| {
+                    s.epoch
+                        .observe_revocation(revoked || !identity, s.chooser && identity);
+                    let now = Instant::now();
+                    identity
+                        && s.core.is_some()
+                        && if s.epoch.stop.is_some() {
+                            NativeDialogDeadline::disposal_within_close_at(now, now, s.closing)
+                        } else {
+                            s.epoch.timely(now) && !s.inventory.invalid.load(Ordering::SeqCst)
+                        }
+                })
+            })
+        }
+        fn cleanup_window(owner: &Rc<RefCell<Owner>>) {
+            let mut o = owner.borrow_mut();
+            if let Some(s) = o.instance.as_mut().and_then(|i| i.chooser.as_mut()) {
+                let now = Instant::now();
+                if (s.epoch.stop.is_none() && now >= s.epoch.end)
+                    || !NativeDialogDeadline::disposal_within_close_at(now, now, s.closing)
+                {
+                    s.epoch.invalidate(10);
+                }
+            }
+        }
+        // The charge is reserved before reading/copying. COM allocation is freed
+        // even on HRESULT/null/size/encoding failure, outside any Owner borrow.
+        fn copy_units(raw: PCWSTR, cap: usize) -> Result<String, ()> {
+            if raw.is_null() {
+                return Err(());
+            }
+            for len in 0..=2048 {
+                if unsafe { *raw.0.add(len) } == 0 {
+                    let units = unsafe { std::slice::from_raw_parts(raw.0, len) };
+                    let mut bytes = 0;
+                    for c in char::decode_utf16(units.iter().copied()) {
+                        bytes += c.map_err(|_| ())?.len_utf8();
+                        if bytes > cap {
+                            return Err(());
+                        }
+                    }
+                    return String::from_utf16(units).map_err(|_| ());
+                }
+            }
+            Err(())
+        }
+        fn allocated(
+            cap: usize,
+            get: impl FnOnce(*mut PWSTR) -> windows::core::Result<()>,
+            qualified: impl Fn() -> bool,
+        ) -> Result<String, ()> {
+            let mut raw = PWSTR::null();
+            let result = get(&mut raw);
+            let allocation = CoTaskMemPWSTR::from(raw);
+            let out = if result.is_ok() && qualified() {
+                copy_units(PCWSTR(raw.0), cap)
+            } else {
+                Err(())
+            };
+            drop(result);
+            drop(allocation);
+            if qualified() {
+                out
+            } else {
+                drop(out);
+                Err(())
+            }
+        }
+        fn source(owner: &Rc<RefCell<Owner>>, core: &ICoreWebView2, initial: bool) -> bool {
+            let inventory = {
+                let o = owner.borrow();
+                Arc::clone(
+                    &o.instance
+                        .as_ref()
+                        .unwrap()
+                        .chooser
+                        .as_ref()
+                        .unwrap()
+                        .inventory,
+                )
+            };
+            let Some(_charge) = Text::reserve(&inventory, 1024) else {
+                fail(owner, false);
+                return false;
+            };
+            let Some(value) = step(owner, || {
+                allocated(
+                    1024,
+                    |p| unsafe { core.Source(p) },
+                    || authorized(owner, true),
+                )
+            }) else {
+                return false;
+            };
+            let matched = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                value
+                    .as_ref()
+                    .is_ok_and(|v| v == if initial { "about:blank" } else { &s.target })
+            };
+            drop(value);
+            drop(_charge);
+            matched && authorized(owner, true)
+        }
+        pub(super) fn begin(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            root: &Path,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            super::require_native_refusal_install(owner, request)?;
+            let (core, callbacks) = {
+                let o = owner.borrow();
+                let i = o.instance.as_ref().ok_or_else(failure)?;
+                if i.chooser.is_some() {
+                    return Err(failure());
+                }
+                (
+                    s2::chooser_core(i).ok_or_else(failure)?,
+                    Arc::clone(&i.callbacks),
+                )
+            };
+            let active = Active::enter(&callbacks);
+            // Identical strict canonical/local Disk-or-VerbatimDisk predicate as
+            // N3; this selected URI is an additional <=1024 UTF8 precondition.
+            let inventory = Arc::new(Inventory::new());
+            let mut charge = Text::reserve(&inventory, 2048).ok_or_else(failure)?;
+            let target = owned_uri(root)?;
+            charge.shrink(target.len());
+            let ids = Text::reserve(&inventory, 384).ok_or_else(failure)?;
+            {
+                let mut o = owner.borrow_mut();
+                let i = matching(&mut o, request).ok_or_else(failure)?;
+                i.chooser = Some(State {
+                    request: request.clone(),
+                    installation: Arc::clone(&i.refusal_registry.unknown),
+                    core: Some(Rc::clone(&core)),
+                    inventory,
+                    target,
+                    _target_charge: Some(charge),
+                    _id_charge: Some(ids),
+                    epoch: Epoch::new(deadline.original_end()),
+                    closing: None,
+                    closing_published: false,
+                    receivers: Vec::with_capacity(10),
+                    completed: None,
+                    ready: false,
+                    next: 0,
+                    in_flight: false,
+                    response: None,
+                    candidate: None,
+                    chooser: false,
+                    initial: None,
+                    file: None,
+                    destroyed: 0,
+                    bootstrap_cleared: false,
+                    cleared: false,
+                    updated: false,
+                    detached: false,
+                    blank_frame: false,
+                    file_frame: false,
+                    world_ack: None,
+                    context: None,
+                    unique: None,
+                    frame: None,
+                    loader: None,
+                    root: 0,
+                    node: 0,
+                    backend: 0,
+                    grant: false,
+                    start: None,
+                    completed_good: false,
+                    source_checked: false,
+                    facts: NativeChooserFacts {
+                        asset_bound: true,
+                        settings_and_hooks: i.refusal_registry.complete(),
+                        ..NativeChooserFacts::default()
+                    },
+                });
+            }
+            if !source(owner, &core, true) {
+                fail(owner, false);
+                return Err(failure());
+            }
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .chooser
+                .as_mut()
+                .unwrap()
+                .facts
+                .initial_source = true;
+            let registered = register(owner, &core);
+            drop(core);
+            drop(active);
+            if !registered || !authorized(owner, true) {
+                fail(owner, false);
+                return Err(failure());
+            }
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .chooser
+                .as_mut()
+                .unwrap()
+                .ready = true;
+            emit(owner, NativeChooserStage::Started);
+            Ok(())
+        }
+        fn owned_uri(root: &Path) -> Result<String, Code0SessionFailure> {
+            use std::path::{Component, Prefix};
+            let root = root.canonicalize().map_err(|_| failure())?;
+            let fixed = root.join(wire::LEAF);
+            let target = fixed.canonicalize().map_err(|_| failure())?;
+            let local = |p: &Path| {
+                p.is_absolute()
+                    && matches!(p.components().next(),Some(Component::Prefix(v))if matches!(v.kind(),Prefix::Disk(_)|Prefix::VerbatimDisk(_)))
+            };
+            if !local(&root)
+                || !local(&target)
+                || target != fixed
+                || target.parent() != Some(root.as_path())
+                || target.file_name() != Some(std::ffi::OsStr::new(wire::LEAF))
+            {
+                return Err(failure());
+            }
+            let meta = target.metadata().map_err(|_| failure())?;
+            if !meta.is_file() || meta.len() != 0 {
+                return Err(failure());
+            }
+            let path_bytes = target.to_str().ok_or_else(failure)?.len();
+            if !wire::uri_construction_fits(path_bytes) {
+                return Err(failure());
+            }
+            let url = reqwest::Url::from_file_path(target).map_err(|_| failure())?;
+            if url.scheme() != "file"
+                || url.host_str().is_some()
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+                || url.as_str().is_empty()
+                || url.as_str().len() > 1024
+            {
+                return Err(failure());
+            }
+            Ok(url.into())
+        }
+        fn register(owner: &Rc<RefCell<Owner>>, core: &Rc<ICoreWebView2>) -> bool {
+            let context = Context::new(owner);
+            let registration_inventory = Arc::clone(&context.inventory);
+            let lifetime = Lifetime::new(&context.callbacks, &context.inventory);
+            let handler = NavigationCompletedEventHandler::create(Box::new(move |sender, args| {
+                let _lifetime = &lifetime;
+                let active = Active::enter(&context.callbacks);
+                if !callback_on_ui(context.ui, &context.callbacks, 7301) {
+                    context.inventory.invalid.store(true, Ordering::SeqCst);
+                    drop(args);
+                    drop(sender);
+                    drop(active);
+                    return Ok(());
+                }
+                if let Some(owner) = context.owner.upgrade() {
+                    let identity = context.sender(&owner, sender.as_ref());
+                    let good = if identity && authorized(&owner, true) {
+                        args.as_ref().is_some_and(|args| completed(&owner, args))
+                    } else {
+                        false
+                    };
+                    drop(args);
+                    drop(sender);
+                    if !context.same(&owner) {
+                        context.inventory.invalid.store(true, Ordering::SeqCst);
+                    } else if !good || !authorized(&owner, true) {
+                        fail(&owner, false);
+                    }
+                } else {
+                    context.inventory.invalid.store(true, Ordering::SeqCst);
+                    drop(args);
+                    drop(sender);
+                }
+                drop(active);
+                Ok(())
+            }));
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.completed = Some(Completed {
+                    core: Rc::clone(core),
+                    token: None,
+                    attempted: false,
+                });
+            }
+            let mut token = 0;
+            let add = step(owner, || unsafe {
+                core.add_NavigationCompleted(&handler, &mut token)
+            });
+            let ok = add.as_ref().is_some_and(Result::is_ok);
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                if ok {
+                    s.completed.as_mut().unwrap().token = Some(token);
+                    s.facts.completed_added = true;
+                }
+            }
+            drop(add);
+            drop(handler);
+            if !ok {
+                fail(owner, true);
+                return false;
+            }
+            if !authorized(owner, true) {
+                return false;
+            }
+            for (index, name) in wire::EVENTS.iter().enumerate() {
+                let Some(name_charge) = Text::reserve(&registration_inventory, name.len()) else {
+                    fail(owner, false);
+                    return false;
+                };
+                let wide: Vec<u16> = name.encode_utf16().chain(Some(0)).collect();
+                let Some(receiver) = step(owner, || unsafe {
+                    core.GetDevToolsProtocolEventReceiver(PCWSTR(wide.as_ptr()))
+                }) else {
+                    return false;
+                };
+                let receiver = match receiver {
+                    Ok(v) => Rc::new(v),
+                    Err(e) => {
+                        drop(e);
+                        fail(owner, true);
+                        return false;
+                    }
+                };
+                if !authorized(owner, true) {
+                    drop(receiver);
+                    return false;
+                }
+                {
+                    let mut o = owner.borrow_mut();
+                    o.instance
+                        .as_mut()
+                        .unwrap()
+                        .chooser
+                        .as_mut()
+                        .unwrap()
+                        .receivers
+                        .push(Receiver {
+                            receiver: Rc::clone(&receiver),
+                            token: None,
+                            attempted: false,
+                        });
+                }
+                let context = Context::new(owner);
+                let lifetime = Lifetime::new(&context.callbacks, &context.inventory);
+                let handler = DevToolsProtocolEventReceivedEventHandler::create(Box::new(
+                    move |sender, args| {
+                        let _lifetime = &lifetime;
+                        let active = Active::enter(&context.callbacks);
+                        if !callback_on_ui(context.ui, &context.callbacks, 7321) {
+                            context.inventory.invalid.store(true, Ordering::SeqCst);
+                            drop(args);
+                            drop(sender);
+                            drop(active);
+                            return Ok(());
+                        }
+                        if let Some(owner) = context.owner.upgrade() {
+                            let identity = context.sender(&owner, sender.as_ref());
+                            let parser_charge = Text::reserve(&context.inventory, 256);
+                            let event =
+                                if identity && context.same(&owner) && parser_charge.is_some() {
+                                    args.as_ref()
+                                        .and_then(|a| receive(&owner, &context, index, a).ok())
+                                } else {
+                                    None
+                                };
+                            // Revoke and start first-close time as soon as the
+                            // matched target is known, before opaque args Drop.
+                            let target = if context.same(&owner) {
+                                apply_event(&owner, index, event)
+                            } else {
+                                context.inventory.invalid.store(true, Ordering::SeqCst);
+                                false
+                            };
+                            drop(args);
+                            drop(sender);
+                            drop(parser_charge);
+                            if !context.same(&owner) {
+                                context.inventory.invalid.store(true, Ordering::SeqCst);
+                            } else if !callback_window(&owner, &context) {
+                                fail(&owner, false);
+                            } else if target {
+                                qualify_target(&owner);
+                            }
+                        } else {
+                            context.inventory.invalid.store(true, Ordering::SeqCst);
+                            drop(args);
+                            drop(sender);
+                        }
+                        drop(active);
+                        Ok(())
+                    },
+                ));
+                let mut token = 0;
+                let added = step(owner, || unsafe {
+                    receiver.add_DevToolsProtocolEventReceived(&handler, &mut token)
+                });
+                let ok = added.as_ref().is_some_and(Result::is_ok);
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                    if ok {
+                        s.receivers[index].token = Some(token);
+                        s.facts.receiver_adds[index] = 1;
+                    }
+                }
+                drop(added);
+                drop(handler);
+                drop(receiver);
+                drop(wide);
+                drop(name_charge);
+                if !ok {
+                    fail(owner, true);
+                    return false;
+                }
+                if !authorized(owner, true) {
+                    return false;
+                }
+            }
+            true
+        }
+        fn receive(
+            owner: &Rc<RefCell<Owner>>,
+            context: &Context,
+            index: usize,
+            args: &ICoreWebView2DevToolsProtocolEventReceivedEventArgs,
+        ) -> Result<Event, ()> {
+            if !callback_window(owner, context) {
+                return Err(());
+            }
+            let args2 = args
+                .cast::<ICoreWebView2DevToolsProtocolEventReceivedEventArgs2>()
+                .map_err(|_| ())?;
+            if !callback_window(owner, context) {
+                drop(args2);
+                return Err(());
+            }
+            let mut raw = PWSTR::null();
+            let got = unsafe { args2.SessionId(&mut raw) };
+            let allocation = CoTaskMemPWSTR::from(raw);
+            let empty = callback_window(owner, context)
+                && got.is_ok()
+                && !raw.is_null()
+                && unsafe { *raw.0 } == 0;
+            drop(got);
+            drop(allocation);
+            drop(args2);
+            if !empty || !callback_window(owner, context) {
+                return Err(());
+            }
+            let cap = [512, 1024, 256, 64, 64, 512, 512, 2048, 2048, 2048][index];
+            let _charge = Text::reserve(&context.inventory, cap).ok_or(())?;
+            let raw = allocated(
+                cap,
+                |p| unsafe { args.ParameterObjectAsJson(p) },
+                || callback_window(owner, context),
+            )?;
+            if !callback_window(owner, context) {
+                drop(raw);
+                drop(_charge);
+                return Err(());
+            }
+            let out = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                let binding = s.frame.map(|frame| Binding {
+                    frame,
+                    backend: s.backend,
+                });
+                let uri = if index == 7 && !s.facts.navigation_issued {
+                    "about:blank"
+                } else {
+                    &s.target
+                };
+                wire::parse_event(index, &raw, uri, binding.as_ref())
+            };
+            drop(raw);
+            drop(_charge);
+            if !callback_window(owner, context) {
+                return Err(());
+            }
+            out
+        }
+        fn apply_event(owner: &Rc<RefCell<Owner>>, index: usize, event: Option<Event>) -> bool {
+            let mut target = false;
+            let mut rejected = false;
+            {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                let identity = valid_identity(i);
+                let revoked = i.failed || i.closing;
+                let s = i.chooser.as_mut().unwrap();
+                s.epoch
+                    .observe_revocation(revoked || !identity, s.chooser && identity);
+                let post = s.epoch.stop.is_some();
+                let live = identity
+                    && s.epoch.timely(Instant::now())
+                    && !s.inventory.invalid.load(Ordering::SeqCst);
+                let bounded = s.ready && (s.epoch.armed || post || s.epoch.bootstrap_delivery());
+                s.facts.bootstrap_delivered = s.epoch.bootstrap;
+                if index == 0 {
+                    s.facts.target_events = s.facts.target_events.saturating_add(1);
+                }
+                let valid = bounded
+                    && match event {
+                        Some(Event::Chooser) => {
+                            target = live && s.epoch.target_at(Instant::now()) && !s.chooser;
+                            if target {
+                                s.chooser = true;
+                            }
+                            target
+                        }
+                        Some(Event::Created(c)) => {
+                            if post || !live {
+                                false
+                            } else if s.epoch.armed {
+                                if s.facts.commands_issued[4] == 1
+                                    && c.named
+                                    && s.candidate.is_none()
+                                    && s.context.is_none()
+                                    && s.initial != Some(c.id)
+                                    && s.file != Some(c.id)
+                                {
+                                    s.candidate = Some(c);
+                                    true
+                                } else {
+                                    false
+                                }
+                            } else if !c.named
+                                && s.initial.is_none()
+                                && s.facts.commands_issued[1] == 1
+                                && !s.facts.navigation_issued
+                            {
+                                s.initial = Some(c.id);
+                                s.facts.initial_default_session_observed = true;
+                                true
+                            } else if !c.named
+                                && s.facts.navigation_issued
+                                && s.file.is_none()
+                                && s.initial != Some(c.id)
+                            {
+                                s.file = Some(c.id);
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        Some(Event::Destroyed(id, unique)) => {
+                            let position = if s.initial == Some(id) {
+                                Some(0)
+                            } else if s.file == Some(id) {
+                                Some(1)
+                            } else if s.context == Some(id) {
+                                Some(2)
+                            } else {
+                                None
+                            };
+                            position.is_some_and(|p| {
+                                let known_unique =
+                                    p != 2 || unique.is_none_or(|u| s.unique == Some(u));
+                                let allowed = known_unique
+                                    && (post
+                                        || (!s.epoch.armed && s.facts.navigation_issued && p == 0))
+                                    && s.destroyed & (1 << p) == 0;
+                                if allowed {
+                                    s.destroyed |= 1 << p;
+                                }
+                                allowed
+                            })
+                        }
+                        Some(Event::Cleared) => {
+                            if post {
+                                let allowed = !s.cleared;
+                                if allowed {
+                                    s.cleared = true;
+                                }
+                                allowed
+                            } else {
+                                let allowed = live
+                                    && !s.epoch.armed
+                                    && s.facts.navigation_issued
+                                    && !s.bootstrap_cleared;
+                                if allowed {
+                                    s.bootstrap_cleared = true;
+                                }
+                                allowed
+                            }
+                        }
+                        Some(Event::Updated) => {
+                            let allowed = post && !s.updated;
+                            if allowed {
+                                s.updated = true;
+                            }
+                            allowed
+                        }
+                        Some(Event::Detached(id, remove)) => {
+                            let allowed = post && remove && s.frame == Some(id) && !s.detached;
+                            if allowed {
+                                s.detached = true;
+                            }
+                            allowed
+                        }
+                        Some(Event::Navigated(regular)) => {
+                            if !live || post || s.epoch.armed || !regular {
+                                false
+                            } else if !s.facts.navigation_issued && !s.blank_frame {
+                                s.blank_frame = true;
+                                true
+                            } else if s.facts.navigation_issued && !s.file_frame {
+                                s.file_frame = true;
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                if !valid {
+                    s.epoch.invalidate(index);
+                    rejected = true;
+                }
+                if target || rejected {
+                    i.failed = true;
+                    i.closing = true;
+                    mark_close(i);
+                }
+            }
+            synchronize(owner);
+            if rejected {
+                fail(owner, false);
+            }
+            target
+        }
+        fn qualify_target(owner: &Rc<RefCell<Owner>>) {
+            let good = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                let good = s.chooser && s.epoch.timely(Instant::now()) && s.epoch.stop.is_none();
+                if good {
+                    s.facts.target_session_identity = true;
+                    s.facts.target_pre_stop = true;
+                }
+                good
+            };
+            if good {
+                emit(owner, NativeChooserStage::Target);
+            } else {
+                fail(owner, false);
+            }
+        }
+        pub(super) fn navigation(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2NavigationStartingEventArgs,
+            eligible: bool,
+        ) -> windows::core::Result<bool> {
+            let allowed = eligible && authorized(owner, true);
+            let granted = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.native_starts = s.facts.native_starts.saturating_add(1);
+                let a =
+                    allowed && s.grant && s.facts.navigation_issued && s.facts.native_starts == 1;
+                s.grant = false;
+                a
+            };
+            if !granted {
+                fail(owner, false);
+                unsafe { args.SetCancel(true) }?;
+                return Ok(true);
+            }
+            let inventory = {
+                let o = owner.borrow();
+                Arc::clone(
+                    &o.instance
+                        .as_ref()
+                        .unwrap()
+                        .chooser
+                        .as_ref()
+                        .unwrap()
+                        .inventory,
+                )
+            };
+            let charge = Text::reserve(&inventory, 1024);
+            let uri = if charge.is_some() {
+                step(owner, || {
+                    allocated(1024, |p| unsafe { args.Uri(p) }, || authorized(owner, true))
+                })
+            } else {
+                None
+            };
+            let mut id = 0;
+            let a = step(owner, || unsafe { args.NavigationId(&mut id) });
+            let mut redirected = BOOL::default();
+            let b = step(owner, || unsafe { args.IsRedirected(&mut redirected) });
+            let mut canceled = BOOL::default();
+            let c = step(owner, || unsafe { args.Cancel(&mut canceled) });
+            let matched = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                uri.as_ref()
+                    .is_some_and(|v| v.as_ref().is_ok_and(|v| v == &s.target))
+            };
+            let good = matched
+                && a.as_ref().is_some_and(Result::is_ok)
+                && b.as_ref().is_some_and(Result::is_ok)
+                && !redirected.as_bool()
+                && c.as_ref().is_some_and(Result::is_ok)
+                && !canceled.as_bool();
+            drop(uri);
+            drop(a);
+            drop(b);
+            drop(c);
+            drop(charge);
+            if good && authorized(owner, true) {
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .chooser
+                    .as_mut()
+                    .unwrap()
+                    .start = Some(id);
+                Ok(false)
+            } else {
+                fail(owner, false);
+                let canceled = unsafe { args.SetCancel(true) };
+                canceled.map(|_| true)
+            }
+        }
+        pub(super) fn qualify_navigation(owner: &Rc<RefCell<Owner>>) {
+            if authorized(owner, true) {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.navigation_qualified = s.start.is_some() && s.facts.native_starts == 1;
+            }
+        }
+        fn completed(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2NavigationCompletedEventArgs,
+        ) -> bool {
+            let mut id = 0;
+            let a = step(owner, || unsafe { args.NavigationId(&mut id) });
+            let mut success = BOOL::default();
+            let b = step(owner, || unsafe { args.IsSuccess(&mut success) });
+            let good = a.as_ref().is_some_and(Result::is_ok)
+                && b.as_ref().is_some_and(Result::is_ok)
+                && success.as_bool();
+            drop(a);
+            drop(b);
+            let timely = authorized(owner, true);
+            let mut o = owner.borrow_mut();
+            let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+            s.facts.native_completions = s.facts.native_completions.saturating_add(1);
+            let matched = good
+                && timely
+                && s.facts.navigation_issued
+                && s.start == Some(id)
+                && s.facts.native_completions == 1;
+            s.completed_good = matched;
+            matched
+        }
+        #[windows::core::implement(
+            ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,
+            Agile = false
+        )]
+        struct Completion {
+            context: Context,
+            index: usize,
+            _lifetime: Lifetime,
+        }
+        impl ICoreWebView2CallDevToolsProtocolMethodCompletedHandler_Impl for Completion_Impl {
+            fn Invoke(
+                &self,
+                hresult: windows::core::HRESULT,
+                raw: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                let c = &self.context;
+                let active = Active::enter(&c.callbacks);
+                if !callback_on_ui(c.ui, &c.callbacks, 7401) {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let Some(owner) = c.owner.upgrade() else {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                let received = Instant::now();
+                let invoked = c.inventory.invoke_once(self.index);
+                if !c.same(&owner) {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                if !invoked {
+                    fail(&owner, true);
+                    return Ok(());
+                }
+                let cap = [64, 64, 64, 2048, 128, 256, 2048, 128, 2048, 2048, 512][self.index];
+                let charge = Text::reserve(&c.inventory, cap);
+                let parser_charge = Text::reserve(&c.inventory, 256);
+                let text = if hresult.is_ok()
+                    && charge.is_some()
+                    && parser_charge.is_some()
+                    && callback_window(&owner, c)
+                {
+                    copy_units(*raw, cap)
+                } else {
+                    Err(())
+                };
+                let parsed = {
+                    let o = owner.borrow();
+                    let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                    text.as_ref()
+                        .map_err(|_| ())
+                        .and_then(|v| wire::parse_reply(self.index, v, &s.target, s.frame, s.node))
+                };
+                // Final-tree IDs are compared while the parser workspace is
+                // charged, then discarded; the response retains only its ACK.
+                let parsed = match parsed {
+                    Ok(Reply {
+                        kind: ReplyKind::Tree,
+                        frame: Some(frame),
+                        scalar: 0,
+                    }) if self.index == 9 => {
+                        let o = owner.borrow();
+                        let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                        if s.frame == Some(frame.id) && s.loader == Some(frame.loader) {
+                            Ok(Reply {
+                                kind: ReplyKind::Ack,
+                                frame: None,
+                                scalar: 0,
+                            })
+                        } else {
+                            Err(())
+                        }
+                    }
+                    result => result,
+                };
+                drop(text);
+                drop(charge);
+                drop(parser_charge);
+                let identity = callback_window(&owner, c);
+                let mut effect = false;
+                let mut rejected = false;
+                {
+                    let mut o = owner.borrow_mut();
+                    let i = o.instance.as_mut().unwrap();
+                    let same = identity && valid_identity(i);
+                    let s = i.chooser.as_mut().unwrap();
+                    s.facts.completions[self.index] =
+                        s.facts.completions[self.index].saturating_add(1);
+                    let valid_slot = s.next == self.index && s.response.is_none();
+                    if self.index == 10
+                        && matches!(
+                            parsed,
+                            Ok(Reply {
+                                kind: ReplyKind::Canceled,
+                                frame: None,
+                                scalar: 0
+                            })
+                        )
+                        && same
+                        && received < s.epoch.end
+                        && !c.inventory.invalid.load(Ordering::SeqCst)
+                    {
+                        effect = s.epoch.effect_at(Instant::now());
+                        if effect {
+                            s.facts.effect_pre_stop = true;
+                            s.facts.trusted_cancel_snapshot = true;
+                            s.facts.snapshot_files_zero = true;
+                            s.facts.snapshot_value_empty = true;
+                            s.facts.snapshot_same_input_document = true;
+                        }
+                    }
+                    if !same
+                        || received >= s.epoch.end
+                        || Instant::now() >= s.epoch.end
+                        || s.epoch.stop.is_some()
+                        || !valid_slot
+                        || parsed.is_err()
+                        || (self.index == 10 && !effect)
+                    {
+                        s.epoch.invalidate(10);
+                        rejected = true;
+                    }
+                    if valid_slot {
+                        s.response = Some(Response {
+                            index: self.index,
+                            received,
+                            valid: parsed,
+                        });
+                    }
+                }
+                if rejected {
+                    fail(&owner, false);
+                }
+                if effect {
+                    emit(&owner, NativeChooserStage::Effect);
+                }
+                drop(active);
+                Ok(())
+            }
+        }
+        fn issue(owner: &Rc<RefCell<Owner>>, index: usize, core: &Rc<ICoreWebView2>) {
+            let context = Context::new(owner);
+            let Some(mut charge) = Text::reserve(&context.inventory, 2048) else {
+                fail(owner, false);
+                return;
+            };
+            let parameters = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                wire::params(
+                    index,
+                    s.frame,
+                    s.unique,
+                    if index == 7 { s.root } else { s.node },
+                )
+            };
+            let (wide, bytes) = match parameters {
+                Ok(p) => p,
+                Err(()) => {
+                    drop(charge);
+                    fail(owner, false);
+                    return;
+                }
+            };
+            charge.shrink(bytes);
+            let Some(method_charge) = Text::reserve(&context.inventory, wire::METHODS[index].len())
+            else {
+                drop(wide);
+                drop(charge);
+                fail(owner, false);
+                return;
+            };
+            let method: Vec<u16> = wire::METHODS[index].encode_utf16().chain(Some(0)).collect();
+            let handler: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler = Completion {
+                _lifetime: Lifetime::new(&context.callbacks, &context.inventory),
+                context,
+                index,
+            }
+            .into();
+            if !authorized(owner, true) {
+                drop(handler);
+                drop(wide);
+                drop(charge);
+                return;
+            }
+            // The final real invocation ticket is created only here, after all
+            // fallible setup and actual handler creation, not at preparation.
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                if s.in_flight
+                    || s.response.is_some()
+                    || s.next != index
+                    || s.facts.commands_issued[index] != 0
+                {
+                    drop(o);
+                    drop(handler);
+                    fail(owner, false);
+                    return;
+                }
+                s.in_flight = true;
+                s.facts.commands_issued[index] = 1;
+                if !s.inventory.issue_once(index) {
+                    s.epoch.invalidate(10);
+                }
+                if index == 10 {
+                    s.epoch.phase2 = true;
+                }
+            }
+            let result = unsafe {
+                core.CallDevToolsProtocolMethod(
+                    PCWSTR(method.as_ptr()),
+                    PCWSTR(wide.as_ptr()),
+                    &handler,
+                )
+            };
+            let ok = result.is_ok();
+            drop(result);
+            drop(handler);
+            drop(wide);
+            drop(charge);
+            drop(method);
+            drop(method_charge);
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.commands_returned[index] = 1;
+                s.facts.commands_succeeded[index] = u8::from(ok);
+            }
+            // Native return/handler/parameter Drop can reenter; it never grants
+            // another command after target. The submitted obligation remains.
+            if !ok {
+                fail(owner, false);
+            } else if !owner.borrow().instance.as_ref().unwrap().closing {
+                let _ = authorized(owner, true);
+            }
+        }
+        fn consume(owner: &Rc<RefCell<Owner>>) {
+            let response = {
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .and_then(|i| i.chooser.as_mut())
+                    .and_then(|s| {
+                        if s.facts.commands_returned[s.next.min(10)] == 0 {
+                            return None;
+                        }
+                        s.response.take()
+                    })
+            };
+            let Some(response) = response else {
+                return;
+            };
+            let mut bad = false;
+            {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                let s = i.chooser.as_mut().unwrap();
+                s.in_flight = false;
+                if !s.inventory.consume_once(response.index) {
+                    bad = true;
+                }
+                s.facts.consumed[response.index] =
+                    s.facts.consumed[response.index].saturating_add(1);
+                let timely = NativeDialogDeadline::disposal_within_close_at(
+                    response.received,
+                    Instant::now(),
+                    s.closing,
+                );
+                if !timely || response.index != s.next || response.received >= s.epoch.end {
+                    bad = true;
+                } else {
+                    match response.valid {
+                        Ok(Reply {
+                            kind: ReplyKind::Ack,
+                            frame: None,
+                            scalar: 0,
+                        }) => {}
+                        Ok(Reply {
+                            kind: ReplyKind::Tree,
+                            frame: Some(Frame { id, loader }),
+                            scalar: 0,
+                        }) => {
+                            if response.index == 3 {
+                                s.frame = Some(id);
+                                s.loader = Some(loader);
+                            } else if s.frame != Some(id) || s.loader != Some(loader) {
+                                bad = true;
+                            }
+                        }
+                        Ok(Reply {
+                            kind: ReplyKind::World,
+                            frame: None,
+                            scalar: id @ 1..=2147483647,
+                        }) => s.world_ack = Some(id),
+                        Ok(Reply {
+                            kind: ReplyKind::Prepared,
+                            frame: None,
+                            scalar: 0,
+                        }) => s.facts.phase1_prepared = true,
+                        Ok(Reply {
+                            kind: ReplyKind::Root,
+                            frame: None,
+                            scalar: id @ 1..=2147483647,
+                        }) => {
+                            s.root = id;
+                            s.facts.root_bound = true;
+                        }
+                        Ok(Reply {
+                            kind: ReplyKind::Node,
+                            frame: None,
+                            scalar: id @ 1..=2147483647,
+                        }) => {
+                            s.node = id;
+                            s.facts.sole_input_bound = true;
+                        }
+                        Ok(Reply {
+                            kind: ReplyKind::Input,
+                            frame: None,
+                            scalar: id @ 1..=2147483647,
+                        }) => {
+                            s.backend = id;
+                            s.facts.backend_bound = true;
+                        }
+                        Ok(Reply {
+                            kind: ReplyKind::Canceled,
+                            frame: None,
+                            scalar: 0,
+                        }) => {}
+                        _ => bad = true,
+                    }
+                }
+                if bad {
+                    s.epoch.invalidate(10);
+                } else {
+                    s.next += 1;
+                }
+            }
+            if bad {
+                fail(owner, false);
+            }
+        }
+        fn navigate(owner: &Rc<RefCell<Owner>>, core: &Rc<ICoreWebView2>) {
+            let inventory = {
+                let o = owner.borrow();
+                Arc::clone(
+                    &o.instance
+                        .as_ref()
+                        .unwrap()
+                        .chooser
+                        .as_ref()
+                        .unwrap()
+                        .inventory,
+                )
+            };
+            let charge = Text::reserve(&inventory, 1024);
+            if charge.is_none() {
+                fail(owner, false);
+                return;
+            }
+            let wide: Vec<u16> = {
+                let o = owner.borrow();
+                o.instance
+                    .as_ref()
+                    .unwrap()
+                    .chooser
+                    .as_ref()
+                    .unwrap()
+                    .target
+                    .encode_utf16()
+                    .chain(Some(0))
+                    .collect()
+            };
+            if !authorized(owner, true) {
+                drop(wide);
+                drop(charge);
+                return;
+            }
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                if s.facts.navigation_issued {
+                    drop(o);
+                    fail(owner, false);
+                    return;
+                }
+                s.grant = true;
+                s.facts.navigation_issued = true;
+            }
+            let result = unsafe { core.Navigate(PCWSTR(wide.as_ptr())) };
+            let ok = result.is_ok();
+            drop(result);
+            drop(wide);
+            drop(charge);
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.navigation_returned = true;
+                s.facts.navigation_succeeded = ok;
+            }
+            if !ok || !authorized(owner, true) {
+                fail(owner, false);
+            }
+        }
+        pub(super) fn advance(owner: &Rc<RefCell<Owner>>) {
+            if !selected(owner) {
+                return;
+            }
+            consume(owner);
+            synchronize(owner);
+            let closing = owner.borrow().instance.as_ref().unwrap().closing;
+            if closing {
+                return;
+            }
+            if !authorized(owner, true) {
+                return;
+            }
+            let (core, index, waiting) = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                (
+                    s.core.as_ref().map(Rc::clone),
+                    s.next,
+                    !s.ready || s.in_flight || s.response.is_some(),
+                )
+            };
+            let Some(core) = core else {
+                fail(owner, false);
+                return;
+            };
+            let active = {
+                let o = owner.borrow();
+                Active::enter(&o.instance.as_ref().unwrap().callbacks)
+            };
+            if waiting {
+                drop(core);
+                drop(active);
+                return;
+            }
+            if index == 3 {
+                let should_navigate = {
+                    let o = owner.borrow();
+                    let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                    !s.facts.navigation_issued && s.initial.is_some()
+                };
+                if should_navigate {
+                    navigate(owner, &core);
+                    drop(core);
+                    drop(active);
+                    return;
+                }
+                let ready = {
+                    let o = owner.borrow();
+                    let s = o.instance.as_ref().unwrap().chooser.as_ref().unwrap();
+                    s.facts.navigation_returned
+                        && s.facts.navigation_succeeded
+                        && s.facts.navigation_qualified
+                        && s.completed_good
+                };
+                if !ready {
+                    drop(core);
+                    drop(active);
+                    return;
+                }
+                if !source(owner, &core, false) {
+                    drop(core);
+                    drop(active);
+                    fail(owner, false);
+                    return;
+                }
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                    s.facts.fresh_document = true;
+                    s.epoch.arm();
+                    s.facts.armed_once = s.epoch.armed && s.epoch.invalid == 0;
+                }
+            }
+            if index == 5 {
+                let joined = {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                    if let Some(c) = s.candidate.take() {
+                        if Some(c.id) != s.world_ack
+                            || s.initial == Some(c.id)
+                            || s.file == Some(c.id)
+                        {
+                            s.epoch.invalidate(1);
+                            false
+                        } else {
+                            s.context = Some(c.id);
+                            s.unique = Some(c.unique);
+                            s.facts.world_joined = true;
+                            true
+                        }
+                    } else {
+                        s.facts.world_joined
+                    }
+                };
+                if !joined {
+                    let invalid = owner
+                        .borrow()
+                        .instance
+                        .as_ref()
+                        .unwrap()
+                        .chooser
+                        .as_ref()
+                        .unwrap()
+                        .epoch
+                        .invalid
+                        != 0;
+                    drop(core);
+                    drop(active);
+                    if invalid {
+                        fail(owner, false);
+                    }
+                    return;
+                }
+            }
+            if index == 10 {
+                if !source(owner, &core, false) {
+                    drop(core);
+                    drop(active);
+                    fail(owner, false);
+                    return;
+                }
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.final_tree_and_source = s.frame.is_some()
+                    && s.loader.is_some()
+                    && s.facts.phase1_prepared
+                    && s.facts.root_bound
+                    && s.facts.sole_input_bound
+                    && s.facts.backend_bound
+                    && s.facts.world_joined;
+                s.source_checked = s.facts.final_tree_and_source;
+                if !s.source_checked {
+                    drop(o);
+                    drop(core);
+                    drop(active);
+                    fail(owner, false);
+                    return;
+                }
+            }
+            if index < 11 {
+                issue(owner, index, &core);
+            }
+            drop(core);
+            drop(active);
+            if !owner.borrow().instance.as_ref().unwrap().closing {
+                let _ = authorized(owner, true);
+            }
+        }
+        pub(super) fn removed(i: &Instance) -> bool {
+            i.chooser.as_ref().is_none_or(|s| {
+                s.receivers.iter().all(|r| r.token.is_none())
+                    && s.completed.as_ref().is_none_or(|r| r.token.is_none())
+                    && !s.installation.load(Ordering::SeqCst)
+            })
+        }
+        pub(super) fn remove(owner: &Rc<RefCell<Owner>>) {
+            if !selected(owner) {
+                return;
+            }
+            loop {
+                let action = {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                    s.receivers.iter_mut().enumerate().find_map(|(n, r)| {
+                        if r.attempted {
+                            return None;
+                        }
+                        let token = r.token?;
+                        r.attempted = true;
+                        Some((n, Rc::clone(&r.receiver), token))
+                    })
+                };
+                let Some((index, receiver, token)) = action else {
+                    break;
+                };
+                cleanup_window(owner);
+                let result = unsafe { receiver.remove_DevToolsProtocolEventReceived(token) };
+                let ok = result.is_ok();
+                drop(result);
+                drop(receiver);
+                cleanup_window(owner);
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                    if ok {
+                        s.receivers[index].token = None;
+                        s.facts.receiver_removes[index] = 1;
+                    }
+                }
+                if !ok {
+                    fail(owner, true);
+                }
+            }
+            let action = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.completed.as_mut().and_then(|r| {
+                    if r.attempted {
+                        return None;
+                    }
+                    let token = r.token?;
+                    r.attempted = true;
+                    Some((Rc::clone(&r.core), token))
+                })
+            };
+            if let Some((core, token)) = action {
+                cleanup_window(owner);
+                let result = unsafe { core.remove_NavigationCompleted(token) };
+                let ok = result.is_ok();
+                drop(result);
+                drop(core);
+                cleanup_window(owner);
+                if ok {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                    s.completed.as_mut().unwrap().token = None;
+                    s.facts.completed_removed = true;
+                    s.facts.completed_same_emitter = true;
+                } else {
+                    fail(owner, true);
+                }
+            }
+        }
+        pub(super) fn take_controls(i: &mut Instance) -> Controls {
+            if let Some(s) = i.chooser.as_mut() {
+                Controls {
+                    _core: s.core.take(),
+                    _receivers: std::mem::take(&mut s.receivers),
+                    _completed: s.completed.take(),
+                }
+            } else {
+                Controls {
+                    _core: None,
+                    _receivers: Vec::new(),
+                    _completed: None,
+                }
+            }
+        }
+        pub(super) fn quiescent(i: &Instance) -> bool {
+            i.chooser.as_ref().is_none_or(|s| {
+                s.core.is_none()
+                    && s.receivers.is_empty()
+                    && s.completed.is_none()
+                    && s.response.is_none()
+                    && s.inventory.handlers.load(Ordering::SeqCst) == 0
+                    && s.inventory.drained()
+            })
+        }
+        pub(super) fn publish_final(owner: &Rc<RefCell<Owner>>) {
+            if !selected(owner) {
+                return;
+            }
+            let text = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.observation_epoch_valid =
+                    s.epoch.positive() && !s.inventory.invalid.load(Ordering::SeqCst);
+                s.facts.obligations_drained = s.inventory.drained();
+                s.facts.handlers_drained = s.inventory.handlers.load(Ordering::SeqCst) == 0;
+                s.facts.receivers_drained = s.receivers.is_empty() && s.completed.is_none();
+                s.unique = None;
+                s.frame = None;
+                s.loader = None;
+                s.candidate = None;
+                (
+                    std::mem::take(&mut s.target),
+                    s._target_charge.take(),
+                    s._id_charge.take(),
+                )
+            };
+            drop(text);
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().chooser.as_mut().unwrap();
+                s.facts.protocol_text_drained = s.inventory.text.load(Ordering::SeqCst) == 0;
+            }
+            emit(owner, NativeChooserStage::Final);
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+
+            #[test]
+            fn real_invocation_tickets_require_callback_and_consumption_not_handler_drop() {
+                let inventory = Inventory::new();
+                assert!(inventory.issue_once(0));
+                assert!(!inventory.drained());
+                // Merely creating/dropping an unrelated handler lifetime cannot
+                // consume the outstanding real command obligation.
+                let callbacks = Arc::new(Callbacks::default());
+                let inventory = Arc::new(inventory);
+                drop(Lifetime::new(&callbacks, &inventory));
+                assert!(!inventory.drained());
+                assert!(inventory.invoke_once(0));
+                assert!(!inventory.drained());
+                assert!(inventory.consume_once(0));
+                assert!(inventory.drained());
+                assert!(!inventory.invoke_once(0));
+                assert!(inventory.invalid.load(Ordering::SeqCst));
+                let unknown = Inventory::new();
+                assert!(!unknown.invoke_once(1));
+                assert!(!unknown.issue_once(11));
+            }
+
+            #[test]
+            fn text_charges_overlap_transfer_and_drop_without_exceeding_4096() {
+                let inventory = Arc::new(Inventory::new());
+                let pinned = Text::reserve(&inventory, 384).unwrap();
+                let mut outgoing = Text::reserve(&inventory, 2048).unwrap();
+                outgoing.shrink(1710);
+                let response = Text::reserve(&inventory, 512).unwrap();
+                assert_eq!(inventory.text.load(Ordering::SeqCst), 2606);
+                assert!(Text::reserve(&inventory, 1491).is_none());
+                drop(outgoing);
+                assert_eq!(inventory.text.load(Ordering::SeqCst), 896);
+                drop(response);
+                drop(pinned);
+                assert_eq!(inventory.text.load(Ordering::SeqCst), 0);
+            }
         }
     }
 
@@ -7438,6 +9407,7 @@ mod native {
                     || i.failed
                     || i.inline_loaded
                     || i.policy.is_some()
+                    || i.chooser.is_some()
                     || i.policy_mailbox.is_some()
                     || i.policy_fault.case.is_some()
                     || i.core.is_none()
@@ -7807,6 +9777,7 @@ mod native {
                     || i.failed
                     || i.inline_loaded
                     || i.policy.is_some()
+                    || i.chooser.is_some()
                     || i.core.is_none()
                     || i.environment.is_none()
                     || i.controller.is_none()
@@ -9631,6 +11602,9 @@ pub mod fixture {
                 expired: std::cell::Cell::new(false),
             })
         }
+        pub(super) fn original_end(&self) -> std::time::Instant {
+            self.expires_at
+        }
         pub(super) fn before_original_at(&self, now: std::time::Instant) -> bool {
             if now >= self.expires_at {
                 self.expired.set(true);
@@ -11247,6 +13221,221 @@ pub mod fixture {
         }
     }
 
+    /// S3 facts are real native producer observations; scalar snapshot counts end
+    /// at the trusted cancel, and do not assert event absence through Close.
+    #[derive(Clone, Copy, Default, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NativeChooserFacts {
+        pub receiver_adds: [u8; 10],
+        pub receiver_removes: [u8; 10],
+        pub commands_issued: [u8; 11],
+        pub commands_returned: [u8; 11],
+        pub commands_succeeded: [u8; 11],
+        pub completions: [u8; 11],
+        pub consumed: [u8; 11],
+        pub native_starts: u8,
+        pub native_completions: u8,
+        pub target_events: u8,
+        pub bootstrap_delivered: u8,
+        pub asset_bound: bool,
+        pub initial_source: bool,
+        pub settings_and_hooks: bool,
+        pub navigation_issued: bool,
+        pub navigation_returned: bool,
+        pub navigation_succeeded: bool,
+        pub navigation_qualified: bool,
+        pub completed_added: bool,
+        pub completed_removed: bool,
+        pub completed_same_emitter: bool,
+        pub fresh_document: bool,
+        pub initial_default_session_observed: bool,
+        pub armed_once: bool,
+        pub world_joined: bool,
+        pub phase1_prepared: bool,
+        pub root_bound: bool,
+        pub sole_input_bound: bool,
+        pub backend_bound: bool,
+        pub final_tree_and_source: bool,
+        pub target_session_identity: bool,
+        pub target_pre_stop: bool,
+        pub effect_pre_stop: bool,
+        pub trusted_cancel_snapshot: bool,
+        pub snapshot_files_zero: bool,
+        pub snapshot_value_empty: bool,
+        pub snapshot_same_input_document: bool,
+        pub first_closing_observed: bool,
+        pub actual_stop_entry_observed: bool,
+        pub observation_epoch_valid: bool,
+        pub obligations_drained: bool,
+        pub handlers_drained: bool,
+        pub protocol_text_drained: bool,
+        pub receivers_drained: bool,
+    }
+    impl NativeChooserFacts {
+        pub fn target_positive(&self) -> bool {
+            self.target_events == 1
+                && self.target_session_identity
+                && self.target_pre_stop
+                && self.fresh_document
+                && self.armed_once
+                && self.world_joined
+                && self.phase1_prepared
+                && self.root_bound
+                && self.sole_input_bound
+                && self.backend_bound
+                && self.final_tree_and_source
+                && self.first_closing_observed
+        }
+        pub fn positive(&self) -> bool {
+            self.receiver_adds == [1; 10]
+                && self.receiver_removes == [1; 10]
+                && self.commands_issued == [1; 11]
+                && self.commands_returned == [1; 11]
+                && self.commands_succeeded == [1; 11]
+                && self.completions == [1; 11]
+                && self.consumed == [1; 11]
+                && self.native_starts == 1
+                && self.native_completions == 1
+                && self.asset_bound
+                && self.initial_source
+                && self.settings_and_hooks
+                && self.navigation_issued
+                && self.navigation_returned
+                && self.navigation_succeeded
+                && self.navigation_qualified
+                && self.completed_added
+                && self.completed_removed
+                && self.completed_same_emitter
+                && self.initial_default_session_observed
+                && self.target_positive()
+                && self.effect_pre_stop
+                && self.trusted_cancel_snapshot
+                && self.snapshot_files_zero
+                && self.snapshot_value_empty
+                && self.snapshot_same_input_document
+                && self.actual_stop_entry_observed
+                && self.observation_epoch_valid
+                && self.obligations_drained
+                && self.handlers_drained
+                && self.protocol_text_drained
+                && self.receivers_drained
+                && (1..=16).contains(&self.bootstrap_delivered)
+        }
+    }
+    #[cfg(test)]
+    mod chooser_contract_tests {
+        use super::NativeChooserFacts;
+
+        #[test]
+        fn default_or_missing_independent_chooser_producers_never_pass() {
+            assert!(!NativeChooserFacts::default().positive());
+            // Inert unit-test input only; runtime facts have native producers.
+            let good = NativeChooserFacts {
+                receiver_adds: [1; 10],
+                receiver_removes: [1; 10],
+                commands_issued: [1; 11],
+                commands_returned: [1; 11],
+                commands_succeeded: [1; 11],
+                completions: [1; 11],
+                consumed: [1; 11],
+                native_starts: 1,
+                native_completions: 1,
+                target_events: 1,
+                bootstrap_delivered: 1,
+                asset_bound: true,
+                initial_source: true,
+                settings_and_hooks: true,
+                navigation_issued: true,
+                navigation_returned: true,
+                navigation_succeeded: true,
+                navigation_qualified: true,
+                completed_added: true,
+                completed_removed: true,
+                completed_same_emitter: true,
+                fresh_document: true,
+                initial_default_session_observed: true,
+                armed_once: true,
+                world_joined: true,
+                phase1_prepared: true,
+                root_bound: true,
+                sole_input_bound: true,
+                backend_bound: true,
+                final_tree_and_source: true,
+                target_session_identity: true,
+                target_pre_stop: true,
+                effect_pre_stop: true,
+                trusted_cancel_snapshot: true,
+                snapshot_files_zero: true,
+                snapshot_value_empty: true,
+                snapshot_same_input_document: true,
+                first_closing_observed: true,
+                actual_stop_entry_observed: true,
+                observation_epoch_valid: true,
+                obligations_drained: true,
+                handlers_drained: true,
+                protocol_text_drained: true,
+                receivers_drained: true,
+            };
+            assert!(good.positive());
+            for bootstrap in [0, 17] {
+                let mut missing = good;
+                missing.bootstrap_delivered = bootstrap;
+                assert!(!missing.positive());
+            }
+            for target_events in [0, 2] {
+                let mut missing = good;
+                missing.target_events = target_events;
+                assert!(!missing.positive());
+            }
+            let mut missing = good;
+            missing.effect_pre_stop = false;
+            assert!(!missing.positive());
+            missing = good;
+            missing.snapshot_files_zero = false;
+            assert!(!missing.positive());
+            missing = good;
+            missing.obligations_drained = false;
+            assert!(!missing.positive());
+            missing = good;
+            missing.receiver_removes[0] = 0;
+            assert!(!missing.positive());
+            missing = good;
+            missing.completions[10] = 0;
+            assert!(!missing.positive());
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    pub enum NativeChooserStage {
+        Started,
+        Target,
+        Effect,
+        Final,
+    }
+    pub struct NativeChooserReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) stage: NativeChooserStage,
+        pub(super) facts: NativeChooserFacts,
+    }
+    impl NativeChooserReceipt {
+        pub fn matches(
+            &self,
+            request: &Code0WindowRequest,
+            install: &NativeRefusalInstallReceipt,
+        ) -> bool {
+            &self.request == request
+                && install.matches(request)
+                && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        pub fn stage(&self) -> NativeChooserStage {
+            self.stage
+        }
+        pub fn facts(&self) -> NativeChooserFacts {
+            self.facts
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum PolicyFixtureCase {
         InstallAckBeforeFirstLoad,
@@ -11551,6 +13740,10 @@ pub mod fixture {
             at: std::time::Instant,
         },
         Download(NativeDownloadReceipt),
+        ChooserClosing {
+            at: std::time::Instant,
+        },
+        Chooser(NativeChooserReceipt),
         DialogClosing {
             at: std::time::Instant,
         },
@@ -12670,6 +14863,34 @@ pub mod fixture {
             #[cfg(not(windows))]
             {
                 let _ = (request, deadline);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// S3 sole fixed input fixture; no caller script, URL or path.
+        pub fn begin_fixture_prebound_chooser(
+            &mut self,
+            request: &Code0WindowRequest,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            let root = self
+                .profile_root
+                .parent()
+                .ok_or(Code0SessionFailure::PolicyRejected)?;
+            #[cfg(windows)]
+            {
+                super::native::begin_chooser(&self.owner, request, root, deadline)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (request, root, deadline);
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }
