@@ -193,7 +193,8 @@ mod native {
     use super::fixture::{
         DiagnosticMilestone as DM, DiagnosticPhase as DP, DiagnosticUncertainty as DU,
         DiagnosticUncertaintyReason as UR, DiagnosticUncertaintySite as US,
-        DiagnosticUncertaintyStage as UT, Diagnostics, NativeSmokeObservation, Observer,
+        DiagnosticUncertaintyStage as UT, Diagnostics, N3Block as N3B, N3CompletionDiagnostic,
+        N3DialogReason as N3R, N3Writer as N3W, NativeSmokeObservation, Observer,
     };
     use super::{Code0NativeEventSink, Code0SessionFailure, Code0WindowEvent, Code0WindowRequest};
 
@@ -279,6 +280,35 @@ mod native {
         }
     }
     // N4 diagnostic end.
+
+    // N3 diagnostic begin: callers hold their original Owner borrow; no native work.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    fn n3_writer(callbacks: &Callbacks, site: N3W, bits: u16) {
+        if let Some(diagnostic) = callbacks.diagnostics.as_ref() {
+            diagnostic.n3_writer(site, bits);
+        }
+    }
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    fn n3_block(instance: &Instance, was_blocked: bool, unmatched: bool, site: N3B, reason: u8) {
+        if let Some(diagnostic) = instance
+            .callbacks
+            .diagnostics
+            .as_ref()
+            .filter(|d| d.n3_enabled())
+        {
+            let bits = u16::from(instance.controls_disposed)
+                | (u16::from(instance.closing) << 1)
+                | (u16::from(instance.destroyed) << 2)
+                | (u16::from(matches!(instance.browser_exit, BrowserExitState::Observed)) << 3)
+                | (u16::from(instance.exit_remove_attempted) << 4)
+                | (u16::from(instance.refusal_registry.unknown()) << 5)
+                | (u16::from(instance.callbacks.affinity_failed.load(Ordering::SeqCst)) << 6)
+                | (u16::from(unmatched) << 7)
+                | (u16::from(reason) << 8);
+            diagnostic.n3_block(was_blocked, site, bits);
+        }
+    }
+    // N3 diagnostic end.
 
     #[derive(Default)]
     struct Callbacks {
@@ -1435,6 +1465,8 @@ mod native {
     ) {
         if result.is_err() {
             let mut state = owner.borrow_mut();
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let n3_unmatched = state.unmatched;
             let instance = state.instance.as_mut().unwrap();
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Some(diagnostic) = instance.callbacks.diagnostics.as_ref() {
@@ -1448,7 +1480,17 @@ mod native {
                 1306,
                 0,
             );
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            let n3_was_blocked = instance.cleanup_blocked;
             instance.cleanup_blocked = true;
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            n3_block(
+                instance,
+                n3_was_blocked,
+                n3_unmatched,
+                N3B::NativeCleanup,
+                detail.site as u8,
+            );
         }
     }
 
@@ -1487,6 +1529,7 @@ mod native {
                 | (u32::from(instance.exit_remove_attempted) << 21)
                 | (u32::from(matches!(instance.browser_exit, BrowserExitState::Unknown)) << 22);
             s2::diagnose_popup(instance, state.unmatched);
+            s2::diagnose_dialog(instance, state.unmatched);
             diagnostic.publish_inventory(
                 instance.callbacks.pending.load(Ordering::SeqCst),
                 instance.callbacks.active.load(Ordering::SeqCst),
@@ -1588,7 +1631,11 @@ mod native {
                         | (u16::from(instance.callbacks.affinity_failed.load(Ordering::SeqCst))
                             << 1),
                 );
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                let n3_was_blocked = instance.cleanup_blocked;
                 instance.cleanup_blocked = true;
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                n3_block(instance, n3_was_blocked, unmatched, N3B::PollIdentity, 0);
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if instance.refusal_registry.unknown() {
@@ -1608,7 +1655,9 @@ mod native {
                     1427,
                     0,
                 );
+                let n3_was_blocked = instance.cleanup_blocked;
                 instance.cleanup_blocked = true;
+                n3_block(instance, n3_was_blocked, unmatched, N3B::PollUnknown, 0);
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s3::mark_close(instance);
@@ -2839,6 +2888,7 @@ mod native {
                 // No UI-local Weak/Rc/RefCell, raw read or allocation before STA.
                 if !callback_on_ui(self.ui, &self.callbacks, 2589) {
                     self.installation.store(true, Ordering::SeqCst);
+                    n3_writer(&self.callbacks, N3W::CompletionAffinity, 0);
                     if let Some(m) = self.mailbox.upgrade() {
                         m.invalid.store(true, Ordering::SeqCst);
                     }
@@ -2846,11 +2896,13 @@ mod native {
                 }
                 let Some(m) = self.mailbox.upgrade() else {
                     self.installation.store(true, Ordering::SeqCst);
+                    n3_writer(&self.callbacks, N3W::MissingMailbox, 0);
                     return Ok(());
                 };
                 if m.invoked.swap(true, Ordering::SeqCst) {
                     m.invalid.store(true, Ordering::SeqCst);
                     self.installation.store(true, Ordering::SeqCst);
+                    n3_writer(&self.callbacks, N3W::DuplicateInvocation, 0);
                     return Ok(());
                 }
                 let received_at = Instant::now();
@@ -2874,6 +2926,7 @@ mod native {
                 if slot.is_some() {
                     m.invalid.store(true, Ordering::SeqCst);
                     self.installation.store(true, Ordering::SeqCst);
+                    n3_writer(&self.callbacks, N3W::OccupiedDisposition, 0);
                 } else {
                     *slot = Some(d);
                 }
@@ -2949,8 +3002,17 @@ mod native {
             Some(at)
         }
         fn fail_dialog(owner: &Rc<RefCell<Owner>>, unknown: bool) {
+            fail_dialog_diagnostic(owner, unknown, N3R::Unspecified, 0);
+        }
+        fn fail_dialog_diagnostic(
+            owner: &Rc<RefCell<Owner>>,
+            unknown: bool,
+            reason: N3R,
+            bits: u16,
+        ) {
             let notification = {
                 let mut state = owner.borrow_mut();
+                let n3_unmatched = state.unmatched;
                 let Some(i) = state.instance.as_mut() else {
                     return;
                 };
@@ -2959,6 +3021,7 @@ mod native {
                 }
                 if unknown {
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    n3_writer(&i.callbacks, N3W::DialogUncertainty, bits);
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     n4_note(
                         &i.callbacks,
@@ -2966,7 +3029,9 @@ mod native {
                         2711,
                         0,
                     );
+                    let n3_was_blocked = i.cleanup_blocked;
                     i.cleanup_blocked = true;
+                    n3_block(i, n3_was_blocked, n3_unmatched, N3B::Dialog, reason as u8);
                 }
                 i.failed = true;
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -3319,7 +3384,8 @@ mod native {
             request: &Code0WindowRequest,
             core: &Rc<ICoreWebView2>,
         ) -> windows::core::Result<()> {
-            let context = Context::new(owner, request);
+            let mut context = Context::new(owner, request);
+            context.n3_event = 10;
             let installation = Arc::clone(&context.unknown);
             let handler = NavigationCompletedEventHandler::create(Box::new(move |sender, args| {
                 let active = Active::enter(&context.callbacks);
@@ -3575,13 +3641,14 @@ mod native {
                 return;
             };
             if m.invalid.load(Ordering::SeqCst) {
-                fail_dialog(owner, true);
+                fail_dialog_diagnostic(owner, true, N3R::InvalidMailbox, 0);
             }
             let disposition = m.disposition.lock().unwrap().take();
             let Some(d) = disposition else {
                 return;
             };
             let mut uncertainty = false;
+            let n3_completion_bits;
             let successful = {
                 let mut state = owner.borrow_mut();
                 let unmatched = state.unmatched;
@@ -3605,6 +3672,25 @@ mod native {
                 if !same {
                     d.installation.store(true, Ordering::SeqCst);
                     m.invalid.store(true, Ordering::SeqCst);
+                    n3_writer(
+                        &i.callbacks,
+                        N3W::CompletionIdentity,
+                        u16::from(unmatched)
+                            | (u16::from(i.request == d.request) << 1)
+                            | (u16::from(i.refusal_registry.generation == d.generation) << 2)
+                            | (u16::from(Arc::ptr_eq(
+                                &i.refusal_registry.unknown,
+                                &d.installation,
+                            )) << 3)
+                            | (u16::from(
+                                dialog
+                                    .mailbox
+                                    .as_ref()
+                                    .is_some_and(|actual| Arc::ptr_eq(actual, &m)),
+                            ) << 4)
+                            | (u16::from(dialog.completion_seen) << 5)
+                            | (u16::from(m.obligation.load(Ordering::SeqCst) == 1) << 6),
+                    );
                     return;
                 }
                 let closing = *m.closing_since.lock().unwrap();
@@ -3618,12 +3704,35 @@ mod native {
                     consumed_at,
                     closing,
                 );
+                let mut n3_invalid = None;
+                let mut n3_affinity = None;
                 let valid = same
                     && !i.released
                     && disposal_timely
-                    && !m.invalid.load(Ordering::SeqCst)
-                    && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                    && !{
+                        let value = m.invalid.load(Ordering::SeqCst);
+                        n3_invalid = Some(value);
+                        value
+                    }
+                    && !{
+                        let value = i.callbacks.affinity_failed.load(Ordering::SeqCst);
+                        n3_affinity = Some(value);
+                        value
+                    }
                     && (!d.hresult_succeeded || d.bounded_result_valid && d.fixed_result_matched);
+                n3_completion_bits = N3CompletionDiagnostic {
+                    same,
+                    not_released: !i.released,
+                    disposal_timely,
+                    invalid: n3_invalid,
+                    affinity: n3_affinity,
+                    hresult_succeeded: d.hresult_succeeded,
+                    bounded: d.bounded_result_valid,
+                    fixed: d.fixed_result_matched,
+                    original_timely: timely,
+                    valid,
+                }
+                .bits();
                 let f = &mut dialog.facts;
                 f.script_completions = f.script_completions.saturating_add(1);
                 f.completion_identity_matched = same;
@@ -3646,7 +3755,12 @@ mod native {
                     && d.fixed_result_matched
             };
             if !successful {
-                fail_dialog(owner, uncertainty);
+                fail_dialog_diagnostic(
+                    owner,
+                    uncertainty,
+                    N3R::RejectedCompletion,
+                    n3_completion_bits,
+                );
             }
             emit_dialog(
                 owner,
@@ -3660,7 +3774,7 @@ mod native {
                 i.refusal_registry.dialog.is_some() && i.refusal_registry.unknown()
             });
             if unknown {
-                fail_dialog(owner, true);
+                fail_dialog_diagnostic(owner, true, N3R::RegistryUnknown, 0);
             }
             let binding = {
                 let state = owner.borrow();
@@ -3755,8 +3869,23 @@ mod native {
             request: &Code0WindowRequest,
             expected_installation: &Arc<AtomicBool>,
         ) {
+            let n3_submission_diagnostic;
             let action = {
                 let state = owner.borrow();
+                n3_submission_diagnostic = state
+                    .diagnostics
+                    .as_ref()
+                    .filter(|d| d.n3_enabled())
+                    .map(|d| {
+                        let bits = state.instance.as_ref().map_or(0, |i| {
+                            u16::from(Arc::ptr_eq(
+                                &i.refusal_registry.unknown,
+                                expected_installation,
+                            )) | (u16::from(&i.request == request) << 1)
+                                | (u16::from(i.refusal_registry.generation == GENERATION) << 2)
+                        });
+                        (Arc::clone(d), bits)
+                    });
                 state
                     .instance
                     .as_ref()
@@ -3783,8 +3912,11 @@ mod native {
             };
             let Some((core, callbacks, ui, target, installation)) = action else {
                 expected_installation.store(true, Ordering::SeqCst);
+                if let Some((diagnostic, bits)) = n3_submission_diagnostic {
+                    diagnostic.n3_writer(N3W::SubmissionBinding, bits);
+                }
                 if dialog_deadline(owner, request, expected_installation).is_some() {
-                    fail_dialog(owner, true);
+                    fail_dialog_diagnostic(owner, true, N3R::MissingBinding, 0);
                 }
                 return;
             };
@@ -3931,12 +4063,17 @@ mod native {
                         0,
                     );
                     i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                    n3_writer(
+                        &i.callbacks,
+                        N3W::CompletedRemoval,
+                        u16::from(result.is_err()) | (u16::from(!same) << 1),
+                    );
                 }
             }
             drop(result);
             drop(core);
             if !same {
-                fail_dialog(owner, true);
+                fail_dialog_diagnostic(owner, true, N3R::RemovalMismatch, 0);
             }
         }
         pub(super) fn publish_dialog_final(owner: &Rc<RefCell<Owner>>) {
@@ -3963,6 +4100,52 @@ mod native {
                 emit_dialog(owner, &request, &installation, NativeDialogStage::Final);
             }
         }
+
+        // N3 diagnostic begin: called only under the existing inventory borrow.
+        pub(super) fn diagnose_dialog(i: &Instance, unmatched: bool) {
+            let Some(diagnostic) = i.callbacks.diagnostics.as_ref().filter(|d| d.n3_enabled())
+            else {
+                return;
+            };
+            let dialog = i.refusal_registry.dialog.as_ref();
+            let mailbox = dialog.and_then(|d| d.mailbox.as_ref());
+            let state = u64::from(dialog.is_some())
+                | (u64::from(mailbox.is_some()) << 1)
+                | (u64::from(mailbox.is_some_and(|m| m.invoked.load(Ordering::SeqCst))) << 2)
+                | (u64::from(mailbox.is_some_and(|m| m.invalid.load(Ordering::SeqCst))) << 3)
+                | (u64::from(dialog.is_some_and(|d| d.completion_seen)) << 4)
+                | (u64::from(i.refusal_registry.unknown()) << 5)
+                | (u64::from(i.cleanup_blocked) << 6)
+                | (u64::from(i.controls_disposed) << 7)
+                | (u64::from(i.closing) << 8)
+                | (u64::from(i.released) << 9)
+                | (u64::from(i.environment.is_some()) << 10)
+                | (u64::from(i.environment5.is_some()) << 11)
+                | (u64::from(i.exit_token.is_some()) << 12)
+                | (u64::from(matches!(i.browser_exit, BrowserExitState::Observed)) << 13)
+                | (u64::from(i.exit_remove_attempted) << 14)
+                | (u64::from(i.callbacks.affinity_failed.load(Ordering::SeqCst)) << 15)
+                | (u64::from(unmatched) << 16)
+                | (u64::from(i.policy.is_some()) << 17)
+                | (u64::from(i.chooser.is_some()) << 18)
+                | (u64::from(i.capability.is_some()) << 19)
+                | (u64::from(i.refusal_registry.legacy.is_some()) << 20)
+                | (u64::from(i.refusal_registry.child.is_some()) << 21)
+                | (u64::from(i.refusal_registry.popup.is_some()) << 22)
+                | (u64::from(i.refusal_registry.download.is_some()) << 23)
+                | (u64::from(i.destroyed) << 29);
+            diagnostic.n3_publish_inventory(
+                state,
+                [
+                    mailbox.map_or(0, |m| m.handlers.load(Ordering::SeqCst)),
+                    mailbox.map_or(0, |m| m.obligation.load(Ordering::SeqCst)),
+                    i.callbacks.handlers.load(Ordering::SeqCst),
+                    i.callbacks.active.load(Ordering::SeqCst),
+                    i.callbacks.pending.load(Ordering::SeqCst),
+                ],
+            );
+        }
+        // N3 diagnostic end.
 
         // N4 diagnostic begin: called under existing UI inventory borrow only.
         pub(super) fn diagnose_popup(i: &Instance, unmatched: bool) {
@@ -5138,6 +5321,11 @@ mod native {
                         context.diagnostic_hook_bits(),
                     );
                     context.unknown.store(true, Ordering::SeqCst);
+                    n3_writer(
+                        &context.callbacks,
+                        N3W::PopupAffinity,
+                        u16::from(context.n3_event) << 8,
+                    );
                     drop(args);
                     drop(sender);
                     drop(active);
@@ -6027,6 +6215,11 @@ mod native {
                         context.diagnostic_hook_bits(),
                     );
                     context.unknown.store(true, Ordering::SeqCst);
+                    n3_writer(
+                        &context.callbacks,
+                        N3W::DownloadAffinity,
+                        u16::from(context.n3_event) << 8,
+                    );
                     drop(args);
                     drop(sender);
                     drop(active);
@@ -6147,6 +6340,7 @@ mod native {
         fn latch_unknown(owner: &Rc<RefCell<Owner>>) {
             let observation = {
                 let mut state = owner.borrow_mut();
+                let n3_unmatched = state.unmatched;
                 if let Some(i) = state.instance.as_mut()
                     && i.refusal_registry.unknown.load(Ordering::SeqCst)
                 {
@@ -6166,7 +6360,9 @@ mod native {
                         5333,
                         0,
                     );
+                    let n3_was_blocked = i.cleanup_blocked;
                     i.cleanup_blocked = true;
+                    n3_block(i, n3_was_blocked, n3_unmatched, N3B::RegistryPropagation, 0);
                     (
                         mark_child_close(i).map(|at| (i.observer.clone(), at)),
                         mark_popup_close(i).map(|at| (i.observer.clone(), at)),
@@ -6195,6 +6391,7 @@ mod native {
             callbacks: Arc<Callbacks>,
             unknown: Arc<AtomicBool>,
             diagnostic_hook: u8,
+            n3_event: u8,
             _lifetime: HandlerLifetime,
         }
         impl Context {
@@ -6208,6 +6405,11 @@ mod native {
                     generation: GENERATION,
                     ui: state.ui_thread,
                     diagnostic_hook: i
+                        .refusal_registry
+                        .entries
+                        .last()
+                        .map_or(255, |e| e.hook as u8),
+                    n3_event: i
                         .refusal_registry
                         .entries
                         .last()
@@ -6291,6 +6493,11 @@ mod native {
                         self.diagnostic_hook_bits(),
                     );
                     self.unknown.store(true, Ordering::SeqCst);
+                    n3_writer(
+                        &self.callbacks,
+                        N3W::ContextAffinity,
+                        u16::from(self.n3_event) << 8,
+                    );
                     return Err(rejection());
                 }
                 let owner = self.owner.upgrade();
@@ -6364,6 +6571,16 @@ mod native {
                             | self.diagnostic_hook_bits(),
                     );
                     self.unknown.store(true, Ordering::SeqCst);
+                    n3_writer(
+                        &self.callbacks,
+                        N3W::ContextIdentity,
+                        identity_diagnostic
+                            | (u16::from(!same_installation) << 4)
+                            | (u16::from(result.is_err()) << 5)
+                            | (u16::from(identity) << 6)
+                            | (u16::from(eligible) << 7)
+                            | (u16::from(self.n3_event) << 8),
+                    );
                 }
                 let mut top_close = None;
                 let mut child_close = None;
@@ -6372,6 +6589,7 @@ mod native {
                 let mut download_close = None;
                 if let Some(owner) = owner.as_ref() {
                     let mut state = owner.borrow_mut();
+                    let n3_unmatched = state.unmatched;
                     if let Some(i) = matching(&mut state, &self.request)
                         && self.matches_instance(i)
                     {
@@ -6382,7 +6600,15 @@ mod native {
                             i.closing = true;
                             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                             n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::CleanupBlock, 5514, 0);
+                            let n3_was_blocked = i.cleanup_blocked;
                             i.cleanup_blocked = true;
+                            n3_block(
+                                i,
+                                n3_was_blocked,
+                                n3_unmatched,
+                                N3B::RefusalCallback,
+                                self.n3_event,
+                            );
                         } else if result.as_ref().is_ok_and(|refused| *refused) {
                             n4_note(&i.callbacks, crate::platform::windows::code0_webview::fixture::N4Cause::Revocation, 5519, self.diagnostic_hook_bits() | u16::from(identity) | (u16::from(same_installation) << 1) | (u16::from(eligible) << 2));
                             // Existing poll delivers Failed(PolicyRejected),
@@ -7298,6 +7524,19 @@ mod native {
                                 }) << 8),
                         );
                         i.refusal_registry.unknown.store(true, Ordering::SeqCst);
+                        n3_writer(
+                            &i.callbacks,
+                            N3W::HookRemoval,
+                            hook as u16
+                                | ((match emitter.as_ref() {
+                                    Emitter::Core(_) => 0u16,
+                                    Emitter::External(_) => 1,
+                                    Emitter::Download(_) => 2,
+                                    Emitter::Authentication(_) => 3,
+                                    Emitter::Certificate(_) => 4,
+                                    Emitter::Tls(_) => 5,
+                                }) << 8),
+                        );
                     }
                 }
                 latch_unknown(owner);
@@ -18439,6 +18678,7 @@ pub mod fixture {
         inventory: u64,
         first_failure: u64,
         times: [u64; 10],
+        n3: Option<N3DiagnosticSnapshot>,
     }
 
     impl DiagnosticCloseSnapshot {
@@ -18470,6 +18710,9 @@ pub mod fixture {
                 self.times[8],
                 self.times[9]
             );
+            if let Some(n3) = self.n3 {
+                n3.emit(self.kind);
+            }
         }
     }
 
@@ -18603,6 +18846,171 @@ pub mod fixture {
         }
     }
 
+    // N3 diagnostic begin: source-first focused tests; execution is separately owned.
+    #[cfg(test)]
+    mod n3_diagnostic_tests {
+        use super::*;
+        use std::sync::atomic::Ordering::Acquire;
+
+        // Catches accidental cross-domain arming or records while diagnostics are off.
+        #[test]
+        fn n3_arming_is_opt_in_and_does_not_arm_n4() {
+            let disabled = Diagnostics::default();
+            disabled.arm_dialog_owned_empty_html();
+            disabled.n3_writer(N3Writer::DuplicateInvocation, 0);
+            assert_eq!(disabled.n3_writer_sites.load(Acquire), 0);
+            let n4 = Diagnostics {
+                enabled: true,
+                ..Diagnostics::default()
+            };
+            n4.arm_popup_initial_blank();
+            n4.n3_writer(N3Writer::DuplicateInvocation, 0);
+            assert_eq!(n4.n3_writer_sites.load(Acquire), 0);
+            let n3 = Diagnostics {
+                enabled: true,
+                ..Diagnostics::default()
+            };
+            n3.arm_dialog_owned_empty_html();
+            n3.n3_writer(N3Writer::DuplicateInvocation, 0);
+            assert_eq!(n3.n3_writer_sites.load(Acquire), 1 << 3);
+            assert!(!n3.n4_enabled());
+            assert!(n3.n4_causes.iter().all(|v| v.load(Acquire) == 0));
+        }
+
+        // Catches a repeated poll replacing the true first UI transition.
+        #[test]
+        fn n3_first_block_ignores_already_blocked_and_preserves_first_word() {
+            let d = Diagnostics {
+                enabled: true,
+                ..Diagnostics::default()
+            };
+            d.arm_dialog_owned_empty_html();
+            d.n3_block(true, N3Block::PollUnknown, 7);
+            assert_eq!(d.n3_first_block.load(Acquire), 0);
+            d.n3_block(false, N3Block::Dialog, 0x0201);
+            d.n3_block(false, N3Block::PollUnknown, 0xffff);
+            assert_eq!(d.n3_first_block.load(Acquire), 0x02010004);
+            for site in [
+                N3Block::NativeCleanup,
+                N3Block::PollIdentity,
+                N3Block::PollUnknown,
+                N3Block::Dialog,
+                N3Block::RegistryPropagation,
+                N3Block::RefusalCallback,
+            ] {
+                assert!((1..=6).contains(&(site as u16)));
+            }
+        }
+
+        // Catches lost contender bits; no assertion claims a global atomic winner.
+        #[test]
+        fn n3_writer_mask_keeps_all_closed_sites_and_first_complete_record() {
+            let d = Diagnostics {
+                enabled: true,
+                ..Diagnostics::default()
+            };
+            d.arm_dialog_owned_empty_html();
+            d.n3_writer(N3Writer::ContextIdentity, 0x0aff);
+            let first = d.n3_first_writer.load(Acquire);
+            std::thread::scope(|scope| {
+                for writer in N3Writer::ALL {
+                    let d = &d;
+                    scope.spawn(move || d.n3_writer(writer, 0xffff));
+                }
+            });
+            assert_eq!(d.n3_first_writer.load(Acquire), first);
+            assert_eq!(first, 0x0aff0008);
+            assert_ne!(first, 0x09ff0008);
+            assert_eq!(d.n3_writer_sites.load(Acquire), 0x3ffe);
+            assert_eq!(n4_first_word(1, 0, u64::MAX), 0xffffffff00000001);
+        }
+
+        // Catches counter truncation masquerading as empty/available inventory.
+        #[test]
+        fn n3_inventory_preserves_absence_and_marks_each_overflow() {
+            assert_eq!(n3_inventory_words(0, [0; 5]), [0, 0]);
+            assert_eq!(
+                n3_inventory_words(3, [65536, 65535, 1, 256, 255]),
+                [0x09000003, 0xffff0001ffffffff]
+            );
+            assert_eq!(
+                n3_inventory_words(3, [usize::MAX; 5]),
+                [0x1f000003, u64::MAX]
+            );
+            let copy = N4DiagnosticCopy::<2>::default();
+            assert_eq!(copy.snapshot(), (1, [0, 0]));
+            copy.publish(n3_inventory_words(3, [1, 1, 1, 0, 0]));
+            assert_eq!(copy.snapshot(), (0, [3, 0x0000000100010001]));
+        }
+
+        // Catches loss of short-circuit availability and disposal/success distinctions.
+        #[test]
+        fn n3_completion_masks_distinguish_disposal_success_and_unknown_inputs() {
+            let strict = N3CompletionDiagnostic {
+                same: true,
+                not_released: true,
+                disposal_timely: true,
+                invalid: Some(false),
+                affinity: Some(false),
+                hresult_succeeded: true,
+                bounded: true,
+                fixed: true,
+                original_timely: true,
+                valid: true,
+            };
+            assert_eq!(strict.bits(), 0x0faf);
+            assert_eq!(
+                N3CompletionDiagnostic {
+                    hresult_succeeded: false,
+                    bounded: false,
+                    fixed: false,
+                    ..strict
+                }
+                .bits(),
+                0x0c2f
+            );
+            assert_eq!(
+                N3CompletionDiagnostic {
+                    original_timely: false,
+                    ..strict
+                }
+                .bits(),
+                0x0baf
+            );
+            assert_eq!(
+                N3CompletionDiagnostic {
+                    fixed: false,
+                    valid: false,
+                    ..strict
+                }
+                .bits(),
+                0x05af
+            );
+            assert_eq!(
+                N3CompletionDiagnostic {
+                    same: false,
+                    invalid: None,
+                    affinity: None,
+                    valid: false,
+                    ..strict
+                }
+                .bits(),
+                0x0786
+            );
+            assert_eq!(
+                N3CompletionDiagnostic {
+                    invalid: Some(true),
+                    affinity: None,
+                    valid: false,
+                    ..strict
+                }
+                .bits(),
+                0x079f
+            );
+        }
+    }
+    // N3 diagnostic end.
+
     // N4 diagnostic begin: focused helper regressions; execution is separately owned.
     #[cfg(test)]
     mod n4_diagnostic_tests {
@@ -18697,6 +19105,138 @@ pub mod fixture {
         }
     }
     // N4 diagnostic end.
+
+    // N3 diagnostic begin: closed scalar domains, never lifecycle authority.
+    #[derive(Clone, Copy)]
+    #[repr(u16)]
+    pub(super) enum N3Block {
+        NativeCleanup = 1,
+        PollIdentity = 2,
+        PollUnknown = 3,
+        Dialog = 4,
+        RegistryPropagation = 5,
+        RefusalCallback = 6,
+    }
+    #[derive(Clone, Copy)]
+    #[repr(u16)]
+    pub(super) enum N3Writer {
+        CompletionAffinity = 1,
+        MissingMailbox = 2,
+        DuplicateInvocation = 3,
+        OccupiedDisposition = 4,
+        CompletionIdentity = 5,
+        DialogUncertainty = 6,
+        ContextAffinity = 7,
+        ContextIdentity = 8,
+        PopupAffinity = 9,
+        DownloadAffinity = 10,
+        SubmissionBinding = 11,
+        CompletedRemoval = 12,
+        HookRemoval = 13,
+    }
+    impl N3Writer {
+        #[cfg(test)]
+        const ALL: [Self; 13] = [
+            Self::CompletionAffinity,
+            Self::MissingMailbox,
+            Self::DuplicateInvocation,
+            Self::OccupiedDisposition,
+            Self::CompletionIdentity,
+            Self::DialogUncertainty,
+            Self::ContextAffinity,
+            Self::ContextIdentity,
+            Self::PopupAffinity,
+            Self::DownloadAffinity,
+            Self::SubmissionBinding,
+            Self::CompletedRemoval,
+            Self::HookRemoval,
+        ];
+    }
+    #[derive(Clone, Copy)]
+    #[repr(u8)]
+    pub(super) enum N3DialogReason {
+        Unspecified = 0,
+        InvalidMailbox = 1,
+        RejectedCompletion = 2,
+        RegistryUnknown = 3,
+        MissingBinding = 4,
+        RemovalMismatch = 5,
+    }
+    #[derive(Clone, Copy)]
+    pub(super) struct N3CompletionDiagnostic {
+        pub(super) same: bool,
+        pub(super) not_released: bool,
+        pub(super) disposal_timely: bool,
+        pub(super) invalid: Option<bool>,
+        pub(super) affinity: Option<bool>,
+        pub(super) hresult_succeeded: bool,
+        pub(super) bounded: bool,
+        pub(super) fixed: bool,
+        pub(super) original_timely: bool,
+        pub(super) valid: bool,
+    }
+    impl N3CompletionDiagnostic {
+        pub(super) fn bits(self) -> u16 {
+            u16::from(self.same)
+                | (u16::from(self.not_released) << 1)
+                | (u16::from(self.disposal_timely) << 2)
+                | (u16::from(self.invalid.is_some()) << 3)
+                | (u16::from(self.invalid == Some(true)) << 4)
+                | (u16::from(self.affinity.is_some()) << 5)
+                | (u16::from(self.affinity == Some(true)) << 6)
+                | (u16::from(self.hresult_succeeded) << 7)
+                | (u16::from(self.bounded) << 8)
+                | (u16::from(self.fixed) << 9)
+                | (u16::from(self.original_timely) << 10)
+                | (u16::from(self.valid) << 11)
+        }
+    }
+    pub(super) fn n3_inventory_words(state: u64, counts: [usize; 5]) -> [u64; 2] {
+        let mut flags = state & !(0x1f << 24);
+        let mut packed = 0;
+        for (index, (value, cap, shift)) in counts
+            .into_iter()
+            .zip([65535, 65535, 65535, 255, 255])
+            .zip([0, 16, 32, 48, 56])
+            .map(|((value, cap), shift)| (value, cap, shift))
+            .enumerate()
+        {
+            flags |= u64::from(value > cap) << (24 + index);
+            packed |= (value.min(cap) as u64) << shift;
+        }
+        [flags, packed]
+    }
+    struct N3DiagnosticSnapshot {
+        block: u64,
+        writer: u64,
+        sites: u64,
+        status: u8,
+        missed: bool,
+        words: [u64; 2],
+    }
+    impl N3DiagnosticSnapshot {
+        fn emit(self, kind: u8) {
+            use std::io::Write as _;
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeN3Causes schema=1 kind={} block={:016x} writer={:016x} sites={:016x}",
+                kind,
+                self.block,
+                self.writer,
+                self.sites
+            );
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeN3Snapshot schema=1 kind={} status={} missed={} state={:016x} counts={:016x}",
+                kind,
+                self.status,
+                u8::from(self.missed),
+                self.words[0],
+                self.words[1]
+            );
+        }
+    }
+    // N3 diagnostic end.
 
     // N4 diagnostic begin: fixed scalar copies, no owner/native references.
     #[derive(Clone, Copy)]
@@ -18798,6 +19338,13 @@ pub mod fixture {
         heartbeat: std::sync::atomic::AtomicU64,
         milestones: std::sync::atomic::AtomicU64,
         inventory: std::sync::atomic::AtomicU64,
+        // N3 diagnostic begin.
+        n3_armed: std::sync::atomic::AtomicBool,
+        n3_first_block: std::sync::atomic::AtomicU64,
+        n3_first_writer: std::sync::atomic::AtomicU64,
+        n3_writer_sites: std::sync::atomic::AtomicU64,
+        n3_snapshot: N4DiagnosticCopy<2>,
+        // N3 diagnostic end.
         // N4 diagnostic begin.
         n4_armed: std::sync::atomic::AtomicBool,
         n4_deadline_emitted: std::sync::atomic::AtomicBool,
@@ -18828,6 +19375,61 @@ pub mod fixture {
     }
 
     impl Diagnostics {
+        // N3 diagnostic begin. No N4 arming or popup-specific work.
+        pub fn arm_dialog_owned_empty_html(&self) {
+            if self.enabled {
+                self.n3_armed
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+        pub(super) fn n3_enabled(&self) -> bool {
+            self.enabled && self.n3_armed.load(std::sync::atomic::Ordering::Acquire)
+        }
+        pub(super) fn n3_block(&self, was_blocked: bool, site: N3Block, bits: u16) {
+            if !was_blocked && self.n3_enabled() {
+                let _ = self.n3_first_block.compare_exchange(
+                    0,
+                    n4_first_word(site as u16, bits, self.n4_time(std::time::Instant::now())),
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                );
+            }
+        }
+        pub(super) fn n3_writer(&self, site: N3Writer, bits: u16) {
+            if self.n3_enabled() {
+                self.n3_writer_sites
+                    .fetch_or(1 << (site as u16), std::sync::atomic::Ordering::AcqRel);
+                // First recorded writer only: original business stores remain unchanged.
+                let _ = self.n3_first_writer.compare_exchange(
+                    0,
+                    n4_first_word(site as u16, bits, self.n4_time(std::time::Instant::now())),
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                );
+            }
+        }
+        fn n3_close_snapshot(&self) -> Option<N3DiagnosticSnapshot> {
+            use std::sync::atomic::Ordering::Acquire;
+            if !self.n3_enabled() {
+                return None;
+            }
+            let (status, words) = self.n3_snapshot.snapshot();
+            Some(N3DiagnosticSnapshot {
+                block: self.n3_first_block.load(Acquire),
+                writer: self.n3_first_writer.load(Acquire),
+                sites: self.n3_writer_sites.load(Acquire),
+                status,
+                missed: self.n3_snapshot.missed.load(Acquire),
+                words,
+            })
+        }
+        pub(super) fn n3_publish_inventory(&self, state: u64, counts: [usize; 5]) {
+            if self.n3_enabled() {
+                self.n3_snapshot.publish(n3_inventory_words(state, counts));
+            }
+        }
+        // N3 diagnostic end.
+
         // N4 diagnostic begin. Only the fixed selected N4 fixture arms this.
         pub fn arm_popup_initial_blank(&self) {
             if self.enabled {
@@ -19042,6 +19644,7 @@ pub mod fixture {
                 inventory: self.inventory.load(Relaxed),
                 first_failure: self.first_failure.load(Relaxed),
                 times: std::array::from_fn(|n| self.close_times[n].load(Relaxed)),
+                n3: self.n3_close_snapshot(),
             }
         }
 

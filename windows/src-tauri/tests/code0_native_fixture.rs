@@ -2236,6 +2236,9 @@ mod smoke {
         if popup_refusal {
             diagnostics.arm_popup_initial_blank();
         }
+        if dialog_refusal {
+            diagnostics.arm_dialog_owned_empty_html();
+        }
         let (watchdog_done, watchdog_rx) = mpsc::channel();
         let hard_run_id = summary.lock().unwrap().run_id.clone();
         let hard_evidence = Arc::clone(&evidence);
