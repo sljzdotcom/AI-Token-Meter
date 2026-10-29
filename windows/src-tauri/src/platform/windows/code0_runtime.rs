@@ -205,6 +205,8 @@ struct Runtime<C, B, S> {
     dispatcher: Code0Dispatcher<C, DriverFacade<B>, S>,
     backend: Rc<RefCell<B>>,
     pending: Cell<bool>,
+    tick_due: Cell<bool>,
+    fault_handled: Cell<bool>,
     tick_ack: RefCell<Option<super::code0_tick::TickAcknowledgement>>,
     in_turn: Cell<bool>,
     windows: RefCell<VecDeque<QueuedWindow>>,
@@ -252,6 +254,7 @@ where
         if let Some(ack) = ack
             && ack.delivered(self.binding)
         {
+            self.tick_due.set(true);
             self.pending.set(true);
         }
     }
@@ -285,9 +288,21 @@ where
         }
         let _turn = TurnGuard(&self.in_turn);
         self.pending.set(false);
+        // Snapshot before external calls; a nested ACK remains due next turn.
+        let tick_due = self.tick_due.replace(false);
         // Only deliveries present at entry are forwarded in this turn. Nested
         // WindowEvents remain owned in the local queue for the next settled turn.
         let count = self.windows.borrow().len();
+        let faulted = self
+            .tick_ack
+            .borrow()
+            .as_ref()
+            .is_some_and(|ack| ack.faulted());
+        if faulted && !self.fault_handled.replace(true) {
+            // Fence admissions once, outside ACK/backend borrows. Stop does not
+            // cancel polling or prove terminal quiescence or a worker join.
+            self.proxy.stop(Box::new(|_| {}));
+        }
         for _ in 0..count {
             let event = self.windows.borrow_mut().pop_front();
             if let Some(event) = event {
@@ -304,6 +319,10 @@ where
         }
         // Native/backend borrows end before real queued work is dispatched.
         // The turn guard defers synchronous nested scheduling/window delivery.
+        if tick_due {
+            // install binds this dispatcher to (binding, binding) as its tick ID.
+            let _ = self.proxy.tick(self.binding, self.binding);
+        }
         self.dispatcher.drain();
         TurnResult::Settled
     }
@@ -361,6 +380,8 @@ where
         dispatcher,
         backend,
         pending: Cell::new(false),
+        tick_due: Cell::new(false),
+        fault_handled: Cell::new(false),
         tick_ack: RefCell::new(None),
         in_turn: Cell::new(false),
         windows: RefCell::new(VecDeque::new()),
@@ -1172,6 +1193,617 @@ mod tests {
             assert_eq!(restart, Err(TickStartFailure::AlreadyStarted));
             assert_eq!(never_started, Err(TickStartFailure::Cancelled));
             assert!(cancelled.take_join().is_none());
+        }
+    }
+
+    // Controlled integration only: all scheduling/session/ACK behavior remains real.
+    mod clock_pulse_tests {
+        use super::super::super::code0_clock::Code0WindowsClock;
+        use super::super::super::code0_tick::{TickExit, TickProducer};
+        use super::*;
+        use std::sync::mpsc::{self, Receiver, SyncSender};
+        use time::OffsetDateTime;
+        use time::format_description::well_known::Rfc3339;
+
+        const OBSERVE: Duration = Duration::from_millis(1250);
+        const OLD_WALL: &str = "2026-10-29T00:00:00Z";
+        const CAPTURE_WALL: &str = "2026-10-29T00:01:00Z";
+
+        struct PulseEvent {
+            job: Option<UiJob>,
+            rejected: bool,
+            thread: ThreadId,
+        }
+        struct PulseExecutor {
+            ui: ThreadId,
+            reject_next_worker: AtomicBool,
+            events: SyncSender<PulseEvent>,
+        }
+        impl MainThreadExecutor for PulseExecutor {
+            fn post(&self, job: UiJob) -> Result<(), Code0DispatchError> {
+                if thread::current().id() == self.ui {
+                    job();
+                    return Ok(());
+                }
+                let rejected = self.reject_next_worker.swap(false, Ordering::SeqCst);
+                let event = PulseEvent {
+                    job: (!rejected).then_some(job),
+                    rejected,
+                    thread: thread::current().id(),
+                };
+                let queued = self.events.try_send(event).is_ok();
+                if rejected || !queued {
+                    Err(Code0DispatchError::Unavailable)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct ObservedPulse {
+            off_ui: bool,
+            turn: TurnResult,
+        }
+        struct ObservedFault {
+            held: Option<ObservedPulse>,
+            rejected: bool,
+            recovered: Option<ObservedPulse>,
+            faulted: bool,
+        }
+        struct PulseWorker(TickProducer);
+        impl PulseWorker {
+            fn finish(&mut self) -> Option<Option<TickExit>> {
+                self.0.cancel();
+                self.0.take_join().map(|handle| handle.join().ok())
+            }
+        }
+        impl Drop for PulseWorker {
+            fn drop(&mut self) {
+                let _ = self.finish();
+            }
+        }
+        struct PulseStoreState {
+            saved: Option<UsageSnapshot>,
+            saves: usize,
+        }
+        struct PulseStore(Rc<RefCell<PulseStoreState>>);
+        impl Code0SnapshotStoring for PulseStore {
+            fn load(&self) -> Result<Option<UsageSnapshot>, Code0StoreError> {
+                Ok(self.0.borrow().saved.clone())
+            }
+            fn save_atomic(&mut self, value: &UsageSnapshot) -> Result<(), Code0StoreError> {
+                let mut state = self.0.borrow_mut();
+                state.saved = Some(value.clone());
+                state.saves += 1;
+                Ok(())
+            }
+            fn remove(&mut self) -> Result<(), Code0StoreError> {
+                self.0.borrow_mut().saved = None;
+                Ok(())
+            }
+        }
+        #[derive(Default)]
+        struct PulseBackendState {
+            current: Option<Code0WindowRequest>,
+            requests: Vec<Code0WindowRequest>,
+            closes: Vec<String>,
+            releases: usize,
+            polls: usize,
+            deliveries: VecDeque<(Code0WindowRequest, Code0WindowEvent)>,
+        }
+        struct PulseBackend {
+            callbacks: CallbackSink,
+            state: Rc<RefCell<PulseBackendState>>,
+        }
+        impl Code0WindowDriving for PulseBackend {
+            fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+                Ok(())
+            }
+            fn release_profile_lease(&mut self) {}
+            fn create_unloaded(
+                &mut self,
+                request: Code0WindowRequest,
+            ) -> Result<(), Code0SessionFailure> {
+                let mut state = self.state.borrow_mut();
+                assert!(state.current.is_none(), "fixture already owns a window");
+                state.current = Some(request.clone());
+                state.requests.push(request);
+                Ok(())
+            }
+            fn navigate(&mut self, instance: &str) -> Result<(), Code0SessionFailure> {
+                assert_eq!(
+                    self.state
+                        .borrow()
+                        .current
+                        .as_ref()
+                        .map(|request| request.instance_id.as_str()),
+                    Some(instance)
+                );
+                Ok(())
+            }
+            fn close(&mut self, instance: &str) {
+                let mut state = self.state.borrow_mut();
+                assert_eq!(
+                    state
+                        .current
+                        .as_ref()
+                        .map(|request| request.instance_id.as_str()),
+                    Some(instance)
+                );
+                state.closes.push(instance.to_owned());
+            }
+            fn clear_website_data(
+                &mut self,
+                _: Code0CleanupRequest,
+            ) -> Result<(), Code0SessionFailure> {
+                Err(Code0SessionFailure::CleanupFailed)
+            }
+        }
+        impl UiBackend for PulseBackend {
+            fn on_window_event(&mut self, _: &str, _: &tauri::WindowEvent) {}
+            fn poll_cleanup(&mut self) {
+                let deliveries = {
+                    let mut state = self.state.borrow_mut();
+                    state.polls += 1;
+                    std::mem::take(&mut state.deliveries)
+                };
+                for (request, event) in deliveries {
+                    if matches!(&event, Code0WindowEvent::Released) {
+                        let mut state = self.state.borrow_mut();
+                        assert_eq!(state.current.as_ref(), Some(&request));
+                        assert!(
+                            state.closes.contains(&request.instance_id),
+                            "fixture Released preceded the real driver close"
+                        );
+                        state.current = None;
+                        state.releases += 1;
+                    }
+                    self.callbacks.window(request, event).unwrap();
+                }
+            }
+        }
+        type PulseRuntime = Runtime<Code0WindowsClock, PulseBackend, PulseStore>;
+        struct PulseFixture {
+            runtime: Rc<PulseRuntime>,
+            executor: Arc<PulseExecutor>,
+            events: Receiver<PulseEvent>,
+            elapsed: Rc<Cell<u64>>,
+            wall: Rc<Cell<OffsetDateTime>>,
+            backend: Rc<RefCell<PulseBackendState>>,
+            store: Rc<RefCell<PulseStoreState>>,
+            worker: PulseWorker,
+        }
+        fn wall(value: &str) -> OffsetDateTime {
+            OffsetDateTime::parse(value, &Rfc3339).unwrap()
+        }
+        impl PulseFixture {
+            fn new() -> Self {
+                let elapsed = Rc::new(Cell::new(0));
+                let wall = Rc::new(Cell::new(wall(CAPTURE_WALL)));
+                let elapsed_source = elapsed.clone();
+                let wall_source = wall.clone();
+                let clock = Code0WindowsClock::from_sources(
+                    Rc::new(move || elapsed_source.get()),
+                    Rc::new(move || wall_source.get()),
+                );
+                let (send, events) = mpsc::sync_channel(1);
+                let executor = Arc::new(PulseExecutor {
+                    ui: thread::current().id(),
+                    reject_next_worker: AtomicBool::new(false),
+                    events: send,
+                });
+                let backend = Rc::new(RefCell::new(PulseBackendState::default()));
+                let mut cached = Code0WebsiteCapture::decode_filtered_json(
+                    br#"{"quota":49400,"usedQuota":182700,"divisor":400}"#,
+                )
+                .unwrap()
+                .make_snapshot(OLD_WALL)
+                .unwrap();
+                cached.status = UsageStatus::Cached;
+                let store = Rc::new(RefCell::new(PulseStoreState {
+                    saved: Some(cached),
+                    saves: 0,
+                }));
+                let backend_state = backend.clone();
+                let runtime = install(
+                    executor.clone(),
+                    InstallInputs {
+                        clock,
+                        store: PulseStore(store.clone()),
+                        backend: move |callbacks| PulseBackend {
+                            callbacks,
+                            state: backend_state,
+                        },
+                        emit: Box::new(|_| {}),
+                    },
+                )
+                .unwrap();
+                let worker = PulseWorker(TickProducer::prepare(runtime.binding, executor.clone()));
+                let mut fixture = Self {
+                    runtime,
+                    executor,
+                    events,
+                    elapsed,
+                    wall,
+                    backend,
+                    store,
+                    worker,
+                };
+                assert_eq!(
+                    attach_tick(fixture.runtime.binding, fixture.worker.0.acknowledgement()),
+                    Ok(())
+                );
+                assert_eq!(fixture.worker.0.start(), Ok(()));
+                fixture
+            }
+            fn view(&self) -> serde_json::Value {
+                serde_json::to_value(passive_read(self.runtime.binding).unwrap()).unwrap()
+            }
+            fn turn(&self) {
+                assert_eq!(settled_turn(self.runtime.binding), TurnResult::Settled);
+            }
+            fn action(
+                &self,
+                action: Code0Action,
+            ) -> Option<Result<Code0Reply, Code0DispatchError>> {
+                let reply = slot();
+                self.runtime.proxy.action(action, reply_to(&reply));
+                self.turn();
+                let output = reply.lock().unwrap();
+                output.clone()
+            }
+            fn current_request(&self) -> Code0WindowRequest {
+                self.backend.borrow().current.as_ref().unwrap().clone()
+            }
+            fn queue(&self, request: &Code0WindowRequest, event: Code0WindowEvent) {
+                self.backend
+                    .borrow_mut()
+                    .deliveries
+                    .push_back((request.clone(), event));
+            }
+            fn activate(&self) {
+                assert_eq!(
+                    self.action(Code0Action::SyncNow),
+                    Some(Ok(Code0Reply::Action(Action::Started)))
+                );
+                let request = self.current_request();
+                self.queue(&request, Code0WindowEvent::PoliciesInstalled);
+                self.turn();
+                for (kind, sequence) in [("ready", 1), ("selfStart", 2), ("capture", 3)] {
+                    let mut value = serde_json::json!({
+                        "version":1,"nonce":request.nonce,"document":request.document_id,
+                        "kind":kind,"sequence":sequence,
+                    });
+                    if kind != "ready" {
+                        value["request"] = serde_json::json!(1);
+                        value["revision"] = serde_json::json!(0);
+                    }
+                    if kind == "capture" {
+                        value["quota"] = serde_json::json!(49400);
+                        value["usedQuota"] = serde_json::json!(182700);
+                        value["divisor"] = serde_json::json!(400);
+                    }
+                    self.queue(
+                        &request,
+                        Code0WindowEvent::Message {
+                            payload: serde_json::to_vec(&value).unwrap(),
+                            source_url: "https://console.code0.ai/console".into(),
+                            is_main_frame: true,
+                        },
+                    );
+                }
+                self.turn();
+                assert_eq!(self.view()["state"], "closing");
+                assert_eq!(self.store.borrow().saves, 1);
+                assert_eq!(
+                    self.store.borrow().saved.as_ref().unwrap().fetched_at,
+                    CAPTURE_WALL
+                );
+                assert_eq!(
+                    self.backend.borrow().closes,
+                    vec![request.instance_id.clone()]
+                );
+                self.queue(&request, Code0WindowEvent::Released);
+                self.turn();
+                assert_eq!(self.view()["state"], "active");
+                assert_eq!(self.view()["isAutomaticallySyncing"], true);
+                assert_eq!(self.backend.borrow().requests.len(), 1);
+                assert_eq!(self.backend.borrow().releases, 1);
+            }
+            fn wait_event(&self) -> Option<PulseEvent> {
+                self.events.recv_timeout(OBSERVE).ok()
+            }
+            fn deliver(&self, mut event: PulseEvent) -> Option<ObservedPulse> {
+                if event.rejected {
+                    return None;
+                }
+                let job = event.job.take()?;
+                let off_ui = event.thread != thread::current().id();
+                job(); // Real binding lookup/ACK; no posted or pending mutation by the fixture.
+                Some(ObservedPulse {
+                    off_ui,
+                    turn: settled_turn(self.runtime.binding),
+                })
+            }
+            fn pulse(&self) -> Option<ObservedPulse> {
+                self.wait_event().and_then(|event| self.deliver(event))
+            }
+            fn fault_then_recover(&self) -> ObservedFault {
+                let held = self.wait_event();
+                // Arm while its genuine queued job still holds posted=true. The next
+                // attempt cannot happen until that actual job performs the real ACK.
+                self.executor
+                    .reject_next_worker
+                    .store(true, Ordering::SeqCst);
+                let held = held.and_then(|event| self.deliver(event));
+                let rejected = self
+                    .wait_event()
+                    .is_some_and(|event| event.rejected && event.job.is_none());
+                // This later real post cannot occur before the worker handles Err.
+                let recovered = self.pulse();
+                let faulted = self.worker.0.acknowledgement().faulted();
+                ObservedFault {
+                    held,
+                    rejected,
+                    recovered,
+                    faulted,
+                }
+            }
+            fn finish(&mut self) -> Option<Option<TickExit>> {
+                self.worker.finish()
+            }
+            fn remove_record(&self) {
+                let retired = REGISTRY.with(|slot| {
+                    let mut slot = slot.borrow_mut();
+                    if slot
+                        .record
+                        .as_ref()
+                        .is_some_and(|record| record.binding() == self.runtime.binding)
+                    {
+                        slot.record.take()
+                    } else {
+                        None
+                    }
+                });
+                drop(retired);
+            }
+        }
+        impl Drop for PulseFixture {
+            fn drop(&mut self) {
+                let _ = self.finish();
+                self.remove_record();
+            }
+        }
+        fn require_join(joined: Option<Option<TickExit>>) {
+            assert_eq!(joined, Some(Some(TickExit::Cancelled)));
+        }
+        fn require_delivery(pulse: Option<ObservedPulse>) {
+            assert_eq!(
+                pulse,
+                Some(ObservedPulse {
+                    off_ui: true,
+                    turn: TurnResult::Settled,
+                }),
+                "setup did not deliver a real off-UI worker job into the settled runtime"
+            );
+        }
+        fn require_fault(fault: ObservedFault) {
+            require_delivery(fault.held);
+            assert!(fault.rejected, "setup did not observe a real rejected post");
+            require_delivery(fault.recovered);
+            assert!(fault.faulted, "setup lost the real sticky post fault");
+        }
+
+        // Mutation: a genuine worker ACK never queues the real dispatcher clock tick.
+        #[test]
+        fn pulse_reads_real_elapsed_299_then_admits_at_300() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(299_000);
+            let early_pulse = f.pulse();
+            let early = f.view();
+            let early_creates = f.backend.borrow().requests.len();
+            f.elapsed.set(300_000);
+            let due_pulse = f.pulse();
+            let due = f.view();
+            let due_creates = f.backend.borrow().requests.len();
+            let joined = f.finish();
+            require_join(joined);
+            require_delivery(early_pulse);
+            require_delivery(due_pulse);
+            assert_eq!(early["state"], "active");
+            assert_eq!(early_creates, 1);
+            assert!(
+                due["state"] == "syncing",
+                "worker ACK at elapsed300 did not admit the real session attempt"
+            );
+            assert_eq!(due_creates, 2);
+        }
+
+        // Mutation: elapsed is frozen/synthetic, or a suspend gap creates catchup attempts.
+        #[test]
+        fn pulse_suspend_jump_admits_one_attempt_without_catchup() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(3_600_000);
+            let first = f.pulse();
+            let second = f.pulse();
+            let third = f.pulse();
+            let creates = f.backend.borrow().requests.len();
+            let view = f.view();
+            let joined = f.finish();
+            require_join(joined);
+            require_delivery(first);
+            require_delivery(second);
+            require_delivery(third);
+            assert!(
+                creates == 2,
+                "suspend-sized elapsed jump did not admit exactly one real due attempt"
+            );
+            assert_eq!(view["state"], "syncing");
+        }
+
+        // Control: forward/backward wall jumps cannot replace elapsed admission or save again.
+        #[test]
+        fn wall_only_jumps_leave_elapsed299_active_and_snapshot_unchanged() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(299_000);
+            f.wall.set(wall("2027-10-29T03:04:05Z"));
+            let forward_pulse = f.pulse();
+            let forward = f.view();
+            f.wall.set(wall("2025-10-29T03:04:05Z"));
+            let backward_pulse = f.pulse();
+            let backward = f.view();
+            let creates = f.backend.borrow().requests.len();
+            let saves = f.store.borrow().saves;
+            let saved_at = f.store.borrow().saved.as_ref().unwrap().fetched_at.clone();
+            let joined = f.finish();
+            require_join(joined);
+            require_delivery(forward_pulse);
+            require_delivery(backward_pulse);
+            assert_eq!(forward["state"], "active");
+            assert_eq!(backward["state"], "active");
+            assert_eq!(creates, 1);
+            assert_eq!(saves, 1);
+            assert_eq!(saved_at, CAPTURE_WALL);
+        }
+
+        // Mutation: the real worker never advances the original, unreset45s attempt expiry.
+        #[test]
+        fn pulse_expires_original_attempt_at_45_not_early() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(300_000);
+            let started = f.action(Code0Action::SyncNow);
+            let request = f.current_request();
+            f.queue(&request, Code0WindowEvent::PoliciesInstalled);
+            f.turn();
+            f.elapsed.set(344_999);
+            let early_pulse = f.pulse();
+            let early = f.view();
+            f.elapsed.set(345_000);
+            let deadline_pulse = f.pulse();
+            let deadline = f.view();
+            let closes = f.backend.borrow().closes.len();
+            let joined = f.finish();
+            require_join(joined);
+            require_delivery(early_pulse);
+            require_delivery(deadline_pulse);
+            assert_eq!(started, Some(Ok(Code0Reply::Action(Action::Started))));
+            assert_eq!(early["state"], "syncing");
+            assert!(early["failure"].is_null());
+            assert!(
+                deadline["state"] == "closing" && deadline["failure"] == "syncTimedOut",
+                "worker ACK at original45 did not expire the real session attempt"
+            );
+            assert_eq!(closes, 2);
+        }
+
+        // Mutation: a sticky real post fault remains unobserved at the later settled UI turn.
+        #[test]
+        fn sticky_post_fault_fences_new_actions_after_recovered_ui_delivery() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(300_000);
+            let started = f.action(Code0Action::SyncNow);
+            let fault = f.fault_then_recover();
+            let reply = f.action(Code0Action::SyncNow);
+            let creates = f.backend.borrow().requests.len();
+            let joined = f.finish();
+            require_join(joined);
+            require_fault(fault);
+            assert_eq!(started, Some(Ok(Code0Reply::Action(Action::Started))));
+            assert!(
+                matches!(
+                    reply,
+                    Some(Ok(Code0Reply::Action(Action::Denied)))
+                        | Some(Err(Code0DispatchError::Unavailable))
+                ),
+                "sticky worker post fault left real proxy action admission open"
+            );
+            assert_eq!(creates, 2);
+        }
+
+        // Control: an ordinary settled turn must not manufacture a missing worker pulse.
+        #[test]
+        fn held_worker_job_does_not_admit_elapsed300_before_real_delivery() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(300_000);
+            let held = f.wait_event();
+            let real_held_job = held.as_ref().is_some_and(|event| {
+                !event.rejected && event.job.is_some() && event.thread != thread::current().id()
+            });
+            f.turn();
+            f.turn();
+            let view = f.view();
+            let creates = f.backend.borrow().requests.len();
+            let joined = f.finish();
+            drop(held);
+            require_join(joined);
+            assert!(real_held_job, "setup did not hold an actual worker job");
+            assert_eq!(view["state"], "active");
+            assert_eq!(creates, 1);
+        }
+
+        // Control: finish the cold old worker, then deliver its actual queued binding-only job.
+        #[test]
+        fn retired_worker_job_cannot_pulse_the_real_replacement_clock() {
+            let mut old = PulseFixture::new();
+            let old_job = old.wait_event();
+            let old_join = old.finish();
+            old.remove_record();
+            let mut replacement = PulseFixture::new();
+            replacement.activate();
+            replacement.elapsed.set(300_000);
+            let stale_delivery = old_job.and_then(|event| replacement.deliver(event));
+            let view = replacement.view();
+            let creates = replacement.backend.borrow().requests.len();
+            let replacement_join = replacement.finish();
+            require_join(old_join);
+            require_join(replacement_join);
+            require_delivery(stale_delivery);
+            assert_eq!(view["state"], "active");
+            assert_eq!(creates, 1);
+        }
+
+        // Control: post failure must not disable normal polling of a retained matching release.
+        #[test]
+        fn sticky_fault_keeps_backend_poll_and_matching_released_delivery_live() {
+            let mut f = PulseFixture::new();
+            f.activate();
+            f.elapsed.set(300_000);
+            let started = f.action(Code0Action::SyncNow);
+            let request = f.current_request();
+            let fault = f.fault_then_recover();
+            let before_poll = f.backend.borrow().polls;
+            f.queue(
+                &request,
+                Code0WindowEvent::Failed(Code0SessionFailure::PolicyRejected),
+            );
+            f.turn();
+            f.queue(&request, Code0WindowEvent::Released);
+            f.turn();
+            let read = slot();
+            f.runtime.proxy.read(reply_to(&read));
+            f.turn();
+            let read_reply = read.lock().unwrap().clone();
+            let view = f.view();
+            let polls = f.backend.borrow().polls;
+            let releases = f.backend.borrow().releases;
+            let no_owner = f.backend.borrow().current.is_none();
+            let creates = f.backend.borrow().requests.len();
+            let joined = f.finish();
+            require_join(joined);
+            require_fault(fault);
+            assert_eq!(started, Some(Ok(Code0Reply::Action(Action::Started))));
+            assert!(polls >= before_poll + 2);
+            assert_eq!(releases, 2);
+            assert!(no_owner);
+            assert_eq!(creates, 2);
+            assert_eq!(view["state"], "paused");
+            assert!(matches!(read_reply, Some(Ok(Code0Reply::View(_)))));
         }
     }
 }

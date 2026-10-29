@@ -1161,3 +1161,24 @@ f91辅助实际11runtime GREEN与cleanup5精确RED/3对照已经独立接受。�
 2026-10-30：tick GREEN主接入已以fbf555506b4613219e07c236c578ce8ef02fbdee精确提交，远端主开发仍98f0536；69项新实际证据及完整Git备份manifest14487/9d83e0aa已逐项回读。permission fix2原作者冻结102项manifest17539/0cc65aa8后，独立SPEC18590/7525c844与Root完整定向QUALITY7121/17f25cba均SOURCE C0/I0/M0，Root gate1332/bd034da3；原I1/I2/M1/M2仅源码/证据闭合，原153定义与新14尚未取得本稿actual。Root独立重算102及双向四源97hunk，DATA3058/5827dbc4。选择性main整合11文件manifest2126/37995ea4只携入获审N/P及D/F差异，并精确保留现有HTTP Box/诊断/receipt deref，未应用；首次准备因permission新增enum使宽上下文不匹配，在写出前拒绝，v2仅将Box改用唯一单行匹配后成功。新D/F可信格式check-only均0且源未变。Root permission CI9文件manifest1404/eb8835b0由另一独立者审查，使用已验证的严格checker原样拷贝，全部新实际仍未运行。clock-pulse作者另冻结29文件manifest5076/b5ce1e21与15339/eda5771b报告，八新定义用真实worker/UI/Session路径，预期四行为RED与四对照，240仅静态总数；交独立审查，不实现GREEN或声称actual。HTTP v2 native同模型接续仍编写中，原WIP/首因/严格门禁保留，当前不发布。
 
 2026-10-30：permission main选择性整合独审10423/d800e224与Root gate1328/235d25ee全文接受，CI独审12655/42f60916与gate961/e6d0fe08亦接受SOURCE。177项新完整备份manifest35305/03c01b3f逐项读回后，七获审源/CI路径已精确应用，receipt3594/d564fe4a记录原HEAD/index与两文档保留；编译/Clippy/strictB/组合实际仍UNRUN。clock-pulse源独审18789/dfacba42获Root gate1145/e508ea3b，独立CI作者29项manifest5428/d8b63f65经Root完整report/runner/WF/Cargo定向审查6166/5936eb3f及DATA2367/d36fe8dc、gate801/00f591ec接受。仅增加aux SystemInformation feature，原224+clock8+四controls必须通过、恰四指定断言RED；未放宽期限/日志/退出回收。辅助本地7a76e6b2a2d1161d9448f89582255fdd3606287a为a9e唯一父、六变更/八输入，真实索引和主工作区逐字未动；尚未推送或运行，下一完整Git检查点后隔离验证。HTTP native接续仍未冻结，生产native清理/terminal/bootstrap及整体发布继续未完成。
+
+
+### 2026-10-30：权限检查点保留与时钟回归隔离启动
+
+获审的权限四源码、两严格验证文件与四步CI增量，连需求/开发文档已本地提交 `c81792d`（父 `fbf5555`）；原HTTP diagnostics/Box定向保留，未推主开发分支。完整Git与63项新审查、应用及提交证据已持久备份并逐项读回，前序全部检查点保留。373份文档及公开内容检查通过。
+
+仅专用辅助分支推进到 `7a76e6b`（父 `a9e0c94`），隔离运行 `40932840398` 已启动。此轮仅预计240逐名定义中236通过及四个精确行为失败；编译/严格检查、实际退出及回收、完整原始输出和独立审查均须实证。当前未接受本轮actual，也未运行权限与完整主开发组合。独立实际审查者已准备就绪；后续最小实现作者仅只读准备，待准确失败接受后才实施。HTTP v2 native继续由唯一作者在私有候选推进。未合并、未发布。
+
+
+隔离时钟运行 `40932840398` 随后完成：全部240项逐名唯一，原232及四控制全部通过，只有四个指定计时/投递故障断言失败，位置与消息精确一致。严格编译和no-run实际0，完整库实际101；六子进程均真实回收，外层0/reaped279.938秒。原始17项artifact和官方日志完整保存，独立实际报告16074/9c7cd477已全文接受有限C0/I0/M0。这里接受准确RED实验，不是功能已修复。
+
+已据此只授权私有runtime生产段最小修复：真实ACK置due，settled入口快照，首次观察sticky故障先关闭动作入口，保留poll后真实tick/drain。原240测试及其他源码不变；后续SOURCE独审及完整240全过仍为必需。HTTP v2、主权限组合、原生清理/terminal/bootstrap和发布继续，不放宽旧限额或把此辅助范围冒称整体完成。
+
+
+计时最小实现随后冻结12文件，仅runtime五处增加21行、完整测试后缀逐字保留。独立SOURCE13989/601f8698及Root765/012fae15接受有限C0/I0/M0；另28文件全量GREEN CI经Root独审5583/330307ee与750/a53fe9cc接受，要求原240逐名全部通过，保留原全部执行/证据边界。辅助本地提交 `713a6d8`（sole `7a76e6b`，tree `3441d656`）已准备，真实主索引/HEAD/两文档改动均保留；此时尚未推送或实际运行。完整备份后进入隔离验证，不以源码通过代替实际GREEN或整个产品完成。
+
+
+随后93项完整Git与证据检查点逐项读回、373份文档及公开内容检查通过，仅辅助 `713a6d8` 正常推送，隔离实际 `40937357902` 已启动。主 `c81792d` 与两文档改动保持，主开发远端98未动；等待真实结果及非作者实际独审。
+
+
+2026-10-30：计时辅助713a6d8的实际40937357902完整240逐名全PASS，原四行为RED及后置断言均通过；六直接阶段和outer均0退出回收，inner243.250/outer243.312秒。独立实际14823/2569d77e及DATA76801/e1f08486已Root全文接受，有限gate893/b0003b68；保留无全后代普查、outer为返回后资格判断、具体Denied/Unavailable分支未打印等原边界。此前独立获审的单runtime主映射现精确应用：43889/52fa1892→70277/ee9fc00e，含原获审clock测试接入和21行实现；其余1008跟踪路径、原WinSock/权限/HTTP字节及真实索引/HEAD保持，主组合actual仍未运行。HTTP v2 native112文件冻结manifest20944/f0982e42，独立规格与质量审查进行中；terminal readiness15文件RED源码冻结，仅三个test-only保守入口及9项追加测试，原production体保持，编译/行为/独审尚未运行。后续共享租约、native清理、terminal/bootstrap与完整双平台/发布门禁继续；本条不声明产品完成。
