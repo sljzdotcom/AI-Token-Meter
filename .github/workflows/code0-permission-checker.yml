@@ -1,0 +1,42 @@
+name: Code0 isolated permission checker
+on:
+  push:
+    branches: [codex/code0-permission-checker-20261029]
+permissions:
+  contents: read
+concurrency:
+  group: code0-permission-checker-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@v5
+      - name: Bind checker bytes and actual checkout
+        shell: python {0}
+        run: |
+          import hashlib,json,os,subprocess,sys
+          from pathlib import Path
+          if os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or sys.platform != 'linux':
+              raise SystemExit('Isolated hosted Linux DATA job required')
+          root = Path('.ci/code0-permission-checker')
+          expected = {'validator.py': 'c8d0ca1b75829a2747dec8e0f07f855e8d3c3cd38e59ece9a79e5658223b6ddf', 'selfcheck.py': 'fabdbc6509e690d8557b8fff56e0527287fa4fac3190242bc9f66ed927de63bf', 'run.py': 'bab001d33d598f66537cb3b47d1fa9fb1b57fd49db9e872f6f44151b30c9206d'}
+          actual = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in expected}
+          head = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+          if actual != expected or head != os.environ['GITHUB_SHA']:
+              raise SystemExit('Checker source identity mismatch')
+          print(json.dumps({'head': head, 'sourceHashes': actual}, sort_keys=True))
+      - name: Require all eighteen DATA definitions
+        run: python3 -B .ci/code0-permission-checker/run.py
+      - name: Preserve completed checker evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-permission-checker-evidence
+          path: |
+            ${{ runner.temp }}/code0-permission-checker-*/*.json
+            ${{ runner.temp }}/code0-permission-checker-*/*.log
+          if-no-files-found: error
+          retention-days: 7
