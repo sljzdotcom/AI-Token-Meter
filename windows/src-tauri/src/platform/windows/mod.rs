@@ -1,6 +1,8 @@
 pub mod claude_workspace;
 #[cfg(all(test, windows))]
 mod code0_composition;
+#[cfg(all(test, windows))]
+mod code0_runtime;
 pub mod code0_dispatcher;
 pub mod code0_profile_lease;
 pub mod code0_web_session;
