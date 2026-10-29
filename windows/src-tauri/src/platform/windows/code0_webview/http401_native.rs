@@ -700,7 +700,7 @@ fn emit(owner: &Rc<RefCell<Owner>>) {
     }
 }
 
-pub(super) fn begin(
+pub(in super::super) fn begin(
     owner: &Rc<RefCell<Owner>>,
     request: &Code0WindowRequest,
     started: Instant,
