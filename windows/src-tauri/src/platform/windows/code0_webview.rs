@@ -4082,7 +4082,10 @@ mod native {
                 // Only a real matching invocation disposition settles its ticket.
             }
         }
-        #[windows::core::implement(ICoreWebView2ExecuteScriptCompletedHandler, Agile = false)]
+        #[windows::core::implement(
+            ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,
+            Agile = false
+        )]
         struct PopupCompletion {
             mailbox: std::sync::Weak<PopupMailbox>,
             callbacks: Arc<Callbacks>,
@@ -4092,7 +4095,7 @@ mod native {
             ui: ThreadId,
             _lifetime: PopupHandlerLifetime,
         }
-        impl ICoreWebView2ExecuteScriptCompletedHandler_Impl for PopupCompletion_Impl {
+        impl ICoreWebView2CallDevToolsProtocolMethodCompletedHandler_Impl for PopupCompletion_Impl {
             fn Invoke(
                 &self,
                 errorcode: windows::core::HRESULT,
@@ -4174,10 +4177,10 @@ mod native {
             if raw.is_null() {
                 return (false, false, 0);
             }
-            let mut copied = [0u16; 64];
+            let mut copied = [0u16; 2048];
             for length in 0..copied.len() {
                 // Borrowed callback memory, never retained/freed or converted by
-                // an unbounded wrapper. Including NUL: at most 64 UTF16 reads.
+                // an unbounded wrapper. Including NUL: at most 2048 UTF16 reads.
                 let unit = unsafe { *raw.0.add(length) };
                 if unit == 0 {
                     let real = popup_result_units(&copied[..length]);
@@ -4192,6 +4195,101 @@ mod native {
             }
             (false, false, 5)
         }
+        #[cfg(test)]
+        mod popup_raw_result_tests {
+            use super::*;
+
+            fn mailbox() -> Arc<PopupMailbox> {
+                Arc::new(PopupMailbox {
+                    disposition: Mutex::new(None),
+                    invoked: AtomicBool::new(false),
+                    invalid: AtomicBool::new(false),
+                    obligation: AtomicUsize::new(1),
+                    handlers: AtomicUsize::new(1),
+                    closing_since: Mutex::new(None),
+                })
+            }
+
+            #[test]
+            fn borrowed_popup_result_requires_nul_inside_the_2048_read_cap() {
+                assert_eq!(popup_result(PCWSTR::null(), None), (false, false, 0));
+                let exact = r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#;
+                let padded = format!("{exact}{}", " ".repeat(2047 - exact.len()));
+                let mut units: Vec<u16> = padded.encode_utf16().chain(Some(0)).collect();
+                assert_eq!(units.len(), 2048);
+                assert_eq!(popup_result(PCWSTR(units.as_ptr()), None), (true, true, 0));
+                units[2047] = 32;
+                assert_eq!(
+                    popup_result(PCWSTR(units.as_ptr()), None),
+                    (false, false, 5)
+                );
+                let malformed = [0xd800, 0];
+                assert_eq!(
+                    popup_result(PCWSTR(malformed.as_ptr()), None),
+                    (false, false, 0)
+                );
+            }
+
+            #[test]
+            fn actual_popup_handler_drop_does_not_settle_an_uninvoked_ticket() {
+                let callbacks = Arc::new(Callbacks::default());
+                let mailbox = mailbox();
+                let lifetime = PopupHandlerLifetime {
+                    mailbox: Arc::downgrade(&mailbox),
+                    _aggregate: HandlerLifetime::new(&callbacks),
+                };
+                assert_eq!(callbacks.handlers.load(Ordering::SeqCst), 1);
+                drop(lifetime);
+                assert_eq!(callbacks.handlers.load(Ordering::SeqCst), 0);
+                assert_eq!(mailbox.handlers.load(Ordering::SeqCst), 0);
+                assert_eq!(mailbox.obligation.load(Ordering::SeqCst), 1);
+                assert!(mailbox.disposition.lock().unwrap().is_none());
+                assert!(!mailbox.invoked.load(Ordering::SeqCst));
+            }
+
+            #[test]
+            fn actual_cdp_popup_callback_rejects_wrong_ui_before_invocation_or_disposition() {
+                let callbacks = Arc::new(Callbacks::default());
+                let mailbox = mailbox();
+                let installation = Arc::new(AtomicBool::new(false));
+                let other_ui = std::thread::spawn(|| std::thread::current().id())
+                    .join()
+                    .unwrap();
+                let handler: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler =
+                    PopupCompletion {
+                        mailbox: Arc::downgrade(&mailbox),
+                        callbacks: Arc::clone(&callbacks),
+                        installation: Arc::clone(&installation),
+                        request: Code0WindowRequest {
+                            instance_id: "n4-test-instance".into(),
+                            connection_epoch: "n4-test-epoch".into(),
+                            nonce: "n4-test-nonce".into(),
+                            document_id: "n4-test-document".into(),
+                            mode:
+                                crate::platform::windows::code0_web_session::Code0WindowMode::Sync,
+                        },
+                        generation: GENERATION,
+                        ui: other_ui,
+                        _lifetime: PopupHandlerLifetime {
+                            mailbox: Arc::downgrade(&mailbox),
+                            _aggregate: HandlerLifetime::new(&callbacks),
+                        },
+                    }
+                    .into();
+                unsafe { handler.Invoke(windows::core::HRESULT(0), PCWSTR::null()) }.unwrap();
+                assert!(callbacks.affinity_failed.load(Ordering::SeqCst));
+                assert!(installation.load(Ordering::SeqCst));
+                assert!(mailbox.invalid.load(Ordering::SeqCst));
+                assert!(!mailbox.invoked.load(Ordering::SeqCst));
+                assert!(mailbox.disposition.lock().unwrap().is_none());
+                assert_eq!(callbacks.active.load(Ordering::SeqCst), 0);
+                drop(handler);
+                assert_eq!(mailbox.handlers.load(Ordering::SeqCst), 0);
+                assert_eq!(callbacks.handlers.load(Ordering::SeqCst), 0);
+                assert_eq!(mailbox.obligation.load(Ordering::SeqCst), 1);
+            }
+        }
+
         fn emit_popup(
             owner: &Rc<RefCell<Owner>>,
             request: &Code0WindowRequest,
@@ -4515,20 +4613,26 @@ mod native {
                 handlers: AtomicUsize::new(1),
                 closing_since: Mutex::new(None),
             });
-            let handler: ICoreWebView2ExecuteScriptCompletedHandler = PopupCompletion {
-                mailbox: Arc::downgrade(&mailbox),
-                callbacks: Arc::clone(&callbacks),
-                installation: Arc::clone(&installation),
-                request: request.clone(),
-                generation: GENERATION,
-                ui,
-                _lifetime: PopupHandlerLifetime {
+            let handler: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler =
+                PopupCompletion {
                     mailbox: Arc::downgrade(&mailbox),
-                    _aggregate: HandlerLifetime::new(&callbacks),
-                },
-            }
-            .into();
-            let wide: Vec<u16> = POPUP_SCRIPT
+                    callbacks: Arc::clone(&callbacks),
+                    installation: Arc::clone(&installation),
+                    request: request.clone(),
+                    generation: GENERATION,
+                    ui,
+                    _lifetime: PopupHandlerLifetime {
+                        mailbox: Arc::downgrade(&mailbox),
+                        _aggregate: HandlerLifetime::new(&callbacks),
+                    },
+                }
+                .into();
+            // Only this compiled ASCII program enters the fixed five-key request;
+            // it contains no JSON quote/backslash and accepts no page/caller data.
+            let parameters = format!(
+                r#"{{"expression":"{POPUP_SCRIPT}","userGesture":false,"returnByValue":true,"includeCommandLineAPI":false,"allowUnsafeEvalBlockedByCSP":false}}"#
+            );
+            let wide: Vec<u16> = parameters
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
@@ -4549,7 +4653,13 @@ mod native {
                         diagnose_popup(i, state.unmatched);
                     }
                 }
-                unsafe { core.ExecuteScript(PCWSTR(wide.as_ptr()), &handler) }
+                unsafe {
+                    core.CallDevToolsProtocolMethod(
+                        windows::core::w!("Runtime.evaluate"),
+                        PCWSTR(wide.as_ptr()),
+                        &handler,
+                    )
+                }
             });
             let returned = result.is_some();
             let native_ok = result.as_ref().is_some_and(|r| r.is_ok());
@@ -4560,6 +4670,7 @@ mod native {
             drop(core);
             let _ = popup_authorized(owner, request, &installation, false);
             drop(wide);
+            drop(parameters);
             drop(active);
             let timely = popup_authorized(owner, request, &installation, false).is_some();
             {
@@ -11776,16 +11887,122 @@ pub mod fixture {
     }
 
     pub(super) fn popup_result_units(units: &[u16]) -> (bool, bool) {
-        let valid =
-            units.len() < 64 && char::decode_utf16(units.iter().copied()).all(|v| v.is_ok());
-        (
-            valid,
-            valid
-                && units
-                    .iter()
-                    .copied()
-                    .eq("\"code0-popup-scheduled-v2\"".encode_utf16()),
-        )
+        let kind = popup_cdp_result_kind(units);
+        // Bounded-valid now means a complete closed primitive method-result
+        // envelope. A precondition envelope is valid but never scheduling success.
+        (matches!(kind, 1 | 2), kind == 1)
+    }
+
+    // This finite grammar accepts no arbitrary JSON tree, string escapes or
+    // remote object handle. Inspect raw keys before any map can erase duplicates.
+    fn popup_cdp_result_kind(units: &[u16]) -> u8 {
+        if units.len() >= 2048 {
+            return 5;
+        }
+        let mut text = String::with_capacity(2048);
+        for decoded in char::decode_utf16(units.iter().copied()) {
+            let Ok(character) = decoded else {
+                return 4;
+            };
+            if text.len() + character.len_utf8() > 2048 {
+                return 5;
+            }
+            text.push(character);
+        }
+        fn take(bytes: &[u8], at: &mut usize, literal: &[u8]) -> bool {
+            while bytes
+                .get(*at)
+                .is_some_and(|&b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+            {
+                *at += 1;
+            }
+            if bytes[*at..].starts_with(literal) {
+                *at += literal.len();
+                true
+            } else {
+                false
+            }
+        }
+        fn quoted<'a>(bytes: &'a [u8], at: &mut usize) -> Option<&'a [u8]> {
+            if !take(bytes, at, b"\"") {
+                return None;
+            }
+            let start = *at;
+            while let Some(&byte) = bytes.get(*at) {
+                match byte {
+                    b'"' => {
+                        let value = &bytes[start..*at];
+                        *at += 1;
+                        return Some(value);
+                    }
+                    b'\\' | 0..=31 => return None,
+                    _ => *at += 1,
+                }
+            }
+            None
+        }
+        fn envelope(bytes: &[u8]) -> Option<bool> {
+            let mut at = 0;
+            if !take(bytes, &mut at, b"{")
+                || quoted(bytes, &mut at)? != b"result"
+                || !take(bytes, &mut at, b":")
+                || !take(bytes, &mut at, b"{")
+            {
+                return None;
+            }
+            let mut seen = 0u8;
+            let mut value = None;
+            let mut description = None;
+            loop {
+                let key = quoted(bytes, &mut at)?;
+                let bit = match key {
+                    b"type" => 1,
+                    b"value" => 2,
+                    b"description" => 4,
+                    _ => return None,
+                };
+                if seen & bit != 0 || !take(bytes, &mut at, b":") {
+                    return None;
+                }
+                seen |= bit;
+                let field = quoted(bytes, &mut at)?;
+                match bit {
+                    1 if field != b"string" => return None,
+                    2 => value = Some(field),
+                    4 => description = Some(field),
+                    _ => (),
+                }
+                if take(bytes, &mut at, b",") {
+                    continue;
+                }
+                if !take(bytes, &mut at, b"}") {
+                    return None;
+                }
+                break;
+            }
+            if seen & 3 != 3
+                || !take(bytes, &mut at, b"}")
+                || !take(bytes, &mut at, b"")
+                || at != bytes.len()
+            {
+                return None;
+            }
+            let value = value?;
+            if description.is_some_and(|d| d != value) {
+                return None;
+            }
+            match value {
+                b"code0-popup-scheduled-v2" => Some(true),
+                b"code0-popup-precondition-v2" => Some(false),
+                _ => None,
+            }
+        }
+        match envelope(text.as_bytes()) {
+            Some(true) => 1,
+            Some(false) => 2,
+            None if text == "null" => 3,
+            None => 4,
+        }
     }
 
     #[cfg(test)]
@@ -11824,18 +12041,71 @@ pub mod fixture {
         };
         use std::time::{Duration, Instant};
 
-        // A permissive JSON/string parser would accept preflight failure,
-        // a missing quoted token, malformed UTF16 or an oversized callback.
+        // Missing closure, duplicate rejection or raw-string strictness would
+        // let unrelated/error protocol results settle a real N4 completion.
         #[test]
-        fn popup_completion_accepts_only_bounded_exact_json_token() {
-            let exact: Vec<u16> = "\"code0-popup-scheduled-v2\"".encode_utf16().collect();
-            assert_eq!(popup_result_units(&exact), (true, true));
+        fn popup_completion_accepts_only_closed_primitive_cdp_envelopes() {
             for text in [
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"value":"code0-popup-scheduled-v2","type":"string"}}"#,
+                r#"{"result":{"description":"code0-popup-scheduled-v2","value":"code0-popup-scheduled-v2","type":"string"}}"#,
+                " \r\n{ \t\"result\" : { \"type\" : \"string\", \"value\" : \"code0-popup-scheduled-v2\" } } \n",
+            ] {
+                assert_eq!(
+                    popup_result_units(&text.encode_utf16().collect::<Vec<_>>()),
+                    (true, true),
+                    "{text}"
+                );
+            }
+        }
+
+        #[test]
+        fn popup_completion_rejects_duplicate_extra_escaped_and_nonstring_results() {
+            for text in [
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"},"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"wrong","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","description":"code0-popup-scheduled-v2","description":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"},"exceptionDetails":null}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"},"exceptionDetails":{}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"},"error":{}}"#,
+                r#"{"id":1,"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"sessionId":"x","result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","objectId":"x"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","subtype":"null"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","className":"String"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","preview":{}}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","deepSerializedValue":{}}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","unserializableValue":"x"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","description":"wrong"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","description":null}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","unknown":true}}"#,
+                r#"{"res\u0075lt":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"ty\u0070e":"string","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"str\u0069ng","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-\u0073cheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2","description":"code0-popup-\u0073cheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-submitted-v1"}}"#,
+                r#"{"result":{"type":"string","value":"prefix-code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2-extra"}}"#,
+                r#"{"result":{"type":"object","value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":true,"value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string","value":true}}"#,
+                r#"{"result":{"type":"string","value":null}}"#,
+                r#"{"result":{"type":"string","value":["code0-popup-scheduled-v2"]}}"#,
+                r#"{"result":{"type":"string","value":{"value":"code0-popup-scheduled-v2"}}}"#,
+                r#"{"result":{"value":"code0-popup-scheduled-v2"}}"#,
+                r#"{"result":{"type":"string"}}"#,
+                r#"{"result":null}"#,
+                r#"{"result":[]}"#,
+                r#"{"result":"code0-popup-scheduled-v2"}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2",}}"#,
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}null"#,
+                r#""code0-popup-scheduled-v2""#,
+                r#""code0-popup-submitted-v1""#,
                 "code0-popup-scheduled-v2",
                 "code0-popup-submitted-v1",
-                "\"code0-popup-submitted-v1\"",
                 "\"code0-popup-submitted-v1\" ",
-                "null",
                 "\"code0-popup-precondition-v1\"",
                 "\"code0-popup-precondition-v2\"",
                 "\"code0-popup-scheduled-v2\" ",
@@ -11844,19 +12114,80 @@ pub mod fixture {
                 "\"code0-popup-scheduled-v2-extra\"",
                 "\"prefix-code0-popup-scheduled-v2\"",
                 r#""code0-popup-\u0073cheduled-v2""#,
+                "\"other\"",
+                "null",
                 "{}",
                 "[]",
-                "\"other\"",
+                "broken",
                 "",
             ] {
                 assert_eq!(
                     popup_result_units(&text.encode_utf16().collect::<Vec<_>>()),
-                    (true, false)
+                    (false, false),
+                    "{text}"
                 );
             }
+            let precondition =
+                r#"{"result":{"type":"string","value":"code0-popup-precondition-v2"}}"#;
+            assert_eq!(
+                popup_result_units(&precondition.encode_utf16().collect::<Vec<_>>()),
+                (true, false)
+            );
+        }
+
+        #[test]
+        fn popup_completion_preserves_utf16_nul_capacity_and_utf8_byte_caps() {
+            let exact = r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#;
+            let padded = format!("{exact}{}", " ".repeat(2047 - exact.len()));
+            assert_eq!(
+                popup_result_units(&padded.encode_utf16().collect::<Vec<_>>()),
+                (true, true)
+            );
+            let over = format!("{padded} ");
+            assert_eq!(
+                popup_result_units(&over.encode_utf16().collect::<Vec<_>>()),
+                (false, false)
+            );
             assert_eq!(popup_result_units(&[0xd800]), (false, false));
-            assert_eq!(popup_result_units(&[65; 63]), (true, false));
-            assert_eq!(popup_result_units(&[65; 64]), (false, false));
+            assert_eq!(popup_result_units(&[0xdc00]), (false, false));
+            let utf8_over = vec![0x00e9; 1025];
+            let real = popup_result_units(&utf8_over);
+            assert_eq!(real, (false, false));
+            assert_eq!(super::n4_popup_result_class(&utf8_over, real), 5);
+        }
+
+        #[test]
+        fn cdp_envelope_cannot_replace_identity_hresult_or_strict_disposition() {
+            let success = r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#;
+            let precondition =
+                r#"{"result":{"type":"string","value":"code0-popup-precondition-v2"}}"#;
+            for (identity, hresult, envelope, disposable, successful) in [
+                (true, true, success, true, true),
+                (false, true, success, false, false),
+                (true, false, "broken", true, false),
+                (true, true, "broken", false, false),
+                (true, true, precondition, false, false),
+            ] {
+                let start = Instant::now();
+                let deadline = NativeRefusalDeadline::from_attempt_started(start).unwrap();
+                let (bounded, matched) =
+                    popup_result_units(&envelope.encode_utf16().collect::<Vec<_>>());
+                let outcome = legacy_completion_disposition_at(
+                    &deadline,
+                    at(start, 100),
+                    at(start, 101),
+                    None,
+                    LegacyCompletionInput {
+                        identity_valid: identity,
+                        hresult_succeeded: hresult,
+                        bounded_result_valid: bounded,
+                        fixed_result_matched: matched,
+                    },
+                );
+                assert!(outcome.timely);
+                assert_eq!(outcome.disposable, disposable);
+                assert_eq!(outcome.successful, successful);
+            }
         }
 
         fn at(start: Instant, millis: u64) -> Instant {
@@ -11908,7 +12239,7 @@ pub mod fixture {
             }
         }
 
-        // Parse the actual token and use the same disposition helper as the
+        // Parse the actual CDP envelope and use the same disposition helper as the
         // native consumer; only the independent identity/HRESULT inputs are fixed.
         fn with_completion(
             facts: NativePopupFacts,
@@ -11958,7 +12289,7 @@ pub mod fixture {
                 at(start, 100),
                 at(start, 101),
                 None,
-                "\"code0-popup-scheduled-v2\"",
+                r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
             );
             assert!(scheduling.fixed_result_matched && scheduling.completion_obligation_drained);
             assert!(!scheduling.target_positive());
@@ -11996,7 +12327,7 @@ pub mod fixture {
                         at(start, 100),
                         at(start, 101),
                         None,
-                        "\"code0-popup-scheduled-v2\"",
+                        r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
                     );
                     assert!(early.completion_within_deadline && early.fixed_result_matched);
                     assert!(!early.target_positive() && !early.positive());
@@ -12011,7 +12342,7 @@ pub mod fixture {
                         at(start, 300),
                         at(start, 301),
                         Some(at(start, 200)),
-                        "\"code0-popup-scheduled-v2\"",
+                        r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
                     )
                 };
                 assert!(facts.target_positive() && facts.positive());
@@ -12032,7 +12363,7 @@ pub mod fixture {
                     at(start, 100),
                     at(start, 101),
                     None,
-                    "\"code0-popup-scheduled-v2\"",
+                    r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
                 );
                 let facts = with_target(scheduling, &deadline, at(start, target_ms));
                 assert_eq!(facts.target_positive(), target_ms < 45000);
@@ -12056,7 +12387,7 @@ pub mod fixture {
                     at(start, received_ms),
                     at(start, consumed_ms),
                     Some(at(start, close_ms)),
-                    "\"code0-popup-scheduled-v2\"",
+                    r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
                 );
                 assert_eq!(facts.completion_within_deadline, positive);
                 assert_eq!(facts.positive(), positive);
@@ -12066,6 +12397,7 @@ pub mod fixture {
         #[test]
         fn qualified_popup_cannot_replace_strict_scheduling_completion() {
             for token in [
+                r#"{"result":{"type":"string","value":"code0-popup-precondition-v2"}}"#,
                 "\"code0-popup-submitted-v1\"",
                 "\"code0-popup-precondition-v2\"",
                 "null",
@@ -14102,14 +14434,30 @@ pub mod fixture {
         #[test]
         fn n4_result_classes_do_not_promote_precondition_null_or_other_tokens() {
             for (text, class) in [
-                ("\"code0-popup-scheduled-v2\"", 1),
-                ("\"code0-popup-precondition-v2\"", 2),
-                ("\"code0-popup-submitted-v1\"", 4),
-                ("\"code0-popup-precondition-v1\"", 4),
+                (
+                    r#"{"result":{"type":"string","value":"code0-popup-scheduled-v2"}}"#,
+                    1,
+                ),
+                (
+                    r#"{"result":{"type":"string","value":"code0-popup-precondition-v2"}}"#,
+                    2,
+                ),
+                (
+                    r#"{"result":{"type":"string","value":"code0-popup-precondition-v2","description":"wrong"}}"#,
+                    4,
+                ),
+                (r#""code0-popup-scheduled-v2""#, 4),
+                (r#""code0-popup-precondition-v2""#, 4),
+                (r#""code0-popup-submitted-v1""#, 4),
+                (r#""code0-popup-precondition-v1""#, 4),
                 ("\"code0-popup-scheduled-v2\" ", 4),
                 (r#""code0-popup-\u0073cheduled-v2""#, 4),
-                ("null", 3),
                 ("\"other\"", 4),
+                (
+                    r#"{"result":{"type":"string","value":"code0-popup-\u0073cheduled-v2"}}"#,
+                    4,
+                ),
+                ("null", 3),
                 ("broken", 4),
             ] {
                 let units: Vec<u16> = text.encode_utf16().collect();
@@ -14193,22 +14541,14 @@ pub mod fixture {
         }
     }
 
-    // Classification only: the authoritative bounded parser tuple is unchanged.
-    // Its first bool means bounded UTF16 copy, not full JSON validation; class4
-    // therefore honestly includes bounded-other/malformed, never "valid JSON".
+    // Classification only: class1 is the closed scheduling envelope, class2 the
+    // closed precondition envelope, class3 raw null, class4 rejected/malformed,
+    // class5 a UTF16/UTF8 cap failure. No class supplies native target authority.
     pub(super) fn n4_popup_result_class(units: &[u16], real: (bool, bool)) -> u8 {
         if real.1 {
             1
-        } else if units
-            .iter()
-            .copied()
-            .eq("\"code0-popup-precondition-v2\"".encode_utf16())
-        {
-            2
-        } else if units.iter().copied().eq("null".encode_utf16()) {
-            3
         } else {
-            4
+            popup_cdp_result_kind(units)
         }
     }
     // N4 diagnostic end.
