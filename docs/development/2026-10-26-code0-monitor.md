@@ -997,3 +997,28 @@ N5下载准备26063/efbbd0c6+Root3158/3bf83a82+独立20475/1a164f57已Root全文
 
 
 2026-10-29：N4窄修两份完整源码独审（SPEC15891/ed5ea9b1、QUALITY15909/f5af2535）均C0/I0/M0，已开发入口全文接受。D550058/885a4aff仅三处生产字面量与两处测试区改变，已选择性本地提交4b4b9cd；新增四项定义使该文件辅助测试21→25，尚未编译或运行，旧非用户分类失败与watchdog未知记录保持。原父工作区S3三份改动和全部其他文件保留。依赖fix2作者7521/62826b8f、完整差异3671/1d570a45、独审9995/58f4c234均全文读取且15冻结成员核对，有限SOURCE C0/I0/M0接受并本地提交4efeaba。下一次仅调整临时解析约束以保持原Chai6.2.2/tinyrainbow3.1.1，并精确匹配Vitest可选webdriverio peer的官方^4.1.11声明；不增加节点或允许无关升级，最终依赖保护及全部门禁保持。新锁生成和实际门禁仍待隔离CI。文档373项、差异及公开发布安全检查通过，不替代产品测试。完整后续门禁通过前不合并发布。
+
+
+2026-10-29: N4 timer source4b4b9cd and records5f5daa5, plus dependency recipe fix2 source4efeaba, are preserved in a verified43-file/full-Git22 checkpoint (manifest ce3be1a9b58ed0de43c13cc0634382e35086691cea8f554c80a2faf3caaaee1d). Dedicated dependency CI40818949002 completed FAILURE in lock-generation/validation; raw evidence collection and exact diagnosis are next, downstream gates are not assumed executed. No blind rerun or integration of a rejected lock. A fresh sole S3 author is continuing only active D/F/Q from the preserved delta; old parent WIP remains unchanged. Root owns package integration, workflow and formal records. All new N4/S3 native results remain unaccepted; no merge/release. Latest human authorization remains Sol6.1/high, preserve all work, direct release after every required test and independent review passes.
+
+
+2026-10-29: Exact N4 timer candidate5f5daa5 regression: macOS40819298545 completedSUCCESS (raw and controlled CLI evidence saved, independent actual review pending); Windows40819298568 failed the native initial-blank popup refusal and its strict evidence gate, fresh cause not yet read; dispatcher40819298633 continues. Preserve failure and read actual records before any next fix; do not broaden assertions or claim overall GREEN. Independent dependency fix3 fdd9e2b/40819983937 completedSUCCESS with full56 artifacts; Root verified55 payload hashes,171-node complete graph and52 intended scalar changes,304 frontend tests,25 lifecycle tests,actual Edge/layout,build,dev/readiness-cleanup,audit0 and finalbyte protection. Its independent actual acceptance remains pending, accepted manifest/lock not yet integrated. S3 sole author continues only its scoped changes; no merge/release.
+
+
+## 2026-10-29 — scoped dependency remediation integrated; N4 remains failed
+
+REQ-20261029-001 is complete within its registered scope. Isolated CI `40819983937` and independent actual review passed; commit `ef41fb4a58ac048b3569b3503568cd7ca62bfbad` integrates only the accepted `windows/package.json` and CI-generated `windows/package-lock.json`. Vite 8.2.4, Vitest family 4.1.12 and Undici 8.12.2 are the intended changes; the other 160 dependency records are byte-for-byte unchanged as records. The 304 frontend tests, 25 density tests, typecheck, build, real development-server start/stop and audit with zero reported vulnerabilities passed. The temporary dependency workflow is not included. This scoped completion is not whole-product or release acceptance.
+
+For REQ-20261026-004, the current 5f source macOS run `40819298545` and its independent actual review passed the configured gates, retaining the 15 unobserved native methods. Windows `40819298568` and independent review retain a blocking N4 result: the actual native getter reports user-initiated TRUE. Strict scheduling completion, Handled setter/readback, real policy rejection and normal cleanup succeeded. This neither proves the timer fixed the contract nor resolves the historical watchdog first cause. A fixed CDP request with explicit non-user gesture semantics is being reviewed as the next candidate; its real result is unrun, with native FALSE and the original time limits still mandatory. S3 changes remain preserved and awaiting a complete source freeze/review. The independent dispatcher `40819298633` is still running. No merge or release has occurred.
+
+
+### N4固定CDP触发合同采用（2026-10-29，实际未运行）
+
+ExecuteScript加timer0的实际40819298568仍读回用户触发TRUE。现采用经独立准备审查C0/I0/M0的固定CDP候选：同一原生core上仅一次`Runtime.evaluate`，完整五键为固定473字节expression、`userGesture=false`、`returnByValue=true`、`includeCommandLineAPI=false`、`allowUnsafeEvalBlockedByCSP=false`。保留同一零延迟定时器及两次blank/顶层/HTML/无frame前置条件；不增加上下文发现、额外求值、导航或回退。原生同core与Source身份和API默认受检主上下文作为当前初始blank范围的来源依据；不声称已观察运行时二进制realm身份。
+
+原先ExecuteScript的裸JSON字符串完成合同替换为封闭CDP方法返回对象：唯一result对象含唯一type=string及value=code0-popup-scheduled-v2，仅可选同值description；普通JSON空白和键顺序允许，重复/额外键、转义等价固定值、异常及其余类型全部拒绝。严格UI/STA前置，最多扫描2048个UTF16单元且含终止符，合法UTF8输出上限2048字节；完成仅证明安排成功。schema10保持，但boundedResultValid/fixedResultMatched及script提交完成字段语义绑定新源码。真实原生IsUserInitiated=false、Handled设置及读回、独立真实PolicyRejected、单ticket/handler实际排空、45/10/75秒原期限和正常清理仍必须，旧失败与未知超时原因保留。
+
+此为技术合同采用，不是源码或实际通过。先由S3作者封存并STOP，再串行窄实现、独立源码审查及隔离实际验证。主候选5f的dispatcher40819298633已结束SUCCESS，完整原始证据保存并进入独立实际审查；Windows整体仍因N4失败，尚未合并或发布。
+
+
+2026-10-29: dispatcher40819298633第25次独立实际审查已全文接受有限C0/I0/M0：新追加21478/1762d638、完整286327/aba568c0且原264849前缀不变；25基线、四个严格编译后的准确语义失败、全部清理与实际最终验证器通过，私有过滤76/77由实测5f源版本推得。完整原始记录及23产物已保存并核hash，三平台绑定6472/d1545ca9均实际checkout8d/同5f树，过时事件merge字段不作为执行身份。此轮三CI均已结束；Mac有限通过，WindowsN4仍I1/HOLD，不代表整体完成。S3源码预审已发现一个Context被move闭包捕获后再使用的编译问题，唯一作者正在窄修，保留初版供差异复审；所有新S3编译/测试/原生结果仍未运行。
