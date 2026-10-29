@@ -169,6 +169,7 @@ export function DetailSurface({code0Bridge}: Code0SurfaceProps = {}) {
   const code0Session = useCode0Session(sessionBridge)
   const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null)
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
+  const [presentationGeneration, setPresentationGeneration] = useState(0)
   const [paused, setPaused] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
   const [deepseekHistoryState, setDeepseekHistoryState] = useState<DeepSeekHistoryStatusSnapshot>({
@@ -231,6 +232,7 @@ export function DetailSurface({code0Bridge}: Code0SurfaceProps = {}) {
       if (!disposed) {
         setSelectedProvider(event.payload.providerId)
         setSnapshot(event.payload.providerId === "code0" ? null : event.payload)
+        setPresentationGeneration(value => value + 1)
       }
     })
     subscribe<boolean>("strip-context-menu", (event) => {
@@ -305,7 +307,7 @@ export function DetailSurface({code0Bridge}: Code0SurfaceProps = {}) {
       void invoke("close_provider_detail")
     }, settings.detailAutoHideSeconds * 1_000)
     return () => window.clearTimeout(timeout)
-  }, [contextMenuOpen, deepseekHistoryState.status, paused, selectedProvider, settings.detailAutoHideSeconds, snapshot])
+  }, [contextMenuOpen, deepseekHistoryState.status, paused, presentationGeneration, selectedProvider, settings.detailAutoHideSeconds, snapshot])
 
   if (!selectedProvider) return null
   return (
