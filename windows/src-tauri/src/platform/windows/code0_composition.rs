@@ -1,10 +1,9 @@
-use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
-use super::code0_profile_lease::{Code0LeaseError, Code0ProfileLease};
+use super::code0_profile_lease::Code0LeaseError;
 use super::code0_web_session::{Code0SnapshotStoring, Code0StoreError};
+pub(crate) use super::code0_webview::{Code0LeaseSlot, cold_code0_lease_slot};
 use crate::domain::UsageSnapshot;
 use crate::persistence::Code0SnapshotStore;
 
@@ -51,15 +50,6 @@ pub(crate) fn code0_profile_root(
         let _ = local_app_data;
         Err(Code0LeaseError::Unavailable)
     }
-}
-
-/// UI-local transport of the actual cloned OS authority, never a held flag.
-/// The native driver alone acquires and releases it. Invalidated Some values
-/// must stay here until the driver's existing object-free gate permits release.
-pub(crate) type Code0LeaseSlot = Rc<RefCell<Option<Code0ProfileLease>>>;
-
-pub(crate) fn cold_code0_lease_slot() -> Code0LeaseSlot {
-    Rc::new(RefCell::new(None))
 }
 
 /// Select the current shared authority for every operation, including load.
@@ -109,10 +99,13 @@ impl Code0SnapshotStoring for Code0SlotSnapshotStore {
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
     use std::time::Duration;
 
     use crate::collectors::code0_capture::Code0WebsiteCapture;
     use crate::domain::{UsageSnapshot, UsageStatus};
+    use crate::platform::windows::code0_profile_lease::Code0ProfileLease;
     use crate::platform::windows::code0_web_session::{
         Code0CleanupRequest, Code0SessionClock, Code0SessionFailure, Code0SessionState,
         Code0WebSession, Code0WindowDriving, Code0WindowRequest,

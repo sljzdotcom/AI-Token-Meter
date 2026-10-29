@@ -22,7 +22,7 @@ import time
 
 DISPATCHER = "windows/src-tauri/src/platform/windows/code0_dispatcher.rs"
 TESTS = "windows/src-tauri/tests/code0_dispatcher.rs"
-DISPATCHER_SHA = "e83882b31e1ee7ce7e9e999e70c2733822a488d5e01dc0ca0ec82b0cd98eb9ab"
+DISPATCHER_SHA = "1ce7229523ee0f010ecc198b2d9e8d24188be8dc9ac3c0f9dd7539bd80ce4355"
 TESTS_SHA = "b736e324815a8e838881e0592c79c74f422bb872534b44248813088863921305"
 # Already-tracked historical reports remain byte-compared source inputs. Only
 # these exact files and their directory entries may use the reserved prefix.
@@ -54,17 +54,17 @@ RECIPES = (
      "reply preceded matching emit"),
 )
 EXPECTED_MUTANTS = {
-    "M1": ("cb3f83f414c4036a7e6525e3604d6fb07e99c42606f787228a0ab58c3732f3d6",
-           "8337e0de2ace581acfc0cb3bb7c72eedf486a51163375e1664b69f6b9438e22f",
-           "src/platform/windows/code0_dispatcher.rs", 794),
-    "M2": ("8855babf11012c4536e0d3b360333fe620e594cc5420a729915db1bfba76b104",
-           "e47564af5e8b522ad05b86a1c9ae0023b804c2b36b705f63f3076133cbe300d8",
-           "src/platform/windows/code0_dispatcher.rs", 794),
-    "M3": ("7c4f37997d6c09cfe11973dd9cadf84729e8539adf0a063aff20348ade1deaa7",
-           "feaa754edf4a3e852a04f5b7a384651a11c6ae5e2e7f2b501a2dd17ba9c84f15",
+    "M1": ("a24884587bc06bb952f0042c8ccc0f6691e8310b8161bcc65729846c10211267",
+           "311b3451860cb98323ef85e0535392232212db6c2f17d9eb68b6eea0fff61f29",
+           "src/platform/windows/code0_dispatcher.rs", 864),
+    "M2": ("3b0b4fbe204025136b6380eb6095865ec4fc3904b8dcfac3fa1ce9b762ae6063",
+           "50194d72a4f27b559b6e5d358bc63ea0f8f1152e85b2a162a456d30d20b3599a",
+           "src/platform/windows/code0_dispatcher.rs", 864),
+    "M3": ("4d1653295ce2ca5557303312ba9eb607378a8795cc50f111ebe39a0127aae385",
+           "f5effdd5a8dad7a7d116982681f72b65426f545026cb86624f79fe9c56b1264f",
            "tests/code0_dispatcher.rs", 500),
-    "M4": ("9a134f06f68c7536cf430a029b740247c666d3b2d82dca26d5bda9b9d9c66d53",
-           "de6921c88fc68d3e67d51b9b6136da1d47e09eeea5663e44d09abe5ec7b178cf",
+    "M4": ("e2b0ae295ed6c36f9468726055d04a50eae9d26518790b1a8b297c2568c62de1",
+           "35f3b03ca7d39b2c6632507a85905249e8b45793882bd31e445065341bb3b4e8",
            "tests/code0_dispatcher.rs", 510),
 }
 MAX_LOG = 4 * 1024 * 1024

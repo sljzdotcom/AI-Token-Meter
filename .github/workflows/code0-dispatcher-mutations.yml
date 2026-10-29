@@ -64,8 +64,8 @@ jobs:
           from pathlib import Path
 
           expected = {
-              'scripts/test-code0-dispatcher-mutations.py': '326986cad04d8d942089ab431c4964443c5612d9625a601584c57ebf04d59e50',
-              'windows/src-tauri/src/platform/windows/code0_dispatcher.rs': 'e83882b31e1ee7ce7e9e999e70c2733822a488d5e01dc0ca0ec82b0cd98eb9ab',
+              'scripts/test-code0-dispatcher-mutations.py': 'a33c43fdd937640a2cd1f27cbe9079f9c2585ea4352e2b21d985b57735084c6b',
+              'windows/src-tauri/src/platform/windows/code0_dispatcher.rs': '1ce7229523ee0f010ecc198b2d9e8d24188be8dc9ac3c0f9dd7539bd80ce4355',
               'windows/src-tauri/tests/code0_dispatcher.rs': 'b736e324815a8e838881e0592c79c74f422bb872534b44248813088863921305',
           }
           def plain(path, directory=False):
@@ -235,7 +235,7 @@ jobs:
       - name: Verify baseline and four fixed semantic mutations
         shell: pwsh
         run: |
-          $reviewedHash = '326986cad04d8d942089ab431c4964443c5612d9625a601584c57ebf04d59e50'
+          $reviewedHash = 'a33c43fdd937640a2cd1f27cbe9079f9c2585ea4352e2b21d985b57735084c6b'
           if ((Get-FileHash scripts/test-code0-dispatcher-mutations.py -Algorithm SHA256).Hash.ToLowerInvariant() -ne $reviewedHash) { throw 'Unreviewed dispatcher mutation runner' }
           $env:CODE0_DISPATCHER_MUTATIONS_APPROVED = 'otherwise-GREEN25'
           python scripts/test-code0-dispatcher-mutations.py
@@ -246,7 +246,7 @@ jobs:
           from pathlib import Path
 
           script = Path('scripts/test-code0-dispatcher-mutations.py')
-          if hashlib.sha256(script.read_bytes()).hexdigest() != '326986cad04d8d942089ab431c4964443c5612d9625a601584c57ebf04d59e50':
+          if hashlib.sha256(script.read_bytes()).hexdigest() != 'a33c43fdd937640a2cd1f27cbe9079f9c2585ea4352e2b21d985b57735084c6b':
               raise SystemExit('Unreviewed dispatcher mutation runner')
           candidates = list(Path(os.environ['RUNNER_TEMP']).glob('code0-dispatcher-mutations-*/summary.json'))
           if len(candidates) != 1:

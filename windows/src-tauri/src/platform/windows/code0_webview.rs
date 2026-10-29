@@ -1,5 +1,6 @@
 //! UI-local bare-Window/direct-COM Code0 owner. Official loading remains denied
 //! until the separately verified production policy and bridge installation phase.
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -28,12 +29,22 @@ pub mod s4_capability_protocol;
 
 pub type Code0NativeEventSink = Rc<dyn Fn(Code0WindowRequest, Code0WindowEvent)>;
 
+/// UI-local transport of the actual cloned OS authority, never a held flag.
+/// The native driver alone acquires and releases it. Invalidated Some values
+/// must stay here until the driver's existing object-free gate permits release.
+pub(crate) type Code0LeaseSlot = Rc<RefCell<Option<Code0ProfileLease>>>;
+
+pub(crate) fn cold_code0_lease_slot() -> Code0LeaseSlot {
+    Rc::new(RefCell::new(None))
+}
+
 /// Rc deliberately keeps the native owner !Send/!Sync. Its caller must retain it
 /// and pump the UI STA through matching Released, including failed creation.
 pub struct Code0NativeDriver {
     app: tauri::AppHandle,
     profile_root: PathBuf,
     lease: Option<Code0ProfileLease>,
+    lease_slot: Code0LeaseSlot,
     #[cfg(windows)]
     owner: Rc<std::cell::RefCell<native::Owner>>,
     #[cfg(not(windows))]
@@ -44,10 +55,20 @@ pub struct Code0NativeDriver {
 
 impl Code0NativeDriver {
     pub fn new(app: tauri::AppHandle, profile_root: PathBuf, events: Code0NativeEventSink) -> Self {
+        Self::new_with_shared_slot(app, profile_root, events, cold_code0_lease_slot())
+    }
+
+    pub(crate) fn new_with_shared_slot(
+        app: tauri::AppHandle,
+        profile_root: PathBuf,
+        events: Code0NativeEventSink,
+        slot: Code0LeaseSlot,
+    ) -> Self {
         Self {
             app,
             profile_root,
             lease: None,
+            lease_slot: slot,
             #[cfg(windows)]
             owner: Rc::new(std::cell::RefCell::new(native::Owner::new(events))),
             #[cfg(not(windows))]
@@ -55,6 +76,22 @@ impl Code0NativeDriver {
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             fixture_observer: None,
         }
+    }
+
+    fn profile_lease_held(&self) -> bool {
+        let authority = {
+            let Ok(slot) = self.lease_slot.try_borrow() else {
+                return false;
+            };
+            slot.clone()
+        };
+        // Identity comparison and native validation run outside slot borrowing.
+        self.lease.as_ref().is_some_and(|owned| {
+            authority
+                .as_ref()
+                .is_some_and(|shared| owned.shares_authority_with(shared))
+                && owned.is_bound_to(&self.profile_root)
+        })
     }
 
     /// Feed only real events from this app's main UI RunEvent route. Tauri's
@@ -76,19 +113,55 @@ impl Code0NativeDriver {
 
 impl Code0WindowDriving for Code0NativeDriver {
     fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
-        if self.lease.as_ref().is_some_and(Code0ProfileLease::is_held) {
-            return Ok(());
+        let existing = {
+            let slot = self
+                .lease_slot
+                .try_borrow()
+                .map_err(|_| Code0SessionFailure::ProfileBusy)?;
+            slot.clone()
+        };
+        if let Some(owned) = &self.lease {
+            // Invalidated owned Some still owns native locks; never replace it.
+            return if existing
+                .as_ref()
+                .is_some_and(|shared| owned.shares_authority_with(shared))
+                && owned.is_bound_to(&self.profile_root)
+            {
+                Ok(())
+            } else {
+                Err(Code0SessionFailure::ProfileBusy)
+            };
         }
-        self.lease = Some(
+        if existing.is_some() {
+            // A prepopulated slot was not published by this driver.
+            return Err(Code0SessionFailure::ProfileBusy);
+        }
+        let lease =
             Code0ProfileLease::acquire(&self.profile_root).map_err(|error| match error {
                 Code0LeaseError::Busy => Code0SessionFailure::ProfileBusy,
                 Code0LeaseError::Unavailable => Code0SessionFailure::StorageFailed,
-            })?,
-        );
+            })?;
+        let published = match self.lease_slot.try_borrow_mut() {
+            Ok(mut slot) if slot.is_none() => {
+                *slot = Some(lease.clone());
+                true
+            }
+            _ => false,
+        };
+        if !published {
+            // End slot borrowing before releasing an unpublished acquisition.
+            lease.release();
+            return Err(Code0SessionFailure::ProfileBusy);
+        }
+        self.lease = Some(lease);
         Ok(())
     }
 
     fn release_profile_lease(&mut self) {
+        #[cfg(windows)]
+        if self.owner.try_borrow().is_err() {
+            return;
+        }
         #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
         let diagnostics = self.owner.borrow().diagnostics.clone();
         #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
@@ -106,9 +179,22 @@ impl Code0WindowDriving for Code0NativeDriver {
                 return;
             }
         }
+        let authority = {
+            let Ok(slot) = self.lease_slot.try_borrow() else {
+                return;
+            };
+            slot.clone()
+        };
         #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
         let mut lease_taken = false;
-        if let Some(lease) = self.lease.take() {
+        if let Some(lease) = self.lease.as_ref() {
+            if !authority
+                .as_ref()
+                .is_some_and(|shared| lease.shares_authority_with(shared))
+                || self.lease_slot.try_borrow_mut().is_err()
+            {
+                return;
+            }
             #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
             {
                 lease_taken = true;
@@ -121,18 +207,37 @@ impl Code0WindowDriving for Code0NativeDriver {
             if let Some(diagnostic) = &diagnostics {
                 diagnostic.lease_fact(1 << 4);
             }
+            let retired = {
+                let Ok(mut slot) = self.lease_slot.try_borrow_mut() else {
+                    return;
+                };
+                if !slot
+                    .as_ref()
+                    .is_some_and(|shared| lease.shares_authority_with(shared))
+                {
+                    return;
+                }
+                slot.take()
+            };
+            // Actual release revoked every clone before emptying the slot.
+            // Neither shared nor owned authority Drop runs under a slot borrow.
+            drop(retired);
+            drop(self.lease.take());
         }
         #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
         if let Some(diagnostic) = &diagnostics {
             // The original local lease scope has ended. This is not an OS
             // handle-close result or a browser-process exit observation.
-            diagnostic
-                .lease_fact((u32::from(lease_taken) << 5) | (u32::from(self.lease.is_none()) << 6));
+            let slot_empty = self
+                .lease_slot
+                .try_borrow()
+                .is_ok_and(|slot| slot.is_none());
+            diagnostic.lease_fact((u32::from(lease_taken) << 5) | (u32::from(slot_empty) << 6));
         }
     }
 
     fn create_unloaded(&mut self, request: Code0WindowRequest) -> Result<(), Code0SessionFailure> {
-        if !self.lease.as_ref().is_some_and(Code0ProfileLease::is_held) {
+        if !self.profile_lease_held() {
             return Err(Code0SessionFailure::ProfileBusy);
         }
         #[cfg(windows)]
@@ -17008,8 +17113,8 @@ pub mod fixture {
         later: Option<super::Code0ProfileLease>,
     }
 
-    /// Deliberate buildable RED: old new(...) owns an independent lease. GREEN
-    /// must wire this SAME cold slot into the real driver, not fill it here.
+    /// The actual driver alone publishes/revokes authority in this SAME cold
+    /// slot. The probe and real store retain only observation/delegation.
     #[cfg(windows)]
     pub fn shared_slot_driver(
         app: tauri::AppHandle,
@@ -17023,7 +17128,8 @@ pub mod fixture {
             .map_err(|_| Code0SessionFailure::StorageFailed)?;
         let slot = cold_code0_lease_slot();
         let store = Code0SlotSnapshotStore::new(&root, slot.clone());
-        let driver = Code0NativeDriver::new(app, root.clone(), events);
+        let driver =
+            Code0NativeDriver::new_with_shared_slot(app, root.clone(), events, slot.clone());
         Ok((
             driver,
             NativeSharedSlotProbe {
@@ -21261,11 +21367,7 @@ pub mod fixture {
             &mut self,
             request: &Code0WindowRequest,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21285,11 +21387,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             started: std::time::Instant,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             super::native::select_permission_intent(&self.owner, request, started)
@@ -21300,11 +21398,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             started: std::time::Instant,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             super::native::prepare_permission(&self.owner, request, started)
@@ -21315,11 +21409,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             started: std::time::Instant,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             super::native::begin_permission(&self.owner, request, started)
@@ -21331,11 +21421,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             started: std::time::Instant,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             super::native::select_http401_intent(&self.owner, request, started)
@@ -21355,11 +21441,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             started: std::time::Instant,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             super::native::begin_http401(&self.owner, request, started)
@@ -21379,11 +21461,7 @@ pub mod fixture {
             &mut self,
             request: &Code0WindowRequest,
         ) -> Result<NativeRefusalInstallReceipt, Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21404,11 +21482,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             deadline: NativeRefusalDeadline,
         ) -> Result<NativeTopSubmissionReceipt, Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             // The root is derived from this driver's leased dedicated profile,
@@ -21434,11 +21508,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             deadline: NativeDialogDeadline,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             let owned_root = self
@@ -21467,11 +21537,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             deadline: NativeRefusalDeadline,
         ) -> Result<NativeChildSubmissionReceipt, Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21491,11 +21557,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             deadline: NativeDialogDeadline,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21515,11 +21577,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             deadline: NativeDialogDeadline,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21540,11 +21598,7 @@ pub mod fixture {
             selector: NativeCapabilitySelector,
             deadline: NativeDialogDeadline,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21564,11 +21618,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             deadline: NativeDialogDeadline,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             let root = self
@@ -21593,11 +21643,7 @@ pub mod fixture {
             request: &Code0WindowRequest,
             case: PolicyFixtureCase,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21617,11 +21663,7 @@ pub mod fixture {
             &mut self,
             request: &Code0WindowRequest,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]
@@ -21640,11 +21682,7 @@ pub mod fixture {
             &mut self,
             request: &Code0WindowRequest,
         ) -> Result<(), Code0SessionFailure> {
-            if !self
-                .lease
-                .as_ref()
-                .is_some_and(super::Code0ProfileLease::is_held)
-            {
+            if !self.profile_lease_held() {
                 return Err(Code0SessionFailure::ProfileBusy);
             }
             #[cfg(windows)]

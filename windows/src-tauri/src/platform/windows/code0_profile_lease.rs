@@ -158,6 +158,11 @@ pub(crate) fn guard_code0_read_path(root: &Path) -> Result<Code0PathGuard, Code0
 }
 
 impl Code0ProfileLease {
+    /// Compare retained authority identity without validating or altering it.
+    pub(crate) fn shares_authority_with(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.authority, &other.authority)
+    }
+
     /// Create/validate the fixed Code0 directory and acquire its exclusive
     /// share-mode lock. The stable lock file is never truncated or removed.
     pub fn acquire(root: impl AsRef<Path>) -> Result<Self, Code0LeaseError> {

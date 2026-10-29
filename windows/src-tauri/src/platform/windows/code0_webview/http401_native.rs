@@ -519,6 +519,7 @@ impl EntryLedger {
         };
         let value = at
             .checked_duration_since(started)
+            .filter(|_| at >= started)
             .and_then(|d| u64::try_from(d.as_nanos()).ok())
             .and_then(|n| n.checked_add(1));
         if let Some(value) = value {

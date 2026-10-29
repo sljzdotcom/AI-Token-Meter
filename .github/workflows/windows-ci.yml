@@ -2934,14 +2934,14 @@ jobs:
             ${{ runner.temp }}/code0-policy-http401-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
           if-no-files-found: warn
           retention-days: 7
-      - name: Test Code0 shared-slot real-driver Stage A RED
+      - name: Test Code0 shared-slot real-driver Stage A GREEN
         if: ${{ !cancelled() && steps.code0_native_lint.outcome == 'success' }}
         working-directory: windows/src-tauri
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $PSNativeCommandUseErrorActionPreference = $false
-          $env:AI_METER_CODE0_NATIVE_RUN_ID = "code0-shared-slot-red-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:AI_METER_CODE0_NATIVE_RUN_ID = "code0-shared-slot-green-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
           if ($env:AI_METER_CODE0_NATIVE_RUN_ID -cnotmatch '\A[A-Za-z0-9_-]{1,64}\z') { throw "Invalid shared-slot fresh run identity" }
           $env:AI_METER_CODE0_NATIVE_SUMMARY = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID.json"
           $exitPath = Join-Path $env:RUNNER_TEMP "$env:AI_METER_CODE0_NATIVE_RUN_ID-exit.json"
@@ -2955,13 +2955,13 @@ jobs:
           $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($payload)
           $stream = [System.IO.File]::Open($exitPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
           try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-          if ($code -ne 1) { throw "Shared-slot expected actual exit 1; exit alone never proves the required RED" }
+          if ($code -ne 0) { throw "Shared-slot expected actual exit 0; exit alone never proves the required GREEN" }
           exit 0
-      - name: Verify Code0 shared-slot real-driver Stage A RED evidence
+      - name: Verify Code0 shared-slot real-driver Stage A GREEN evidence
         if: always()
         shell: python {0}
         run: |
-          """Only the exact fresh Stage A missing-publication RED may satisfy this gate."""
+          """Require exact fresh Stage A authority wiring and normal lifecycle GREEN."""
           import json
           import os
           import re
@@ -3006,33 +3006,37 @@ jobs:
 
 
           try:
-              run_id = f"code0-shared-slot-red-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+              run_id = f"code0-shared-slot-green-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
               if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', run_id) is None:
                   raise ValueError('invalid fresh run identity')
               base = Path(os.environ['RUNNER_TEMP'])
-              expected_exit = {'schema': 1, 'runId': run_id, 'exitCode': 1}
+              expected_exit = {'schema': 1, 'runId': run_id, 'exitCode': 0}
+              summary = read(base / f'{run_id}.json', 8192)
+              version = summary.get('runtimeVersion') if type(summary) is dict else None
+              if type(version) is not str or re.fullmatch(r'[0-9.]{1,128}', version) is None:
+                  raise ValueError('missing or malformed actual runtime version')
               expected_summary = {
                   'schema': 16,
                   'runId': run_id,
                   'requiredCase': 'shared-slot-driver',
                   'selectedCases': 1,
                   'completedCases': 1,
-                  'pass': False,
-                  'failure': 'driverAcquireDidNotPublishSharedSlot',
+                  'pass': True,
+                  'failure': 'none',
                   'staMain': True,
                   'callbackAffinity': True,
                   'noInheritedOverride': True,
-                  'engineReady': False,
-                  'rendererMessage': False,
-                  'bareHiddenUnfocused': False,
-                  'constructionObserved': False,
+                  'engineReady': True,
+                  'rendererMessage': True,
+                  'bareHiddenUnfocused': True,
+                  'constructionObserved': True,
                   'bareWindowViolation': False,
-                  'profileIsolated': False,
-                  'destroyed': False,
-                  'ownedReferencesReleased': False,
+                  'profileIsolated': True,
+                  'destroyed': True,
+                  'ownedReferencesReleased': True,
                   'runReturned': True,
                   'cleanupSucceeded': True,
-                  'runtimeVersion': '',
+                  'runtimeVersion': version,
                   'sharedSlot': {
                       'appBuilt': True,
                       'profileRootFresh': True,
@@ -3040,40 +3044,40 @@ jobs:
                       'acquireSucceeded': True,
                       'firstTargetObserved': True,
                       'firstTargetTimely': True,
-                      'firstSlotHeldAndBound': False,
-                      'firstStoreRoundtrip': False,
-                      'repeatAcquireSucceeded': None,
-                      'repeatLockPreserved': None,
-                      'createAttempted': False,
-                      'earlyReleaseCalled': False,
-                      'earlySlotPreserved': None,
-                      'matchingReleasedBeforeFinalRelease': False,
-                      'releaseCalls': 1,
-                      'failedBeforeCreateCleanup': True,
-                      'releasedSlotEmpty': None,
-                      'savedCloneRevoked': None,
-                      'staleStoreDenied': None,
-                      'reacquireSucceeded': None,
-                      'reacquiredStoreRoundtrip': None,
-                      'staleCloneStillDenied': None,
-                      'finalReleaseObserved': None,
-                      'laterChecksTimely': None,
+                      'firstSlotHeldAndBound': True,
+                      'firstStoreRoundtrip': True,
+                      'repeatAcquireSucceeded': True,
+                      'repeatLockPreserved': True,
+                      'createAttempted': True,
+                      'earlyReleaseCalled': True,
+                      'earlySlotPreserved': True,
+                      'matchingReleasedBeforeFinalRelease': True,
+                      'releaseCalls': 3,
+                      'failedBeforeCreateCleanup': False,
+                      'releasedSlotEmpty': True,
+                      'savedCloneRevoked': True,
+                      'staleStoreDenied': True,
+                      'reacquireSucceeded': True,
+                      'reacquiredStoreRoundtrip': True,
+                      'staleCloneStillDenied': True,
+                      'finalReleaseObserved': True,
+                      'laterChecksTimely': True,
                       'wakeJoinSucceeded': True,
                   },
               }
               exact(read(base / f'{run_id}-exit.json', 1024), expected_exit)
-              exact(read(base / f'{run_id}.json', 8192), expected_summary)
+              exact(summary, expected_summary)
           except (OSError, KeyError, ValueError, TypeError, UnicodeError, RecursionError):
-              raise SystemExit('Shared-slot Stage A evidence missing, malformed, stale, or not the exact first-target RED with normal cleanup') from None
-          print('Observed only the exact shared-slot first-target RED with normal cleanup; later stages remain UNOBSERVED.')
-      - name: Preserve Code0 shared-slot real-driver Stage A RED evidence
+              raise SystemExit('Shared-slot Stage A evidence missing, malformed, stale, or not the complete authority-wiring GREEN with normal cleanup') from None
+          print('Observed complete finite shared-slot authority wiring with actual native lifecycle and normal cleanup; production and terminal integration remain unverified.')
+      - name: Preserve Code0 shared-slot real-driver Stage A GREEN evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: code0-windows-shared-slot-stage-a-red
+          name: code0-windows-shared-slot-stage-a-green
           path: |
-            ${{ runner.temp }}/code0-shared-slot-red-${{ github.run_id }}-${{ github.run_attempt }}.json
-            ${{ runner.temp }}/code0-shared-slot-red-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
+            ${{ runner.temp }}/code0-shared-slot-green-${{ github.run_id }}-${{ github.run_attempt }}.json
+            ${{ runner.temp }}/code0-shared-slot-green-${{ github.run_id }}-${{ github.run_attempt }}-exit.json
           if-no-files-found: error
           retention-days: 7
       - name: Build Windows NSIS installer

@@ -4531,57 +4531,65 @@ private final class TemporaryRootRetention: @unchecked Sendable {
 // is no parent writer descriptor or raw pipe-to-fcntl inheritance window.
 // Native spawn explicitly supplies only stdio and closes all other descriptors.
 private enum FixtureProcessQuery {
+    // Fixed nil-path diagnostics only; no stage supplies process-state authority.
+    private enum FailureStage: UInt8 {
+        case rootValidation = 1, fifoCreate, fifoValidation, readerOpen, readerValidation
+        case actionsInit, attributesInit, spawnConfiguration, argumentAllocation, spawn
+        case loopEndPredicate, setupDisposal, readerClose, fifoDisposal
+    }
     struct Output: Sendable, Equatable { let exitStatus: Int32; let text: String }
 
     static func run(executable: URL, arguments: [String], in root: URL,
                     timeout: Duration = .milliseconds(250), onPrepared: (@Sendable () -> Void)? = nil) -> Output? {
         var rootValidated = false
-        func unknown() -> Output? {
+        func unknown(_ stage: FailureStage, lifecycle: UInt16? = nil, status: Int32? = nil,
+                     result: Int32? = nil, secondary: Int32? = nil) -> Output? {
             TemporaryRootRetention.shared.retain(root)
             if rootValidated {
                 try? Data("Native bounded fixture observer could not establish process state\n".utf8)
                     .write(to: root.appendingPathComponent(".preserve-for-inspection"), options: .atomic)
             }
+            print("FIXTURE_PROCESS_QUERY_UNKNOWN schema=1 stage=\(stage.rawValue) rootValidated=\(rootValidated ? 1 : 0) lifecyclePresent=\(lifecycle != nil ? 1 : 0) lifecycle=\(lifecycle ?? 0) statusPresent=\(status != nil ? 1 : 0) status=\(status ?? 0) resultPresent=\(result != nil ? 1 : 0) result=\(result ?? 0) secondaryPresent=\(secondary != nil ? 1 : 0) secondary=\(secondary ?? 0)")
             return nil
         }
         var rootInfo = stat()
         guard root.path.withCString({ Darwin.lstat($0, &rootInfo) }) == 0,
               rootInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR), rootInfo.st_uid == getuid(),
-              rootInfo.st_mode & 0o777 == 0o700 else { return unknown() }
+              rootInfo.st_mode & 0o777 == 0o700 else { return unknown(.rootValidation) }
         rootValidated = true
         let fifo = root.appendingPathComponent("observer-output-\(UUID().uuidString).fifo")
-        guard fifo.path.withCString({ Darwin.mkfifo($0, 0o600) }) == 0 else { return unknown() }
+        guard fifo.path.withCString({ Darwin.mkfifo($0, 0o600) }) == 0 else { return unknown(.fifoCreate) }
         var fifoInfo = stat()
         guard fifo.path.withCString({ Darwin.lstat($0, &fifoInfo) }) == 0,
               fifoInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFIFO), fifoInfo.st_uid == getuid(), fifoInfo.st_nlink == 1,
-              fifo.path.withCString({ Darwin.chmod($0, 0o600) }) == 0 else { return unknown() }
+              fifo.path.withCString({ Darwin.chmod($0, 0o600) }) == 0 else { return unknown(.fifoValidation) }
         var reader = fifo.path.withCString { Darwin.open($0, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW) }
-        guard reader >= 0 else { return unknown() }
+        guard reader >= 0 else { return unknown(.readerOpen) }
         defer { if reader >= 0 { Darwin.close(reader) } }
         let fdFlags = fcntl(reader, F_GETFD)
         var openedInfo = stat()
         guard fdFlags >= 0, fdFlags & FD_CLOEXEC != 0, fstat(reader, &openedInfo) == 0,
               openedInfo.st_dev == fifoInfo.st_dev, openedInfo.st_ino == fifoInfo.st_ino, openedInfo.st_nlink == 1,
-              openedInfo.st_mode & 0o777 == 0o600 else { return unknown() }
+              openedInfo.st_mode & 0o777 == 0o600 else { return unknown(.readerValidation) }
 
         var actions: posix_spawn_file_actions_t?
-        guard posix_spawn_file_actions_init(&actions) == 0 else { return unknown() }
+        guard posix_spawn_file_actions_init(&actions) == 0 else { return unknown(.actionsInit) }
         var actionsInitialized = true
         defer { if actionsInitialized { posix_spawn_file_actions_destroy(&actions) } }
         var attributes: posix_spawnattr_t?
-        guard posix_spawnattr_init(&attributes) == 0 else { return unknown() }
+        guard posix_spawnattr_init(&attributes) == 0 else { return unknown(.attributesInit) }
         var attributesInitialized = true
         defer { if attributesInitialized { posix_spawnattr_destroy(&attributes) } }
         guard posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_CLOEXEC_DEFAULT)) == 0,
               posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0) == 0,
               posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, fifo.path, O_WRONLY | O_NONBLOCK | O_NOFOLLOW, 0) == 0,
-              posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0) == 0 else { return unknown() }
+              posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0) == 0 else { return unknown(.spawnConfiguration) }
         let argv = ([executable.path] + arguments).map { strdup($0) } + [nil]
         let environment = ["HOME=\(root.path)", "ZDOTDIR=\(root.path)", "TMPDIR=\(root.path)",
                            "PATH=\(root.path):/usr/bin:/bin:/usr/sbin:/sbin", "LANG=C", "LC_ALL=C"]
             .map { value in value.withCString { strdup($0) } } + [nil]
         defer { argv.forEach { free($0) }; environment.forEach { free($0) } }
-        guard argv.dropLast().allSatisfy({ $0 != nil }), environment.dropLast().allSatisfy({ $0 != nil }) else { return unknown() }
+        guard argv.dropLast().allSatisfy({ $0 != nil }), environment.dropLast().allSatisfy({ $0 != nil }) else { return unknown(.argumentAllocation) }
         onPrepared?()
         var pid: pid_t = 0
         let spawnResult = argv.withUnsafeBufferPointer { arguments in
@@ -4589,7 +4597,7 @@ private enum FixtureProcessQuery {
                 posix_spawn(&pid, executable.path, &actions, &attributes, arguments.baseAddress!, variables.baseAddress!)
             }
         }
-        guard spawnResult == 0, pid > 0 else { return unknown() }
+        guard spawnResult == 0, pid > 0 else { return unknown(.spawn, result: spawnResult) }
         // No read occurs before successful spawn/file actions have opened stdout.
         // An early FIFO EOF is accepted only together with a known owned reap.
         var status: Int32 = 0
@@ -4631,24 +4639,33 @@ private enum FixtureProcessQuery {
             Thread.sleep(forTimeInterval: 0.002)
         }
         guard !failed, owned, reaped, eof, status & 0x7f == 0 else {
+            // First failed predicate snapshot precedes rescue; absent status is
+            // never the initial zero interpreted as an observed normal exit.
+            let firstStage = FailureStage.loopEndPredicate
+            let lifecycle = UInt16(owned ? 1 : 0) | (UInt16(reaped ? 1 : 0) << 1)
+                | (UInt16(eof ? 1 : 0) << 2) | (UInt16(failed ? 1 : 0) << 3)
+            let observedStatus: Int32? = reaped ? status : nil
             stopOwnedQuery()
-            return unknown()
+            return unknown(firstStage, lifecycle: lifecycle, status: observedStatus)
         }
         // Successful setup-object disposal is part of the known-ended result.
         let attributeCleanup = posix_spawnattr_destroy(&attributes)
         attributesInitialized = false
         let actionCleanup = posix_spawn_file_actions_destroy(&actions)
         actionsInitialized = false
-        guard attributeCleanup == 0, actionCleanup == 0 else { return unknown() }
+        guard attributeCleanup == 0, actionCleanup == 0 else {
+            return unknown(.setupDisposal, lifecycle: 7, status: status,
+                           result: attributeCleanup, secondary: actionCleanup)
+        }
         // Only a known-ended query/output lifecycle permits disposal of our
         // own FIFO inode. Unknown/replaced paths or descendants keep evidence.
-        guard Darwin.close(reader) == 0 else { reader = -1; return unknown() }
+        guard Darwin.close(reader) == 0 else { reader = -1; return unknown(.readerClose, lifecycle: 7, status: status) }
         reader = -1
         var currentInfo = stat()
         guard fifo.path.withCString({ Darwin.lstat($0, &currentInfo) }) == 0,
               currentInfo.st_dev == fifoInfo.st_dev, currentInfo.st_ino == fifoInfo.st_ino,
               currentInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFIFO), currentInfo.st_nlink == 1,
-              fifo.path.withCString({ Darwin.unlink($0) }) == 0 else { return unknown() }
+              fifo.path.withCString({ Darwin.unlink($0) }) == 0 else { return unknown(.fifoDisposal, lifecycle: 7, status: status) }
         return Output(exitStatus: (status >> 8) & 0xff, text: String(decoding: output, as: UTF8.self))
     }
 }
