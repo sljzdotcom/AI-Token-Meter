@@ -246,6 +246,11 @@ impl Code0Proxy {
     pub fn stop(&self, reply: Code0ReplySink) {
         let _ = self.enqueue(Message::Stop(reply));
     }
+    #[cfg(test)]
+    pub(crate) fn begin_terminal_stop(&self) {
+        self.stop(Box::new(|_| {}));
+    }
+
     pub fn window(
         &self,
         binding: u64,
@@ -472,6 +477,11 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
             stop_waiters: RefCell::new(Vec::new()),
         })
     }
+    #[cfg(test)]
+    pub(crate) fn terminal_prerequisites_met(&self) -> bool {
+        false
+    }
+
     pub fn drain(&self) {
         loop {
             let message = {
@@ -849,5 +859,469 @@ mod tests {
         );
         owner.drain();
         assert!(replied.load(std::sync::atomic::Ordering::SeqCst));
+    }
+}
+
+#[cfg(test)]
+mod terminal_readiness_red_tests {
+    use super::*;
+    use std::rc::{Rc, Weak};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    use super::super::code0_web_session::Code0StoreError;
+    use crate::collectors::code0_capture::Code0WebsiteCapture;
+
+    const BINDING: u64 = 31;
+    const TICK: u64 = 47;
+
+    #[derive(Clone)]
+    struct Clock;
+
+    impl Code0SessionClock for Clock {
+        fn now(&self) -> Duration {
+            Duration::from_secs(1)
+        }
+
+        fn wall_now(&self) -> String {
+            "2026-10-30T00:00:00Z".to_owned()
+        }
+    }
+
+    #[derive(Default)]
+    struct Facts {
+        windows: Vec<Code0WindowRequest>,
+        cleanups: Vec<Code0CleanupRequest>,
+    }
+
+    struct Driver {
+        proxy: Code0Proxy,
+        facts: Rc<RefCell<Facts>>,
+    }
+
+    impl Code0WindowDriving for Driver {
+        fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+            Ok(())
+        }
+
+        fn release_profile_lease(&mut self) {}
+
+        fn create_unloaded(
+            &mut self,
+            request: Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.proxy
+                .expect_window_release(BINDING, request.clone())
+                .expect("driver window reservation");
+            self.facts.borrow_mut().windows.push(request);
+            Ok(())
+        }
+
+        fn navigate(&mut self, _: &str) -> Result<(), Code0SessionFailure> {
+            Ok(())
+        }
+
+        fn close(&mut self, _: &str) {}
+
+        fn clear_website_data(
+            &mut self,
+            request: Code0CleanupRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.proxy
+                .expect_cleanup(BINDING, request.clone())
+                .expect("driver cleanup reservation");
+            self.facts.borrow_mut().cleanups.push(request);
+            Ok(())
+        }
+    }
+
+    struct Store(Option<UsageSnapshot>);
+
+    impl Code0SnapshotStoring for Store {
+        fn load(&self) -> Result<Option<UsageSnapshot>, Code0StoreError> {
+            Ok(self.0.clone())
+        }
+
+        fn save_atomic(&mut self, value: &UsageSnapshot) -> Result<(), Code0StoreError> {
+            self.0 = Some(value.clone());
+            Ok(())
+        }
+
+        fn remove(&mut self) -> Result<(), Code0StoreError> {
+            self.0 = None;
+            Ok(())
+        }
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    struct ScheduleObservation {
+        unlocked: bool,
+        stop_pending: usize,
+        stops: usize,
+        stopping: bool,
+        stop_signal: bool,
+    }
+
+    #[derive(Default)]
+    struct Schedule {
+        calls: AtomicUsize,
+        fail: AtomicBool,
+        inbox: Mutex<Option<std::sync::Weak<Mutex<Inbox>>>>,
+        observations: Mutex<Vec<ScheduleObservation>>,
+    }
+
+    impl Code0Schedule for Schedule {
+        fn schedule(&self) -> Result<(), Code0DispatchError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            let inbox = self
+                .inbox
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .upgrade()
+                .unwrap();
+            let observed = match inbox.try_lock() {
+                Ok(inbox) => ScheduleObservation {
+                    unlocked: true,
+                    stop_pending: inbox.stop_pending,
+                    stops: inbox.stops.len(),
+                    stopping: inbox.stopping,
+                    stop_signal: inbox.stop_signal,
+                },
+                Err(_) => ScheduleObservation {
+                    unlocked: false,
+                    stop_pending: usize::MAX,
+                    stops: usize::MAX,
+                    stopping: false,
+                    stop_signal: false,
+                },
+            };
+            self.observations.lock().unwrap().push(observed);
+            if self.fail.load(Ordering::SeqCst) {
+                Err(Code0DispatchError::Unavailable)
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    type Owner = Code0Dispatcher<Clock, Driver, Store>;
+    type Replies = Arc<Mutex<Vec<(usize, Result<Code0Reply, Code0DispatchError>)>>>;
+
+    thread_local! {
+        static OWNER: RefCell<Option<Weak<Owner>>> = const { RefCell::new(None) };
+    }
+
+    fn with_owner<R>(visit: impl FnOnce(&Owner) -> R) -> R {
+        let owner = OWNER.with(|slot| slot.borrow().as_ref().unwrap().upgrade().unwrap());
+        visit(&owner)
+    }
+
+    fn sink(id: usize, replies: &Replies) -> Code0ReplySink {
+        let replies = replies.clone();
+        Box::new(move |value| replies.lock().unwrap().push((id, value)))
+    }
+
+    fn no_reply() -> Code0ReplySink {
+        Box::new(|_| {})
+    }
+
+    struct Fixture {
+        owner: Rc<Owner>,
+        proxy: Code0Proxy,
+        schedule: Arc<Schedule>,
+        facts: Rc<RefCell<Facts>>,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let schedule = Arc::new(Schedule::default());
+            let proxy = Code0Proxy::new(schedule.clone(), Code0Revision::new(0).unwrap());
+            *schedule.inbox.lock().unwrap() = Some(Arc::downgrade(&proxy.inbox));
+            let facts = Rc::new(RefCell::new(Facts::default()));
+            let cache = Code0WebsiteCapture {
+                balance: 2.0,
+                cumulative_usage: 1.0,
+            }
+            .make_snapshot("2026-10-29T00:00:00Z")
+            .expect("terminal dispatcher numeric cache");
+            let session = Code0WebSession::new(
+                Clock,
+                Driver {
+                    proxy: proxy.clone(),
+                    facts: facts.clone(),
+                },
+                Store(Some(cache)),
+                Box::new(|_| {}),
+            );
+            let owner = Rc::new(
+                Code0Dispatcher::install(
+                    BINDING,
+                    TICK,
+                    session,
+                    Clock,
+                    proxy.clone(),
+                    Box::new(|_| {}),
+                )
+                .unwrap(),
+            );
+            OWNER.with(|slot| *slot.borrow_mut() = Some(Rc::downgrade(&owner)));
+            Self {
+                owner,
+                proxy,
+                schedule,
+                facts,
+            }
+        }
+
+        fn apply_one(&self) {
+            let message = self
+                .proxy
+                .inbox
+                .lock()
+                .unwrap()
+                .pop()
+                .expect("queued stage");
+            self.owner.apply(message);
+        }
+
+        fn denied(&self) {
+            let replies = Replies::default();
+            self.proxy.action(Code0Action::Connect, sink(0, &replies));
+            assert_eq!(
+                *replies.lock().unwrap(),
+                [(0, Ok(Code0Reply::Action(Code0SessionActionResult::Denied)))]
+            );
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            OWNER.with(|slot| *slot.borrow_mut() = None);
+        }
+    }
+
+    // Coupled blockers are real retained states, not independent conjunct kills.
+    #[test]
+    fn terminal_dispatcher_retained_work_blocks_until_settled() {
+        let f = Fixture::new();
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "cold DTO is not ready"
+        );
+        f.proxy.action(Code0Action::SyncNow, no_reply());
+        f.owner.drain();
+        let window = f.facts.borrow().windows[0].clone();
+        f.proxy.action(Code0Action::Disconnect, no_reply());
+        f.owner.drain();
+        let stops = Replies::default();
+        f.proxy.stop(sink(0, &stops));
+        {
+            let inbox = f.proxy.inbox.lock().unwrap();
+            assert!(inbox.stop_signal && inbox.scheduled);
+            assert_eq!(inbox.stops.len(), 1);
+            assert_eq!(inbox.stop_pending, 1);
+            assert!(inbox.expected_window.is_some());
+        }
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "Stop admission is pending"
+        );
+        f.apply_one();
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "queued Stop reply remains"
+        );
+        f.apply_one();
+        assert_eq!(f.owner.stop_waiters.borrow().len(), 1);
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "owner Stop waiter remains"
+        );
+        f.proxy.tick(BINDING, TICK).unwrap();
+        for _ in 0..65 {
+            f.proxy.read(no_reply());
+        }
+        f.proxy
+            .window(BINDING, window, Code0WindowEvent::Released)
+            .unwrap();
+        {
+            let inbox = f.proxy.inbox.lock().unwrap();
+            assert_eq!(inbox.general.len(), 64);
+            assert!(inbox.tick.is_some() && inbox.released.is_some() && inbox.overflow);
+            assert_eq!(inbox.release_prefix, 64);
+            assert!(inbox.expected_window.is_some() && inbox.scheduled);
+        }
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "inbox evidence remains"
+        );
+        f.owner.drain();
+        let cleanup = f.facts.borrow().cleanups[0].clone();
+        {
+            let inbox = f.proxy.inbox.lock().unwrap();
+            assert!(!inbox.scheduled && inbox.general.is_empty());
+            assert!(inbox.expected_window.is_none());
+            assert!(inbox.expected_cleanup.is_some());
+            assert_eq!(inbox.stop_pending, 1);
+        }
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "cleanup reservation remains"
+        );
+        f.proxy.cleanup(BINDING, cleanup, Ok(())).unwrap();
+        assert!(f.proxy.inbox.lock().unwrap().cleanup.is_some());
+        assert!(
+            !f.owner.terminal_prerequisites_met(),
+            "cleanup result still queued"
+        );
+        f.owner.drain();
+        assert_eq!(*stops.lock().unwrap(), [(0, Ok(Code0Reply::Stopped))]);
+        assert!(f.owner.stop_waiters.borrow().is_empty());
+        assert!(
+            f.owner.terminal_prerequisites_met(),
+            "TR-D1 settled consumed Stop and empty dispatcher must be ready"
+        );
+    }
+
+    // Detects Stopped or a nested empty drain being mistaken for outer return.
+    #[test]
+    fn terminal_stopped_reply_and_nested_drain_are_not_settled() {
+        let f = Fixture::new();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let seen = events.clone();
+        let proxy = f.proxy.clone();
+        f.proxy.stop(Box::new(move |value| {
+            assert_eq!(value, Ok(Code0Reply::Stopped));
+            with_owner(|owner| {
+                assert!(!owner.terminal_prerequisites_met(), "inside Stopped reply");
+            });
+            seen.lock().unwrap().push("stopped");
+            let nested_seen = seen.clone();
+            proxy.read(Box::new(move |value| {
+                assert!(matches!(value, Ok(Code0Reply::View(_))));
+                with_owner(|owner| {
+                    assert!(
+                        !owner.terminal_prerequisites_met(),
+                        "inside nested Read reply"
+                    );
+                });
+                nested_seen.lock().unwrap().push("nested-read");
+            }));
+            with_owner(|owner| owner.drain());
+            assert_eq!(*seen.lock().unwrap(), ["stopped", "nested-read"]);
+            with_owner(|owner| {
+                assert!(
+                    !owner.terminal_prerequisites_met(),
+                    "outer reply still active"
+                );
+            });
+            seen.lock().unwrap().push("outer-reply-return");
+        }));
+        f.owner.drain();
+        assert_eq!(
+            *events.lock().unwrap(),
+            ["stopped", "nested-read", "outer-reply-return"]
+        );
+        assert!(
+            f.owner.terminal_prerequisites_met(),
+            "TR-D2 only returned outer drain may be ready"
+        );
+    }
+
+    // Detects implementing terminal Stop by allocating public Stop reply sinks.
+    #[test]
+    fn terminal_no_waiter_stop_fences_and_coalesces_without_sinks() {
+        let f = Fixture::new();
+        for _ in 0..65 {
+            f.proxy.begin_terminal_stop();
+        }
+        f.denied();
+        assert_eq!(f.schedule.calls.load(Ordering::SeqCst), 1);
+        let inbox = f.proxy.inbox.lock().unwrap();
+        assert!(inbox.stopping && inbox.stop_signal && inbox.scheduled);
+        assert!(inbox.general.is_empty());
+        assert!(f.owner.stop_waiters.borrow().is_empty());
+        assert_eq!(
+            inbox.stop_pending, 0,
+            "TR-D3 terminal Stop must allocate no reply admissions"
+        );
+        assert!(
+            inbox.stops.is_empty(),
+            "terminal Stop must allocate no reply sinks"
+        );
+    }
+
+    // Detects loss of Stop fence/evidence on failed external scheduling.
+    #[test]
+    fn terminal_failed_schedule_retains_fence_without_waiter() {
+        let f = Fixture::new();
+        f.schedule.fail.store(true, Ordering::SeqCst);
+        f.proxy.begin_terminal_stop();
+        f.denied();
+        {
+            let inbox = f.proxy.inbox.lock().unwrap();
+            assert!(inbox.stopping && inbox.stop_signal);
+            assert!(!inbox.scheduled && inbox.stops.is_empty());
+            assert_eq!(inbox.stop_pending, 0);
+        }
+        let observed = f.schedule.observations.lock().unwrap()[0];
+        assert!(observed.unlocked && observed.stopping && observed.stop_signal);
+        assert_eq!(f.schedule.calls.load(Ordering::SeqCst), 1);
+        f.schedule.fail.store(false, Ordering::SeqCst);
+        f.owner.drain();
+        assert!(!f.proxy.inbox.lock().unwrap().stop_signal);
+        assert_eq!(
+            f.owner.session.borrow_mut().connect(),
+            Code0SessionActionResult::Denied
+        );
+        assert_eq!(
+            observed.stop_pending, 0,
+            "TR-D4 terminal scheduling must observe no reply admission"
+        );
+        assert_eq!(
+            observed.stops, 0,
+            "terminal scheduling must observe no reply sink"
+        );
+    }
+
+    // Control: the existing public Stop bound and reentrant admission stay exact.
+    #[test]
+    fn terminal_public_stop_capacity_and_reentry_control() {
+        let f = Fixture::new();
+        let replies = Replies::default();
+        let seen = replies.clone();
+        let proxy = f.proxy.clone();
+        f.proxy.stop(Box::new(move |value| {
+            seen.lock().unwrap().push((0, value));
+            proxy.stop(sink(65, &seen));
+            assert_eq!(proxy.inbox.lock().unwrap().stop_pending, 64);
+        }));
+        for id in 1..65 {
+            f.proxy.stop(sink(id, &replies));
+        }
+        assert_eq!(
+            *replies.lock().unwrap(),
+            [(64, Err(Code0DispatchError::QueueFull))]
+        );
+        assert_eq!(f.proxy.inbox.lock().unwrap().stop_pending, 64);
+        f.owner.drain();
+        let mut actual = replies.lock().unwrap().clone();
+        actual.sort_by_key(|(id, _)| *id);
+        assert_eq!(actual.len(), 66);
+        for (expected_id, (id, value)) in actual.into_iter().enumerate() {
+            assert_eq!(id, expected_id, "public Stop reply must occur exactly once");
+            assert_eq!(
+                value,
+                if id == 64 {
+                    Err(Code0DispatchError::QueueFull)
+                } else {
+                    Ok(Code0Reply::Stopped)
+                },
+                "TR-D5 public Stop reply {id}"
+            );
+        }
+        assert_eq!(f.proxy.inbox.lock().unwrap().stop_pending, 0);
+        assert!(f.owner.stop_waiters.borrow().is_empty());
     }
 }

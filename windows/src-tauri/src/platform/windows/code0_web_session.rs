@@ -352,6 +352,11 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         session
     }
 
+    #[cfg(test)]
+    pub(crate) fn terminal_stop_consumed(&self) -> bool {
+        false
+    }
+
     pub fn state(&self) -> Code0SessionState {
         self.state
     }
@@ -1907,5 +1912,210 @@ mod cleanup_deadline_green_tests {
         drop(f.session);
         assert!(retained.read(&cleanup).is_none());
         assert_eq!(f.facts.borrow().release_calls, 0);
+    }
+}
+
+#[cfg(test)]
+mod terminal_readiness_red_tests {
+    use super::*;
+
+    #[derive(Clone)]
+    struct Clock;
+
+    impl Code0SessionClock for Clock {
+        fn now(&self) -> Duration {
+            Duration::from_secs(1)
+        }
+
+        fn wall_now(&self) -> String {
+            "2026-10-30T00:00:00Z".to_owned()
+        }
+    }
+
+    #[derive(Default)]
+    struct Facts {
+        windows: Vec<Code0WindowRequest>,
+        cleanups: Vec<Code0CleanupRequest>,
+        releases: usize,
+    }
+
+    struct Driver(Rc<RefCell<Facts>>);
+
+    impl Code0WindowDriving for Driver {
+        fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+            Ok(())
+        }
+
+        fn release_profile_lease(&mut self) {
+            self.0.borrow_mut().releases += 1;
+        }
+
+        fn create_unloaded(
+            &mut self,
+            request: Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.0.borrow_mut().windows.push(request);
+            Ok(())
+        }
+
+        fn navigate(&mut self, _: &str) -> Result<(), Code0SessionFailure> {
+            Ok(())
+        }
+
+        fn close(&mut self, _: &str) {}
+
+        fn clear_website_data(
+            &mut self,
+            request: Code0CleanupRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.0.borrow_mut().cleanups.push(request);
+            Ok(())
+        }
+    }
+
+    struct Store(Option<UsageSnapshot>);
+
+    impl Code0SnapshotStoring for Store {
+        fn load(&self) -> Result<Option<UsageSnapshot>, Code0StoreError> {
+            Ok(self.0.clone())
+        }
+
+        fn save_atomic(&mut self, value: &UsageSnapshot) -> Result<(), Code0StoreError> {
+            self.0 = Some(value.clone());
+            Ok(())
+        }
+
+        fn remove(&mut self) -> Result<(), Code0StoreError> {
+            self.0 = None;
+            Ok(())
+        }
+    }
+
+    type Subject = Code0WebSession<Clock, Driver, Store>;
+
+    fn subject(cached: bool) -> (Subject, Rc<RefCell<Facts>>) {
+        let facts = Rc::new(RefCell::new(Facts::default()));
+        let value = cached.then(|| {
+            Code0WebsiteCapture {
+                balance: 2.0,
+                cumulative_usage: 1.0,
+            }
+            .make_snapshot("2026-10-29T00:00:00Z")
+            .expect("terminal fixture numeric cache")
+        });
+        (
+            Code0WebSession::new(Clock, Driver(facts.clone()), Store(value), Box::new(|_| {})),
+            facts,
+        )
+    }
+
+    // Detects treating a cold Paused/Disconnected projection as consumed Stop.
+    #[test]
+    fn terminal_cold_projection_requires_consumed_stop() {
+        let mut settled = Vec::new();
+        for cached in [false, true] {
+            let (mut session, facts) = subject(cached);
+            assert_eq!(
+                session.state(),
+                if cached {
+                    Code0SessionState::Paused
+                } else {
+                    Code0SessionState::Disconnected
+                }
+            );
+            assert!(
+                !session.terminal_stop_consumed(),
+                "cold DTO is not Stop proof"
+            );
+            session.stop();
+            assert_eq!(session.connect(), Code0SessionActionResult::Denied);
+            assert!(facts.borrow().windows.is_empty());
+            settled.push(session.terminal_stop_consumed());
+        }
+        assert_eq!(
+            settled,
+            [true, true],
+            "TR-S1 consumed cold Stop must be ready"
+        );
+    }
+
+    // Detects close-request/stale Released replacing actual ordinary release.
+    #[test]
+    fn terminal_ordinary_owner_requires_matching_released() {
+        let (mut session, facts) = subject(false);
+        assert_eq!(session.connect(), Code0SessionActionResult::Started);
+        let request = facts.borrow().windows[0].clone();
+        session.stop();
+        assert_eq!(session.state(), Code0SessionState::Closing);
+        assert!(
+            !session.terminal_stop_consumed(),
+            "ordinary owner still retained"
+        );
+        let mut stale = request.clone();
+        stale.document_id.push_str("-stale");
+        session.receive_window_event(&stale, Code0WindowEvent::Released);
+        assert_eq!(session.owned.as_ref(), Some(&request));
+        assert_eq!(facts.borrow().releases, 0);
+        assert!(
+            !session.terminal_stop_consumed(),
+            "stale Released is not proof"
+        );
+        session.receive_window_event(&request, Code0WindowEvent::Released);
+        assert!(session.owned.is_none());
+        assert_eq!(facts.borrow().releases, 1);
+        assert_eq!(session.connect(), Code0SessionActionResult::Denied);
+        assert!(
+            session.terminal_stop_consumed(),
+            "TR-S2 matching ordinary Released must complete Stop"
+        );
+    }
+
+    // Detects Stop overriding an admitted Disconnect before matching clear ACK.
+    #[test]
+    fn terminal_disconnect_requires_consumed_matching_cleanup() {
+        let (mut session, facts) = subject(true);
+        assert_eq!(session.disconnect(), Code0SessionActionResult::Started);
+        let request = facts.borrow().cleanups[0].clone();
+        session.stop();
+        assert!(facts.borrow().windows.is_empty());
+        assert_eq!(session.cleanup.as_ref(), Some(&request));
+        assert!(
+            !session.terminal_stop_consumed(),
+            "admitted cleanup still pending"
+        );
+        let mut stale = request.clone();
+        stale.cleanup_id.push_str("-stale");
+        session.receive_cleanup_result(&stale, Ok(()));
+        assert_eq!(session.cleanup.as_ref(), Some(&request));
+        assert_eq!(facts.borrow().releases, 0);
+        session.receive_cleanup_result(&request, Ok(()));
+        assert_eq!(session.state(), Code0SessionState::Disconnected);
+        assert!(session.cleanup.is_none());
+        assert_eq!(facts.borrow().releases, 1);
+        assert!(
+            session.terminal_stop_consumed(),
+            "TR-S3 matching cleanup consumption must complete Stop"
+        );
+    }
+
+    // Control: sticky cleanup failure cannot be healed into terminal readiness.
+    #[test]
+    fn terminal_cleanup_failure_stays_pending_control() {
+        let (mut session, facts) = subject(true);
+        assert_eq!(session.disconnect(), Code0SessionActionResult::Started);
+        let request = facts.borrow().cleanups[0].clone();
+        session.stop();
+        session.receive_cleanup_result(&request, Err(Code0SessionFailure::CleanupFailed));
+        session.receive_cleanup_result(&request, Ok(()));
+        session.stop();
+        session.process_scheduled_work();
+        assert_eq!(session.state(), Code0SessionState::CleanupPending);
+        assert_eq!(session.failure(), Some(Code0SessionFailure::CleanupFailed));
+        assert_eq!(facts.borrow().releases, 0);
+        assert_eq!(session.connect(), Code0SessionActionResult::Denied);
+        assert!(
+            !session.terminal_stop_consumed(),
+            "TR-S4 sticky failure is not ready"
+        );
     }
 }
