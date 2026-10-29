@@ -585,6 +585,49 @@ pub(super) struct State {
     basic_reserved: bool,
 }
 impl State {
+    // Captured before the original count bump: available scalars only.
+    // kind0=first extra top, kind1=first extra resource. No URI/ID/native query.
+    fn diagnostic_extra(&self, kind: usize, native: [bool; 2], live: bool) {
+        let Some(diagnostic) = &self.ctx.callbacks.diagnostics else {
+            return;
+        };
+        if !diagnostic.http401_enabled() {
+            return;
+        }
+        let f = &self.facts;
+        let phase = match f.phase {
+            "Preparing" => 1,
+            "Armed" => 2,
+            "Writing" => 3,
+            "AwaitAuth" => 4,
+            "Passed" => 5,
+            "Revoked" => 6,
+            _ => 0,
+        };
+        let active = self.ctx.callbacks.active.load(Ordering::SeqCst);
+        let flags = u64::from(live)
+            | (u64::from(native[0]) << 1)
+            | (u64::from(native[1]) << 2)
+            | (u64::from(self.closing) << 3)
+            | (u64::from(self.in_action) << 4)
+            | (u64::from(f.overflow) << 5)
+            | (u64::from(f.unknown) << 6)
+            | (u64::from(f.failure.is_some()) << 7)
+            | (phase << 8)
+            | (u64::from(active > 65535) << 16);
+        let counts = u64::from(f.navigation.top_events)
+            | (u64::from(f.resource.total) << 16)
+            | (u64::from(f.navigation.attempts) << 32)
+            | (u64::from(f.navigation.grants) << 48);
+        let auth = u64::from(f.auth.callbacks)
+            | (u64::from(f.auth.cancel_attempts) << 16)
+            | (u64::from(f.auth.cancel_successes) << 32)
+            | (u64::from(f.auth.cancel_readbacks) << 48);
+        let target_site_depth = u64::from(f.receipts.target)
+            | (u64::from(diagnostic.http401_failure_line()) << 16)
+            | ((active.min(65535) as u64) << 48);
+        diagnostic.http401_extra_entry(kind, [flags, counts, auth, target_site_depth]);
+    }
     fn ready(&self) -> bool {
         self.resource_add_attempted
             && self.completed_add_attempted
@@ -605,9 +648,13 @@ impl State {
         self.facts.cleanup.authority_revoked = Some(true);
         drop(self.parser.take());
     }
+    #[track_caller]
     fn fail(&mut self, reason: &'static str, at: Instant, unknown: bool) {
         if self.facts.failure.is_none() {
             self.facts.failure = Some(reason);
+            if let Some(diagnostic) = &self.ctx.callbacks.diagnostics {
+                diagnostic.http401_failure_site(std::panic::Location::caller().line());
+            }
         }
         self.facts.unknown |= unknown;
         if unknown {
@@ -646,6 +693,7 @@ pub(super) fn mark_close(i: &mut Instance) {
         }
     }
 }
+#[track_caller]
 fn fail(owner: &Rc<RefCell<Owner>>, reason: &'static str, unknown: bool) {
     let mut o = owner.borrow_mut();
     if let Some(i) = o.instance.as_mut()
@@ -727,6 +775,9 @@ pub(in super::super) fn begin(
             return Err(Code0SessionFailure::PolicyRejected);
         }
         i.http401_selected.store(true, Ordering::SeqCst);
+        if let Some(diagnostic) = &ctx.callbacks.diagnostics {
+            diagnostic.arm_http401();
+        }
         i.http401 = Some(State {
             ctx: ctx.clone(),
             guard: Arc::new(AtomicBool::new(false)),
@@ -1894,7 +1945,12 @@ pub(super) fn top_callback(
     let live = ctx.qualified(&owner, true, Instant::now());
     let (eligible, url) = {
         let mut o = owner.borrow_mut();
-        let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
+        let i = o.instance.as_mut().unwrap();
+        let native = [i.closing, i.failed];
+        let s = i.http401.as_mut().unwrap();
+        if s.facts.navigation.top_events >= 1 {
+            s.diagnostic_extra(0, native, live);
+        }
         let bounded = bump(&mut s.facts.navigation.top_events, 1);
         if !bounded {
             s.facts.overflow = true;
@@ -2061,7 +2117,12 @@ fn resource_callback(
     let live = ctx.qualified(&owner, true, Instant::now());
     let (eligible, url, environment, first) = {
         let mut o = owner.borrow_mut();
-        let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
+        let i = o.instance.as_mut().unwrap();
+        let native = [i.closing, i.failed];
+        let s = i.http401.as_mut().unwrap();
+        if s.facts.resource.total >= 1 {
+            s.diagnostic_extra(1, native, live);
+        }
         let bounded = bump(&mut s.facts.resource.total, 4);
         if !bounded {
             s.facts.overflow = true;

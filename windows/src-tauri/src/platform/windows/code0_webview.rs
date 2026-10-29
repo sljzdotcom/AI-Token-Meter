@@ -19604,9 +19604,84 @@ pub mod fixture {
         n4_disposition: N4DiagnosticCopy<4>,
         n4_stages: [std::sync::atomic::AtomicU64; 14],
         // N4 diagnostic end.
+        // HTTP401 diagnostics: opt-in fixed first observations, never authority.
+        #[cfg(windows)]
+        http401_armed: std::sync::atomic::AtomicBool,
+        #[cfg(windows)]
+        http401_first_failure_line: std::sync::atomic::AtomicU32,
+        #[cfg(windows)]
+        http401_extra_claimed: [std::sync::atomic::AtomicBool; 2],
+        #[cfg(windows)]
+        http401_extra: [N4DiagnosticCopy<4>; 2],
         first_failure: std::sync::atomic::AtomicU64,
         #[cfg(windows)]
         first_uncertainty: std::sync::atomic::AtomicU64,
+    }
+
+    // Selected HTTP401 uses the existing diagnostic opt-in and terminal writer.
+    // No callback output, native call, allocation, retry or business-state write.
+    #[cfg(windows)]
+    impl Diagnostics {
+        pub(super) fn arm_http401(&self) {
+            if self.enabled {
+                self.http401_armed
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+        pub(super) fn http401_enabled(&self) -> bool {
+            self.enabled
+                && self
+                    .http401_armed
+                    .load(std::sync::atomic::Ordering::Acquire)
+        }
+        pub(super) fn http401_failure_site(&self, line: u32) {
+            if self.http401_enabled() {
+                let _ = self.http401_first_failure_line.compare_exchange(
+                    0,
+                    line,
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                );
+            }
+        }
+        pub(super) fn http401_failure_line(&self) -> u32 {
+            self.http401_first_failure_line
+                .load(std::sync::atomic::Ordering::Acquire)
+        }
+        pub(super) fn http401_extra_entry(&self, kind: usize, words: [u64; 4]) {
+            if !self.http401_enabled() || kind >= 2 {
+                return;
+            }
+            if !self.http401_extra_claimed[kind].swap(true, std::sync::atomic::Ordering::AcqRel) {
+                self.http401_extra[kind].publish(words);
+            }
+        }
+        fn emit_http401(&self) {
+            if !self.http401_enabled() {
+                return;
+            }
+            use std::io::Write as _;
+            let line = self.http401_failure_line();
+            let _ = writeln!(
+                std::io::stderr(),
+                "Code0NativeHttp401FirstFailure schema=1 present={} sourceLine={}",
+                u8::from(line != 0),
+                line
+            );
+            for (kind, copy) in self.http401_extra.iter().enumerate() {
+                let (status, words) = copy.snapshot();
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "Code0NativeHttp401Extra schema=1 kind={} status={} flags={:016x} counts={:016x} auth={:016x} targetSiteDepth={:016x}",
+                    kind,
+                    status,
+                    words[0],
+                    words[1],
+                    words[2],
+                    words[3]
+                );
+            }
+        }
     }
 
     /// The outermost outstanding native/getter call survives nested UI phase
@@ -20079,6 +20154,8 @@ pub mod fixture {
                     self.close_snapshot(2, watchdog, 0).emit();
                 }
                 self.emit_n4(2);
+                #[cfg(windows)]
+                self.emit_http401();
                 #[cfg(windows)]
                 let uncertainty = self.first_uncertainty.load(Relaxed);
                 #[cfg(windows)]
