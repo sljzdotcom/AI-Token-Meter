@@ -1,0 +1,177 @@
+name: Code0 isolated runtime GREEN and cleanup RED
+
+on:
+  push:
+    branches: [codex/code0-runtime-cleanup-20261029]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code0-runtime-cleanup-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  runtime-cleanup:
+    name: Runtime GREEN and cleanup deadline RED
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Select byte-stable isolated checkout
+        shell: python {0}
+        run: |
+          import os
+          if (os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true'
+                  or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'
+                  or os.environ.get('GITHUB_EVENT_NAME') != 'push'
+                  or os.environ.get('GITHUB_REF') != 'refs/heads/codex/code0-runtime-cleanup-20261029'):
+              raise SystemExit('Runtime candidate requires the exact hosted Windows push')
+          if any(key == 'GIT_CONFIG_COUNT' or key == 'GIT_CONFIG_PARAMETERS'
+                 or key.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_'))
+                 for key in os.environ):
+              raise SystemExit('Unexpected inherited Git runtime settings')
+          entries = ('GIT_CONFIG_COUNT=2', 'GIT_CONFIG_KEY_0=core.autocrlf',
+                     'GIT_CONFIG_VALUE_0=false', 'GIT_CONFIG_KEY_1=core.eol',
+                     'GIT_CONFIG_VALUE_1=lf')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8', newline='\n') as output:
+              output.write('\n'.join(entries) + '\n')
+      - name: Check out the exact auxiliary candidate
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - name: Verify sole baseline parent five paths and all checkout bytes
+        shell: python {0}
+        run: |
+          import hashlib, json, os, re, subprocess
+          from pathlib import Path
+          base = 'f53e3da12a1aaebe5e49b2cb1f03109d10a9e28f'
+          expected = {
+              "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
+                  "bytes": 30994,
+                  "sha256": "5ec1d0401aa17eeb6fef5d5459988fa94d77aa2e31de8c2b39291ce66eb36ec3"
+              },
+              "windows/src-tauri/src/platform/windows/code0_web_session.rs": {
+                  "bytes": 47603,
+                  "sha256": "ce11731b67921390d49b6414a7bdf9d343ad04b55931d7931f395b83b1a5ffad"
+              },
+              "windows/src-tauri/src/platform/windows/mod.rs": {
+                  "bytes": 696,
+                  "sha256": "f1b5ca5f97a68e4a7d1df1087d64a66c37fb91275b5e08b312ad8fd99eb9e5bf"
+              },
+              "scripts/test-code0-runtime-cleanup.py": {
+                  "bytes": 17366,
+                  "sha256": "f443008942d3c2ff0ffdde910f7e05b92d65ac0b30f148aaccc2ea09574fc8b1"
+              }
+          }
+          workflow = '.github/workflows/code0-runtime-cleanup.yml'
+          expected_changes = sorted([['A', 'windows/src-tauri/src/platform/windows/code0_runtime.rs'],
+                                     ['M', 'windows/src-tauri/src/platform/windows/code0_web_session.rs'],
+                                     ['M', 'windows/src-tauri/src/platform/windows/mod.rs'],
+                                     ['A', 'scripts/test-code0-runtime-cleanup.py'], ['A', workflow]])
+          run, attempt, sha = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_SHA'))
+          if (re.fullmatch(r'[0-9]{1,20}', run) is None
+                  or re.fullmatch(r'[0-9]{1,6}', attempt) is None
+                  or re.fullmatch(r'[0-9a-f]{40}', sha) is None):
+              raise SystemExit('Invalid runtime source identity')
+          actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          parents = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', 'HEAD'], text=True).split()
+          changes = [line.split('\t') for line in subprocess.check_output(
+              ['git', 'diff-tree', '--no-commit-id', '--name-status', '-r', base, 'HEAD'], text=True).splitlines()]
+          if actual != sha or parents != [actual, base] or sorted(changes) != expected_changes:
+              raise SystemExit('Runtime checkout is not the exact five-path f53 child')
+          observed = {}
+          for name in sorted(set(expected) | {workflow}):
+              raw = Path(name).read_bytes()
+              blob = subprocess.check_output(['git', 'show', 'HEAD:' + name])
+              mode = subprocess.check_output(['git', 'ls-tree', 'HEAD', '--', name], text=True).split()[0]
+              observed[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+              if raw != blob or mode != '100644' or (name in expected and observed[name] != expected[name]):
+                  raise SystemExit('Runtime payload bytes or mode differ')
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-{run}-{attempt}'
+          out.mkdir(exist_ok=False)
+          host_keys = ('RUNNER_OS', 'RUNNER_ARCH', 'RUNNER_NAME', 'RUNNER_ENVIRONMENT',
+                       'ImageOS', 'ImageVersion', 'ACTIONS_RUNNER_VERSION')
+          host = {key: os.environ.get(key) for key in host_keys}
+          if any(value is not None and len(value) > 2048 for value in host.values()):
+              raise SystemExit('Oversize runner identity')
+          identity = {'schema': 1, 'runId': run, 'attempt': attempt, 'checkout': actual,
+                      'parent': base, 'ref': os.environ['GITHUB_REF'], 'event': os.environ['GITHUB_EVENT_NAME'],
+                      'repository': os.environ.get('GITHUB_REPOSITORY'),
+                      'workflowRef': os.environ.get('GITHUB_WORKFLOW_REF'),
+                      'changes': changes, 'payloads': observed, 'runnerHost': host}
+          encoded = json.dumps(identity, indent=2) + '\n'
+          if len(encoded.encode('utf-8')) > 16384:
+              raise SystemExit('Oversize runtime source binding')
+          with (out / 'identity.json').open('x', encoding='utf-8', newline='\n') as output:
+              output.write(encoded)
+          print(encoded)
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy
+      - name: Select Rust toolchain
+        shell: pwsh
+        run: rustup default 1.88.0
+      - name: Install frontend dependencies
+        working-directory: windows
+        run: npm ci
+      - name: Build frontend resources
+        working-directory: windows
+        run: npm run build
+      - name: Check candidate formatting
+        working-directory: windows/src-tauri
+        run: cargo fmt --check
+      - name: Require strict build then eleven runtime passes and eight cleanup outcomes
+        shell: python {0}
+        run: |
+          import hashlib, json, os, subprocess, sys, time
+          from pathlib import Path
+          run, attempt = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'))
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-runtime-cleanup-{run}-{attempt}'
+          argv = [sys.executable, 'scripts/test-code0-runtime-cleanup.py']
+          result = {'schema': 1, 'runId': run, 'attempt': attempt,
+                    'checkout': os.environ['GITHUB_SHA'], 'argv': argv,
+                    'exitCode': None, 'collectorReaped': False,
+                    'collectorElapsedSeconds': None, 'error': 'none'}
+          stdout_path, stderr_path = out / 'collector.stdout.log', out / 'collector.stderr.log'
+          try:
+              with stdout_path.open('xb') as stdout, stderr_path.open('xb') as stderr:
+                  collector_started = time.monotonic()
+                  child = subprocess.Popen(argv, stdin=subprocess.DEVNULL,
+                                           stdout=stdout, stderr=stderr, shell=False)
+                  result['exitCode'] = child.wait()
+                  result['collectorElapsedSeconds'] = time.monotonic() - collector_started
+                  result['collectorReaped'] = True
+                  if result['collectorElapsedSeconds'] >= 1500:
+                      result['error'] = 'collector_total_deadline'
+              if any(path.stat().st_size > 4194304 for path in (stdout_path, stderr_path)):
+                  result['error'] = 'collector_output_overflow'
+              else:
+                  result['logs'] = {path.name: {'bytes': path.stat().st_size,
+                                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+                                    for path in (stdout_path, stderr_path)}
+          except OSError as error:
+              result['error'] = type(error).__name__
+          finally:
+              with (out / 'collector-exit.json').open('x', encoding='utf-8', newline='\n') as output:
+                  json.dump(result, output, indent=2)
+                  output.write('\n')
+          print(json.dumps(result, indent=2))
+          if (result['exitCode'] != 0 or not result['collectorReaped']
+                  or result['error'] != 'none'
+                  or result['collectorElapsedSeconds'] is None
+                  or result['collectorElapsedSeconds'] >= 1500):
+              raise SystemExit('Runtime/cleanup collector did not return successful complete evidence')
+      - name: Preserve complete runtime source gate and behavioral evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-runtime-cleanup-evidence
+          path: ${{ runner.temp }}/code0-runtime-cleanup-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          retention-days: 7

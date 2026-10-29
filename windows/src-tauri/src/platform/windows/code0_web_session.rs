@@ -992,3 +992,368 @@ fn random_uuid(excluded: &[&str]) -> Result<String, Code0SessionFailure> {
         Ok(value)
     }
 }
+
+#[cfg(test)]
+mod cleanup_deadline_red_tests {
+    use std::cell::{Cell, RefCell};
+    use std::rc::Rc;
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct Clock(Rc<Cell<Duration>>);
+
+    impl Code0SessionClock for Clock {
+        fn now(&self) -> Duration {
+            self.0.get()
+        }
+
+        fn wall_now(&self) -> String {
+            "2026-10-29T00:00:00Z".to_owned()
+        }
+    }
+
+    #[derive(Default)]
+    struct DriverFacts {
+        windows: Vec<Code0WindowRequest>,
+        cleanups: Vec<Code0CleanupRequest>,
+        release_commands: usize,
+    }
+
+    struct Driver {
+        clock: Clock,
+        facts: Rc<RefCell<DriverFacts>>,
+        lease_finishes_at: Option<Duration>,
+    }
+
+    impl Code0WindowDriving for Driver {
+        fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+            // Controlled dependency work consumes elapsed time. No Session
+            // deadline is computed or emulated by this test driver.
+            if let Some(now) = self.lease_finishes_at.take() {
+                self.clock.0.set(now);
+            }
+            Ok(())
+        }
+
+        fn release_profile_lease(&mut self) {
+            // A command observation, never physical native-release proof.
+            self.facts.borrow_mut().release_commands += 1;
+        }
+
+        fn create_unloaded(
+            &mut self,
+            request: Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.facts.borrow_mut().windows.push(request);
+            Ok(())
+        }
+
+        fn navigate(&mut self, _instance_id: &str) -> Result<(), Code0SessionFailure> {
+            Ok(())
+        }
+
+        fn close(&mut self, _instance_id: &str) {}
+
+        fn clear_website_data(
+            &mut self,
+            request: Code0CleanupRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.facts.borrow_mut().cleanups.push(request);
+            Ok(())
+        }
+    }
+
+    struct Store(Option<UsageSnapshot>);
+
+    impl Code0SnapshotStoring for Store {
+        fn load(&self) -> Result<Option<UsageSnapshot>, Code0StoreError> {
+            Ok(self.0.clone())
+        }
+
+        fn save_atomic(&mut self, snapshot: &UsageSnapshot) -> Result<(), Code0StoreError> {
+            self.0 = Some(snapshot.clone());
+            Ok(())
+        }
+
+        fn remove(&mut self) -> Result<(), Code0StoreError> {
+            self.0 = None;
+            Ok(())
+        }
+    }
+
+    type Subject = Code0WebSession<Clock, Driver, Store>;
+
+    struct Fixture {
+        session: Subject,
+        clock: Clock,
+        facts: Rc<RefCell<DriverFacts>>,
+    }
+
+    impl Fixture {
+        fn cached(lease_finishes_at: Option<Duration>) -> Self {
+            let clock = Clock(Rc::new(Cell::new(Duration::from_millis(1000))));
+            let facts = Rc::new(RefCell::new(DriverFacts::default()));
+            let cached = Code0WebsiteCapture {
+                balance: 2.0,
+                cumulative_usage: 1.0,
+            }
+            .make_snapshot("2026-10-28T00:00:00Z")
+            .expect("valid numeric cache fixture");
+            let session = Code0WebSession::new(
+                clock.clone(),
+                Driver {
+                    clock: clock.clone(),
+                    facts: facts.clone(),
+                    lease_finishes_at,
+                },
+                Store(Some(cached)),
+                Box::new(|_| {}),
+            );
+            assert_eq!(session.state(), Code0SessionState::Paused);
+            Self {
+                session,
+                clock,
+                facts,
+            }
+        }
+
+        fn at_millis(&self, millis: u64) {
+            self.clock.0.set(Duration::from_millis(millis));
+        }
+
+        fn cleanup(&self) -> Code0CleanupRequest {
+            let facts = self.facts.borrow();
+            assert_eq!(facts.cleanups.len(), 1, "one real Session cleanup command");
+            facts.cleanups[0].clone()
+        }
+
+        fn window(&self) -> Code0WindowRequest {
+            let facts = self.facts.borrow();
+            assert_eq!(facts.windows.len(), 1, "one real Session window command");
+            facts.windows[0].clone()
+        }
+    }
+
+    fn different_uuid(value: &str) -> String {
+        let mut other = value.to_owned();
+        other.replace_range(..1, if value.starts_with('0') { "1" } else { "0" });
+        other
+    }
+
+    // Detects anchoring the ownerless budget after acquire instead of admission,
+    // or never expiring cleanup after the ordinary owner is absent.
+    #[test]
+    fn ownerless_disconnect_deadline_starts_before_lease_side_effect() {
+        let mut f = Fixture::cached(Some(Duration::from_millis(10000)));
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let _cleanup = f.cleanup();
+        assert!(f.facts.borrow().windows.is_empty());
+        f.at_millis(10999);
+        f.session.process_scheduled_work();
+        assert_eq!(f.session.state(), Code0SessionState::Closing);
+        assert_eq!(f.session.failure(), None);
+        f.at_millis(11000);
+        f.session.process_scheduled_work();
+        assert_eq!(
+            f.session.state(),
+            Code0SessionState::CleanupPending,
+            "ownerless Disconnect must expire at admission+10s, including lease work"
+        );
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        assert_eq!(f.facts.borrow().release_commands, 0);
+    }
+
+    // Detects granting a second ten seconds when old Released starts cleanup.
+    #[test]
+    fn old_owner_released_near_end_does_not_reset_disconnect_deadline() {
+        let mut f = Fixture::cached(None);
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Started);
+        let window = f.window();
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        assert!(f.facts.borrow().cleanups.is_empty());
+        f.at_millis(10999);
+        f.session
+            .receive_window_event(&window, Code0WindowEvent::Released);
+        let _cleanup = f.cleanup();
+        assert_eq!(f.session.state(), Code0SessionState::Closing);
+        f.at_millis(11000);
+        f.session.process_scheduled_work();
+        assert_eq!(
+            f.session.state(),
+            Code0SessionState::CleanupPending,
+            "old owner release must not restart the admitted Disconnect budget"
+        );
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        assert_eq!(f.facts.borrow().release_commands, 0);
+    }
+
+    // Models a queued completion, not a native callback/provenance witness.
+    // Detects trusting its early availability over actual consumption time.
+    #[test]
+    fn completion_available_before_end_but_consumed_at_end_is_not_success() {
+        let mut f = Fixture::cached(None);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        f.at_millis(10999);
+        let queued_completion = (f.cleanup(), Ok(()));
+        f.at_millis(11000);
+        f.session
+            .receive_cleanup_result(&queued_completion.0, queued_completion.1);
+        assert_eq!(
+            f.session.state(),
+            Code0SessionState::CleanupPending,
+            "matching cleanup success consumed at the absolute end must fail"
+        );
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        assert_eq!(f.facts.borrow().release_commands, 0);
+    }
+
+    // Positive boundary control: a blanket rejection would break this case.
+    #[test]
+    fn matching_cleanup_consumed_one_millisecond_before_end_succeeds() {
+        let mut f = Fixture::cached(None);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let cleanup = f.cleanup();
+        f.at_millis(10999);
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        assert_eq!(f.session.state(), Code0SessionState::Disconnected);
+        assert_eq!(f.session.failure(), None);
+        assert!(f.session.snapshot().is_none());
+        assert!(!f.session.is_automatically_syncing());
+        assert_eq!(f.facts.borrow().release_commands, 1);
+        assert!(f.facts.borrow().windows.is_empty());
+    }
+
+    // Positive identity control: wrong success/error cannot consume or poison
+    // the actual request, which still succeeds before its original end.
+    #[test]
+    fn wrong_cleanup_identities_do_not_consume_the_matching_result() {
+        for change_epoch in [true, false] {
+            let mut f = Fixture::cached(None);
+            assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+            let cleanup = f.cleanup();
+            let mut wrong = cleanup.clone();
+            if change_epoch {
+                wrong.connection_epoch = different_uuid(&wrong.connection_epoch);
+            } else {
+                wrong.cleanup_id = different_uuid(&wrong.cleanup_id);
+            }
+            f.at_millis(10000);
+            f.session.receive_cleanup_result(&wrong, Ok(()));
+            f.session
+                .receive_cleanup_result(&wrong, Err(Code0SessionFailure::CleanupFailed));
+            assert_eq!(f.session.state(), Code0SessionState::Closing);
+            assert_eq!(f.session.failure(), None);
+            assert_eq!(f.facts.borrow().release_commands, 0);
+            f.at_millis(10999);
+            f.session.receive_cleanup_result(&cleanup, Ok(()));
+            assert_eq!(f.session.state(), Code0SessionState::Disconnected);
+            assert_eq!(f.session.failure(), None);
+            assert_eq!(f.facts.borrow().release_commands, 1);
+        }
+    }
+
+    // Detects a wrong identity refreshing the deadline before matching success.
+    #[test]
+    fn wrong_cleanup_identities_cannot_extend_the_original_deadline() {
+        for change_epoch in [true, false] {
+            let mut f = Fixture::cached(None);
+            assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+            let cleanup = f.cleanup();
+            let mut wrong = cleanup.clone();
+            if change_epoch {
+                wrong.connection_epoch = different_uuid(&wrong.connection_epoch);
+            } else {
+                wrong.cleanup_id = different_uuid(&wrong.cleanup_id);
+            }
+            f.at_millis(10999);
+            f.session.receive_cleanup_result(&wrong, Ok(()));
+            assert_eq!(f.session.state(), Code0SessionState::Closing);
+            f.at_millis(11000);
+            f.session.receive_cleanup_result(&cleanup, Ok(()));
+            assert_eq!(
+                f.session.state(),
+                Code0SessionState::CleanupPending,
+                "wrong cleanup identity cannot extend the absolute Disconnect end"
+            );
+            assert_eq!(
+                f.session.failure(),
+                Some(Code0SessionFailure::CleanupFailed)
+            );
+            assert_eq!(f.facts.borrow().release_commands, 0);
+        }
+    }
+
+    // Positive Stop control: admitted teardown still completes, but Stop never
+    // grants Connect/LoginCompleted/SyncNow/Disconnect or a replacement window.
+    #[test]
+    fn stop_allows_admitted_cleanup_before_end_without_reopening_actions() {
+        let mut f = Fixture::cached(None);
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Started);
+        let window = f.window();
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        f.at_millis(2000);
+        f.session.stop();
+        assert_eq!(f.session.connect(), Code0SessionActionResult::Denied);
+        assert_eq!(
+            f.session.login_completed(),
+            Code0SessionActionResult::Denied
+        );
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Denied);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Denied);
+        f.at_millis(10998);
+        f.session
+            .receive_window_event(&window, Code0WindowEvent::Released);
+        let cleanup = f.cleanup();
+        f.at_millis(10999);
+        f.session.receive_cleanup_result(&cleanup, Ok(()));
+        assert_eq!(f.session.state(), Code0SessionState::Disconnected);
+        assert_eq!(f.session.failure(), None);
+        assert_eq!(f.facts.borrow().release_commands, 1);
+        assert_eq!(f.session.connect(), Code0SessionActionResult::Denied);
+        assert_eq!(
+            f.session.login_completed(),
+            Code0SessionActionResult::Denied
+        );
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Denied);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Denied);
+        f.at_millis(400000);
+        f.session.process_scheduled_work();
+        assert!(!f.session.is_automatically_syncing());
+        assert_eq!(f.facts.borrow().windows.len(), 1);
+        assert_eq!(f.facts.borrow().cleanups.len(), 1);
+    }
+
+    // Detects putting cleanup deadline processing behind the stopped early exit.
+    #[test]
+    fn stop_does_not_disable_the_admitted_cleanup_deadline() {
+        let mut f = Fixture::cached(None);
+        assert_eq!(f.session.disconnect(), Code0SessionActionResult::Started);
+        let _cleanup = f.cleanup();
+        f.at_millis(2000);
+        f.session.stop();
+        f.at_millis(11000);
+        f.session.process_scheduled_work();
+        assert_eq!(
+            f.session.state(),
+            Code0SessionState::CleanupPending,
+            "Stop must still expire the original admitted cleanup operation"
+        );
+        assert_eq!(
+            f.session.failure(),
+            Some(Code0SessionFailure::CleanupFailed)
+        );
+        assert_eq!(f.session.connect(), Code0SessionActionResult::Denied);
+        assert_eq!(f.session.sync_now(), Code0SessionActionResult::Denied);
+        assert_eq!(f.facts.borrow().release_commands, 0);
+    }
+}
