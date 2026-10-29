@@ -12,6 +12,10 @@ use super::code0_web_session::{
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod chooser_protocol;
 
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+#[doc(hidden)]
+pub mod s4_capability_protocol;
+
 pub type Code0NativeEventSink = Rc<dyn Fn(Code0WindowRequest, Code0WindowEvent)>;
 
 /// Rc deliberately keeps the native owner !Send/!Sync. Its caller must retain it
@@ -410,6 +414,8 @@ mod native {
         refusal_registry: NativeRefusalRegistry,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         chooser: Option<s3::State>,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        capability: Option<s4::State>,
     }
 
     impl Owner {
@@ -484,6 +490,8 @@ mod native {
             let _ = s2::mark_download_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s3::revoke(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            s4::mark_close(instance);
         }
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s2::publish_popup_close(owner);
@@ -512,6 +520,7 @@ mod native {
                         && p1::mailbox_quiescent(instance)
                         && instance.refusal_registry.references_empty()
                         && s3::quiescent(instance)
+                        && s4::quiescent(instance)
                 }
                 #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                 {
@@ -633,6 +642,8 @@ mod native {
             refusal_registry: NativeRefusalRegistry::not_installed(),
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             chooser: None,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            capability: None,
         });
         let label = format!("code0-owned-{}", request.instance_id);
         if label.len() > 128
@@ -1357,6 +1368,8 @@ mod native {
             let _ = s2::mark_download_close(instance);
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s3::mark_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            s4::mark_close(instance);
         }
         drop(state);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -1398,6 +1411,8 @@ mod native {
                 let _ = s2::mark_download_close(instance);
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                 s3::mark_close(instance);
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                s4::mark_close(instance);
                 instance.window.take()
             } else {
                 None
@@ -1509,6 +1524,8 @@ mod native {
         s2::advance_download(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s3::advance(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s4::advance(owner);
         let unmatched = std::mem::take(&mut owner.borrow_mut().unmatched_objects);
         for object in unmatched {
             match object {
@@ -1532,6 +1549,8 @@ mod native {
         s2::synchronize_download_close(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s3::synchronize(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s4::synchronize(owner);
         {
             let mut state = owner.borrow_mut();
             let unmatched = state.unmatched;
@@ -1593,7 +1612,19 @@ mod native {
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             s3::mark_close(instance);
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+            s4::mark_close(instance);
             if !instance.closing
+                || {
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    {
+                        !s4::ready_to_stop(instance)
+                    }
+                    #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
+                    {
+                        false
+                    }
+                }
                 || instance.callbacks.active.load(Ordering::SeqCst) != 0
                 || instance.callbacks.pending.load(Ordering::SeqCst) != 0
             {
@@ -1609,6 +1640,8 @@ mod native {
         s2::remove(owner);
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
         s3::remove(owner);
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        s4::remove(owner);
         let remove = {
             let mut state = owner.borrow_mut();
             let instance = state.instance.as_mut().unwrap();
@@ -1645,6 +1678,8 @@ mod native {
                 native_call!(owner, Stop, {
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s3::stop_entry(owner);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s4::stop_entry(owner);
                     unsafe { core.Stop() }
                 }),
                 true
@@ -1667,6 +1702,8 @@ mod native {
                 native_call!(owner, ControllerClose, {
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s3::stop_entry(owner);
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s4::stop_entry(owner);
                     unsafe { controller.Close() }
                 }),
                 true
@@ -1687,6 +1724,7 @@ mod native {
                         p1::registrations_removed(instance)
                             && s2::registrations_removed(instance)
                             && s3::removed(instance)
+                            && s4::removed(instance)
                     }
                     #[cfg(not(all(debug_assertions, feature = "code0-native-fixture")))]
                     {
@@ -1711,6 +1749,8 @@ mod native {
                     s2::take_controls(instance),
                     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
                     s3::take_controls(instance),
+                    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                    s4::take_controls(instance),
                 ))
             } else {
                 None
@@ -1862,6 +1902,7 @@ mod native {
                 s2::publish_popup_final(owner);
                 s2::publish_download_final(owner);
                 s3::publish_final(owner);
+                s4::publish_final(owner);
             }
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
             if let Code0WindowEvent::Failed(reason) = &event
@@ -1952,6 +1993,7 @@ mod native {
             || i.released
             || i.destroyed
             || i.inline_loaded
+            || i.capability.is_some()
             || i.policy.is_some()
             || i.policy_mailbox.is_some()
             || i.core.is_none()
@@ -2200,6 +2242,7 @@ mod native {
                 let i = matching(&mut state, request).ok_or_else(denied)?;
                 if !i.refusal_registry.complete()
                     || i.chooser.is_some()
+                    || i.capability.is_some()
                     || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
@@ -4523,6 +4566,7 @@ mod native {
                 let i = matching(&mut state, request).ok_or_else(denied)?;
                 if !i.refusal_registry.complete()
                     || i.chooser.is_some()
+                    || i.capability.is_some()
                     || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
@@ -5501,6 +5545,7 @@ mod native {
                 let i = matching(&mut state, request).ok_or_else(denied)?;
                 if !i.refusal_registry.complete()
                     || i.chooser.is_some()
+                    || i.capability.is_some()
                     || i.refusal_registry.legacy.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
@@ -6349,6 +6394,7 @@ mod native {
                         }
                         if i.closing {
                             s3::revoke(i);
+                            s4::mark_close(i);
                             top_close = mark_top_close(i).map(|at| (i.observer.clone(), at));
                             child_close = mark_child_close(i).map(|at| (i.observer.clone(), at));
                             dialog_close = mark_dialog_close(i).map(|at| (i.observer.clone(), at));
@@ -6490,6 +6536,7 @@ mod native {
                     || i.callbacks.affinity_failed.load(Ordering::SeqCst)
                     || !i.refusal_registry.complete()
                     || i.chooser.is_some()
+                    || i.capability.is_some()
                     || i.refusal_registry.top_target.is_some()
                     || i.refusal_registry.child.is_some()
                     || i.refusal_registry.dialog.is_some()
@@ -7145,6 +7192,11 @@ mod native {
             })
         }
 
+        // Read-only generation of the actual ten-hook installation. No grant.
+        pub(super) fn finite_generation(i: &Instance) -> u64 {
+            i.refusal_registry.generation
+        }
+
         pub(super) fn chooser_core(i: &Instance) -> Option<Rc<ICoreWebView2>> {
             if i.refusal_registry.legacy.is_some()
                 || i.refusal_registry.top_target.is_some()
@@ -7280,6 +7332,16 @@ mod native {
         deadline: super::fixture::NativeDialogDeadline,
     ) -> Result<(), Code0SessionFailure> {
         s3::begin(owner, request, root, deadline)
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn s4_begin(
+        owner: &Rc<RefCell<Owner>>,
+        request: &Code0WindowRequest,
+        selector: super::fixture::NativeCapabilitySelector,
+        deadline: super::fixture::NativeDialogDeadline,
+    ) -> Result<(), Code0SessionFailure> {
+        s4::begin(owner, request, selector, deadline)
     }
 
     /// Selected S3 fixture only; no public/general CDP executor.
@@ -9174,6 +9236,3713 @@ mod native {
         }
     }
 
+    /// Finite, selected-only observation transport. Production navigation stays denied.
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    mod s4 {
+        use super::super::fixture::{
+            NativeCapabilityDelivery as Delivery, NativeCapabilityFacts as Facts,
+            NativeCapabilityFailure as Failure, NativeCapabilityReceipt,
+            NativeCapabilityResult as ResultKind, NativeCapabilitySelector as Selector,
+            NativeCapabilityStage as Stage, NativeDialogDeadline,
+        };
+        use super::super::s4_capability_protocol::{
+            self as wire, ControlKind, Event, Method, PagePayload, ProbeKind,
+        };
+        use super::*;
+        use std::cell::Cell;
+        use std::time::{Duration, Instant};
+        use webview2_com::{
+            ContentLoadingEventHandler, DevToolsProtocolEventReceivedEventHandler,
+            NavigationStartingEventHandler, ProcessFailedEventHandler,
+            WebResourceRequestedEventHandler,
+        };
+        use windows::Win32::System::Com::{IStream, STREAM_SEEK_SET};
+        use windows::Win32::UI::Shell::SHCreateMemStream;
+        use windows::core::BOOL;
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        enum Phase {
+            Installing,
+            AwaitInitialJoin,
+            AwaitParsed,
+            AwaitCandidate,
+            AwaitMutationTrace,
+            ClosingAwaitDispose,
+            RemoveProtocols,
+            StopClose,
+            AwaitReleased,
+            Final,
+        }
+        #[derive(Clone, PartialEq, Eq)]
+        struct PermitBinding {
+            request: Code0WindowRequest,
+            root: wire::Identity,
+            context: wire::ContextId,
+            unique: wire::Identity,
+            loader: wire::Identity,
+            end: Instant,
+        }
+        struct Permit {
+            generation: u64,
+            revoked: Cell<bool>,
+            applied: Cell<u8>,
+            binding: Option<PermitBinding>,
+        }
+        impl Permit {
+            #[cfg(test)]
+            fn new(generation: u64) -> Self {
+                Self {
+                    generation,
+                    revoked: Cell::new(false),
+                    applied: Cell::new(0),
+                    binding: None,
+                }
+            }
+        }
+        struct Held {
+            probe: wire::Probe,
+            permit: Rc<Permit>,
+            generation: u64,
+        }
+        fn candidate_matches(
+            held: &Held,
+            current: &Rc<Permit>,
+            generation: u64,
+            current_binding: Option<&PermitBinding>,
+        ) -> bool {
+            Rc::ptr_eq(&held.permit, current)
+                && held.generation == generation
+                && current.generation == generation
+                && held.permit.binding.as_ref() == current_binding
+                && held.probe.kind() == ProbeKind::Candidate
+                && held.probe.flags() == 0
+        }
+        fn consume_candidate(
+            held: Held,
+            current: &Rc<Permit>,
+            generation: u64,
+            current_binding: Option<&PermitBinding>,
+        ) -> Delivery {
+            if !candidate_matches(&held, current, generation, current_binding) {
+                return Delivery::Failed;
+            }
+            if held.permit.revoked.get() {
+                Delivery::RejectedRevokedPermit
+            } else if current.applied.get() == 0 {
+                // Actual harmless application, separate from reporting its outcome.
+                current.applied.set(1);
+                Delivery::Applied
+            } else {
+                Delivery::Failed
+            }
+        }
+        fn receipt_timely(now: Instant, close: Instant) -> bool {
+            now < close + Duration::from_secs(2) && now < close + Duration::from_secs(10)
+        }
+        struct Inventory {
+            issued: AtomicUsize,
+            invoked: AtomicUsize,
+            consumed: AtomicUsize,
+            aborted: AtomicUsize,
+            handlers: AtomicUsize,
+            raw: AtomicUsize,
+            invalid: AtomicBool,
+        }
+        impl Inventory {
+            fn new() -> Self {
+                Self {
+                    issued: AtomicUsize::new(0),
+                    invoked: AtomicUsize::new(0),
+                    consumed: AtomicUsize::new(0),
+                    aborted: AtomicUsize::new(0),
+                    handlers: AtomicUsize::new(0),
+                    raw: AtomicUsize::new(0),
+                    invalid: AtomicBool::new(false),
+                }
+            }
+            fn once(&self, index: usize, slot: &AtomicUsize, required: usize) -> bool {
+                let ok = index < 8
+                    && required & (1 << index) != 0
+                    && slot.fetch_or(1 << index, Ordering::SeqCst) & (1 << index) == 0;
+                if !ok {
+                    self.invalid.store(true, Ordering::SeqCst);
+                }
+                ok
+            }
+            fn issue(&self, index: usize) -> bool {
+                self.once(index, &self.issued, 255)
+            }
+            fn invoke(&self, index: usize) -> bool {
+                self.once(
+                    index,
+                    &self.invoked,
+                    self.issued.load(Ordering::SeqCst) & !self.aborted.load(Ordering::SeqCst),
+                )
+            }
+            fn consume(&self, index: usize) -> bool {
+                self.once(index, &self.consumed, self.invoked.load(Ordering::SeqCst))
+            }
+            fn abort(&self, index: usize) {
+                let bit = 1 << index;
+                if self.invoked.load(Ordering::SeqCst) & bit == 0 {
+                    self.aborted.fetch_or(bit, Ordering::SeqCst);
+                }
+            }
+            fn drained(&self) -> bool {
+                let n = self.issued.load(Ordering::SeqCst);
+                let invoked = self.invoked.load(Ordering::SeqCst);
+                let aborted = self.aborted.load(Ordering::SeqCst);
+                n == (invoked | aborted)
+                    && invoked == self.consumed.load(Ordering::SeqCst)
+                    && invoked & aborted == 0
+            }
+        }
+        struct Lifetime {
+            inventory: Arc<Inventory>,
+            _aggregate: HandlerLifetime,
+        }
+        impl Lifetime {
+            fn new(context: &Context) -> Self {
+                context.inventory.handlers.fetch_add(1, Ordering::SeqCst);
+                Self {
+                    inventory: Arc::clone(&context.inventory),
+                    _aggregate: HandlerLifetime::new(&context.callbacks),
+                }
+            }
+        }
+        impl Drop for Lifetime {
+            fn drop(&mut self) {
+                self.inventory.handlers.fetch_sub(1, Ordering::SeqCst);
+            }
+        }
+        struct RawLease(Arc<Inventory>);
+        impl RawLease {
+            fn acquire(i: &Arc<Inventory>) -> Result<Self, ()> {
+                i.raw
+                    .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                        if n < 2 { Some(n + 1) } else { None }
+                    })
+                    .map_err(|_| ())?;
+                Ok(Self(Arc::clone(i)))
+            }
+        }
+        impl Drop for RawLease {
+            fn drop(&mut self) {
+                self.0.raw.fetch_sub(1, Ordering::SeqCst);
+            }
+        }
+        struct Receiver {
+            receiver: Rc<ICoreWebView2DevToolsProtocolEventReceiver>,
+            token: Option<i64>,
+            attempted: bool,
+        }
+        struct Response {
+            index: usize,
+            received: Instant,
+            result: Result<wire::MethodResult, ()>,
+        }
+        #[derive(Clone, Copy)]
+        struct Trace {
+            _kind: u8,
+            _ordinal: u8,
+            _revoked: bool,
+        }
+        pub(super) struct State {
+            request: Code0WindowRequest,
+            generation: u64,
+            installation: Arc<AtomicBool>,
+            inventory: Arc<Inventory>,
+            callbacks: Arc<Callbacks>,
+            core: Option<Rc<ICoreWebView2>>,
+            environment: Option<Rc<ICoreWebView2Environment>>,
+            core22: Option<Rc<ICoreWebView2_22>>,
+            selector: Selector,
+            identity: wire::ProtocolIdentity,
+            deadline: NativeDialogDeadline,
+            phase: Phase,
+            terminal: bool,
+            closing: Option<Instant>,
+            close_published: bool,
+            disposition_published: bool,
+            receivers: Vec<Receiver>,
+            native_tokens: [Option<i64>; 4],
+            native_attempted: [bool; 4],
+            filter: bool,
+            filter_attempted: bool,
+            script_id: Option<String>,
+            script_attempted: bool,
+            script_submitted: bool,
+            script_response: Option<(Instant, Result<String, ()>)>,
+            next: usize,
+            in_flight: bool,
+            response: Option<Response>,
+            acknowledged: [bool; 7],
+            submitted: [bool; 7],
+            setup_ready: bool,
+            navigation_issued: bool,
+            navigation_returned: bool,
+            grant: bool,
+            navigation_id: Option<u64>,
+            starts: u8,
+            loading: u8,
+            root: Option<wire::Identity>,
+            loader: Option<wire::Identity>,
+            root_context: Option<wire::ContextId>,
+            unique: Option<wire::Identity>,
+            contexts: wire::ContextTable,
+            staged: wire::StagedMessages,
+            staged_entries: std::collections::VecDeque<(u8, bool)>,
+            sequence: wire::ProbeSequence,
+            binding_count: u8,
+            trace: [Option<Trace>; 64],
+            ordinal: u8,
+            permit: Option<Rc<Permit>>,
+            held: Option<Held>,
+            consumer_due: bool,
+            controls: u8,
+            prepare_sent: bool,
+            mutate_sent: bool,
+            detach_sent: bool,
+            receipt_consumed: bool,
+            missing_disposition: bool,
+            disposed_at: Option<Instant>,
+            witness: bool,
+            request_count: u8,
+            asset_bytes: usize,
+            main_response: bool,
+            child_response: bool,
+            cleanup_unknown: bool,
+            facts: Facts,
+        }
+        #[derive(Clone, Copy, Default)]
+        struct CurrentAuthority {
+            identity_matches: bool,
+            failed: bool,
+            closing: bool,
+            destroyed: bool,
+            released: bool,
+            cleanup_blocked: bool,
+            affinity_failed: bool,
+            refusal_unknown: bool,
+            inventory_invalid: bool,
+            cleanup_unknown: bool,
+            core_present: bool,
+            installation_live: bool,
+        }
+        impl CurrentAuthority {
+            fn usable(self) -> bool {
+                self.identity_matches
+                    && self.core_present
+                    && self.installation_live
+                    && !self.destroyed
+                    && !self.released
+                    && !self.cleanup_blocked
+                    && !self.affinity_failed
+                    && !self.refusal_unknown
+                    && !self.inventory_invalid
+                    && !self.cleanup_unknown
+            }
+        }
+        fn active_phase(phase: Phase) -> bool {
+            matches!(
+                phase,
+                Phase::Installing
+                    | Phase::AwaitInitialJoin
+                    | Phase::AwaitParsed
+                    | Phase::AwaitCandidate
+                    | Phase::AwaitMutationTrace
+            )
+        }
+        impl State {
+            fn active_at(&self, current: CurrentAuthority, expected: Phase, now: Instant) -> bool {
+                current.usable()
+                    && !current.failed
+                    && !current.closing
+                    && !self.terminal
+                    && self.closing.is_none()
+                    && self.phase == expected
+                    && active_phase(expected)
+                    && matches!(
+                        self.facts.failure,
+                        None | Some(Failure::CapabilityApprovalMissing)
+                    )
+                    && self.deadline.before_original_at(now)
+            }
+            fn live_at(&self, current: CurrentAuthority, expected: Phase, now: Instant) -> bool {
+                self.active_at(current, expected, now)
+                    && self.permit.as_ref().is_none_or(|p| !p.revoked.get())
+            }
+        }
+        fn terminal_failure(s: &mut State, failure: Failure, unknown: bool) {
+            if s.facts.failure.is_none()
+                || s.facts.failure == Some(Failure::CapabilityApprovalMissing)
+            {
+                s.facts.failure = Some(failure);
+            }
+            s.facts.result = ResultKind::NotEstablished;
+            s.facts.failed_close_no_activation = true;
+            s.terminal = true;
+            s.grant = false;
+            revoke(s);
+            s.cleanup_unknown |= unknown;
+            if active_phase(s.phase) {
+                s.phase = Phase::ClosingAwaitDispose;
+            }
+            if !s.consumer_due {
+                s.held = None;
+            }
+        }
+        fn current_binding(s: &State) -> Option<PermitBinding> {
+            s.root
+                .clone()
+                .zip(s.root_context)
+                .zip(s.unique.clone())
+                .zip(s.loader.clone())
+                .map(|(((root, context), unique), loader)| PermitBinding {
+                    request: s.request.clone(),
+                    root,
+                    context,
+                    unique,
+                    loader,
+                    end: s.deadline.original_end(),
+                })
+        }
+        enum DeliveryWindow {
+            Attempt(Instant),
+            Closing(Instant),
+            Denied(Failure),
+        }
+        struct Handoff {
+            held: Held,
+            permit: Rc<Permit>,
+            generation: u64,
+            binding: Option<PermitBinding>,
+            window: DeliveryWindow,
+            callbacks: Arc<Callbacks>,
+            inventory: Arc<Inventory>,
+            installation: Arc<AtomicBool>,
+        }
+        struct Consumed {
+            outcome: Delivery,
+            applied: u8,
+            failure: Option<Failure>,
+        }
+        fn take_handoff_at(
+            s: &mut State,
+            current: CurrentAuthority,
+            now: Instant,
+        ) -> Result<Option<Handoff>, ()> {
+            if !s.consumer_due {
+                return Ok(None);
+            }
+            if s.facts.candidate_delivery_attempts != 0 {
+                return Err(());
+            }
+            let attempt = s.active_at(current, Phase::AwaitMutationTrace, now);
+            let closing = current.usable()
+                && s.phase == Phase::ClosingAwaitDispose
+                && s.selector == Selector::DisposeMissing
+                && s.missing_disposition
+                && s.facts.receipt_deadline_observed
+                && s.closing.is_some_and(|at| {
+                    now >= at + Duration::from_secs(2) && now < at + Duration::from_secs(10)
+                })
+                && s.permit.as_ref().is_some_and(|p| p.revoked.get());
+            let window = if attempt {
+                DeliveryWindow::Attempt(s.deadline.original_end())
+            } else if closing {
+                DeliveryWindow::Closing(s.closing.unwrap())
+            } else {
+                DeliveryWindow::Denied(
+                    if s.selector == Selector::DisposeMissing
+                        && s.missing_disposition
+                        && s.facts.receipt_deadline_observed
+                        && s.closing
+                            .is_some_and(|at| now >= at + Duration::from_secs(10))
+                    {
+                        Failure::NativeCleanup
+                    } else if now >= s.deadline.original_end() && s.closing.is_none() {
+                        Failure::StimulusNotObserved
+                    } else {
+                        Failure::Protocol
+                    },
+                )
+            };
+            let held = s.held.take().ok_or(())?;
+            let permit = s
+                .permit
+                .as_ref()
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::clone(&held.permit));
+            let binding = current_binding(s);
+            s.consumer_due = false;
+            Ok(Some(Handoff {
+                held,
+                permit,
+                generation: s.generation,
+                binding,
+                window,
+                callbacks: Arc::clone(&s.callbacks),
+                inventory: Arc::clone(&s.inventory),
+                installation: Arc::clone(&s.installation),
+            }))
+        }
+        impl Handoff {
+            fn consume_at(self, now: Instant) -> Consumed {
+                let invalid_identity = self.binding.is_none()
+                    || !candidate_matches(
+                        &self.held,
+                        &self.permit,
+                        self.generation,
+                        self.binding.as_ref(),
+                    );
+                let atomic_invalid = self.installation.load(Ordering::SeqCst)
+                    || self.inventory.invalid.load(Ordering::SeqCst)
+                    || self.callbacks.affinity_failed.load(Ordering::SeqCst);
+                let failure = if invalid_identity || atomic_invalid {
+                    Some(Failure::Protocol)
+                } else {
+                    match self.window {
+                        DeliveryWindow::Attempt(end) if now < end => None,
+                        DeliveryWindow::Attempt(_) => Some(Failure::StimulusNotObserved),
+                        DeliveryWindow::Closing(at)
+                            if self.permit.revoked.get()
+                                && now >= at + Duration::from_secs(2)
+                                && now < at + Duration::from_secs(10) =>
+                        {
+                            None
+                        }
+                        DeliveryWindow::Closing(_) => Some(Failure::NativeCleanup),
+                        DeliveryWindow::Denied(failure) => Some(failure),
+                    }
+                };
+                if let Some(failure) = failure {
+                    // This is an actual invocation with the original decoded item.
+                    // Failed current authority forbids its application, even when
+                    // the earlier snapshot was timely and the clock crossed later.
+                    self.held.permit.revoked.set(true);
+                    self.permit.revoked.set(true);
+                    return Consumed {
+                        outcome: Delivery::Failed,
+                        applied: self.permit.applied.get(),
+                        failure: Some(failure),
+                    };
+                }
+                let outcome = consume_candidate(
+                    self.held,
+                    &self.permit,
+                    self.generation,
+                    self.binding.as_ref(),
+                );
+                Consumed {
+                    outcome,
+                    applied: self.permit.applied.get(),
+                    failure: (outcome == Delivery::Failed).then_some(Failure::Protocol),
+                }
+            }
+        }
+        fn record_consumption(s: &mut State, consumed: &Consumed) {
+            s.facts.candidate_delivery_attempts = 1;
+            s.facts.candidate_applied = consumed.applied;
+            s.facts.candidate_delivery_outcome = consumed.outcome;
+            if let Some(failure) = consumed.failure {
+                if failure == Failure::NativeCleanup
+                    && s.selector == Selector::DisposeMissing
+                    && s.missing_disposition
+                    && s.facts.receipt_deadline_observed
+                    && s.facts.failure == Some(Failure::DetachReceiptMissing)
+                {
+                    // The expected receipt2 disposition remains causal evidence,
+                    // but missing close10 is now the current terminal failure.
+                    s.facts.failure = Some(Failure::NativeCleanup);
+                }
+                terminal_failure(s, failure, false);
+            }
+        }
+        fn commit_join_at(
+            s: &mut State,
+            current: CurrentAuthority,
+            expected: Phase,
+            now: Instant,
+        ) -> bool {
+            if !s.active_at(current, expected, now) {
+                return false;
+            }
+            if !(s.navigation_returned
+                && s.starts == 1
+                && s.loading == 1
+                && s.main_response
+                && s.navigation_id.is_some()
+                && s.root.is_some()
+                && s.loader.is_some()
+                && s.root_context.is_some()
+                && s.unique.is_some())
+            {
+                return false;
+            }
+            if s.permit.is_none() {
+                if !s.live_at(current, expected, now) {
+                    return false;
+                }
+                let Some(binding) = current_binding(s) else {
+                    return false;
+                };
+                s.permit = Some(Rc::new(Permit {
+                    generation: s.generation,
+                    revoked: Cell::new(false),
+                    applied: Cell::new(0),
+                    binding: Some(binding),
+                }));
+                s.phase = Phase::AwaitParsed;
+            }
+            s.facts.initial_native_join = true;
+            s.facts.root_metadata_joined = true;
+            while let Some(message) = s.staged.pop_front() {
+                let Some(entry) = s.staged_entries.pop_front() else {
+                    return false;
+                };
+                if !apply_binding(s, message, entry) {
+                    return false;
+                }
+            }
+            true
+        }
+        fn reserve_navigation_at(s: &mut State, current: CurrentAuthority, now: Instant) -> bool {
+            if !s.live_at(current, Phase::Installing, now)
+                || s.navigation_issued
+                || !s.facts.script_ack
+                || s.next != 4
+                || s.root.is_none()
+            {
+                return false;
+            }
+            s.navigation_issued = true;
+            s.grant = true;
+            s.phase = Phase::AwaitInitialJoin;
+            true
+        }
+        fn reserve_control_at(
+            s: &mut State,
+            current: CurrentAuthority,
+            kind: ControlKind,
+            now: Instant,
+        ) -> Option<wire::BoundedText<256>> {
+            let allowed = match kind {
+                ControlKind::Prepare => {
+                    s.live_at(current, Phase::AwaitParsed, now) && !s.prepare_sent
+                }
+                ControlKind::Mutate => {
+                    s.live_at(current, Phase::AwaitCandidate, now)
+                        && !s.mutate_sent
+                        && s.facts.candidate_held
+                }
+                ControlKind::Detach => {
+                    current.usable()
+                        && s.phase == Phase::ClosingAwaitDispose
+                        && !s.detach_sent
+                        && s.closing
+                            .is_some_and(|at| now >= at && now < at + Duration::from_secs(10))
+                }
+            };
+            let limit = if s.selector == Selector::DisposeMissing {
+                2
+            } else {
+                3
+            };
+            if !allowed || s.controls >= limit {
+                return None;
+            }
+            let encoded = wire::encode_control(&s.identity, kind).ok()?;
+            s.controls += 1;
+            match kind {
+                ControlKind::Prepare => {
+                    s.prepare_sent = true;
+                    s.phase = Phase::AwaitCandidate;
+                }
+                ControlKind::Mutate => {
+                    s.mutate_sent = true;
+                    s.phase = Phase::AwaitMutationTrace;
+                }
+                ControlKind::Detach => s.detach_sent = true,
+            };
+            Some(encoded)
+        }
+        fn observe_context_created_at(
+            s: &mut State,
+            context: wire::ExecutionContext,
+            current: CurrentAuthority,
+            now: Instant,
+        ) -> bool {
+            let eligibility = s.root.as_ref().map(|r| context.root_eligibility(r));
+            let id = context.id;
+            let unique = context.unique_id.clone();
+            if s.contexts.insert(context).is_err() {
+                return false;
+            }
+            if eligibility == Some(wire::RootEligibility::EligibleMetadata) && s.navigation_issued {
+                if s.root_context.is_some() || !s.live_at(current, Phase::AwaitInitialJoin, now) {
+                    return false;
+                }
+                s.root_context = Some(id);
+                s.unique = unique;
+            }
+            true
+        }
+        fn observe_contexts_cleared(s: &mut State) -> bool {
+            if s.root_context.is_some()
+                || s.unique.is_some()
+                || s.permit.is_some()
+                || s.terminal
+                || s.closing.is_some()
+                || !matches!(s.phase, Phase::Installing | Phase::AwaitInitialJoin)
+            {
+                terminal_failure(s, Failure::ContextChanged, false);
+                false
+            } else {
+                true
+            }
+        }
+
+        struct Context {
+            owner: Weak<RefCell<Owner>>,
+            request: Code0WindowRequest,
+            generation: u64,
+            installation: Arc<AtomicBool>,
+            inventory: Arc<Inventory>,
+            callbacks: Arc<Callbacks>,
+            ui: ThreadId,
+        }
+        impl Context {
+            fn new(owner: &Rc<RefCell<Owner>>) -> Self {
+                let o = owner.borrow();
+                let i = o.instance.as_ref().unwrap();
+                let s = i.capability.as_ref().unwrap();
+                Self {
+                    owner: Rc::downgrade(owner),
+                    request: i.request.clone(),
+                    generation: s.generation,
+                    installation: Arc::clone(&s.installation),
+                    inventory: Arc::clone(&s.inventory),
+                    callbacks: Arc::clone(&i.callbacks),
+                    ui: o.ui_thread,
+                }
+            }
+            fn same(&self, owner: &Rc<RefCell<Owner>>) -> bool {
+                let o = owner.borrow();
+                !o.unmatched
+                    && o.instance.as_ref().is_some_and(|i| {
+                        i.request == self.request
+                            && s2::finite_generation(i) == self.generation
+                            && Arc::ptr_eq(&i.callbacks, &self.callbacks)
+                            && i.capability.as_ref().is_some_and(|s| {
+                                Arc::ptr_eq(&s.callbacks, &i.callbacks)
+                                    && s.generation == self.generation
+                                    && Arc::ptr_eq(&s.inventory, &self.inventory)
+                                    && Arc::ptr_eq(&s.installation, &self.installation)
+                            })
+                    })
+            }
+            fn authority(&self, owner: &Rc<RefCell<Owner>>) -> CurrentAuthority {
+                let same = self.same(owner);
+                let o = owner.borrow();
+                let Some(i) = o.instance.as_ref() else {
+                    return CurrentAuthority::default();
+                };
+                let Some(s) = i.capability.as_ref() else {
+                    return CurrentAuthority::default();
+                };
+                CurrentAuthority {
+                    identity_matches: same
+                        && s.request == i.request
+                        && Arc::ptr_eq(&s.installation, &i.refusal_registry.unknown),
+                    failed: i.failed,
+                    closing: i.closing,
+                    destroyed: i.destroyed,
+                    released: i.released,
+                    cleanup_blocked: i.cleanup_blocked,
+                    affinity_failed: i.callbacks.affinity_failed.load(Ordering::SeqCst),
+                    refusal_unknown: i.refusal_registry.unknown(),
+                    inventory_invalid: s.inventory.invalid.load(Ordering::SeqCst),
+                    cleanup_unknown: s.cleanup_unknown,
+                    core_present: s.core.is_some(),
+                    installation_live: i.refusal_registry.complete(),
+                }
+            }
+            fn live_at(&self, owner: &Rc<RefCell<Owner>>, expected: Phase, now: Instant) -> bool {
+                let current = self.authority(owner);
+                let o = owner.borrow();
+                o.instance
+                    .as_ref()
+                    .and_then(|i| i.capability.as_ref())
+                    .is_some_and(|s| s.live_at(current, expected, now))
+            }
+            fn window(&self, owner: &Rc<RefCell<Owner>>) -> bool {
+                self.same(owner) && {
+                    let o = owner.borrow();
+                    o.instance.as_ref().is_some_and(|i| {
+                        !i.released
+                            && !i.destroyed
+                            && !i.cleanup_blocked
+                            && !i.refusal_registry.unknown()
+                            && !i.callbacks.affinity_failed.load(Ordering::SeqCst)
+                            && i.capability.as_ref().is_some_and(|s| {
+                                s.core.is_some()
+                                    && if let Some(close) = s.closing {
+                                        Instant::now() < close + Duration::from_secs(10)
+                                    } else {
+                                        s.deadline.before_original_at(Instant::now())
+                                    }
+                            })
+                    })
+                }
+            }
+            fn sender(&self, owner: &Rc<RefCell<Owner>>, sender: Option<&ICoreWebView2>) -> bool {
+                if !self.window(owner) {
+                    return false;
+                }
+                let core = {
+                    let o = owner.borrow();
+                    o.instance
+                        .as_ref()
+                        .and_then(|i| i.capability.as_ref())
+                        .and_then(|s| s.core.as_ref())
+                        .map(Rc::clone)
+                };
+                let good = core.as_ref().zip(sender).is_some_and(|(core, sender)| {
+                    let expected = core.cast::<IUnknown>();
+                    if !self.window(owner) {
+                        drop(expected);
+                        return false;
+                    }
+                    let actual = sender.cast::<IUnknown>();
+                    let good = self.window(owner)
+                        && expected
+                            .as_ref()
+                            .ok()
+                            .zip(actual.as_ref().ok())
+                            .is_some_and(|(a, b)| a.as_raw() == b.as_raw());
+                    drop(actual);
+                    drop(expected);
+                    good && self.window(owner)
+                });
+                drop(core);
+                good && self.window(owner)
+            }
+            fn entry(&self, owner: &Rc<RefCell<Owner>>, kind: u8) -> Option<(u8, bool)> {
+                if !self.window(owner) {
+                    return None;
+                }
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut()?.capability.as_mut()?;
+                if s.ordinal >= 64 {
+                    s.inventory.invalid.store(true, Ordering::SeqCst);
+                    return None;
+                }
+                s.ordinal += 1;
+                let revoked = s.permit.as_ref().is_some_and(|p| p.revoked.get());
+                s.trace[usize::from(s.ordinal - 1)] = Some(Trace {
+                    _kind: kind,
+                    _ordinal: s.ordinal,
+                    _revoked: revoked,
+                });
+                Some((s.ordinal, revoked))
+            }
+            fn finish(&self, owner: &Rc<RefCell<Owner>>, good: bool, failure: Failure) {
+                if !self.same(owner) {
+                    self.inventory.invalid.store(true, Ordering::SeqCst);
+                } else if !good || !self.window(owner) {
+                    reject(owner, failure, false);
+                }
+            }
+        }
+        fn copy_units(raw: PCWSTR, cap: usize) -> Result<String, ()> {
+            if raw.is_null() {
+                return Err(());
+            }
+            for n in 0..=wire::MAX_RAW_UTF16 {
+                if unsafe { *raw.0.add(n) } == 0 {
+                    let units = unsafe { std::slice::from_raw_parts(raw.0, n) };
+                    let mut bytes = 0;
+                    for c in char::decode_utf16(units.iter().copied()) {
+                        bytes += c.map_err(|_| ())?.len_utf8();
+                        if bytes > cap || bytes > wire::MAX_RAW_UTF8 {
+                            return Err(());
+                        }
+                    }
+                    return String::from_utf16(units).map_err(|_| ());
+                }
+            }
+            Err(())
+        }
+        fn allocated(
+            context: &Context,
+            owner: &Rc<RefCell<Owner>>,
+            cap: usize,
+            get: impl FnOnce(*mut PWSTR) -> windows::core::Result<()>,
+        ) -> Result<String, ()> {
+            if !context.window(owner) {
+                return Err(());
+            }
+            let mut p = PWSTR::null();
+            let hr = get(&mut p);
+            let allocation = CoTaskMemPWSTR::from(p);
+            let out = if hr.is_ok() && context.window(owner) {
+                copy_units(PCWSTR(p.0), cap)
+            } else {
+                Err(())
+            };
+            drop(hr);
+            drop(allocation);
+            if context.window(owner) {
+                out
+            } else {
+                drop(out);
+                Err(())
+            }
+        }
+        fn unit(
+            c: &Context,
+            owner: &Rc<RefCell<Owner>>,
+            action: impl FnOnce() -> windows::core::Result<()>,
+        ) -> bool {
+            if !c.window(owner) {
+                return false;
+            }
+            let result = action();
+            let good = result.is_ok() && c.window(owner);
+            drop(result);
+            good && c.window(owner)
+        }
+        fn source(owner: &Rc<RefCell<Owner>>, core: &ICoreWebView2, blank: bool) -> bool {
+            let c = Context::new(owner);
+            let Ok(_raw) = RawLease::acquire(&c.inventory) else {
+                return false;
+            };
+            let source = allocated(&c, owner, 2048, |p| unsafe { core.Source(p) });
+            let good = source
+                .as_ref()
+                .is_ok_and(|s| s == if blank { "about:blank" } else { wire::MAIN_URL });
+            drop(source);
+            drop(_raw);
+            good && c.window(owner)
+        }
+        pub(super) fn selected(owner: &Rc<RefCell<Owner>>) -> bool {
+            owner
+                .borrow()
+                .instance
+                .as_ref()
+                .is_some_and(|i| i.capability.is_some())
+        }
+        fn revoke(s: &State) {
+            if let Some(p) = &s.permit {
+                p.revoked.set(true);
+            }
+        }
+        pub(super) fn mark_close(i: &mut Instance) {
+            if i.closing
+                && let Some(s) = i.capability.as_mut()
+            {
+                s.terminal = true;
+                s.grant = false;
+                revoke(s);
+                if s.closing.is_none() {
+                    s.closing = Some(Instant::now());
+                    if !matches!(
+                        s.phase,
+                        Phase::RemoveProtocols
+                            | Phase::StopClose
+                            | Phase::AwaitReleased
+                            | Phase::Final
+                    ) {
+                        s.phase = Phase::ClosingAwaitDispose;
+                    }
+                }
+            }
+        }
+        fn reject(owner: &Rc<RefCell<Owner>>, failure: Failure, unknown: bool) {
+            let mut o = owner.borrow_mut();
+            if let Some(i) = o.instance.as_mut()
+                && let Some(s) = i.capability.as_mut()
+            {
+                terminal_failure(s, failure, unknown);
+                i.failed = true;
+                i.closing = true;
+                if unknown {
+                    i.cleanup_blocked = true;
+                }
+                mark_close(i);
+            }
+        }
+        pub(super) fn synchronize(owner: &Rc<RefCell<Owner>>) {
+            let note = {
+                let mut o = owner.borrow_mut();
+                o.instance.as_mut().and_then(|i| {
+                    mark_close(i);
+                    let s = i.capability.as_mut()?;
+                    if s.close_published {
+                        return None;
+                    }
+                    let at = s.closing?;
+                    s.close_published = true;
+                    Some((i.observer.clone(), at))
+                })
+            };
+            if let Some((Some(f), at)) = note {
+                f(NativeSmokeObservation::CapabilityClosing { at });
+            }
+        }
+        fn emit(owner: &Rc<RefCell<Owner>>, stage: Stage) {
+            let note = {
+                let o = owner.borrow();
+                o.instance.as_ref().and_then(|i| {
+                    i.capability.as_ref().map(|s| {
+                        (
+                            i.observer.clone(),
+                            NativeCapabilityReceipt {
+                                request: i.request.clone(),
+                                installation: Arc::clone(&s.installation),
+                                stage,
+                                facts: s.facts.clone(),
+                            },
+                        )
+                    })
+                })
+            };
+            if let Some((Some(f), receipt)) = note {
+                f(NativeSmokeObservation::Capability(receipt));
+            }
+        }
+        fn close_selected(owner: &Rc<RefCell<Owner>>) {
+            let mut o = owner.borrow_mut();
+            if let Some(i) = o.instance.as_mut() {
+                i.closing = true;
+                mark_close(i);
+            }
+        }
+        pub(super) fn begin(
+            owner: &Rc<RefCell<Owner>>,
+            request: &Code0WindowRequest,
+            selector: Selector,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            super::require_native_refusal_install(owner, request)?;
+            let (core, callbacks) = {
+                let o = owner.borrow();
+                let i = o
+                    .instance
+                    .as_ref()
+                    .ok_or(Code0SessionFailure::PolicyRejected)?;
+                if i.capability.is_some()
+                    || i.chooser.is_some()
+                    || !deadline.before_original_at(Instant::now())
+                {
+                    return Err(Code0SessionFailure::PolicyRejected);
+                }
+                (
+                    s2::chooser_core(i).ok_or(Code0SessionFailure::PolicyRejected)?,
+                    Arc::clone(&i.callbacks),
+                )
+            };
+            let identity = wire::ProtocolIdentity::new(
+                &request.nonce,
+                &request.document_id,
+                wire::Selector::parse(selector.name()).unwrap(),
+            )
+            .map_err(|_| Code0SessionFailure::PolicyRejected)?;
+            let active = Active::enter(&callbacks);
+            let original = {
+                let mut o = owner.borrow_mut();
+                matching(&mut o, request)
+                    .unwrap()
+                    .environment
+                    .take()
+                    .unwrap()
+            };
+            let environment = Rc::new(original.clone());
+            {
+                let mut o = owner.borrow_mut();
+                let i = matching(&mut o, request).unwrap();
+                i.environment = Some(original);
+                i.capability = Some(State {
+                    request: request.clone(),
+                    generation: s2::finite_generation(i),
+                    installation: Arc::clone(&i.refusal_registry.unknown),
+                    inventory: Arc::new(Inventory::new()),
+                    callbacks: Arc::clone(&i.callbacks),
+                    core: Some(Rc::clone(&core)),
+                    environment: Some(environment),
+                    core22: None,
+                    selector,
+                    identity,
+                    deadline,
+                    phase: Phase::Installing,
+                    terminal: false,
+                    closing: None,
+                    close_published: false,
+                    disposition_published: false,
+                    receivers: Vec::with_capacity(7),
+                    native_tokens: [None; 4],
+                    native_attempted: [false; 4],
+                    filter: false,
+                    filter_attempted: false,
+                    script_id: None,
+                    script_attempted: false,
+                    script_submitted: false,
+                    script_response: None,
+                    next: 0,
+                    in_flight: false,
+                    response: None,
+                    acknowledged: [false; 7],
+                    submitted: [false; 7],
+                    setup_ready: false,
+                    navigation_issued: false,
+                    navigation_returned: false,
+                    grant: false,
+                    navigation_id: None,
+                    starts: 0,
+                    loading: 0,
+                    root: None,
+                    loader: None,
+                    root_context: None,
+                    unique: None,
+                    contexts: wire::ContextTable::new(),
+                    staged: wire::StagedMessages::new(),
+                    staged_entries: std::collections::VecDeque::with_capacity(10),
+                    sequence: wire::ProbeSequence::new(),
+                    binding_count: 0,
+                    trace: [None; 64],
+                    ordinal: 0,
+                    permit: None,
+                    held: None,
+                    consumer_due: false,
+                    controls: 0,
+                    prepare_sent: false,
+                    mutate_sent: false,
+                    detach_sent: false,
+                    receipt_consumed: false,
+                    missing_disposition: false,
+                    disposed_at: None,
+                    witness: false,
+                    request_count: 0,
+                    asset_bytes: 0,
+                    main_response: false,
+                    child_response: false,
+                    cleanup_unknown: false,
+                    facts: Facts::new(selector),
+                });
+            }
+            let result = source(owner, &core, true) && register(owner, &core);
+            drop(core);
+            drop(active);
+            if !result || !Context::new(owner).live_at(owner, Phase::Installing, Instant::now()) {
+                reject(owner, Failure::Setup, false);
+                return Err(Code0SessionFailure::PolicyRejected);
+            }
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .capability
+                .as_mut()
+                .unwrap()
+                .setup_ready = true;
+            emit(owner, Stage::Started);
+            Ok(())
+        }
+        fn register(owner: &Rc<RefCell<Owner>>, core: &Rc<ICoreWebView2>) -> bool {
+            let c = Context::new(owner);
+            if !c.live_at(owner, Phase::Installing, Instant::now()) {
+                return false;
+            }
+            let settings = unsafe { core.Settings() };
+            let ok = if let Ok(settings) = settings.as_ref() {
+                let a = unit(&c, owner, || unsafe {
+                    settings.SetIsWebMessageEnabled(true)
+                });
+                let mut actual = BOOL::default();
+                let b = unit(&c, owner, || unsafe {
+                    settings.IsWebMessageEnabled(&mut actual)
+                });
+                a && b && actual.as_bool() && c.live_at(owner, Phase::Installing, Instant::now())
+            } else {
+                false
+            };
+            drop(settings);
+            if !ok || !c.live_at(owner, Phase::Installing, Instant::now()) {
+                return false;
+            }
+            let core22 = core.cast::<ICoreWebView2_22>();
+            let core22 = match core22 {
+                Ok(v) => Rc::new(v),
+                Err(_) => return false,
+            };
+            if !c.live_at(owner, Phase::Installing, Instant::now()) {
+                drop(core22);
+                return false;
+            }
+            owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .unwrap()
+                .capability
+                .as_mut()
+                .unwrap()
+                .core22 = Some(Rc::clone(&core22));
+            macro_rules! native_handler {
+                ($index:expr,$handler:ident,$add:ident,$action:expr,$fallback:expr) => {{
+                    let c = Context::new(owner);
+                    let lifetime = Lifetime::new(&c);
+                    let handler = $handler::create(Box::new(move |sender, args| {
+                        let _lifetime = &lifetime;
+                        let active = Active::enter(&c.callbacks);
+                        if !callback_on_ui(c.ui, &c.callbacks, 8000 + $index) {
+                            c.inventory.invalid.store(true, Ordering::SeqCst);
+                            drop(args);
+                            drop(sender);
+                            drop(active);
+                            return Ok(());
+                        }
+                        if let Some(owner) = c.owner.upgrade() {
+                            let entry = c.entry(&owner, 10 + $index);
+                            let good = c.sender(&owner, sender.as_ref())
+                                && entry.is_some()
+                                && args
+                                    .as_ref()
+                                    .is_some_and(|a| ($action)(&owner, a, entry.unwrap()));
+                            if !good
+                                && let Some(args) = args.as_ref()
+                                && !($fallback)(&owner, args)
+                            {
+                                reject(&owner, Failure::NativeCleanup, true);
+                            }
+                            drop(args);
+                            drop(sender);
+                            c.finish(&owner, good, Failure::Protocol);
+                        } else {
+                            c.inventory.invalid.store(true, Ordering::SeqCst);
+                            drop(args);
+                            drop(sender);
+                        }
+                        drop(active);
+                        Ok(())
+                    }));
+                    let mut token = 0;
+                    let result = unsafe { core.$add(&handler, &mut token) };
+                    let good = result.is_ok();
+                    if good {
+                        owner
+                            .borrow_mut()
+                            .instance
+                            .as_mut()
+                            .unwrap()
+                            .capability
+                            .as_mut()
+                            .unwrap()
+                            .native_tokens[$index] = Some(token);
+                    }
+                    drop(result);
+                    drop(handler);
+                    if !good
+                        || !Context::new(owner).live_at(owner, Phase::Installing, Instant::now())
+                    {
+                        return false;
+                    }
+                }};
+            }
+            native_handler!(
+                0,
+                NavigationStartingEventHandler,
+                add_NavigationStarting,
+                navigation,
+                deny_navigation
+            );
+            native_handler!(
+                1,
+                ContentLoadingEventHandler,
+                add_ContentLoading,
+                content_loading,
+                deny_content
+            );
+            native_handler!(
+                2,
+                ProcessFailedEventHandler,
+                add_ProcessFailed,
+                process_failed,
+                deny_process
+            );
+            native_handler!(
+                3,
+                WebResourceRequestedEventHandler,
+                add_WebResourceRequested,
+                resource,
+                deny_resource
+            );
+            let filter = unsafe {
+                core22.AddWebResourceRequestedFilterWithRequestSourceKinds(
+                    windows::core::w!("*"),
+                    COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                    COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+                )
+            };
+            if filter.is_ok() {
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .capability
+                    .as_mut()
+                    .unwrap()
+                    .filter = true;
+            }
+            let ok = filter.is_ok();
+            drop(filter);
+            drop(core22);
+            if !ok || !c.live_at(owner, Phase::Installing, Instant::now()) {
+                return false;
+            }
+            for (index, event) in Event::ALL.into_iter().enumerate() {
+                let name: Vec<u16> = event.name().encode_utf16().chain(Some(0)).collect();
+                let receiver =
+                    unsafe { core.GetDevToolsProtocolEventReceiver(PCWSTR(name.as_ptr())) };
+                drop(name);
+                let receiver = match receiver {
+                    Ok(v) => Rc::new(v),
+                    Err(_) => return false,
+                };
+                if !c.live_at(owner, Phase::Installing, Instant::now()) {
+                    drop(receiver);
+                    return false;
+                }
+                owner
+                    .borrow_mut()
+                    .instance
+                    .as_mut()
+                    .unwrap()
+                    .capability
+                    .as_mut()
+                    .unwrap()
+                    .receivers
+                    .push(Receiver {
+                        receiver: Rc::clone(&receiver),
+                        token: None,
+                        attempted: false,
+                    });
+                let context = Context::new(owner);
+                let lifetime = Lifetime::new(&context);
+                let handler = DevToolsProtocolEventReceivedEventHandler::create(Box::new(
+                    move |sender, args| {
+                        let _lifetime = &lifetime;
+                        let active = Active::enter(&context.callbacks);
+                        if !callback_on_ui(context.ui, &context.callbacks, 8020) {
+                            context.inventory.invalid.store(true, Ordering::SeqCst);
+                            drop(args);
+                            drop(sender);
+                            drop(active);
+                            return Ok(());
+                        }
+                        if let Some(owner) = context.owner.upgrade() {
+                            // Entry facts precede sender QueryInterface, Args2 and every native getter.
+                            let entry = context.entry(&owner, index as u8);
+                            let within_binding_bound = if event == Event::BindingCalled {
+                                let mut o = owner.borrow_mut();
+                                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                                s.binding_count = s.binding_count.saturating_add(1);
+                                s.binding_count <= 10
+                            } else {
+                                true
+                            };
+                            if !within_binding_bound {
+                                reject(&owner, Failure::BoundExceeded, false);
+                            }
+                            let valid =
+                                within_binding_bound && context.sender(&owner, sender.as_ref());
+                            let good = valid
+                                && entry.is_some()
+                                && args.as_ref().is_some_and(|args| {
+                                    receive(&owner, &context, event, args, entry.unwrap())
+                                });
+                            drop(args);
+                            drop(sender);
+                            context.finish(&owner, good, Failure::Metadata);
+                        } else {
+                            context.inventory.invalid.store(true, Ordering::SeqCst);
+                            drop(args);
+                            drop(sender);
+                        }
+                        drop(active);
+                        Ok(())
+                    },
+                ));
+                let mut token = 0;
+                let result =
+                    unsafe { receiver.add_DevToolsProtocolEventReceived(&handler, &mut token) };
+                let ok = result.is_ok();
+                if ok {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    s.receivers[index].token = Some(token);
+                    s.facts.receiver_adds += 1;
+                }
+                drop(result);
+                drop(handler);
+                drop(receiver);
+                if !ok || !c.live_at(owner, Phase::Installing, Instant::now()) {
+                    return false;
+                }
+            }
+            true
+        }
+        fn deny_navigation(
+            _owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2NavigationStartingEventArgs,
+        ) -> bool {
+            unsafe { args.SetCancel(true) }.is_ok()
+        }
+        fn deny_content(
+            _owner: &Rc<RefCell<Owner>>,
+            _args: &ICoreWebView2ContentLoadingEventArgs,
+        ) -> bool {
+            true
+        }
+        fn deny_process(
+            _owner: &Rc<RefCell<Owner>>,
+            _args: &ICoreWebView2ProcessFailedEventArgs,
+        ) -> bool {
+            true
+        }
+        fn deny_resource(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2WebResourceRequestedEventArgs,
+        ) -> bool {
+            // Even invalid metadata/overflow gets an actual empty fixed403. This
+            // restrictive action grants no page or protocol authority.
+            let c = Context::new(owner);
+            if !c.same(owner) {
+                return false;
+            }
+            let environment = {
+                let o = owner.borrow();
+                o.instance
+                    .as_ref()
+                    .and_then(|i| i.capability.as_ref())
+                    .and_then(|s| s.environment.as_ref())
+                    .map(Rc::clone)
+            };
+            let Some(environment) = environment else {
+                return false;
+            };
+            let stream = unsafe { SHCreateMemStream(Some(&[])) };
+            let response = stream.as_ref().and_then(|stream| {
+                unsafe {
+                    environment.CreateWebResourceResponse(
+                        stream,
+                        403,
+                        windows::core::w!("Forbidden"),
+                        windows::core::w!("Content-Length: 0\r\nCache-Control: no-store\r\n"),
+                    )
+                }
+                .ok()
+            });
+            let applied = c.same(owner)
+                && response
+                    .as_ref()
+                    .is_some_and(|response| unsafe { args.SetResponse(response) }.is_ok());
+            drop(response);
+            drop(stream);
+            drop(environment);
+            applied && c.same(owner)
+        }
+        fn navigation(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2NavigationStartingEventArgs,
+            _entry: (u8, bool),
+        ) -> bool {
+            let c = Context::new(owner);
+            let Ok(_raw) = RawLease::acquire(&c.inventory) else {
+                let _ = unsafe { args.SetCancel(true) };
+                return false;
+            };
+            let uri = allocated(&c, owner, 2048, |p| unsafe { args.Uri(p) });
+            let mut id = 0;
+            let a = unit(&c, owner, || unsafe { args.NavigationId(&mut id) });
+            let mut redirect = BOOL::default();
+            let b = unit(&c, owner, || unsafe { args.IsRedirected(&mut redirect) });
+            let mut cancel = BOOL::default();
+            let d = unit(&c, owner, || unsafe { args.Cancel(&mut cancel) });
+            let valid = uri.as_ref().is_ok_and(|u| u == wire::MAIN_URL)
+                && a
+                && b
+                && d
+                && !redirect.as_bool()
+                && !cancel.as_bool()
+                && c.window(owner);
+            drop(uri);
+            drop(_raw);
+            let allowed = {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                let live = !i.closing && !i.failed;
+                let s = i.capability.as_mut().unwrap();
+                s.starts = s.starts.saturating_add(1);
+                let good = valid
+                    && live
+                    && s.grant
+                    && s.navigation_issued
+                    && s.starts == 1
+                    && s.deadline.before_original_at(Instant::now());
+                s.grant = false;
+                if good {
+                    s.navigation_id = Some(id);
+                }
+                good
+            };
+            if !allowed {
+                let result = unsafe { args.SetCancel(true) };
+                let ok = result.is_ok();
+                drop(result);
+                reject(owner, Failure::InitialNavigation, !ok);
+                return ok;
+            }
+            true
+        }
+        fn content_loading(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2ContentLoadingEventArgs,
+            _entry: (u8, bool),
+        ) -> bool {
+            let c = Context::new(owner);
+            let mut id = 0;
+            let a = unit(&c, owner, || unsafe { args.NavigationId(&mut id) });
+            let mut error = BOOL::default();
+            let b = unit(&c, owner, || unsafe { args.IsErrorPage(&mut error) });
+            let good = a && b && !error.as_bool() && c.window(owner);
+            let mut o = owner.borrow_mut();
+            let i = o.instance.as_mut().unwrap();
+            let live = !i.closing && !i.failed;
+            let s = i.capability.as_mut().unwrap();
+            s.loading = s.loading.saturating_add(1);
+            good && live
+                && s.loading == 1
+                && s.navigation_id == Some(id)
+                && s.navigation_issued
+                && s.deadline.before_original_at(Instant::now())
+        }
+        fn process_failed(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2ProcessFailedEventArgs,
+            _entry: (u8, bool),
+        ) -> bool {
+            // The actual renderer/process-loss event immediately terminates this slice.
+            let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
+            let result = unsafe { args.ProcessFailedKind(&mut kind) };
+            let good = result.is_ok();
+            drop(result);
+            reject(owner, Failure::NativeCleanup, false);
+            good
+        }
+        fn main_html() -> &'static [u8] {
+            b"<!doctype html><title>s4-main</title><body></body>"
+        }
+        fn child_html(request: &Code0WindowRequest, selector: Selector) -> Result<String, ()> {
+            let nonce = serde_json::to_string(&request.nonce).map_err(|_| ())?;
+            let case = serde_json::to_string(selector.name()).map_err(|_| ())?;
+            Ok(format!(
+                r#"<!doctype html><title>s4-child</title><body><script>"use strict";globalThis.__aiMeterS4Capability(JSON.stringify({{p:"s4c1",n:{nonce},c:{case},s:1,k:"childProbe",f:0}}));</script></body>"#
+            ))
+        }
+        fn injection(request: &Code0WindowRequest, selector: Selector) -> Result<String, ()> {
+            let nonce = serde_json::to_string(&request.nonce).map_err(|_| ())?;
+            let document = serde_json::to_string(&request.document_id).map_err(|_| ())?;
+            let case = serde_json::to_string(selector.name()).map_err(|_| ())?;
+            let canonical = crate::collectors::code0_bridge::CODE0_BRIDGE_SOURCE;
+            // Only native constants are interpolated through the JSON serializer.
+            let source = format!(
+                r#"(()=>{{"use strict";if(window!==top||location.origin!=="https://console.code0.ai")return;
+const n={nonce},c={case},d={document},stringify=JSON.stringify.bind(JSON),send=globalThis.__aiMeterS4Capability.bind(globalThis),wv=chrome.webview,add=wv.addEventListener.bind(wv),remove=wv.removeEventListener.bind(wv),originalFetch=window.fetch,proto=XMLHttpRequest.prototype,originalOpen=proto.open,originalSend=proto.send,doc=document,apply=Reflect.apply,timer=setTimeout.bind(window);
+let seq=0,phase=0,oldRoot=null,oldURL=null,cleanOpen=null,frame=null;
+const emit=(k,f=0)=>send(stringify({{p:"s4c1",n,c,s:++seq,k,f}}));
+const controller=({canonical})({{version:1,nonce:n,document:d,send:message=>send(stringify(message))}}),ownedFetch=window.fetch,ownedOpen=proto.open,ownedSend=proto.send;
+const owned=()=>window.fetch===ownedFetch&&proto.open===ownedOpen&&proto.send===ownedSend;
+const candidate=()=>{{if(!owned())return;oldRoot=document.documentElement;oldURL=location.href;phase=2;emit("candidate");}};
+const listener=event=>{{const m=event.data;if(!m||typeof m!=="object"||Array.isArray(m)||Object.keys(m).sort().join(",")!=="c,k,n,p"||m.p!=="s4c1"||m.n!==n||m.c!==c)return;
+if(m.k==="prepare"&&phase===1){{if(c==="s4-capability-open-child-prototype"){{phase=10;frame=document.createElement("iframe");frame.src="https://console.code0.ai/__ai_meter_fixture__/s4-capability-child";frame.onload=()=>{{cleanOpen=frame.contentWindow.Document.prototype.open;candidate();}};document.body.appendChild(frame);}}else candidate();return;}}
+if(m.k==="mutate"&&phase===2&&c!=="s4-capability-dispose-missing"){{phase=3;emit("beforeOpen");const MARKUP='<!doctype html><title>s4-reset</title><body id="s4-reset"></body>';
+if(c==="s4-capability-open-main"){{document.open();document.write(MARKUP);document.close();}}else if(c==="s4-capability-write-main"){{document.write(MARKUP);document.close();}}else{{apply(cleanOpen,document,[]);document.write(MARKUP);document.close();}}
+const f=(!oldRoot.isConnected?1:0)|(document.getElementById("s4-reset")?2:0)|(document===doc?4:0)|(location.href===oldURL?8:0)|(owned()?16:0);emit("afterOpen",f);timer(()=>{{phase=4;emit("later");}},0);return;}}
+if(m.k==="detach"&&((phase===4&&c!=="s4-capability-dispose-missing")||(phase===2&&c==="s4-capability-dispose-missing"))){{phase=5;if(!owned())return;controller.dispose();const f=(window.fetch===originalFetch?1:0)|(proto.open===originalOpen?2:0)|(proto.send===originalSend?4:0);emit(c==="s4-capability-dispose-missing"?"disposeWitness":"disposed",f);remove("message",listener);}}
+}};add("message",listener);window.addEventListener("load",()=>timer(()=>{{if(document.readyState!=="complete")return;phase=1;emit("parsed");}},0),{{once:true}});
+}})();"#
+            );
+            if source.len() > 32768 {
+                return Err(());
+            }
+            Ok(source)
+        }
+        fn response_pair(
+            c: &Context,
+            owner: &Rc<RefCell<Owner>>,
+            environment: &ICoreWebView2Environment,
+            body: &[u8],
+            positive: bool,
+        ) -> Option<(IStream, ICoreWebView2WebResourceResponse)> {
+            if !c.window(owner) {
+                return None;
+            }
+            let stream = unsafe { SHCreateMemStream(Some(body)) }?;
+            if !c.window(owner)
+                || !unit(c, owner, || unsafe {
+                    stream.Seek(0, STREAM_SEEK_SET, None)
+                })
+            {
+                drop(stream);
+                return None;
+            }
+            let response = unsafe {
+                environment.CreateWebResourceResponse(&stream,if positive{200}else{403},if positive{windows::core::w!("OK")}else{windows::core::w!("Forbidden")},windows::core::w!("Content-Type: text/html; charset=utf-8\r\nContent-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; frame-src https://console.code0.ai; connect-src 'none'; object-src 'none'; media-src 'none'\r\nCache-Control: no-store\r\n"))
+            };
+            if !c.window(owner) {
+                drop(response);
+                drop(stream);
+                return None;
+            }
+            match response {
+                Ok(response) => Some((stream, response)),
+                Err(error) => {
+                    drop(error);
+                    drop(stream);
+                    None
+                }
+            }
+        }
+        fn asset_live(c: &Context, owner: &Rc<RefCell<Owner>>) -> bool {
+            c.window(owner) && {
+                let o = owner.borrow();
+                o.instance.as_ref().is_some_and(|i| {
+                    !i.closing
+                        && !i.failed
+                        && i.capability
+                            .as_ref()
+                            .is_some_and(|s| s.deadline.before_original_at(Instant::now()))
+                })
+            }
+        }
+        fn resource(
+            owner: &Rc<RefCell<Owner>>,
+            args: &ICoreWebView2WebResourceRequestedEventArgs,
+            _entry: (u8, bool),
+        ) -> bool {
+            let c = Context::new(owner);
+            let Ok(_raw) = RawLease::acquire(&c.inventory) else {
+                return false;
+            };
+            if !c.window(owner) {
+                return false;
+            }
+            let native = unsafe { args.Request() };
+            let (uri, method) = if let Ok(native) = native.as_ref() {
+                (
+                    allocated(&c, owner, 2048, |p| unsafe { native.Uri(p) }),
+                    allocated(&c, owner, 16, |p| unsafe { native.Method(p) }),
+                )
+            } else {
+                (Err(()), Err(()))
+            };
+            let mut context = COREWEBVIEW2_WEB_RESOURCE_CONTEXT::default();
+            let result = unit(&c, owner, || unsafe { args.ResourceContext(&mut context) });
+            let (environment, body, positive, bounded) = {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                let live = !i.closing && !i.failed;
+                let s = i.capability.as_mut().unwrap();
+                s.request_count = s.request_count.saturating_add(1);
+                let bounded = s.request_count <= 8;
+                let get = method.as_ref().is_ok_and(|m| m == "GET")
+                    && result
+                    && context == COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT;
+                let main = bounded
+                    && live
+                    && s.navigation_issued
+                    && !s.main_response
+                    && get
+                    && uri.as_ref().is_ok_and(|u| u == wire::MAIN_URL);
+                let child = bounded
+                    && live
+                    && s.selector == Selector::OpenChildPrototype
+                    && s.prepare_sent
+                    && !s.child_response
+                    && get
+                    && uri.as_ref().is_ok_and(|u| u == wire::CHILD_URL);
+                let body = if main {
+                    main_html().to_vec()
+                } else if child {
+                    child_html(&s.request, s.selector)
+                        .unwrap_or_default()
+                        .into_bytes()
+                } else {
+                    Vec::new()
+                };
+                let fits = body.len() <= 32768 && s.asset_bytes + body.len() <= 49152;
+                let positive = (main || child) && fits;
+                (
+                    s.environment.as_ref().map(Rc::clone),
+                    if positive { body } else { Vec::new() },
+                    if main && positive {
+                        1
+                    } else if child && positive {
+                        2
+                    } else {
+                        0
+                    },
+                    bounded && fits,
+                )
+            };
+            let metadata_good = native.is_ok() && uri.is_ok() && method.is_ok() && result;
+            drop(native);
+            drop(uri);
+            drop(method);
+            drop(_raw);
+            let Some(environment) = environment else {
+                return false;
+            };
+            let mut positive = positive;
+            let mut pair = response_pair(&c, owner, &environment, &body, positive > 0);
+            if positive > 0 && !asset_live(&c, owner) {
+                drop(pair);
+                positive = 0;
+                pair = response_pair(&c, owner, &environment, &[], false);
+            }
+            let applied = pair.as_ref().is_some_and(|(_, response)| {
+                unit(&c, owner, || unsafe { args.SetResponse(response) })
+            });
+            drop(pair);
+            drop(environment);
+            let good =
+                applied && bounded && c.window(owner) && (positive == 0 || asset_live(&c, owner));
+            if good && positive > 0 {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                s.asset_bytes += body.len();
+                if positive == 1 {
+                    s.main_response = true;
+                } else {
+                    s.child_response = true;
+                }
+            }
+            drop(body);
+            if applied && (!bounded || !metadata_good) {
+                reject(
+                    owner,
+                    if !bounded {
+                        Failure::BoundExceeded
+                    } else {
+                        Failure::Metadata
+                    },
+                    false,
+                );
+                return c.window(owner);
+            }
+            good && c.window(owner)
+        }
+        enum Decoded {
+            Binding(wire::BindingMessage),
+            Created(wire::ExecutionContext),
+            Destroyed(wire::DestroyedContext),
+            Cleared,
+            Opened(wire::Frame),
+            Navigated(wire::Frame),
+            Detached(wire::DetachedFrame),
+        }
+        fn receive(
+            owner: &Rc<RefCell<Owner>>,
+            c: &Context,
+            event: Event,
+            args: &ICoreWebView2DevToolsProtocolEventReceivedEventArgs,
+            entry: (u8, bool),
+        ) -> bool {
+            if !c.window(owner) {
+                return false;
+            }
+            let args2 = match args.cast::<ICoreWebView2DevToolsProtocolEventReceivedEventArgs2>() {
+                Ok(v) => v,
+                Err(_) => return false,
+            };
+            if !c.window(owner) {
+                drop(args2);
+                return false;
+            }
+            let mut p = PWSTR::null();
+            let result = unsafe { args2.SessionId(&mut p) };
+            let allocation = CoTaskMemPWSTR::from(p);
+            let empty = result.is_ok() && c.window(owner) && !p.is_null() && unsafe { *p.0 } == 0;
+            drop(result);
+            drop(allocation);
+            drop(args2);
+            if !empty || !c.window(owner) {
+                return false;
+            }
+            let Ok(raw_lease) = RawLease::acquire(&c.inventory) else {
+                return false;
+            };
+            let raw = allocated(c, owner, 8192, |p| unsafe { args.ParameterObjectAsJson(p) });
+            let decoded = raw.as_ref().map_err(|_| ()).and_then(|raw| {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                match event {
+                    Event::BindingCalled => {
+                        wire::parse_binding(raw.as_bytes(), &s.identity).map(Decoded::Binding)
+                    }
+                    Event::ContextCreated => {
+                        wire::parse_context_created(raw.as_bytes()).map(Decoded::Created)
+                    }
+                    Event::ContextDestroyed => {
+                        wire::parse_context_destroyed(raw.as_bytes()).map(Decoded::Destroyed)
+                    }
+                    Event::ContextsCleared => {
+                        wire::parse_contexts_cleared(raw.as_bytes()).map(|()| Decoded::Cleared)
+                    }
+                    Event::DocumentOpened => wire::parse_frame(raw.as_bytes()).map(Decoded::Opened),
+                    Event::FrameNavigated => {
+                        wire::parse_frame(raw.as_bytes()).map(Decoded::Navigated)
+                    }
+                    Event::FrameDetached => {
+                        wire::parse_frame_detached(raw.as_bytes()).map(Decoded::Detached)
+                    }
+                }
+                .map_err(|_| ())
+            });
+            drop(raw);
+            drop(raw_lease);
+            if !c.window(owner) {
+                return false;
+            }
+            let Ok(decoded) = decoded else {
+                return false;
+            };
+            let current = c.authority(owner);
+            let mut failure = None;
+            {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                let s = i.capability.as_mut().unwrap();
+                if failure.is_none() {
+                    match decoded {
+                        Decoded::Binding(message) => {
+                            if !s.facts.initial_native_join || !s.facts.root_metadata_joined {
+                                if s.staged.push(message).is_err() || s.staged_entries.len() >= 10 {
+                                    failure = Some(Failure::BoundExceeded);
+                                } else {
+                                    s.staged_entries.push_back(entry);
+                                }
+                            } else if !apply_binding(s, message, entry) {
+                                failure = Some(Failure::Protocol);
+                            }
+                        }
+                        Decoded::Created(context) => {
+                            if !observe_context_created_at(s, context, current, Instant::now()) {
+                                failure = Some(Failure::ContextChanged);
+                            }
+                        }
+                        Decoded::Navigated(frame) => {
+                            if s.root.as_ref() == Some(&frame.id) {
+                                if s.navigation_issued
+                                    && s.loader.is_none()
+                                    && s.root.as_ref().is_some_and(|r| frame.matches_main_root(r))
+                                    && !matches!(
+                                        s.phase,
+                                        Phase::ClosingAwaitDispose
+                                            | Phase::RemoveProtocols
+                                            | Phase::StopClose
+                                            | Phase::AwaitReleased
+                                            | Phase::Final
+                                    )
+                                {
+                                    s.loader = Some(frame.loader_id);
+                                } else if s.navigation_issued || frame.url != wire::FrameUrl::Blank
+                                {
+                                    failure = Some(Failure::ContextChanged);
+                                }
+                            } else if frame.parent_id.as_ref() != s.root.as_ref()
+                                && s.navigation_issued
+                            {
+                                failure = Some(Failure::Metadata);
+                            }
+                        }
+                        Decoded::Opened(frame) => {
+                            if s.root.as_ref() == Some(&frame.id) {
+                                if s.phase != Phase::AwaitMutationTrace
+                                    || s.facts.before_ordinal.is_none()
+                                    || s.facts.document_opened_ordinal.is_some()
+                                    || !s.root.as_ref().is_some_and(|r| frame.matches_main_root(r))
+                                {
+                                    failure = Some(Failure::StimulusNotObserved);
+                                } else {
+                                    s.facts.document_opened_ordinal = Some(entry.0);
+                                    s.facts.root_loader_matched =
+                                        Some(s.loader.as_ref() == Some(&frame.loader_id));
+                                    // Meaningful RED: the actual event is retained, while this
+                                    // sole document-open authority hook is explicitly absent.
+                                    // Do not close/revoke before the first eligible held consumer.
+                                    s.facts.failure = Some(Failure::CapabilityApprovalMissing);
+                                }
+                            } else if frame.parent_id.as_ref() != s.root.as_ref() {
+                                failure = Some(Failure::Metadata);
+                            }
+                        }
+                        Decoded::Destroyed(context) => {
+                            if s.root_context == Some(context.id) {
+                                failure = Some(Failure::ContextChanged);
+                            } else if s.permit.is_some()
+                                && (s.contexts.get(context.id).is_none()
+                                    || context.unique_id.as_ref().is_some_and(|u| {
+                                        s.contexts
+                                            .get(context.id)
+                                            .and_then(|c| c.unique_id.as_ref())
+                                            != Some(u)
+                                    }))
+                            {
+                                failure = Some(Failure::ContextChanged);
+                            }
+                        }
+                        Decoded::Cleared => {
+                            if !observe_contexts_cleared(s) {
+                                failure = Some(Failure::ContextChanged);
+                            }
+                        }
+                        Decoded::Detached(frame) => {
+                            if s.root.as_ref() == Some(&frame.id) {
+                                failure = Some(Failure::ContextChanged);
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(failure) = failure {
+                reject(owner, failure, false);
+                return false;
+            }
+            true
+        }
+        fn apply_binding(s: &mut State, message: wire::BindingMessage, entry: (u8, bool)) -> bool {
+            let root = s.root_context == Some(message.context_id);
+            if !root {
+                return match message.payload {
+                    PagePayload::Probe(probe)
+                        if probe.kind() == ProbeKind::ChildProbe
+                            && probe.sequence() == 1
+                            && probe.flags() == 0
+                            && s.selector == Selector::OpenChildPrototype
+                            && s.prepare_sent
+                            && s.facts.child_probe_refused == Some(false) =>
+                    {
+                        let child = s.contexts.get(message.context_id).is_some_and(|c| {
+                            c.origin.as_str() == wire::OFFICIAL_ORIGIN
+                                && c.unique_id.is_some()
+                                && c.aux_data.as_ref().is_some_and(|a| {
+                                    a.frame_id
+                                        .as_ref()
+                                        .is_some_and(|f| Some(f) != s.root.as_ref())
+                                        && a.is_default == Some(true)
+                                        && a.default_type == Some(true)
+                                })
+                        });
+                        if child {
+                            s.facts.child_probe_refused = Some(true);
+                        }
+                        child
+                    }
+                    _ => false,
+                };
+            }
+            match message.payload {
+                PagePayload::Ready(_) => {
+                    let good = !s.facts.canonical_ready && !s.prepare_sent;
+                    if good {
+                        s.facts.canonical_ready = true;
+                    }
+                    good
+                }
+                PagePayload::Probe(probe) => {
+                    if s.sequence.accept_root(&probe).is_err() {
+                        return false;
+                    }
+                    match probe.kind() {
+                        ProbeKind::Parsed => {
+                            let good = !s.facts.parsed_after_complete
+                                && !s.prepare_sent
+                                && probe.flags() == 0;
+                            if good {
+                                s.facts.parsed_after_complete = true;
+                            }
+                            good
+                        }
+                        ProbeKind::Candidate => {
+                            let good = s.phase == Phase::AwaitCandidate
+                                && s.prepare_sent
+                                && !s.facts.candidate_held
+                                && probe.flags() == 0;
+                            if !good {
+                                return false;
+                            }
+                            let Some(permit) = s.permit.as_ref() else {
+                                return false;
+                            };
+                            if permit.revoked.get() {
+                                return false;
+                            }
+                            s.held = Some(Held {
+                                probe,
+                                permit: Rc::clone(permit),
+                                generation: permit.generation,
+                            });
+                            s.facts.candidate_held = true;
+                            true
+                        }
+                        ProbeKind::BeforeOpen => {
+                            let good = s.phase == Phase::AwaitMutationTrace
+                                && s.mutate_sent
+                                && s.facts.candidate_held
+                                && s.facts.before_ordinal.is_none()
+                                && probe.flags() == 0;
+                            if good {
+                                s.facts.before_ordinal = Some(entry.0);
+                            }
+                            good
+                        }
+                        ProbeKind::AfterOpen => {
+                            let good = s.phase == Phase::AwaitMutationTrace
+                                && s.facts.before_ordinal.is_some()
+                                && s.facts.after_ordinal.is_none()
+                                && probe.flags() == 31;
+                            if good {
+                                s.facts.after_ordinal = Some(entry.0);
+                                s.facts.permit_revoked_at_after_entry = Some(entry.1);
+                                s.facts.logical_reset_flags = Some(probe.flags());
+                                s.facts.root_context_retained = Some(
+                                    s.root_context == Some(message.context_id)
+                                        && s.contexts
+                                            .get(message.context_id)
+                                            .and_then(|c| c.unique_id.as_ref())
+                                            == s.unique.as_ref(),
+                                );
+                                s.consumer_due = true;
+                            }
+                            good
+                        }
+                        ProbeKind::Later => {
+                            let good = s.phase == Phase::AwaitMutationTrace
+                                && s.facts.after_ordinal.is_some()
+                                && s.facts.later_ordinal.is_none()
+                                && probe.flags() == 0;
+                            if good {
+                                s.facts.later_ordinal = Some(entry.0);
+                            }
+                            good
+                        }
+                        ProbeKind::Disposed => {
+                            let now = Instant::now();
+                            let timely = s.closing.is_some_and(|close| receipt_timely(now, close));
+                            let good = s.selector != Selector::DisposeMissing
+                                && s.phase == Phase::ClosingAwaitDispose
+                                && s.detach_sent
+                                && s.facts.dispose_receipt_count == 0
+                                && probe.flags() == 7
+                                && timely;
+                            if good {
+                                s.facts.dispose_receipt_count = 1;
+                                s.facts.restoration_flags = 7;
+                                s.disposed_at = Some(now);
+                            } else if !timely {
+                                s.facts.failure = Some(Failure::DetachReceiptLate);
+                            }
+                            good
+                        }
+                        ProbeKind::DisposeWitness => {
+                            let good = s.selector == Selector::DisposeMissing
+                                && s.phase == Phase::ClosingAwaitDispose
+                                && s.detach_sent
+                                && !s.witness
+                                && probe.flags() == 7
+                                && s.closing
+                                    .is_some_and(|close| receipt_timely(Instant::now(), close));
+                            if good {
+                                s.witness = true;
+                                s.facts.dispose_witness_count = 1;
+                                s.facts.restoration_flags = 7;
+                            }
+                            good
+                        }
+                        ProbeKind::ChildProbe => false,
+                    }
+                }
+            }
+        }
+        #[windows::core::implement(
+            ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,
+            Agile = false
+        )]
+        struct Completion {
+            context: Context,
+            index: usize,
+            _lifetime: Lifetime,
+        }
+        impl ICoreWebView2CallDevToolsProtocolMethodCompletedHandler_Impl for Completion_Impl {
+            fn Invoke(
+                &self,
+                hr: windows::core::HRESULT,
+                raw: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                let c = &self.context;
+                let active = Active::enter(&c.callbacks);
+                if !callback_on_ui(c.ui, &c.callbacks, 8040) {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let Some(owner) = c.owner.upgrade() else {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                let _entry = c.entry(&owner, 20 + self.index as u8);
+                if !c.inventory.invoke(self.index) || !c.same(&owner) {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let lease = RawLease::acquire(&c.inventory);
+                let copied = if hr.is_ok() && lease.is_ok() && c.same(&owner) {
+                    copy_units(*raw, 8192)
+                } else {
+                    Err(())
+                };
+                let result = copied.as_ref().map_err(|_| ()).and_then(|v| {
+                    wire::parse_method_result(Method::ALL[self.index], v.as_bytes()).map_err(|_| ())
+                });
+                drop(copied);
+                drop(lease);
+                let good = c.same(&owner);
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    if s.response.is_some() || !s.in_flight || !s.submitted[self.index] {
+                        s.inventory.invalid.store(true, Ordering::SeqCst);
+                    } else {
+                        s.response = Some(Response {
+                            index: self.index,
+                            received: Instant::now(),
+                            result: if good { result } else { Err(()) },
+                        });
+                    }
+                }
+                drop(active);
+                Ok(())
+            }
+        }
+        #[windows::core::implement(
+            ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler,
+            Agile = false
+        )]
+        struct ScriptCompletion {
+            context: Context,
+            _lifetime: Lifetime,
+        }
+        impl ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler_Impl
+            for ScriptCompletion_Impl
+        {
+            fn Invoke(
+                &self,
+                hr: windows::core::HRESULT,
+                raw: &PCWSTR,
+            ) -> windows::core::Result<()> {
+                let c = &self.context;
+                let active = Active::enter(&c.callbacks);
+                if !callback_on_ui(c.ui, &c.callbacks, 8041) {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                }
+                let Some(owner) = c.owner.upgrade() else {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    return Ok(());
+                };
+                let _entry = c.entry(&owner, 27);
+                if !c.inventory.invoke(7) || !c.same(&owner) {
+                    c.inventory.invalid.store(true, Ordering::SeqCst);
+                    if hr.is_ok() && c.same(&owner) {
+                        owner
+                            .borrow_mut()
+                            .instance
+                            .as_mut()
+                            .unwrap()
+                            .capability
+                            .as_mut()
+                            .unwrap()
+                            .cleanup_unknown = true;
+                    }
+                    return Ok(());
+                }
+                let lease = RawLease::acquire(&c.inventory);
+                let result = if hr.is_ok() && lease.is_ok() && c.same(&owner) {
+                    copy_units(*raw, 256)
+                        .and_then(|id| if !id.is_empty() { Ok(id) } else { Err(()) })
+                } else {
+                    Err(())
+                };
+                drop(lease);
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    if s.script_response.is_some() {
+                        s.inventory.invalid.store(true, Ordering::SeqCst);
+                    } else {
+                        if hr.is_ok() && result.is_err() {
+                            s.cleanup_unknown = true;
+                        }
+                        s.script_response = Some((Instant::now(), result));
+                    }
+                }
+                drop(active);
+                Ok(())
+            }
+        }
+        fn issue(owner: &Rc<RefCell<Owner>>, index: usize, core: &ICoreWebView2) {
+            let c = Context::new(owner);
+            if !(if index < 4 {
+                c.live_at(owner, Phase::Installing, Instant::now())
+            } else {
+                c.window(owner)
+            }) {
+                reject(owner, Failure::Setup, false);
+                return;
+            }
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                if s.in_flight || s.submitted[index] || !s.inventory.issue(index) {
+                    return;
+                }
+                s.submitted[index] = true;
+                s.in_flight = true;
+                s.facts.method_submissions += 1;
+            }
+            let qualifier = Context::new(owner);
+            let handler: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler = Completion {
+                _lifetime: Lifetime::new(&c),
+                context: c,
+                index,
+            }
+            .into();
+            let method: Vec<u16> = Method::ALL[index]
+                .name()
+                .encode_utf16()
+                .chain(Some(0))
+                .collect();
+            let params: Vec<u16> = Method::ALL[index]
+                .parameters()
+                .encode_utf16()
+                .chain(Some(0))
+                .collect();
+            let allowed = if index < 4 {
+                qualifier.live_at(owner, Phase::Installing, Instant::now())
+            } else {
+                qualifier.window(owner)
+            };
+            let result = if allowed {
+                unsafe {
+                    core.CallDevToolsProtocolMethod(
+                        PCWSTR(method.as_ptr()),
+                        PCWSTR(params.as_ptr()),
+                        &handler,
+                    )
+                }
+            } else {
+                Err(E_FAIL.into())
+            };
+            let good = result.is_ok();
+            drop(result);
+            drop(handler);
+            drop(method);
+            drop(params);
+            if !good {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                s.inventory.abort(index);
+                s.in_flight = false;
+                drop(o);
+                reject(owner, Failure::Setup, false);
+            } else if index < 4 && !qualifier.live_at(owner, Phase::Installing, Instant::now()) {
+                reject(owner, Failure::Setup, false);
+            }
+        }
+        fn submit_script(owner: &Rc<RefCell<Owner>>, core: &ICoreWebView2) {
+            let c = Context::new(owner);
+            if !c.live_at(owner, Phase::Installing, Instant::now()) {
+                reject(owner, Failure::Setup, false);
+                return;
+            }
+            let script = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                injection(&s.request, s.selector)
+            };
+            let Ok(script) = script else {
+                reject(owner, Failure::BoundExceeded, false);
+                return;
+            };
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                if s.script_submitted || !s.inventory.issue(7) {
+                    return;
+                }
+                s.script_submitted = true;
+            }
+            let qualifier = Context::new(owner);
+            let handler: ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler =
+                ScriptCompletion {
+                    _lifetime: Lifetime::new(&c),
+                    context: c,
+                }
+                .into();
+            let wide: Vec<u16> = script.encode_utf16().chain(Some(0)).collect();
+            let result = if qualifier.live_at(owner, Phase::Installing, Instant::now()) {
+                unsafe { core.AddScriptToExecuteOnDocumentCreated(PCWSTR(wide.as_ptr()), &handler) }
+            } else {
+                Err(E_FAIL.into())
+            };
+            let good = result.is_ok();
+            drop(result);
+            drop(handler);
+            drop(wide);
+            drop(script);
+            if !good {
+                owner
+                    .borrow()
+                    .instance
+                    .as_ref()
+                    .unwrap()
+                    .capability
+                    .as_ref()
+                    .unwrap()
+                    .inventory
+                    .abort(7);
+                reject(owner, Failure::Setup, false);
+            } else if !qualifier.live_at(owner, Phase::Installing, Instant::now()) {
+                reject(owner, Failure::Setup, false);
+            }
+        }
+        fn consume_responses(owner: &Rc<RefCell<Owner>>) {
+            let c = Context::new(owner);
+            let current = c.authority(owner);
+            let (response, script) = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                (s.response.take(), s.script_response.take())
+            };
+            if let Some(response) = response {
+                let now = Instant::now();
+                let mut failure = None;
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    let consumed = s.inventory.consume(response.index);
+                    s.in_flight = false;
+                    let timely = if response.index < 4 {
+                        s.active_at(current, Phase::Installing, now)
+                            && s.deadline.before_original_at(response.received)
+                            && s.deadline.before_original_at(now)
+                            && s.closing.is_none()
+                    } else {
+                        NativeDialogDeadline::disposal_within_close_at(
+                            response.received,
+                            now,
+                            s.closing,
+                        )
+                    };
+                    if consumed && response.result.is_ok() {
+                        s.acknowledged[response.index] = true;
+                        s.facts.method_acks += 1;
+                        if let Ok(wire::MethodResult::InitialRoot(root)) = response.result {
+                            if s.root.is_some() {
+                                failure = Some(Failure::Metadata);
+                            } else {
+                                s.root = Some(root);
+                            }
+                        }
+                        if response.index < 4 && timely {
+                            s.next = response.index + 1;
+                        }
+                        if response.index < 3 && s.closing.is_some() {
+                            s.phase = Phase::RemoveProtocols;
+                        }
+                    }
+                    if !consumed || !timely || !s.acknowledged[response.index] {
+                        failure = Some(if response.index < 4 {
+                            Failure::Setup
+                        } else {
+                            Failure::NativeCleanup
+                        });
+                    }
+                }
+                if let Some(failure) = failure {
+                    reject(owner, failure, false);
+                }
+            }
+            if let Some((received, result)) = script {
+                let mut failure = None;
+                {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    let consumed = s.inventory.consume(7);
+                    let timely = s.active_at(current, Phase::Installing, Instant::now())
+                        && s.deadline.before_original_at(received)
+                        && s.deadline.before_original_at(Instant::now())
+                        && s.closing.is_none();
+                    match result {
+                        Ok(id) => {
+                            s.script_id = Some(id);
+                            if consumed && timely {
+                                s.facts.script_ack = true;
+                            } else {
+                                failure = Some(Failure::Setup);
+                            }
+                        }
+                        Err(()) => failure = Some(Failure::Setup),
+                    }
+                }
+                if let Some(failure) = failure {
+                    reject(owner, failure, false);
+                }
+            }
+        }
+        fn post(owner: &Rc<RefCell<Owner>>, core: &ICoreWebView2, kind: ControlKind) -> bool {
+            let c = Context::new(owner);
+            let current = c.authority(owner);
+            let control = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                reserve_control_at(s, current, kind, Instant::now())
+            };
+            let Some(control) = control else {
+                return false;
+            };
+            let wide: Vec<u16> = std::str::from_utf8(control.as_bytes())
+                .unwrap()
+                .encode_utf16()
+                .chain(Some(0))
+                .collect();
+            let expected = match kind {
+                ControlKind::Prepare => Phase::AwaitCandidate,
+                ControlKind::Mutate => Phase::AwaitMutationTrace,
+                ControlKind::Detach => Phase::ClosingAwaitDispose,
+            };
+            let qualified = if kind == ControlKind::Detach {
+                c.window(owner)
+            } else {
+                c.live_at(owner, expected, Instant::now())
+            };
+            let good = qualified
+                && unit(&c, owner, || unsafe {
+                    core.PostWebMessageAsJson(PCWSTR(wide.as_ptr()))
+                });
+            drop(wide);
+            drop(control);
+            good && if kind == ControlKind::Detach {
+                c.window(owner)
+            } else {
+                c.live_at(owner, expected, Instant::now())
+            }
+        }
+        fn navigate(owner: &Rc<RefCell<Owner>>, core: &ICoreWebView2) -> bool {
+            let c = Context::new(owner);
+            if !c.live_at(owner, Phase::Installing, Instant::now()) || !source(owner, core, true) {
+                return false;
+            }
+            let current = c.authority(owner);
+            let reserved = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                reserve_navigation_at(s, current, Instant::now())
+            };
+            if !reserved || !c.live_at(owner, Phase::AwaitInitialJoin, Instant::now()) {
+                return false;
+            }
+            let result = unsafe {
+                core.Navigate(windows::core::w!(
+                    "https://console.code0.ai/__ai_meter_fixture__/s4-capability-main"
+                ))
+            };
+            let good = result.is_ok();
+            drop(result);
+            let live = c.live_at(owner, Phase::AwaitInitialJoin, Instant::now());
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                s.navigation_returned = good && live;
+            }
+            good && live
+        }
+        fn join(owner: &Rc<RefCell<Owner>>, core: &ICoreWebView2) -> bool {
+            let c = Context::new(owner);
+            let current = c.authority(owner);
+            let (possible, expected) = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                if !s.active_at(current, s.phase, Instant::now()) {
+                    return false;
+                }
+                (
+                    s.navigation_returned
+                        && s.starts == 1
+                        && s.loading == 1
+                        && s.main_response
+                        && s.navigation_id.is_some()
+                        && s.loader.is_some()
+                        && s.root_context.is_some()
+                        && s.unique.is_some(),
+                    s.phase,
+                )
+            };
+            if !possible {
+                return true;
+            }
+            if !source(owner, core, false) {
+                return false;
+            }
+            // Source and every allocation/native local Drop have ended. Re-read
+            // current owner identity/failure/phase before any join grant.
+            let current = c.authority(owner);
+            let joined = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                commit_join_at(s, current, expected, Instant::now())
+            };
+            joined && {
+                let current = c.authority(owner);
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                s.active_at(current, s.phase, Instant::now())
+            }
+        }
+        fn consume_held(owner: &Rc<RefCell<Owner>>) -> bool {
+            let c = Context::new(owner);
+            let current = c.authority(owner);
+            let handoff = {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                if i.callbacks.active.load(Ordering::SeqCst) != 0 {
+                    return true;
+                }
+                let s = i.capability.as_mut().unwrap();
+                take_handoff_at(s, current, Instant::now())
+            };
+            let handoff = match handoff {
+                Ok(Some(handoff)) => handoff,
+                Ok(None) => return true,
+                Err(()) => return false,
+            };
+            // The real decoded held item is consumed once, outside Owner/Active
+            // and native actions. Time is checked again at this actual use.
+            let consumed = handoff.consume_at(Instant::now());
+            {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                record_consumption(s, &consumed);
+            }
+            if let Some(failure) = consumed.failure {
+                reject(owner, failure, false);
+            }
+            true
+        }
+        fn mutation_trace(s: &State) -> bool {
+            s.facts
+                .before_ordinal
+                .zip(s.facts.document_opened_ordinal)
+                .zip(s.facts.after_ordinal)
+                .zip(s.facts.later_ordinal)
+                .is_some_and(|(((b, d), a), l)| b < d && d < a && a < l)
+                && s.facts.root_loader_matched == Some(true)
+                && s.facts.root_context_retained == Some(true)
+                && s.facts.logical_reset_flags == Some(31)
+                && s.facts.candidate_held
+                && s.facts.candidate_delivery_attempts == 1
+                && (s.selector != Selector::OpenChildPrototype
+                    || s.facts.child_probe_refused == Some(true))
+        }
+        pub(super) fn advance(owner: &Rc<RefCell<Owner>>) {
+            if !selected(owner) {
+                return;
+            }
+            synchronize(owner);
+            let eligible = {
+                let o = owner.borrow();
+                let i = o.instance.as_ref().unwrap();
+                i.callbacks.active.load(Ordering::SeqCst) == 0
+            };
+            if !eligible {
+                return;
+            }
+            consume_responses(owner);
+            if !consume_held(owner) {
+                reject(owner, Failure::Protocol, false);
+            }
+            let (invalid, unknown) = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                (
+                    s.inventory.invalid.load(Ordering::SeqCst),
+                    s.cleanup_unknown,
+                )
+            };
+            if unknown {
+                reject(owner, Failure::NativeCleanup, true);
+            } else if invalid {
+                reject(owner, Failure::BoundExceeded, false);
+            }
+            let expired = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                s.closing.is_none() && !s.deadline.before_original_at(Instant::now())
+            };
+            if expired {
+                reject(owner, Failure::StimulusNotObserved, false);
+            }
+            let c = Context::new(owner);
+            let (core, phase, waiting) = {
+                let o = owner.borrow();
+                let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                (s.core.as_ref().map(Rc::clone), s.phase, s.in_flight)
+            };
+            let Some(core) = core else {
+                return;
+            };
+            if matches!(
+                phase,
+                Phase::StopClose | Phase::AwaitReleased | Phase::Final
+            ) {
+                drop(core);
+                return;
+            }
+            // Consumer above precedes every native action scope on this poll.
+            let active = Active::enter(&c.callbacks);
+            if phase == Phase::Installing && !waiting {
+                let (ready, next, script, ack) = {
+                    let o = owner.borrow();
+                    let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                    (
+                        s.setup_ready,
+                        s.next,
+                        s.script_submitted,
+                        s.facts.script_ack,
+                    )
+                };
+                if ready && next < 4 {
+                    issue(owner, next, &core);
+                } else if ready && !script {
+                    submit_script(owner, &core);
+                } else if ready && ack && !navigate(owner, &core) {
+                    reject(owner, Failure::InitialNavigation, false);
+                }
+            } else if matches!(
+                phase,
+                Phase::AwaitInitialJoin
+                    | Phase::AwaitParsed
+                    | Phase::AwaitCandidate
+                    | Phase::AwaitMutationTrace
+            ) {
+                if !join(owner, &core) {
+                    reject(owner, Failure::Metadata, false);
+                } else {
+                    let (phase, ready, held, child, later, attempts, missing) = {
+                        let o = owner.borrow();
+                        let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                        (
+                            s.phase,
+                            s.facts.canonical_ready && s.facts.parsed_after_complete,
+                            s.facts.candidate_held,
+                            s.selector != Selector::OpenChildPrototype
+                                || s.facts.child_probe_refused == Some(true),
+                            s.facts.later_ordinal.is_some(),
+                            s.facts.candidate_delivery_attempts,
+                            s.selector == Selector::DisposeMissing,
+                        )
+                    };
+                    if phase == Phase::AwaitParsed && ready {
+                        if !post(owner, &core, ControlKind::Prepare) {
+                            reject(owner, Failure::Protocol, false);
+                        }
+                    } else if phase == Phase::AwaitCandidate && held && child {
+                        if missing {
+                            close_selected(owner);
+                        } else if !post(owner, &core, ControlKind::Mutate) {
+                            reject(owner, Failure::Protocol, false);
+                        }
+                    } else if phase == Phase::AwaitMutationTrace && later && attempts == 1 {
+                        let trace = {
+                            let o = owner.borrow();
+                            mutation_trace(
+                                o.instance.as_ref().unwrap().capability.as_ref().unwrap(),
+                            )
+                        };
+                        let unchanged = trace && source(owner, &core, false);
+                        {
+                            let mut o = owner.borrow_mut();
+                            let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                            s.facts.native_source_unchanged = Some(unchanged);
+                        }
+                        if unchanged {
+                            close_selected(owner);
+                        } else {
+                            reject(owner, Failure::Ordering, false);
+                        }
+                    }
+                }
+            } else if phase == Phase::ClosingAwaitDispose {
+                let (close, detach, can_detach, received, selector, disposition, attempts) = {
+                    let o = owner.borrow();
+                    let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                    (
+                        s.closing.unwrap(),
+                        s.detach_sent,
+                        s.facts.script_ack
+                            && s.facts.candidate_held
+                            && matches!(
+                                s.facts.failure,
+                                None | Some(Failure::CapabilityApprovalMissing)
+                            )
+                            && (s.selector == Selector::DisposeMissing
+                                || s.facts.later_ordinal.is_some()),
+                        s.disposed_at,
+                        s.selector,
+                        s.missing_disposition,
+                        s.facts.candidate_delivery_attempts,
+                    )
+                };
+                if !can_detach {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .capability
+                        .as_mut()
+                        .unwrap()
+                        .phase = Phase::RemoveProtocols;
+                } else if !detach {
+                    if !post(owner, &core, ControlKind::Detach) {
+                        reject(owner, Failure::Protocol, false);
+                        owner
+                            .borrow_mut()
+                            .instance
+                            .as_mut()
+                            .unwrap()
+                            .capability
+                            .as_mut()
+                            .unwrap()
+                            .phase = Phase::RemoveProtocols;
+                    }
+                } else if let Some(received) = received {
+                    if receipt_timely(received, close) && receipt_timely(Instant::now(), close) {
+                        let mut o = owner.borrow_mut();
+                        let i = o.instance.as_mut().unwrap();
+                        let s = i.capability.as_mut().unwrap();
+                        s.receipt_consumed = true;
+                        s.phase = Phase::RemoveProtocols;
+                        i.failed = s.facts.failure.is_some();
+                    } else {
+                        reject(owner, Failure::DetachReceiptLate, false);
+                        owner
+                            .borrow_mut()
+                            .instance
+                            .as_mut()
+                            .unwrap()
+                            .capability
+                            .as_mut()
+                            .unwrap()
+                            .phase = Phase::RemoveProtocols;
+                    }
+                } else if selector == Selector::DisposeMissing && disposition && attempts == 1 {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .capability
+                        .as_mut()
+                        .unwrap()
+                        .phase = Phase::RemoveProtocols;
+                } else if !disposition && !receipt_timely(Instant::now(), close) {
+                    let mut o = owner.borrow_mut();
+                    let i = o.instance.as_mut().unwrap();
+                    let s = i.capability.as_mut().unwrap();
+                    s.facts.receipt_deadline_observed = true;
+                    s.facts.failed_close_no_activation = true;
+                    i.failed = true;
+                    if selector == Selector::DisposeMissing
+                        && s.witness
+                        && s.facts.candidate_held
+                        && s.facts.candidate_delivery_attempts == 0
+                    {
+                        s.facts.failure = Some(Failure::DetachReceiptMissing);
+                        s.missing_disposition = true;
+                        s.consumer_due = true;
+                    } else {
+                        s.facts.failure = Some(Failure::DetachReceiptMissing);
+                        s.facts.result = ResultKind::NotEstablished;
+                        s.phase = Phase::RemoveProtocols;
+                    }
+                }
+            } else if phase == Phase::RemoveProtocols && !waiting {
+                let next = {
+                    let o = owner.borrow();
+                    let s = o.instance.as_ref().unwrap().capability.as_ref().unwrap();
+                    [(4, 2), (5, 1), (6, 0)]
+                        .into_iter()
+                        .find(|(cleanup, enabled)| {
+                            s.acknowledged[*enabled] && !s.submitted[*cleanup]
+                        })
+                        .map(|(cleanup, _)| cleanup)
+                };
+                if let Some(index) = next {
+                    issue(owner, index, &core);
+                } else {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .capability
+                        .as_mut()
+                        .unwrap()
+                        .phase = Phase::StopClose;
+                }
+            }
+            drop(core);
+            drop(active);
+            synchronize(owner);
+            let disposition = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                let ready = s.missing_disposition
+                    || matches!(s.phase, Phase::RemoveProtocols | Phase::StopClose);
+                if ready && !s.disposition_published {
+                    s.disposition_published = true;
+                    true
+                } else {
+                    false
+                }
+            };
+            if disposition {
+                emit(owner, Stage::Disposition);
+            }
+        }
+        pub(super) fn ready_to_stop(i: &Instance) -> bool {
+            i.capability.as_ref().is_none_or(|s| {
+                matches!(
+                    s.phase,
+                    Phase::StopClose | Phase::AwaitReleased | Phase::Final
+                ) && !s.in_flight
+                    && s.response.is_none()
+                    && s.script_response.is_none()
+                    && s.inventory.drained()
+            })
+        }
+        pub(super) fn stop_entry(owner: &Rc<RefCell<Owner>>) {
+            if let Some(s) = owner
+                .borrow_mut()
+                .instance
+                .as_mut()
+                .and_then(|i| i.capability.as_mut())
+            {
+                if s.phase == Phase::StopClose {
+                    s.facts.stop_after_dispose_receipt =
+                        s.receipt_consumed && s.facts.dispose_receipt_count == 1;
+                    s.phase = Phase::AwaitReleased;
+                }
+            }
+        }
+        pub(super) fn removed(i: &Instance) -> bool {
+            i.capability.as_ref().is_none_or(|s| {
+                s.receivers.iter().all(|r| r.token.is_none())
+                    && s.native_tokens.iter().all(Option::is_none)
+                    && !s.filter
+                    && s.script_id.is_none()
+                    && !s.cleanup_unknown
+            })
+        }
+        pub(super) fn remove(owner: &Rc<RefCell<Owner>>) {
+            if !selected(owner) {
+                return;
+            }
+            let c = Context::new(owner);
+            let core = {
+                let o = owner.borrow();
+                o.instance
+                    .as_ref()
+                    .unwrap()
+                    .capability
+                    .as_ref()
+                    .unwrap()
+                    .core
+                    .as_ref()
+                    .map(Rc::clone)
+            };
+            let Some(core) = core else {
+                return;
+            };
+            let active = Active::enter(&c.callbacks);
+            for index in 0..7 {
+                let action = {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    s.receivers.get_mut(index).and_then(|r| {
+                        if r.attempted {
+                            return None;
+                        }
+                        let token = r.token?;
+                        r.attempted = true;
+                        Some((Rc::clone(&r.receiver), token))
+                    })
+                };
+                if let Some((receiver, token)) = action {
+                    let result = unsafe { receiver.remove_DevToolsProtocolEventReceived(token) };
+                    let good = result.is_ok();
+                    drop(result);
+                    drop(receiver);
+                    if good {
+                        let mut o = owner.borrow_mut();
+                        let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                        s.receivers[index].token = None;
+                        s.facts.receiver_removes += 1;
+                    } else {
+                        reject(owner, Failure::NativeCleanup, true);
+                    }
+                }
+            }
+            for index in 0..4 {
+                let token = {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    if s.native_attempted[index] {
+                        None
+                    } else {
+                        s.native_attempted[index] = true;
+                        s.native_tokens[index]
+                    }
+                };
+                if let Some(token) = token {
+                    let result = match index {
+                        0 => unsafe { core.remove_NavigationStarting(token) },
+                        1 => unsafe { core.remove_ContentLoading(token) },
+                        2 => unsafe { core.remove_ProcessFailed(token) },
+                        _ => unsafe { core.remove_WebResourceRequested(token) },
+                    };
+                    let good = result.is_ok();
+                    drop(result);
+                    if good {
+                        owner
+                            .borrow_mut()
+                            .instance
+                            .as_mut()
+                            .unwrap()
+                            .capability
+                            .as_mut()
+                            .unwrap()
+                            .native_tokens[index] = None;
+                    } else {
+                        reject(owner, Failure::NativeCleanup, true);
+                    }
+                }
+            }
+            let filter = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                if s.filter && !s.filter_attempted {
+                    s.filter_attempted = true;
+                    s.core22.as_ref().map(Rc::clone)
+                } else {
+                    None
+                }
+            };
+            if let Some(core22) = filter {
+                let result = unsafe {
+                    core22.RemoveWebResourceRequestedFilterWithRequestSourceKinds(
+                        windows::core::w!("*"),
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                        COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+                    )
+                };
+                let good = result.is_ok();
+                drop(result);
+                drop(core22);
+                if good {
+                    owner
+                        .borrow_mut()
+                        .instance
+                        .as_mut()
+                        .unwrap()
+                        .capability
+                        .as_mut()
+                        .unwrap()
+                        .filter = false;
+                } else {
+                    reject(owner, Failure::NativeCleanup, true);
+                }
+            }
+            let script = {
+                let mut o = owner.borrow_mut();
+                let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                if s.script_attempted {
+                    None
+                } else {
+                    s.script_attempted = true;
+                    s.script_id.clone()
+                }
+            };
+            if let Some(script) = script {
+                let wide: Vec<u16> = script.encode_utf16().chain(Some(0)).collect();
+                let result =
+                    unsafe { core.RemoveScriptToExecuteOnDocumentCreated(PCWSTR(wide.as_ptr())) };
+                let good = result.is_ok();
+                drop(result);
+                drop(wide);
+                drop(script);
+                if good {
+                    let mut o = owner.borrow_mut();
+                    let s = o.instance.as_mut().unwrap().capability.as_mut().unwrap();
+                    s.script_id = None;
+                    s.facts.script_removed = true;
+                } else {
+                    reject(owner, Failure::NativeCleanup, true);
+                }
+            }
+            drop(core);
+            drop(active);
+            if !c.same(owner) {
+                c.inventory.invalid.store(true, Ordering::SeqCst);
+            }
+        }
+        pub(super) struct Controls {
+            _core: Option<Rc<ICoreWebView2>>,
+            _environment: Option<Rc<ICoreWebView2Environment>>,
+            _core22: Option<Rc<ICoreWebView2_22>>,
+            _receivers: Vec<Receiver>,
+        }
+        pub(super) fn take_controls(i: &mut Instance) -> Controls {
+            if let Some(s) = i.capability.as_mut() {
+                Controls {
+                    _core: s.core.take(),
+                    _environment: s.environment.take(),
+                    _core22: s.core22.take(),
+                    _receivers: std::mem::take(&mut s.receivers),
+                }
+            } else {
+                Controls {
+                    _core: None,
+                    _environment: None,
+                    _core22: None,
+                    _receivers: Vec::new(),
+                }
+            }
+        }
+        pub(super) fn quiescent(i: &Instance) -> bool {
+            i.capability.as_ref().is_none_or(|s| {
+                s.core.is_none()
+                    && s.environment.is_none()
+                    && s.core22.is_none()
+                    && s.receivers.is_empty()
+                    && s.response.is_none()
+                    && s.script_response.is_none()
+                    && s.inventory.drained()
+                    && s.inventory.handlers.load(Ordering::SeqCst) == 0
+                    && s.inventory.raw.load(Ordering::SeqCst) == 0
+                    && s.held.is_none()
+                    && !s.cleanup_unknown
+            })
+        }
+        pub(super) fn publish_final(owner: &Rc<RefCell<Owner>>) {
+            if !selected(owner) {
+                return;
+            }
+            {
+                let mut o = owner.borrow_mut();
+                let i = o.instance.as_mut().unwrap();
+                let released = i.released && inventory_empty(i);
+                let s = i.capability.as_mut().unwrap();
+                revoke(s);
+                s.phase = Phase::Final;
+                s.facts.normal_released = released;
+                let healthy = s.facts.method_submissions == 7
+                    && s.facts.method_acks == 7
+                    && s.facts.receiver_adds == 7
+                    && s.facts.receiver_removes == 7
+                    && s.facts.script_ack
+                    && s.facts.script_removed
+                    && s.facts.initial_native_join
+                    && s.facts.root_metadata_joined
+                    && s.facts.canonical_ready
+                    && s.facts.parsed_after_complete
+                    && s.facts.candidate_held
+                    && s.facts.candidate_delivery_attempts == 1
+                    && s.facts.restoration_flags == 7
+                    && released;
+                if healthy
+                    && s.selector == Selector::DisposeMissing
+                    && s.missing_disposition
+                    && s.facts.failure == Some(Failure::DetachReceiptMissing)
+                    && s.facts.candidate_delivery_outcome == Delivery::RejectedRevokedPermit
+                    && s.facts.candidate_applied == 0
+                    && s.facts.dispose_witness_count == 1
+                    && s.facts.dispose_receipt_count == 0
+                    && s.facts.receipt_deadline_observed
+                    && s.facts.failed_close_no_activation
+                    && !s.facts.stop_after_dispose_receipt
+                {
+                    s.facts.result = ResultKind::ExpectedMissingReceipt;
+                } else if healthy
+                    && s.selector != Selector::DisposeMissing
+                    && mutation_trace(s)
+                    && s.facts.native_source_unchanged == Some(true)
+                    && s.facts.dispose_receipt_count == 1
+                    && s.facts.dispose_witness_count == 0
+                    && s.facts.stop_after_dispose_receipt
+                    && s.facts.failure == Some(Failure::CapabilityApprovalMissing)
+                    && s.facts.permit_revoked_at_after_entry == Some(false)
+                    && s.facts.candidate_delivery_outcome == Delivery::Applied
+                    && s.facts.candidate_applied == 1
+                {
+                    s.facts.result = ResultKind::BaselineRefused;
+                } else if healthy
+                    && s.selector != Selector::DisposeMissing
+                    && mutation_trace(s)
+                    && s.facts.native_source_unchanged == Some(true)
+                    && s.facts.dispose_receipt_count == 1
+                    && s.facts.dispose_witness_count == 0
+                    && s.facts.stop_after_dispose_receipt
+                    && s.facts.failure.is_none()
+                    && s.facts.permit_revoked_at_after_entry == Some(true)
+                    && s.facts.candidate_delivery_outcome == Delivery::RejectedRevokedPermit
+                    && s.facts.candidate_applied == 0
+                {
+                    s.facts.result = ResultKind::FiniteObserved;
+                } else {
+                    s.facts.result = ResultKind::NotEstablished;
+                    if s.facts.failure.is_none() {
+                        s.facts.failure = Some(Failure::NativeCleanup);
+                    }
+                }
+            }
+            emit(owner, Stage::Final);
+        }
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+            // A consumer that drops an item or reconstructs a fresh permit must fail.
+            #[test]
+            fn same_held_candidate_is_applied_live_and_rejected_after_sticky_revoke() {
+                let identity =
+                    wire::ProtocolIdentity::new("nonce", "document", wire::Selector::OpenMain)
+                        .unwrap();
+                let probe = wire::parse_probe(br#"{"p":"s4c1","n":"nonce","c":"s4-capability-open-main","s":2,"k":"candidate","f":0}"#, &identity).unwrap();
+                let permit = Rc::new(Permit::new(17));
+                let held = Held {
+                    probe: probe.clone(),
+                    permit: Rc::clone(&permit),
+                    generation: 17,
+                };
+                assert_eq!(permit.applied.get(), 0);
+                assert_eq!(
+                    consume_candidate(held, &permit, 17, None),
+                    Delivery::Applied
+                );
+                assert_eq!(permit.applied.get(), 1);
+                permit.revoked.set(true);
+                let held = Held {
+                    probe,
+                    permit: Rc::clone(&permit),
+                    generation: 17,
+                };
+                assert_eq!(
+                    consume_candidate(held, &permit, 17, None),
+                    Delivery::RejectedRevokedPermit
+                );
+                assert!(permit.revoked.get());
+            }
+            // A stale generation or alternate Rc may never count as revoked rejection.
+            #[test]
+            fn consumer_checks_immutable_identity_before_applying_or_rejecting() {
+                let identity =
+                    wire::ProtocolIdentity::new("nonce", "document", wire::Selector::OpenMain)
+                        .unwrap();
+                let probe = wire::parse_probe(br#"{"p":"s4c1","n":"nonce","c":"s4-capability-open-main","s":2,"k":"candidate","f":0}"#, &identity).unwrap();
+                let permit = Rc::new(Permit::new(17));
+                let other = Rc::new(Permit::new(17));
+                let held = Held {
+                    probe,
+                    permit: Rc::clone(&permit),
+                    generation: 16,
+                };
+                assert_eq!(consume_candidate(held, &other, 17, None), Delivery::Failed);
+            }
+            // Witness is deliberately insufficient and the exact 2s boundary is late.
+            #[test]
+            fn receipt_deadline_is_strict_and_does_not_reset_original_close() {
+                let close = Instant::now();
+                assert!(receipt_timely(close + Duration::from_millis(1999), close));
+                assert!(!receipt_timely(close + Duration::from_secs(2), close));
+                assert!(!receipt_timely(close + Duration::from_secs(10), close));
+            }
+            // Handler destruction cannot replace a genuine method completion.
+            #[test]
+            fn completion_obligations_require_issue_invoke_and_consume() {
+                let inventory = Inventory::new();
+                assert!(inventory.issue(3));
+                assert!(!inventory.drained());
+                assert!(inventory.invoke(3));
+                assert!(!inventory.drained());
+                assert!(inventory.consume(3));
+                assert!(inventory.drained());
+                assert!(!inventory.invoke(3));
+                assert!(inventory.invalid.load(Ordering::SeqCst));
+            }
+        }
+        #[cfg(test)]
+        mod revision1_tests {
+            use super::super::super::Code0WindowRequest;
+            use super::*;
+            use crate::platform::windows::code0_web_session::Code0WindowMode;
+
+            fn authority() -> CurrentAuthority {
+                CurrentAuthority {
+                    identity_matches: true,
+                    failed: false,
+                    closing: false,
+                    destroyed: false,
+                    released: false,
+                    cleanup_blocked: false,
+                    affinity_failed: false,
+                    refusal_unknown: false,
+                    inventory_invalid: false,
+                    cleanup_unknown: false,
+                    core_present: true,
+                    installation_live: true,
+                }
+            }
+            // Replacing the original-end use check with stored-key equality must fail.
+            #[test]
+            fn held_handoff_uses_original_clock_before_at_and_after_deadline() {
+                let started = Instant::now();
+                for (offset, want) in [
+                    (Duration::from_millis(44999), Delivery::Applied),
+                    (Duration::from_secs(45), Delivery::Failed),
+                    (Duration::from_secs(46), Delivery::Failed),
+                ] {
+                    let mut s = state(started);
+                    let original = Rc::clone(s.permit.as_ref().unwrap());
+                    let held = s.held.as_ref().unwrap();
+                    assert!(held.permit.binding.is_some());
+                    assert!(Rc::ptr_eq(&held.permit, &original));
+                    let handoff = take_handoff_at(&mut s, authority(), started + offset)
+                        .unwrap()
+                        .unwrap();
+                    let consumed = handoff.consume_at(started + offset);
+                    assert_eq!(consumed.outcome, want);
+                    record_consumption(&mut s, &consumed);
+                    assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                    assert_eq!(original.applied.get(), u8::from(want == Delivery::Applied));
+                    assert!(s.held.is_none());
+                    assert!(
+                        take_handoff_at(&mut s, authority(), started + offset)
+                            .unwrap()
+                            .is_none()
+                    );
+                    if want == Delivery::Failed {
+                        assert!(s.terminal);
+                        assert!(original.revoked.get());
+                        assert_eq!(s.facts.result, ResultKind::NotEstablished);
+                        assert!(s.facts.failure.is_some());
+                    } else {
+                        assert!(!s.terminal);
+                        assert_eq!(s.facts.failure, Some(Failure::CapabilityApprovalMissing));
+                    }
+                }
+            }
+            // A valid capture may cross the deadline before the actual outside-borrow use.
+            #[test]
+            fn handoff_rechecks_clock_at_actual_consumer_application() {
+                let started = Instant::now();
+                let mut s = state(started);
+                let permit = Rc::clone(s.permit.as_ref().unwrap());
+                let handoff =
+                    take_handoff_at(&mut s, authority(), started + Duration::from_millis(44999))
+                        .unwrap()
+                        .unwrap();
+                let consumed = handoff.consume_at(started + Duration::from_secs(45));
+                record_consumption(&mut s, &consumed);
+                assert_eq!(consumed.outcome, Delivery::Failed);
+                assert_eq!(permit.applied.get(), 0);
+                assert!(permit.revoked.get());
+                assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                assert!(s.terminal);
+            }
+            // Current identity/invalid/unknown/failed state must qualify the real held item.
+            #[test]
+            fn due_handoff_consumes_once_without_application_under_invalid_authority() {
+                let started = Instant::now();
+                for index in 0..15 {
+                    let mut s = state(started);
+                    let mut current = authority();
+                    match index {
+                        0 => current.identity_matches = false,
+                        1 => current.inventory_invalid = true,
+                        2 => current.refusal_unknown = true,
+                        3 => current.cleanup_unknown = true,
+                        4 => current.failed = true,
+                        5 => current.closing = true,
+                        6 => current.affinity_failed = true,
+                        7 => current.cleanup_blocked = true,
+                        8 => current.destroyed = true,
+                        9 => current.core_present = false,
+                        10 => current.installation_live = false,
+                        11 => current.released = true,
+                        12 => s.generation = 18,
+                        13 => s.request.document_id = "different".into(),
+                        _ => s.loader = Some(wire::Identity::new("different-loader").unwrap()),
+                    }
+                    let permit = Rc::clone(s.permit.as_ref().unwrap());
+                    let handoff =
+                        take_handoff_at(&mut s, current, started + Duration::from_secs(1))
+                            .unwrap()
+                            .unwrap();
+                    let consumed = handoff.consume_at(started + Duration::from_secs(1));
+                    record_consumption(&mut s, &consumed);
+                    assert_eq!(consumed.outcome, Delivery::Failed);
+                    assert_eq!(permit.applied.get(), 0);
+                    assert!(permit.revoked.get());
+                    assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                    assert!(s.terminal);
+                    assert!(s.held.is_none());
+                }
+            }
+            // Off-STA/native-invalid atomics can change after the UI snapshot.
+            #[test]
+            fn handoff_rechecks_actual_atomic_invalidation_at_outside_borrow_use() {
+                let started = Instant::now();
+                for index in 0..3 {
+                    let mut s = state(started);
+                    let permit = Rc::clone(s.permit.as_ref().unwrap());
+                    let handoff =
+                        take_handoff_at(&mut s, authority(), started + Duration::from_secs(1))
+                            .unwrap()
+                            .unwrap();
+                    match index {
+                        0 => s.inventory.invalid.store(true, Ordering::SeqCst),
+                        1 => s.installation.store(true, Ordering::SeqCst),
+                        _ => s.callbacks.affinity_failed.store(true, Ordering::SeqCst),
+                    }
+                    let consumed = handoff.consume_at(started + Duration::from_secs(1));
+                    record_consumption(&mut s, &consumed);
+                    assert_eq!(consumed.outcome, Delivery::Failed);
+                    assert_eq!(permit.applied.get(), 0);
+                    assert!(permit.revoked.get());
+                    assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                    assert!(s.terminal);
+                }
+            }
+            // The missing-receipt same-held negative uses close10, independently of45.
+            #[test]
+            fn revoked_close_handoff_after_original_end_keeps_same_item_and_close_bound() {
+                let started = Instant::now();
+                let mut detach = state(started);
+                detach.selector = Selector::DisposeMissing;
+                detach.phase = Phase::ClosingAwaitDispose;
+                detach.closing = Some(started + Duration::from_millis(44500));
+                detach.terminal = true;
+                detach.permit.as_ref().unwrap().revoked.set(true);
+                let mut closing_authority = authority();
+                closing_authority.closing = true;
+                assert!(
+                    reserve_control_at(
+                        &mut detach,
+                        closing_authority,
+                        ControlKind::Detach,
+                        started + Duration::from_millis(45500)
+                    )
+                    .is_some()
+                );
+                assert!(
+                    reserve_control_at(
+                        &mut detach,
+                        closing_authority,
+                        ControlKind::Mutate,
+                        started + Duration::from_millis(45500)
+                    )
+                    .is_none()
+                );
+                // Retaining the earlier missing stage at close10 must fail these assertions.
+                for (take_ms, use_ms, want, consumed_failure, current_failure) in [
+                    (
+                        46600,
+                        46600,
+                        Delivery::RejectedRevokedPermit,
+                        None,
+                        Failure::DetachReceiptMissing,
+                    ),
+                    (
+                        54500,
+                        54500,
+                        Delivery::Failed,
+                        Some(Failure::NativeCleanup),
+                        Failure::NativeCleanup,
+                    ),
+                    (
+                        54600,
+                        54600,
+                        Delivery::Failed,
+                        Some(Failure::NativeCleanup),
+                        Failure::NativeCleanup,
+                    ),
+                    (
+                        54499,
+                        54500,
+                        Delivery::Failed,
+                        Some(Failure::NativeCleanup),
+                        Failure::NativeCleanup,
+                    ),
+                ] {
+                    let mut s = state(started);
+                    s.selector = Selector::DisposeMissing;
+                    s.phase = Phase::ClosingAwaitDispose;
+                    s.closing = Some(started + Duration::from_millis(44500));
+                    s.terminal = true;
+                    s.missing_disposition = true;
+                    s.facts.receipt_deadline_observed = true;
+                    s.facts.failure = Some(Failure::DetachReceiptMissing);
+                    let permit = Rc::clone(s.permit.as_ref().unwrap());
+                    permit.revoked.set(true);
+                    let binding = permit.binding.as_ref().unwrap();
+                    assert_eq!(binding.end, started + Duration::from_secs(45));
+                    assert!(Rc::ptr_eq(&s.held.as_ref().unwrap().permit, &permit));
+                    let mut current = authority();
+                    current.failed = true;
+                    current.closing = true;
+                    let take_at = started + Duration::from_millis(take_ms);
+                    let use_at = started + Duration::from_millis(use_ms);
+                    let handoff = take_handoff_at(&mut s, current, take_at).unwrap().unwrap();
+                    assert!(Rc::ptr_eq(&handoff.permit, &permit));
+                    assert!(handoff.binding.is_some());
+                    let consumed = handoff.consume_at(use_at);
+                    record_consumption(&mut s, &consumed);
+                    assert_eq!(consumed.outcome, want);
+                    assert_eq!(consumed.failure, consumed_failure);
+                    assert_eq!(s.facts.failure, Some(current_failure));
+                    assert_eq!(s.facts.result, ResultKind::NotEstablished);
+                    assert_eq!(permit.applied.get(), 0);
+                    assert_eq!(s.facts.candidate_delivery_attempts, 1);
+                    assert_eq!(s.facts.candidate_delivery_outcome, want);
+                    assert_eq!(s.facts.candidate_applied, 0);
+                    assert!(permit.revoked.get());
+                    assert!(s.missing_disposition);
+                    assert!(s.facts.receipt_deadline_observed);
+                    assert_eq!(s.closing, Some(started + Duration::from_millis(44500)));
+                    assert!(s.held.is_none());
+                    assert!(take_handoff_at(&mut s, current, use_at).unwrap().is_none());
+                }
+            }
+            // The grant seam must reread terminal state after Source-return/local Drop reentry.
+            #[test]
+            fn source_return_and_drop_terminal_reentry_cannot_regrant_or_post_live_control() {
+                struct NativeDrop {
+                    state: Rc<RefCell<State>>,
+                    current: Rc<Cell<CurrentAuthority>>,
+                }
+                impl Drop for NativeDrop {
+                    fn drop(&mut self) {
+                        let mut current = self.current.get();
+                        current.failed = true;
+                        current.closing = true;
+                        self.current.set(current);
+                        let mut s = self.state.borrow_mut();
+                        terminal_failure(&mut s, Failure::NativeCleanup, false);
+                        s.closing = Some(s.deadline.original_end() - Duration::from_secs(44));
+                    }
+                }
+                let started = Instant::now();
+                for on_drop in [false, true] {
+                    let mut initial = state(started);
+                    initial.permit = None;
+                    initial.held = None;
+                    initial.consumer_due = false;
+                    initial.phase = Phase::AwaitInitialJoin;
+                    initial.terminal = false;
+                    initial.facts.failure = None;
+                    initial.facts.initial_native_join = false;
+                    initial.facts.root_metadata_joined = false;
+                    initial.facts.candidate_held = false;
+                    let shared = Rc::new(RefCell::new(initial));
+                    let current = Rc::new(Cell::new(authority()));
+                    let source_result = if on_drop {
+                        Some(NativeDrop {
+                            state: Rc::clone(&shared),
+                            current: Rc::clone(&current),
+                        })
+                    } else {
+                        let mut a = current.get();
+                        a.failed = true;
+                        a.closing = true;
+                        current.set(a);
+                        let mut s = shared.borrow_mut();
+                        terminal_failure(&mut s, Failure::NativeCleanup, false);
+                        s.closing = Some(started + Duration::from_secs(1));
+                        None
+                    };
+                    drop(source_result);
+                    let mut s = shared.borrow_mut();
+                    let phase = s.phase;
+                    assert!(!commit_join_at(
+                        &mut s,
+                        current.get(),
+                        Phase::AwaitInitialJoin,
+                        started + Duration::from_secs(1)
+                    ));
+                    assert!(s.permit.is_none());
+                    assert_eq!(s.phase, phase);
+                    assert!(!reserve_navigation_at(
+                        &mut s,
+                        current.get(),
+                        started + Duration::from_secs(1)
+                    ));
+                    assert!(
+                        reserve_control_at(
+                            &mut s,
+                            current.get(),
+                            ControlKind::Prepare,
+                            started + Duration::from_secs(1)
+                        )
+                        .is_none()
+                    );
+                    assert!(
+                        reserve_control_at(
+                            &mut s,
+                            current.get(),
+                            ControlKind::Mutate,
+                            started + Duration::from_secs(1)
+                        )
+                        .is_none()
+                    );
+                    assert_eq!(s.controls, 0);
+                    assert!(!s.grant);
+                    assert!(!s.facts.initial_native_join);
+                    assert!(!s.facts.root_metadata_joined);
+                    // Failed pre-grant source does not fabricate a detach receipt.
+                    // Its identity/close transport can still perform emergency cleanup.
+                    assert!(current.get().usable());
+                    assert!(NativeDialogDeadline::disposal_within_close_at(
+                        started + Duration::from_secs(1),
+                        started + Duration::from_secs(1),
+                        s.closing
+                    ));
+                    assert_eq!(s.phase, Phase::ClosingAwaitDispose);
+                }
+            }
+            // Clear must invalidate official metadata before a permit, without evict/rearm.
+            #[test]
+            fn adopted_root_clear_is_terminal_even_before_permit_and_blank_clear_is_distinct() {
+                let started = Instant::now();
+                let mut s = state(started);
+                s.permit = None;
+                s.held = None;
+                s.consumer_due = false;
+                s.phase = Phase::AwaitInitialJoin;
+                s.facts.failure = None;
+                assert!(s.root_context.is_some());
+                assert!(s.unique.is_some());
+                assert!(!observe_contexts_cleared(&mut s));
+                assert!(s.terminal);
+                assert!(!commit_join_at(
+                    &mut s,
+                    authority(),
+                    Phase::AwaitInitialJoin,
+                    started + Duration::from_secs(1)
+                ));
+                assert!(s.permit.is_none());
+                assert_ne!(s.phase, Phase::AwaitParsed);
+                let mut blank = state(started);
+                blank.permit = None;
+                blank.held = None;
+                blank.consumer_due = false;
+                blank.root_context = None;
+                blank.unique = None;
+                blank.phase = Phase::AwaitInitialJoin;
+                blank.facts.failure = None;
+                blank.facts.initial_native_join = false;
+                blank.facts.root_metadata_joined = false;
+                blank.contexts = wire::ContextTable::new();
+                blank.contexts.insert(wire::parse_context_created(br#"{"context":{"id":1,"uniqueId":"blank-context","origin":"://","name":"","auxData":{"frameId":"root","isDefault":true,"type":"default"}}}"#).unwrap()).unwrap();
+                assert!(observe_contexts_cleared(&mut blank));
+                assert!(!blank.terminal);
+                let created=wire::parse_context_created(br#"{"context":{"id":4,"uniqueId":"unique-root","origin":"https://console.code0.ai","name":"","auxData":{"frameId":"root","isDefault":true,"type":"default"}}}"#).unwrap();
+                assert!(observe_context_created_at(
+                    &mut blank,
+                    created,
+                    authority(),
+                    started + Duration::from_secs(1)
+                ));
+                assert!(commit_join_at(
+                    &mut blank,
+                    authority(),
+                    Phase::AwaitInitialJoin,
+                    started + Duration::from_secs(1)
+                ));
+                assert!(blank.permit.is_some());
+                assert_eq!(blank.phase, Phase::AwaitParsed);
+            }
+            // Timely RED marker is not a terminal native failure or pre-revoke shortcut.
+            #[test]
+            fn timely_missing_hook_marker_preserves_real_application_and_live_control() {
+                let started = Instant::now();
+                let mut s = state(started);
+                let handoff =
+                    take_handoff_at(&mut s, authority(), started + Duration::from_secs(1))
+                        .unwrap()
+                        .unwrap();
+                let consumed = handoff.consume_at(started + Duration::from_secs(1));
+                record_consumption(&mut s, &consumed);
+                assert_eq!(consumed.outcome, Delivery::Applied);
+                assert_eq!(s.facts.candidate_applied, 1);
+                assert!(!s.terminal);
+                assert_eq!(s.facts.failure, Some(Failure::CapabilityApprovalMissing));
+                s.phase = Phase::AwaitCandidate;
+                s.mutate_sent = false;
+                s.controls = 1;
+                assert!(
+                    reserve_control_at(
+                        &mut s,
+                        authority(),
+                        ControlKind::Mutate,
+                        started + Duration::from_secs(1)
+                    )
+                    .is_some()
+                );
+                assert_eq!(s.phase, Phase::AwaitMutationTrace);
+            }
+            fn state(started: Instant) -> State {
+                let request = Code0WindowRequest {
+                    instance_id: "instance".into(),
+                    connection_epoch: "epoch".into(),
+                    nonce: "nonce".into(),
+                    document_id: "document".into(),
+                    mode: Code0WindowMode::Sync,
+                };
+                let selector = Selector::OpenMain;
+                let identity =
+                    wire::ProtocolIdentity::new("nonce", "document", wire::Selector::OpenMain)
+                        .unwrap();
+                let deadline = NativeDialogDeadline::from_attempt_started(started).unwrap();
+                let mut s = State {
+                    request: request.clone(),
+                    generation: 17,
+                    installation: Arc::new(AtomicBool::new(false)),
+                    inventory: Arc::new(Inventory::new()),
+                    callbacks: Arc::new(Callbacks::default()),
+                    core: None,
+                    environment: None,
+                    core22: None,
+                    selector,
+                    identity,
+                    deadline,
+                    phase: Phase::Installing,
+                    terminal: false,
+                    closing: None,
+                    close_published: false,
+                    disposition_published: false,
+                    receivers: Vec::with_capacity(7),
+                    native_tokens: [None; 4],
+                    native_attempted: [false; 4],
+                    filter: false,
+                    filter_attempted: false,
+                    script_id: None,
+                    script_attempted: false,
+                    script_submitted: false,
+                    script_response: None,
+                    next: 0,
+                    in_flight: false,
+                    response: None,
+                    acknowledged: [false; 7],
+                    submitted: [false; 7],
+                    setup_ready: false,
+                    navigation_issued: false,
+                    navigation_returned: false,
+                    grant: false,
+                    navigation_id: None,
+                    starts: 0,
+                    loading: 0,
+                    root: None,
+                    loader: None,
+                    root_context: None,
+                    unique: None,
+                    contexts: wire::ContextTable::new(),
+                    staged: wire::StagedMessages::new(),
+                    staged_entries: std::collections::VecDeque::with_capacity(10),
+                    sequence: wire::ProbeSequence::new(),
+                    binding_count: 0,
+                    trace: [None; 64],
+                    ordinal: 0,
+                    permit: None,
+                    held: None,
+                    consumer_due: false,
+                    controls: 0,
+                    prepare_sent: false,
+                    mutate_sent: false,
+                    detach_sent: false,
+                    receipt_consumed: false,
+                    missing_disposition: false,
+                    disposed_at: None,
+                    witness: false,
+                    request_count: 0,
+                    asset_bytes: 0,
+                    main_response: false,
+                    child_response: false,
+                    cleanup_unknown: false,
+                    facts: Facts::new(selector),
+                };
+                s.phase = Phase::AwaitMutationTrace;
+                s.navigation_issued = true;
+                s.navigation_returned = true;
+                s.starts = 1;
+                s.loading = 1;
+                s.main_response = true;
+                s.navigation_id = Some(8);
+                s.root = Some(wire::Identity::new("root").unwrap());
+                s.loader = Some(wire::Identity::new("loader").unwrap());
+                s.root_context = Some(wire::ContextId::new(4).unwrap());
+                s.unique = Some(wire::Identity::new("unique-root").unwrap());
+                s.contexts.insert(wire::parse_context_created(br#"{"context":{"id":4,"uniqueId":"unique-root","origin":"https://console.code0.ai","name":"","auxData":{"frameId":"root","isDefault":true,"type":"default"}}}"#).unwrap()).unwrap();
+                let key = current_binding(&s);
+                let permit = Rc::new(Permit {
+                    generation: 17,
+                    revoked: Cell::new(false),
+                    applied: Cell::new(0),
+                    binding: key,
+                });
+                let probe=wire::parse_probe(br#"{"p":"s4c1","n":"nonce","c":"s4-capability-open-main","s":2,"k":"candidate","f":0}"#,&s.identity).unwrap();
+                s.held = Some(Held {
+                    probe,
+                    permit: Rc::clone(&permit),
+                    generation: 17,
+                });
+                s.permit = Some(permit);
+                s.consumer_due = true;
+                s.facts.candidate_held = true;
+                s.facts.failure = Some(Failure::CapabilityApprovalMissing);
+                s.facts.initial_native_join = true;
+                s.facts.root_metadata_joined = true;
+                s.prepare_sent = true;
+                s.mutate_sent = true;
+                s
+            }
+        }
+    }
+
     /// Finite debug-only P1. No production policy authority is derived here.
     #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
     mod p1 {
@@ -9519,6 +13288,7 @@ mod native {
                     || i.inline_loaded
                     || i.policy.is_some()
                     || i.chooser.is_some()
+                    || i.capability.is_some()
                     || i.policy_mailbox.is_some()
                     || i.policy_fault.case.is_some()
                     || i.core.is_none()
@@ -9889,6 +13659,7 @@ mod native {
                     || i.inline_loaded
                     || i.policy.is_some()
                     || i.chooser.is_some()
+                    || i.capability.is_some()
                     || i.core.is_none()
                     || i.environment.is_none()
                     || i.controller.is_none()
@@ -11657,6 +15428,7 @@ mod native {
             if instance.request.instance_id != instance_id
                 || instance.closing
                 || instance.inline_loaded
+                || instance.capability.is_some()
                 || instance.message_token.is_none()
             {
                 return Err(Code0SessionFailure::PolicyRejected);
@@ -13553,6 +17325,246 @@ pub mod fixture {
         }
     }
 
+    /// Four fixed source-only capability cases; never a general script executor.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum NativeCapabilitySelector {
+        OpenMain,
+        WriteMain,
+        OpenChildPrototype,
+        DisposeMissing,
+    }
+    impl NativeCapabilitySelector {
+        pub const ALL: [Self; 4] = [
+            Self::OpenMain,
+            Self::WriteMain,
+            Self::OpenChildPrototype,
+            Self::DisposeMissing,
+        ];
+        pub fn name(self) -> &'static str {
+            match self {
+                Self::OpenMain => "s4-capability-open-main",
+                Self::WriteMain => "s4-capability-write-main",
+                Self::OpenChildPrototype => "s4-capability-open-child-prototype",
+                Self::DisposeMissing => "s4-capability-dispose-missing",
+            }
+        }
+        pub fn parse(name: &str) -> Option<Self> {
+            Self::ALL.into_iter().find(|s| s.name() == name)
+        }
+    }
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+    pub enum NativeCapabilityFailure {
+        Setup,
+        Metadata,
+        InitialNavigation,
+        Protocol,
+        StimulusNotObserved,
+        Ordering,
+        ContextChanged,
+        BoundExceeded,
+        DetachReceiptMissing,
+        DetachReceiptLate,
+        NativeCleanup,
+        CapabilityApprovalMissing,
+    }
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub enum NativeCapabilityResult {
+        FiniteObserved,
+        ExpectedMissingReceipt,
+        BaselineRefused,
+        NotEstablished,
+    }
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub enum NativeCapabilityDelivery {
+        NotAttempted,
+        Applied,
+        RejectedRevokedPermit,
+        Failed,
+    }
+    /// The exact private v1 37-key wire object. No raw identities are serialized.
+    #[derive(Clone, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NativeCapabilityFacts {
+        pub version: u8,
+        pub selector: &'static str,
+        pub runtime_version: String,
+        pub result: NativeCapabilityResult,
+        pub failure: Option<NativeCapabilityFailure>,
+        pub method_submissions: u8,
+        pub method_acks: u8,
+        pub receiver_adds: u8,
+        pub receiver_removes: u8,
+        pub script_ack: bool,
+        pub script_removed: bool,
+        pub initial_native_join: bool,
+        pub root_metadata_joined: bool,
+        pub canonical_ready: bool,
+        pub parsed_after_complete: bool,
+        pub child_probe_refused: Option<bool>,
+        pub candidate_held: bool,
+        pub candidate_delivery_attempts: u8,
+        pub candidate_applied: u8,
+        pub candidate_delivery_outcome: NativeCapabilityDelivery,
+        pub before_ordinal: Option<u8>,
+        pub document_opened_ordinal: Option<u8>,
+        pub after_ordinal: Option<u8>,
+        pub later_ordinal: Option<u8>,
+        pub permit_revoked_at_after_entry: Option<bool>,
+        pub root_context_retained: Option<bool>,
+        pub root_loader_matched: Option<bool>,
+        pub native_source_unchanged: Option<bool>,
+        pub logical_reset_flags: Option<u8>,
+        pub dispose_receipt_count: u8,
+        pub dispose_witness_count: u8,
+        pub restoration_flags: u8,
+        pub receipt_deadline_observed: bool,
+        pub stop_after_dispose_receipt: bool,
+        pub failed_close_no_activation: bool,
+        pub normal_released: bool,
+        pub temp_dir_closed: bool,
+    }
+    impl NativeCapabilityFacts {
+        pub fn new(selector: NativeCapabilitySelector) -> Self {
+            let mutation = selector != NativeCapabilitySelector::DisposeMissing;
+            Self {
+                version: 1,
+                selector: selector.name(),
+                runtime_version: String::new(),
+                result: NativeCapabilityResult::NotEstablished,
+                failure: None,
+                method_submissions: 0,
+                method_acks: 0,
+                receiver_adds: 0,
+                receiver_removes: 0,
+                script_ack: false,
+                script_removed: false,
+                initial_native_join: false,
+                root_metadata_joined: false,
+                canonical_ready: false,
+                parsed_after_complete: false,
+                child_probe_refused: (selector == NativeCapabilitySelector::OpenChildPrototype)
+                    .then_some(false),
+                candidate_held: false,
+                candidate_delivery_attempts: 0,
+                candidate_applied: 0,
+                candidate_delivery_outcome: NativeCapabilityDelivery::NotAttempted,
+                before_ordinal: None,
+                document_opened_ordinal: None,
+                after_ordinal: None,
+                later_ordinal: None,
+                permit_revoked_at_after_entry: mutation.then_some(false),
+                root_context_retained: mutation.then_some(false),
+                root_loader_matched: mutation.then_some(false),
+                native_source_unchanged: mutation.then_some(false),
+                logical_reset_flags: mutation.then_some(0),
+                dispose_receipt_count: 0,
+                dispose_witness_count: 0,
+                restoration_flags: 0,
+                receipt_deadline_observed: false,
+                stop_after_dispose_receipt: false,
+                failed_close_no_activation: false,
+                normal_released: false,
+                temp_dir_closed: false,
+            }
+        }
+        pub fn positive_before_release(&self) -> bool {
+            let common = self.version == 1
+                && self.method_submissions == 7
+                && self.method_acks == 7
+                && self.receiver_adds == 7
+                && self.receiver_removes == 7
+                && self.script_ack
+                && self.script_removed
+                && self.initial_native_join
+                && self.root_metadata_joined
+                && self.canonical_ready
+                && self.parsed_after_complete
+                && self.candidate_held
+                && self.candidate_delivery_attempts == 1
+                && self.candidate_applied == 0
+                && self.candidate_delivery_outcome
+                    == NativeCapabilityDelivery::RejectedRevokedPermit
+                && self.restoration_flags == 7;
+            if self.selector == NativeCapabilitySelector::DisposeMissing.name() {
+                common
+                    && self.result == NativeCapabilityResult::ExpectedMissingReceipt
+                    && self.failure == Some(NativeCapabilityFailure::DetachReceiptMissing)
+                    && self.dispose_receipt_count == 0
+                    && self.dispose_witness_count == 1
+                    && self.receipt_deadline_observed
+                    && self.failed_close_no_activation
+                    && !self.stop_after_dispose_receipt
+                    && self.before_ordinal.is_none()
+                    && self.document_opened_ordinal.is_none()
+                    && self.after_ordinal.is_none()
+                    && self.later_ordinal.is_none()
+                    && self.permit_revoked_at_after_entry.is_none()
+                    && self.root_context_retained.is_none()
+                    && self.root_loader_matched.is_none()
+                    && self.native_source_unchanged.is_none()
+                    && self.logical_reset_flags.is_none()
+                    && self.child_probe_refused.is_none()
+            } else {
+                common
+                    && self.result == NativeCapabilityResult::FiniteObserved
+                    && self.failure.is_none()
+                    && self
+                        .before_ordinal
+                        .zip(self.document_opened_ordinal)
+                        .zip(self.after_ordinal)
+                        .zip(self.later_ordinal)
+                        .is_some_and(|(((b, d), a), l)| 0 < b && b < d && d < a && a < l && l <= 64)
+                    && self.permit_revoked_at_after_entry == Some(true)
+                    && self.root_context_retained == Some(true)
+                    && self.root_loader_matched == Some(true)
+                    && self.native_source_unchanged == Some(true)
+                    && self.logical_reset_flags == Some(31)
+                    && self.dispose_receipt_count == 1
+                    && self.dispose_witness_count == 0
+                    && !self.receipt_deadline_observed
+                    && !self.failed_close_no_activation
+                    && self.stop_after_dispose_receipt
+                    && self.child_probe_refused
+                        == if self.selector == NativeCapabilitySelector::OpenChildPrototype.name() {
+                            Some(true)
+                        } else {
+                            None
+                        }
+            }
+        }
+    }
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    pub enum NativeCapabilityStage {
+        Started,
+        Disposition,
+        Final,
+    }
+    pub struct NativeCapabilityReceipt {
+        pub(super) request: Code0WindowRequest,
+        pub(super) installation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pub(super) stage: NativeCapabilityStage,
+        pub(super) facts: NativeCapabilityFacts,
+    }
+    impl NativeCapabilityReceipt {
+        pub fn matches(
+            &self,
+            request: &Code0WindowRequest,
+            install: &NativeRefusalInstallReceipt,
+        ) -> bool {
+            &self.request == request
+                && install.matches(request)
+                && std::sync::Arc::ptr_eq(&self.installation, &install.installation)
+        }
+        pub fn stage(&self) -> NativeCapabilityStage {
+            self.stage
+        }
+        pub fn facts(&self) -> NativeCapabilityFacts {
+            self.facts.clone()
+        }
+    }
+
     /// S3 facts are real native producer observations; scalar snapshot counts end
     /// at the trusted cancel, and do not assert event absence through Close.
     #[derive(Clone, Copy, Default, serde::Serialize)]
@@ -14076,6 +18088,10 @@ pub mod fixture {
             at: std::time::Instant,
         },
         Chooser(NativeChooserReceipt),
+        CapabilityClosing {
+            at: std::time::Instant,
+        },
+        Capability(NativeCapabilityReceipt),
         DialogClosing {
             at: std::time::Instant,
         },
@@ -15203,6 +19219,31 @@ pub mod fixture {
             #[cfg(not(windows))]
             {
                 let _ = (request, deadline);
+                Err(Code0SessionFailure::PolicyRejected)
+            }
+        }
+
+        /// Finite S4 transport only. The caller chooses one of four fixed cases.
+        pub fn begin_fixture_capability(
+            &mut self,
+            request: &Code0WindowRequest,
+            selector: NativeCapabilitySelector,
+            deadline: NativeDialogDeadline,
+        ) -> Result<(), Code0SessionFailure> {
+            if !self
+                .lease
+                .as_ref()
+                .is_some_and(super::Code0ProfileLease::is_held)
+            {
+                return Err(Code0SessionFailure::ProfileBusy);
+            }
+            #[cfg(windows)]
+            {
+                super::native::s4_begin(&self.owner, request, selector, deadline)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (request, selector, deadline);
                 Err(Code0SessionFailure::PolicyRejected)
             }
         }

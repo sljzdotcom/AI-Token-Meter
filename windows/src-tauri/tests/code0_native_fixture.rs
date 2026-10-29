@@ -18,6 +18,8 @@ mod smoke {
         Code0WindowRequest,
     };
     use ai_token_meter_windows::platform::windows::code0_webview::fixture::{
+        NativeCapabilityFacts, NativeCapabilityFailure, NativeCapabilityReceipt,
+        NativeCapabilityResult, NativeCapabilitySelector, NativeCapabilityStage,
         NativeChooserFacts, NativeChooserReceipt, NativeChooserStage,
     };
     use ai_token_meter_windows::platform::windows::code0_webview::{
@@ -232,6 +234,106 @@ mod smoke {
                 "downloadCompletionNotDrained"
             } else {
                 "downloadPositiveOracleMismatch"
+            }
+        }
+    }
+
+    struct CapabilityEvidence {
+        facts: NativeCapabilityFacts,
+        installation: Option<NativeRefusalInstallReceipt>,
+        receipts: [u8; 3],
+        matched: bool,
+        policy_failures: u8,
+        failure_after_disposition: bool,
+        browser_process_exited_once: bool,
+    }
+    impl CapabilityEvidence {
+        fn new(selector: NativeCapabilitySelector) -> Self {
+            Self {
+                facts: NativeCapabilityFacts::new(selector),
+                installation: None,
+                receipts: [0; 3],
+                matched: true,
+                policy_failures: 0,
+                failure_after_disposition: false,
+                browser_process_exited_once: false,
+            }
+        }
+        fn observe(
+            &mut self,
+            receipt: NativeCapabilityReceipt,
+            request: &Code0WindowRequest,
+            started: Instant,
+            close: Option<Instant>,
+            runtime: &str,
+        ) -> bool {
+            let matched = self
+                .installation
+                .as_ref()
+                .is_some_and(|i| receipt.matches(request, i));
+            let index = match receipt.stage() {
+                NativeCapabilityStage::Started => 0,
+                NativeCapabilityStage::Disposition => 1,
+                NativeCapabilityStage::Final => 2,
+            };
+            self.receipts[index] = self.receipts[index].saturating_add(1).min(2);
+            let timely = if index == 0 {
+                started.elapsed() < Duration::from_secs(45)
+            } else {
+                close.is_some_and(|at| Instant::now() < at + Duration::from_secs(10))
+            };
+            let facts = receipt.facts();
+            drop(receipt);
+            let valid = matched
+                && timely
+                && self.receipts[index] == 1
+                && facts.selector == self.facts.selector
+                && runtime.len() <= 128
+                && !runtime.is_empty()
+                && runtime.bytes().all(|v| v.is_ascii_digit() || v == b'.');
+            self.matched &= valid;
+            self.facts = facts;
+            self.facts.runtime_version = runtime.to_owned();
+            valid
+        }
+        fn positive(&self, native: &NativeRefusalEvidence, lifecycle: &Summary) -> bool {
+            self.receipts == [1, 1, 1]
+                && self.matched
+                && self.facts.positive_before_release()
+                && self.facts.normal_released
+                && self.facts.runtime_version == lifecycle.runtime_version
+                && self.browser_process_exited_once
+                && if self.facts.failure.is_some() {
+                    self.policy_failures == 1 && self.failure_after_disposition
+                } else {
+                    self.policy_failures == 0
+                }
+                && native.receipts == 1
+                && native.native_instance_validated
+                && native.source_bound_registry
+                && native.required_mask == 1023
+                && native.installed_mask == 1023
+                && native.not_installed_hooks.is_empty()
+                && !native.navigation_not_issued
+                && !native.load_rejected
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.engine_ready
+                && lifecycle.bare_hidden_unfocused
+                && lifecycle.construction_observed
+                && !lifecycle.bare_window_violation
+                && lifecycle.profile_isolated
+                && lifecycle.destroyed
+                && lifecycle.owned_references_released
+        }
+        fn failure(&self) -> &'static str {
+            if self.facts.result == NativeCapabilityResult::BaselineRefused
+                && self.facts.failure == Some(NativeCapabilityFailure::CapabilityApprovalMissing)
+            {
+                "capabilityApprovalMissing"
+            } else {
+                "capabilityNotEstablished"
             }
         }
     }
@@ -897,10 +999,18 @@ mod smoke {
         download_refusal: Option<DownloadRefusalEvidence>,
         #[serde(skip)]
         chooser: Option<ChooserEvidence>,
+        #[serde(skip)]
+        capability: Option<CapabilityEvidence>,
     }
 
     impl PolicyEvidence {
         fn positive(&self, lifecycle: &Summary) -> bool {
+            if let Some(capability) = &self.capability {
+                return self
+                    .native_refusal
+                    .as_ref()
+                    .is_some_and(|native| capability.positive(native, lifecycle));
+            }
             if let Some(chooser) = &self.chooser {
                 return self
                     .native_refusal
@@ -1056,12 +1166,16 @@ mod smoke {
         download_refusal: Option<&'a DownloadRefusalEvidence>,
         #[serde(skip_serializing_if = "Option::is_none")]
         chooser: Option<&'a ChooserEvidence>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        capability: Option<&'a NativeCapabilityFacts>,
     }
 
     impl<'a> PolicySummary<'a> {
         fn snapshot(state: &'a Summary, install: &'a PolicyEvidence) -> Self {
             Self {
-                schema: if install.chooser.is_some() {
+                schema: if install.capability.is_some() {
+                    13
+                } else if install.chooser.is_some() {
                     11
                 } else if install.download_refusal.is_some() {
                     12
@@ -1079,7 +1193,9 @@ mod smoke {
                     1
                 },
                 run_id: &state.run_id,
-                required_case: if install.chooser.is_some() {
+                required_case: if let Some(capability) = &install.capability {
+                    capability.facts.selector
+                } else if install.chooser.is_some() {
                     CHOOSER_CASE
                 } else if install.download_refusal.is_some() {
                     DOWNLOAD_REFUSAL_CASE
@@ -1108,6 +1224,7 @@ mod smoke {
                 popup_refusal: install.popup_refusal.as_ref(),
                 download_refusal: install.download_refusal.as_ref(),
                 chooser: install.chooser.as_ref(),
+                capability: install.capability.as_ref().map(|c| &c.facts),
                 lifecycle: PolicyLifecycle {
                     sta_main: state.sta_main,
                     callback_affinity: state.callback_affinity,
@@ -1973,6 +2090,12 @@ mod smoke {
     }
 
     fn write_policy_summary(file: &mut File, summary: &PolicySummary<'_>) -> std::io::Result<()> {
+        if summary.schema == 13 && serde_json::to_vec(summary)?.len() > 8192 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "S4 summary exceeds fixed bound",
+            ));
+        }
         if summary.schema == 11 && serde_json::to_vec(summary)?.len() > 8192 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -2037,6 +2160,40 @@ mod smoke {
         download_refusal: bool,
         chooser_selected: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected_with_capability(
+            (
+                native_refusal,
+                top_refusal,
+                child_refusal,
+                dialog_refusal,
+                popup_refusal,
+                download_refusal,
+                chooser_selected,
+            ),
+            None,
+        )
+    }
+    pub fn run_capability(
+        selector: NativeCapabilitySelector,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        run_policy_selected_with_capability(
+            (true, false, false, false, false, false, false),
+            Some(selector),
+        )
+    }
+    fn run_policy_selected_with_capability(
+        selection: (bool, bool, bool, bool, bool, bool, bool),
+        capability_selector: Option<NativeCapabilitySelector>,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let (
+            native_refusal,
+            top_refusal,
+            child_refusal,
+            dialog_refusal,
+            popup_refusal,
+            download_refusal,
+            chooser_selected,
+        ) = selection;
         let run_id = std::env::var("AI_METER_CODE0_POLICY_RUN_ID")?;
         if run_id.is_empty()
             || run_id.len() > 64
@@ -2067,6 +2224,7 @@ mod smoke {
             popup_refusal: popup_refusal.then(PopupRefusalEvidence::default),
             download_refusal: download_refusal.then(DownloadRefusalEvidence::default),
             chooser: chooser_selected.then(ChooserEvidence::default),
+            capability: capability_selector.map(CapabilityEvidence::new),
             ..PolicyEvidence::default()
         }));
         write_policy_summary(
@@ -2104,6 +2262,7 @@ mod smoke {
                                 download_refusal: download_refusal
                                     .then(DownloadRefusalEvidence::default),
                                 chooser: chooser_selected.then(ChooserEvidence::default),
+                                capability: capability_selector.map(CapabilityEvidence::new),
                                 ..PolicyEvidence::default()
                             },
                         ),
@@ -2370,6 +2529,14 @@ mod smoke {
         let chooser_selected = policy
             .as_ref()
             .is_some_and(|p| p.lock().unwrap().chooser.is_some());
+        let capability_selector = policy.as_ref().and_then(|p| {
+            p.lock()
+                .unwrap()
+                .capability
+                .as_ref()
+                .and_then(|c| NativeCapabilitySelector::parse(c.facts.selector))
+        });
+        let capability_selected = capability_selector.is_some();
         let top_selected = policy
             .as_ref()
             .is_some_and(|policy| policy.lock().unwrap().top_refusal.is_some());
@@ -2512,11 +2679,19 @@ mod smoke {
         let observer_download_close = Rc::clone(&native_download_close);
         let native_popup_close = Rc::new(Cell::new(None::<Instant>));
         let observer_popup_close = Rc::clone(&native_popup_close);
+        let native_capability_close = Rc::new(Cell::new(None::<Instant>));
+        let observer_capability_close = Rc::clone(&native_capability_close);
         let native_chooser_close = Rc::new(Cell::new(None::<Instant>));
         let observer_chooser_close = Rc::clone(&native_chooser_close);
         let native_child_close = Rc::new(Cell::new(None::<Instant>));
         let observer_child_close = Rc::clone(&native_child_close);
         driver.observe_fixture(Rc::new(move |event| {
+            if capability_selected
+                && let NativeSmokeObservation::CapabilityClosing { at } = &event
+                && observer_capability_close.get().is_none()
+            {
+                observer_capability_close.set(Some(*at));
+            }
             if chooser_selected
                 && let NativeSmokeObservation::ChooserClosing { at } = &event
                 && observer_chooser_close.get().is_none()
@@ -2661,6 +2836,11 @@ mod smoke {
         } else {
             None
         };
+        let mut capability_deadline = if capability_selected {
+            NativeDialogDeadline::from_attempt_started(started)
+        } else {
+            None
+        };
         let mut chooser_deadline = if chooser_selected {
             NativeDialogDeadline::from_attempt_started(started)
         } else {
@@ -2776,7 +2956,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if chooser_selected {
+                if capability_selected {
+                    native_capability_close.get()
+                } else if chooser_selected {
                     native_chooser_close.get()
                 } else if download_selected {
                     native_download_close.get()
@@ -2800,7 +2982,9 @@ mod smoke {
                 &mut driver,
                 instance,
                 &mut closing_since,
-                if chooser_selected {
+                if capability_selected {
+                    native_capability_close.get()
+                } else if chooser_selected {
                     native_chooser_close.get()
                 } else if download_selected {
                     native_download_close.get()
@@ -2906,13 +3090,17 @@ mod smoke {
                                             || popup_selected
                                             || download_selected
                                             || chooser_selected
+                                            || capability_selected
                                         {
                                             saved_receipt = Some(receipt);
                                         }
                                         valid
                                     });
                                     let rejected = native.load_rejected;
-                                    if chooser_selected {
+                                    if capability_selected {
+                                        install.capability.as_mut().unwrap().installation =
+                                            saved_receipt;
+                                    } else if chooser_selected {
                                         install.chooser.as_mut().unwrap().installation =
                                             saved_receipt;
                                     } else if download_selected {
@@ -2932,6 +3120,25 @@ mod smoke {
                                             saved_receipt;
                                     }
                                     drop(install);
+                                    let capability_submission_failure = if capability_selected
+                                        && installed.is_ok()
+                                        && valid_inventory
+                                        && !rejected
+                                    {
+                                        let result = match capability_deadline
+                                            .take()
+                                            .zip(capability_selector)
+                                        {
+                                            Some((deadline, selector)) => driver
+                                                .begin_fixture_capability(
+                                                    &request, selector, deadline,
+                                                ),
+                                            None => Err(Code0SessionFailure::PolicyRejected),
+                                        };
+                                        result.err().map(|_| "capabilityNativeSubmissionFailed")
+                                    } else {
+                                        None
+                                    };
                                     let chooser_submission_failure = if chooser_selected
                                         && installed.is_ok()
                                         && valid_inventory
@@ -3118,6 +3325,8 @@ mod smoke {
                                         "nativeHookInventoryPreconditionFailed"
                                     } else if rejected {
                                         "nativeHooksMissing"
+                                    } else if let Some(failure) = capability_submission_failure {
+                                        failure
                                     } else if let Some(failure) = chooser_submission_failure {
                                         failure
                                     } else if let Some(failure) = download_submission_failure {
@@ -3174,6 +3383,46 @@ mod smoke {
                             if loaded.is_err() {
                                 state.failure = "inlineLoadDenied";
                             }
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::CapabilityClosing { .. },
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        if !capability_selected {
+                            state.failure = "unexpectedCapabilityClosing";
+                        }
+                    }
+                    Observation::Native(
+                        NativeSmokeObservation::Capability(receipt),
+                        callback_thread,
+                        callback_sta,
+                    ) => {
+                        state.callback_affinity &= callback_thread == main_thread && callback_sta;
+                        let valid = capability_selected
+                            && policy.as_ref().is_some_and(|p| {
+                                let mut install = p.lock().unwrap();
+                                if receipt.facts().initial_native_join {
+                                    install
+                                        .native_refusal
+                                        .as_mut()
+                                        .unwrap()
+                                        .navigation_not_issued = false;
+                                }
+                                install.capability.as_mut().is_some_and(|c| {
+                                    c.observe(
+                                        receipt,
+                                        &request,
+                                        started,
+                                        native_capability_close.get(),
+                                        &state.runtime_version,
+                                    )
+                                })
+                            });
+                        if !valid {
+                            state.failure = "capabilityNativeReceiptInvalid";
                         }
                     }
                     Observation::Native(
@@ -3577,6 +3826,17 @@ mod smoke {
                         callback_sta,
                     ) => {
                         browser_exit_count += 1;
+                        if capability_selected {
+                            policy
+                                .as_ref()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .capability
+                                .as_mut()
+                                .unwrap()
+                                .browser_process_exited_once = browser_exit_count == 1;
+                        }
                         if chooser_selected {
                             policy
                                 .as_ref()
@@ -3671,7 +3931,27 @@ mod smoke {
                         callback_sta,
                     ) => {
                         ui_diagnostics.n4_session_stage(&reason, true);
-                        if chooser_selected {
+                        if capability_selected {
+                            state.callback_affinity &=
+                                callback_thread == main_thread && callback_sta;
+                            let mut install = policy.as_ref().unwrap().lock().unwrap();
+                            let capability = install.capability.as_mut().unwrap();
+                            let prior =
+                                capability.receipts[1] == 1 && capability.facts.failure.is_some();
+                            if owned == request
+                                && reason == Code0SessionFailure::PolicyRejected
+                                && prior
+                            {
+                                capability.policy_failures =
+                                    capability.policy_failures.saturating_add(1).min(2);
+                                capability.failure_after_disposition = true;
+                                if capability.policy_failures != 1 {
+                                    state.failure = "capabilityRepeatedNativeFailure";
+                                }
+                            } else {
+                                state.failure = "capabilityUnexpectedNativeFailure";
+                            }
+                        } else if chooser_selected {
                             state.callback_affinity &=
                                 callback_thread == main_thread && callback_sta;
                             let mut install = policy.as_ref().unwrap().lock().unwrap();
@@ -3885,7 +4165,8 @@ mod smoke {
             let policy_document_ready = policy
                 .as_ref()
                 .is_some_and(|policy| policy.lock().unwrap().document_receipts != 0);
-            let native_install_observed = !chooser_selected
+            let native_install_observed = !capability_selected
+                && !chooser_selected
                 && !download_selected
                 && !popup_selected
                 && !top_selected
@@ -3899,6 +4180,8 @@ mod smoke {
                         .as_ref()
                         .is_some_and(|native| native.receipts == 1)
                 });
+            let capability_action_observed =
+                capability_selected && native_capability_close.get().is_some();
             let chooser_action_observed = chooser_selected && native_chooser_close.get().is_some();
             let download_action_observed =
                 download_selected && native_download_close.get().is_some();
@@ -3911,7 +4194,9 @@ mod smoke {
                 && started.elapsed() >= Duration::from_secs(45)
                 && state.failure == "notCompleted"
             {
-                state.failure = if chooser_selected {
+                state.failure = if capability_selected {
+                    "capabilityTargetUnobserved"
+                } else if chooser_selected {
                     "chooserTargetUnobserved"
                 } else if download_selected {
                     "downloadTargetUnobserved"
@@ -3942,12 +4227,15 @@ mod smoke {
                     || popup_action_observed
                     || download_action_observed
                     || chooser_action_observed
+                    || capability_action_observed
                     || fault_target_ready
                     || coverage_ready
                     || started.elapsed() >= Duration::from_secs(45)
                     || state.failure != "notCompleted")
             {
-                let closing = if chooser_selected {
+                let closing = if capability_selected {
+                    native_capability_close.get()
+                } else if chooser_selected {
                     native_chooser_close.get()
                 } else if download_selected {
                     native_download_close.get()
@@ -4018,6 +4306,17 @@ mod smoke {
                     }
                     if coverage.is_some() && !positive && state.failure == "notCompleted" {
                         state.failure = "coveragePositiveOracleMismatch";
+                    }
+                    if capability_selected && !positive && state.failure == "notCompleted" {
+                        state.failure = policy
+                            .as_ref()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .capability
+                            .as_ref()
+                            .unwrap()
+                            .failure();
                     }
                     if chooser_selected && !positive && state.failure == "notCompleted" {
                         state.failure = policy
@@ -4124,6 +4423,11 @@ mod smoke {
         state.run_returned = true;
         state.cleanup_succeeded = cleanup_succeeded;
         state.completed_cases = 1;
+        if let Some(policy) = &final_policy
+            && let Some(capability) = policy.lock().unwrap().capability.as_mut()
+        {
+            capability.facts.temp_dir_closed = cleanup_succeeded && state.run_returned;
+        }
         let positive = final_policy.as_ref().map_or_else(
             || state.positive(),
             |policy| {
@@ -4171,6 +4475,10 @@ fn main() {
             {
                 smoke::run_download_refusal()
             }
+            [selector] if selector=="--code0-policy-fixture=s4-capability-open-main" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::OpenMain),
+            [selector] if selector=="--code0-policy-fixture=s4-capability-write-main" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::WriteMain),
+            [selector] if selector=="--code0-policy-fixture=s4-capability-open-child-prototype" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::OpenChildPrototype),
+            [selector] if selector=="--code0-policy-fixture=s4-capability-dispose-missing" => smoke::run_capability(ai_token_meter_windows::platform::windows::code0_webview::fixture::NativeCapabilitySelector::DisposeMissing),
             [selector]
                 if selector == "--code0-policy-fixture=chooser-prebound-owned-empty-file" =>
             {

@@ -13,7 +13,7 @@
 
 ## 当前队列
 
-**最新进度（2026-10-29，有限S3验收通过）：** REQ-20261029-001依赖修补已完成。候选`60363eb`三条CI全部结束：macOS独立实际审查C0/I0/M0；Windows有限S3独立实际审查C0/I0/M0，整体仍因旧N4原生用户触发TRUE而C0/I1/M0；调度器工作流成功、独立实际审查中。新N4固定CDP候选已修正源码审查发现的单点宏作用域问题，最终SPEC/QUALITY均C0/I0/M0，待提交、持久备份和新的隔离CI；不把旧轮结果计作新代码通过。S4纯协议切片已独审C0/I0/M1，待原生接入时补累计容量/第二ready回归，十四测试尚未执行。REQ-20261026-004继续进行，保留旧未知首因及所有改动；沿用Sol6.1/high、全部测试/独审通过后直接发布授权。未合并main或发布。
+**最新进度（2026-10-29）：** 8a3601a三组隔离CI及其独立实际审查均已通过有限验收。S4原生第二轮修订的规格和质量复审均C0/I0/M0，开发入口已全文接受；原三项时序与权限失效缺口及关闭超时失败类别问题均在源码层面闭合，纯协议和严格工作流也已源码审查通过。全部二十八项新增S4定义、编译及实际行为仍未执行，下一步在完整检查点后提交隔离实际失败基线验证。HTTP401和权限有限合同准备均经独立审查及开发入口接受，两者尚未获实施许可或实际行为验收。全部旧改动、失败及证据保留；整体仍在开发，未合并main或发布。用户最新Sol6.1/high和全部测试、独立审查通过后直接发布授权保持。
 
 
 **当前实际验证与接续（2026-10-29）：** 用户最新明确继续Sol6.1/high、保留改动、全部测试和独立审查通过后直接发布，沿用既有授权。当前候选588a965：macOS40814396837四job/32step成功，独立实际审查32187/8408ae24经开发入口全文接受有限C0/I0/M0，当前736条开始/736条通过，15项仍未观察；Windows40814396864独审37752/c673aa29全文接受C0/I1/M0 HOLD，N4真实原生IsUserInitiated读回true，与非用户触发合同不符，但严格完成及正常清理通过。旧超时本轮未复现、首因仍未知，不能宣称已修复。原生17次正常清理、16目标通过、402唯一Rust测试及前端304项通过不抵销N4失败。dispatcher40814396848仍运行，不取消或重复启动。下一步仅准备固定延后触发弹窗的窄合同并独审，保留原生非用户断言和原期限。并行REQ-20261029-001临时依赖CI源码独审C0/I1/M0发现最终依赖文件保护遗漏，已交唯一作者窄修；锁文件仍未生成、未整合、未发布。
@@ -894,3 +894,12 @@
 
 
 2026-10-29: Exact N4 timer candidate5f5daa5 regression: macOS40819298545 completedSUCCESS (raw and controlled CLI evidence saved, independent actual review pending); Windows40819298568 failed the native initial-blank popup refusal and its strict evidence gate, fresh cause not yet read; dispatcher40819298633 continues. Preserve failure and read actual records before any next fix; do not broaden assertions or claim overall GREEN. Independent dependency fix3 fdd9e2b/40819983937 completedSUCCESS with full56 artifacts; Root verified55 payload hashes,171-node complete graph and52 intended scalar changes,304 frontend tests,25 lifecycle tests,actual Edge/layout,build,dev/readiness-cleanup,audit0 and finalbyte protection. Its independent actual acceptance remains pending, accepted manifest/lock not yet integrated. S3 sole author continues only its scoped changes; no merge/release.
+
+### REQ-20261029-002 — 定时检查固定五项简报与子Agent运行核查
+
+- 登记日期：2026-10-29；类别：协作与汇报；优先级：高；状态：已完成；所有者：A（汇报与监听配置）、B（执行状态证据）。
+- 用户意图：每次定时检查明确、简短列出：刚解决的问题、正在解决的问题、下一步、长期未决问题及解决计划、当前运行的子Agent。
+- 验收口径：每次均按这五项列表汇报；没有新增解决则明确写无，不重复报旧成果。子Agent列名称/职责/实际状态及证据时间，不把B active当子Agent运行证明。若无运行子Agent，核查B是否亲自执行、等待CI/审查、被阻塞或漏续派，写明原因和行动；有安全可执行缺项按既有分工由B接续，不为凑人数重复派发。
+- 本次用户要求覆盖此前无变化静默的汇报偏好；五分钟频率、保留监听、执行模型、现有工作与全部门禁不变。
+
+- 完成日期：2026-10-29。原antigravity已通过支持控制面更新，仍ACTIVE/每5分钟/原A对话；五项简报写入持久提示并回读，notification_policy=null。已通知B保留A新增记录并提供当前控制面子Agent清单；A本次直接wait核实三个子Agent均active/inProgress/error null。只完成汇报配置，不代表产品完成；A未执行Git，主台账新增由B后续正常整合。
