@@ -63,7 +63,7 @@
    - `publish` 的 `needs` 改为在 macos-only 下只依赖 `macos-preflight`；
    - Windows 资产下载/校验/上传、Windows preview feed 更新等步骤按同一输入跳过；
    - **不跳过任何 macOS 门禁**（版本/tag 校验、`scripts/test.sh`、契约检查、原生夹具、已签名资产校验全部保留）。
-5. **Windows 红门在合并后为何不阻塞**：本条原假设是「`windows/` 保持 `origin/main` 版本 ⇒ `windows-ci` 结论不变」。**该假设已被证伪，结论以偏离 4、偏离 5 与一次本分支实跑为准**：共享契约里新增的 Code0 条目会让 Windows 运行时解码失败，因此发布分支把 `contracts/presentation/providers.json` 收回 `main` 的 4 项、把 Code0 条目移入 `contracts/presentation/providers.macos.json`，再用本分支上的 Windows CI run `41011704808`（job `Windows frontend and Rust runtime` success）取得结论——**不再引用 `main` 的旧结论**。HTTP401/S5 继续留在 PR#67（Draft）作为后续批次载体。**不允许**通过删断言、跳过测试、`continue-on-error`、放宽超时让它"变绿"。
+5. **Windows 红门在合并后为何不阻塞**：本条原假设是「`windows/` 保持 `origin/main` 版本 ⇒ `windows-ci` 结论不变」。**该假设已被证伪，结论以偏离 4、偏离 5 与一次本分支实跑为准**：共享契约里新增的 Code0 条目会让 Windows 运行时解码失败，因此发布分支把 `contracts/presentation/providers.json` 收回 `main` 的 4 项、把 Code0 条目移入 `contracts/presentation/providers.macos.json`，再用本分支上的 Windows CI run `41014105700`（job `Windows frontend and Rust runtime` success，head `d60c983c`）取得结论——**不再引用 `main` 的旧结论**。HTTP401/S5 继续留在 PR#67（Draft）作为后续批次载体。**不允许**通过删断言、跳过测试、`continue-on-error`、放宽超时让它"变绿"。
 6. `pr#67` 保持 Draft，不合并、不改状态。
 
 **执行记录（2026-10-30，实际落地与本文的差异）**：
