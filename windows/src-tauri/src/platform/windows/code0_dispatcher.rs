@@ -434,13 +434,13 @@ impl Code0Proxy {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
 struct DrainObservation<'a> {
     active: &'a Cell<bool>,
     prior: bool,
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
 impl Drop for DrainObservation<'_> {
     fn drop(&mut self) {
         self.active.set(self.prior);
@@ -459,7 +459,7 @@ pub struct Code0Dispatcher<C, D, S> {
     emit: RefCell<Code0Emitter>,
     retry_deadline: Cell<Option<Duration>>,
     stop_waiters: RefCell<Vec<Code0ReplySink>>,
-    #[cfg(test)]
+    #[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
     drain_active: Cell<bool>,
 }
 impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
@@ -495,11 +495,11 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
             emit: RefCell::new(emit),
             retry_deadline: Cell::new(None),
             stop_waiters: RefCell::new(Vec::new()),
-            #[cfg(test)]
+            #[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
             drain_active: Cell::new(false),
         })
     }
-    #[cfg(test)]
+    #[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
     pub(crate) fn terminal_prerequisites_met(&self) -> bool {
         if self.drain_active.get() {
             return false;
@@ -538,7 +538,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
     }
 
     pub fn drain(&self) {
-        #[cfg(test)]
+        #[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
         let _drain_observation = DrainObservation {
             active: &self.drain_active,
             prior: self.drain_active.replace(true),

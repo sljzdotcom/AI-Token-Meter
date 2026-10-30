@@ -2447,6 +2447,380 @@ mod smoke {
         Ok(passed)
     }
 
+    const NATIVE_COLD_CASE: &str = "native-factory-cold-bind";
+    use ai_token_meter_windows::platform::windows::code0_dispatcher::Code0SessionDto;
+    use ai_token_meter_windows::platform::windows::code0_webview::fixture::{
+        NativeColdClockSample, NativeColdInstallReceipt, NativeColdRetirementReceipt,
+        native_cold_factory,
+    };
+
+    #[derive(Default, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NativeColdEvidence {
+        app_built: bool,
+        profile_root_fresh: bool,
+        ready_observed: bool,
+        installation: Option<NativeColdInstallReceipt>,
+        initial_view: Option<Code0SessionDto>,
+        clock_sample: Option<NativeColdClockSample>,
+        clock_sample_in_native_range: Option<bool>,
+        initial_view_cold: Option<bool>,
+        stop_issued: bool,
+        settled_turns: u32,
+        retirement: Option<NativeColdRetirementReceipt>,
+        retirement_before_exit: bool,
+        exit_code: Option<i32>,
+        wake_shutdown_issued: bool,
+        wake_joins: u8,
+        wake_join_succeeded: bool,
+        temp_dir_close_attempts: u8,
+        temp_dir_close_succeeded: bool,
+        temp_dir_result_dropped: bool,
+        attempt_within45: bool,
+        stop_through_cleanup_within10: Option<bool>,
+        outer_within75: bool,
+        #[serde(skip)]
+        first_stop: Option<Instant>,
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NativeColdSummary<'a> {
+        #[serde(flatten)]
+        lifecycle: &'a Summary,
+        native_cold: &'a NativeColdEvidence,
+    }
+    impl NativeColdEvidence {
+        fn positive(&self, lifecycle: &Summary) -> bool {
+            let same_installation = self
+                .installation
+                .as_ref()
+                .zip(self.retirement.as_ref())
+                .is_some_and(|(install, retired)| {
+                    install.positive()
+                        && retired.positive()
+                        && install.binding() == retired.binding()
+                });
+            self.app_built
+                && self.profile_root_fresh
+                && self.ready_observed
+                && same_installation
+                && self.initial_view.is_some()
+                && self
+                    .clock_sample
+                    .as_ref()
+                    .is_some_and(|sample| !sample.wall_utc().is_empty())
+                && self.clock_sample_in_native_range == Some(true)
+                && self.initial_view_cold == Some(true)
+                && self.stop_issued
+                && self.settled_turns != 0
+                && self.retirement_before_exit
+                && self.exit_code == Some(0)
+                && self.wake_shutdown_issued
+                && self.wake_joins == 1
+                && self.wake_join_succeeded
+                && self.temp_dir_close_attempts == 1
+                && self.temp_dir_close_succeeded
+                && self.temp_dir_result_dropped
+                && self.attempt_within45
+                && self.stop_through_cleanup_within10 == Some(true)
+                && self.outer_within75
+                && lifecycle.sta_main
+                && lifecycle.callback_affinity
+                && lifecycle.no_inherited_override
+                && lifecycle.profile_isolated
+                && lifecycle.run_returned
+                && lifecycle.cleanup_succeeded
+        }
+    }
+
+    pub fn run_native_cold() -> Result<bool, Box<dyn std::error::Error>> {
+        // One original case/outer origin includes setup, constructor, Stop,
+        // complete owned drops, wake join, TempDir Result drop and final I/O.
+        let started = Instant::now();
+        let run_id = std::env::var("AI_METER_CODE0_NATIVE_RUN_ID")?;
+        if run_id.is_empty()
+            || run_id.len() > 64
+            || !run_id
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || v == b'-' || v == b'_')
+        {
+            return Err("invalid fixture run ID".into());
+        }
+        let output = PathBuf::from(
+            std::env::var_os("AI_METER_CODE0_NATIVE_SUMMARY")
+                .ok_or("missing fresh summary path")?,
+        );
+        let diagnostics = Arc::new(Diagnostics::from_env());
+        let evidence = Arc::new(Mutex::new(
+            OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(output)?,
+        ));
+        let summary = Arc::new(Mutex::new(Summary {
+            schema: 17,
+            run_id,
+            required_case: NATIVE_COLD_CASE,
+            selected_cases: 1,
+            failure: "notCompleted",
+            ..Summary::default()
+        }));
+        let cold = Arc::new(Mutex::new(NativeColdEvidence::default()));
+        let (watchdog_done, watchdog_rx) = mpsc::channel();
+        let hard_summary = Arc::clone(&summary);
+        let hard_cold = Arc::clone(&cold);
+        let hard_evidence = Arc::clone(&evidence);
+        let hard_diagnostics = Arc::clone(&diagnostics);
+        let watchdog = thread::spawn(move || {
+            let remaining = Duration::from_secs(75).saturating_sub(started.elapsed());
+            if watchdog_rx.recv_timeout(remaining).is_err() {
+                hard_diagnostics.emit_once(true);
+                if let (Ok(mut state), Ok(cold), Ok(mut file)) = (
+                    hard_summary.try_lock(),
+                    hard_cold.try_lock(),
+                    hard_evidence.try_lock(),
+                ) {
+                    state.pass = false;
+                    state.failure = "watchdogTimeout";
+                    // Preserve observed facts; an unobserved receipt stays null.
+                    let _ = write_summary(
+                        &mut file,
+                        &NativeColdSummary {
+                            lifecycle: &state,
+                            native_cold: &cold,
+                        },
+                    );
+                }
+                std::process::exit(124);
+            }
+        });
+        let initial_write = write_summary(
+            &mut evidence.lock().unwrap(),
+            &NativeColdSummary {
+                lifecycle: &summary.lock().unwrap(),
+                native_cold: &cold.lock().unwrap(),
+            },
+        );
+        let outcome = initial_write
+            .map_err(|error| -> Box<dyn std::error::Error> { error.into() })
+            .and_then(|()| {
+                run_case_selected(
+                    Arc::clone(&summary),
+                    Arc::clone(&diagnostics),
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some((Arc::clone(&cold), started)),
+                )
+            });
+        if outcome.is_err() {
+            summary.lock().unwrap().failure = "fixtureSetupFailed";
+        }
+        let passed = summary.lock().unwrap().pass;
+        let write_result = write_summary(
+            &mut evidence.lock().unwrap(),
+            &NativeColdSummary {
+                lifecycle: &summary.lock().unwrap(),
+                native_cold: &cold.lock().unwrap(),
+            },
+        );
+        diagnostics.emit_once(false);
+        // The original watchdog remains armed until final I/O actually returns.
+        let final_io_timely = started.elapsed() < Duration::from_secs(75)
+            && cold
+                .lock()
+                .unwrap()
+                .first_stop
+                .is_some_and(|at| at.elapsed() < Duration::from_secs(10));
+        let _ = watchdog_done.send(());
+        let watchdog_joined = watchdog.join().is_ok();
+        write_result?;
+        outcome?;
+        let exit_timely = started.elapsed() < Duration::from_secs(75)
+            && cold
+                .lock()
+                .unwrap()
+                .first_stop
+                .is_some_and(|at| at.elapsed() < Duration::from_secs(10));
+        Ok(passed && final_io_timely && watchdog_joined && exit_timely)
+    }
+
+    fn start_fixture_wake(handle: tauri::AppHandle) -> (mpsc::Sender<()>, thread::JoinHandle<()>) {
+        let wake_handle = handle;
+        let (wake_done, wake_rx) = mpsc::channel();
+        let wake = thread::spawn(move || {
+            while wake_rx.recv_timeout(Duration::from_millis(25)).is_err() {
+                if wake_handle.run_on_main_thread(|| {}).is_err() {
+                    break;
+                }
+            }
+        });
+        (wake_done, wake)
+    }
+    fn join_fixture_wake(
+        wake_done: mpsc::Sender<()>,
+        wake: thread::JoinHandle<()>,
+        diagnostics: &Diagnostics,
+    ) -> bool {
+        let _ = wake_done.send(());
+        diagnostics.phase(DP::WakeJoin, false);
+        let wake_joined = {
+            let _boundary = diagnostics.boundary(DP::WakeJoin);
+            wake.join().is_ok()
+        };
+        diagnostics.phase(DP::WakeJoin, true);
+        diagnostics.observed(DM::WakeJoined);
+        wake_joined
+    }
+    fn close_fixture_temp(temp: tempfile::TempDir, diagnostics: &Diagnostics) -> bool {
+        diagnostics.phase(DP::TempClose, false);
+        let cleanup_result = {
+            let _boundary = diagnostics.boundary(DP::TempClose);
+            temp.close()
+        };
+        diagnostics.phase(DP::TempClose, true);
+        let cleanup_succeeded = cleanup_result.is_ok();
+        diagnostics.emit_temp_close_once(&cleanup_result);
+        drop(cleanup_result);
+        if cleanup_succeeded {
+            diagnostics.observed(DM::TempClosed);
+        }
+        cleanup_succeeded
+    }
+    fn run_native_cold_app(
+        app: tauri::App,
+        temp: tempfile::TempDir,
+        temp_root: PathBuf,
+        summary: Arc<Mutex<Summary>>,
+        diagnostics: Arc<Diagnostics>,
+        cold: Arc<Mutex<NativeColdEvidence>>,
+        started: Instant,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let main_thread = thread::current().id();
+        let (wake_done, wake) = start_fixture_wake(app.handle().clone());
+        let observed = Arc::clone(&summary);
+        let observed_cold = Arc::clone(&cold);
+        let ui_diagnostics = Arc::clone(&diagnostics);
+        let mut owner = None;
+        let mut ready_seen = false;
+        let mut exit_requested = false;
+        diagnostics.phase(DP::RunReturn, false);
+        let exit_code = app.run_return(move |handle, event| {
+            if thread::current().id() != main_thread || !is_sta() {
+                observed.lock().unwrap().callback_affinity = false;
+                observed.lock().unwrap().failure = "uiAffinityFailed";
+                if let RunEvent::ExitRequested { api, .. } = &event { api.prevent_exit(); }
+                return;
+            }
+            ui_diagnostics.ui_heartbeat();
+            if exit_requested { return; }
+            if let RunEvent::ExitRequested { api, .. } = &event { api.prevent_exit(); }
+            if matches!(&event, RunEvent::Ready) && !ready_seen {
+                ready_seen = true;
+                observed_cold.lock().unwrap().ready_observed = true;
+                match native_cold_factory(handle.clone(), temp_root.clone()) {
+                    Ok((factory, receipt)) => {
+                        observed_cold.lock().unwrap().installation = Some(receipt);
+                        owner = Some(factory);
+                    }
+                    Err(_) => { observed.lock().unwrap().failure = "nativeColdFactorySetupFailed"; return; }
+                }
+                let factory = owner.as_mut().unwrap();
+                let clock_before = unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() };
+                match factory.passive_read() {
+                    Ok((view, clock)) => {
+                        // A direct shared-clock sample; no unarmed budget read
+                        // or elapsed None is interpreted as success/identity.
+                        let clock_after = unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() };
+                        let clock_valid = Duration::from_millis(clock_before) <= clock.elapsed()
+                            && clock.elapsed() <= Duration::from_millis(clock_after)
+                            && time::OffsetDateTime::parse(clock.wall_utc(), &time::format_description::well_known::Rfc3339).is_ok();
+                        let view_cold = serde_json::to_value(&view).is_ok_and(|value| value == serde_json::json!({
+                            "revision": 0, "state": "disconnected", "failure": null,
+                            "isAutomaticallySyncing": false, "retryAfterSeconds": null, "snapshot": null,
+                        }));
+                        let mut evidence = observed_cold.lock().unwrap();
+                        evidence.initial_view = Some(view);
+                        evidence.clock_sample = Some(clock);
+                        evidence.clock_sample_in_native_range = Some(clock_valid);
+                        evidence.initial_view_cold = Some(view_cold);
+                        if !clock_valid || !view_cold { observed.lock().unwrap().failure = "nativeColdReadInvalid"; }
+                    }
+                    Err(_) => { observed.lock().unwrap().failure = "nativeColdReadFailed"; }
+                }
+                let at = Instant::now();
+                observed_cold.lock().unwrap().first_stop = Some(at);
+                if factory.stop().is_ok() { observed_cold.lock().unwrap().stop_issued = true; }
+                else { observed.lock().unwrap().failure = "nativeColdStopRejected"; }
+            }
+            if let RunEvent::WindowEvent { label, event, .. } = event {
+                // Any actual WindowEvent is incompatible with this zero-create case,
+                // but still forward it through the one common runtime queue.
+                observed.lock().unwrap().bare_window_violation = true;
+                if let Some(factory) = owner.as_ref() {
+                    let _ = factory.on_window_event(label, event);
+                }
+            }
+            if let Some(factory) = owner.as_ref() && factory.settled() {
+                let mut evidence = observed_cold.lock().unwrap();
+                evidence.settled_turns = evidence.settled_turns.saturating_add(1);
+            }
+            let timely = started.elapsed() < Duration::from_secs(45)
+                && observed_cold.lock().unwrap().first_stop.is_none_or(|at| at.elapsed() < Duration::from_secs(10));
+            if !timely {
+                observed.lock().unwrap().failure = "nativeColdDeadlineExceeded";
+                // Retain ownership and keep pumping; never force-remove or use
+                // app exit/process cleanup as a positive destructor receipt.
+                return;
+            }
+            if let Some(factory) = owner.take() {
+                match factory.retire_cold() {
+                    Ok(receipt) => {
+                        let mut evidence = observed_cold.lock().unwrap();
+                        evidence.retirement = Some(receipt);
+                        evidence.retirement_before_exit = true;
+                        drop(evidence);
+                        exit_requested = true;
+                        handle.exit(0);
+                    }
+                    Err(factory) => { owner = Some(factory); }
+                }
+            }
+        });
+        diagnostics.phase(DP::RunReturn, true);
+        diagnostics.observed(DM::RunReturned);
+        let wake_joined = join_fixture_wake(wake_done, wake, &diagnostics);
+        let cleanup_succeeded = close_fixture_temp(temp, &diagnostics);
+        let mut state = summary.lock().unwrap();
+        let mut evidence = cold.lock().unwrap();
+        state.run_returned = true;
+        state.cleanup_succeeded = cleanup_succeeded;
+        state.completed_cases = 1;
+        state.profile_isolated = evidence.profile_root_fresh;
+        evidence.exit_code = Some(exit_code);
+        evidence.wake_shutdown_issued = true;
+        evidence.wake_joins = 1;
+        evidence.wake_join_succeeded = wake_joined;
+        evidence.temp_dir_close_attempts = 1;
+        evidence.temp_dir_close_succeeded = cleanup_succeeded;
+        evidence.temp_dir_result_dropped = true;
+        evidence.attempt_within45 = started.elapsed() < Duration::from_secs(45);
+        evidence.stop_through_cleanup_within10 = evidence
+            .first_stop
+            .map(|at| at.elapsed() < Duration::from_secs(10));
+        evidence.outer_within75 = started.elapsed() < Duration::from_secs(75);
+        state.pass = state.failure == "notCompleted"
+            && !state.bare_window_violation
+            && evidence.positive(&state);
+        if state.pass {
+            state.failure = "none";
+        } else if state.failure == "notCompleted" {
+            state.failure = "nativeColdContractFailed";
+        }
+        Ok(())
+    }
+
     const SHARED_SLOT_CASE: &str = "shared-slot-driver";
 
     #[derive(Default, Serialize)]
@@ -3295,6 +3669,18 @@ mod smoke {
         coverage: Option<Arc<Mutex<CoverageEvidence>>>,
         shared: Option<Arc<Mutex<SharedSlotEvidence>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        run_case_selected(summary, diagnostics, policy, fault, coverage, shared, None)
+    }
+
+    fn run_case_selected(
+        summary: Arc<Mutex<Summary>>,
+        diagnostics: Arc<Diagnostics>,
+        policy: Option<Arc<Mutex<PolicyEvidence>>>,
+        fault: Option<Arc<Mutex<FaultEvidence>>>,
+        coverage: Option<Arc<Mutex<CoverageEvidence>>>,
+        shared: Option<Arc<Mutex<SharedSlotEvidence>>>,
+        cold: Option<(Arc<Mutex<NativeColdEvidence>>, Instant)>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let shared_selected = shared.is_some();
         let fault_case = fault.as_ref().map(|fault| fault.lock().unwrap().case);
         let coverage_case = coverage
@@ -3361,7 +3747,7 @@ mod smoke {
         diagnostics.observed(DM::NoOverrides);
         let temp = tempfile::tempdir()?;
         let temp_root = temp.path().canonicalize()?;
-        let profile = if shared_selected {
+        let profile = if shared_selected || cold.is_some() {
             temp_root.join("AI Token Meter Code0")
         } else {
             temp.path().join("code0")
@@ -3442,6 +3828,14 @@ mod smoke {
         };
         diagnostics.phase(DP::AppBuild, true);
         diagnostics.observed(DM::AppBuilt);
+        if let Some((cold, started)) = cold {
+            {
+                let mut evidence = cold.lock().unwrap();
+                evidence.app_built = true;
+                evidence.profile_root_fresh = !profile.exists();
+            }
+            return run_native_cold_app(app, temp, temp_root, summary, diagnostics, cold, started);
+        }
         let queue = Rc::new(RefCell::new(VecDeque::new()));
         let session_queue = Rc::clone(&queue);
         let session_events = Rc::new(move |request, event| {
@@ -3632,15 +4026,7 @@ mod smoke {
             .into(),
             mode: Code0WindowMode::Sync,
         };
-        let wake_handle = app.handle().clone();
-        let (wake_done, wake_rx) = mpsc::channel();
-        let wake = thread::spawn(move || {
-            while wake_rx.recv_timeout(Duration::from_millis(25)).is_err() {
-                if wake_handle.run_on_main_thread(|| {}).is_err() {
-                    break;
-                }
-            }
-        });
+        let (wake_done, wake) = start_fixture_wake(app.handle().clone());
         let observed = Arc::clone(&summary);
         let started = Instant::now();
         // N3 alone carries the original absolute end; late EngineReady cannot
@@ -5745,30 +6131,12 @@ mod smoke {
         });
         diagnostics.phase(DP::RunReturn, true);
         diagnostics.observed(DM::RunReturned);
-        let _ = wake_done.send(());
-        diagnostics.phase(DP::WakeJoin, false);
-        let wake_joined = {
-            let _boundary = diagnostics.boundary(DP::WakeJoin);
-            wake.join().is_ok()
-        };
-        diagnostics.phase(DP::WakeJoin, true);
-        diagnostics.observed(DM::WakeJoined);
+        let wake_joined = join_fixture_wake(wake_done, wake, &diagnostics);
         if let Some(shared) = &final_shared {
             shared.lock().unwrap().wake_join_succeeded = wake_joined;
         }
         // run_return has dropped its callback and UI-local driver before TempDir cleanup.
-        diagnostics.phase(DP::TempClose, false);
-        let cleanup_result = {
-            let _boundary = diagnostics.boundary(DP::TempClose);
-            temp.close()
-        };
-        diagnostics.phase(DP::TempClose, true);
-        let cleanup_succeeded = cleanup_result.is_ok();
-        diagnostics.emit_temp_close_once(&cleanup_result);
-        drop(cleanup_result);
-        if cleanup_succeeded {
-            diagnostics.observed(DM::TempClosed);
-        }
+        let cleanup_succeeded = close_fixture_temp(temp, &diagnostics);
         diagnostics.phase(DP::SummaryLock, false);
         let mut state = summary.lock().unwrap();
         diagnostics.phase(DP::SummaryLock, true);
@@ -5890,6 +6258,9 @@ fn main() {
         let arguments: Vec<_> = std::env::args_os().skip(1).collect();
         match arguments.as_slice() {
             [] => smoke::run(),
+            [selector] if selector == "--code0-profile-fixture=native-factory-cold-bind" => {
+                smoke::run_native_cold()
+            }
             [selector] if selector == "--code0-profile-fixture=shared-slot-driver" => {
                 smoke::run_shared_slot()
             }

@@ -352,7 +352,7 @@ impl<C: Code0SessionClock, D: Code0WindowDriving, S: Code0SnapshotStoring>
         session
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, all(windows, debug_assertions, feature = "code0-native-fixture")))]
     pub(crate) fn terminal_stop_consumed(&self) -> bool {
         self.stopped
             && self.owned.is_none()

@@ -11,6 +11,9 @@ use super::code0_web_session::{
 };
 
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+pub(super) mod cleanup_native;
+
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
 mod chooser_protocol;
 
 #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
@@ -45,6 +48,10 @@ pub struct Code0NativeDriver {
     profile_root: PathBuf,
     lease: Option<Code0ProfileLease>,
     lease_slot: Code0LeaseSlot,
+    #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+    cold_history: Rc<cleanup_native::ColdHistory>,
+    #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+    cleanup_context: Option<cleanup_native::CleanupContext>,
     #[cfg(windows)]
     owner: Rc<std::cell::RefCell<native::Owner>>,
     #[cfg(not(windows))]
@@ -64,13 +71,23 @@ impl Code0NativeDriver {
         events: Code0NativeEventSink,
         slot: Code0LeaseSlot,
     ) -> Self {
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        let cold_history = Rc::new(cleanup_native::ColdHistory::default());
         Self {
             app,
             profile_root,
             lease: None,
             lease_slot: slot,
+            #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+            cold_history: Rc::clone(&cold_history),
+            #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+            cleanup_context: None,
             #[cfg(windows)]
-            owner: Rc::new(std::cell::RefCell::new(native::Owner::new(events))),
+            owner: Rc::new(std::cell::RefCell::new(native::Owner::new(
+                events,
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                Rc::clone(&cold_history),
+            ))),
             #[cfg(not(windows))]
             _events: events,
             #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -111,8 +128,50 @@ impl Code0NativeDriver {
     }
 }
 
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+impl Code0NativeDriver {
+    pub(super) fn bind_cleanup_context(
+        &mut self,
+        context: cleanup_native::CleanupContext,
+    ) -> Result<(), Code0SessionFailure> {
+        if self.cleanup_context.is_some() || !self.cold_unowned() {
+            return Err(Code0SessionFailure::PolicyRejected);
+        }
+        self.cleanup_context = Some(context);
+        Ok(())
+    }
+    fn cold_unowned(&self) -> bool {
+        self.cold_history.eligible()
+            && self.lease.is_none()
+            && Rc::strong_count(&self.cold_history) == 2
+            && Rc::strong_count(&self.lease_slot) == 2
+            && self
+                .lease_slot
+                .try_borrow()
+                .is_ok_and(|slot| slot.is_none())
+            && Rc::strong_count(&self.owner) == 1
+            && native::cold_empty(&self.owner)
+    }
+    pub(super) fn cold_retirement_ready(&self) -> bool {
+        self.cleanup_context.is_some() && self.cold_unowned()
+    }
+    pub(super) fn cleanup_context_bound(&self) -> bool {
+        self.cleanup_context.is_some()
+    }
+    pub(super) fn cold_entries(&self) -> cleanup_native::ColdEntries {
+        self.cold_history.facts()
+    }
+    pub(super) fn cleanup_context_sample(&self) -> Option<cleanup_native::NativeColdClockSample> {
+        self.cleanup_context
+            .as_ref()
+            .map(cleanup_native::CleanupContext::sample)
+    }
+}
+
 impl Code0WindowDriving for Code0NativeDriver {
     fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        self.cold_history.enter(cleanup_native::ColdEntry::Acquire);
         let existing = {
             let slot = self
                 .lease_slot
@@ -237,6 +296,8 @@ impl Code0WindowDriving for Code0NativeDriver {
     }
 
     fn create_unloaded(&mut self, request: Code0WindowRequest) -> Result<(), Code0SessionFailure> {
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        self.cold_history.enter(cleanup_native::ColdEntry::Create);
         if !self.profile_lease_held() {
             return Err(Code0SessionFailure::ProfileBusy);
         }
@@ -275,6 +336,8 @@ impl Code0WindowDriving for Code0NativeDriver {
         &mut self,
         _request: Code0CleanupRequest,
     ) -> Result<(), Code0SessionFailure> {
+        #[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+        self.cold_history.enter(cleanup_native::ColdEntry::Clear);
         Err(Code0SessionFailure::PolicyRejected)
     }
 }
@@ -608,6 +671,8 @@ mod native {
         unmatched_script_ids: Vec<String>,
         polling: bool,
         ui_thread: ThreadId,
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        cold_history: Rc<super::cleanup_native::ColdHistory>,
         events: Code0NativeEventSink,
         instance: Option<Instance>,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -686,7 +751,12 @@ mod native {
     }
 
     impl Owner {
-        pub(super) fn new(events: Code0NativeEventSink) -> Self {
+        pub(super) fn new(
+            events: Code0NativeEventSink,
+            #[cfg(all(debug_assertions, feature = "code0-native-fixture"))] cold_history: Rc<
+                super::cleanup_native::ColdHistory,
+            >,
+        ) -> Self {
             Self {
                 unmatched: false,
                 unmatched_objects: Vec::new(),
@@ -694,6 +764,8 @@ mod native {
                 unmatched_script_ids: Vec::new(),
                 polling: false,
                 ui_thread: thread::current().id(),
+                #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+                cold_history,
                 events,
                 instance: None,
                 #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
@@ -716,6 +788,23 @@ mod native {
     fn on_ui(owner: &Rc<RefCell<Owner>>) -> bool {
         let ui_thread = owner.borrow().ui_thread;
         ui_thread == thread::current().id() && is_sta()
+    }
+
+    #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+    pub(super) fn cold_empty(owner: &Rc<RefCell<Owner>>) -> bool {
+        let Ok(state) = owner.try_borrow() else {
+            return false;
+        };
+        state.ui_thread == thread::current().id()
+            && is_sta()
+            && !state.polling
+            && !state.unmatched
+            && state.unmatched_objects.is_empty()
+            && state.unmatched_script_ids.is_empty()
+            && state.instance.is_none()
+            && state.http401_intent.is_none()
+            && state.permission_intent.is_none()
+            && state.cold_history.eligible()
     }
 
     fn callback_on_ui(ui: ThreadId, callbacks: &Callbacks, _n4_site: u16) -> bool {
@@ -937,6 +1026,11 @@ mod native {
         request: Code0WindowRequest,
         #[cfg(all(debug_assertions, feature = "code0-native-fixture"))] observer: Option<Observer>,
     ) -> Result<(), Code0SessionFailure> {
+        #[cfg(all(debug_assertions, feature = "code0-native-fixture"))]
+        owner
+            .borrow()
+            .cold_history
+            .enter(super::cleanup_native::ColdEntry::NativeCreate);
         if !on_ui(owner) || !object_free(owner, None) {
             return Err(Code0SessionFailure::PolicyRejected);
         }
@@ -17061,6 +17155,66 @@ pub mod fixture {
         record_session_failure as record_permission_session_failure,
     };
     use super::{Code0NativeDriver, Code0SessionFailure, Code0WindowRequest};
+
+    #[cfg(windows)]
+    pub use super::cleanup_native::{
+        NativeColdClockSample, NativeColdInstallReceipt, NativeColdRetirementReceipt,
+    };
+
+    #[cfg(windows)]
+    pub struct NativeColdFactory {
+        inner: crate::platform::windows::code0_runtime::NativeFixtureHandle,
+    }
+    #[cfg(windows)]
+    pub fn native_cold_factory(
+        app: tauri::AppHandle,
+        isolated_parent: PathBuf,
+    ) -> Result<
+        (NativeColdFactory, NativeColdInstallReceipt),
+        crate::platform::windows::code0_dispatcher::Code0DispatchError,
+    > {
+        let (inner, receipt) =
+            crate::platform::windows::code0_runtime::NativeFixtureHandle::install(
+                app,
+                isolated_parent,
+            )?;
+        Ok((NativeColdFactory { inner }, receipt))
+    }
+    #[cfg(windows)]
+    impl NativeColdFactory {
+        pub fn passive_read(
+            &self,
+        ) -> Result<
+            (
+                crate::platform::windows::code0_dispatcher::Code0SessionDto,
+                NativeColdClockSample,
+            ),
+            crate::platform::windows::code0_dispatcher::Code0DispatchError,
+        > {
+            self.inner.read()
+        }
+        pub fn stop(
+            &mut self,
+        ) -> Result<(), crate::platform::windows::code0_dispatcher::Code0DispatchError> {
+            self.inner.stop()
+        }
+        pub fn on_window_event(
+            &self,
+            label: String,
+            event: tauri::WindowEvent,
+        ) -> Result<bool, crate::platform::windows::code0_dispatcher::Code0DispatchError> {
+            self.inner.window(label, event)
+        }
+        pub fn settled(&self) -> bool {
+            self.inner.settled()
+        }
+        pub fn retire_cold(self) -> Result<NativeColdRetirementReceipt, Self> {
+            match self.inner.retire() {
+                Ok(receipt) => Ok(receipt),
+                Err(inner) => Err(Self { inner }),
+            }
+        }
+    }
 
     /// Finite observation only: neither the shared slot nor any authority or
     /// native identity leaves this Windows debug-fixture boundary.

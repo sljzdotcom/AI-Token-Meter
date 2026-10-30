@@ -1,20 +1,25 @@
-//! Test-only UI-local runtime seam with a guarded settled dispatcher pump.
-//! Product actions remain unavailable; no native owner, timer or bootstrap is installed.
+//! Private UI-local runtime with one guarded settled dispatcher pump.
+//! Product actions remain unavailable; the debug fixture only binds and retires a cold native owner.
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
+use std::sync::Arc;
+#[cfg(test)]
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+#[cfg(test)]
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError};
-use std::sync::{Arc, Mutex};
 
+#[cfg(test)]
+use super::code0_dispatcher::{Code0Action, Code0ReplySink};
 use super::code0_dispatcher::{
-    Code0Action, Code0DispatchError, Code0Dispatcher, Code0Proxy, Code0ReplySink, Code0Revision,
-    Code0Schedule, Code0SessionDto,
+    Code0DispatchError, Code0Dispatcher, Code0Proxy, Code0Revision, Code0Schedule, Code0SessionDto,
 };
 use super::code0_web_session::{
-    Code0CleanupRequest, Code0SessionClock, Code0SessionFailure, Code0SnapshotStoring,
-    Code0WebSession, Code0WindowDriving, Code0WindowEvent, Code0WindowRequest,
+    Code0CleanupBudgetHandle, Code0CleanupRequest, Code0SessionClock, Code0SessionFailure,
+    Code0SnapshotStoring, Code0WebSession, Code0WindowDriving, Code0WindowEvent,
+    Code0WindowRequest,
 };
 
 pub(super) type UiJob = Box<dyn FnOnce() + Send + 'static>;
@@ -55,6 +60,7 @@ impl CallbackSink {
     ) -> Result<(), Code0DispatchError> {
         self.proxy.window(self.binding, request, event)
     }
+    #[cfg(test)]
     fn cleanup(
         &self,
         request: Code0CleanupRequest,
@@ -64,13 +70,23 @@ impl CallbackSink {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(test)]
 enum NativeTerminalState {
     Pending,
     Quiescent,
 }
 trait UiBackend: Code0WindowDriving {
+    // Controlled unit backends have no native context. Only NativeBackend's
+    // override binds D; this default can never issue a native receipt.
+    fn attach_session(
+        &mut self,
+        _budget: Code0CleanupBudgetHandle,
+    ) -> Result<(), Code0DispatchError> {
+        Ok(())
+    }
     fn on_window_event(&mut self, label: &str, event: &tauri::WindowEvent);
     fn poll_cleanup(&mut self);
+    #[cfg(test)]
     fn terminal_state(&self) -> NativeTerminalState {
         NativeTerminalState::Pending
     }
@@ -117,16 +133,21 @@ struct QueuedWindow {
 trait LocalRecord {
     fn binding(&self) -> u64;
     fn mark_pending(&self);
+    #[cfg(test)]
     fn attach_tick(
         &self,
         ack: super::code0_tick::TickAcknowledgement,
     ) -> Result<(), Code0DispatchError>;
+    #[cfg(test)]
     fn mark_tick(&self);
+    #[cfg(test)]
     fn tick_attached(&self, ack: &super::code0_tick::TickAcknowledgement) -> bool;
     fn committed_view(&self) -> Code0SessionDto;
     fn queue_window(&self, event: QueuedWindow) -> Result<(), Code0DispatchError>;
     fn settled(&self) -> TurnResult;
+    #[cfg(test)]
     fn request_terminal(&self) -> Result<(), Code0DispatchError>;
+    #[cfg(test)]
     fn terminal_progress(&self);
 }
 struct RegistrySlot {
@@ -148,6 +169,7 @@ fn lookup(binding: u64) -> Option<Rc<dyn LocalRecord>> {
             .map(Rc::clone)
     })
 }
+#[cfg(test)]
 pub(super) fn attach_tick(
     binding: u64,
     ack: super::code0_tick::TickAcknowledgement,
@@ -156,25 +178,30 @@ pub(super) fn attach_tick(
         .ok_or(Code0DispatchError::Unavailable)?
         .attach_tick(ack)
 }
+#[cfg(test)]
 pub(super) fn tick_attached(binding: u64, ack: &super::code0_tick::TickAcknowledgement) -> bool {
     lookup(binding).is_some_and(|record| record.tick_attached(ack))
 }
+#[cfg(test)]
 pub(super) fn mark_tick(binding: u64) {
     if let Some(record) = lookup(binding) {
         record.mark_tick();
     }
 }
+#[cfg(test)]
 fn request_terminal(binding: u64) -> Result<(), Code0DispatchError> {
     lookup(binding)
         .ok_or(Code0DispatchError::Unavailable)?
         .request_terminal()
 }
 // Deliberately not Clone/Copy: issuance and final consumption are one-use.
+#[cfg(test)]
 struct TerminalPermit {
     binding: u64,
     operation: u64,
     epoch: u64,
 }
+#[cfg(test)]
 struct TerminalJoinReceipt {
     binding: u64,
     operation: u64,
@@ -182,6 +209,7 @@ struct TerminalJoinReceipt {
     thread: std::thread::ThreadId,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 enum TerminalPhase {
     Running,
     Joining,
@@ -193,6 +221,7 @@ enum TerminalPhase {
 }
 #[derive(Clone, Copy)]
 #[repr(u8)]
+#[cfg(test)]
 enum TerminalFailure {
     NoProducer = 1,
     MissingWorker,
@@ -215,28 +244,39 @@ enum TerminalFailure {
     RetentionConflict,
     Unresolved,
 }
+#[cfg(test)]
 enum TerminalCompletion {
     Joined(TerminalJoinReceipt),
     Failed(TerminalFailure),
 }
+#[cfg(test)]
 const DELIVERY_PENDING: u8 = 0;
+#[cfg(test)]
 const DELIVERY_POSTED: u8 = 1;
+#[cfg(test)]
 const DELIVERY_FAILED: u8 = 2;
+#[cfg(test)]
 type WorkerJoin = std::thread::JoinHandle<super::code0_tick::TickExit>;
+#[cfg(test)]
 type BlockingJoin = tauri::async_runtime::JoinHandle<TerminalCompletion>;
+#[cfg(test)]
 struct TerminalJoinObligation {
     worker: Arc<Mutex<Option<WorkerJoin>>>,
     blocking: Option<Arc<Mutex<BlockingJoin>>>,
     delivery: AtomicU8,
     failure: AtomicU8,
 }
+#[cfg(test)]
 struct RetainedTerminalJoin {
     obligation: Arc<TerminalJoinObligation>,
     continuation: Option<tauri::async_runtime::JoinHandle<()>>,
 }
 // These retain concrete pending handles, not UI records or success permissions.
+#[cfg(test)]
 static TERMINAL_JOINS: Mutex<Vec<RetainedTerminalJoin>> = Mutex::new(Vec::new());
+#[cfg(test)]
 static UNRESOLVED_TICKS: Mutex<Vec<super::code0_tick::TickProducer>> = Mutex::new(Vec::new());
+#[cfg(test)]
 fn retain_unresolved_tick(producer: super::code0_tick::TickProducer) {
     if let Ok(mut ticks) = UNRESOLVED_TICKS.try_lock() {
         ticks.push(producer);
@@ -246,6 +286,7 @@ fn retain_unresolved_tick(producer: super::code0_tick::TickProducer) {
         let _retained = Box::leak(Box::new(producer));
     }
 }
+#[cfg(test)]
 fn retain_terminal_join(join: RetainedTerminalJoin) {
     if let Ok(mut joins) = TERMINAL_JOINS.try_lock() {
         joins.push(join);
@@ -256,7 +297,9 @@ fn retain_terminal_join(join: RetainedTerminalJoin) {
         let _retained = Box::leak(Box::new(join));
     }
 }
+#[cfg(test)]
 struct ContinuationGuard(Arc<TerminalJoinObligation>);
+#[cfg(test)]
 impl Drop for ContinuationGuard {
     fn drop(&mut self) {
         if self.0.delivery.load(Ordering::Acquire) == DELIVERY_PENDING {
@@ -264,6 +307,7 @@ impl Drop for ContinuationGuard {
         }
     }
 }
+#[cfg(test)]
 impl TerminalJoinObligation {
     fn new(worker: WorkerJoin, binding: u64, operation: u64) -> Arc<Self> {
         let worker = Arc::new(Mutex::new(Some(worker)));
@@ -416,6 +460,7 @@ impl TerminalJoinObligation {
         });
     }
 }
+#[cfg(test)]
 impl RetainedTerminalJoin {
     fn completed(&self) -> bool {
         self.obligation.delivery.load(Ordering::Acquire) == DELIVERY_POSTED
@@ -435,6 +480,7 @@ impl RetainedTerminalJoin {
                 .is_some_and(|task| task.inner().is_finished())
     }
 }
+#[cfg(test)]
 fn reap_completed_terminal_joins() {
     let mut retired = Vec::new();
     {
@@ -493,6 +539,7 @@ fn settled_turn(binding: u64) -> TurnResult {
         return TurnResult::Missing;
     };
     let result = record.settled();
+    #[cfg(test)]
     if result == TurnResult::Settled {
         // The guarded poll/drain/reply turn has returned before terminal progress.
         record.terminal_progress();
@@ -511,22 +558,36 @@ struct Runtime<C, B, S> {
     dispatcher: Code0Dispatcher<C, DriverFacade<B>, S>,
     backend: Rc<RefCell<B>>,
     pending: Cell<bool>,
+    #[cfg(test)]
     tick_due: Cell<bool>,
+    #[cfg(test)]
     fault_handled: Cell<bool>,
+    #[cfg(test)]
     tick_ack: RefCell<Option<super::code0_tick::TickAcknowledgement>>,
     in_turn: Cell<bool>,
     windows: RefCell<VecDeque<QueuedWindow>>,
+    #[cfg(test)]
     terminal_tick: RefCell<Option<super::code0_tick::TickProducer>>,
+    #[cfg(test)]
     terminal_operation: Cell<Option<u64>>,
+    #[cfg(test)]
     terminal_join: RefCell<Option<TerminalJoinReceipt>>,
+    #[cfg(test)]
     terminal_executor: Arc<dyn MainThreadExecutor>,
+    #[cfg(test)]
     terminal_receive: RefCell<Option<Receiver<TerminalCompletion>>>,
+    #[cfg(test)]
     terminal_obligation: RefCell<Option<Arc<TerminalJoinObligation>>>,
+    #[cfg(test)]
     terminal_phase: Cell<TerminalPhase>,
+    #[cfg(test)]
     terminal_failure: Cell<Option<TerminalFailure>>,
+    #[cfg(test)]
     terminal_advancing: Cell<bool>,
+    #[cfg(test)]
     terminal_epoch: Cell<u64>,
 }
+#[cfg(test)]
 impl<C, B, S> Drop for Runtime<C, B, S> {
     fn drop(&mut self) {
         if let Some(producer) = self.terminal_tick.get_mut().take() {
@@ -545,10 +606,12 @@ impl<C, B, S> Runtime<C, B, S> {
         self.proxy.committed()
     }
     /// The real product policy/chooser/clear/terminal routes are not ready.
+    #[cfg(test)]
     fn production_action(&self, _: Code0Action, reply: Code0ReplySink) {
         reply(Err(Code0DispatchError::Unavailable));
     }
 }
+#[cfg(test)]
 impl<C, B, S> Runtime<C, B, S>
 where
     C: Code0SessionClock,
@@ -773,6 +836,7 @@ where
     fn binding(&self) -> u64 {
         self.binding
     }
+    #[cfg(test)]
     fn request_terminal(&self) -> Result<(), Code0DispatchError> {
         if self.terminal_operation.get().is_none() {
             // A registry binding is process-unique and this record has one lifetime
@@ -782,6 +846,7 @@ where
         }
         Ok(())
     }
+    #[cfg(test)]
     fn terminal_progress(&self) {
         if self.in_turn.get() || self.terminal_advancing.replace(true) {
             self.mark_pending();
@@ -828,8 +893,10 @@ where
     }
     fn mark_pending(&self) {
         self.pending.set(true);
+        #[cfg(test)]
         self.terminal_work_changed();
     }
+    #[cfg(test)]
     fn attach_tick(
         &self,
         ack: super::code0_tick::TickAcknowledgement,
@@ -841,12 +908,14 @@ where
         *slot = Some(ack);
         Ok(())
     }
+    #[cfg(test)]
     fn tick_attached(&self, ack: &super::code0_tick::TickAcknowledgement) -> bool {
         self.tick_ack
             .borrow()
             .as_ref()
             .is_some_and(|installed| installed.matches(ack))
     }
+    #[cfg(test)]
     fn mark_tick(&self) {
         let ack = self.tick_ack.borrow().clone();
         if let Some(ack) = ack
@@ -880,6 +949,7 @@ where
         }
     }
     fn settled(&self) -> TurnResult {
+        #[cfg(test)]
         if self.terminal_advancing.get() {
             self.mark_pending();
             return TurnResult::Deferred;
@@ -891,15 +961,18 @@ where
         let _turn = TurnGuard(&self.in_turn);
         self.pending.set(false);
         // Snapshot before external calls; a nested ACK remains due next turn.
+        #[cfg(test)]
         let tick_due = self.tick_due.replace(false);
         // Only deliveries present at entry are forwarded in this turn. Nested
         // WindowEvents remain owned in the local queue for the next settled turn.
         let count = self.windows.borrow().len();
+        #[cfg(test)]
         let faulted = self
             .tick_ack
             .borrow()
             .as_ref()
             .is_some_and(|ack| ack.faulted());
+        #[cfg(test)]
         if faulted && !self.fault_handled.replace(true) {
             // Fence admissions once, outside ACK/backend borrows. Stop does not
             // cancel polling or prove terminal quiescence or a worker join.
@@ -921,12 +994,40 @@ where
         }
         // Native/backend borrows end before real queued work is dispatched.
         // The turn guard defers synchronous nested scheduling/window delivery.
+        #[cfg(test)]
         if tick_due {
             // install binds this dispatcher to (binding, binding) as its tick ID.
             let _ = self.proxy.tick(self.binding, self.binding);
         }
         self.dispatcher.drain();
         TurnResult::Settled
+    }
+}
+fn take_current_cold_record(binding: u64) -> Option<Rc<dyn LocalRecord>> {
+    REGISTRY.with(|slot| {
+        let Ok(mut slot) = slot.try_borrow_mut() else {
+            return None;
+        };
+        if slot.installing
+            || !slot
+                .record
+                .as_ref()
+                .is_some_and(|record| record.binding() == binding)
+        {
+            return None;
+        }
+        slot.record.take()
+    })
+}
+impl<C: Code0SessionClock, B: UiBackend, S: Code0SnapshotStoring> Runtime<C, B, S> {
+    fn cold_idle(&self) -> bool {
+        !self.in_turn.get()
+            && !self.pending.get()
+            && self
+                .windows
+                .try_borrow()
+                .is_ok_and(|windows| windows.is_empty())
+            && self.dispatcher.terminal_prerequisites_met()
     }
 }
 fn install<C, B, S, F>(
@@ -971,6 +1072,11 @@ where
     };
     let session =
         Code0WebSession::new(inputs.clock.clone(), facade, inputs.store, Box::new(|_| {}));
+    {
+        backend
+            .borrow_mut()
+            .attach_session(session.cleanup_budget_handle())?;
+    }
     let dispatcher = Code0Dispatcher::install(
         binding,
         binding,
@@ -985,26 +1091,259 @@ where
         dispatcher,
         backend,
         pending: Cell::new(false),
+        #[cfg(test)]
         tick_due: Cell::new(false),
+        #[cfg(test)]
         fault_handled: Cell::new(false),
+        #[cfg(test)]
         tick_ack: RefCell::new(None),
         in_turn: Cell::new(false),
         windows: RefCell::new(VecDeque::new()),
+        #[cfg(test)]
         terminal_tick: RefCell::new(None),
+        #[cfg(test)]
         terminal_operation: Cell::new(None),
+        #[cfg(test)]
         terminal_join: RefCell::new(None),
+        #[cfg(test)]
         terminal_executor: executor,
+        #[cfg(test)]
         terminal_receive: RefCell::new(None),
+        #[cfg(test)]
         terminal_obligation: RefCell::new(None),
+        #[cfg(test)]
         terminal_phase: Cell::new(TerminalPhase::Running),
+        #[cfg(test)]
         terminal_failure: Cell::new(None),
+        #[cfg(test)]
         terminal_advancing: Cell::new(false),
+        #[cfg(test)]
         terminal_epoch: Cell::new(0),
     });
     let record: Rc<dyn LocalRecord> = runtime.clone();
     REGISTRY.with(|slot| slot.borrow_mut().record = Some(record));
     Ok(runtime)
 }
+
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+mod native_fixture {
+    use super::super::code0_clock::Code0WindowsClock;
+    use super::super::code0_composition::{
+        Code0SlotSnapshotStore, code0_profile_root, cold_code0_lease_slot,
+    };
+    use super::super::code0_dispatcher::Code0Reply;
+    use super::super::code0_webview::{
+        Code0NativeDriver,
+        cleanup_native::{
+            CleanupContext, NativeColdClockSample, NativeColdInstallReceipt,
+            NativeColdRetirementReceipt,
+        },
+    };
+    use super::*;
+    use std::path::PathBuf;
+
+    struct AppExecutor(tauri::AppHandle);
+    impl MainThreadExecutor for AppExecutor {
+        fn post(&self, job: UiJob) -> Result<(), Code0DispatchError> {
+            self.0
+                .run_on_main_thread(job)
+                .map_err(|_| Code0DispatchError::Unavailable)
+        }
+    }
+    struct NativeBackend {
+        driver: Code0NativeDriver,
+        clock: Code0WindowsClock,
+    }
+    impl Code0WindowDriving for NativeBackend {
+        fn acquire_profile_lease(&mut self) -> Result<(), Code0SessionFailure> {
+            self.driver.acquire_profile_lease()
+        }
+        fn release_profile_lease(&mut self) {
+            self.driver.release_profile_lease();
+        }
+        fn create_unloaded(
+            &mut self,
+            request: Code0WindowRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.driver.create_unloaded(request)
+        }
+        fn navigate(&mut self, instance: &str) -> Result<(), Code0SessionFailure> {
+            self.driver.navigate(instance)
+        }
+        fn close(&mut self, instance: &str) {
+            self.driver.close(instance);
+        }
+        fn clear_website_data(
+            &mut self,
+            request: Code0CleanupRequest,
+        ) -> Result<(), Code0SessionFailure> {
+            self.driver.clear_website_data(request)
+        }
+    }
+    impl UiBackend for NativeBackend {
+        fn attach_session(
+            &mut self,
+            budget: Code0CleanupBudgetHandle,
+        ) -> Result<(), Code0DispatchError> {
+            self.driver
+                .bind_cleanup_context(CleanupContext::new(self.clock.clone(), budget))
+                .map_err(|_| Code0DispatchError::Unavailable)
+        }
+        fn on_window_event(&mut self, label: &str, event: &tauri::WindowEvent) {
+            self.driver.on_window_event(label, event);
+        }
+        fn poll_cleanup(&mut self) {
+            self.driver.poll_cleanup();
+        }
+    }
+    type NativeRuntime = Runtime<Code0WindowsClock, NativeBackend, Code0SlotSnapshotStore>;
+    pub(crate) struct Handle {
+        runtime: Rc<NativeRuntime>,
+        stopped: Arc<AtomicU8>,
+        stop_requested: bool,
+    }
+    impl Handle {
+        pub(crate) fn install(
+            app: tauri::AppHandle,
+            parent: PathBuf,
+        ) -> Result<(Self, NativeColdInstallReceipt), Code0DispatchError> {
+            let root = code0_profile_root(Some(parent.as_os_str()))
+                .map_err(|_| Code0DispatchError::Unavailable)?;
+            let slot = cold_code0_lease_slot();
+            let store = Code0SlotSnapshotStore::new(&root, slot.clone());
+            let clock = Code0WindowsClock::native(); // One native source pair, captured once.
+            let backend_clock = clock.clone();
+            let executor = Arc::new(AppExecutor(app.clone()));
+            let runtime = install(
+                executor,
+                InstallInputs {
+                    clock,
+                    store,
+                    backend: move |sink: CallbackSink| {
+                        let events = Rc::new(move |request, event| {
+                            let _ = sink.window(request, event);
+                        });
+                        NativeBackend {
+                            driver: Code0NativeDriver::new_with_shared_slot(
+                                app, root, events, slot,
+                            ),
+                            clock: backend_clock,
+                        }
+                    },
+                    emit: Box::new(|_| {}),
+                },
+            )?;
+            let receipt = {
+                let backend = runtime.backend.borrow();
+                NativeColdInstallReceipt::new(
+                    runtime.binding,
+                    backend.driver.cleanup_context_bound(),
+                    backend.driver.cold_entries(),
+                )
+            };
+            Ok((
+                Self {
+                    runtime,
+                    stopped: Arc::new(AtomicU8::new(0)),
+                    stop_requested: false,
+                },
+                receipt,
+            ))
+        }
+        pub(crate) fn read(
+            &self,
+        ) -> Result<(Code0SessionDto, NativeColdClockSample), Code0DispatchError> {
+            let view = passive_read(self.runtime.binding)?;
+            let backend = self
+                .runtime
+                .backend
+                .try_borrow()
+                .map_err(|_| Code0DispatchError::Unavailable)?;
+            let sample = backend
+                .driver
+                .cleanup_context_sample()
+                .ok_or(Code0DispatchError::Unavailable)?;
+            Ok((view, sample))
+        }
+        pub(crate) fn stop(&mut self) -> Result<(), Code0DispatchError> {
+            if self.stop_requested {
+                return Err(Code0DispatchError::Unavailable);
+            }
+            self.stop_requested = true;
+            let stopped = Arc::clone(&self.stopped);
+            self.runtime.proxy.stop(Box::new(move |reply| {
+                stopped.store(
+                    if matches!(reply, Ok(Code0Reply::Stopped)) {
+                        1
+                    } else {
+                        2
+                    },
+                    Ordering::Release,
+                );
+            }));
+            Ok(())
+        }
+        pub(crate) fn window(
+            &self,
+            label: String,
+            event: tauri::WindowEvent,
+        ) -> Result<bool, Code0DispatchError> {
+            window_event(self.runtime.binding, label, event)
+        }
+        pub(crate) fn settled(&self) -> bool {
+            settled_turn(self.runtime.binding) == TurnResult::Settled
+        }
+        pub(crate) fn retire(self) -> Result<NativeColdRetirementReceipt, Self> {
+            // No callback/borrow is held here. Stop is observed only after the
+            // complete poll/drain/reply turn returns to the ordinary event loop.
+            if !self.stop_requested
+                || self.stopped.load(Ordering::Acquire) != 1
+                || !self.runtime.cold_idle()
+                || Rc::strong_count(&self.runtime) != 2
+                || Rc::strong_count(&self.runtime.backend) != 2
+            {
+                return Err(self);
+            }
+            let entries = self.runtime.backend.try_borrow().ok().and_then(|backend| {
+                backend
+                    .driver
+                    .cold_retirement_ready()
+                    .then(|| backend.driver.cold_entries())
+            });
+            let Some(entries) = entries else {
+                return Err(self);
+            };
+            let binding = self.runtime.binding;
+            let Some(current) = lookup(binding) else {
+                return Err(self);
+            };
+            let matching = current.binding() == binding;
+            drop(current);
+            if !matching || Rc::strong_count(&self.runtime) != 2 {
+                return Err(self);
+            }
+            let Some(taken) = take_current_cold_record(binding) else {
+                return Err(self);
+            };
+            // The short registry borrow has ended. Final Rc Drop owns the real
+            // dispatcher/Session/store/facade/backend/driver/context destruction.
+            let Self {
+                runtime,
+                stopped,
+                stop_requested: _,
+            } = self;
+            drop(taken);
+            drop(runtime);
+            drop(stopped);
+            let absent = lookup(binding).is_none();
+            Ok(NativeColdRetirementReceipt::after_owned_drops(
+                binding, entries, absent,
+            ))
+        }
+    }
+}
+#[cfg(all(windows, debug_assertions, feature = "code0-native-fixture"))]
+pub(super) use native_fixture::Handle as NativeFixtureHandle;
 
 #[cfg(test)]
 mod tests {
@@ -1280,6 +1619,54 @@ mod tests {
         fn drop(&mut self) {
             self.remove_record();
         }
+    }
+
+    // Mutation: a Stop reply alone bypasses retained-window/pending/in-turn checks.
+    #[test]
+    fn cold_idle_requires_consumed_stop_and_full_settled_return() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
+        let f = Fixture::new();
+        assert!(!f.runtime.cold_idle());
+        let reply = slot();
+        f.runtime.proxy.stop(reply_to(&reply));
+        assert!(!f.runtime.cold_idle());
+        assert_eq!(settled_turn(f.runtime.binding), TurnResult::Settled);
+        assert!(matches!(
+            *reply.lock().unwrap(),
+            Some(Ok(Code0Reply::Stopped))
+        ));
+        assert!(f.runtime.cold_idle());
+        f.runtime.in_turn.set(true);
+        assert!(!f.runtime.cold_idle());
+        f.runtime.in_turn.set(false);
+        f.runtime.pending.set(true);
+        assert!(!f.runtime.cold_idle());
+        f.runtime.pending.set(false);
+        window_event(
+            f.runtime.binding,
+            "cold-retained".into(),
+            tauri::WindowEvent::Destroyed,
+        )
+        .unwrap();
+        assert!(!f.runtime.cold_idle());
+        assert_eq!(settled_turn(f.runtime.binding), TurnResult::Settled);
+        assert!(f.runtime.cold_idle());
+        let held = f.runtime.windows.borrow_mut();
+        assert!(!f.runtime.cold_idle());
+        drop(held);
+        assert!(f.runtime.cold_idle());
+    }
+    // Mutation: removal accepts an old binding or removes an unrelated replacement.
+    #[test]
+    fn cold_record_take_rejects_old_binding_and_keeps_current_owner() {
+        let _runtime_lifecycle = runtime_test_lifecycle_guard();
+        let f = Fixture::new();
+        assert!(take_current_cold_record(f.runtime.binding + 1).is_none());
+        assert!(lookup(f.runtime.binding).is_some());
+        f.remove_record();
+        let replacement = Fixture::new();
+        assert!(take_current_cold_record(f.runtime.binding).is_none());
+        assert!(lookup(replacement.runtime.binding).is_some());
     }
 
     // Mutation: install/read/action admission acquires or creates instead of staying cold.

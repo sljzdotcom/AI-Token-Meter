@@ -22,7 +22,7 @@ import time
 
 DISPATCHER = "windows/src-tauri/src/platform/windows/code0_dispatcher.rs"
 TESTS = "windows/src-tauri/tests/code0_dispatcher.rs"
-DISPATCHER_SHA = "1ce7229523ee0f010ecc198b2d9e8d24188be8dc9ac3c0f9dd7539bd80ce4355"
+DISPATCHER_SHA = "c0790a73a51b2955ccdad0bdad5924c2bb7b0782507563e42388f0701c3d6d45"
 TESTS_SHA = "b736e324815a8e838881e0592c79c74f422bb872534b44248813088863921305"
 # Already-tracked historical reports remain byte-compared source inputs. Only
 # these exact files and their directory entries may use the reserved prefix.
@@ -54,16 +54,16 @@ RECIPES = (
      "reply preceded matching emit"),
 )
 EXPECTED_MUTANTS = {
-    "M1": ("a24884587bc06bb952f0042c8ccc0f6691e8310b8161bcc65729846c10211267",
+    "M1": ("4a81f81dc28dc3438fbd29c42c924e49649af85cc1dd3ad26f97a715cab2d799",
            "311b3451860cb98323ef85e0535392232212db6c2f17d9eb68b6eea0fff61f29",
            "src/platform/windows/code0_dispatcher.rs", 864),
-    "M2": ("3b0b4fbe204025136b6380eb6095865ec4fc3904b8dcfac3fa1ce9b762ae6063",
+    "M2": ("0e6152b88ab40648ce3eb363af2b9f7de5aded9e2ee5351394b526c4ee829b7f",
            "50194d72a4f27b559b6e5d358bc63ea0f8f1152e85b2a162a456d30d20b3599a",
            "src/platform/windows/code0_dispatcher.rs", 864),
-    "M3": ("4d1653295ce2ca5557303312ba9eb607378a8795cc50f111ebe39a0127aae385",
+    "M3": ("11b0db39b3c5756eb1ce05f606f7f24b9d24fe04f8056fb073c87242c9968471",
            "f5effdd5a8dad7a7d116982681f72b65426f545026cb86624f79fe9c56b1264f",
            "tests/code0_dispatcher.rs", 500),
-    "M4": ("e2b0ae295ed6c36f9468726055d04a50eae9d26518790b1a8b297c2568c62de1",
+    "M4": ("1b9127fb6dda573a84be5020021ea641f8902cddaabd3c6001ba096b10baf19b",
            "35f3b03ca7d39b2c6632507a85905249e8b45793882bd31e445065341bb3b4e8",
            "tests/code0_dispatcher.rs", 510),
 }

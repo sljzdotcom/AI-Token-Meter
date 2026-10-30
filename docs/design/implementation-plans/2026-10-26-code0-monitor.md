@@ -491,3 +491,18 @@ runtime 受控分片在真实完整 settled turn、已消费终止前置及显�
 
 
 主树整合补充（2026-10-30）：组合审查定位到默认并行测试之间的全局回收库存锁交错。仅在runtime的29个相关unit test最外层增加共同生命周期guard；产品失败关闭、30个旧测试体/断言及全部期限保持，其他库测试及正常工作流继续默认并行。授权delta可精确逆还原为已实际验收的cfaf源；定向独审C0/I0/M0后整合132497/f01b及权限四源，仍须正常主树实际验证。
+
+
+### 2026-10-30 S5真实冷工厂可达性与显式退役
+
+只读核对确认：现有unit tests没有真实AppHandle/Wry harness，而真实STA/AppHandle仅在harness=false原生夹具；其library看不到cfg(test) runtime。不能以模拟后端、函数引用或冷Owner代替完整NativeBackend正常安装。新的可达性修订14974/50ffa2d7经独立准备审查14377/5bcbf094确认架构可行，指出完整改动范围漏掉两个dispatcher精确pin所有者。开发入口全文接受该发现，并在本计划明确修正为十路径；原准备/独审历史保留。
+
+只将私有runtime与clock扩展到既有Windows test或debug_assertions且code0-native-fixture范围；tick及runtime终止/tick子图仍cfg(test)，原29生命周期guard和已验收测试配置的行为保持。仅扩展Session stopped和Dispatcher stopped/idle的既有纯观察依赖，保留原函数体；begin_terminal_stop不扩展，不新增生产动作入口、不把NativeBackend称Quiescent、不授终止许可。共用同一个install/facade/registry/settled实现，从原D fixture的不透明non-Clone包装入口进入原真实STA/AppHandle，不新建第二套harness、时钟起点、租约或registry。
+
+同一个具体native clock的clone分别进入Session、Dispatcher与清理context；预算只能取新建同Session的Weak handle。真实D的once/cold bind在Session构造后、Dispatcher及registry公开前完成，借用结束后才发布；setup/bind失败不是目标RED。首片仅验证真实冷安装、普通Stop消费、明确退役，clear继续拒绝；不迁移Instance.request、不改N/P，不宣称C/R、Profile2或生产组合已完成。
+
+不透明包装必须在app.exit前消费全部拥有的Runtime/lookup/registry/backend/context句柄，并在UI/STA、全部借用及settled调用结束后完成真实drop。先有实际Stopped回复、原stopped/idle检查、当前matching registry和空队列；冷资格在任何lease acquire、create、构造或clear入口之前永久失效，即使失败或后来release也不恢复。slot空/instance无/record查询无不能单独冒充从未开始或销毁证明；失败保留所有权和原期限，不强拆live owner。真实run_return、wake取消与join、一次TempDir.close及Result drop、原45/首次stop10/outer75、fresh summary/exit继续要求。
+
+完整范围固定为七源码/测试路径：mod.rs、code0_runtime.rs、code0_dispatcher.rs、code0_web_session.rs、code0_webview.rs、新cleanup_native.rs、tests/code0_native_fixture.rs；加三个CI路径：.github/workflows/windows-ci.yml、scripts/test-code0-dispatcher-mutations.py、.github/workflows/code0-dispatcher-mutations.yml。后三项由开发入口在源码冻结后整合。Dispatcher精确SHA及四mutant完整源码SHA必随新字节重算，patch SHA/真实panic行号按最终文本重新导出（不假定必改变）；workflow内全部runner固定SHA同步。四变异配方/断言、23+2基线、strict编译后准确语义kill、完整源码归档及原时限日志界限均保留，禁止绕过门禁。正常release/no-feature、debugfeature非test库/F及原test配置须实际严格构建/测试，无lint豁免或函数引用假验收。
+
+先由唯一作者实现这七路径的私有候选并冻结完整receipt/schema/生产者/保护；独立源码及组合CI审查通过后，才在隔离Windows实际运行首片。新case仅实际冷安装/lifetime正向覆盖，不制造缺API或setup失败作为行为RED；后续真实清理B行为RED和C/R物理完成另行推进。用户已有全测试及独审通过后直接发布授权保持。
