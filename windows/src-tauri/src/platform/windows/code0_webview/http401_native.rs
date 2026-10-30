@@ -226,6 +226,9 @@ macro_rules! record {
         pub struct $name { $(pub $field: $ty),* }
     };
 }
+#[path = "http401_transport.rs"]
+mod http401_transport;
+use http401_transport::*;
 // Explicit wire spelling; never derive a field called finalCount.
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct ReceiptCounts {
@@ -2422,6 +2425,7 @@ pub(super) struct State {
     filter: bool,
     filter_attempted: bool,
     filter_remove_attempted: bool,
+    transport_observation: TransportObservation,
     listener: Option<SocketLease>,
     stream: Option<SocketLease>,
     startup: bool,
@@ -2775,6 +2779,7 @@ pub(in super::super) fn begin(
             filter: false,
             filter_attempted: false,
             filter_remove_attempted: false,
+            transport_observation: TransportObservation::new(),
             listener: None,
             stream: None,
             startup: false,
@@ -3301,21 +3306,7 @@ fn close_sockets(owner: &Rc<RefCell<Owner>>, handles: &[bool]) {
         let action = {
             let mut o = owner.borrow_mut();
             let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
-            let lease = if listener {
-                &mut s.listener
-            } else {
-                &mut s.stream
-            };
-            let handle = lease.as_mut().and_then(SocketLease::reserve_close);
-            if handle.is_some() {
-                if listener {
-                    s.facts.server.listener_close_attempts += 1
-                } else {
-                    s.facts.server.stream_close_attempts += 1
-                };
-                s.in_action = true;
-            }
-            handle
+            core_close_reserve(&mut s.transport_parts(), listener)
         };
         if let Some(handle) = action {
             let r = unsafe { ws::closesocket(handle) };
@@ -3325,21 +3316,8 @@ fn close_sockets(owner: &Rc<RefCell<Owner>>, handles: &[bool]) {
                 let mut o = owner.borrow_mut();
                 let i = o.instance.as_mut().unwrap();
                 let s = i.http401.as_mut().unwrap();
-                let lease = if listener {
-                    s.listener.as_mut()
-                } else {
-                    s.stream.as_mut()
-                };
-                if let Some(lease) = lease {
-                    lease.close_returned(ok);
-                }
-                if ok {
-                    if listener {
-                        s.facts.server.listener_close_successes += 1
-                    } else {
-                        s.facts.server.stream_close_successes += 1
-                    }
-                } else {
+                core_close_returned(&mut s.transport_parts(), listener, ok);
+                if !ok {
                     s.fail("http401Cleanup", Instant::now(), true);
                     i.failed = true;
                     i.closing = true;
@@ -3353,19 +3331,7 @@ fn close_sockets(owner: &Rc<RefCell<Owner>>, handles: &[bool]) {
     let balance = {
         let mut o = owner.borrow_mut();
         let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
-        s.inventory();
-        if s.startup
-            && !s.startup_cleanup_attempted
-            && s.facts.server.sockets_remaining == 0
-            && !s.in_action
-        {
-            s.startup_cleanup_attempted = true;
-            s.in_action = true;
-            s.facts.server.cleanup_attempts += 1;
-            true
-        } else {
-            false
-        }
+        core_cleanup_reserve(&mut s.transport_parts())
     };
     if balance {
         let r = unsafe { ws::WSACleanup() };
@@ -3373,10 +3339,8 @@ fn close_sockets(owner: &Rc<RefCell<Owner>>, handles: &[bool]) {
         let mut o = owner.borrow_mut();
         let i = o.instance.as_mut().unwrap();
         let s = i.http401.as_mut().unwrap();
-        if r == 0 {
-            s.startup = false;
-            s.facts.server.cleanup_successes += 1
-        } else {
+        core_cleanup_returned(&mut s.transport_parts(), r == 0);
+        if r != 0 {
             s.fail("http401Cleanup", Instant::now(), true);
             i.failed = true;
             i.closing = true;
@@ -3475,66 +3439,24 @@ pub(super) fn advance(owner: &Rc<RefCell<Owner>>) {
         if s.in_action {
             return;
         }
-        let operation = if s.setup < 9 {
-            Some(Operation::Setup(
-                s.setup,
-                s.listener.as_ref().map(|v| v.handle),
-            ))
-        } else if !s.navigate_reserved {
-            None
-        } else if !s.top.committed || !s.resource.committed {
-            return;
-        } else if s.stream.is_none() {
-            s.listener.as_ref().map(|v| Operation::Accept(v.handle))
-        } else if s.accepted_setup < 4 {
-            s.stream
-                .as_ref()
-                .map(|v| Operation::Accepted(s.accepted_setup, v.handle))
-        } else if s.facts.server.response_complete == Some(true) {
-            return;
-        } else if let Some(bytes) = s.parser.as_ref().and_then(Http401Protocol::response_suffix) {
-            s.stream.as_ref().map(|v| Operation::Send(v.handle, bytes))
-        } else if s.received < 4096 {
-            s.stream
-                .as_ref()
-                .map(|v| Operation::Receive(v.handle, 512.min(4096 - s.received)))
-        } else {
-            None
+        let operation = match core_next(
+            s.navigate_reserved,
+            s.top.committed && s.resource.committed,
+            &s.transport_parts(),
+        ) {
+            CoreNext::Return => return,
+            CoreNext::Idle => None,
+            CoreNext::Operation(operation) => Some(operation),
         };
         if let Some(operation) = operation {
-            let io = matches!(
-                operation,
-                Operation::Accept(_) | Operation::Receive(..) | Operation::Send(..)
-            );
-            match s.budget.reserve(Instant::now(), io) {
+            match core_reserve(&mut s.transport_parts(), operation, Instant::now()) {
                 Ok(false) => return,
                 Err(()) => {
                     s.facts.overflow = true;
                     s.fail("http401Overflow", Instant::now(), false);
                     None
                 }
-                Ok(true) => {
-                    s.in_action = true;
-                    if io {
-                        s.facts.server.io_attempts = s.budget.io;
-                    } else {
-                        match operation {
-                            Operation::Setup(index, _) => {
-                                s.facts.server.setup_calls += 1;
-                                match index {
-                                    0 => s.facts.server.startup_attempts += 1,
-                                    1 => s.facts.server.socket_creates += 1,
-                                    6 => s.facts.server.binds += 1,
-                                    8 => s.facts.server.listens += 1,
-                                    _ => {}
-                                }
-                            }
-                            Operation::Accepted(..) => s.facts.server.accepted_setup_calls += 1,
-                            _ => {}
-                        }
-                    }
-                    Some(operation)
-                }
+                Ok(true) => Some(operation),
             }
         } else {
             None
@@ -3546,257 +3468,28 @@ pub(super) fn advance(owner: &Rc<RefCell<Owner>>) {
         {
             let mut o = owner.borrow_mut();
             let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
-            if let Operation::Setup(0, _) = operation {
-                s.facts.server.startup_succeeded = Some(outcome.ok);
-                if outcome.ok {
-                    s.startup = true;
-                }
-                s.facts.server.version22 = outcome.version.map(|v| v == 0x0202);
-            }
-            match operation {
-                Operation::Setup(1, _) => {
-                    if let Some(handle) = outcome.socket {
-                        s.listener = Some(SocketLease::new(handle, 1));
-                    }
-                }
-                Operation::Accept(_) => {
-                    if let Some(handle) = outcome.socket {
-                        s.stream = Some(SocketLease::new(handle, 2));
-                        s.facts.server.accepts += 1;
-                    }
-                }
-                _ => {}
-            }
-            match operation {
-                Operation::Setup(2, _) => s.facts.server.exclusive_ack = Some(outcome.ok),
-                Operation::Setup(4, _) => s.facts.server.listener_linger_off = outcome.linger_off,
-                Operation::Setup(5, _) => s.facts.server.listener_nonblocking = Some(outcome.ok),
-                Operation::Setup(7, _) => {
-                    s.facts.server.bound_endpoint_matched = outcome
-                        .address
-                        .as_ref()
-                        .map(|a| address_matches(a, None) && a.sin_port != 0)
-                }
-                Operation::Setup(8, _) => s.facts.server.listen_succeeded = Some(outcome.ok),
-                Operation::Accepted(1, _) => s.facts.server.stream_linger_off = outcome.linger_off,
-                Operation::Accepted(2, _) => s.facts.server.stream_nonblocking = Some(outcome.ok),
-                Operation::Accepted(3, _) => {
-                    s.facts.server.accepted_local_matched =
-                        outcome.address.as_ref().map(|a| address_matches(a, s.port))
-                }
-                Operation::Accept(_) => {
-                    if outcome.socket.is_some() {
-                        s.facts.server.accepted_peer_matched = Some(
-                            outcome
-                                .address
-                                .as_ref()
-                                .is_some_and(|a| address_matches(a, None)),
-                        );
-                    }
-                }
-                _ => {}
-            }
+            core_inventory_return(&mut s.transport_parts(), operation, &outcome);
             s.inventory();
         }
         let current = setup_current(&context, owner) && {
-            let o = owner.borrow();
-            let s = o.instance.as_ref().unwrap().http401.as_ref().unwrap();
-            match operation {
-                Operation::Setup(index, handle) => {
-                    s.setup == index
-                        && (index <= 1
-                            || handle
-                                == s.listener.as_ref().filter(|v| v._id == 1).map(|v| v.handle))
-                }
-                Operation::Accepted(index, handle) => {
-                    s.accepted_setup == index
-                        && s.stream
-                            .as_ref()
-                            .is_some_and(|v| v._id == 2 && v.handle == handle)
-                }
-                Operation::Accept(handle) => s
-                    .listener
-                    .as_ref()
-                    .is_some_and(|v| v._id == 1 && v.handle == handle),
-                Operation::Receive(handle, _) | Operation::Send(handle, _) => s
-                    .stream
-                    .as_ref()
-                    .is_some_and(|v| v._id == 2 && v.handle == handle),
-            }
-        };
-        let nonprogress = matches!(outcome.error, Some(ws::WSAEWOULDBLOCK | ws::WSAEINTR))
-            && matches!(
-                operation,
-                Operation::Accept(_) | Operation::Receive(..) | Operation::Send(..)
-            );
-        let mut failed = None;
-        {
             let mut o = owner.borrow_mut();
             let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
-            // Actual successful provider lengths remain honest even if authority died.
-            if matches!(operation, Operation::Receive(..)) && outcome.ok {
-                s.received = s.received.saturating_add(outcome.length);
-                s.facts.server.request_bytes = s.received.min(4097) as u16;
-            }
-            if matches!(operation, Operation::Send(..)) && outcome.ok {
-                s.facts.server.sent_bytes = s
-                    .facts
-                    .server
-                    .sent_bytes
-                    .saturating_add(outcome.length as u16)
-                    .min(140);
-            }
-            if !current {
-                failed = Some("http401Binding");
-            } else if !outcome.ok && !nonprogress {
-                if matches!(operation, Operation::Send(..)) {
-                    let _ = s.parser.as_mut().unwrap().record_send(SendOutcome::Failed);
-                }
-                failed = Some("http401Socket");
-            } else if nonprogress {
-                if matches!(operation, Operation::Send(..)) {
-                    let outcome = if outcome.error == Some(ws::WSAEWOULDBLOCK) {
-                        SendOutcome::WouldBlock
-                    } else {
-                        SendOutcome::Interrupted
-                    };
-                    if s.parser.as_mut().unwrap().record_send(outcome).is_err() {
-                        failed = Some("http401Wire");
-                    }
-                }
-            } else {
-                match operation {
-                    Operation::Setup(index, _) => {
-                        let valid = match index {
-                            0 => s.facts.server.version22 == Some(true),
-                            2 => {
-                                s.facts.server.exclusive_ack = Some(outcome.ok);
-                                outcome.ok
-                            }
-                            4 => {
-                                s.facts.server.listener_linger_off = outcome.linger_off;
-                                outcome.linger_off == Some(true)
-                            }
-                            5 => {
-                                s.facts.server.listener_nonblocking = Some(outcome.ok);
-                                outcome.ok
-                            }
-                            7 => {
-                                let valid = outcome
-                                    .address
-                                    .as_ref()
-                                    .is_some_and(|a| address_matches(a, None) && a.sin_port != 0);
-                                s.facts.server.bound_endpoint_matched = Some(valid);
-                                if valid {
-                                    let port =
-                                        u16::from_be(outcome.address.as_ref().unwrap().sin_port);
-                                    s.port = Some(port);
-                                    s.url =
-                                        Some(format!("http://127.0.0.1:{port}/code0-http-auth"));
-                                    s.parser = Http401Protocol::new(port).ok();
-                                }
-                                valid && s.parser.is_some()
-                            }
-                            8 => {
-                                s.facts.server.listen_succeeded = Some(outcome.ok);
-                                outcome.ok
-                            }
-                            _ => outcome.ok,
-                        };
-                        if valid {
-                            s.setup += 1;
-                        } else {
-                            failed = Some("http401Socket");
-                        }
-                    }
-                    Operation::Accept(_) => {
-                        let valid = outcome
-                            .address
-                            .as_ref()
-                            .is_some_and(|a| address_matches(a, None));
-                        s.facts.server.accepted_peer_matched = Some(valid);
-                        if !valid {
-                            failed = Some("http401Socket");
-                        }
-                    }
-                    Operation::Accepted(index, _) => {
-                        let valid = match index {
-                            1 => {
-                                s.facts.server.stream_linger_off = outcome.linger_off;
-                                outcome.linger_off == Some(true)
-                            }
-                            2 => {
-                                s.facts.server.stream_nonblocking = Some(outcome.ok);
-                                outcome.ok
-                            }
-                            3 => {
-                                let good = outcome
-                                    .address
-                                    .as_ref()
-                                    .is_some_and(|a| address_matches(a, s.port));
-                                s.facts.server.accepted_local_matched = Some(good);
-                                good
-                            }
-                            _ => outcome.ok,
-                        };
-                        if valid {
-                            s.accepted_setup += 1;
-                        } else {
-                            failed = Some("http401Socket");
-                        }
-                    }
-                    Operation::Receive(..) => {
-                        if outcome.eof {
-                            let _ = s.parser.as_mut().unwrap().receive(&[]);
-                            s.facts.server.request_valid = Some(false);
-                            failed = Some("http401Request");
-                        } else {
-                            match s
-                                .parser
-                                .as_mut()
-                                .unwrap()
-                                .receive(&outcome.bytes[..outcome.length])
-                            {
-                                Ok(ReceiveStatus::Incomplete) => {}
-                                Ok(ReceiveStatus::Accepted(receipt)) => {
-                                    s.facts.server.parsed_requests += 1;
-                                    s.facts.server.header_count = u16::from(receipt.header_count);
-                                    s.facts.server.request_valid =
-                                        Some(s.parser.as_ref().unwrap().receipt() == Some(receipt));
-                                    s.facts.phase = "Writing";
-                                }
-                                Err(_) => {
-                                    s.facts.server.request_valid = Some(false);
-                                    failed = Some("http401Request");
-                                }
-                            }
-                        }
-                    }
-                    Operation::Send(..) => {
-                        let result = s
-                            .parser
-                            .as_mut()
-                            .unwrap()
-                            .record_send(SendOutcome::Sent(outcome.length));
-                        match result {
-                            Ok(progress) => {
-                                if progress.complete {
-                                    s.facts.server.response_complete = Some(true);
-                                    s.facts.phase = "AwaitAuth";
-                                }
-                            }
-                            Err(_) => {
-                                s.facts.server.response_complete = Some(false);
-                                failed = Some("http401Wire");
-                            }
-                        }
-                    }
-                }
-            }
-            s.in_action = false;
-        }
+            core_matches(&s.transport_parts(), operation)
+        };
+        let failed = {
+            let mut o = owner.borrow_mut();
+            let s = o.instance.as_mut().unwrap().http401.as_mut().unwrap();
+            let timely = s.timing.before(Instant::now());
+            core_settle(
+                &mut s.transport_parts(),
+                operation,
+                &outcome,
+                current,
+                timely,
+            )
+        };
         // Returned handles are closed on every path, never dropped as a receipt.
-        if matches!(operation, Operation::Accept(_)) && outcome.socket.is_some() {
+        if core_retire_listener(operation, &outcome) {
             close_sockets(owner, &[true]);
         }
         let complete = owner
@@ -6876,5 +6569,46 @@ mod v2_native_fix2_tests {
             }
         }
         assert_eq!(timing.first_close(), Some(start + Duration::from_secs(1)));
+    }
+}
+
+#[cfg(test)]
+mod bounded_transport_red_tests {
+    use super::http401_transport::controlled::{Connection, exercise};
+
+    // Reproduces the real old single-accept admission defect. The client does
+    // not call a model, invent browser identity, send on idle A, or treat Pending
+    // as refused. All real resource cleanup finishes before either assertion.
+    #[test]
+    fn http401_idle_first_request_second_uses_second_stream() {
+        let run_id = std::env::var("GITHUB_RUN_ID").unwrap_or_else(|_| "local-unbound".to_owned());
+        assert!(
+            !run_id.is_empty()
+                && run_id.len() <= 64
+                && run_id
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'),
+            "HTTP401 transport run identity is unavailable or malformed"
+        );
+        let actual = exercise(run_id);
+        let bytes = serde_json::to_vec(&actual.raw)
+            .expect("HTTP401 controlled raw encoding failed after owned cleanup");
+        assert!(
+            bytes.len() <= 8192 && bytes.is_ascii(),
+            "HTTP401 controlled raw record exceeds the frozen closed encoding envelope"
+        );
+        let raw = String::from_utf8(bytes)
+            .expect("HTTP401 controlled raw encoding must be ASCII after owned cleanup");
+        println!("Code0Http401Transport {raw}");
+        assert!(
+            actual.raw.complete,
+            "HTTP401 transport setup, current completion, ordering or normal cleanup is unqualified: {}",
+            actual.raw.failure
+        );
+        assert_eq!(
+            actual.connection,
+            Connection::Connected,
+            "HTTP401-R idle first connection must not prevent the second owned connection from completing"
+        );
     }
 }

@@ -1,0 +1,4500 @@
+{
+  "schema": 1,
+  "requirement": "REQ-20261026-004",
+  "base": "32b611cd56b1d04942a13848adbbeb382dcddc4a",
+  "baseTree": "8349cac515c985cce0740d09aaf271183116eafa",
+  "ref": "refs/heads/codex/code0-http401-transport-red-fix2-20261030",
+  "changes": [
+    [
+      "A",
+      ".ci/code0-http401-transport-red/schema-data.json"
+    ],
+    [
+      "A",
+      ".github/workflows/code0-http401-transport-red.yml"
+    ],
+    [
+      "A",
+      "scripts/test-code0-http401-transport-red.py"
+    ],
+    [
+      "M",
+      "windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs"
+    ],
+    [
+      "A",
+      "windows/src-tauri/src/platform/windows/code0_webview/http401_transport.rs"
+    ]
+  ],
+  "sourcePins": {
+    "windows/src-tauri/Cargo.toml": {
+      "bytes": 2383,
+      "sha256": "de5d1607ef8411e11d46445d03b51b84f398374ee22ab59b8567e9467b8bf77f"
+    },
+    "windows/src-tauri/Cargo.lock": {
+      "bytes": 140557,
+      "sha256": "ceffdbb4f6564003a224498b5fd71325850830abbb3ff6a3bc0e1a97a87dabc3"
+    },
+    "windows/src-tauri/src/platform/windows/mod.rs": {
+      "bytes": 855,
+      "sha256": "6d25eaac50cd5180159c207505e68ec49b353be087040b24d00050bb9c8967fe"
+    },
+    "windows/src-tauri/src/platform/windows/code0_runtime.rs": {
+      "bytes": 132497,
+      "sha256": "f01b05f6f6ff95647913f37e1fc020b391bfd14460e181d3ae575643a11c6ab0"
+    },
+    "windows/src-tauri/src/platform/windows/code0_web_session.rs": {
+      "bytes": 75055,
+      "sha256": "1a0857640a2f82f623dc54d3dcb7988e572b9951c8f6adc5fa7bf837f3e4190e"
+    },
+    "windows/src-tauri/src/platform/windows/code0_dispatcher.rs": {
+      "bytes": 49237,
+      "sha256": "1ce7229523ee0f010ecc198b2d9e8d24188be8dc9ac3c0f9dd7539bd80ce4355"
+    },
+    "windows/src-tauri/src/platform/windows/code0_tick.rs": {
+      "bytes": 7059,
+      "sha256": "67cf56cea36efb5506cab969c05919c87101d5f3609e929b75dcd3fcae692e06"
+    },
+    "windows/src-tauri/src/platform/windows/code0_clock.rs": {
+      "bytes": 13231,
+      "sha256": "a1a4760d4573c6f268a84ce3ab18fcd9ca0d80a78fab5df8d75fad46ee5ec84a"
+    },
+    "windows/src-tauri/src/platform/windows/code0_webview.rs": {
+      "bytes": 935983,
+      "sha256": "09b969815d9f0bd6f84f0ab6cd498232849dac0bcc0ff3439344e12b41232e1d"
+    },
+    "windows/src-tauri/src/platform/windows/code0_webview/http401_protocol.rs": {
+      "bytes": 27191,
+      "sha256": "977d4900c383a96b36e5a1930683431a8c491f053065e6b24cac886af33e9c93"
+    },
+    "windows/src-tauri/src/platform/windows/code0_webview/permission_protocol.rs": {
+      "bytes": 118412,
+      "sha256": "9db326be50cd117cfcd7d3eff2f418eabc49447c3bd1ba9923af18ee9d5c6fb1"
+    },
+    "windows/src-tauri/src/platform/windows/code0_webview/permission_native.rs": {
+      "bytes": 238270,
+      "sha256": "ff1b592ef3214a3ddf42624ecab2003580da3d6b7b129338c8df089d9177b2d8"
+    },
+    "windows/src-tauri/tests/code0_native_fixture.rs": {
+      "bytes": 282094,
+      "sha256": "28f12e1f889dcaee5cadf09deb4c99bfe3ceb64475069e8eccd13e15f44c0a47"
+    },
+    ".github/workflows/windows-ci.yml": {
+      "bytes": 202152,
+      "sha256": "40e620b15cda9f307c76240d0f99c46d69f544021465236e2b37397adc52a170"
+    },
+    ".ci/code0-permission-checker/validator.py": {
+      "bytes": 25162,
+      "sha256": "45aced4f4bf2ab8aaeec63517047ad51fefde6738a5503e7bb83f4667da6dec5"
+    },
+    ".ci/code0-permission-checker/selfcheck.py": {
+      "bytes": 31534,
+      "sha256": "d4580e347ba799b0f2f0c0b87e23a7cb39caae10a78260f0cee682e8a93995f7"
+    },
+    "windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs": {
+      "bytes": 236245,
+      "sha256": "fd86b5c88e468b0d3d6b9924a36382c29c016b6d0ca393b6b8a16d160c125b56"
+    },
+    "windows/src-tauri/src/platform/windows/code0_webview/http401_transport.rs": {
+      "bytes": 99504,
+      "sha256": "606f381825e2a2a93833f7824f51511c1ec0c47053f4fb153bf5fbedc91d0945"
+    }
+  },
+  "sourceReviewSha256": "ae6d12940718a63384c6db1056c179a56a2285d2f44e47928ffebb735d0853ca",
+  "sourceRootGate": {
+    "bytes": 1012,
+    "sha256": "b9dd563aa4ba41d104a14e68e392ec278faf648a1ccbfab48dcd4423a9a99754"
+  },
+  "oldTests": [
+    "collectors::codex_app_server::cancellation_tests::waiting_for_an_app_server_response_honours_cancellation",
+    "collectors::gemini_environment::tests::builds_exact_bounded_cli_requests_with_private_log_path",
+    "collectors::gemini_runtime::tests::production_collection_orchestration_keeps_supplements_independent",
+    "collectors::gemini_runtime::tests::production_collection_orchestration_propagates_cancellation_before_second_supplement",
+    "collectors::gemini_runtime::tests::production_collection_orchestration_short_circuits_after_quota_failure",
+    "collectors::gemini_runtime::tests::supplemental_failures_are_optional_but_cancellation_propagates",
+    "collectors::gemini_runtime::tests::supported_versions_stay_within_major_one_and_start_at_the_verified_baseline",
+    "persistence::code0_snapshot_store::diagnostic_tests::handled_slot_collisions_cannot_displace_a_later_terminal_diagnostic",
+    "persistence::code0_snapshot_store::diagnostic_tests::injected_restore_failure_is_not_a_primitive_error_and_first_real_error_is_shared",
+    "persistence::code0_snapshot_store::diagnostic_tests::recovery_failure_survives_full_history_without_displacing_forward_failure",
+    "persistence::code0_snapshot_store::windows_impl::native_rename_probe::native_rename_probe_child",
+    "persistence::code0_snapshot_store::windows_impl::native_rename_probe::native_rename_probe_has_five_observed_arms",
+    "persistence::code0_snapshot_store::windows_impl::native_rename_probe::native_rename_probe_output_failures_are_terminal",
+    "platform::windows::code0_clock::native_binding_tests::native_factory_reads_boot_ticks_and_independent_utc",
+    "platform::windows::code0_clock::tests::automatic_sync_starts_at_300_only_through_the_real_session",
+    "platform::windows::code0_clock::tests::clones_observe_the_same_live_source_without_reset_or_snapshot",
+    "platform::windows::code0_clock::tests::elapsed_milliseconds_include_exact_299_300_and_large_u64_values",
+    "platform::windows::code0_clock::tests::formatting_failure_yields_invalid_time_and_real_session_rejects_before_save",
+    "platform::windows::code0_clock::tests::injected_suspend_jump_coalesces_one_due_attempt_without_a_real_sleep",
+    "platform::windows::code0_clock::tests::manual_sync_has_one_second_remaining_at_299_and_starts_at_300",
+    "platform::windows::code0_clock::tests::wall_jump_is_independent_and_has_native_rfc3339_values",
+    "platform::windows::code0_composition::tests::borrowed_slot_fails_unavailable_without_native_work",
+    "platform::windows::code0_composition::tests::cold_cache_stays_paused_without_a_lease_or_new_lock",
+    "platform::windows::code0_composition::tests::cold_invalid_path_and_malformed_cache_remain_errors",
+    "platform::windows::code0_composition::tests::cold_missing_root_is_disconnected_and_creates_nothing",
+    "platform::windows::code0_composition::tests::cold_reparse_prefix_is_unavailable_and_creates_no_profile",
+    "platform::windows::code0_composition::tests::derivation_accepts_only_absolute_local_disk_roots",
+    "platform::windows::code0_composition::tests::held_slot_authority_enables_real_save_load_and_remove",
+    "platform::windows::code0_composition::tests::invalidated_slot_retains_the_original_lock_until_actual_release",
+    "platform::windows::code0_composition::tests::mismatched_slot_authority_cannot_read_or_mutate_another_root",
+    "platform::windows::code0_composition::tests::native_security_failure_revokes_and_retains_the_shared_authority",
+    "platform::windows::code0_composition::tests::same_store_refreshes_authority_after_release_and_never_reuses_old_clones",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_dispatcher_retained_work_blocks_until_settled",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_failed_schedule_retains_fence_without_waiter",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_no_waiter_stop_fences_and_coalesces_without_sinks",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_public_stop_capacity_and_reentry_control",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_stopped_reply_and_nested_drain_are_not_settled",
+    "platform::windows::code0_dispatcher::tests::action_reply_callback_observes_unborrowed_owner",
+    "platform::windows::code0_dispatcher::tests::emit_callback_observes_unborrowed_owner",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::held_worker_job_does_not_admit_elapsed300_before_real_delivery",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::pulse_expires_original_attempt_at_45_not_early",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::pulse_reads_real_elapsed_299_then_admits_at_300",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::pulse_suspend_jump_admits_one_attempt_without_catchup",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::retired_worker_job_cannot_pulse_the_real_replacement_clock",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::sticky_fault_keeps_backend_poll_and_matching_released_delivery_live",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::sticky_post_fault_fences_new_actions_after_recovered_ui_delivery",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::wall_only_jumps_leave_elapsed299_active_and_snapshot_unchanged",
+    "platform::windows::code0_runtime::tests::cold_install_passive_read_and_production_action_are_inert",
+    "platform::windows::code0_runtime::tests::committed_null_revocation_is_emitted_before_the_action_reply",
+    "platform::windows::code0_runtime::tests::failed_create_keeps_its_inline_released_reservation",
+    "platform::windows::code0_runtime::tests::inline_cleanup_is_reserved_before_the_backend_call",
+    "platform::windows::code0_runtime::tests::nested_schedule_and_window_turn_are_deferred_without_reborrowing",
+    "platform::windows::code0_runtime::tests::reservation_failure_prevents_create_and_cleanup_calls",
+    "platform::windows::code0_runtime::tests::scheduling_failure_returns_unavailable_without_forged_release",
+    "platform::windows::code0_runtime::tests::settled_read_replies_without_starting_native_work",
+    "platform::windows::code0_runtime::tests::settled_worker_action_replies_on_the_ui_owner",
+    "platform::windows::code0_runtime::tests::stale_binding_cannot_mark_or_forward_to_a_replacement",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_failed_cleanup_and_retained_work_never_permit",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_join_receipt_rechecks_current_record",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_join_waits_for_real_worker_and_ui_keeps_progressing",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_retains_poll_until_matching_release",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_attach_is_bound_once_and_retired_marks_leave_replacement_cold",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_cancel_interrupts_wait_and_transfers_one_real_join_handle",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_control_channel_loss_is_not_a_cancelled_receipt",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_failed_post_sets_fault_and_waits_before_recovery",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_idle_worker_posts_to_the_real_matching_record",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_one_unacknowledged_job_coalesces_and_real_ui_ack_rearms",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_preparation_stays_cold_until_attached_and_start_is_one_way",
+    "platform::windows::code0_runtime::tests::window_event_and_poll_callbacks_reach_the_real_session",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::backwards_cleanup_clock_cannot_accept_matching_success",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::clear_start_error_keeps_failed_identity_without_late_healing",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::cold_reads_are_inert_and_driver_observes_the_same_bound_budget",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::dropped_session_revokes_reader_without_synthesizing_native_release",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::earlier_old_close_bound_survives_disconnect_and_cleanup",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::expiry_then_late_matching_success_never_heals_or_releases",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::lease_return_at_end_cannot_start_a_new_cleanup_budget",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::overflowing_admission_fails_before_lease_cache_or_native_work",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::completion_available_before_end_but_consumed_at_end_is_not_success",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::matching_cleanup_consumed_one_millisecond_before_end_succeeds",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::old_owner_released_near_end_does_not_reset_disconnect_deadline",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::ownerless_disconnect_deadline_starts_before_lease_side_effect",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::stop_allows_admitted_cleanup_before_end_without_reopening_actions",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::stop_does_not_disable_the_admitted_cleanup_deadline",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::wrong_cleanup_identities_cannot_extend_the_original_deadline",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::wrong_cleanup_identities_do_not_consume_the_matching_result",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_cleanup_failure_stays_pending_control",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_cold_projection_requires_consumed_stop",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_disconnect_requires_consumed_matching_cleanup",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_ordinary_owner_requires_matching_released",
+    "platform::windows::code0_webview::chooser_protocol::tests::cancel_snapshot_requires_exact_remote_profile_and_before_stop_capture",
+    "platform::windows::code0_webview::chooser_protocol::tests::chooser_rejects_duplicate_decoded_keys_and_unbound_targets",
+    "platform::windows::code0_webview::chooser_protocol::tests::closed_frame_and_shallow_nodes_accept_only_position_specific_metadata",
+    "platform::windows::code0_webview::chooser_protocol::tests::fixed_parameter_profiles_preserve_all_eleven_methods_and_maximum_ids",
+    "platform::windows::code0_webview::chooser_protocol::tests::fixed_parser_validates_unicode_numbers_and_closed_empty_ack",
+    "platform::windows::code0_webview::chooser_protocol::tests::inline_reply_storage_preserves_frame_and_numeric_payloads",
+    "platform::windows::code0_webview::chooser_protocol::tests::observed_document_invalidation_is_sticky_and_bootstrap_is_bounded",
+    "platform::windows::code0_webview::chooser_protocol::tests::only_matching_chooser_closing_preserves_both_pre_stop_orders",
+    "platform::windows::code0_webview::chooser_protocol::tests::optional_remote_labels_context_aux_and_encoding_are_closed",
+    "platform::windows::code0_webview::chooser_protocol::tests::original_deadline_equality_target_orders_and_duplicate_target_are_fatal",
+    "platform::windows::code0_webview::chooser_protocol::tests::unrelated_revocation_before_stop_cannot_be_repaired_by_late_target",
+    "platform::windows::code0_webview::chooser_protocol::tests::uri_construction_checks_encoded_upper_bound_before_allocation",
+    "platform::windows::code0_webview::fixture::chooser_contract_tests::default_or_missing_independent_chooser_producers_never_pass",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::action_local_drop_crossing_deadline_prevents_success_publication",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::completion_checks_original_invocation_consumption_and_close_budget",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::exact_deadline_denies_and_before_deadline_control_executes_once",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::late_engine_ready_cannot_renew_the_original_attempt",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::later_closing_or_completion_cannot_revive_expired_authority",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::reentrant_getter_crossing_deadline_prevents_the_next_action",
+    "platform::windows::code0_webview::fixture::download_contract_tests::download_completion_accepts_only_bounded_exact_json_token",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::actual_failed_or_late_completion_disposes_without_success_or_revival",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::child_no_submission_first_close_survives_delayed_return_and_adoption",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::child_submitted_budget_and_independent_first_close_stay_the_same",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::closing_adoption_cannot_revive_pre_adoption_or_same_tick_expiry",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::completion_original_received_consumed_and_close_bounds_are_independent",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::delayed_ready_uses_original_end_for_both_selected_actions",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::getters_native_errors_and_local_drops_cannot_publish_late_witnesses",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::reentrant_source_and_native_local_drop_deny_the_next_privileged_step",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::refusal_runs_once_at_before_exact_and_after_end_but_witness_is_strict",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::timely_completion_allows_cleanup_after45_but_never_resets_first_close10",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_arming_is_opt_in_and_does_not_arm_n4",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_completion_masks_distinguish_disposal_success_and_unknown_inputs",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_first_block_ignores_already_blocked_and_preserves_first_word",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_inventory_preserves_absence_and_marks_each_overflow",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_writer_mask_keeps_all_closed_sites_and_first_complete_record",
+    "platform::windows::code0_webview::fixture::n4_diagnostic_tests::n4_first_cause_survives_later_writers_and_time_saturation_is_explicit",
+    "platform::windows::code0_webview::fixture::n4_diagnostic_tests::n4_result_classes_do_not_promote_precondition_null_or_other_tokens",
+    "platform::windows::code0_webview::fixture::n4_diagnostic_tests::n4_snapshot_never_accepts_mixed_concurrent_publications",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::cdp_envelope_cannot_replace_identity_hresult_or_strict_disposition",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_completion_accepts_only_closed_primitive_cdp_envelopes",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_completion_preserves_utf16_nul_capacity_and_utf8_byte_caps",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_completion_rejects_duplicate_extra_escaped_and_nonstring_results",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_target_and_completion_reject_original45_and_close10_boundaries",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::qualified_popup_cannot_replace_strict_scheduling_completion",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::scheduling_alone_missing_completion_and_user_popup_are_not_positive",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::scheduling_completion_and_target_keep_independent_evidence_in_both_orders",
+    "platform::windows::code0_webview::http401_protocol::tests::all_token_punctuation_and_visible_ascii_values_are_allowed",
+    "platform::windows::code0_webview::http401_protocol::tests::any_buffered_suffix_or_later_input_revokes_response_eligibility",
+    "platform::windows::code0_webview::http401_protocol::tests::eof_and_oversized_receive_step_are_terminal",
+    "platform::windows::code0_webview::http401_protocol::tests::every_two_part_split_requires_the_complete_request",
+    "platform::windows::code0_webview::http401_protocol::tests::exactly_32_headers_are_accepted_and_33_are_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::forbidden_headers_and_duplicate_or_nonzero_lengths_fail_closed",
+    "platform::windows::code0_webview::http401_protocol::tests::header_content_512_is_accepted_and_513_is_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::header_names_ignore_ascii_case_and_values_trim_only_edges",
+    "platform::windows::code0_webview::http401_protocol::tests::malformed_ascii_headers_and_framing_are_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::request_line_64_is_incomplete_and_65_is_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::request_line_and_private_owned_host_are_exact",
+    "platform::windows::code0_webview::http401_protocol::tests::response_is_exact_139_bytes_and_partial_sends_advance_only_the_suffix",
+    "platform::windows::code0_webview::http401_protocol::tests::single_byte_chunks_preserve_split_crlf",
+    "platform::windows::code0_webview::http401_protocol::tests::total_4096_is_accepted_and_4097_is_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::zero_failed_or_oversized_send_is_sticky_failure",
+    "platform::windows::code0_webview::native::http401::fix1_tests::defensive_session_counter_keeps_real_lower_bound_and_overflow",
+    "platform::windows::code0_webview::native::http401::fix1_tests::finalizer_protects_writer_and_failure_rewrite_before_join",
+    "platform::windows::code0_webview::native::http401::fix1_tests::finalizer_uses_original_close_after_join_and_never_writes_again",
+    "platform::windows::code0_webview::native::http401::fix1_tests::first_rejected_resource_retains_actual_false_and_unavailable_metadata",
+    "platform::windows::code0_webview::native::http401::fix1_tests::selected_child_reentry_cannot_commit_or_refill_the_actual_allowance",
+    "platform::windows::code0_webview::native::http401::fix1_tests::session_overflow_survives_later_native_snapshots",
+    "platform::windows::code0_webview::native::http401::tests::adapter_uses_real_parser_and_partial_suffix_without_nonprogress_eof",
+    "platform::windows::code0_webview::native::http401::tests::allowance_is_spent_before_reentry_and_never_recovers",
+    "platform::windows::code0_webview::native::http401::tests::original_close_and_final_temp_boundary_are_strict_and_immutable",
+    "platform::windows::code0_webview::native::http401::tests::provisional_401_requires_every_actual_fact_and_never_407",
+    "platform::windows::code0_webview::native::http401::tests::restrictive_setter_and_readback_both_run_before_metadata_on_error",
+    "platform::windows::code0_webview::native::http401::tests::service_spacing_has_no_catchup_and_nonprogress_spends_io_budget",
+    "platform::windows::code0_webview::native::http401::tests::socket_zero_failed_close_and_replay_keep_exact_ownership",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_atomic_auth_entries_are_counted_before_any_native_capture",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_atomic_failure_origin_preserves_first_actual_entry_time",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_final_clock_never_precedes_the_original_target_or_extends_close_equality",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_merge_preserves_fixture_tempdir_and_final_clock_facts",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_merge_retains_local_unknown_and_first_failure",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_refusal_pair_always_reads_after_set_error_in_the_same_order",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_snapshot_progress_never_repairs_false_or_changes_first_native_history",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_target_establishment_is_checked_against_original_entry_instant",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_target_history_requires_admission_and_survives_only_as_history_after_failure",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_attempt_equality_selects_deadline_without_extending_the_origin",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_close_equality_and_backward_clock_select_deadline",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_first_extra_diagnostics_use_actual_prior_entry_counts_once",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_prior_non_deadline_failure_survives_clock_failure",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_timely_entry_then_post_drop_expiry_records_deadline",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_unavailable_close_and_entry_overflow_keep_their_actual_category",
+    "platform::windows::code0_webview::native::http401::v2_native_fix2_tests::v2_fix2_precise_entry_order_rejects_same_floor_rollback_and_keeps_first_cause",
+    "platform::windows::code0_webview::native::http401::v2_proof_tests::v2_common_proof_rejects_each_missing_leaf_and_original_time_equality",
+    "platform::windows::code0_webview::native::http401::v2_proof_tests::v2_empty_resource_requires_real_status_content_stat_and_actual_response_readback",
+    "platform::windows::code0_webview::native::http401::v2_proof_tests::v2_zero_disposal_branches_need_real_active_partitions_and_no_candidate_record",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_admission_retains_actual_failure_and_never_replaces_it",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_candidate_partial_record_is_once_only_and_retains_actual_failure",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_delivery_partition_counts_pending_active_disposal_and_invalid_exclusively",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_disposal_never_replaces_the_first_active_top_metadata",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_disposal_uses_both_original_precise_deadlines_and_target_order",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_failed_stat_never_turns_default_zero_into_observed_content_bytes",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_history_requires_actual_navigation_return_and_post_drop_settlement",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_live_delivery_refresh_preserves_late_invalid_entry_and_failure",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_one_global_pending_candidate_and_nested_entry_reject_the_outer_serial",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_registration_history_requires_actual_ack_and_preserves_zero_token",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_rejected_entry_remains_an_actual_invalid_delivery_without_ui_access",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_resource_error_totals_remain_exact_three_four_and_lower_bound_five",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_serial_exhaustion_keeps_actual_entry_but_never_supplies_a_current_stamp",
+    "platform::windows::code0_webview::native::permission::failure_boundary_fix2_tests::counted_failure_closes_shared_semantic_native_and_parent_carriers_at_t1",
+    "platform::windows::code0_webview::native::permission::failure_boundary_fix2_tests::pure_protocol_failure_is_closed_before_any_later_operation_or_snapshot",
+    "platform::windows::code0_webview::native::permission::failure_clock_fix2_tests::failed_affinity_records_original_clock_before_publishing_failure_and_skips_native_work",
+    "platform::windows::code0_webview::native::permission::failure_clock_fix2_tests::failure_clock_never_heals_unbound_rebound_or_backwards_failure",
+    "platform::windows::code0_webview::native::permission::failure_clock_fix2_tests::failure_clock_preserves_precise_original_origin_and_atomic_earliest_failure",
+    "platform::windows::code0_webview::native::permission::fix2_tests::atomic_lifecycle_entries_concurrent_publication_and_saturation_keep_truthful_rows",
+    "platform::windows::code0_webview::native::permission::fix2_tests::atomic_lifecycle_entries_partition_at_the_same_publication_boundary",
+    "platform::windows::code0_webview::native::permission::fix2_tests::borrowed_capture_failures_are_sticky_and_reservation_failures_are_truthful",
+    "platform::windows::code0_webview::native::permission::fix2_tests::captured_malformed_json_keeps_truthful_complete_accounting_and_has_no_ack",
+    "platform::windows::code0_webview::native::permission::fix2_tests::close_carrier_preserves_earlier_history_without_restarting_native_clock",
+    "platform::windows::code0_webview::native::permission::fix2_tests::first_failure_carrier_revokes_parent_before_later_restriction_and_keeps_t1",
+    "platform::windows::code0_webview::native::permission::parent_affinity_fix2_tests::parent_affinity_guard_uses_the_same_once_bound_clock_before_failure_flag",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::action_slot_reservation_blocks_nested_reuse_and_failed_ownership_stays_failed",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::completion_invocation_and_consumption_do_not_drop_the_com_object_field",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::completion_object_field_drop_without_invoke_never_consumes_the_obligation",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::counted_boundary_latches_first_cause_immediately_and_preserves_prior_failures",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::coverage_history_keeps_successful_return_and_failed_post_drop_distinct",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::disposal_anchor_is_weak_cutoff_only_and_rebinds_exactly_once",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::disposal_context_never_creates_document_credit",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::duplicate_counts_saturate_and_never_recover_to_one",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::effect_failure_mapping_keeps_denied_hresult_and_native_target_independent",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::failed_capture_still_performs_one_deny_and_one_readback_per_delivery",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::failed_removal_retains_actual_original_registration_liability",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::failed_setup_snapshot_preserves_actual_partial_return_and_uncertain_ownership",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::final_clock_requires_actual_same_earliest_origin_after_all_cleanup",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::finite_controls_release_core_last_without_waiting_for_handlers",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::first_delivery_reservation_is_consumed_before_metadata_without_replacement",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::forbidden_lifecycle_phase_rejects_before_any_capture_or_reentrant_drop",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::intent_is_same_request_original_clock_and_failed_mismatch_is_sticky",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::intent_prepare_and_begin_are_separate_once_only_steps_without_native_authority",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::lifecycle_entry_partition_is_disjoint_even_when_decode_later_fails",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::lifecycle_overflow_keeps_each_actual_lower_bound",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::nested_lifecycle_entry_cannot_complete_or_repair_the_outer_entry",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::ordinary_open_poll_does_not_create_a_close_boundary",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::precise_clock_uses_original_origin_and_earliest_close",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::qualified_action_history_survives_later_failure_without_making_a_pass",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::receiver_binding_is_unique_once_and_preserves_original_zero_token",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::registering_permission_delivery_is_not_authority_but_restriction_still_runs_once",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::selected_ui_entry_checks_guard_before_any_conversion_or_native_work",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::selected_ui_entry_keeps_nested_failure_sticky_and_still_runs_safe_ui_restriction",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::sequential_lifecycle_entries_complete_without_queue_or_hidden_retry",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::snapshot_merge_preserves_independent_fixture_observations_and_sticky_failure",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::text_charges_share_one_concurrent_budget_and_real_drop_releases_it",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::unresolved_action_slot_drop_retains_physical_liability",
+    "platform::windows::code0_webview::native::s2::http401_child_tests::nonselected_official_child_keeps_the_existing_allowance",
+    "platform::windows::code0_webview::native::s2::http401_child_tests::selected_official_child_cancels_once_and_fails_before_reentry",
+    "platform::windows::code0_webview::native::s2::popup_raw_result_tests::actual_cdp_popup_callback_rejects_wrong_ui_before_invocation_or_disposition",
+    "platform::windows::code0_webview::native::s2::popup_raw_result_tests::actual_popup_handler_drop_does_not_settle_an_uninvoked_ticket",
+    "platform::windows::code0_webview::native::s2::popup_raw_result_tests::borrowed_popup_result_requires_nul_inside_the_2048_read_cap",
+    "platform::windows::code0_webview::native::s3::tests::real_invocation_tickets_require_callback_and_consumption_not_handler_drop",
+    "platform::windows::code0_webview::native::s3::tests::text_charges_overlap_transfer_and_drop_without_exceeding_4096",
+    "platform::windows::code0_webview::native::s4::revision1_tests::adopted_root_clear_is_terminal_even_before_permit_and_blank_clear_is_distinct",
+    "platform::windows::code0_webview::native::s4::revision1_tests::due_handoff_consumes_once_without_application_under_invalid_authority",
+    "platform::windows::code0_webview::native::s4::revision1_tests::handoff_rechecks_actual_atomic_invalidation_at_outside_borrow_use",
+    "platform::windows::code0_webview::native::s4::revision1_tests::handoff_rechecks_clock_at_actual_consumer_application",
+    "platform::windows::code0_webview::native::s4::revision1_tests::held_handoff_uses_original_clock_before_at_and_after_deadline",
+    "platform::windows::code0_webview::native::s4::revision1_tests::invalid_and_duplicate_root_document_open_cannot_regrant_or_apply",
+    "platform::windows::code0_webview::native::s4::revision1_tests::no_root_hook_and_child_only_document_open_leave_actual_application_live",
+    "platform::windows::code0_webview::native::s4::revision1_tests::parsed_root_document_open_revokes_same_held_candidate_before_after_entry",
+    "platform::windows::code0_webview::native::s4::revision1_tests::revoked_close_handoff_after_original_end_keeps_same_item_and_close_bound",
+    "platform::windows::code0_webview::native::s4::revision1_tests::source_return_and_drop_terminal_reentry_cannot_regrant_or_post_live_control",
+    "platform::windows::code0_webview::native::s4::revision1_tests::timely_missing_hook_marker_preserves_real_application_and_live_control",
+    "platform::windows::code0_webview::native::s4::tests::completion_obligations_require_issue_invoke_and_consume",
+    "platform::windows::code0_webview::native::s4::tests::consumer_checks_immutable_identity_before_applying_or_rejecting",
+    "platform::windows::code0_webview::native::s4::tests::receipt_deadline_is_strict_and_does_not_reset_original_close",
+    "platform::windows::code0_webview::native::s4::tests::same_held_candidate_is_applied_live_and_rejected_after_sticky_revoke",
+    "platform::windows::code0_webview::permission_protocol::native_clock_fix2_tests::unavailable_native_clock_is_negative_and_retains_last_known_semantic_time",
+    "platform::windows::code0_webview::permission_protocol::native_failure_fix2_tests::adapter_failure_revokes_without_inventing_delivery_ticket_or_restarting_close",
+    "platform::windows::code0_webview::permission_protocol::tests::affinity_loss_has_no_invented_ui_boundary_and_is_permanent",
+    "platform::windows::code0_webview::permission_protocol::tests::commands_are_ordered_once_only_and_require_consumed_ack",
+    "platform::windows::code0_webview::permission_protocol::tests::counters_saturate_with_an_explicit_overflow_bit",
+    "platform::windows::code0_webview::permission_protocol::tests::coverage_requires_every_real_registration_and_zero_token_is_owned",
+    "platform::windows::code0_webview::permission_protocol::tests::cutoff_crossing_capture_or_postdrop_rejects_effect_but_disposes_obligation",
+    "platform::windows::code0_webview::permission_protocol::tests::effect_invocation_before_native_action_never_qualifies",
+    "platform::windows::code0_webview::permission_protocol::tests::every_receiver_invalidates_after_arm_and_delivery_is_counted",
+    "platform::windows::code0_webview::permission_protocol::tests::fully_qualified_historical_receipt_survives_later_cutoff_only_as_history",
+    "platform::windows::code0_webview::permission_protocol::tests::genuine_denied_completion_can_qualify_while_closing_without_reauthorization",
+    "platform::windows::code0_webview::permission_protocol::tests::handler_drop_without_invocation_preserves_obligation_and_no_receipt",
+    "platform::windows::code0_webview::permission_protocol::tests::historical_receipt_consumption_after_original_deadline_is_not_a_new_positive",
+    "platform::windows::code0_webview::permission_protocol::tests::hresult_and_closed_denied_value_are_independent_requirements",
+    "platform::windows::code0_webview::permission_protocol::tests::identifiers_and_context_ids_are_bounded",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_orphan_stop_and_start_only_require_their_missing_facts",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::all_prefixes_and_24_selected_orders_reach_checked_effect_and_protocol_release",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::effect_needs_native_action_successful_closed_result_and_pre_cutoff_qualification",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::every_native_navigation_and_response_input_remains_mandatory",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::initial_duplicates_wrong_root_and_unsupported_events_are_sticky",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::missing_any_selected_fact_blocks_tree_source_arm_and_evaluate",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::missing_effect_never_drains_and_native_failure_never_qualifies",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::missing_retirement_blocks_until_actual_whole_pair_destroy",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::old_empty_and_observed_none_or_full_pair_classifications_stay_exact",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::original_and_close_equality_and_physical_entry_keep_their_negative_meanings",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::orphan_stop_or_frame_never_selects_zero_or_stop_only",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::real_redundant_retirement_signals_keep_tombstone_rules",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::reservation_and_postarm_lifecycle_are_once_only",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::reservation_keeps_current_identity_coverage_cutoff_and_original45",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::selected_identity_retirement_and_late_blank_rules_are_unchanged",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::tree_and_both_source_boundaries_cannot_be_substituted",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::unconsumed_or_failed_enable_ack_cannot_reserve",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::context_then_stop_with_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::context_then_stop_without_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::stop_then_context_with_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::stop_then_context_without_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::main_context_frame_and_loads_join_in_every_relative_order",
+    "platform::windows::code0_webview::permission_protocol::tests::native_checked_action_requires_real_order_and_all_independent_facts",
+    "platform::windows::code0_webview::permission_protocol::tests::observed_blank_identity_is_not_reassigned",
+    "platform::windows::code0_webview::permission_protocol::tests::origin_allowlist_and_full_document_source_have_separate_meanings",
+    "platform::windows::code0_webview::permission_protocol::tests::original_deadline_equality_is_late_and_first_close_never_restarts",
+    "platform::windows::code0_webview::permission_protocol::tests::original_late_error_completion_drains_within_original_first_close_budget",
+    "platform::windows::code0_webview::permission_protocol::tests::physical_entry_before_qualification_defeats_new_positive_evidence",
+    "platform::windows::code0_webview::permission_protocol::tests::registration_phase_has_no_bootstrap_exception",
+    "platform::windows::code0_webview::permission_protocol::tests::removal_reservation_latches_cutoff_before_exposing_native_token",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_context_before_reservation_is_rejected",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_context_clear_and_wrong_unique_id_destroy_fail",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_unique_context_peek_is_copy_only_and_reserves_nothing",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_unique_context_peek_never_authorizes_after_source_time_or_cutoff_loss",
+    "platform::windows::code0_webview::permission_protocol::tests::stale_released_and_close_deadline_deliveries_cannot_drain",
+    "platform::windows::code0_webview::permission_protocol::tests::tombstone_destroy_is_once_only_and_never_grandfathered_after_arm",
+    "platform::windows::code0_webview::permission_protocol::tests::unexpected_coverage_loss_is_sticky_and_never_repairs",
+    "platform::windows::code0_webview::permission_protocol::tests::zero_blank_branch_is_sealed_and_main_load_pair_is_separate",
+    "platform::windows::code0_webview::permission_wire::tests::all_four_forbidden_receiver_shapes_are_validated_then_tagged_unsupported",
+    "platform::windows::code0_webview::permission_wire::tests::awaited_envelope_has_only_result_type_value_and_matching_optional_description",
+    "platform::windows::code0_webview::permission_wire::tests::clear_and_each_loading_receiver_use_only_their_exact_profiles",
+    "platform::windows::code0_webview::permission_wire::tests::context_numeric_ids_are_real_integers_and_never_an_identity_fallback",
+    "platform::windows::code0_webview::permission_wire::tests::decoded_good_ack_does_not_replace_the_independent_actual_hresult",
+    "platform::windows::code0_webview::permission_wire::tests::destruction_preserves_the_exact_whole_pair",
+    "platform::windows::code0_webview::permission_wire::tests::duplicate_decoded_keys_are_rejected_recursively",
+    "platform::windows::code0_webview::permission_wire::tests::enable_replies_require_an_exact_empty_object",
+    "platform::windows::code0_webview::permission_wire::tests::evaluate_serializes_only_the_frozen_expression_unique_context_and_exact_flags",
+    "platform::windows::code0_webview::permission_wire::tests::evaluated_fixed_failure_tokens_are_distinct_from_denied",
+    "platform::windows::code0_webview::permission_wire::tests::every_decoded_id_obeys_ascii_character_and_128_byte_limits",
+    "platform::windows::code0_webview::permission_wire::tests::fixed_awaited_token_spellings_are_literal_while_event_strings_may_escape",
+    "platform::windows::code0_webview::permission_wire::tests::frame_profiles_require_all_fixed_fields_and_separate_selected_from_blank",
+    "platform::windows::code0_webview::permission_wire::tests::frame_tree_is_a_selected_root_with_no_children_or_extra_envelopes",
+    "platform::windows::code0_webview::permission_wire::tests::invalid_encoding_trailing_json_and_decoded_nul_are_rejected",
+    "platform::windows::code0_webview::permission_wire::tests::navigation_type_and_context_origin_have_no_broader_fallback_grammar",
+    "platform::windows::code0_webview::permission_wire::tests::only_four_fixed_methods_and_their_closed_parameter_shapes_are_serialized",
+    "platform::windows::code0_webview::permission_wire::tests::only_known_empty_frame_options_are_accepted_recursively",
+    "platform::windows::code0_webview::permission_wire::tests::per_payload_caps_and_decoded_url_byte_limit_are_exact",
+    "platform::windows::code0_webview::permission_wire::tests::selected_and_blank_contexts_require_the_complete_closed_default_world_profile",
+    "platform::windows::code0_webview::permission_wire::tests::stack_token_count_and_depth_are_bounded_without_a_value_tree",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::binding_projection_keeps_engine_context_separate",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::bounded_unknown_engine_metadata_is_discarded",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::canonical_ready_has_five_exact_keys_and_positive_safe_sequence",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::control_round_trip_is_closed_and_bounded",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::depth_and_value_limits_include_skipped_engine_metadata",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::engine_known_fields_have_strict_types_and_ranges",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::exposes_only_seven_fixed_commands_and_seven_receivers",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::fixed_context_and_message_storage_never_evicts",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::frame_tree_ack_and_lifecycle_projections_are_distinct",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::own_protocol_is_closed_and_integer_typed",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::payload_and_sequence_limits_are_independent",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::raw_copy_caps_both_encodings_and_two_slots",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::rejects_duplicate_decoded_keys_in_own_and_discarded_metadata",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::root_eligibility_needs_actual_aux_unique_origin_and_root",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::staged_message_limit_is_cumulative_after_pop_and_preserves_fifo",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::staged_ready_is_unique_before_and_after_pop",
+    "platform::windows::conpty::tests::cursor_queries_are_counted_across_surrounding_terminal_output",
+    "platform::windows::conpty::tests::partial_cursor_query_is_not_treated_as_complete",
+    "platform::windows::deepseek_webview::tests::open_gate_serializes_history_window_lifecycle_attempts",
+    "platform::windows::display_topology::tests::a_real_change_after_the_baseline_is_restored",
+    "platform::windows::display_topology::tests::the_first_observation_only_establishes_a_baseline",
+    "platform::windows::display_topology::tests::topology_change_cancels_drag_and_repositions_without_losing_the_change",
+    "platform::windows::meter_drag::tests::an_old_session_cannot_finish_a_new_drag",
+    "platform::windows::meter_drag::tests::cancellation_after_native_target_calculation_rejects_placement_commit",
+    "platform::windows::meter_drag::tests::cancellation_always_releases_the_gate",
+    "platform::windows::meter_drag::tests::only_one_drag_session_can_be_active",
+    "platform::windows::monitor::tests::disconnect_and_reconnect_each_trigger_runtime_repositioning",
+    "platform::windows::monitor::tests::empty_monitor_list_leaves_the_existing_window_untouched",
+    "platform::windows::monitor::tests::first_monitor_is_used_only_when_no_primary_is_reported",
+    "platform::windows::monitor::tests::hashed_runtime_fallback_migrates_when_physical_identity_becomes_available",
+    "platform::windows::monitor::tests::legacy_runtime_name_selects_and_migrates_to_the_physical_identifier",
+    "platform::windows::monitor::tests::missing_saved_monitor_temporarily_falls_back_to_primary",
+    "platform::windows::monitor::tests::physical_identifier_is_normalized_hashed_and_never_exposes_the_device_path",
+    "platform::windows::monitor::tests::primary_role_and_work_area_changes_trigger_runtime_repositioning",
+    "platform::windows::monitor::tests::saved_physical_monitor_wins_even_when_another_monitor_is_primary",
+    "platform::windows::process::tests::restricted_environment_keeps_profile_paths_but_drops_provider_overrides",
+    "platform::windows::strip_preferences::tests::disabling_automatic_collapse_immediately_expands_and_clears_deadlines",
+    "platform::windows::strip_preferences::tests::fold_state_cancels_stale_reveal_and_collapse_deadlines",
+    "platform::windows::strip_preferences::tests::schema_four_has_independent_bounded_delays_and_new_dimensions",
+    "platform::windows::tray::tests::explicitly_enabling_all_five_restores_code0_summary_in_order",
+    "platform::windows::tray::tests::restoring_a_provider_restores_its_summary_without_changing_order",
+    "platform::windows::tray::tests::tray_summaries_follow_visible_provider_order",
+    "platform::windows::window_controller::tests::left_meter_shape_is_an_exact_horizontal_mirror",
+    "platform::windows::window_controller::tests::meter_shape_uses_the_approved_macos_bezier_landmarks",
+    "platform::windows::window_controller::tests::provider_count_does_not_shrink_the_fixed_shoulder_depth",
+    "threshold_tests::alerts_fire_once_per_level_and_rearm_after_usage_resets",
+    "threshold_tests::deepseek_key_replacement_allows_only_one_operation_at_a_time",
+    "threshold_tests::failed_monitor_identifier_persistence_keeps_the_previous_setting",
+    "threshold_tests::failed_native_resize_still_publishes_persisted_settings_and_requests_retry",
+    "threshold_tests::settings_tab_requests_accept_only_fixed_application_tabs",
+    "threshold_tests::stale_monitor_identifier_migration_cannot_overwrite_a_newer_target",
+    "threshold_tests::stale_strip_settings_never_publish_after_a_newer_write",
+    "threshold_tests::strip_settings_publication_is_atomic_with_respect_to_newer_writes",
+    "threshold_tests::timed_out_native_resize_uses_the_same_publication_and_retry_path"
+  ],
+  "expectedTests": [
+    "collectors::codex_app_server::cancellation_tests::waiting_for_an_app_server_response_honours_cancellation",
+    "collectors::gemini_environment::tests::builds_exact_bounded_cli_requests_with_private_log_path",
+    "collectors::gemini_runtime::tests::production_collection_orchestration_keeps_supplements_independent",
+    "collectors::gemini_runtime::tests::production_collection_orchestration_propagates_cancellation_before_second_supplement",
+    "collectors::gemini_runtime::tests::production_collection_orchestration_short_circuits_after_quota_failure",
+    "collectors::gemini_runtime::tests::supplemental_failures_are_optional_but_cancellation_propagates",
+    "collectors::gemini_runtime::tests::supported_versions_stay_within_major_one_and_start_at_the_verified_baseline",
+    "persistence::code0_snapshot_store::diagnostic_tests::handled_slot_collisions_cannot_displace_a_later_terminal_diagnostic",
+    "persistence::code0_snapshot_store::diagnostic_tests::injected_restore_failure_is_not_a_primitive_error_and_first_real_error_is_shared",
+    "persistence::code0_snapshot_store::diagnostic_tests::recovery_failure_survives_full_history_without_displacing_forward_failure",
+    "persistence::code0_snapshot_store::windows_impl::native_rename_probe::native_rename_probe_child",
+    "persistence::code0_snapshot_store::windows_impl::native_rename_probe::native_rename_probe_has_five_observed_arms",
+    "persistence::code0_snapshot_store::windows_impl::native_rename_probe::native_rename_probe_output_failures_are_terminal",
+    "platform::windows::code0_clock::native_binding_tests::native_factory_reads_boot_ticks_and_independent_utc",
+    "platform::windows::code0_clock::tests::automatic_sync_starts_at_300_only_through_the_real_session",
+    "platform::windows::code0_clock::tests::clones_observe_the_same_live_source_without_reset_or_snapshot",
+    "platform::windows::code0_clock::tests::elapsed_milliseconds_include_exact_299_300_and_large_u64_values",
+    "platform::windows::code0_clock::tests::formatting_failure_yields_invalid_time_and_real_session_rejects_before_save",
+    "platform::windows::code0_clock::tests::injected_suspend_jump_coalesces_one_due_attempt_without_a_real_sleep",
+    "platform::windows::code0_clock::tests::manual_sync_has_one_second_remaining_at_299_and_starts_at_300",
+    "platform::windows::code0_clock::tests::wall_jump_is_independent_and_has_native_rfc3339_values",
+    "platform::windows::code0_composition::tests::borrowed_slot_fails_unavailable_without_native_work",
+    "platform::windows::code0_composition::tests::cold_cache_stays_paused_without_a_lease_or_new_lock",
+    "platform::windows::code0_composition::tests::cold_invalid_path_and_malformed_cache_remain_errors",
+    "platform::windows::code0_composition::tests::cold_missing_root_is_disconnected_and_creates_nothing",
+    "platform::windows::code0_composition::tests::cold_reparse_prefix_is_unavailable_and_creates_no_profile",
+    "platform::windows::code0_composition::tests::derivation_accepts_only_absolute_local_disk_roots",
+    "platform::windows::code0_composition::tests::held_slot_authority_enables_real_save_load_and_remove",
+    "platform::windows::code0_composition::tests::invalidated_slot_retains_the_original_lock_until_actual_release",
+    "platform::windows::code0_composition::tests::mismatched_slot_authority_cannot_read_or_mutate_another_root",
+    "platform::windows::code0_composition::tests::native_security_failure_revokes_and_retains_the_shared_authority",
+    "platform::windows::code0_composition::tests::same_store_refreshes_authority_after_release_and_never_reuses_old_clones",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_dispatcher_retained_work_blocks_until_settled",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_failed_schedule_retains_fence_without_waiter",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_no_waiter_stop_fences_and_coalesces_without_sinks",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_public_stop_capacity_and_reentry_control",
+    "platform::windows::code0_dispatcher::terminal_readiness_red_tests::terminal_stopped_reply_and_nested_drain_are_not_settled",
+    "platform::windows::code0_dispatcher::tests::action_reply_callback_observes_unborrowed_owner",
+    "platform::windows::code0_dispatcher::tests::emit_callback_observes_unborrowed_owner",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::held_worker_job_does_not_admit_elapsed300_before_real_delivery",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::pulse_expires_original_attempt_at_45_not_early",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::pulse_reads_real_elapsed_299_then_admits_at_300",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::pulse_suspend_jump_admits_one_attempt_without_catchup",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::retired_worker_job_cannot_pulse_the_real_replacement_clock",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::sticky_fault_keeps_backend_poll_and_matching_released_delivery_live",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::sticky_post_fault_fences_new_actions_after_recovered_ui_delivery",
+    "platform::windows::code0_runtime::tests::clock_pulse_tests::wall_only_jumps_leave_elapsed299_active_and_snapshot_unchanged",
+    "platform::windows::code0_runtime::tests::cold_install_passive_read_and_production_action_are_inert",
+    "platform::windows::code0_runtime::tests::committed_null_revocation_is_emitted_before_the_action_reply",
+    "platform::windows::code0_runtime::tests::failed_create_keeps_its_inline_released_reservation",
+    "platform::windows::code0_runtime::tests::inline_cleanup_is_reserved_before_the_backend_call",
+    "platform::windows::code0_runtime::tests::nested_schedule_and_window_turn_are_deferred_without_reborrowing",
+    "platform::windows::code0_runtime::tests::reservation_failure_prevents_create_and_cleanup_calls",
+    "platform::windows::code0_runtime::tests::scheduling_failure_returns_unavailable_without_forged_release",
+    "platform::windows::code0_runtime::tests::settled_read_replies_without_starting_native_work",
+    "platform::windows::code0_runtime::tests::settled_worker_action_replies_on_the_ui_owner",
+    "platform::windows::code0_runtime::tests::stale_binding_cannot_mark_or_forward_to_a_replacement",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_failed_cleanup_and_retained_work_never_permit",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_join_receipt_rechecks_current_record",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_join_waits_for_real_worker_and_ui_keeps_progressing",
+    "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_retains_poll_until_matching_release",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_attach_is_bound_once_and_retired_marks_leave_replacement_cold",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_cancel_interrupts_wait_and_transfers_one_real_join_handle",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_control_channel_loss_is_not_a_cancelled_receipt",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_failed_post_sets_fault_and_waits_before_recovery",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_idle_worker_posts_to_the_real_matching_record",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_one_unacknowledged_job_coalesces_and_real_ui_ack_rearms",
+    "platform::windows::code0_runtime::tests::tick_tests::tick_preparation_stays_cold_until_attached_and_start_is_one_way",
+    "platform::windows::code0_runtime::tests::window_event_and_poll_callbacks_reach_the_real_session",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::backwards_cleanup_clock_cannot_accept_matching_success",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::clear_start_error_keeps_failed_identity_without_late_healing",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::cold_reads_are_inert_and_driver_observes_the_same_bound_budget",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::dropped_session_revokes_reader_without_synthesizing_native_release",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::earlier_old_close_bound_survives_disconnect_and_cleanup",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::expiry_then_late_matching_success_never_heals_or_releases",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::lease_return_at_end_cannot_start_a_new_cleanup_budget",
+    "platform::windows::code0_web_session::cleanup_deadline_green_tests::overflowing_admission_fails_before_lease_cache_or_native_work",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::completion_available_before_end_but_consumed_at_end_is_not_success",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::matching_cleanup_consumed_one_millisecond_before_end_succeeds",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::old_owner_released_near_end_does_not_reset_disconnect_deadline",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::ownerless_disconnect_deadline_starts_before_lease_side_effect",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::stop_allows_admitted_cleanup_before_end_without_reopening_actions",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::stop_does_not_disable_the_admitted_cleanup_deadline",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::wrong_cleanup_identities_cannot_extend_the_original_deadline",
+    "platform::windows::code0_web_session::cleanup_deadline_red_tests::wrong_cleanup_identities_do_not_consume_the_matching_result",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_cleanup_failure_stays_pending_control",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_cold_projection_requires_consumed_stop",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_disconnect_requires_consumed_matching_cleanup",
+    "platform::windows::code0_web_session::terminal_readiness_red_tests::terminal_ordinary_owner_requires_matching_released",
+    "platform::windows::code0_webview::chooser_protocol::tests::cancel_snapshot_requires_exact_remote_profile_and_before_stop_capture",
+    "platform::windows::code0_webview::chooser_protocol::tests::chooser_rejects_duplicate_decoded_keys_and_unbound_targets",
+    "platform::windows::code0_webview::chooser_protocol::tests::closed_frame_and_shallow_nodes_accept_only_position_specific_metadata",
+    "platform::windows::code0_webview::chooser_protocol::tests::fixed_parameter_profiles_preserve_all_eleven_methods_and_maximum_ids",
+    "platform::windows::code0_webview::chooser_protocol::tests::fixed_parser_validates_unicode_numbers_and_closed_empty_ack",
+    "platform::windows::code0_webview::chooser_protocol::tests::inline_reply_storage_preserves_frame_and_numeric_payloads",
+    "platform::windows::code0_webview::chooser_protocol::tests::observed_document_invalidation_is_sticky_and_bootstrap_is_bounded",
+    "platform::windows::code0_webview::chooser_protocol::tests::only_matching_chooser_closing_preserves_both_pre_stop_orders",
+    "platform::windows::code0_webview::chooser_protocol::tests::optional_remote_labels_context_aux_and_encoding_are_closed",
+    "platform::windows::code0_webview::chooser_protocol::tests::original_deadline_equality_target_orders_and_duplicate_target_are_fatal",
+    "platform::windows::code0_webview::chooser_protocol::tests::unrelated_revocation_before_stop_cannot_be_repaired_by_late_target",
+    "platform::windows::code0_webview::chooser_protocol::tests::uri_construction_checks_encoded_upper_bound_before_allocation",
+    "platform::windows::code0_webview::fixture::chooser_contract_tests::default_or_missing_independent_chooser_producers_never_pass",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::action_local_drop_crossing_deadline_prevents_success_publication",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::completion_checks_original_invocation_consumption_and_close_budget",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::exact_deadline_denies_and_before_deadline_control_executes_once",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::late_engine_ready_cannot_renew_the_original_attempt",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::later_closing_or_completion_cannot_revive_expired_authority",
+    "platform::windows::code0_webview::fixture::dialog_original_deadline_tests::reentrant_getter_crossing_deadline_prevents_the_next_action",
+    "platform::windows::code0_webview::fixture::download_contract_tests::download_completion_accepts_only_bounded_exact_json_token",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::actual_failed_or_late_completion_disposes_without_success_or_revival",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::child_no_submission_first_close_survives_delayed_return_and_adoption",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::child_submitted_budget_and_independent_first_close_stay_the_same",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::closing_adoption_cannot_revive_pre_adoption_or_same_tick_expiry",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::completion_original_received_consumed_and_close_bounds_are_independent",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::delayed_ready_uses_original_end_for_both_selected_actions",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::getters_native_errors_and_local_drops_cannot_publish_late_witnesses",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::reentrant_source_and_native_local_drop_deny_the_next_privileged_step",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::refusal_runs_once_at_before_exact_and_after_end_but_witness_is_strict",
+    "platform::windows::code0_webview::fixture::legacy_original_deadline_tests::timely_completion_allows_cleanup_after45_but_never_resets_first_close10",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_arming_is_opt_in_and_does_not_arm_n4",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_completion_masks_distinguish_disposal_success_and_unknown_inputs",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_first_block_ignores_already_blocked_and_preserves_first_word",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_inventory_preserves_absence_and_marks_each_overflow",
+    "platform::windows::code0_webview::fixture::n3_diagnostic_tests::n3_writer_mask_keeps_all_closed_sites_and_first_complete_record",
+    "platform::windows::code0_webview::fixture::n4_diagnostic_tests::n4_first_cause_survives_later_writers_and_time_saturation_is_explicit",
+    "platform::windows::code0_webview::fixture::n4_diagnostic_tests::n4_result_classes_do_not_promote_precondition_null_or_other_tokens",
+    "platform::windows::code0_webview::fixture::n4_diagnostic_tests::n4_snapshot_never_accepts_mixed_concurrent_publications",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::cdp_envelope_cannot_replace_identity_hresult_or_strict_disposition",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_completion_accepts_only_closed_primitive_cdp_envelopes",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_completion_preserves_utf16_nul_capacity_and_utf8_byte_caps",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_completion_rejects_duplicate_extra_escaped_and_nonstring_results",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::popup_target_and_completion_reject_original45_and_close10_boundaries",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::qualified_popup_cannot_replace_strict_scheduling_completion",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::scheduling_alone_missing_completion_and_user_popup_are_not_positive",
+    "platform::windows::code0_webview::fixture::popup_contract_tests::scheduling_completion_and_target_keep_independent_evidence_in_both_orders",
+    "platform::windows::code0_webview::http401_protocol::tests::all_token_punctuation_and_visible_ascii_values_are_allowed",
+    "platform::windows::code0_webview::http401_protocol::tests::any_buffered_suffix_or_later_input_revokes_response_eligibility",
+    "platform::windows::code0_webview::http401_protocol::tests::eof_and_oversized_receive_step_are_terminal",
+    "platform::windows::code0_webview::http401_protocol::tests::every_two_part_split_requires_the_complete_request",
+    "platform::windows::code0_webview::http401_protocol::tests::exactly_32_headers_are_accepted_and_33_are_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::forbidden_headers_and_duplicate_or_nonzero_lengths_fail_closed",
+    "platform::windows::code0_webview::http401_protocol::tests::header_content_512_is_accepted_and_513_is_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::header_names_ignore_ascii_case_and_values_trim_only_edges",
+    "platform::windows::code0_webview::http401_protocol::tests::malformed_ascii_headers_and_framing_are_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::request_line_64_is_incomplete_and_65_is_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::request_line_and_private_owned_host_are_exact",
+    "platform::windows::code0_webview::http401_protocol::tests::response_is_exact_139_bytes_and_partial_sends_advance_only_the_suffix",
+    "platform::windows::code0_webview::http401_protocol::tests::single_byte_chunks_preserve_split_crlf",
+    "platform::windows::code0_webview::http401_protocol::tests::total_4096_is_accepted_and_4097_is_rejected",
+    "platform::windows::code0_webview::http401_protocol::tests::zero_failed_or_oversized_send_is_sticky_failure",
+    "platform::windows::code0_webview::native::http401::bounded_transport_red_tests::http401_idle_first_request_second_uses_second_stream",
+    "platform::windows::code0_webview::native::http401::fix1_tests::defensive_session_counter_keeps_real_lower_bound_and_overflow",
+    "platform::windows::code0_webview::native::http401::fix1_tests::finalizer_protects_writer_and_failure_rewrite_before_join",
+    "platform::windows::code0_webview::native::http401::fix1_tests::finalizer_uses_original_close_after_join_and_never_writes_again",
+    "platform::windows::code0_webview::native::http401::fix1_tests::first_rejected_resource_retains_actual_false_and_unavailable_metadata",
+    "platform::windows::code0_webview::native::http401::fix1_tests::selected_child_reentry_cannot_commit_or_refill_the_actual_allowance",
+    "platform::windows::code0_webview::native::http401::fix1_tests::session_overflow_survives_later_native_snapshots",
+    "platform::windows::code0_webview::native::http401::tests::adapter_uses_real_parser_and_partial_suffix_without_nonprogress_eof",
+    "platform::windows::code0_webview::native::http401::tests::allowance_is_spent_before_reentry_and_never_recovers",
+    "platform::windows::code0_webview::native::http401::tests::original_close_and_final_temp_boundary_are_strict_and_immutable",
+    "platform::windows::code0_webview::native::http401::tests::provisional_401_requires_every_actual_fact_and_never_407",
+    "platform::windows::code0_webview::native::http401::tests::restrictive_setter_and_readback_both_run_before_metadata_on_error",
+    "platform::windows::code0_webview::native::http401::tests::service_spacing_has_no_catchup_and_nonprogress_spends_io_budget",
+    "platform::windows::code0_webview::native::http401::tests::socket_zero_failed_close_and_replay_keep_exact_ownership",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_atomic_auth_entries_are_counted_before_any_native_capture",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_atomic_failure_origin_preserves_first_actual_entry_time",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_final_clock_never_precedes_the_original_target_or_extends_close_equality",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_merge_preserves_fixture_tempdir_and_final_clock_facts",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_merge_retains_local_unknown_and_first_failure",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_refusal_pair_always_reads_after_set_error_in_the_same_order",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_snapshot_progress_never_repairs_false_or_changes_first_native_history",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_target_establishment_is_checked_against_original_entry_instant",
+    "platform::windows::code0_webview::native::http401::v2_continuation_tests::v2_target_history_requires_admission_and_survives_only_as_history_after_failure",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_attempt_equality_selects_deadline_without_extending_the_origin",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_close_equality_and_backward_clock_select_deadline",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_first_extra_diagnostics_use_actual_prior_entry_counts_once",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_prior_non_deadline_failure_survives_clock_failure",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_timely_entry_then_post_drop_expiry_records_deadline",
+    "platform::windows::code0_webview::native::http401::v2_native_fix1_tests::v2_fix1_unavailable_close_and_entry_overflow_keep_their_actual_category",
+    "platform::windows::code0_webview::native::http401::v2_native_fix2_tests::v2_fix2_precise_entry_order_rejects_same_floor_rollback_and_keeps_first_cause",
+    "platform::windows::code0_webview::native::http401::v2_proof_tests::v2_common_proof_rejects_each_missing_leaf_and_original_time_equality",
+    "platform::windows::code0_webview::native::http401::v2_proof_tests::v2_empty_resource_requires_real_status_content_stat_and_actual_response_readback",
+    "platform::windows::code0_webview::native::http401::v2_proof_tests::v2_zero_disposal_branches_need_real_active_partitions_and_no_candidate_record",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_admission_retains_actual_failure_and_never_replaces_it",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_candidate_partial_record_is_once_only_and_retains_actual_failure",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_delivery_partition_counts_pending_active_disposal_and_invalid_exclusively",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_disposal_never_replaces_the_first_active_top_metadata",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_disposal_uses_both_original_precise_deadlines_and_target_order",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_failed_stat_never_turns_default_zero_into_observed_content_bytes",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_history_requires_actual_navigation_return_and_post_drop_settlement",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_live_delivery_refresh_preserves_late_invalid_entry_and_failure",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_one_global_pending_candidate_and_nested_entry_reject_the_outer_serial",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_registration_history_requires_actual_ack_and_preserves_zero_token",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_rejected_entry_remains_an_actual_invalid_delivery_without_ui_access",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_resource_error_totals_remain_exact_three_four_and_lower_bound_five",
+    "platform::windows::code0_webview::native::http401::v2_tests::v2_serial_exhaustion_keeps_actual_entry_but_never_supplies_a_current_stamp",
+    "platform::windows::code0_webview::native::permission::failure_boundary_fix2_tests::counted_failure_closes_shared_semantic_native_and_parent_carriers_at_t1",
+    "platform::windows::code0_webview::native::permission::failure_boundary_fix2_tests::pure_protocol_failure_is_closed_before_any_later_operation_or_snapshot",
+    "platform::windows::code0_webview::native::permission::failure_clock_fix2_tests::failed_affinity_records_original_clock_before_publishing_failure_and_skips_native_work",
+    "platform::windows::code0_webview::native::permission::failure_clock_fix2_tests::failure_clock_never_heals_unbound_rebound_or_backwards_failure",
+    "platform::windows::code0_webview::native::permission::failure_clock_fix2_tests::failure_clock_preserves_precise_original_origin_and_atomic_earliest_failure",
+    "platform::windows::code0_webview::native::permission::fix2_tests::atomic_lifecycle_entries_concurrent_publication_and_saturation_keep_truthful_rows",
+    "platform::windows::code0_webview::native::permission::fix2_tests::atomic_lifecycle_entries_partition_at_the_same_publication_boundary",
+    "platform::windows::code0_webview::native::permission::fix2_tests::borrowed_capture_failures_are_sticky_and_reservation_failures_are_truthful",
+    "platform::windows::code0_webview::native::permission::fix2_tests::captured_malformed_json_keeps_truthful_complete_accounting_and_has_no_ack",
+    "platform::windows::code0_webview::native::permission::fix2_tests::close_carrier_preserves_earlier_history_without_restarting_native_clock",
+    "platform::windows::code0_webview::native::permission::fix2_tests::first_failure_carrier_revokes_parent_before_later_restriction_and_keeps_t1",
+    "platform::windows::code0_webview::native::permission::parent_affinity_fix2_tests::parent_affinity_guard_uses_the_same_once_bound_clock_before_failure_flag",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::action_slot_reservation_blocks_nested_reuse_and_failed_ownership_stays_failed",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::completion_invocation_and_consumption_do_not_drop_the_com_object_field",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::completion_object_field_drop_without_invoke_never_consumes_the_obligation",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::counted_boundary_latches_first_cause_immediately_and_preserves_prior_failures",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::coverage_history_keeps_successful_return_and_failed_post_drop_distinct",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::disposal_anchor_is_weak_cutoff_only_and_rebinds_exactly_once",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::disposal_context_never_creates_document_credit",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::duplicate_counts_saturate_and_never_recover_to_one",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::effect_failure_mapping_keeps_denied_hresult_and_native_target_independent",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::failed_capture_still_performs_one_deny_and_one_readback_per_delivery",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::failed_removal_retains_actual_original_registration_liability",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::failed_setup_snapshot_preserves_actual_partial_return_and_uncertain_ownership",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::final_clock_requires_actual_same_earliest_origin_after_all_cleanup",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::finite_controls_release_core_last_without_waiting_for_handlers",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::first_delivery_reservation_is_consumed_before_metadata_without_replacement",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::forbidden_lifecycle_phase_rejects_before_any_capture_or_reentrant_drop",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::intent_is_same_request_original_clock_and_failed_mismatch_is_sticky",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::intent_prepare_and_begin_are_separate_once_only_steps_without_native_authority",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::lifecycle_entry_partition_is_disjoint_even_when_decode_later_fails",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::lifecycle_overflow_keeps_each_actual_lower_bound",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::nested_lifecycle_entry_cannot_complete_or_repair_the_outer_entry",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::ordinary_open_poll_does_not_create_a_close_boundary",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::precise_clock_uses_original_origin_and_earliest_close",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::qualified_action_history_survives_later_failure_without_making_a_pass",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::receiver_binding_is_unique_once_and_preserves_original_zero_token",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::registering_permission_delivery_is_not_authority_but_restriction_still_runs_once",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::selected_ui_entry_checks_guard_before_any_conversion_or_native_work",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::selected_ui_entry_keeps_nested_failure_sticky_and_still_runs_safe_ui_restriction",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::sequential_lifecycle_entries_complete_without_queue_or_hidden_retry",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::snapshot_merge_preserves_independent_fixture_observations_and_sticky_failure",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::text_charges_share_one_concurrent_budget_and_real_drop_releases_it",
+    "platform::windows::code0_webview::native::permission::permission_native_tests::unresolved_action_slot_drop_retains_physical_liability",
+    "platform::windows::code0_webview::native::s2::http401_child_tests::nonselected_official_child_keeps_the_existing_allowance",
+    "platform::windows::code0_webview::native::s2::http401_child_tests::selected_official_child_cancels_once_and_fails_before_reentry",
+    "platform::windows::code0_webview::native::s2::popup_raw_result_tests::actual_cdp_popup_callback_rejects_wrong_ui_before_invocation_or_disposition",
+    "platform::windows::code0_webview::native::s2::popup_raw_result_tests::actual_popup_handler_drop_does_not_settle_an_uninvoked_ticket",
+    "platform::windows::code0_webview::native::s2::popup_raw_result_tests::borrowed_popup_result_requires_nul_inside_the_2048_read_cap",
+    "platform::windows::code0_webview::native::s3::tests::real_invocation_tickets_require_callback_and_consumption_not_handler_drop",
+    "platform::windows::code0_webview::native::s3::tests::text_charges_overlap_transfer_and_drop_without_exceeding_4096",
+    "platform::windows::code0_webview::native::s4::revision1_tests::adopted_root_clear_is_terminal_even_before_permit_and_blank_clear_is_distinct",
+    "platform::windows::code0_webview::native::s4::revision1_tests::due_handoff_consumes_once_without_application_under_invalid_authority",
+    "platform::windows::code0_webview::native::s4::revision1_tests::handoff_rechecks_actual_atomic_invalidation_at_outside_borrow_use",
+    "platform::windows::code0_webview::native::s4::revision1_tests::handoff_rechecks_clock_at_actual_consumer_application",
+    "platform::windows::code0_webview::native::s4::revision1_tests::held_handoff_uses_original_clock_before_at_and_after_deadline",
+    "platform::windows::code0_webview::native::s4::revision1_tests::invalid_and_duplicate_root_document_open_cannot_regrant_or_apply",
+    "platform::windows::code0_webview::native::s4::revision1_tests::no_root_hook_and_child_only_document_open_leave_actual_application_live",
+    "platform::windows::code0_webview::native::s4::revision1_tests::parsed_root_document_open_revokes_same_held_candidate_before_after_entry",
+    "platform::windows::code0_webview::native::s4::revision1_tests::revoked_close_handoff_after_original_end_keeps_same_item_and_close_bound",
+    "platform::windows::code0_webview::native::s4::revision1_tests::source_return_and_drop_terminal_reentry_cannot_regrant_or_post_live_control",
+    "platform::windows::code0_webview::native::s4::revision1_tests::timely_missing_hook_marker_preserves_real_application_and_live_control",
+    "platform::windows::code0_webview::native::s4::tests::completion_obligations_require_issue_invoke_and_consume",
+    "platform::windows::code0_webview::native::s4::tests::consumer_checks_immutable_identity_before_applying_or_rejecting",
+    "platform::windows::code0_webview::native::s4::tests::receipt_deadline_is_strict_and_does_not_reset_original_close",
+    "platform::windows::code0_webview::native::s4::tests::same_held_candidate_is_applied_live_and_rejected_after_sticky_revoke",
+    "platform::windows::code0_webview::permission_protocol::native_clock_fix2_tests::unavailable_native_clock_is_negative_and_retains_last_known_semantic_time",
+    "platform::windows::code0_webview::permission_protocol::native_failure_fix2_tests::adapter_failure_revokes_without_inventing_delivery_ticket_or_restarting_close",
+    "platform::windows::code0_webview::permission_protocol::tests::affinity_loss_has_no_invented_ui_boundary_and_is_permanent",
+    "platform::windows::code0_webview::permission_protocol::tests::commands_are_ordered_once_only_and_require_consumed_ack",
+    "platform::windows::code0_webview::permission_protocol::tests::counters_saturate_with_an_explicit_overflow_bit",
+    "platform::windows::code0_webview::permission_protocol::tests::coverage_requires_every_real_registration_and_zero_token_is_owned",
+    "platform::windows::code0_webview::permission_protocol::tests::cutoff_crossing_capture_or_postdrop_rejects_effect_but_disposes_obligation",
+    "platform::windows::code0_webview::permission_protocol::tests::effect_invocation_before_native_action_never_qualifies",
+    "platform::windows::code0_webview::permission_protocol::tests::every_receiver_invalidates_after_arm_and_delivery_is_counted",
+    "platform::windows::code0_webview::permission_protocol::tests::fully_qualified_historical_receipt_survives_later_cutoff_only_as_history",
+    "platform::windows::code0_webview::permission_protocol::tests::genuine_denied_completion_can_qualify_while_closing_without_reauthorization",
+    "platform::windows::code0_webview::permission_protocol::tests::handler_drop_without_invocation_preserves_obligation_and_no_receipt",
+    "platform::windows::code0_webview::permission_protocol::tests::historical_receipt_consumption_after_original_deadline_is_not_a_new_positive",
+    "platform::windows::code0_webview::permission_protocol::tests::hresult_and_closed_denied_value_are_independent_requirements",
+    "platform::windows::code0_webview::permission_protocol::tests::identifiers_and_context_ids_are_bounded",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_orphan_stop_and_start_only_require_their_missing_facts",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::all_prefixes_and_24_selected_orders_reach_checked_effect_and_protocol_release",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::effect_needs_native_action_successful_closed_result_and_pre_cutoff_qualification",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::every_native_navigation_and_response_input_remains_mandatory",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::initial_duplicates_wrong_root_and_unsupported_events_are_sticky",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::missing_any_selected_fact_blocks_tree_source_arm_and_evaluate",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::missing_effect_never_drains_and_native_failure_never_qualifies",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::missing_retirement_blocks_until_actual_whole_pair_destroy",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::old_empty_and_observed_none_or_full_pair_classifications_stay_exact",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::original_and_close_equality_and_physical_entry_keep_their_negative_meanings",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::orphan_stop_or_frame_never_selects_zero_or_stop_only",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::real_redundant_retirement_signals_keep_tombstone_rules",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::reservation_and_postarm_lifecycle_are_once_only",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::reservation_keeps_current_identity_coverage_cutoff_and_original45",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::selected_identity_retirement_and_late_blank_rules_are_unchanged",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::tree_and_both_source_boundaries_cannot_be_substituted",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_green_tests::unconsumed_or_failed_enable_ack_cannot_reserve",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::context_then_stop_with_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::context_then_stop_without_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::stop_then_context_with_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::initial_stop_only_red_tests::stop_then_context_without_blank_frame_reserves_navigation",
+    "platform::windows::code0_webview::permission_protocol::tests::main_context_frame_and_loads_join_in_every_relative_order",
+    "platform::windows::code0_webview::permission_protocol::tests::native_checked_action_requires_real_order_and_all_independent_facts",
+    "platform::windows::code0_webview::permission_protocol::tests::observed_blank_identity_is_not_reassigned",
+    "platform::windows::code0_webview::permission_protocol::tests::origin_allowlist_and_full_document_source_have_separate_meanings",
+    "platform::windows::code0_webview::permission_protocol::tests::original_deadline_equality_is_late_and_first_close_never_restarts",
+    "platform::windows::code0_webview::permission_protocol::tests::original_late_error_completion_drains_within_original_first_close_budget",
+    "platform::windows::code0_webview::permission_protocol::tests::physical_entry_before_qualification_defeats_new_positive_evidence",
+    "platform::windows::code0_webview::permission_protocol::tests::registration_phase_has_no_bootstrap_exception",
+    "platform::windows::code0_webview::permission_protocol::tests::removal_reservation_latches_cutoff_before_exposing_native_token",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_context_before_reservation_is_rejected",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_context_clear_and_wrong_unique_id_destroy_fail",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_unique_context_peek_is_copy_only_and_reserves_nothing",
+    "platform::windows::code0_webview::permission_protocol::tests::selected_unique_context_peek_never_authorizes_after_source_time_or_cutoff_loss",
+    "platform::windows::code0_webview::permission_protocol::tests::stale_released_and_close_deadline_deliveries_cannot_drain",
+    "platform::windows::code0_webview::permission_protocol::tests::tombstone_destroy_is_once_only_and_never_grandfathered_after_arm",
+    "platform::windows::code0_webview::permission_protocol::tests::unexpected_coverage_loss_is_sticky_and_never_repairs",
+    "platform::windows::code0_webview::permission_protocol::tests::zero_blank_branch_is_sealed_and_main_load_pair_is_separate",
+    "platform::windows::code0_webview::permission_wire::tests::all_four_forbidden_receiver_shapes_are_validated_then_tagged_unsupported",
+    "platform::windows::code0_webview::permission_wire::tests::awaited_envelope_has_only_result_type_value_and_matching_optional_description",
+    "platform::windows::code0_webview::permission_wire::tests::clear_and_each_loading_receiver_use_only_their_exact_profiles",
+    "platform::windows::code0_webview::permission_wire::tests::context_numeric_ids_are_real_integers_and_never_an_identity_fallback",
+    "platform::windows::code0_webview::permission_wire::tests::decoded_good_ack_does_not_replace_the_independent_actual_hresult",
+    "platform::windows::code0_webview::permission_wire::tests::destruction_preserves_the_exact_whole_pair",
+    "platform::windows::code0_webview::permission_wire::tests::duplicate_decoded_keys_are_rejected_recursively",
+    "platform::windows::code0_webview::permission_wire::tests::enable_replies_require_an_exact_empty_object",
+    "platform::windows::code0_webview::permission_wire::tests::evaluate_serializes_only_the_frozen_expression_unique_context_and_exact_flags",
+    "platform::windows::code0_webview::permission_wire::tests::evaluated_fixed_failure_tokens_are_distinct_from_denied",
+    "platform::windows::code0_webview::permission_wire::tests::every_decoded_id_obeys_ascii_character_and_128_byte_limits",
+    "platform::windows::code0_webview::permission_wire::tests::fixed_awaited_token_spellings_are_literal_while_event_strings_may_escape",
+    "platform::windows::code0_webview::permission_wire::tests::frame_profiles_require_all_fixed_fields_and_separate_selected_from_blank",
+    "platform::windows::code0_webview::permission_wire::tests::frame_tree_is_a_selected_root_with_no_children_or_extra_envelopes",
+    "platform::windows::code0_webview::permission_wire::tests::invalid_encoding_trailing_json_and_decoded_nul_are_rejected",
+    "platform::windows::code0_webview::permission_wire::tests::navigation_type_and_context_origin_have_no_broader_fallback_grammar",
+    "platform::windows::code0_webview::permission_wire::tests::only_four_fixed_methods_and_their_closed_parameter_shapes_are_serialized",
+    "platform::windows::code0_webview::permission_wire::tests::only_known_empty_frame_options_are_accepted_recursively",
+    "platform::windows::code0_webview::permission_wire::tests::per_payload_caps_and_decoded_url_byte_limit_are_exact",
+    "platform::windows::code0_webview::permission_wire::tests::selected_and_blank_contexts_require_the_complete_closed_default_world_profile",
+    "platform::windows::code0_webview::permission_wire::tests::stack_token_count_and_depth_are_bounded_without_a_value_tree",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::binding_projection_keeps_engine_context_separate",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::bounded_unknown_engine_metadata_is_discarded",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::canonical_ready_has_five_exact_keys_and_positive_safe_sequence",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::control_round_trip_is_closed_and_bounded",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::depth_and_value_limits_include_skipped_engine_metadata",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::engine_known_fields_have_strict_types_and_ranges",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::exposes_only_seven_fixed_commands_and_seven_receivers",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::fixed_context_and_message_storage_never_evicts",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::frame_tree_ack_and_lifecycle_projections_are_distinct",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::own_protocol_is_closed_and_integer_typed",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::payload_and_sequence_limits_are_independent",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::raw_copy_caps_both_encodings_and_two_slots",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::rejects_duplicate_decoded_keys_in_own_and_discarded_metadata",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::root_eligibility_needs_actual_aux_unique_origin_and_root",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::staged_message_limit_is_cumulative_after_pop_and_preserves_fifo",
+    "platform::windows::code0_webview::s4_capability_protocol::tests::staged_ready_is_unique_before_and_after_pop",
+    "platform::windows::conpty::tests::cursor_queries_are_counted_across_surrounding_terminal_output",
+    "platform::windows::conpty::tests::partial_cursor_query_is_not_treated_as_complete",
+    "platform::windows::deepseek_webview::tests::open_gate_serializes_history_window_lifecycle_attempts",
+    "platform::windows::display_topology::tests::a_real_change_after_the_baseline_is_restored",
+    "platform::windows::display_topology::tests::the_first_observation_only_establishes_a_baseline",
+    "platform::windows::display_topology::tests::topology_change_cancels_drag_and_repositions_without_losing_the_change",
+    "platform::windows::meter_drag::tests::an_old_session_cannot_finish_a_new_drag",
+    "platform::windows::meter_drag::tests::cancellation_after_native_target_calculation_rejects_placement_commit",
+    "platform::windows::meter_drag::tests::cancellation_always_releases_the_gate",
+    "platform::windows::meter_drag::tests::only_one_drag_session_can_be_active",
+    "platform::windows::monitor::tests::disconnect_and_reconnect_each_trigger_runtime_repositioning",
+    "platform::windows::monitor::tests::empty_monitor_list_leaves_the_existing_window_untouched",
+    "platform::windows::monitor::tests::first_monitor_is_used_only_when_no_primary_is_reported",
+    "platform::windows::monitor::tests::hashed_runtime_fallback_migrates_when_physical_identity_becomes_available",
+    "platform::windows::monitor::tests::legacy_runtime_name_selects_and_migrates_to_the_physical_identifier",
+    "platform::windows::monitor::tests::missing_saved_monitor_temporarily_falls_back_to_primary",
+    "platform::windows::monitor::tests::physical_identifier_is_normalized_hashed_and_never_exposes_the_device_path",
+    "platform::windows::monitor::tests::primary_role_and_work_area_changes_trigger_runtime_repositioning",
+    "platform::windows::monitor::tests::saved_physical_monitor_wins_even_when_another_monitor_is_primary",
+    "platform::windows::process::tests::restricted_environment_keeps_profile_paths_but_drops_provider_overrides",
+    "platform::windows::strip_preferences::tests::disabling_automatic_collapse_immediately_expands_and_clears_deadlines",
+    "platform::windows::strip_preferences::tests::fold_state_cancels_stale_reveal_and_collapse_deadlines",
+    "platform::windows::strip_preferences::tests::schema_four_has_independent_bounded_delays_and_new_dimensions",
+    "platform::windows::tray::tests::explicitly_enabling_all_five_restores_code0_summary_in_order",
+    "platform::windows::tray::tests::restoring_a_provider_restores_its_summary_without_changing_order",
+    "platform::windows::tray::tests::tray_summaries_follow_visible_provider_order",
+    "platform::windows::window_controller::tests::left_meter_shape_is_an_exact_horizontal_mirror",
+    "platform::windows::window_controller::tests::meter_shape_uses_the_approved_macos_bezier_landmarks",
+    "platform::windows::window_controller::tests::provider_count_does_not_shrink_the_fixed_shoulder_depth",
+    "threshold_tests::alerts_fire_once_per_level_and_rearm_after_usage_resets",
+    "threshold_tests::deepseek_key_replacement_allows_only_one_operation_at_a_time",
+    "threshold_tests::failed_monitor_identifier_persistence_keeps_the_previous_setting",
+    "threshold_tests::failed_native_resize_still_publishes_persisted_settings_and_requests_retry",
+    "threshold_tests::settings_tab_requests_accept_only_fixed_application_tabs",
+    "threshold_tests::stale_monitor_identifier_migration_cannot_overwrite_a_newer_target",
+    "threshold_tests::stale_strip_settings_never_publish_after_a_newer_write",
+    "threshold_tests::strip_settings_publication_is_atomic_with_respect_to_newer_writes",
+    "threshold_tests::timed_out_native_resize_uses_the_same_publication_and_retry_path"
+  ],
+  "newHttpTest": "platform::windows::code0_webview::native::http401::bounded_transport_red_tests::http401_idle_first_request_second_uses_second_stream",
+  "workerPanic": {
+    "thread": "code0-tick",
+    "test": "platform::windows::code0_runtime::tests::terminal_join_tests::terminal_failed_cleanup_and_retained_work_never_permit",
+    "path": "src/platform/windows/code0_runtime.rs",
+    "line": 2546,
+    "column": 21,
+    "message": "controlled actual tick executor panic"
+  },
+  "oracle": {
+    "version": 1,
+    "testLeaf": "http401_idle_first_request_second_uses_second_stream",
+    "assertion": "HTTP401-R idle first connection must not prevent the second owned connection from completing",
+    "sourcePath": "windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs",
+    "line": 6608,
+    "column": 9
+  },
+  "definitions": {
+    "NativeFullV3": {
+      "type": "closed-object",
+      "fields": {
+        "schema": {
+          "type": "enum",
+          "values": [
+            16
+          ]
+        },
+        "runId": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 64,
+          "alphabet": "A-Za-z0-9_-"
+        },
+        "requiredCase": {
+          "type": "enum",
+          "values": [
+            "refusal-http401-owned-loopback"
+          ]
+        },
+        "selectedCases": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "completedCases": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "failure": {
+          "type": "enum",
+          "values": [
+            "none",
+            "notCompleted",
+            "watchdogTimeout",
+            "fixtureSetupFailed",
+            "inheritedWebview2Override",
+            "uiAffinityFailed",
+            "bareWindowViolation",
+            "http401Precondition",
+            "http401Install",
+            "http401Navigation",
+            "http401Resource",
+            "http401Socket",
+            "http401Request",
+            "http401Wire",
+            "http401Completion",
+            "http401Auth",
+            "http401Binding",
+            "http401Deadline",
+            "http401Session",
+            "http401Cleanup",
+            "http401Overflow",
+            "http401Unknown"
+          ]
+        },
+        "install": {
+          "$ref": "NativeFullV3_install"
+        },
+        "lifecycle": {
+          "$ref": "NativeFullV3_lifecycle"
+        },
+        "nativeRefusal": {
+          "$ref": "NativeFullV3_nativeRefusal"
+        },
+        "http401": {
+          "$ref": "NativeFullV3_http401"
+        }
+      }
+    },
+    "NativeFullV3_install": {
+      "type": "closed-object",
+      "fields": {
+        "submissions": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "barrierReceipts": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "firstLoadReceipts": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "documentReceipts": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "submissionAccepted": {
+          "type": "boolean"
+        },
+        "installRejected": {
+          "type": "boolean"
+        },
+        "scriptAcknowledged": {
+          "type": "boolean"
+        },
+        "cdpAcknowledged": {
+          "type": "boolean"
+        },
+        "sourceMatched": {
+          "type": "boolean"
+        },
+        "syntheticResponseApplied": {
+          "type": "boolean"
+        },
+        "canonicalReadyControl": {
+          "type": "boolean"
+        },
+        "ackBeforeFirstLoad": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NativeFullV3_lifecycle": {
+      "type": "closed-object",
+      "fields": {
+        "staMain": {
+          "type": "boolean"
+        },
+        "callbackAffinity": {
+          "type": "boolean"
+        },
+        "noInheritedOverride": {
+          "type": "boolean"
+        },
+        "engineReady": {
+          "type": "boolean"
+        },
+        "bareHiddenUnfocused": {
+          "type": "boolean"
+        },
+        "constructionObserved": {
+          "type": "boolean"
+        },
+        "profileIsolated": {
+          "type": "boolean"
+        },
+        "destroyed": {
+          "type": "boolean"
+        },
+        "ownedReferencesReleased": {
+          "type": "boolean"
+        },
+        "runReturned": {
+          "type": "boolean"
+        },
+        "cleanupSucceeded": {
+          "type": "boolean"
+        },
+        "bareWindowViolation": {
+          "type": "boolean"
+        },
+        "runtimeVersion": {
+          "type": "ASCII",
+          "minLength": 0,
+          "maxLength": 128,
+          "alphabet": "0-9."
+        }
+      }
+    },
+    "NativeFullV3_nativeRefusal": {
+      "type": "closed-object",
+      "fields": {
+        "receipts": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "nativeInstanceValidated": {
+          "type": "boolean"
+        },
+        "sourceBoundRegistry": {
+          "type": "boolean"
+        },
+        "navigationNotIssued": {
+          "type": "boolean"
+        },
+        "loadRejected": {
+          "type": "boolean"
+        },
+        "requiredMask": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "installedMask": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "notInstalledHooks": {
+          "type": "ordered-unique-subset",
+          "values": [
+            "topNavigation",
+            "childNavigation",
+            "externalProtocol",
+            "newWindow",
+            "download",
+            "scriptDialog",
+            "permission",
+            "basicAuthentication",
+            "clientCertificate",
+            "tlsError"
+          ]
+        }
+      }
+    },
+    "NativeFullV3_http401": {
+      "type": "closed-object",
+      "fields": {
+        "version": {
+          "type": "enum",
+          "values": [
+            3
+          ]
+        },
+        "selector": {
+          "type": "enum",
+          "values": [
+            "refusal-http401-owned-loopback"
+          ]
+        },
+        "phase": {
+          "type": "enum",
+          "values": [
+            "Preparing",
+            "Armed",
+            "Writing",
+            "AwaitAuth",
+            "Passed",
+            "Revoked",
+            "Closed"
+          ]
+        },
+        "unknown": {
+          "type": "boolean"
+        },
+        "overflow": {
+          "type": "boolean"
+        },
+        "receipts": {
+          "$ref": "NativeFullV3_http401_receipts"
+        },
+        "binding": {
+          "$ref": "NativeFullV3_http401_binding"
+        },
+        "install": {
+          "$ref": "NativeFullV3_http401_install"
+        },
+        "navigation": {
+          "$ref": "NativeFullV3_http401_navigation"
+        },
+        "resource": {
+          "$ref": "NativeFullV3_http401_resource"
+        },
+        "server": {
+          "$ref": "NativeFullV3_http401_server"
+        },
+        "auth": {
+          "$ref": "NativeFullV3_http401_auth"
+        },
+        "early401": {
+          "$ref": "NativeFullV3_http401_early401"
+        },
+        "session": {
+          "$ref": "NativeFullV3_http401_session"
+        },
+        "cleanup": {
+          "$ref": "NativeFullV3_http401_cleanup"
+        },
+        "postTarget": {
+          "$ref": "NativeFullV3_http401_postTarget"
+        },
+        "transport": {
+          "$ref": "ServerTransportV1"
+        }
+      }
+    },
+    "NativeFullV3_http401_receipts": {
+      "type": "closed-object",
+      "fields": {
+        "target": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "final": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        }
+      }
+    },
+    "NativeFullV3_http401_binding": {
+      "type": "closed-object",
+      "fields": {
+        "requestMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "generationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "coreMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "s2InstallMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "guardInstallMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "postDropCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_install": {
+      "type": "closed-object",
+      "fields": {
+        "core22QuerySucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "guardAdds": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "guardRemoves": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "filterAdds": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "filterRemoves": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "completedAdds": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "completedRemoves": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "handlersDrained": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_navigation": {
+      "type": "closed-object",
+      "fields": {
+        "attempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "topEvents": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "grants": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "hresultSucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "qualificationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "navigationIdReadable": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "cancelFalse": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_resource": {
+      "type": "closed-object",
+      "fields": {
+        "total": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "passed": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "refused": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "exactDocumentGet": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "qualificationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_server": {
+      "type": "closed-object",
+      "fields": {
+        "startupSucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "version22": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "exclusiveAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "listenerLingerOff": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "listenerNonblocking": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "boundEndpointMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "listenSucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "acceptedLocalMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "acceptedPeerMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "streamLingerOff": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "streamNonblocking": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "requestValid": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "responseComplete": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "finalInventoryObserved": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "startupAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "socketCreates": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "binds": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "listens": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "accepts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "parsedRequests": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "listenerCloseAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "listenerCloseSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "streamCloseAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "streamCloseSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cleanupAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cleanupSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "requestBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "headerCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "sentBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "setupCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "acceptedSetupCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "ioAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "socketsRemaining": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "startupRemaining": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "serverThreads": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "serverJoins": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        }
+      }
+    },
+    "NativeFullV3_http401_auth": {
+      "type": "closed-object",
+      "fields": {
+        "callbacks": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelReadbacks": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelTrue": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "uriMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "challengeMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "senderMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "postDropCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinAttemptDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_early401": {
+      "type": "closed-object",
+      "fields": {
+        "count": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "profile": {
+          "type": "nullable",
+          "value": {
+            "$ref": "NativeFullV3_http401_early401_profile"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_early401_profile": {
+      "type": "closed-object",
+      "fields": {
+        "senderMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "navigationIdMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "args2QuerySucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "isSuccess": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "fullWireBeforeCallback": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "liveAtEntry": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "postDropCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "httpStatusCode": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "webErrorStatus": {
+          "type": "enum",
+          "values": [
+            null,
+            "validAuthenticationCredentialsRequired",
+            "other"
+          ]
+        }
+      }
+    },
+    "NativeFullV3_http401_session": {
+      "type": "closed-object",
+      "fields": {
+        "failures": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "reason": {
+          "type": "enum",
+          "values": [
+            null,
+            "PolicyRejected",
+            "other"
+          ]
+        },
+        "requestMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "actionBeforeFailure": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_cleanup": {
+      "type": "closed-object",
+      "fields": {
+        "authorityRevoked": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "actionsDrained": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "nativeInventoryDrained": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "browserProcessExitedOnce": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "firstCloseAdopted": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinCloseDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "tempDirCloseCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "targetAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "firstCloseAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "finalAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "cleanupElapsedMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_postTarget": {
+      "type": "closed-object",
+      "fields": {
+        "version": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "admission": {
+          "$ref": "NativeFullV3_http401_postTarget_admission"
+        },
+        "top": {
+          "$ref": "NativeFullV3_http401_postTarget_top"
+        },
+        "resource": {
+          "$ref": "NativeFullV3_http401_postTarget_resource"
+        }
+      }
+    },
+    "NativeFullV3_http401_postTarget_admission": {
+      "type": "closed-object",
+      "fields": {
+        "count": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "qualified": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "firstCloseMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_postTarget_top": {
+      "type": "closed-object",
+      "fields": {
+        "deliveries": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "active": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "qualifiedDisposal": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "invalid": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "pending": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "candidates": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "proof": {
+          "type": "nullable",
+          "value": {
+            "$ref": "NativeFullV3_http401_postTarget_top_proof"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_postTarget_top_proof": {
+      "type": "closed-object",
+      "fields": {
+        "uiMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "targetEstablishedAtEntry": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "closingAdmittedAtEntry": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "requestMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "generationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "coreMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "s2InstallMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "guardInstallMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "registrationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "notReleased": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "notDestroyed": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "noPriorFailure": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "entryOrderCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "postDropCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinAttemptDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinCloseDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "entryAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "settledAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "cancelAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelReadbacks": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "cancelTrue": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_postTarget_resource": {
+      "type": "closed-object",
+      "fields": {
+        "deliveries": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "active": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "qualifiedDisposal": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "invalid": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "pending": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "candidates": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "proof": {
+          "type": "nullable",
+          "value": {
+            "$ref": "NativeFullV3_http401_postTarget_resource_proof"
+          }
+        }
+      }
+    },
+    "NativeFullV3_http401_postTarget_resource_proof": {
+      "type": "closed-object",
+      "fields": {
+        "uiMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "targetEstablishedAtEntry": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "closingAdmittedAtEntry": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "requestMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "generationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "coreMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "s2InstallMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "guardInstallMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "registrationMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "notReleased": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "notDestroyed": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "noPriorFailure": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "entryOrderCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "postDropCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinAttemptDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinCloseDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "entryAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "settledAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "emptyStreamCreated": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "seekSucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "fixedResponseCreated": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "responseMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "contentQuerySucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "statSucceeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "responseSetAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "responseSetSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "responseReadbacks": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "statusCode": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "contentBytes": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        }
+      }
+    },
+    "ServerTransportV1": {
+      "type": "closed-object",
+      "fields": {
+        "version": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "phase": {
+          "type": "enum",
+          "values": [
+            "Preparing",
+            "Seeking",
+            "SealingAuxiliary",
+            "Receiving",
+            "Responding",
+            "AwaitAuth",
+            "Revoked",
+            "Closed"
+          ]
+        },
+        "acceptedTotal": {
+          "type": "integer",
+          "min": 0,
+          "max": 2
+        },
+        "chosenSlot": {
+          "type": "enum",
+          "values": [
+            null,
+            1,
+            2
+          ]
+        },
+        "winnerBindings": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "listenerRetirement": {
+          "type": "enum",
+          "values": [
+            null,
+            "capacityReached",
+            "winnerChosen",
+            "failure",
+            "revoked",
+            "expired",
+            "legacyFirstAccept"
+          ]
+        },
+        "listenerRetired": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "auxiliaryCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "sealComplete": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "acceptAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "recvAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "sendAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "receivedBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 4096
+        },
+        "firstChunkBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 512
+        },
+        "socketPeak": {
+          "type": "integer",
+          "min": 0,
+          "max": 3
+        },
+        "pendingAccept": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "originalTimely": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "slots": {
+          "type": "fixed-array",
+          "items": [
+            {
+              "$ref": "NativeFullV3_http401_transport_slots_slot1"
+            },
+            {
+              "$ref": "NativeFullV3_http401_transport_slots_slot2"
+            }
+          ]
+        }
+      }
+    },
+    "NativeFullV3_http401_transport_slots_slot1": {
+      "type": "closed-object",
+      "fields": {
+        "ordinal": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "acceptedLocalMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "acceptedPeerMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "lingerOff": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "nonblocking": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "setupCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 4
+        },
+        "recvAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "recvBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 4096
+        },
+        "sendAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "sentBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 139
+        },
+        "eofCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "nonprogressCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "chosen": {
+          "type": "boolean"
+        },
+        "parsedRequests": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "sealAttemptCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "sealFinalCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "sealClass": {
+          "type": "enum",
+          "values": [
+            null,
+            "wouldBlockAtSeal",
+            "observedEmptyEOF"
+          ]
+        },
+        "closeAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "closeSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "ownedAtFinal": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NativeFullV3_http401_transport_slots_slot2": {
+      "type": "closed-object",
+      "fields": {
+        "ordinal": {
+          "type": "enum",
+          "values": [
+            2
+          ]
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "acceptedLocalMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "acceptedPeerMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "lingerOff": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "nonblocking": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "setupCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 4
+        },
+        "recvAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "recvBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 4096
+        },
+        "sendAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "sentBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 139
+        },
+        "eofCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "nonprogressCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "chosen": {
+          "type": "boolean"
+        },
+        "parsedRequests": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "sealAttemptCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "sealFinalCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "sealClass": {
+          "type": "enum",
+          "values": [
+            null,
+            "wouldBlockAtSeal",
+            "observedEmptyEOF"
+          ]
+        },
+        "closeAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "closeSuccesses": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "ownedAtFinal": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NativeFailedUninstalledV3": {
+      "type": "closed-object",
+      "fields": {
+        "schema": {
+          "type": "enum",
+          "values": [
+            16
+          ]
+        },
+        "runId": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 64,
+          "alphabet": "A-Za-z0-9_-"
+        },
+        "requiredCase": {
+          "type": "enum",
+          "values": [
+            "refusal-http401-owned-loopback"
+          ]
+        },
+        "selectedCases": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "completedCases": {
+          "type": "integer",
+          "min": 0,
+          "max": 255
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "failure": {
+          "type": "enum",
+          "values": [
+            "none",
+            "notCompleted",
+            "watchdogTimeout",
+            "fixtureSetupFailed",
+            "inheritedWebview2Override",
+            "uiAffinityFailed",
+            "bareWindowViolation",
+            "http401Precondition",
+            "http401Install",
+            "http401Navigation",
+            "http401Resource",
+            "http401Socket",
+            "http401Request",
+            "http401Wire",
+            "http401Completion",
+            "http401Auth",
+            "http401Binding",
+            "http401Deadline",
+            "http401Session",
+            "http401Cleanup",
+            "http401Overflow",
+            "http401Unknown"
+          ]
+        },
+        "install": {
+          "$ref": "NativeFullV3_install"
+        },
+        "lifecycle": {
+          "$ref": "NativeFullV3_lifecycle"
+        },
+        "http401": {
+          "$ref": "NativeFullV3_http401"
+        }
+      }
+    },
+    "ControlledTransportV1": {
+      "type": "closed-object",
+      "fields": {
+        "schema": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "runId": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 64,
+          "alphabet": "A-Za-z0-9_-"
+        },
+        "caseId": {
+          "type": "enum",
+          "values": [
+            "idle-first-request-second"
+          ]
+        },
+        "variant": {
+          "type": "enum",
+          "values": [
+            "legacyOneAccept",
+            "boundedTwoAccept"
+          ]
+        },
+        "result": {
+          "type": "enum",
+          "values": [
+            "legacyAdmissionRefused",
+            "transportGreen",
+            "failed"
+          ]
+        },
+        "failure": {
+          "type": "enum",
+          "values": [
+            "none",
+            "notCompleted",
+            "watchdogTimeout",
+            "fixtureSetupFailed",
+            "inheritedWebview2Override",
+            "uiAffinityFailed",
+            "bareWindowViolation",
+            "http401Precondition",
+            "http401Install",
+            "http401Navigation",
+            "http401Resource",
+            "http401Socket",
+            "http401Request",
+            "http401Wire",
+            "http401Completion",
+            "http401Auth",
+            "http401Binding",
+            "http401Deadline",
+            "http401Session",
+            "http401Cleanup",
+            "http401Overflow",
+            "http401Unknown",
+            "legacyAdmissionRefused",
+            "setupFailure",
+            "connectIncomplete",
+            "connectOtherError",
+            "selectFailure",
+            "ambiguousReadiness",
+            "soErrorFailure",
+            "staleIdentity",
+            "deadline",
+            "budget",
+            "closeFailure",
+            "cleanupFailure",
+            "transportFailure",
+            "byteMismatch",
+            "missingCompletion",
+            "unknown",
+            "overflow"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "unknown": {
+          "type": "boolean"
+        },
+        "overflow": {
+          "type": "boolean"
+        },
+        "server": {
+          "$ref": "NativeFullV3_http401_server"
+        },
+        "transport": {
+          "$ref": "ServerTransportV1"
+        },
+        "clientHarness": {
+          "$ref": "ClientHarnessV1"
+        },
+        "timing": {
+          "$ref": "ControlledTransportV1_timing"
+        }
+      }
+    },
+    "ClientHarnessV1": {
+      "type": "closed-object",
+      "fields": {
+        "version": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "tier": {
+          "type": "enum",
+          "values": [
+            "transportOnly"
+          ]
+        },
+        "startup": {
+          "$ref": "ControlledTransportV1_clientHarness_startup"
+        },
+        "budgets": {
+          "$ref": "ControlledTransportV1_clientHarness_budgets"
+        },
+        "ownership": {
+          "$ref": "ControlledTransportV1_clientHarness_ownership"
+        },
+        "slots": {
+          "type": "fixed-array",
+          "items": [
+            {
+              "$ref": "ControlledTransportV1_clientHarness_slots_slot1"
+            },
+            {
+              "$ref": "ControlledTransportV1_clientHarness_slots_slot2"
+            }
+          ]
+        },
+        "cleanup": {
+          "$ref": "ControlledTransportV1_clientHarness_cleanup"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_startup": {
+      "type": "closed-object",
+      "fields": {
+        "calls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "returned": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "version": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "versionMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "succeeded": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "referenceOwned": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_budgets": {
+      "type": "closed-object",
+      "fields": {
+        "setupCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 64
+        },
+        "setupErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 8
+        },
+        "ioCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "ioErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 1024
+        },
+        "primaryOperations": {
+          "type": "integer",
+          "min": 0,
+          "max": 2112
+        },
+        "admissionDenials": {
+          "type": "integer",
+          "min": 0,
+          "max": 8192
+        },
+        "spacingQualified": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "originalClockMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "overflow": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_ownership": {
+      "type": "closed-object",
+      "fields": {
+        "serverPeak": {
+          "type": "integer",
+          "min": 0,
+          "max": 3
+        },
+        "clientPeak": {
+          "type": "integer",
+          "min": 0,
+          "max": 2
+        },
+        "combinedPeak": {
+          "type": "integer",
+          "min": 0,
+          "max": 5
+        },
+        "remainingServerSockets": {
+          "type": "integer",
+          "min": 0,
+          "max": 3
+        },
+        "remainingClientSockets": {
+          "type": "integer",
+          "min": 0,
+          "max": 2
+        },
+        "inFlightClientActions": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "completionObligations": {
+          "type": "integer",
+          "min": 0,
+          "max": 2
+        },
+        "harnessReferenceHeldAtServerCleanup": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "noAmbientStartupReliance": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1": {
+      "type": "closed-object",
+      "fields": {
+        "ordinal": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "socketCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "lingerSetCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "lingerReadCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "nonblockingCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "socketCreated": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "lingerSetAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "lingerReadAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "nonblockingAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "setupErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 4
+        },
+        "connect": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_connect"
+        },
+        "select": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_select"
+        },
+        "soError": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_soError"
+        },
+        "data": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_data"
+        },
+        "close": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_close"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1_connect": {
+      "type": "closed-object",
+      "fields": {
+        "calls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "returned": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "lastError": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "disposition": {
+          "type": "enum",
+          "values": [
+            "Unobserved",
+            "Pending",
+            "ImmediateConnected",
+            "ImmediateRefused",
+            "OtherError",
+            "Unqualified"
+          ]
+        },
+        "enteredSeq": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "returnedSeq": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "atMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "q": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_connect_q"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1_connect_q": {
+      "type": "closed-object",
+      "fields": {
+        "sameRecord": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "sameAttempt": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "endpointArgumentMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "nonblockingAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "currentBefore": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "currentAfter": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "timeBefore": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "timeAfter": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "postDropCurrent": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1_select": {
+      "type": "closed-object",
+      "fields": {
+        "calls": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "noReady": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "errorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 1024
+        },
+        "lastReturn": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "lastError": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "writeCount": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 4294967295
+          }
+        },
+        "exceptCount": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 4294967295
+          }
+        },
+        "writeCurrentMember": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "exceptCurrentMember": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "readyClass": {
+          "type": "enum",
+          "values": [
+            "Unobserved",
+            "NoReady",
+            "WriteOnly",
+            "ExceptOnly",
+            "BothReady",
+            "Invalid",
+            "Error",
+            "Unqualified"
+          ]
+        },
+        "readySeq": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "readyAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "q": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_connect_q"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1_soError": {
+      "type": "closed-object",
+      "fields": {
+        "calls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "returned": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "lastError": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "length": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "bufferValue": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "valueAvailable": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "fromReadySeq": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "enteredSeq": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "returnedSeq": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 65535
+          }
+        },
+        "atMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "queryConsumed": {
+          "type": "boolean"
+        },
+        "obligationCancelled": {
+          "type": "boolean"
+        },
+        "completionCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "completion": {
+          "type": "enum",
+          "values": [
+            "Unobserved",
+            "Connected",
+            "Refused",
+            "OtherError",
+            "Unqualified"
+          ]
+        },
+        "q": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_connect_q"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1_data": {
+      "type": "closed-object",
+      "fields": {
+        "sendCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "recvCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 2048
+        },
+        "sendErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 1024
+        },
+        "recvErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 1024
+        },
+        "sentBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 4096
+        },
+        "receivedBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 139
+        },
+        "requestMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "responseMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "originalTimely": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot1_close": {
+      "type": "closed-object",
+      "fields": {
+        "calls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "returned": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "lastError": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "qualified": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "ownedAtFinal": {
+          "type": "boolean"
+        },
+        "inFlight": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_slots_slot2": {
+      "type": "closed-object",
+      "fields": {
+        "ordinal": {
+          "type": "enum",
+          "values": [
+            2
+          ]
+        },
+        "socketCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "lingerSetCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "lingerReadCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "nonblockingCalls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "socketCreated": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "lingerSetAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "lingerReadAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "nonblockingAck": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "setupErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 4
+        },
+        "connect": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_connect"
+        },
+        "select": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_select"
+        },
+        "soError": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_soError"
+        },
+        "data": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_data"
+        },
+        "close": {
+          "$ref": "ControlledTransportV1_clientHarness_slots_slot1_close"
+        }
+      }
+    },
+    "ControlledTransportV1_clientHarness_cleanup": {
+      "type": "closed-object",
+      "fields": {
+        "calls": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "returned": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "lastError": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "qualified": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "referenceRemaining": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "closeErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 2
+        },
+        "cleanupErrorReads": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "eligibleBefore": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "noClientUseAfterAttempt": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ControlledTransportV1_timing": {
+      "type": "closed-object",
+      "fields": {
+        "targetAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "firstCloseAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "finalAtMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "cleanupElapsedMs": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": 0,
+            "max": 18446744073709551615
+          }
+        },
+        "originalClockMatched": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "closeImmediatelyAfterTarget": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "firstCloseAdopted": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "withinCloseDeadline": {
+          "type": "nullable",
+          "value": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ExitV1": {
+      "type": "closed-object",
+      "fields": {
+        "schema": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "runId": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 64,
+          "alphabet": "A-Za-z0-9_-"
+        },
+        "exitCode": {
+          "type": "integer",
+          "min": -2147483648,
+          "max": 2147483647
+        }
+      }
+    },
+    "SourceIdentityV1": {
+      "type": "closed-object",
+      "fields": {
+        "schema": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "runId": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 64,
+          "alphabet": "A-Za-z0-9_-"
+        },
+        "caseId": {
+          "type": "enum",
+          "values": [
+            "idle-first-request-second",
+            "refusal-http401-owned-loopback"
+          ]
+        },
+        "variant": {
+          "type": "enum",
+          "values": [
+            "legacyOneAccept",
+            "boundedTwoAccept",
+            "fullNativeBounded"
+          ]
+        },
+        "commit": {
+          "type": "ASCII",
+          "minLength": 40,
+          "maxLength": 40,
+          "alphabet": "lowercase-hex"
+        },
+        "tree": {
+          "type": "ASCII",
+          "minLength": 40,
+          "maxLength": 40,
+          "alphabet": "lowercase-hex"
+        },
+        "parents": {
+          "type": "bounded-array",
+          "minLength": 1,
+          "maxLength": 2,
+          "item": {
+            "type": "ASCII",
+            "minLength": 40,
+            "maxLength": 40,
+            "alphabet": "lowercase-hex"
+          }
+        },
+        "candidate": {
+          "type": "ASCII",
+          "minLength": 40,
+          "maxLength": 40,
+          "alphabet": "lowercase-hex"
+        },
+        "candidateTree": {
+          "type": "ASCII",
+          "minLength": 40,
+          "maxLength": 40,
+          "alphabet": "lowercase-hex"
+        },
+        "candidateParents": {
+          "type": "bounded-array",
+          "minLength": 1,
+          "maxLength": 2,
+          "item": {
+            "type": "ASCII",
+            "minLength": 40,
+            "maxLength": 40,
+            "alphabet": "lowercase-hex"
+          }
+        },
+        "expectedRef": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 96,
+          "alphabet": "A-Za-z0-9_./-"
+        },
+        "event": {
+          "type": "enum",
+          "values": [
+            "push",
+            "pull_request"
+          ]
+        },
+        "runAttempt": {
+          "type": "integer",
+          "min": 0,
+          "max": 2147483647
+        },
+        "toolchain": {
+          "type": "enum",
+          "values": [
+            "1.88.0"
+          ]
+        },
+        "target": {
+          "type": "enum",
+          "values": [
+            "x86_64-pc-windows-msvc"
+          ]
+        },
+        "binaryBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "binarySha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "reviewSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "files": {
+          "type": "fixed-array",
+          "items": [
+            {
+              "$ref": "SourceIdentityV1_files_slot1"
+            },
+            {
+              "$ref": "SourceIdentityV1_files_slot2"
+            },
+            {
+              "$ref": "SourceIdentityV1_files_slot3"
+            },
+            {
+              "$ref": "SourceIdentityV1_files_slot4"
+            },
+            {
+              "$ref": "SourceIdentityV1_files_slot5"
+            }
+          ]
+        },
+        "transportCore": {
+          "$ref": "SourceIdentityV1_transportCore"
+        },
+        "inventorySha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "totalTests": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "expectedPasses": {
+          "type": "integer",
+          "min": 0,
+          "max": 65535
+        },
+        "expectedSemanticFailures": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "oracle": {
+          "$ref": "SourceIdentityV1_oracle"
+        }
+      }
+    },
+    "SourceIdentityV1_files_slot1": {
+      "type": "closed-object",
+      "fields": {
+        "path": {
+          "type": "enum",
+          "values": [
+            "windows/src-tauri/src/platform/windows/code0_webview.rs"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "sha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "SourceIdentityV1_files_slot2": {
+      "type": "closed-object",
+      "fields": {
+        "path": {
+          "type": "enum",
+          "values": [
+            "windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "sha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "SourceIdentityV1_files_slot3": {
+      "type": "closed-object",
+      "fields": {
+        "path": {
+          "type": "enum",
+          "values": [
+            "windows/src-tauri/src/platform/windows/code0_webview/http401_protocol.rs"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "sha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "SourceIdentityV1_files_slot4": {
+      "type": "closed-object",
+      "fields": {
+        "path": {
+          "type": "enum",
+          "values": [
+            "windows/src-tauri/tests/code0_native_fixture.rs"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "sha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "SourceIdentityV1_files_slot5": {
+      "type": "closed-object",
+      "fields": {
+        "path": {
+          "type": "enum",
+          "values": [
+            ".github/workflows/windows-ci.yml"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "sha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "SourceIdentityV1_transportCore": {
+      "type": "closed-object",
+      "fields": {
+        "path": {
+          "type": "enum",
+          "values": [
+            "windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs",
+            "windows/src-tauri/src/platform/windows/code0_webview/http401_transport.rs"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "sha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "SourceIdentityV1_oracle": {
+      "type": "closed-object",
+      "fields": {
+        "version": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "testLeaf": {
+          "type": "enum",
+          "values": [
+            "http401_idle_first_request_second_uses_second_stream",
+            "refusal-http401-owned-loopback"
+          ]
+        },
+        "assertion": {
+          "type": "enum",
+          "values": [
+            "HTTP401-R idle first connection must not prevent the second owned connection from completing",
+            "none"
+          ]
+        },
+        "sourcePath": {
+          "type": "enum",
+          "values": [
+            "windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs",
+            "windows/src-tauri/tests/code0_native_fixture.rs"
+          ]
+        },
+        "line": {
+          "type": "integer",
+          "min": 0,
+          "max": 1048576
+        },
+        "column": {
+          "type": "integer",
+          "min": 0,
+          "max": 1048576
+        }
+      }
+    },
+    "CollectorV1": {
+      "type": "closed-object",
+      "fields": {
+        "schema": {
+          "type": "enum",
+          "values": [
+            1
+          ]
+        },
+        "runId": {
+          "type": "ASCII",
+          "minLength": 1,
+          "maxLength": 64,
+          "alphabet": "A-Za-z0-9_-"
+        },
+        "caseId": {
+          "type": "enum",
+          "values": [
+            "idle-first-request-second",
+            "refusal-http401-owned-loopback"
+          ]
+        },
+        "variant": {
+          "type": "enum",
+          "values": [
+            "legacyOneAccept",
+            "boundedTwoAccept",
+            "fullNativeBounded"
+          ]
+        },
+        "sourceSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "rawBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "rawSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "exitBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "exitSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "stdoutBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "stderrBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stderrSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "childReturned": {
+          "type": "boolean"
+        },
+        "childReaped": {
+          "type": "boolean"
+        },
+        "exitCode": {
+          "type": "integer",
+          "min": -2147483648,
+          "max": 2147483647
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "oldSuiteMatched": {
+          "type": "boolean"
+        },
+        "oracleMatched": {
+          "type": "boolean"
+        },
+        "gates": {
+          "$ref": "CollectorV1_gates"
+        },
+        "sourceUnchangedBeforeAfter": {
+          "type": "boolean"
+        },
+        "binaryUnchangedBeforeAfter": {
+          "type": "boolean"
+        },
+        "collectorExit": {
+          "type": "integer",
+          "min": -2147483648,
+          "max": 2147483647
+        },
+        "qualification": {
+          "type": "enum",
+          "values": [
+            "acceptedLegacyTransportRED",
+            "acceptedBoundedTransportGREEN",
+            "acceptedFullNativeGREEN",
+            "uncoveredFailure"
+          ]
+        },
+        "gateLogs": {
+          "type": "fixed-array",
+          "items": [
+            {
+              "$ref": "CollectorV1_gateLogs_slot1"
+            },
+            {
+              "$ref": "CollectorV1_gateLogs_slot2"
+            },
+            {
+              "$ref": "CollectorV1_gateLogs_slot3"
+            },
+            {
+              "$ref": "CollectorV1_gateLogs_slot4"
+            }
+          ]
+        }
+      }
+    },
+    "CollectorV1_gates": {
+      "type": "closed-object",
+      "fields": {
+        "formatExit": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "strictClippyExit": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "noRunExit": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "completeSuiteExit": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        }
+      }
+    },
+    "CollectorV1_gateLogs_slot1": {
+      "type": "closed-object",
+      "fields": {
+        "name": {
+          "type": "enum",
+          "values": [
+            "format"
+          ]
+        },
+        "exitCode": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "returned": {
+          "type": "boolean"
+        },
+        "reaped": {
+          "type": "boolean"
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "stderrBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stderrSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "argvSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "CollectorV1_gateLogs_slot2": {
+      "type": "closed-object",
+      "fields": {
+        "name": {
+          "type": "enum",
+          "values": [
+            "strictClippy"
+          ]
+        },
+        "exitCode": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "returned": {
+          "type": "boolean"
+        },
+        "reaped": {
+          "type": "boolean"
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "stderrBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stderrSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "argvSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "CollectorV1_gateLogs_slot3": {
+      "type": "closed-object",
+      "fields": {
+        "name": {
+          "type": "enum",
+          "values": [
+            "noRun"
+          ]
+        },
+        "exitCode": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "returned": {
+          "type": "boolean"
+        },
+        "reaped": {
+          "type": "boolean"
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "stderrBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stderrSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "argvSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    },
+    "CollectorV1_gateLogs_slot4": {
+      "type": "closed-object",
+      "fields": {
+        "name": {
+          "type": "enum",
+          "values": [
+            "completeSuite"
+          ]
+        },
+        "exitCode": {
+          "type": "nullable",
+          "value": {
+            "type": "integer",
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "returned": {
+          "type": "boolean"
+        },
+        "reaped": {
+          "type": "boolean"
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stdoutSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "stderrBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 18446744073709551615
+        },
+        "stderrSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        },
+        "argvSha256": {
+          "type": "ASCII",
+          "minLength": 64,
+          "maxLength": 64,
+          "alphabet": "lowercase-hex"
+        }
+      }
+    }
+  },
+  "generatedSchemaGuards": {
+    "windows/src-tauri/gen/schemas/acl-manifests.json": {
+      "before": {
+        "bytes": 74549,
+        "sha256": "02ee13d3038c9b608cb90039944ca4a02b759db0fe7087e963b991041a2f18c8"
+      },
+      "afterAllowed": [
+        {
+          "bytes": 74549,
+          "sha256": "02ee13d3038c9b608cb90039944ca4a02b759db0fe7087e963b991041a2f18c8"
+        }
+      ]
+    },
+    "windows/src-tauri/gen/schemas/capabilities.json": {
+      "before": {
+        "bytes": 260,
+        "sha256": "d508ac4f5428d8d2cc75bf0bf7ec09ee096bb073b86d29d48eff71551f623a2a"
+      },
+      "afterAllowed": [
+        {
+          "bytes": 260,
+          "sha256": "d508ac4f5428d8d2cc75bf0bf7ec09ee096bb073b86d29d48eff71551f623a2a"
+        }
+      ]
+    },
+    "windows/src-tauri/gen/schemas/desktop-schema.json": {
+      "before": {
+        "bytes": 130182,
+        "sha256": "34ee6fa0b5a27f77e8635423f5a02f7f1e74e2fd6d30174e222a3999a1312351"
+      },
+      "afterAllowed": [
+        {
+          "bytes": 130182,
+          "sha256": "34ee6fa0b5a27f77e8635423f5a02f7f1e74e2fd6d30174e222a3999a1312351"
+        }
+      ]
+    },
+    "windows/src-tauri/gen/schemas/windows-schema.json": {
+      "before": {
+        "bytes": 116049,
+        "sha256": "f68a9c570ecff07ac6826145d33b966d6fc02f7d680967f44437268b08a6ba78"
+      },
+      "afterAllowed": [
+        {
+          "bytes": 116049,
+          "sha256": "f68a9c570ecff07ac6826145d33b966d6fc02f7d680967f44437268b08a6ba78"
+        },
+        {
+          "bytes": 130182,
+          "sha256": "34ee6fa0b5a27f77e8635423f5a02f7f1e74e2fd6d30174e222a3999a1312351"
+        }
+      ]
+    }
+  }
+}
