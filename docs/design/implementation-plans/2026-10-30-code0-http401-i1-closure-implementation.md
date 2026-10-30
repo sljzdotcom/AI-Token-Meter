@@ -1,5 +1,8 @@
 # Code0 HTTP401 双连接 core 实施设计（Phase 1 / B 方案）
 
+> **Windows 后续批次资产 — 未实现、未验收、不得视为通过。**
+> 2026-10-30 用户裁定（REQ-20261030-004）：Windows 降为最低优先级，待 macOS 全部完成并在 GitHub 发布后再恢复。本设计与 A1（受控端口注入）/ B（`shutdown(SD_SEND)` seal 语义）两项裁定一并保留以备恢复；当前不据此声称任何实现、编译或通过结论。
+
 **登记需求：** REQ-20261030-003
 **判定基线：** `docs/design/specifications/2026-10-30-code0-http401-i1-closure-design.md`（12260B，sha256 `9c840f08…`）
 **源码基线：** 提交 `5e03674b`，`windows/src-tauri/src/platform/windows/code0_webview/http401_native.rs`（248528B，6880 行）
