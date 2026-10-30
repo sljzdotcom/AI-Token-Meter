@@ -1,0 +1,506 @@
+name: Code0 isolated HTTP transport qualified RED
+
+on:
+  push:
+    branches: [codex/code0-http401-transport-red-20261030]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code0-http401-transport-red-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  controlled-http-transport:
+    name: Complete390 library and sole qualified HTTP transport RED
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Select byte-stable isolated checkout
+        shell: python {0}
+        run: |
+          import os
+          if (os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true'
+                  or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'
+                  or os.environ.get('GITHUB_EVENT_NAME') != 'push'
+                  or os.environ.get('GITHUB_REF') != 'refs/heads/codex/code0-http401-transport-red-20261030'):
+              raise SystemExit('Exact isolated hosted Windows push required')
+          if any(key in ('GIT_CONFIG_COUNT', 'GIT_CONFIG_PARAMETERS')
+                 or key.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_')) for key in os.environ):
+              raise SystemExit('Unexpected inherited Git runtime settings')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8', newline='\n') as output:
+              output.write('GIT_CONFIG_COUNT=2\nGIT_CONFIG_KEY_0=core.autocrlf\n'
+                           'GIT_CONFIG_VALUE_0=false\nGIT_CONFIG_KEY_1=core.eol\nGIT_CONFIG_VALUE_1=lf\n')
+      - name: Check out exact auxiliary candidate
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Seal sole32b parent exact five paths full checkout and protected payloads
+        shell: python {0}
+        run: |
+          import hashlib, json, os, re, subprocess, time
+          from pathlib import Path
+          base = '32b611cd56b1d04942a13848adbbeb382dcddc4a'
+          base_tree = '8349cac515c985cce0740d09aaf271183116eafa'
+          runner = 'scripts/test-code0-http401-transport-red.py'
+          workflow = '.github/workflows/code0-http401-transport-red.yml'
+          data = '.ci/code0-http401-transport-red/schema-data.json'
+          expected_runner = {'bytes': 44525, 'sha256': '72997f8495a176f77fc15e4a758fdad2ac1dc7f0a858a7551cd7c6cf06fd2ef0'}
+          expected_data = {'bytes': 189431, 'sha256': 'd75787f3dee3024166190218797f150e31d1d38cfc4ac9b905517ea8b3fa8d3a'}
+          def pin(raw):
+              return {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+          def unique(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate key')
+                  result[key] = value
+              return result
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          def need(value, reason):
+              if not value:
+                  raise ValueError(reason)
+          def compact(value):
+              return json.dumps(value, ensure_ascii=True, separators=(',', ':'), allow_nan=False).encode('ascii')
+          GIT_STATE = None
+
+
+          def git(root, *args):
+              # Git is a real direct child too: finite remaining phase/total time, passive
+              # polling, raw logs and wait receipt. Never subprocess timeout-kill/retry.
+              context = GIT_STATE
+              need(context is not None, 'missing_git_clock_context')
+              call_started = time.monotonic()
+              deadline = min(context['overall'] + 1500, context['phaseDeadline'], call_started + 30)
+              need(call_started < deadline, 'git_no_remaining_time')
+              context['count'] += 1
+              name = context['prefix'] + f"-{context['count']:04d}"
+              paths = [context['out'] / (name + suffix) for suffix in ('.stdout.log', '.stderr.log')]
+              argv = ['git', *args]
+              receipt = {'name': name, 'argv': argv, 'exitCode': None, 'returned': False,
+                         'reaped': False, 'elapsedMs': None, 'error': 'none', 'logs': {}}
+              try:
+                  with paths[0].open('xb') as stdout, paths[1].open('xb') as stderr:
+                      need(time.monotonic() < deadline, 'git_before_spawn_deadline')
+                      process = subprocess.Popen(argv, cwd=root, stdin=subprocess.DEVNULL,
+                                                 stdout=stdout, stderr=stderr, shell=False)
+                      while process.poll() is None:
+                          need(time.monotonic() < deadline, 'active_git_deadline')
+                          need(all(path.stat().st_size <= 4194304 for path in paths), 'active_git_log_cap')
+                          time.sleep(0.05)
+                      receipt['returned'] = True
+                      receipt['exitCode'] = process.wait()
+                      receipt['reaped'] = True
+                  need(time.monotonic() < deadline, 'returned_git_deadline')
+                  need(all(path.stat().st_size <= 4194304 for path in paths), 'returned_git_log_cap')
+                  data = [path.read_bytes() for path in paths]
+                  receipt['logs'] = {path.name: pin(raw) for path, raw in zip(paths, data)}
+                  need(receipt['exitCode'] == 0 and not data[1], 'git_actual_failure')
+                  need(time.monotonic() < deadline, 'git_postread_deadline')
+                  return data[0]
+              except (OSError, ValueError) as error:
+                  receipt['error'] = str(error) if isinstance(error, ValueError) else type(error).__name__
+                  raise
+              finally:
+                  receipt['elapsedMs'] = int((time.monotonic() - call_started) * 1000)
+                  if not receipt['reaped']:
+                      context['unreaped'] = True
+                  raw = compact(receipt) + b'\n'
+                  journal = context['out'] / (context['prefix'] + '-receipts.jsonl')
+                  need((journal.stat().st_size if journal.exists() else 0) + len(raw) <= 1048576,
+                       'git_journal_cap')
+                  with journal.open('ab') as output:
+                      output.write(raw)
+          if pin((root / runner).read_bytes()) != expected_runner or pin((root / data).read_bytes()) != expected_data:
+              raise SystemExit('Frozen runner or schema differs')
+          schema = json.loads((root / data).read_text(encoding='ascii'), object_pairs_hook=unique)
+          run, attempt, sha = (os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_SHA'))
+          if (re.fullmatch('[0-9]{1,20}', run) is None or re.fullmatch('[0-9]{1,6}', attempt) is None
+                  or re.fullmatch('[0-9a-f]{40}', sha) is None):
+              raise SystemExit('Invalid official run identity')
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-http401-transport-red-{run}-{attempt}'
+          out.mkdir(exist_ok=False)
+          preflight_started = time.monotonic()
+          GIT_STATE = {'out': out, 'overall': preflight_started, 'phaseDeadline': preflight_started + 30,
+                       'prefix': 'preflight-git', 'count': 0, 'unreaped': False}
+          if (git(root, 'rev-parse', 'HEAD').decode().strip() != sha
+                  or git(root, 'rev-list', '--parents', '-n', '1', 'HEAD').decode().split() != [sha, base]
+                  or git(root, 'rev-parse', base + '^{tree}').decode().strip() != base_tree):
+              raise SystemExit('Not a sole exact32b child')
+          changes = [row.split('\t') for row in git(root, 'diff-tree', '--no-commit-id', '--name-status',
+                     '--no-renames', '-r', base, 'HEAD').decode().splitlines()]
+          if sorted(changes, key=lambda row: row[1]) != schema['changes']:
+              raise SystemExit('Not the exact five-path auxiliary delta')
+          observed = {}
+          for name, expected in schema['sourcePins'].items():
+              actual = pin((root / name).read_bytes())
+              if actual != expected:
+                  raise SystemExit('Protected source bytes differ')
+              observed[name] = actual
+          for name in (runner, workflow, data):
+              observed[name] = pin((root / name).read_bytes())
+          for entry in git(root, 'ls-tree', '-r', '-z', 'HEAD').split(b'\0'):
+              if not entry:
+                  continue
+              left, path = entry.split(b'\t', 1)
+              mode, kind, oid = left.decode().split()
+              name = path.decode('utf-8')
+              raw = (root / name).read_bytes()
+              header = b'blob ' + str(len(raw)).encode('ascii') + b'\0'
+              if (kind != 'blob' or mode not in ('100644', '100755')
+                      or hashlib.sha1(header + raw).hexdigest() != oid
+                      or (name in observed and mode != '100644')):
+                  raise SystemExit('Tracked checkout bytes or payload mode differ')
+          host_keys = ('RUNNER_OS', 'RUNNER_ARCH', 'RUNNER_NAME', 'RUNNER_ENVIRONMENT',
+                       'ImageOS', 'ImageVersion', 'ACTIONS_RUNNER_VERSION')
+          host = {key: os.environ.get(key) for key in host_keys}
+          if any(value is not None and len(value) > 2048 for value in host.values()):
+              raise SystemExit('Oversize host identity')
+          identity = {'schema': 1, 'runId': run, 'attempt': int(attempt), 'checkout': sha,
+                      'tree': git(root, 'rev-parse', 'HEAD^{tree}').decode().strip(), 'parent': base,
+                      'baseTree': base_tree, 'ref': os.environ['GITHUB_REF'],
+                      'event': os.environ['GITHUB_EVENT_NAME'], 'changes': changes,
+                      'payloads': observed, 'runnerHost': host}
+          raw = json.dumps(identity, ensure_ascii=True, separators=(',', ':')).encode('ascii')
+          if len(raw) > 16384:
+              raise SystemExit('Oversize source identity')
+          with (out / 'identity.json').open('xb') as output:
+              output.write(raw)
+          need(time.monotonic() - preflight_started < 30 and not GIT_STATE['unreaped'], 'preflight_deadline')
+          print('Exact sole32b checkout and all protected payloads sealed before dependencies/build')
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install exact Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy
+      - name: Select exact Rust toolchain
+        shell: pwsh
+        run: rustup default 1.88.0
+      - name: Install frontend dependencies
+        working-directory: windows
+        run: npm ci
+      - name: Build frontend resources
+        working-directory: windows
+        run: npm run build
+      - name: Collect all strict gates compiled inventory and complete library then seal actual parent return
+        shell: python {0}
+        run: |
+          import hashlib, json, os, re, subprocess, sys, time
+          from pathlib import Path
+          def need(value, reason):
+              if not value:
+                  raise ValueError(reason)
+
+
+          def pin(raw):
+              return {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+
+          def unique(pairs):
+              result = {}
+              for key, value in pairs:
+                  need(key not in result, 'duplicate_json_key')
+                  result[key] = value
+              return result
+
+
+          def bad_number(_):
+              raise ValueError('non_integer_json_number')
+
+
+          def decode(raw, limit):
+              need(0 < len(raw) <= limit and raw.isascii() and not raw.startswith(b'\xef\xbb\xbf'),
+                   'json_encoding_or_cap')
+              return json.loads(raw.decode('ascii'), object_pairs_hook=unique,
+                                parse_float=bad_number, parse_constant=bad_number)
+
+
+          def compact(value):
+              return json.dumps(value, ensure_ascii=True, separators=(',', ':'), allow_nan=False).encode('ascii')
+
+
+          def emit(out, name, value, limit):
+              raw = compact(value)
+              need(len(raw) <= limit, 'record_encoding_cap')
+              with (out / name).open('xb') as target:
+                  target.write(raw)
+              return raw
+
+
+          def typed(value, spec, definitions):
+              if '$ref' in spec:
+                  typed(value, definitions[spec['$ref']], definitions)
+                  return
+              kind = spec['type']
+              if kind == 'closed-object':
+                  need(type(value) is dict and set(value) == set(spec['fields']), 'closed_object_keys')
+                  for key, child in spec['fields'].items():
+                      typed(value[key], child, definitions)
+              elif kind == 'enum':
+                  need(any(type(value) is type(item) and value == item for item in spec['values']), 'enum_value')
+              elif kind == 'integer':
+                  need(type(value) is int and spec['min'] <= value <= spec['max'], 'integer_range')
+              elif kind == 'boolean':
+                  need(type(value) is bool, 'boolean_type')
+              elif kind == 'nullable':
+                  if value is not None:
+                      typed(value, spec['value'], definitions)
+              elif kind == 'ASCII':
+                  patterns = {'lowercase-hex': '[0-9a-f]*', 'A-Za-z0-9_-': '[A-Za-z0-9_-]*',
+                              'A-Za-z0-9_./-': '[A-Za-z0-9_./-]*', '0-9.': '[0-9.]*'}
+                  need(type(value) is str and spec['minLength'] <= len(value) <= spec['maxLength']
+                       and value.isascii() and re.fullmatch(patterns[spec['alphabet']], value) is not None,
+                       'ascii_string')
+              elif kind == 'fixed-array':
+                  need(type(value) is list and len(value) == len(spec['items']), 'fixed_array')
+                  for item, child in zip(value, spec['items']):
+                      typed(item, child, definitions)
+              elif kind == 'bounded-array':
+                  need(type(value) is list and spec['minLength'] <= len(value) <= spec['maxLength'], 'bounded_array')
+                  for item in value:
+                      typed(item, spec['item'], definitions)
+              elif kind == 'ordered-unique-subset':
+                  need(type(value) is list and len(value) == len(set(value))
+                       and value == [item for item in spec['values'] if item in value], 'ordered_subset')
+              else:
+                  raise ValueError('unknown_schema_type')
+
+
+          def record(raw, name, definitions):
+              value = decode(raw, 8192)
+              typed(value, definitions[name], definitions)
+              return value
+          GIT_STATE = None
+
+
+          def git(root, *args):
+              # Git is a real direct child too: finite remaining phase/total time, passive
+              # polling, raw logs and wait receipt. Never subprocess timeout-kill/retry.
+              context = GIT_STATE
+              need(context is not None, 'missing_git_clock_context')
+              call_started = time.monotonic()
+              deadline = min(context['overall'] + 1500, context['phaseDeadline'], call_started + 30)
+              need(call_started < deadline, 'git_no_remaining_time')
+              context['count'] += 1
+              name = context['prefix'] + f"-{context['count']:04d}"
+              paths = [context['out'] / (name + suffix) for suffix in ('.stdout.log', '.stderr.log')]
+              argv = ['git', *args]
+              receipt = {'name': name, 'argv': argv, 'exitCode': None, 'returned': False,
+                         'reaped': False, 'elapsedMs': None, 'error': 'none', 'logs': {}}
+              try:
+                  with paths[0].open('xb') as stdout, paths[1].open('xb') as stderr:
+                      need(time.monotonic() < deadline, 'git_before_spawn_deadline')
+                      process = subprocess.Popen(argv, cwd=root, stdin=subprocess.DEVNULL,
+                                                 stdout=stdout, stderr=stderr, shell=False)
+                      while process.poll() is None:
+                          need(time.monotonic() < deadline, 'active_git_deadline')
+                          need(all(path.stat().st_size <= 4194304 for path in paths), 'active_git_log_cap')
+                          time.sleep(0.05)
+                      receipt['returned'] = True
+                      receipt['exitCode'] = process.wait()
+                      receipt['reaped'] = True
+                  need(time.monotonic() < deadline, 'returned_git_deadline')
+                  need(all(path.stat().st_size <= 4194304 for path in paths), 'returned_git_log_cap')
+                  data = [path.read_bytes() for path in paths]
+                  receipt['logs'] = {path.name: pin(raw) for path, raw in zip(paths, data)}
+                  need(receipt['exitCode'] == 0 and not data[1], 'git_actual_failure')
+                  need(time.monotonic() < deadline, 'git_postread_deadline')
+                  return data[0]
+              except (OSError, ValueError) as error:
+                  receipt['error'] = str(error) if isinstance(error, ValueError) else type(error).__name__
+                  raise
+              finally:
+                  receipt['elapsedMs'] = int((time.monotonic() - call_started) * 1000)
+                  if not receipt['reaped']:
+                      context['unreaped'] = True
+                  raw = compact(receipt) + b'\n'
+                  journal = context['out'] / (context['prefix'] + '-receipts.jsonl')
+                  need((journal.stat().st_size if journal.exists() else 0) + len(raw) <= 1048576,
+                       'git_journal_cap')
+                  with journal.open('ab') as output:
+                      output.write(raw)
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          run, attempt = os.environ['GITHUB_RUN_ID'], os.environ['GITHUB_RUN_ATTEMPT']
+          out = Path(os.environ['RUNNER_TEMP']) / f'code0-http401-transport-red-{run}-{attempt}'
+          argv = [sys.executable, 'scripts/test-code0-http401-transport-red.py']
+          result = {'schema': 1, 'runId': run, 'attempt': int(attempt), 'checkout': os.environ['GITHUB_SHA'],
+                    'argv': argv, 'exitCode': None, 'collectorReturned': False, 'collectorReaped': False,
+                    'elapsedMs': None, 'error': 'none', 'logs': {}}
+          started = time.monotonic()
+          GIT_STATE = {'out': out, 'overall': started, 'phaseDeadline': started + 1500,
+                       'prefix': 'parent-git', 'count': 0, 'unreaped': False}
+          try:
+              stdout_path, stderr_path = out / 'collector.stdout.log', out / 'collector.stderr.log'
+              with stdout_path.open('xb') as stdout, stderr_path.open('xb') as stderr:
+                  need(time.monotonic() - started < 1500, 'collector_before_spawn_deadline')
+                  process = subprocess.Popen(argv, cwd=root, stdin=subprocess.DEVNULL,
+                                             stdout=stdout, stderr=stderr, shell=False)
+                  while process.poll() is None:
+                      need(time.monotonic() - started < 1500, 'active_collector_deadline')
+                      need(stdout_path.stat().st_size <= 4194304 and stderr_path.stat().st_size <= 4194304,
+                           'active_collector_output_overflow')
+                      time.sleep(0.05)
+                  result['collectorReturned'] = True
+                  result['exitCode'] = process.wait()
+                  result['collectorReaped'] = True
+              result['elapsedMs'] = int((time.monotonic() - started) * 1000)
+              need(time.monotonic() - started < 1500 and stdout_path.stat().st_size <= 4194304
+                   and stderr_path.stat().st_size <= 4194304, 'completed_collector_deadline_or_cap')
+              result['logs'] = {p.name: pin(p.read_bytes()) for p in (stdout_path, stderr_path)}
+              need(result['exitCode'] == 0 and result['collectorReaped'], 'collector_actual_exit_not_zero')
+              schema_raw = (root / '.ci/code0-http401-transport-red/schema-data.json').read_bytes()
+              need(pin(schema_raw) == {'bytes': 189431, 'sha256': 'd75787f3dee3024166190218797f150e31d1d38cfc4ac9b905517ea8b3fa8d3a'}, 'final_schema_pin')
+              schema = decode(schema_raw, 262144)
+              definitions = schema['definitions']
+              summary_raw = (out / 'summary.json').read_bytes()
+              summary = decode(summary_raw, 65536)
+              need(summary['result'] == 'qualifiedLegacyEvidencePendingParentSeal' and summary['error'] == 'none'
+                   and summary['runId'] == run and summary['attempt'] == int(attempt)
+                   and summary['checkout'] == os.environ['GITHUB_SHA']
+                   and summary['allDirectChildrenReaped'] is True and summary['elapsedMs'] < 1500000,
+                   'returned_summary_not_qualified')
+              stages = summary['stages']
+              expected_names = ['rust-and-format', 'cargo-version', 'clippy-version',
+                                'strict-clippy', 'compile-and-list', 'complete-library']
+              limits = [30, 30, 30, 600, 600, 300]
+              expected_children = [['rust-version', 'format'], ['cargo-version'], ['clippy-version'],
+                                   ['strict-clippy'], ['compile-no-run', 'compiled-inventory'], ['complete-library']]
+              need(len(stages) == 6, 'six_actual_stages')
+              children = {}
+              for stage, name, limit, child_names in zip(stages, expected_names, limits, expected_children):
+                  need(stage['name'] == name and stage['limitSeconds'] == limit and stage['complete'] is True
+                       and stage['elapsedMs'] < limit * 1000
+                       and [c['name'] for c in stage['children']] == child_names, 'stage_actual_bound')
+                  for child in stage['children']:
+                      cname = child['name']
+                      need(child['exitCode'] == (101 if cname == 'complete-library' else 0)
+                           and child['childReturned'] is True and child['childReaped'] is True
+                           and child['error'] == 'none', 'actual_child_return_or_exit')
+                      for suffix in ('.stdout.log', '.stderr.log'):
+                          raw = (out / (cname + suffix)).read_bytes()
+                          need(len(raw) <= 4194304 and pin(raw) == child['logs'][cname + suffix], 'gate_raw_log_seal')
+                      children[cname] = child
+              identity_raw = (out / 'identity.json').read_bytes()
+              identity = decode(identity_raw, 16384)
+              need(pin(identity_raw) == summary['identityPin'] and identity['checkout'] == os.environ['GITHUB_SHA'],
+                   'identity_after_return')
+              for name, expected in identity['payloads'].items():
+                  need(pin((root / name).read_bytes()) == expected, 'payload_after_collector')
+              need(git(root, 'rev-parse', 'HEAD').decode().strip() == identity['checkout']
+                   and git(root, 'rev-list', '--parents', '-n', '1', 'HEAD').decode().split()
+                       == [identity['checkout'], '32b611cd56b1d04942a13848adbbeb382dcddc4a']
+                   and git(root, 'rev-parse', 'HEAD^{tree}').decode().strip() == identity['tree'], 'final_git_identity')
+              for entry in git(root, 'ls-tree', '-r', '-z', 'HEAD').split(b'\0'):
+                  if not entry:
+                      continue
+                  left, path = entry.split(b'\t', 1)
+                  mode, kind, oid = left.decode().split()
+                  raw = (root / path.decode('utf-8')).read_bytes()
+                  header = b'blob ' + str(len(raw)).encode('ascii') + b'\0'
+                  name = path.decode('utf-8')
+                  if name in schema['generatedSchemaGuards']:
+                      need(mode == '100644' and kind == 'blob' and pin(raw) in schema['generatedSchemaGuards'][name]['afterAllowed'],
+                           'final_fixed_generated_schema')
+                  else:
+                      need(mode in ('100644', '100755') and kind == 'blob'
+                           and hashlib.sha1(header + raw).hexdigest() == oid, 'final_all_tracked_checkout')
+              for name in ('git-receipts.jsonl', 'source-guards.jsonl'):
+                  need(pin((out / name).read_bytes()) == summary[name], 'guard_journal_seal')
+              git_rows = [decode(row, 8192) for row in (out / 'git-receipts.jsonl').read_bytes().splitlines()]
+              need(len(git_rows) == summary['gitCallCount'] and len(git_rows) > 0, 'git_actual_call_inventory')
+              for entry in git_rows:
+                  need(entry['returned'] is True and entry['reaped'] is True and entry['exitCode'] == 0
+                       and entry['error'] == 'none' and entry['elapsedMs'] < 30000, 'git_return_qualification')
+                  for name, expected in entry['logs'].items():
+                      raw = (out / name).read_bytes()
+                      need(len(raw) <= 4194304 and pin(raw) == expected, 'git_raw_log_seal')
+              guard_rows = [decode(row, 8192) for row in (out / 'source-guards.jsonl').read_bytes().splitlines()]
+              need(len(guard_rows) == summary['sourceGuardCount'] and guard_rows
+                   and guard_rows[0]['phaseAllowsKnownGeneratedOutput'] is False
+                   and guard_rows[-1]['phaseAllowsKnownGeneratedOutput'] is True, 'generation_phase_inventory')
+              for entry in guard_rows:
+                  need(set(entry['generatedObserved']) == set(schema['generatedSchemaGuards']), 'fixed_four_generated_paths')
+                  for name, actual in entry['generatedObserved'].items():
+                      limits = schema['generatedSchemaGuards'][name]
+                      allowed = limits['afterAllowed'] if entry['phaseAllowsKnownGeneratedOutput'] else [limits['before']]
+                      need(actual in allowed, 'observed_generated_value_not_approved')
+                      archive = out / ('generated-' + Path(name).stem + '-' + actual['sha256'] + '.json')
+                      need(pin(archive.read_bytes()) == actual, 'actual_generated_archive')
+              for name, expected in summary['qualifiedRecords'].items():
+                  need(pin((out / name).read_bytes()) == expected, 'candidate_record_seal')
+              draft_raw = (out / 'collector-input.json').read_bytes()
+              draft = decode(draft_raw, 8192)
+              need(set(draft) == set(definitions['CollectorV1']['fields']) - {'collectorExit'}, 'draft_closed_keys')
+              # Actual exit0 comes only from the process.wait above, never from metadata.
+              draft['collectorExit'] = result['exitCode']
+              typed(draft, definitions['CollectorV1'], definitions)
+              need(draft['qualification'] == 'acceptedLegacyTransportRED' and draft['runId'] == run
+                   and draft['caseId'] == 'idle-first-request-second' and draft['variant'] == 'legacyOneAccept'
+                   and draft['exitCode'] == 101 and draft['childReturned'] is True and draft['childReaped'] is True
+                   and draft['oldSuiteMatched'] is True and draft['oracleMatched'] is True
+                   and draft['sourceUnchangedBeforeAfter'] is True and draft['binaryUnchangedBeforeAfter'] is True
+                   and draft['elapsedMs'] == children['complete-library']['elapsedMs'] < 75000,
+                   'final_qualification_crossjoin')
+              for file_name, length_key, hash_key in (
+                      ('controlled-raw.json', 'rawBytes', 'rawSha256'), ('exit.json', 'exitBytes', 'exitSha256'),
+                      ('complete-library.stdout.log', 'stdoutBytes', 'stdoutSha256'),
+                      ('complete-library.stderr.log', 'stderrBytes', 'stderrSha256')):
+                  actual = pin((out / file_name).read_bytes())
+                  need(actual == {'bytes': draft[length_key], 'sha256': draft[hash_key]}, 'final_record_log_join')
+              source_raw = (out / 'source.json').read_bytes()
+              source = record(source_raw, 'SourceIdentityV1', definitions)
+              raw = record((out / 'controlled-raw.json').read_bytes(), 'ControlledTransportV1', definitions)
+              exit_value = record((out / 'exit.json').read_bytes(), 'ExitV1', definitions)
+              need(draft['sourceSha256'] == pin(source_raw)['sha256'] and source['runId'] == raw['runId']
+                   == exit_value['runId'] == run and source['commit'] == source['candidate'] == identity['checkout']
+                   and source['tree'] == source['candidateTree'] == identity['tree']
+                   and source['parents'] == source['candidateParents'] == [identity['parent']]
+                   and source['reviewSha256'] == schema['sourceReviewSha256']
+                   and source['caseId'] == raw['caseId'] == draft['caseId']
+                   and source['variant'] == raw['variant'] == draft['variant']
+                   and exit_value['exitCode'] == draft['exitCode'] == children['complete-library']['exitCode'],
+                   'final_actual_run_case_source_exit_joins')
+              inventory = (out / 'compiled-inventory.json').read_bytes()
+              need(pin(inventory)['sha256'] == source['inventorySha256']
+                   and decode(inventory, 131072) == schema['expectedTests'], 'final_compiled_inventory_join')
+              binary = Path(children['complete-library']['argv'][0]).resolve(strict=True)
+              need(binary.parent == (root / 'windows/src-tauri/target/debug/deps').resolve(strict=True)
+                   and pin(binary.read_bytes()) == {'bytes': source['binaryBytes'], 'sha256': source['binarySha256']},
+                   'final_same_binary_join')
+              gate_names = ['format', 'strictClippy', 'noRun', 'completeSuite']
+              gate_children = ['format', 'strict-clippy', 'compile-no-run', 'complete-library']
+              for index, (name, child_name) in enumerate(zip(gate_names, gate_children)):
+                  child = children[child_name]
+                  gate = draft['gateLogs'][index]
+                  need(gate['name'] == name and gate['exitCode'] == draft['gates'][name + 'Exit'] == child['exitCode']
+                       and gate['elapsedMs'] == child['elapsedMs'] and gate['returned'] is True and gate['reaped'] is True
+                       and gate['argvSha256'] == pin(compact(child['argv']))['sha256'], 'actual_gate_receipt_join')
+                  for suffix, prefix in (('.stdout.log', 'stdout'), ('.stderr.log', 'stderr')):
+                      p = pin((out / (child_name + suffix)).read_bytes())
+                      need(p == {'bytes': gate[prefix + 'Bytes'], 'sha256': gate[prefix + 'Sha256']}, 'gate_log_join')
+              need(time.monotonic() - started < 1500 and not GIT_STATE['unreaped'], 'parent_final_seal_deadline')
+              final_raw = emit(out, 'collector.json', draft, 8192)
+              result['finalCollectorPin'] = pin(final_raw)
+          except (OSError, ValueError, UnicodeError, KeyError, subprocess.CalledProcessError) as error:
+              result['error'] = str(error) if isinstance(error, ValueError) else type(error).__name__
+          finally:
+              result['elapsedMs'] = int((time.monotonic() - started) * 1000)
+              emit(out, 'collector-exit.json', result, 16384)
+          need(result['exitCode'] == 0 and result['collectorReaped'] and result['error'] == 'none'
+               and 'finalCollectorPin' in result and time.monotonic() - started < 1500,
+               'parent_did_not_seal_exact_qualified_RED')
+          print('Actual collector exit0/reaped and full390 exact qualified HTTP RED receipts sealed; independent actual review remains required.')
+      - name: Preserve every raw gate and actual child return including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-http401-transport-red-evidence
+          path: ${{ runner.temp }}/code0-http401-transport-red-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          retention-days: 7
