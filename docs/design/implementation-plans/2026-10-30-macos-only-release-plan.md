@@ -72,6 +72,8 @@
 - 偏离 1：`.ci/**`、`scripts/collect-code0-native-loader.ps1` 未取——二者仅被 `.github/workflows/windows-ci.yml` 使用，而该 workflow 保留 `main` 版本。
 - 偏离 2：`.github/workflows/code0-dispatcher-mutations.yml` 与 `scripts/test-code0-dispatcher-mutations.py` 曾按第 2 步取入，随后移除。原因：该 workflow 精确校验 `windows/src-tauri/src/platform/windows/code0_dispatcher.rs` 的已评审 SHA，而本发布分支不含该源码，Draft PR 首跑（run `41006300512`）以 `Checkout bytes are not the reviewed committed source; mutation opt-in refused` 退出 1；该脚本 docstring 本身限定 Windows CI 使用；两文件在 `main` 均不存在，故本发布不新增，Windows 批次再随源文件一并引入。
 - 偏离 3：版本数字实际落地范围以 `scripts/check-cross-platform-contracts.rb` 为准，除第 3 步所列外还需 `windows/package-lock.json`（两处）、`windows/src-tauri/Cargo.lock`，以及 `Sources/AIMeterWidgetExtension/Resources/Info.plist`（Widget 与宿主版本一致性断言）。
+- 偏离 4（含一次被证伪的假设，必须记录）：第 5 步「`windows/` 保持 `origin/main` ⇒ `windows-ci` 结论不变」一度被证伪。`5e03674b` 把 Code0 条目写进了共享 `contracts/presentation/providers.json`，并新增 `contracts/fixtures/code0-site-credits.json`；而 Windows 运行时用 4 变体 `ProviderId` 解码这份共享契约（两处 `include_str!`：`windows/src-tauri/src/lib.rs:32`、`windows/src-tauri/src/domain/presentation.rs:7`），于是 Windows CI 连红四次（`41006482385`、`41007442895`、`41009318287`、`41010012618`）。中途曾用「测试侧显式排除 code0 夹具 + 目录期望跟随」修补（`18faf8be`、`c8d4f31e`），被独立审查判定为**用测试掩盖产品缺陷**并否决；该修补已整体 revert，不保留其写法。
+- 偏离 5（契约按平台拆分，取代上述修补）：共享契约只描述两个平台都实现的服务——`contracts/presentation/providers.json` 回到 `main` 的 4 项（两侧运行时都解码这一份），Code0 展示条目移到 `contracts/presentation/providers.macos.json`（`schemaVersion 1` + `platform: "macos"`）；`contracts/fixtures/code0-site-credits.json` 移到 `contracts/fixtures/macos/` 子目录，共享夹具回到 6 个。`scripts/check-cross-platform-contracts.rb` 随之分两段校验：共享 6 fixture + 4 provider 与 `main` 一致；macOS-only 1 fixture + 1 provider 且**只允许 `code0`**；再用合并结果断言仍是 5 项、顺序/displayName/进度语义/logoKey 唯一性与 snapshot schema enum 不变。该门禁用两个负例验证过会红（macOS 文件混入第二个 provider、共享夹具多加一个）。`windows/src-tauri/tests/shared_contract.rs` 全量回退 `main`；`app_metadata.rs` 只保留 `0.11.0` 版本断言与此前新增的 `windows_service_set_never_accepts_code0` 守卫（断言 Windows 域只有四个服务、`code0` 快照解码必须报错）。影响面结论：`Sources/` 对 `providers.json` 零引用，macOS 生产代码不读它，故本次拆分对 macOS 运行时零影响，是纯契约/测试层动作。
 - 第 4 步（`release.yml` 的 `platform: macos|both`）已实现：`windows-release` job 整体 `if: inputs.platform == 'both'`（显式跳过，非删除）；`publish` 改为 `!cancelled() && needs.macos-preflight.result == 'success' && (inputs.platform != 'both' || needs.windows-release.result == 'success')`；`publish` 内四个 Windows 步骤逐个加 `if: inputs.platform == 'both'`；并新增 `Publish the verified macOS draft release`（仅 `platform == 'macos'`）——原流程只有 Windows 步骤才会把 draft 转为公开，macOS-only 必须补这一步，且它只在 macOS 资产（zip、`.sha256`、`appcast.xml`）齐备时公开。macOS 门禁一项未减少。
 - Draft PR #68 仅用于在 macOS runner 上取得权威门禁结论，保持 Draft、不合并、不转 Ready。
 
@@ -86,7 +88,7 @@
 | `VERSION` | 0.10.11 | 0.11.0 | 手工提交（唯一真源） |
 | `Sources/AIMeterApp/Resources/Info.plist` | 0.10.11 / 39 | 0.11.0 / 40 | 手工提交 |
 | `windows/*` 版本元数据（5 处） | 0.10.11 | 0.11.0 | 同一提交，仅数字 |
-| `README.md` 徽章 | version-0.10.11 / tests-653 | version-0.11.0 / tests-N | 跑完 `scripts/test.sh` 后取实际通过数 |
+| `README.md` 徽章 | version-0.10.11 / tests-653 | version-0.11.0 / tests-886 | 跑完 `scripts/test.sh` 后取实际通过数；本次实测 886 |
 | `appcast.xml` | 最新 0.10.11/39 | 新增 0.11.0/40 条目 | `scripts/package-update-release.sh` 生成（含 `length` 与 `sparkle:edSignature`）；`release.yml` 在资产公开后提交该文件 |
 | `preview-appcast.xml` | 同 | 不用于正式版 | 仅 preview 流程 |
 | release notes | — | 新文档/Release body | 必须含：Code0 新服务（macOS）、Windows 本版未发布、四项已知限制、升级方式 |

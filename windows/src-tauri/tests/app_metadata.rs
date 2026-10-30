@@ -15,7 +15,6 @@ fn product_metadata_matches_the_shared_contract() {
             "OpenAI Codex".to_owned(),
             "DeepSeek".to_owned(),
             "Google Antigravity".to_owned(),
-            "Code0".to_owned(),
         ]
     );
 }

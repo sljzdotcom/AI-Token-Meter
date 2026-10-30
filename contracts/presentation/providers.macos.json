@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "platform": "macos",
+  "providers": [
+    {
+      "id": "code0",
+      "displayName": "Code0",
+      "logoKey": "code0",
+      "accentColor": "#2CB67D",
+      "progressSemantics": "valueOnly"
+    }
+  ]
+}

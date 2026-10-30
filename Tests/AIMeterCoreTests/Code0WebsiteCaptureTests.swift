@@ -116,11 +116,11 @@ struct Code0WebsiteCaptureTests {
         #expect(try JSONDecoder().decode(UsageProvider.self, from: Data(#""deepSeek""#.utf8)) == .deepSeek)
     }
 
-    @Test("The dedicated seventh shared fixture carries only normalized site-credit metrics")
+    @Test("The macOS-only fixture carries only normalized site-credit metrics")
     func dedicatedCode0FixtureHasNoCurrencyRatioOrAccountData() throws {
         let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("contracts/fixtures/code0-site-credits.json")
+            .appendingPathComponent("contracts/fixtures/macos/code0-site-credits.json")
         let data = try Data(contentsOf: fixtureURL)
         let fixture = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let providerID = try #require(fixture["providerId"] as? String)
