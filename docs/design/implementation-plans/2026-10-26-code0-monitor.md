@@ -506,3 +506,16 @@ runtime 受控分片在真实完整 settled turn、已消费终止前置及显�
 完整范围固定为七源码/测试路径：mod.rs、code0_runtime.rs、code0_dispatcher.rs、code0_web_session.rs、code0_webview.rs、新cleanup_native.rs、tests/code0_native_fixture.rs；加三个CI路径：.github/workflows/windows-ci.yml、scripts/test-code0-dispatcher-mutations.py、.github/workflows/code0-dispatcher-mutations.yml。后三项由开发入口在源码冻结后整合。Dispatcher精确SHA及四mutant完整源码SHA必随新字节重算，patch SHA/真实panic行号按最终文本重新导出（不假定必改变）；workflow内全部runner固定SHA同步。四变异配方/断言、23+2基线、strict编译后准确语义kill、完整源码归档及原时限日志界限均保留，禁止绕过门禁。正常release/no-feature、debugfeature非test库/F及原test配置须实际严格构建/测试，无lint豁免或函数引用假验收。
 
 先由唯一作者实现这七路径的私有候选并冻结完整receipt/schema/生产者/保护；独立源码及组合CI审查通过后，才在隔离Windows实际运行首片。新case仅实际冷安装/lifetime正向覆盖，不制造缺API或setup失败作为行为RED；后续真实清理B行为RED和C/R物理完成另行推进。用户已有全测试及独审通过后直接发布授权保持。
+
+
+### 2026-10-30 B 受控清理结果与实际 owner 释放的有限接续
+
+开发入口全文读取固定设计24237/1a30dce9，在已接受的单owner、完整CleanupKey、Session原始Disconnect10预算与C+R合同内选定六路径私有候选：D、cleanup_native、N/P的必要Window-view适配、runtime窄接线、F固定场景。Session/Dispatcher/clock/lease-store算法及CI不由该作者修改。冷工厂实际门禁仍须通过；允许并行准备新私有源码，不因此接受冷工厂或B实际结果。N最终只能机械适配到HTTP作者最新获审冻结字节，不能覆盖其运输改动；runtime/F须保留本轮实际编译问题的准确修正。
+
+固定fixture-only缓存包装先真实读取同一store并要求Ok(None)，仅一次返回固定2/1受控快照；以后load与全部remove/save委托真实store。实际同一install/Session/Dispatcher、同clock/Weak预算及真实shared-slot authority负责生成完整请求、预留与admission；不伪造登录、Window Released或请求。只提供固定无参Disconnect入口。单一原生Owner增加Window/Cleanup目的与完整binding/request/checked generation，所有物理回调绑定完整key，Window路径拒绝Cleanup。Cleanup复用实际COM窗口构造、PID/exit注册与正常Close/Destroyed/库存；本片不调用Profile2/SDK清理，也不宣称数据删除。
+
+C明确为固定内联rawS_OK受控完成；实际Rust完成对象保留独立Drop票据，Invoke/闭包消费不能冒充对象Drop或SDK COM证据。先验证内联不发布、C无R不发布、真正Close已完成但对象保留仍阻止R，再无参释放该对象，等待原生Owner全部真实库存与完整外层返回。唯一故意RED缺口是正常poll未调用同一个已受完整C/R/key/authority/Weak预算和原期限检查的一次publisher。目标观测永久锁存normal publication0、Session仍Closing、authority仍held后，独立计数的无参teardown continuation仅调用同一publisher并重新核全部实时条件；不接受外部Result/key/时间，不恢复失败预算、不掩盖原目标失败。GREEN只补正常调用，normal1/teardown0，断言和控制保持。
+
+只有实际消费匹配结果、Session真实Disconnected/release撤销authority，再真实Stop/Stopped/idle，且无队列/未消费结果/原生库存/保留对象，才允许独立的非冷按值退役并在所有borrow之外drop全部句柄。clear/acquire/create永久使旧cold退役不合格，slot空或registry无不单独证明R；失败保留拥有者。目标B1加七个同case健康控制和四项typed bookkeeping unit定义；不可正常Stopped的错误场景明确留给后续真实失败保留验收，不能自动修复伪造正常关闭。
+
+准确语义RED必须等待真实run_return0、wake取消/join、一次TempDir.close及Result drop、原45/首次Stop10/outer75内最终写入及看门狗join之后才返回Ok(false)/exit1。任何setup/构造/缺R/超时/预算/sink/收尾或I/O失败均Incomplete，不算目标RED；控制C不证明SDK清理、非冷fixture释放不证明生产Quiescent或quit/update许可。新源码须独审，完整闭合schema/实际CI另由开发入口整合；未通过完整cold实际与B实际独审前不进入B GREEN或声称生产完成。

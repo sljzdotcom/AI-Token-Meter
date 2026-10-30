@@ -1009,10 +1009,10 @@ fn take_current_cold_record(binding: u64) -> Option<Rc<dyn LocalRecord>> {
             return None;
         };
         if slot.installing
-            || !slot
+            || slot
                 .record
                 .as_ref()
-                .is_some_and(|record| record.binding() == binding)
+                .is_none_or(|record| record.binding() != binding)
         {
             return None;
         }

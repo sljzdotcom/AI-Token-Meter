@@ -2661,7 +2661,7 @@ mod smoke {
     fn join_fixture_wake(
         wake_done: mpsc::Sender<()>,
         wake: thread::JoinHandle<()>,
-        diagnostics: &Diagnostics,
+        diagnostics: &Arc<Diagnostics>,
     ) -> bool {
         let _ = wake_done.send(());
         diagnostics.phase(DP::WakeJoin, false);
@@ -2673,7 +2673,7 @@ mod smoke {
         diagnostics.observed(DM::WakeJoined);
         wake_joined
     }
-    fn close_fixture_temp(temp: tempfile::TempDir, diagnostics: &Diagnostics) -> bool {
+    fn close_fixture_temp(temp: tempfile::TempDir, diagnostics: &Arc<Diagnostics>) -> bool {
         diagnostics.phase(DP::TempClose, false);
         let cleanup_result = {
             let _boundary = diagnostics.boundary(DP::TempClose);

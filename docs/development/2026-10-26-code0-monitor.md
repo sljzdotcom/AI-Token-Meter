@@ -1388,3 +1388,7 @@ S5七路径真实冷安装与普通Stop后明确退役候选也经独立源码�
 S5七源码和三CI组合独审18745/b642d7e6全文接受C0/I0/M0；原核心工作流逐字保留，新增普通debug/release严格配置及冷工厂真实夹具过程和闭合schema17消费，dispatcher四变异仅精确pin更新。固定Cargo1.88官方源码确认harness=false测试artifact仍profile.test=true，实际Cargo JSON未借此冒充已观察。Root有限SOURCE gate632/451bbd35保存；后续精确整合及正常实际验证仍待完成，未宣称C/R、Profile2或生产终止/发布完成。
 
 2026-10-30 执行检查点：专用目录req004-http401-fix2-s5-preapply-20261030完整备份285文件，manifest67763/37614094逐件读回一致。ce7eaff已正常推送独立FIX2分支，实际40985573882运行中。S5获审十路径已按完整before/after精确应用，receipt3775/5eaa5ac4；其余1000个tracked字节和真实索引保持，原三docs改动并入本次记录。独立审查材料与此前失败全部保留，新的实际配置/原生门禁待运行。
+
+2026-10-30 实际反馈：HTTP ce7eaff/run40985573882官方成功，完整289文件及ZIP875780/a82090a3已保存，实际独审进行中，暂未授予GREEN。9ce实际Mac40985869453成功，Windows40985869489与dispatcher40985869429失败；普通release lint/build成功，core/debug及dispatcher先被runtime1012 nonminimal_bool拦下，后续fixture编译又指出F2669/2679的Diagnostics boundary要求&Arc<Self>而新helpers接受&Diagnostics。Root窄FIX2仅携带已审runtime两行等价式及两helper参数&Arc，原boundary调用、RAII范围和全部断言保持；新源码独审进行中，未apply或再推。28/9/9完整原件保存，空stub和缺构建绝不算原生结果；实际mergeeddf77a8父a97c+9ce，tree5dfb与提交一致。
+
+2026-10-30 后续独审：HTTP实际14433/caa09ec3经Root全文接受有限qualified legacy运输RED C0/I0/M0，390同binary=389旧PASS+soleN6608准确Refused/Connected，8child/124Git/collector真实回收及原期限/正常socket关闭成立；Root gate926/0fe064e9，已授唯一N/core私有bounded双连接GREEN作者，原生及生产范围仍未验。S5 compileFIX2独审10140/089b5278也已全文接受有限两路径SOURCE C0/I0/M0，准确原两编译原因保留；后续正常实际全门禁必须重验。B固定受控C/实际R设计已纳唯一正式计划，六路径私有作者开始实现，不能据此称cold或B实际通过。
