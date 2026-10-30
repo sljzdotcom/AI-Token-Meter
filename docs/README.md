@@ -2,7 +2,7 @@
 
 ## 需求与进度
 
-- [2026-10-30 跨模型开发交接（本机材料）](development/2026-10-30-model-handoff.local.md)：当前开发检查点、遗留门禁、目录职责与恢复接管说明；含本机路径，不自动用于公开发布。
+- 2026-10-30 跨模型开发交接（本机材料，不入库）：当前开发检查点、遗留门禁、目录职责与恢复接管说明，仅保存在执行本机的 `docs/development/2026-10-30-model-handoff.local.md`（文件含本机路径与协调绑定，不随公开仓库分发，sha256 见需求台账）。
 - [当前项目状态](project-status.md)：版本、能力、数据、验证基线、发布事实和仍未完成事项的权威快照。
 - [待完成需求与需求历史](requirements-backlog.md)：所有新需求的第一登记点，包含进行中、待确认、延期、受环境限制和已完成事项。
 - [需求与开发对话协作](development/agent-collaboration.md)：原对话提需求和验收，开发对话执行，按需求 ID 派工和回传结果。
@@ -56,6 +56,7 @@
 | [Google Antigravity Gemini 优先详情计划](design/implementation-plans/2026-09-14-antigravity-gemini-detail.md) | 双平台额度归一化、CLI附加信息、紧凑详情与完整验证步骤 |
 | [macOS 悬浮条清透 Liquid Glass](design/specifications/2026-09-14-macos-liquid-glass-transparency-design.md) | 移除高不透明度烟熏底，保留原生玻璃、极淡冷色 tint 与辅助功能回退 |
 | [macOS 悬浮条清透 Liquid Glass 计划](design/implementation-plans/2026-09-14-macos-liquid-glass-transparency.md) | 透明度失败回归、材质替换、视觉证据和验证步骤 |
+| [Code0 HTTP401 原生夹具 I1 闭合判定规格](design/specifications/2026-10-30-code0-http401-i1-closure-design.md) | 首包与总字节、收发次数物理可行分配、辅助零字节连接 recv=nonprogress+EOF 的谓词与 RED/GREEN 判定式（仅规格，不含实现） |
 
 ## 开发与维护
 
