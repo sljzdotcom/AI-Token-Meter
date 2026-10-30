@@ -20,14 +20,29 @@ fn every_shared_fixture_decodes_into_the_windows_domain() {
     paths.sort();
 
     assert_eq!(paths.len(), 6);
+    // The shared catalog describes five services; the Windows build ships four and
+    // has no Code0 domain, so exactly one fixture is deliberately not decoded here.
+    // Windows must keep rejecting Code0 snapshots (see app_metadata.rs), and adding
+    // Code0 support must update this list together with the domain.
+    const UNSUPPORTED_FIXTURES: [&str; 1] = ["code0-site-credits.json"];
+    let mut decoded = 0;
     for path in paths {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("fixture name");
+        if UNSUPPORTED_FIXTURES.contains(&name) {
+            continue;
+        }
         let value: Value =
             serde_json::from_slice(&fs::read(&path).expect("fixture bytes")).expect("fixture json");
         let snapshot = UsageSnapshot::decode_compatible(&value).expect("compatible fixture");
 
         assert_eq!(snapshot.schema_version, 1);
         assert!(snapshot.used_ratio.is_none_or(|ratio| ratio.get() <= 1.0));
+        decoded += 1;
     }
+    assert_eq!(decoded, 6 - UNSUPPORTED_FIXTURES.len());
 }
 
 #[test]
@@ -181,7 +196,9 @@ fn staleness_uses_fetched_time_plus_the_contract_duration() {
 fn presentation_identity_comes_from_the_embedded_shared_contract() {
     let providers = embedded_provider_presentations().expect("presentation contract");
 
-    assert_eq!(providers.len(), 4);
+    // The catalog carries all five services; Windows still renders only its own
+    // four (windows/src/state/usageBridge.ts) and never exposes Code0.
+    assert_eq!(providers.len(), 5);
     assert_eq!(providers[0].display_name, "Claude Code");
     assert_eq!(providers[1].display_name, "OpenAI Codex");
     assert_eq!(providers[2].display_name, "DeepSeek");
@@ -189,6 +206,7 @@ fn presentation_identity_comes_from_the_embedded_shared_contract() {
         providers[2].progress_semantics,
         ProgressSemantics::ConsumedFromBalanceBaseline
     );
+    assert_eq!(providers[4].display_name, "Code0");
 }
 
 fn fixtures_directory() -> PathBuf {
