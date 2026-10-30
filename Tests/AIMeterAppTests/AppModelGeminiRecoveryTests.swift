@@ -1247,31 +1247,57 @@ struct AppModelGeminiRecoveryTests {
         let context = makeRecoveryContext()
         defer { clean(context) }
         let counters = RecoveryCounters()
-        var openedToken: String?
-        var stoppedTokens: [String] = []
+        let probe = RecoveryBeginStopProbe()
         let model = makeModel(
             context: context,
             counters: counters,
             pauseReason: .unknown,
             quota: .success(recoverySnapshot(value: 1)),
-            openLogin: { openedToken = $0 },
-            stopLogin: { stoppedTokens.append($0) },
-            recoveryBegin: {
-                try? await Task.sleep(for: .milliseconds(40))
-                return true
-            }
+            openLogin: { probe.open($0) },
+            stopOperation: { probe.stop($0) },
+            recoveryBeginWithToken: { await probe.begin($0) }
         )
 
         await model.refresh()
         let begin = Task { await model.beginGeminiOneTimeRecovery() }
-        try await Task.sleep(for: .milliseconds(5))
-        model.stop()
-        await begin.value
+        do {
+            let beginStarted = await probe.beginGate.waitUntilStarted(timeout: .seconds(2))
+            try #require(beginStarted, "Recovery sequence: \(probe.trace)")
+            try #require(probe.beginToken != nil, "Recovery sequence: \(probe.trace)")
+            let unopenedBeforeStop = probe.openedToken == nil
+            #expect(unopenedBeforeStop, "Recovery sequence: \(probe.trace)")
 
-        #expect(openedToken == nil)
-        #expect(stoppedTokens.count == 1)
-        #expect(model.geminiOneTimeRecoveryState == .idle)
-        #expect(await counters.quotaCalls == 0)
+            probe.record("application stop called")
+            model.stop()
+            probe.record("application stop returned")
+            let stopStarted = await probe.stopGate.waitUntilStarted(timeout: .seconds(2))
+            try #require(stopStarted, "Recovery sequence: \(probe.trace)")
+
+            probe.record("begin released")
+            await probe.beginGate.release()
+            await begin.value
+            probe.record("begin joined")
+            // The actual stop callback is still held, so joining begin cannot
+            // accidentally stand in for joining the stop acknowledgement.
+            let stopCallbackStillHeld = probe.stoppedTokens.isEmpty
+            #expect(stopCallbackStillHeld, "Recovery sequence: \(probe.trace)")
+            probe.record("stop released")
+            await probe.stopGate.release()
+            await probe.joinStops()
+            probe.record("stop joined")
+
+            let unopenedAfterStop = probe.openedToken == nil
+            let stoppedMatchingBeginToken = probe.beginToken.map { probe.stoppedTokens == [$0] } ?? false
+            #expect(unopenedAfterStop, "Recovery sequence: \(probe.trace)")
+            #expect(probe.stoppedTokens.count == 1, "Recovery sequence: \(probe.trace)")
+            #expect(stoppedMatchingBeginToken, "Recovery sequence: \(probe.trace)")
+            #expect(model.geminiOneTimeRecoveryState == .idle, "Recovery sequence: \(probe.trace)")
+            #expect(await counters.quotaCalls == 0, "Recovery sequence: \(probe.trace)")
+        } catch {
+            await probe.releaseAndJoin(begin: begin, model: model)
+            throw error
+        }
+        await probe.releaseAndJoin(begin: begin, model: model)
     }
 
     @Test("A refresh already in flight cannot replace a newer one-time Gemini result")
@@ -1354,6 +1380,7 @@ struct AppModelGeminiRecoveryTests {
         diagnosticStore: GeminiDiagnosticStore = GeminiDiagnosticStore(fileURL: nil),
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         recoveryBegin: (@Sendable () async -> Bool)? = nil,
+        recoveryBeginWithToken: (@Sendable (String) async -> Bool)? = nil,
         signInSleep: (@Sendable (Duration) async throws -> Void)? = nil
     ) -> AppModel {
         AppModel(
@@ -1367,7 +1394,8 @@ struct AppModelGeminiRecoveryTests {
                 return []
             },
             geminiPauseReasonOperation: pauseReasonOperation ?? { pauseReason },
-            geminiRecoveryBeginOperation: { _ in
+            geminiRecoveryBeginOperation: { token in
+                if let recoveryBeginWithToken { return await recoveryBeginWithToken(token) }
                 if let recoveryBegin { return await recoveryBegin() }
                 return true
             },
@@ -1613,6 +1641,63 @@ private actor RecoveryPauseState {
     private(set) var reason: GeminiPauseReason?
     init(_ reason: GeminiPauseReason?) { self.reason = reason }
     func set(_ reason: GeminiPauseReason?) { self.reason = reason }
+}
+
+@MainActor
+private final class RecoveryBeginStopProbe {
+    let beginGate = RecoveryAsyncGate()
+    let stopGate = RecoveryAsyncGate()
+    private(set) var beginToken: String?
+    private(set) var openedToken: String?
+    private(set) var stoppedTokens: [String] = []
+    private var stopTasks: [Task<Bool, Never>] = []
+    private var events: [String] = []
+    var trace: String { events.joined(separator: " -> ") }
+
+    func record(_ event: String) {
+        if events.count < 20 { events.append(event) }
+    }
+
+    func begin(_ token: String) async -> Bool {
+        beginToken = token
+        record("begin entered")
+        await beginGate.hold()
+        record("begin returned true")
+        return true
+    }
+
+    func open(_ token: String) {
+        openedToken = token
+        record("login opened")
+    }
+
+    func stop(_ token: String) -> Task<Bool, Never> {
+        record("stop requested")
+        let task = Task {
+            self.record("stop entered")
+            await self.stopGate.hold()
+            self.stoppedTokens.append(token)
+            self.record("stop completed")
+            return true
+        }
+        stopTasks.append(task)
+        return task
+    }
+
+    func joinStops() async {
+        for task in stopTasks { _ = await task.value }
+    }
+
+    func releaseAndJoin(begin: Task<Void, Never>, model: AppModel) async {
+        // Run on both normal and throwing exits, before the context is removed.
+        // Release both gates first, including gates not entered before a timeout.
+        await beginGate.release()
+        await stopGate.release()
+        await begin.value
+        let timeoutTask = model.stop()
+        await timeoutTask?.value
+        await joinStops()
+    }
 }
 
 private actor RecoveryAsyncGate {

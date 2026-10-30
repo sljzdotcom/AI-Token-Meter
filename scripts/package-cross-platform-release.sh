@@ -83,7 +83,9 @@ gh workflow run release.yml \
     --repo "$REPOSITORY_SLUG" \
     --ref "v$VERSION" \
     -f "version=$VERSION" \
-    -f "build=$BUILD"
+    -f "build=$BUILD" \
+    -f "platform=both" \
+    -f "publish=true"
 
 echo "Draft v$VERSION created with verified macOS assets."
 echo "The cross-platform workflow will publish it only after the signed Windows build succeeds."

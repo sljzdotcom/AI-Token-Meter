@@ -19,7 +19,7 @@ struct CrossPlatformContractTests {
                 as? [String: Any]
         )
 
-        #expect(sharedVersion == "0.10.11")
+        #expect(sharedVersion == "0.11.0")
         #expect(sharedVersion == plist["CFBundleShortVersionString"] as? String)
 
         let packageData = try Data(
@@ -50,24 +50,33 @@ struct CrossPlatformContractTests {
 
     @Test("The presentation contract preserves provider identity and progress semantics")
     func providerPresentationContract() throws {
-        let data = try Data(
-            contentsOf: Self.repositoryRoot.appending(
-                path: "contracts/presentation/providers.json"
-            )
+        // Both apps decode the shared contract at runtime and the Windows build has
+        // no Code0 domain, so shared stays at the four shared services and the
+        // macOS-only entry lives in its own file.
+        let shared = try JSONDecoder().decode(
+            PresentationContract.self,
+            from: Data(contentsOf: Self.repositoryRoot.appending(path: "contracts/presentation/providers.json"))
         )
-        let contract = try JSONDecoder().decode(PresentationContract.self, from: data)
+        let macosOnly = try JSONDecoder().decode(
+            PresentationContract.self,
+            from: Data(contentsOf: Self.repositoryRoot.appending(path: "contracts/presentation/providers.macos.json"))
+        )
+        let providers = shared.providers + macosOnly.providers
 
-        #expect(contract.schemaVersion == 1)
-        #expect(contract.providers.map(\.id) == ["claude", "codex", "deepseek", "gemini"])
+        #expect(shared.schemaVersion == 1)
+        #expect(macosOnly.schemaVersion == 1)
+        #expect(shared.providers.map(\.id) == ["claude", "codex", "deepseek", "gemini"])
+        #expect(macosOnly.providers.map(\.id) == ["code0"])
+        #expect(providers.map(\.id) == ["claude", "codex", "deepseek", "gemini", "code0"])
         #expect(
-            contract.providers.map(\.displayName)
-                == ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
+            providers.map(\.displayName)
+                == ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity", "Code0"]
         )
         #expect(
-            contract.providers.map(\.progressSemantics)
-                == ["usedQuota", "usedQuota", "consumedFromBalanceBaseline", "usedQuota"]
+            providers.map(\.progressSemantics)
+                == ["usedQuota", "usedQuota", "consumedFromBalanceBaseline", "usedQuota", "valueOnly"]
         )
-        #expect(Set(contract.providers.map(\.logoKey)).count == 4)
+        #expect(Set(providers.map(\.logoKey)).count == 5)
     }
 
     @Test("Every fixture conforms to the stable snapshot envelope")
@@ -80,15 +89,20 @@ struct CrossPlatformContractTests {
             at: fixtureDirectory,
             includingPropertiesForKeys: nil
         ).filter { $0.pathExtension == "json" }
+        let macosFixtureURLs = try FileManager.default.contentsOfDirectory(
+            at: fixtureDirectory.appending(path: "macos", directoryHint: .isDirectory),
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
 
         #expect(fixtureURLs.count == 6)
-        for fixtureURL in fixtureURLs {
+        #expect(macosFixtureURLs.count == 1)
+        for fixtureURL in fixtureURLs + macosFixtureURLs {
             let fixture = try JSONDecoder().decode(
                 SnapshotFixture.self,
                 from: Data(contentsOf: fixtureURL)
             )
             #expect(fixture.schemaVersion == 1)
-            #expect(["claude", "codex", "deepseek", "gemini"].contains(fixture.providerId))
+            #expect(["claude", "codex", "deepseek", "gemini", "code0"].contains(fixture.providerId))
             #expect(Self.allowedStatuses.contains(fixture.status))
             if fixture.providerId == "gemini", fixture.status == "unavailable" {
                 #expect(fixture.status == "unavailable")

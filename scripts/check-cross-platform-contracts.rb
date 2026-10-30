@@ -165,9 +165,18 @@ end
 
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
-expected_providers = %w[claude codex deepseek gemini]
-expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
+macos_presentation = read_json(root + "contracts/presentation/providers.macos.json", errors)
+# The snapshot schema is platform-neutral, so it keeps all five services.
+expected_providers = %w[claude codex deepseek gemini code0]
+expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity", "Code0"]
 expected_identity = expected_providers.zip(expected_names).to_h
+# Both apps decode the shared presentation contract at runtime and the Windows
+# build has no Code0 domain, so shared carries only the four shared services and
+# the macOS-only entry lives in its own file.
+shared_providers = %w[claude codex deepseek gemini]
+shared_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
+macos_only_providers = %w[code0]
+macos_only_names = ["Code0"]
 allowed_statuses = %w[
   fresh cached refreshing notInstalled authenticationRequired setupRequired unavailable unrecognizedOutput
 ]
@@ -200,16 +209,21 @@ if schema
   errors << "Snapshot schema provider enum is incomplete" unless schema_providers == expected_providers
   schema_names = schema.dig("properties", "displayName", "enum")
   errors << "Snapshot schema displayName enum is incomplete" unless schema_names == expected_names
+  unless schema.dig("$defs", "metric", "properties", "unit", "enum")&.include?("siteCredits") &&
+      schema.dig("$defs", "metric", "properties", "kind", "enum")&.include?("cumulativeUsage")
+    errors << "Code0 metric schema must preserve site credits and cumulative usage"
+  end
 end
 
+shared_entries = []
 if presentation
   providers = presentation["providers"]
   if presentation["schemaVersion"] != 1 || !providers.is_a?(Array)
-    errors << "Provider presentation contract must use schemaVersion 1 and a providers array"
+    errors << "Shared provider presentation contract must use schemaVersion 1 and a providers array"
   else
-    errors << "Provider order or IDs changed" unless providers.map { |item| item["id"] } == expected_providers
-    errors << "Provider display names changed" unless providers.map { |item| item["displayName"] } == expected_names
-    errors << "Provider logo keys must be unique" unless providers.map { |item| item["logoKey"] }.uniq.length == expected_providers.length
+    shared_entries = providers
+    errors << "Shared provider order or IDs changed" unless providers.map { |item| item["id"] } == shared_providers
+    errors << "Shared provider display names changed" unless providers.map { |item| item["displayName"] } == shared_names
     deepseek = providers.find { |item| item["id"] == "deepseek" }
     unless deepseek && deepseek["progressSemantics"] == "consumedFromBalanceBaseline"
       errors << "DeepSeek must use consumed-from-balance progress semantics"
@@ -217,8 +231,39 @@ if presentation
   end
 end
 
+macos_entries = []
+if macos_presentation
+  providers = macos_presentation["providers"]
+  if macos_presentation["schemaVersion"] != 1 || macos_presentation["platform"] != "macos" ||
+      !providers.is_a?(Array)
+    errors << "macOS presentation contract must use schemaVersion 1, platform macos, and a providers array"
+  else
+    macos_entries = providers
+    unless providers.map { |item| item["id"] } == macos_only_providers
+      errors << "macOS-only provider IDs must be exactly code0"
+    end
+    unless providers.map { |item| item["displayName"] } == macos_only_names
+      errors << "macOS-only provider display names changed"
+    end
+    code0 = providers.find { |item| item["id"] == "code0" }
+    errors << "Code0 must use value-only progress semantics" unless code0 && code0["progressSemantics"] == "valueOnly"
+  end
+end
+
+unless shared_entries.empty? && macos_entries.empty?
+  merged = shared_entries + macos_entries
+  errors << "Merged provider order or IDs changed" unless merged.map { |item| item["id"] } == expected_providers
+  errors << "Merged provider display names changed" unless merged.map { |item| item["displayName"] } == expected_names
+  unless merged.map { |item| item["logoKey"] }.uniq.length == expected_providers.length
+    errors << "Provider logo keys must be unique across shared and macOS-only entries"
+  end
+end
+
 fixture_paths = (root + "contracts/fixtures").glob("*.json").sort
 errors << "Expected exactly six shared snapshot fixtures" unless fixture_paths.length == 6
+macos_fixture_paths = (root + "contracts/fixtures/macos").glob("*.json").sort
+errors << "Expected exactly one macOS-only snapshot fixture" unless macos_fixture_paths.length == 1
+fixture_paths += macos_fixture_paths
 errors << "Missing Gemini unavailable fixture" unless fixture_paths.any? { |path| path.basename.to_s == "gemini-unavailable.json" }
 fixture_paths.each do |path|
   fixture = read_json(path, errors)
@@ -233,6 +278,16 @@ fixture_paths.each do |path|
     errors << "#{path.basename}: displayName is rejected by snapshot schema"
   end
   errors << "#{path.basename}: invalid status" unless allowed_statuses.include?(fixture["status"])
+  if fixture["providerId"] == "code0"
+    primary, secondary = fixture.values_at("primaryMetric", "secondaryMetric")
+    valid = fixture["usedRatio"].nil? && primary.is_a?(Hash) && secondary.is_a?(Hash)
+    valid &&= [[primary, "Balance", "balance", 2.5], [secondary, "Cumulative usage", "cumulativeUsage", 1.5]].all? do |metric, label, kind, amount|
+      metric["label"] == label && metric["unit"] == "siteCredits" && metric["kind"] == kind &&
+        metric["current"].is_a?(Numeric) && metric["current"].finite? && metric["current"] == amount &&
+        metric["limit"].nil? && metric["resetAt"].nil? && metric["resetDescription"].nil?
+    end
+    errors << "#{path.basename}: invalid Code0 site-credit fixture" unless valid
+  end
   if path.basename.to_s == "gemini-unavailable.json" &&
       !(fixture["providerId"] == "gemini" && fixture["status"] == "unavailable" &&
         fixture["usedRatio"].nil? && fixture["primaryMetric"].nil? && fixture["secondaryMetric"].nil?)
@@ -337,7 +392,7 @@ secret_patterns = {
 end
 
 if errors.empty?
-  puts "Cross-platform contract checks passed (#{fixture_paths.length} fixtures)."
+  puts "Cross-platform contract checks passed (#{fixture_paths.length} fixtures: #{fixture_paths.length - macos_fixture_paths.length} shared, #{macos_fixture_paths.length} macOS-only)."
   exit 0
 end
 

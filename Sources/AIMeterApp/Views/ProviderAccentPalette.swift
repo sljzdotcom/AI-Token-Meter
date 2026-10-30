@@ -38,6 +38,8 @@ extension UsageProvider {
             .init(startHex: 0x54EDC6, endHex: 0x7769FF)
         case .gemini:
             .init(startHex: 0x3ED6B2, endHex: 0x3ED6B2)
+        case .code0:
+            .init(startHex: 0x2CB67D, endHex: 0x2CB67D)
         }
     }
 }

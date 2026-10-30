@@ -4,14 +4,14 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.10.11](https://img.shields.io/badge/version-0.10.11-3b82f6)
-![Tests 653](https://img.shields.io/badge/tests-653%20passing-brightgreen)
+![Version 0.11.0](https://img.shields.io/badge/version-0.11.0-3b82f6)
+![Tests 886](https://img.shields.io/badge/tests-886%20passing-brightgreen)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex、DeepSeek 和 Google Antigravity 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
+AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，把 Claude Code、OpenAI Codex、DeepSeek、Google Antigravity 以及 macOS 上可选的 Code0 的账户使用状态集中到一个轻量的贴边悬浮条中。数据只留在本机，常用信息一眼可见，详细额度、重置时间、充值券和近 30 天 API 用量则在点击后展开。macOS 使用 SwiftUI/AppKit，Windows 使用 Tauri 2、Rust、React 与 Win32，并通过共享合同保持数据口径一致。
 
-> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
+> **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, DeepSeek, and Google Antigravity, plus an optional Code0 monitor on macOS. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
 > **当前公开稳定版为[0.10.11](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.11)**（macOS build `39`）。Antigravity 单次额度检查成功后，可明确恢复后续自动刷新；双平台签名下载和三个更新源已验证。真实账户及设备现场恢复另行核验。
 
@@ -22,6 +22,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 | ![AI Token Meter floating strip](docs/assets/screenshots/floating-strip.png) | ![OpenAI Codex detail using deterministic demo data](docs/assets/screenshots/provider-detail.png) | ![AI Token Meter Appearance Settings](docs/assets/screenshots/settings.png) |
 
 ## 主要功能
+
+> `0.11.0` / build `40`：macOS 新增可选第五服务 Code0，需用户在 Services 中显式连接并自行在官方网页登录，未连接不采集；Windows 本版未发布。[Release Notes](docs/releases/v0.11.0.md)。
 
 > `0.10.11` / build `39`：Antigravity 单次额度检查成功后，可明确恢复后续定时刷新；恢复按钮不立即执行 CLI。[Release Notes](docs/releases/v0.10.11.md)。
 
@@ -93,6 +95,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - 桌面 Widget 需要在 Xcode 登录 Apple Account 并具备有效的 Apple Development 证书；没有证书时仍可构建普通主应用。
 - Claude Code、OpenAI Codex 与 Google Antigravity 是可选服务；需要监控哪项服务，就安装并登录对应 CLI。Antigravity 支持 1.1.28 起的 1.x 版本。
 - DeepSeek 是可选服务；余额需要 API Key，30 天用量图表需要在 App 的隔离网页中登录 DeepSeek 平台。
+- Code0 是 macOS 上的可选服务：需在 Services 中显式连接并自行在官方网页登录；相邻读取间隔不少于 300 秒，重启后保持暂停。
 
 ### Windows
 

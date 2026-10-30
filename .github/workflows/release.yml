@@ -11,6 +11,27 @@ on:
         description: Monotonic macOS build number
         required: true
         type: string
+      platform:
+        description: >-
+          Release targets. "both" builds the macOS and Windows assets; "macos"
+          builds the signed macOS assets only and leaves the Windows batch to a
+          later release. Every macOS gate runs in both modes. Neither mode makes
+          anything public unless publish is true.
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - macos
+      publish:
+        description: >-
+          Irreversible. Set to true to publish the verified draft release and to
+          push the updated public appcast. Keep it false (the default) to build
+          and verify the macOS assets only: the release then stays a draft and
+          main is never written to.
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -45,10 +66,18 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Sources/AIMeterApp/Resources/Info.plist)" = "$VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Sources/AIMeterApp/Resources/Info.plist)" = "$BUILD_NUMBER"
           test "$(git describe --tags --exact-match HEAD)" = "v$VERSION"
+      - name: Set up Node.js for shared bridge contracts
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Verify shared passive bridge contracts
+        run: node --test web/code0-bridge.test.mjs
       - name: Test and validate tagged source
         run: |
           bash scripts/test.sh
           ruby scripts/check-cross-platform-contracts.rb .
+      - name: Verify native Code0 fixture in a separate test-only build
+        run: bash scripts/test-code0-native-fixture.sh
       - name: Verify signed macOS assets in the draft or public recovery release
         shell: bash
         run: |
@@ -70,8 +99,11 @@ jobs:
           grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" "$appcast"
           grep -Fq "sparkle:edSignature=" "$appcast"
 
+  # macOS-only releases skip this job explicitly instead of deleting it: the
+  # Windows batch resumes by dispatching with platform=both. See docs/releases.
   windows-release:
     name: Build signed Windows release
+    if: ${{ inputs.platform == 'both' }}
     runs-on: windows-latest
     timeout-minutes: 35
     env:
@@ -101,6 +133,8 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
             throw "TAURI_SIGNING_PRIVATE_KEY is not configured"
           }
+      - name: Verify native bridge resource matches shared source
+        run: python scripts/sync-code0-bridge.py --check
       - name: Install and test Windows source
         working-directory: windows
         run: npm ci
@@ -161,6 +195,8 @@ jobs:
   publish:
     name: Publish synchronized release
     needs: [macos-preflight, windows-release]
+    # windows-release is skipped for platform=macos, so require it only then.
+    if: ${{ !cancelled() && needs.macos-preflight.result == 'success' && (inputs.platform != 'both' || needs.windows-release.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -172,11 +208,13 @@ jobs:
         with:
           ref: v${{ inputs.version }}
       - name: Download Windows release assets
+        if: ${{ inputs.platform == 'both' }}
         uses: actions/download-artifact@v5
         with:
           name: ai-token-meter-windows-x64-release
           path: windows-build
       - name: Select verified build assets or exact public recovery assets
+        if: ${{ inputs.platform == 'both' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -195,6 +233,7 @@ jobs:
             exit 1
           fi
       - name: Verify Windows assets and create updater manifest
+        if: ${{ inputs.platform == 'both' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -213,6 +252,28 @@ jobs:
             '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
             > latest.json
           jq -e --arg version "$VERSION" '.version == $version and (.platforms["windows-x86_64"].signature | length > 0)' latest.json >/dev/null
+      - name: Refuse a publish request that is not a fresh draft
+        if: ${{ inputs.publish == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          json="$(gh release view "v$VERSION" --json isDraft,tagName)"
+          is_draft="$(jq -r '.isDraft' <<<"$json")"
+          tag="$(jq -r '.tagName' <<<"$json")"
+          if [[ "$tag" != "v$VERSION" ]]; then
+            echo "v$VERSION is served from tag $tag" >&2
+            exit 1
+          fi
+          if [[ "$is_draft" != "true" ]]; then
+            echo "Refusing to publish v$VERSION again: the release is already public" >&2
+            exit 1
+          fi
+          git fetch origin main
+          if git show origin/main:appcast.xml |
+            grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"; then
+            echo "Refusing to publish v$VERSION again: main already serves it in appcast.xml" >&2
+            exit 1
+          fi
       - name: Back up public update feeds before publication
         shell: bash
         run: |
@@ -235,6 +296,7 @@ jobs:
               "$backup_dir/prior-preview-feed.json"
           fi
       - name: Upload Windows assets and publish the verified draft
+        if: ${{ inputs.platform == 'both' && inputs.publish == true }}
         shell: bash
         run: |
           set -euo pipefail
@@ -254,8 +316,42 @@ jobs:
             echo "Unable to determine release visibility for v$VERSION" >&2
             exit 1
           fi
+      - name: Verify the macOS draft assets
+        if: ${{ inputs.platform == 'macos' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          appcast="appcast.xml"
+          if [[ "$release_state" != "true" && "$release_state" != "false" ]]; then
+            echo "Unable to determine release visibility for v$VERSION" >&2
+            exit 1
+          fi
+          assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+          for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+            "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "$appcast"; do
+            grep -Fxq "$expected" <<<"$assets"
+          done
+      - name: Publish the verified macOS draft release
+        if: ${{ inputs.platform == 'macos' && inputs.publish == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          if [[ "$release_state" != "true" ]]; then
+            echo "Refusing to publish v$VERSION: the release is not a draft" >&2
+            exit 1
+          fi
+          assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+          for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+            "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "appcast.xml"; do
+            grep -Fxq "$expected" <<<"$assets"
+          done
+          touch "$backup_dir/publication-attempted"
+          gh release edit "v${VERSION}" --draft=false
       - name: Publish the stable macOS appcast after assets are public
-        if: ${{ !contains(inputs.version, '-preview.') }}
+        if: ${{ inputs.publish == true && !contains(inputs.version, '-preview.') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -277,6 +373,7 @@ jobs:
           git commit -m "release: publish appcast v$VERSION"
           git push origin HEAD:main
       - name: Update the fixed Windows preview feed after assets are public
+        if: ${{ inputs.platform == 'both' && inputs.publish == true }}
         shell: bash
         run: |
           set -euo pipefail
