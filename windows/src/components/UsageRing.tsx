@@ -16,7 +16,7 @@ type UsageRingProps = {
 export function UsageRing({ snapshot, selected = false, needsAction = false, onActivate }: UsageRingProps) {
   useLocale()
   const contract = providerContract.providers.find((provider) => provider.id === snapshot.providerId)
-  const hasProgress = snapshot.usedRatio != null && ["fresh", "cached", "refreshing"].includes(snapshot.status)
+  const hasProgress = snapshot.providerId !== "code0" && snapshot.usedRatio != null && ["fresh", "cached", "refreshing"].includes(snapshot.status)
   const percent = hasProgress ? Math.min(Math.max(snapshot.usedRatio! * 100, 0), 100) : null
   const style = {
     "--provider-accent": contract?.accentColor ?? "#7386FF",

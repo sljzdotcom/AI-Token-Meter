@@ -11,7 +11,7 @@ public struct WidgetSnapshotBuilder: Sendable {
             snapshots.map { ($0.provider, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
-        let providers = WidgetProvider.displayedProviders.map { provider in
+        let providers = WidgetProvider.displayedProviders.compactMap { provider -> WidgetProviderSnapshot? in
             guard let usageProvider = UsageProvider(widgetProvider: provider),
                   let snapshot = snapshotsByProvider[usageProvider] else {
                 return Self.unavailable(provider)
@@ -30,7 +30,8 @@ public struct WidgetSnapshotBuilder: Sendable {
     private static func providerSnapshot(
         from snapshot: UsageSnapshot,
         generatedAt: Date
-    ) -> WidgetProviderSnapshot {
+    ) -> WidgetProviderSnapshot? {
+        guard let widgetProvider = WidgetProvider(snapshot.provider) else { return nil }
         let presentation = ProviderPresentation(snapshot: snapshot)
         let semantic: WidgetSnapshotSemantic
         if snapshot.isStale(at: generatedAt), presentation.semantic != .unavailable {
@@ -39,7 +40,7 @@ public struct WidgetSnapshotBuilder: Sendable {
             semantic = WidgetSnapshotSemantic(presentation.semantic)
         }
         return WidgetProviderSnapshot(
-            provider: WidgetProvider(snapshot.provider),
+            provider: widgetProvider,
             valueText: SensitiveTextRedactor.redact(presentation.valueText),
             detailText: SensitiveTextRedactor.redact(presentation.detailText),
             fraction: presentation.fraction,
@@ -71,8 +72,9 @@ public struct WidgetSnapshotBuilder: Sendable {
         let candidates = orderedSnapshots.flatMap { snapshot in
             [snapshot.primaryMetric, snapshot.secondaryMetric].compactMap { metric -> ResetCandidate? in
                 guard let metric else { return nil }
+                guard let widgetProvider = WidgetProvider(snapshot.provider) else { return nil }
                 return ResetCandidate(
-                    provider: WidgetProvider(snapshot.provider),
+                    provider: widgetProvider,
                     label: SensitiveTextRedactor.redact(metric.label),
                     text: metric.resetDescription.map(SensitiveTextRedactor.redact),
                     resetAt: metric.resetAt
@@ -125,12 +127,13 @@ private struct ResetCandidate {
 }
 
 private extension WidgetProvider {
-    init(_ provider: UsageProvider) {
+    init?(_ provider: UsageProvider) {
         switch provider {
         case .claude: self = .claude
         case .codex: self = .codex
         case .deepSeek: self = .deepSeek
         case .gemini: self = .gemini
+        case .code0: return nil
         }
     }
 }

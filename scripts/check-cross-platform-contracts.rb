@@ -165,8 +165,8 @@ end
 
 schema = read_json(root + "contracts/schemas/usage-snapshot.schema.json", errors)
 presentation = read_json(root + "contracts/presentation/providers.json", errors)
-expected_providers = %w[claude codex deepseek gemini]
-expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
+expected_providers = %w[claude codex deepseek gemini code0]
+expected_names = ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity", "Code0"]
 expected_identity = expected_providers.zip(expected_names).to_h
 allowed_statuses = %w[
   fresh cached refreshing notInstalled authenticationRequired setupRequired unavailable unrecognizedOutput
@@ -200,6 +200,10 @@ if schema
   errors << "Snapshot schema provider enum is incomplete" unless schema_providers == expected_providers
   schema_names = schema.dig("properties", "displayName", "enum")
   errors << "Snapshot schema displayName enum is incomplete" unless schema_names == expected_names
+  unless schema.dig("$defs", "metric", "properties", "unit", "enum")&.include?("siteCredits") &&
+      schema.dig("$defs", "metric", "properties", "kind", "enum")&.include?("cumulativeUsage")
+    errors << "Code0 metric schema must preserve site credits and cumulative usage"
+  end
 end
 
 if presentation
@@ -214,11 +218,13 @@ if presentation
     unless deepseek && deepseek["progressSemantics"] == "consumedFromBalanceBaseline"
       errors << "DeepSeek must use consumed-from-balance progress semantics"
     end
+    code0 = providers.find { |item| item["id"] == "code0" }
+    errors << "Code0 must use value-only progress semantics" unless code0 && code0["progressSemantics"] == "valueOnly"
   end
 end
 
 fixture_paths = (root + "contracts/fixtures").glob("*.json").sort
-errors << "Expected exactly six shared snapshot fixtures" unless fixture_paths.length == 6
+errors << "Expected exactly seven shared snapshot fixtures" unless fixture_paths.length == 7
 errors << "Missing Gemini unavailable fixture" unless fixture_paths.any? { |path| path.basename.to_s == "gemini-unavailable.json" }
 fixture_paths.each do |path|
   fixture = read_json(path, errors)
@@ -233,6 +239,16 @@ fixture_paths.each do |path|
     errors << "#{path.basename}: displayName is rejected by snapshot schema"
   end
   errors << "#{path.basename}: invalid status" unless allowed_statuses.include?(fixture["status"])
+  if fixture["providerId"] == "code0"
+    primary, secondary = fixture.values_at("primaryMetric", "secondaryMetric")
+    valid = fixture["usedRatio"].nil? && primary.is_a?(Hash) && secondary.is_a?(Hash)
+    valid &&= [[primary, "Balance", "balance", 2.5], [secondary, "Cumulative usage", "cumulativeUsage", 1.5]].all? do |metric, label, kind, amount|
+      metric["label"] == label && metric["unit"] == "siteCredits" && metric["kind"] == kind &&
+        metric["current"].is_a?(Numeric) && metric["current"].finite? && metric["current"] == amount &&
+        metric["limit"].nil? && metric["resetAt"].nil? && metric["resetDescription"].nil?
+    end
+    errors << "#{path.basename}: invalid Code0 site-credit fixture" unless valid
+  end
   if path.basename.to_s == "gemini-unavailable.json" &&
       !(fixture["providerId"] == "gemini" && fixture["status"] == "unavailable" &&
         fixture["usedRatio"].nil? && fixture["primaryMetric"].nil? && fixture["secondaryMetric"].nil?)

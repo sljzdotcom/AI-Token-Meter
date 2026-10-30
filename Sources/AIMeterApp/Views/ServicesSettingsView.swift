@@ -160,6 +160,12 @@ struct ServicesSettingsView: View {
                 ServiceSectionHeader(provider: .gemini)
             }
 
+            Section {
+                Code0ServicesView(model: model)
+            } header: {
+                ServiceSectionHeader(provider: .code0)
+            }
+
             if model.settingsMessageKind.map(SettingsTab.services.accepts) == true,
                let message = model.settingsMessage {
                 Section {

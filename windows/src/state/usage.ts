@@ -1,4 +1,4 @@
-export type ProviderId = "claude" | "codex" | "deepseek" | "gemini"
+export type ProviderId = "claude" | "codex" | "deepseek" | "gemini" | "code0"
 export type UsageStatus =
   | "fresh"
   | "cached"
@@ -13,8 +13,8 @@ export type UsageMetric = {
   label: string
   current: number
   limit?: number | null
-  unit: "percent" | "cny" | "usd" | "tokens" | "requests"
-  kind: "officialLimit" | "balance" | "localBudget"
+  unit: "percent" | "cny" | "usd" | "tokens" | "requests" | "siteCredits"
+  kind: "officialLimit" | "balance" | "localBudget" | "cumulativeUsage"
   resetAt?: string | null
   resetDescription?: string | null
 }
@@ -62,6 +62,7 @@ export const unavailableSnapshots: UsageSnapshot[] = [
   ["codex", "OpenAI Codex"],
   ["deepseek", "DeepSeek"],
   ["gemini", "Google Antigravity"],
+  ["code0", "Code0"],
 ].map(([providerId, displayName]) => ({
   schemaVersion: 1,
   providerId: providerId as ProviderId,

@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 
 import type { ProviderId, UsageSnapshot, UsageStatus } from "./usage"
 
-const providers = new Set<ProviderId>(["claude", "codex", "deepseek", "gemini"])
+const providers = new Set<ProviderId>(["claude", "codex", "deepseek", "gemini", "code0"])
 const statuses = new Set<UsageStatus>([
   "fresh",
   "cached",

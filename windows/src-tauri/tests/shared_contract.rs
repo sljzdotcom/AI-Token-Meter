@@ -19,7 +19,7 @@ fn every_shared_fixture_decodes_into_the_windows_domain() {
         .collect::<Vec<_>>();
     paths.sort();
 
-    assert_eq!(paths.len(), 6);
+    assert_eq!(paths.len(), 7);
     for path in paths {
         let value: Value =
             serde_json::from_slice(&fs::read(&path).expect("fixture bytes")).expect("fixture json");
@@ -181,10 +181,16 @@ fn staleness_uses_fetched_time_plus_the_contract_duration() {
 fn presentation_identity_comes_from_the_embedded_shared_contract() {
     let providers = embedded_provider_presentations().expect("presentation contract");
 
-    assert_eq!(providers.len(), 4);
+    assert_eq!(providers.len(), 5);
     assert_eq!(providers[0].display_name, "Claude Code");
     assert_eq!(providers[1].display_name, "OpenAI Codex");
     assert_eq!(providers[2].display_name, "DeepSeek");
+    assert_eq!(providers[4].id.as_str(), "code0");
+    assert_eq!(providers[4].display_name, "Code0");
+    assert_eq!(
+        providers[4].progress_semantics,
+        ProgressSemantics::ValueOnly
+    );
     assert_eq!(
         providers[2].progress_semantics,
         ProgressSemantics::ConsumedFromBalanceBaseline

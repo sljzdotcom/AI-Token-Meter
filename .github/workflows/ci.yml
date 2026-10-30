@@ -10,6 +10,268 @@ permissions:
   contents: read
 
 jobs:
+  code0-bridge:
+    name: Code0 passive bridge contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Verify native bridge resource matches shared source
+        run: python3 scripts/sync-code0-bridge.py --check
+      - name: Test passive website bridge with synthetic responses
+        run: node --test web/code0-bridge.test.mjs
+  code0-native-fixture:
+    name: Code0 native WebKit session fixtures
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install secret scanner
+        run: brew install gitleaks
+      - name: Verify actual WebKit origin, policies and object release
+        run: bash scripts/test-code0-native-fixture.sh
+      - name: Preserve fixture run output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-native-origin-fixture
+          path: ${{ runner.temp }}/aimeter-code0-native-fixtures/fixture-output.log
+          if-no-files-found: warn
+  code0-controlled-cli:
+    name: Code0 controlled CLI publication
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify Swift toolchain
+        run: swift --version
+      - name: Install secret scanner
+        run: brew install gitleaks
+      - name: Build and collect the complete isolated CLI suite
+        env:
+          CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import sys
+
+          root = Path(os.environ["CONTROLLED_CLI_EVIDENCE_DIR"])
+          root.mkdir(mode=0o700, exist_ok=False)
+          checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if not re.fullmatch(r"[0-9a-f]{40}", checkout) or checkout != os.environ["GITHUB_SHA"]:
+              raise SystemExit("CONTROLLED_CLI_COLLECTION checkout-mismatch")
+          sources = ["Sources/AIMeterCore/Accounts/CLIAuthenticationScriptBuilder.swift",
+                     "Tests/AIMeterCoreTests/CLIAuthenticationScriptBuilderTests.swift", ".github/workflows/ci.yml"]
+          source_hashes = {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in sources}
+          environment = os.environ.copy()
+          environment["AI_METER_TEST_BUILD_DIR"] = str(root / "swift-tests")
+          log = root / "suite.log"
+          with log.open("xb") as output:
+              completed = subprocess.run(
+                  ["bash", "scripts/test.sh", "--no-parallel", "--filter", "CLIAuthenticationScriptBuilderTests"],
+                  stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, env=environment,
+              )
+          digest = hashlib.sha256()
+          with log.open("rb") as output:
+              for chunk in iter(lambda: output.read(65536), b""):
+                  digest.update(chunk)
+          record = {
+              "schema": "controlled-cli-exit-v2", "runId": os.environ["GITHUB_RUN_ID"],
+              "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"], "job": os.environ["GITHUB_JOB"],
+              "githubSha": os.environ["GITHUB_SHA"], "checkoutSha": checkout,
+              "returnCode": completed.returncode, "logBytes": log.stat().st_size,
+              "logSHA256": digest.hexdigest(),
+              "sourceHashes": source_hashes,
+          }
+          with (root / "exit.json").open("x") as output:
+              json.dump(record, output, sort_keys=True)
+              output.write("\n")
+          # Keep raw synthetic test output in the artifact; never echo PTY transcripts.
+          print("CONTROLLED_CLI_COLLECTION captured", record["logBytes"], "bytes")
+          sys.exit(0 if completed.returncode == 0 else 1)
+          PY
+      - name: Require strict fresh dual-arm evidence
+        if: always()
+        env:
+          CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import sys
+
+          root = Path(os.environ["CONTROLLED_CLI_EVIDENCE_DIR"])
+          result = {"schema": "controlled-cli-validation-v2", "acceptance": False,
+                    "runId": os.environ["GITHUB_RUN_ID"], "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                    "result": "invalid-evidence"}
+
+          class EvidenceError(Exception):
+              pass
+
+          def require(condition, code):
+              if not condition:
+                  raise EvidenceError(code)
+
+          def unique_object(pairs):
+              value = {}
+              for key, item in pairs:
+                  require(key not in value, "duplicate-json-key")
+                  value[key] = item
+              return value
+
+          def reject_constant(value):
+              raise EvidenceError("nonfinite-json")
+
+          def decode(text):
+              try:
+                  return json.loads(text, object_pairs_hook=unique_object, parse_constant=reject_constant)
+              except (ValueError, TypeError):
+                  raise EvidenceError("malformed-json") from None
+
+          def bounded_file(name, limit):
+              path = root / name
+              require(path.is_file() and not path.is_symlink(), "missing-evidence-file")
+              require(path.stat().st_size <= limit, "oversize-evidence-file")
+              with path.open("rb", buffering=0) as source:
+                  data = source.read(limit + 1)
+              require(len(data) <= limit, "oversize-evidence-file")
+              return data
+
+          def validate_record(record):
+              keys = {"schema", "acceptance", "arm", "causalPreconditions", "classification", "required", "rejected",
+                      "appCancelTrap", "appCancelCleanupConfirmed", "cleanupSucceeded", "statusClass",
+                      "guardianRetained", "callbackObserved"}
+              require(type(record) is dict and set(record) == keys, "record-keys")
+              require(record["schema"] == "controlled-group-probe-publication-v2", "record-schema")
+              require(record["arm"] in ("prepublication", "published"), "record-arm")
+              booleans = keys - {"schema", "arm", "classification", "required", "rejected", "statusClass"}
+              require(all(type(record[key]) is bool for key in booleans), "record-boolean-type")
+              require(record["acceptance"] is False, "diagnostic-acceptance")
+              require(record["statusClass"] in ("ready", "process_state_unavailable", "helper_cancelled",
+                                                 "helper_stop_unconfirmed", "other"), "status-enum")
+              required = {"query-entered", "query-reaped-exit42", "writer-ready", "watchdog-parked",
+                          "writer-park-acknowledged", "writer-staged-closed", "writer-staged-mode0600", "writer-published",
+                          "watchdog-login-deadline-active", "watchdog-read-release-acknowledged",
+                          "watchdog-read-before-product-deadline", "watchdog-decision-before-product-deadline",
+                          "watchdog-timed-nonready-branch", "watchdog-read-preserve",
+                          "watchdog-decision-completed-before-product-deadline", "watchdog-decision-completed"}
+              if record["arm"] == "prepublication":
+                  required.update({"watchdog-read-ready", "watchdog-ready-read-valid",
+                                   "watchdog-ready-decision-before-product-deadline", "watchdog-ready-decision-completed",
+                                   "writer-ready-decision-acknowledged"})
+              rejected = {"writer-park-gate-timeout", "writer-ready-gate-timeout", "watchdog-read-gate-timeout",
+                          "shell-preserve-gate-timeout", "writer-open-failed", "writer-publication-failed",
+                          "gate-crossed-product-deadline", "watchdog-deadline-entered", "usr1-timeout",
+                          "watchdog-read-other", "watchdog-read-missing", "watchdog-read-error", "watchdog-read-empty"}
+              for key, expected in (("required", required), ("rejected", rejected)):
+                  markers = record[key]
+                  require(type(markers) is dict and set(markers) == expected, "marker-keys")
+                  require(all(type(value) is bool for value in markers.values()), "marker-boolean-type")
+              handshake = all(record["required"].values()) and not any(record["rejected"].values())
+              causal = (handshake and record["cleanupSucceeded"] and not record["appCancelTrap"]
+                        and not record["appCancelCleanupConfirmed"])
+              require(record["causalPreconditions"] == causal, "causal-inconsistency")
+              classification = "targetBoundaryReached" if causal else "PRECONDITION_FAILED"
+              require(record["classification"] == classification, "classification-inconsistency")
+              return record
+
+          def preserved(record):
+              return (record["statusClass"] == "process_state_unavailable" and record["guardianRetained"]
+                      and not record["callbackObserved"] and not record["appCancelTrap"]
+                      and not record["appCancelCleanupConfirmed"])
+
+          def classify(records, return_code):
+              require(len(records) == 2 and {record["arm"] for record in records} == {"prepublication", "published"},
+                      "missing-or-duplicate-arm")
+              if not all(record["causalPreconditions"] for record in records):
+                  return "precondition-failed", False
+              if return_code == 0 and all(preserved(record) for record in records):
+                  return "green", True
+              return "acceptance-not-met", False
+
+          try:
+              require(root.is_dir() and not root.is_symlink(), "missing-evidence-directory")
+              metadata = decode(bounded_file("exit.json", 4096).decode("utf-8"))
+              keys = {"schema", "runId", "runAttempt", "job", "githubSha", "checkoutSha",
+                      "returnCode", "logBytes", "logSHA256", "sourceHashes"}
+              require(type(metadata) is dict and set(metadata) == keys, "exit-keys")
+              require(metadata["schema"] == "controlled-cli-exit-v2", "exit-schema")
+              for key, environment in (("runId", "GITHUB_RUN_ID"), ("runAttempt", "GITHUB_RUN_ATTEMPT"),
+                                       ("job", "GITHUB_JOB"), ("githubSha", "GITHUB_SHA")):
+                  require(metadata[key] == os.environ[environment], "identity-mismatch")
+              require(metadata["job"] == "code0-controlled-cli", "job-mismatch")
+              require(type(metadata["checkoutSha"]) is str and re.fullmatch(r"[0-9a-f]{40}", metadata["checkoutSha"])
+                      and metadata["checkoutSha"] == metadata["githubSha"], "checkout-mismatch")
+              require(type(metadata["returnCode"]) is int and -255 <= metadata["returnCode"] <= 255, "exit-type")
+              require(type(metadata["logBytes"]) is int, "log-size-type")
+              sources = {"Sources/AIMeterCore/Accounts/CLIAuthenticationScriptBuilder.swift",
+                         "Tests/AIMeterCoreTests/CLIAuthenticationScriptBuilderTests.swift", ".github/workflows/ci.yml"}
+              hashes = metadata["sourceHashes"]
+              require(type(hashes) is dict and set(hashes) == sources, "source-hash-keys")
+              require(all(type(value) is str and re.fullmatch(r"[0-9a-f]{64}", value) for value in hashes.values()), "source-hash-type")
+              require(all(hashlib.sha256(Path(name).read_bytes()).hexdigest() == hashes[name] for name in sources), "source-hash-mismatch")
+              log = bounded_file("suite.log", 4 * 1024 * 1024)
+              require(len(log) == metadata["logBytes"] and hashlib.sha256(log).hexdigest() == metadata["logSHA256"],
+                      "log-identity-mismatch")
+              prefix = "CONTROLLED_GROUP_PROBE_PUBLICATION "
+              records = []
+              for line in log.decode("utf-8").splitlines():
+                  if prefix in line:
+                      require(line.startswith(prefix) and len(line.encode("utf-8")) <= 8192, "record-framing")
+                      records.append(validate_record(decode(line[len(prefix):])))
+                      require(len(records) <= 2, "extra-record")
+              result.update({"checkoutSha": metadata["checkoutSha"], "returnCode": metadata["returnCode"],
+                             "logBytes": len(log), "logSHA256": metadata["logSHA256"], "sourceHashes": hashes})
+              result["result"], result["acceptance"] = classify(records, metadata["returnCode"])
+          except EvidenceError as error:
+              result["errorCode"] = str(error)
+          except (OSError, UnicodeError, ValueError, TypeError, KeyError):
+              result["errorCode"] = "unreadable-or-malformed-evidence"
+          if root.is_dir() and not root.is_symlink():
+              with (root / "validation.json").open("x") as output:
+                  json.dump(result, output, sort_keys=True)
+                  output.write("\n")
+          print("CONTROLLED_CLI_VALIDATION", result["result"])
+          sys.exit(0 if result["acceptance"] else 1)
+          PY
+      - name: Preserve fresh controlled CLI evidence
+        if: always()
+        env:
+          CONTROLLED_CLI_EVIDENCE_DIR: ${{ runner.temp }}/aimeter-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: code0-controlled-cli-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.CONTROLLED_CLI_EVIDENCE_DIR }}/suite.log
+            ${{ env.CONTROLLED_CLI_EVIDENCE_DIR }}/exit.json
+            ${{ env.CONTROLLED_CLI_EVIDENCE_DIR }}/validation.json
+          if-no-files-found: warn
+          retention-days: 7
   test:
     name: Swift tests and public-release checks
     runs-on: macos-15
@@ -28,7 +290,8 @@ jobs:
         run: brew install gitleaks
       - name: Test and validate documentation
         run: bash scripts/test.sh
-      - name: Verify Antigravity recovery controls in hosted windows
+      - name: Verify settings controls in hosted windows
+        if: ${{ !cancelled() }}
         env:
           AI_METER_SCREEN_TESTS: "1"
         run: bash scripts/test.sh --skip-build --no-parallel --filter SettingsLocalizationCoverageTests

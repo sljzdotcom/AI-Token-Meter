@@ -8,6 +8,7 @@ import { App } from "./App"
 import { FloatingStrip } from "./components/FloatingStrip"
 import { type DeepSeekHistoryStatus } from "./details/DeepSeekDetail"
 import { ProviderDetail } from "./details/ProviderDetail"
+import { Code0Detail } from "./details/Code0Detail"
 import {
   SettingsWindow,
   type ProviderCliSettings,
@@ -23,6 +24,11 @@ import { setLocale, type Locale } from "./localization"
 import { CLIOnboarding } from "./settings/cliOnboarding"
 import { deepSeekCredentialPresentation } from "./settings/deepSeekCredentialPresentation"
 import { displayFontStack } from "./displayFonts"
+import type { Code0Action, Code0SessionBridge } from "./state/code0Session"
+import { TauriCode0SessionBridge } from "./state/tauriCode0SessionBridge"
+import { useCode0Session } from "./state/useCode0Session"
+
+type Code0SurfaceProps = {code0Bridge?: Code0SessionBridge}
 
 type RuntimeSettings = {
   locale: Locale
@@ -73,7 +79,9 @@ export function Shell() {
 
 function MeterSurface() {
   const bridge = useMemo(() => new TauriUsageBridge(), [])
-  const snapshots = useUsageSnapshots(bridge)
+  const code0Bridge = useMemo(() => new TauriCode0SessionBridge(), [])
+  const code0Session = useCode0Session(code0Bridge)
+  const snapshots = useUsageSnapshots(bridge, undefined, code0Session)
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null)
   const settings = useRuntimeSettings()
   const [folded, setFolded] = useState(false)
@@ -156,8 +164,12 @@ function MeterSurface() {
   )
 }
 
-export function DetailSurface() {
+export function DetailSurface({code0Bridge}: Code0SurfaceProps = {}) {
+  const sessionBridge = useMemo(() => code0Bridge ?? new TauriCode0SessionBridge(), [code0Bridge])
+  const code0Session = useCode0Session(sessionBridge)
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null)
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
+  const [presentationGeneration, setPresentationGeneration] = useState(0)
   const [paused, setPaused] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
   const [deepseekHistoryState, setDeepseekHistoryState] = useState<DeepSeekHistoryStatusSnapshot>({
@@ -217,13 +229,17 @@ export function DetailSurface() {
       }).catch(() => {})
     }
     subscribe<UsageSnapshot>("active-detail-changed", (event) => {
-      if (!disposed) setSnapshot(event.payload)
+      if (!disposed) {
+        setSelectedProvider(event.payload.providerId)
+        setSnapshot(event.payload.providerId === "code0" ? null : event.payload)
+        setPresentationGeneration(value => value + 1)
+      }
     })
     subscribe<boolean>("strip-context-menu", (event) => {
       if (!disposed) setContextMenuOpen(event.payload)
     })
     subscribe<UsageSnapshot>("snapshot-updated", (event) => {
-      if (!disposed) {
+      if (!disposed && event.payload.providerId !== "code0") {
         setSnapshot((current) => current?.providerId === event.payload.providerId ? event.payload : current)
       }
     })
@@ -284,18 +300,20 @@ export function DetailSurface() {
   useEffect(() => {
     const syncingHistory = snapshot?.providerId === "deepseek"
       && (deepseekHistoryState.status === "opening" || deepseekHistoryState.status === "active")
-    if (!snapshot || paused || contextMenuOpen || syncingHistory) return
+    if (!selectedProvider || paused || contextMenuOpen || syncingHistory) return
     const timeout = window.setTimeout(() => {
+      setSelectedProvider(null)
       setSnapshot(null)
       void invoke("close_provider_detail")
     }, settings.detailAutoHideSeconds * 1_000)
     return () => window.clearTimeout(timeout)
-  }, [contextMenuOpen, deepseekHistoryState.status, paused, settings.detailAutoHideSeconds, snapshot])
+  }, [contextMenuOpen, deepseekHistoryState.status, paused, presentationGeneration, selectedProvider, settings.detailAutoHideSeconds, snapshot])
 
-  if (!snapshot) return null
+  if (!selectedProvider) return null
   return (
-    <main className="detail-surface" style={displayStyle(settings.displayFont)}>
-      <ProviderDetail
+    <main className="detail-surface" style={displayStyle(settings.displayFont)}
+      onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}>
+      {selectedProvider === "code0" ? <Code0Detail session={code0Session} /> : snapshot ? <ProviderDetail
         onInteractionEnd={() => setPaused(false)}
         onInteractionStart={() => setPaused(true)}
         onCheckGeminiStatus={() => {
@@ -358,12 +376,15 @@ export function DetailSurface() {
         snapshot={snapshot}
         deepseekHistoryStatus={deepseekHistoryState.status}
         deepseekHistoryStatusPathAvailable={deepseekHistoryStatusPathAvailable}
-      />
+      /> : null}
     </main>
   )
 }
 
-export function SettingsSurface() {
+export function SettingsSurface({code0Bridge}: Code0SurfaceProps = {}) {
+  const sessionBridge = useMemo(() => code0Bridge ?? new TauriCode0SessionBridge(), [code0Bridge])
+  const code0Session = useCode0Session(sessionBridge)
+  const onCode0Action = useCallback((action: Code0Action) => sessionBridge.perform(action), [sessionBridge])
   const settings = useRuntimeSettings()
   const [updateState, setUpdateState] = useState<UpdateState>({ phase: "idle", currentVersion: "0.5.0" })
   const [serviceStatuses, setServiceStatuses] = useState<ServiceAccountStatus[]>([])
@@ -373,7 +394,9 @@ export function SettingsSurface() {
   const [, updateOperations] = useState(0)
   const [onboarding] = useState(() => new CLIOnboarding(
     (command, args) => invoke(command, args),
-    status => setServiceStatuses(current => [...current.filter(item => item.providerId !== status.providerId), status]),
+    status => {
+      if (isOrdinaryAccount(status)) setServiceStatuses(current => [...current.filter(item => item.providerId !== status.providerId), status])
+    },
     setServiceMessage,
     () => updateOperations(value => value + 1),
   ))
@@ -431,12 +454,14 @@ export function SettingsSurface() {
     return () => { disposed = true; stop?.(); window.removeEventListener("focus", refresh); onboarding.dispose() }
   }, [onboarding])
   const applyServiceStatus = (status: ServiceAccountStatus) => {
+    if (!isOrdinaryAccount(status)) return
     setServiceStatuses((current) => [
       ...current.filter((item) => item.providerId !== status.providerId),
       status,
     ])
   }
   const checkServiceStatus = (providerId: ProviderId) => {
+    if (providerId === "code0") return
     if (providerId === "deepseek" && deepSeekReplacingRef.current) return
     void onboarding.check(providerId, true)
   }
@@ -459,6 +484,8 @@ export function SettingsSurface() {
   }, [])
   return (
     <SettingsWindow
+      code0Session={code0Session}
+      onCode0Action={onCode0Action}
       displays={settings.displays}
       availableDisplays={availableDisplays}
       onDisplayModeChange={(mode, selectedId) => { void invoke("set_display_mode", {mode, selectedId}).catch(() => setServiceMessage("Floating strip settings could not be saved.")) }}
@@ -613,4 +640,9 @@ function historyStatusRank(status: DeepSeekHistoryStatus) {
   if (status === "opening") return 1
   if (status === "active") return 2
   return 3
+}
+
+function isOrdinaryAccount(status: ServiceAccountStatus) {
+  return status && (status.providerId === "claude" || status.providerId === "codex"
+    || status.providerId === "deepseek" || status.providerId === "gemini")
 }

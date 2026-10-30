@@ -55,7 +55,7 @@ fn startup_loads_each_valid_cache_as_cached_without_inventing_missing_data() {
     let runtime = UsageRuntime::load(cache, NOW);
     let snapshots = runtime.snapshots();
 
-    assert_eq!(snapshots.len(), 4);
+    assert_eq!(snapshots.len(), 5);
     assert_eq!(
         snapshot(&snapshots, ProviderId::Claude).status,
         UsageStatus::Cached
@@ -341,6 +341,7 @@ fn fixture(provider: ProviderId) -> UsageSnapshot {
         ProviderId::Codex => include_str!("../../../contracts/fixtures/codex-reset-credit.json"),
         ProviderId::DeepSeek => include_str!("../../../contracts/fixtures/deepseek-balance.json"),
         ProviderId::Gemini => include_str!("../../../contracts/fixtures/gemini-unavailable.json"),
+        ProviderId::Code0 => include_str!("../../../contracts/fixtures/code0-site-credits.json"),
     };
     UsageSnapshot::decode_compatible(&serde_json::from_str(value).expect("fixture JSON"))
         .expect("usage fixture")

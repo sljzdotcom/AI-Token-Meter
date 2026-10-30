@@ -21,6 +21,7 @@ public struct ServiceAccountCoordinator: Sendable {
         case .codex: await codexReader.read()
         case .deepSeek: await deepSeekReader.read()
         case .gemini: .geminiUnavailable
+        case .code0: ServiceAccountStatus(provider: .code0, connectionState: .unavailable, checkedAt: nil)
         }
     }
 

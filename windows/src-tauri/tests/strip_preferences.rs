@@ -95,7 +95,7 @@ fn persisted_layout_is_normalized_and_cannot_hide_every_service() {
     value.normalize();
     assert_eq!(
         value.ordered_providers,
-        vec!["codex", "claude", "deepseek", "gemini"]
+        vec!["codex", "claude", "deepseek", "gemini", "code0"]
     );
     assert_eq!(value.visible_providers(), vec!["codex"]);
     assert_eq!(value.logical_size(false), (78.0, 170.0));
@@ -128,13 +128,13 @@ fn gemini_defaults_migration_and_reload_preserve_user_choices() {
     legacy.normalize();
     assert_eq!(
         legacy.ordered_providers,
-        vec!["deepseek", "claude", "codex", "gemini"]
+        vec!["deepseek", "claude", "codex", "gemini", "code0"]
     );
     assert_eq!(legacy.visible_providers(), vec!["deepseek", "codex"]);
     assert_eq!(legacy.logical_size(false), (108.0, 284.0));
     assert_eq!(legacy.hidden_until, Some(123));
     let stored = serde_json::to_value(&legacy).unwrap();
-    assert_eq!(stored["schemaVersion"], 4);
+    assert_eq!(stored["schemaVersion"], 5);
     legacy.hidden_providers.retain(|id| id != "gemini");
     let mut restored: StripPreferences =
         serde_json::from_value(serde_json::to_value(&legacy).unwrap()).unwrap();

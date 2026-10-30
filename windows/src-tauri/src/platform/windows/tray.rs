@@ -74,6 +74,12 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         )
         .enabled(false)
         .build(app)?,
+        MenuItemBuilder::with_id(
+            "code0-summary",
+            unavailable_summary(ProviderId::Code0, settings.locale),
+        )
+        .enabled(false)
+        .build(app)?,
     ];
     update_summary_texts(
         &summaries,
@@ -207,17 +213,18 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-fn summary_item<R: Runtime>(summaries: &[MenuItem<R>; 4], provider: ProviderId) -> &MenuItem<R> {
+fn summary_item<R: Runtime>(summaries: &[MenuItem<R>; 5], provider: ProviderId) -> &MenuItem<R> {
     &summaries[match provider {
         ProviderId::Claude => 0,
         ProviderId::Codex => 1,
         ProviderId::DeepSeek => 2,
         ProviderId::Gemini => 3,
+        ProviderId::Code0 => 4,
     }]
 }
 
 fn update_summary_texts<R: Runtime>(
-    summaries: &[MenuItem<R>; 4],
+    summaries: &[MenuItem<R>; 5],
     snapshots: &[UsageSnapshot],
     locale: crate::persistence::Locale,
 ) {
@@ -226,6 +233,7 @@ fn update_summary_texts<R: Runtime>(
         ProviderId::Codex,
         ProviderId::DeepSeek,
         ProviderId::Gemini,
+        ProviderId::Code0,
     ] {
         let text = snapshots
             .iter()
@@ -238,7 +246,7 @@ fn update_summary_texts<R: Runtime>(
 
 fn reconcile_summary_items<R: Runtime>(
     menu: &Menu<R>,
-    summaries: &[MenuItem<R>; 4],
+    summaries: &[MenuItem<R>; 5],
     preferences: &StripPreferences,
 ) -> tauri::Result<()> {
     for item in summaries {
@@ -258,6 +266,7 @@ fn unavailable_summary(provider: ProviderId, locale: crate::persistence::Locale)
         ProviderId::Codex => "OpenAI Codex",
         ProviderId::DeepSeek => "DeepSeek",
         ProviderId::Gemini => "Google Antigravity",
+        ProviderId::Code0 => "Code0",
     };
     format!(
         "{} · {}",
@@ -275,6 +284,7 @@ fn summary_provider_ids(preferences: &StripPreferences) -> Vec<ProviderId> {
             "codex" => Some(ProviderId::Codex),
             "deepseek" => Some(ProviderId::DeepSeek),
             "gemini" => Some(ProviderId::Gemini),
+            "code0" => Some(ProviderId::Code0),
             _ => None,
         })
         .collect()
@@ -289,7 +299,23 @@ pub fn format_summary_localized(
     locale: crate::persistence::Locale,
 ) -> String {
     let chinese = locale == crate::persistence::Locale::SimplifiedChinese;
-    let value = if snapshot.provider_id == ProviderId::DeepSeek {
+    let value = if snapshot.provider_id == ProviderId::Code0 {
+        snapshot
+            .primary_metric
+            .as_ref()
+            .filter(|metric| {
+                metric.unit == MetricUnit::SiteCredits
+                    && metric.current.is_finite()
+                    && metric.current >= 0.0
+            })
+            .map(|metric| {
+                if chinese {
+                    format!("{:.2} 站内额度", metric.current)
+                } else {
+                    format!("{:.2} site credits", metric.current)
+                }
+            })
+    } else if snapshot.provider_id == ProviderId::DeepSeek {
         snapshot.primary_metric.as_ref().and_then(|metric| {
             (metric.kind == MetricKind::Balance && metric.unit == MetricUnit::Cny).then(|| {
                 if chinese {
@@ -375,7 +401,11 @@ mod tests {
             vec![ProviderId::DeepSeek, ProviderId::Claude, ProviderId::Codex]
         );
 
-        preferences.hidden_providers.clear();
+        let order_before_restore = preferences.ordered_providers.clone();
+        assert!(preferences.hidden_providers.iter().any(|id| id == "code0"));
+        preferences.hidden_providers.retain(|id| id != "gemini");
+        assert!(preferences.hidden_providers.iter().any(|id| id == "code0"));
+        assert_eq!(preferences.ordered_providers, order_before_restore);
         assert_eq!(
             summary_provider_ids(&preferences),
             vec![
@@ -383,6 +413,34 @@ mod tests {
                 ProviderId::Claude,
                 ProviderId::Gemini,
                 ProviderId::Codex,
+            ]
+        );
+    }
+
+    #[test]
+    fn explicitly_enabling_all_five_restores_code0_summary_in_order() {
+        let mut preferences = StripPreferences {
+            ordered_providers: vec![
+                "deepseek".into(),
+                "claude".into(),
+                "gemini".into(),
+                "codex".into(),
+                "code0".into(),
+            ],
+            hidden_providers: vec![],
+            ..StripPreferences::default()
+        };
+        preferences.normalize();
+
+        assert!(preferences.hidden_providers.is_empty());
+        assert_eq!(
+            summary_provider_ids(&preferences),
+            vec![
+                ProviderId::DeepSeek,
+                ProviderId::Claude,
+                ProviderId::Gemini,
+                ProviderId::Codex,
+                ProviderId::Code0,
             ]
         );
     }

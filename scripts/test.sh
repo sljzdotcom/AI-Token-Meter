@@ -9,6 +9,7 @@ SWIFTPM_STATE_DIR="$TEST_BUILD_DIR/swiftpm-state"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$TEST_BUILD_DIR/clang-module-cache}"
 
 cd "$PROJECT_DIR"
+python3 "$PROJECT_DIR/scripts/sync-code0-bridge.py" --check
 run_swift_tests() {
     swift test \
         --cache-path "$SWIFTPM_STATE_DIR/cache" \
@@ -19,8 +20,9 @@ run_swift_tests() {
 }
 
 if [[ "$#" -eq 0 ]]; then
-    # Keep scheduling, terminal and CLI process suites outside the parallel main run.
-    run_swift_tests --skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests|CLIAuthenticationScriptBuilderTests|GeminiCollectorTests'
+    # Keep scheduling, terminal and command process suites outside the parallel main run.
+    run_swift_tests --skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests|CLIAuthenticationScriptBuilderTests|GeminiCollectorTests|BoundedCommandRunnerTests'
+    run_swift_tests --skip-build --filter 'BoundedCommandRunnerTests'
     run_swift_tests --skip-build --filter 'RefreshIntervalSchedulingTests'
     run_swift_tests --skip-build --filter 'PTYCommandRunnerTests'
     run_swift_tests --skip-build --filter 'CLIAuthenticationScriptBuilderTests'

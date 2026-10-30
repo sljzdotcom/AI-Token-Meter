@@ -3,6 +3,10 @@ import AppKit
 import Foundation
 import Observation
 
+enum Code0ServiceAction: CaseIterable, Equatable, Sendable {
+    case connect, loginCompleted, syncNow, disconnect
+}
+
 @MainActor
 @Observable
 final class AppModel {
@@ -101,18 +105,50 @@ final class AppModel {
     private var isRefreshingServiceAccounts = false
 
     let deepSeekWebSession: DeepSeekWebSession
+    private var code0WebSession: (any Code0WebSessionProviding)?
+    private let code0SessionFactory: (@MainActor () throws -> any Code0WebSessionProviding)?
+    private let code0TickSleep: @Sendable (Duration) async throws -> Void
+    private let code0MonotonicNow: @MainActor () -> ContinuousClock.Instant
+    private var code0BindingID = UUID()
+    private var code0Stopped = false
+    private var code0Unavailable = false
+    private var code0FrozenSnapshot: UsageSnapshot?
+    private var code0PresentationRevision: UInt64 = 0
+    private var code0TickTask: Task<Void, Never>?
+    var currentCode0TickTaskForTesting: Task<Void, Never>? { code0TickTask }
+    private var code0TickID: UUID?
+    private var code0StopWatch: Task<Void, Never>?
+    private var code0LastAction: Code0SessionActionResult?
+    private var code0RetryDeadline: ContinuousClock.Instant?
+    private var ordinarySnapshots: [UsageSnapshot] = [.geminiUnavailable]
 
-    private(set) var snapshots: [UsageSnapshot] = [.geminiUnavailable]
+    private(set) var snapshots: [UsageSnapshot] {
+        get {
+            _ = code0PresentationRevision
+            var result = ordinarySnapshots
+            if let current = code0CurrentSnapshot { result.append(current) }
+            return result
+        }
+        set { ordinarySnapshots = newValue.filter { UsageProvider.refreshProviders.contains($0.provider) } }
+    }
     private(set) var isRefreshing = false
     private(set) var refreshingProviders: Set<UsageProvider> = []
     private(set) var lastUpdatedAt: Date?
     private(set) var apiKeyConfigured = false
-    private(set) var serviceAccounts: [UsageProvider: ServiceAccountStatus] = [
+    private var ordinaryServiceAccounts: [UsageProvider: ServiceAccountStatus] = [
         .claude: .checking(provider: .claude),
         .codex: .checking(provider: .codex),
         .deepSeek: .checking(provider: .deepSeek),
         .gemini: .geminiUnavailable,
     ]
+    private(set) var serviceAccounts: [UsageProvider: ServiceAccountStatus] {
+        get {
+            var result = ordinaryServiceAccounts
+            if code0WebSession != nil || code0Unavailable { result[.code0] = code0AccountStatus }
+            return result
+        }
+        set { ordinaryServiceAccounts = newValue.filter { UsageProvider.refreshProviders.contains($0.key) } }
+    }
     private(set) var isReplacingDeepSeekAPIKey = false
     private(set) var launchAtLoginEnabled = false
     private(set) var settingsNotice: SettingsNotice?
@@ -160,6 +196,10 @@ final class AppModel {
         isDemoMode: Bool? = nil,
         geminiDiagnosticStore: GeminiDiagnosticStore? = nil,
         refreshCoordinator: RefreshCoordinator? = nil,
+        code0WebSession: (any Code0WebSessionProviding)? = nil,
+        code0SessionFactory: (@MainActor () throws -> any Code0WebSessionProviding)? = nil,
+        code0TickSleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        code0MonotonicNow: @escaping @MainActor () -> ContinuousClock.Instant = { ContinuousClock.now },
         refreshOperation: (@Sendable () async -> [UsageSnapshot])? = nil,
         geminiPauseReasonOperation: (@Sendable () async -> GeminiPauseReason?)? = nil,
         geminiRecoveryBeginOperation: (@Sendable (String) async -> Bool)? = nil,
@@ -189,6 +229,9 @@ final class AppModel {
         }
     ) {
         self.defaults = defaults
+        self.code0WebSession = code0WebSession
+        self.code0TickSleep = code0TickSleep
+        self.code0MonotonicNow = code0MonotonicNow
         let storedInterval = defaults.object(forKey: DefaultsKey.refreshIntervalSeconds) as? NSNumber
         let storedSeconds = storedInterval?.doubleValue ?? 300
         self.refreshIntervalSeconds = storedSeconds.isFinite && storedSeconds.rounded() == storedSeconds
@@ -269,6 +312,11 @@ final class AppModel {
         self.refreshSleep = refreshSleep
         self.isDemoMode = isDemoMode
             ?? (ProcessInfo.processInfo.environment["AI_METER_DEMO_MODE"] == "1")
+        if let code0SessionFactory {
+            self.code0SessionFactory = code0SessionFactory
+        } else if code0WebSession == nil, !self.isDemoMode, systemActionPolicy.allowsExternalOpen {
+            self.code0SessionFactory = { try Code0AppRuntime.makeSession(applicationSupportAnchor: applicationSupportDirectoryURL) }
+        } else { self.code0SessionFactory = nil }
         if let data = defaults.data(forKey: DefaultsKey.thresholdEvaluator),
            let restored = try? JSONDecoder().decode(ThresholdEvaluator.self, from: data) {
             self.thresholdEvaluator = restored
@@ -329,6 +377,183 @@ final class AppModel {
         }
         apiKeyConfigured = false
         launchAtLoginEnabled = self.launchAtLoginStatusOperation()
+        if self.code0WebSession == nil, let factory = self.code0SessionFactory {
+            do { self.code0WebSession = try factory() }
+            catch { code0Unavailable = true }
+        }
+        bindCode0Session()
+    }
+
+    private var code0CurrentSnapshot: UsageSnapshot? {
+        let value = code0Stopped ? code0FrozenSnapshot : code0WebSession?.snapshot
+        return value?.provider == .code0 ? value : nil
+    }
+    var code0SessionState: Code0SessionState {
+        let state = code0WebSession?.state ?? .disconnected
+        if code0Stopped, state != .closing, state != .cleanupPending {
+            return code0FrozenSnapshot == nil ? .disconnected : .paused
+        }
+        return state
+    }
+    var isCode0AutomaticallySyncing: Bool { !code0Stopped && code0WebSession?.isAutomaticallySyncing == true }
+    private var code0RetiredSafely: Bool {
+        guard let session = code0WebSession else { return true }
+        return (session.state == .paused || session.state == .disconnected) && !session.isAutomaticallySyncing
+    }
+    private var code0CanAcceptActions: Bool {
+        if code0Stopped { return code0RetiredSafely && code0SessionFactory != nil }
+        return code0WebSession != nil || code0SessionFactory != nil
+    }
+    func canPerformCode0Action(_ action: Code0ServiceAction) -> Bool {
+        guard code0CanAcceptActions else { return false }
+        switch action {
+        case .connect: return code0SessionState == .disconnected || code0SessionState == .paused
+        case .loginCompleted: return code0SessionState == .connecting
+        case .syncNow: return (code0SessionState == .paused || code0SessionState == .active) && code0RetrySeconds == nil
+        case .disconnect: return [.connecting, .syncing, .active, .paused].contains(code0SessionState)
+        }
+    }
+    var code0RetrySeconds: Int? {
+        guard let deadline = code0RetryDeadline else { return nil }
+        let now = code0MonotonicNow()
+        guard now < deadline else { return nil }
+        let duration = now.duration(to: deadline).components
+        return Int(duration.seconds) + (duration.attoseconds > 0 ? 1 : 0)
+    }
+    var code0StatusKey: String {
+        if code0Unavailable { return "Code0 connection could not be prepared." }
+        if code0SessionState == .cleanupPending { return "Code0 cleanup is not confirmed. New connections are blocked." }
+        if !code0Stopped, let failure = code0WebSession?.failure {
+            switch failure {
+            case .profileBusy: return "Code0 connection is unavailable or already in use. Close any other Code0 session, then try again."
+            case .storageFailed: return "Code0 storage could not be confirmed. Automatic sync is paused."
+            case .cleanupFailed: return "Code0 cleanup is not confirmed. New connections are blocked."
+            case .authenticationChanged: return "Code0 authentication changed. Connect again to validate the current account."
+            case .loginTimedOut: return "Code0 sign-in timed out. Connect again."
+            case .syncTimedOut: return "Code0 sync timed out. Previous data and success time are unchanged."
+            case .policyRejected: return "The Code0 page requested an unsupported action. Sync is paused."
+            case .validationRequired, .navigationFailed, .invalidResponse: return "Code0 sync did not complete. Automatic sync is paused."
+            }
+        }
+        switch code0SessionState {
+        case .disconnected: return "Code0 is not connected."
+        case .connecting: return "Finish signing in in the Code0 window, then confirm below."
+        case .syncing: return "Checking Code0 website usage…"
+        case .closing: return "Closing the Code0 window…"
+        case .active: return "Code0 automatic sync is enabled for this run."
+        case .paused: return "Showing cached Code0 data. Choose Sync Code0 to validate this connection."
+        case .cleanupPending: return "Code0 cleanup is not confirmed. New connections are blocked."
+        }
+    }
+    func code0ActionMessage(using localizer: AppLocalizer) -> String? {
+        if let seconds = code0RetrySeconds {
+            return localizer.text("Code0 can sync again in %@ seconds.", localizer.number(Int64(seconds)))
+        }
+        if code0LastAction == .busy, [.connecting, .syncing, .closing].contains(code0SessionState) {
+            return localizer.text("Code0 is busy. Wait for the current operation to finish.")
+        }
+        if code0LastAction == .denied, code0WebSession?.failure == nil, !code0Unavailable {
+            return localizer.text("The Code0 action could not start.")
+        }
+        return nil
+    }
+    private var code0AccountStatus: ServiceAccountStatus {
+        let state: ServiceAccountConnectionState
+        switch code0SessionState {
+        case .active: state = isCode0AutomaticallySyncing ? .connected : .lastKnown
+        case .connecting, .syncing, .closing: state = .checking
+        case .cleanupPending: state = .unavailable
+        case .paused: state = code0CurrentSnapshot == nil ? .unavailable : .lastKnown
+        case .disconnected: state = code0Unavailable ? .unavailable : .signInRequired
+        }
+        return ServiceAccountStatus(provider: .code0, connectionState: state, checkedAt: code0CurrentSnapshot?.fetchedAt)
+    }
+    private func bindCode0Session() {
+        let bindingID = UUID()
+        code0BindingID = bindingID
+        code0WebSession?.onSnapshotChange = { [weak self] _ in
+            guard let self, !self.code0Stopped, self.code0BindingID == bindingID else { return }
+            // Treat the callback as a signal; the getter reads the bound current,
+            // including nil. Neither a stale payload nor ordinary A is a fallback.
+            self.code0PresentationRevision &+= 1
+            self.publishWidgetSnapshot()
+        }
+        code0PresentationRevision &+= 1
+    }
+    @discardableResult
+    func performCode0ServiceAction(_ action: Code0ServiceAction) -> Code0SessionActionResult {
+        restartCode0IfSafe()
+        if !code0Stopped, code0WebSession == nil, let factory = code0SessionFactory {
+            do { code0WebSession = try factory(); code0Unavailable = false; bindCode0Session() }
+            catch { code0Unavailable = true }
+        }
+        guard !code0Stopped, let session = code0WebSession else { return .denied }
+        // The session validates phases, serialization and deadlines. UI enabled
+        // state is informative and never substitutes for those authoritative guards.
+        let result: Code0SessionActionResult
+        switch action {
+        case .connect: result = session.connect()
+        case .loginCompleted: result = session.loginCompleted()
+        case .syncNow: result = session.syncNow()
+        case .disconnect: result = session.disconnect()
+        }
+        code0LastAction = result
+        if case .throttled(let seconds) = result { code0RetryDeadline = code0MonotonicNow().advanced(by: .seconds(seconds)) }
+        else { code0RetryDeadline = nil }
+        if result == .started { startCode0Ticks() }
+        return result
+    }
+    private func startCode0Ticks() {
+        guard code0TickID == nil, !code0Stopped else { return }
+        let tickID = UUID(), bindingID = code0BindingID
+        let sleep = code0TickSleep
+        code0TickID = tickID
+        code0TickTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await sleep(.seconds(1)) } catch { break }
+                guard let self, !self.code0Stopped, self.code0BindingID == bindingID, self.code0TickID == tickID else { break }
+                self.code0WebSession?.processScheduledWork()
+                guard [.connecting, .syncing, .closing, .active].contains(self.code0SessionState) else { break }
+            }
+            if let self, self.code0TickID == tickID { self.code0TickID = nil; self.code0TickTask = nil }
+        }
+    }
+    private func stopCode0Session() {
+        guard !code0Stopped else { return }
+        code0FrozenSnapshot = code0CurrentSnapshot
+        code0Stopped = true
+        code0BindingID = UUID()
+        code0WebSession?.onSnapshotChange = nil
+        code0TickID = nil
+        code0TickTask?.cancel(); code0TickTask = nil
+        code0StopWatch?.cancel(); code0StopWatch = nil
+        code0WebSession?.stop()
+        code0PresentationRevision &+= 1
+        guard let session = code0WebSession, session.state == .closing else { return }
+        let bindingID = code0BindingID, sleep = code0TickSleep
+        // Only drain the stopped session's close deadline. Its stopped guard
+        // prevents automatic requests; never replace an uncertain owned instance.
+        code0StopWatch = Task { @MainActor [weak self] in
+            for _ in 0..<11 {
+                do { try await sleep(.seconds(1)) } catch { return }
+                guard let self, self.code0Stopped, self.code0BindingID == bindingID else { return }
+                session.processScheduledWork()
+                if session.state != .closing { return }
+            }
+        }
+    }
+    private func restartCode0IfSafe() {
+        guard code0Stopped, code0RetiredSafely, let factory = code0SessionFactory else { return }
+        do {
+            let replacement = try factory()
+            code0StopWatch?.cancel(); code0StopWatch = nil
+            code0WebSession = replacement
+            code0FrozenSnapshot = nil
+            code0Stopped = false
+            code0Unavailable = false
+            code0LastAction = nil; code0RetryDeadline = nil
+            bindCode0Session()
+        } catch { code0Unavailable = true }
     }
 
     var presentations: [ProviderPresentation] {
@@ -522,6 +747,7 @@ final class AppModel {
 
     func start() {
         guard refreshRunID == nil else { return }
+        restartCode0IfSafe()
         deepSeekWebSession.onHistoryChange = { [weak self] history in
             self?.attachDeepSeekHistory(history)
         }
@@ -571,6 +797,7 @@ final class AppModel {
 
     @discardableResult
     func stop() -> Task<Void, Never>? {
+        stopCode0Session()
         let stoppedGeminiRecoveryTask = geminiRecoveryTimeoutTask
         geminiLifecycleID = UUID()
         geminiRecoverySessionID = UUID()
@@ -623,7 +850,7 @@ final class AppModel {
 
         let collected: [UsageSnapshot]
         if let refreshOperation {
-            refreshingProviders = Set(UsageProvider.allCases)
+            refreshingProviders = Set(UsageProvider.refreshProviders)
             collected = await refreshOperation()
         } else {
             collected = await coordinator.refresh(manual: manual) { [weak self] provider, active in
@@ -643,8 +870,9 @@ final class AppModel {
         else { providersRequiringAction.insert(.gemini) }
         discardGeminiResumeOfferIfPauseChanged(to: pauseReason)
         geminiPauseReason = pauseReason
-        updateAPIKeyConfiguration(from: collected)
-        var presentedSnapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
+        let ordinaryCollected = collected.filter { UsageProvider.refreshProviders.contains($0.provider) }
+        updateAPIKeyConfiguration(from: ordinaryCollected)
+        var presentedSnapshots = ordinaryCollected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         if geminiQuotaSnapshotGeneration != geminiQuotaGenerationAtStart,
            let recoveredGemini = snapshots.first(where: { $0.provider == .gemini }) {
             if let index = presentedSnapshots.firstIndex(where: { $0.provider == .gemini }) {
@@ -660,7 +888,7 @@ final class AppModel {
         publishWidgetSnapshot()
 
         guard notificationsEnabled else { return }
-        let events = snapshots.flatMap { thresholdEvaluator.evaluate($0) }
+        let events = ordinarySnapshots.flatMap { thresholdEvaluator.evaluate($0) }
         persistThresholdEvaluator()
         if !events.isEmpty {
             notificationHandler?(events)
@@ -872,7 +1100,7 @@ final class AppModel {
         let lifecycleID = geminiLifecycleID
         defer { isRefreshingServiceAccounts = false }
 
-        UsageProvider.allCases.forEach {
+        UsageProvider.refreshProviders.forEach {
             serviceAccounts[$0] = .checking(provider: $0)
         }
         let statuses = await serviceAccountRefreshOperation(nil)
@@ -887,11 +1115,11 @@ final class AppModel {
         else { providersRequiringAction.insert(.gemini) }
         discardGeminiResumeOfferIfPauseChanged(to: pauseReason)
         geminiPauseReason = pauseReason
-        for status in statuses where status.provider != .gemini {
+        for status in statuses where status.provider != .gemini && UsageProvider.refreshProviders.contains(status.provider) {
             serviceAccounts[status.provider] = status
         }
         updateGeminiAccountStatus()
-        for provider in UsageProvider.allCases where serviceAccounts[provider]?.connectionState == .checking {
+        for provider in UsageProvider.refreshProviders where serviceAccounts[provider]?.connectionState == .checking {
             serviceAccounts[provider] = ServiceAccountStatus(
                 provider: provider,
                 connectionState: .unavailable
@@ -902,6 +1130,7 @@ final class AppModel {
 
     @discardableResult
     func checkServiceAccount(_ provider: UsageProvider) async -> ServiceAccountStatus {
+        if provider == .code0 { return code0AccountStatus }
         if provider == .gemini {
             guard !isGeminiRefreshPaused else {
                 updateGeminiAccountStatus()
@@ -934,6 +1163,7 @@ final class AppModel {
     }
 
     func performServiceAction(_ provider: UsageProvider) {
+        guard provider != .code0 else { return }
         guard serviceAction(for: provider).isEnabled else { return }
         switch serviceAccounts[provider]?.connectionState {
         case .notInstalled: beginCLIInstallation(provider)

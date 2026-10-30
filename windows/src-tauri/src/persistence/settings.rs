@@ -155,7 +155,9 @@ impl AppSettings {
         match provider {
             crate::domain::ProviderId::Claude => Some(&self.claude_cli),
             crate::domain::ProviderId::Codex => Some(&self.codex_cli),
-            crate::domain::ProviderId::DeepSeek | crate::domain::ProviderId::Gemini => None,
+            crate::domain::ProviderId::DeepSeek
+            | crate::domain::ProviderId::Gemini
+            | crate::domain::ProviderId::Code0 => None,
         }
     }
 
@@ -169,6 +171,7 @@ impl AppSettings {
             crate::domain::ProviderId::Claude => self.claude_cli = value,
             crate::domain::ProviderId::Codex => self.codex_cli = value,
             crate::domain::ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI"),
+            crate::domain::ProviderId::Code0 => return Err("Code0 uses the official website"),
             crate::domain::ProviderId::Gemini => {
                 return Err("Antigravity CLI integration is currently unavailable");
             }

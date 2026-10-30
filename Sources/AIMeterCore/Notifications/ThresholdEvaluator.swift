@@ -30,7 +30,7 @@ public struct ThresholdEvaluator: Codable, Sendable {
     public init() {}
 
     public mutating func evaluate(_ snapshot: UsageSnapshot) -> [ThresholdEvent] {
-        guard snapshot.collectionStatus == .fresh else { return [] }
+        guard snapshot.provider != .code0, snapshot.collectionStatus == .fresh else { return [] }
         return [snapshot.primaryMetric, snapshot.secondaryMetric]
             .compactMap { $0 }
             .compactMap { evaluate(metric: $0, provider: snapshot.provider) }

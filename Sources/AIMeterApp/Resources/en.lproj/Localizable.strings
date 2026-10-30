@@ -367,3 +367,38 @@
 "Sign-in completed. Checking Antigravity quota once…" = "Sign-in completed. Checking Antigravity quota once…";
 "The one-time quota check failed. Refresh remains paused and the previous quota is kept." = "The one-time quota check failed. Refresh remains paused and the previous quota is kept.";
 "Antigravity quota updated. Automatic refresh remains paused." = "Antigravity quota updated. Automatic refresh remains paused.";
+
+"Balance" = "Balance";
+
+"Cumulative usage" = "Cumulative usage";
+
+"%@ site credits" = "%@ site credits";
+
+/* Code0 website connection */
+"Connect Code0" = "Connect Code0";
+"I've finished signing in" = "I've finished signing in";
+"Sync Code0" = "Sync Code0";
+"Disconnect Code0" = "Disconnect Code0";
+"Code0 connection could not be prepared." = "Code0 connection could not be prepared.";
+"Code0 cleanup is not confirmed. New connections are blocked." = "Code0 cleanup is not confirmed. New connections are blocked.";
+"Code0 connection is unavailable or already in use. Close any other Code0 session, then try again." = "Code0 connection is unavailable or already in use. Close any other Code0 session, then try again.";
+"Code0 storage could not be confirmed. Automatic sync is paused." = "Code0 storage could not be confirmed. Automatic sync is paused.";
+"Code0 authentication changed. Connect again to validate the current account." = "Code0 authentication changed. Connect again to validate the current account.";
+"Code0 sign-in timed out. Connect again." = "Code0 sign-in timed out. Connect again.";
+"Code0 sync timed out. Previous data and success time are unchanged." = "Code0 sync timed out. Previous data and success time are unchanged.";
+"The Code0 page requested an unsupported action. Sync is paused." = "The Code0 page requested an unsupported action. Sync is paused.";
+"Code0 sync did not complete. Automatic sync is paused." = "Code0 sync did not complete. Automatic sync is paused.";
+"Code0 is not connected." = "Code0 is not connected.";
+"Finish signing in in the Code0 window, then confirm below." = "Finish signing in in the Code0 window, then confirm below.";
+"Checking Code0 website usage…" = "Checking Code0 website usage…";
+"Closing the Code0 window…" = "Closing the Code0 window…";
+"Code0 automatic sync is enabled for this run." = "Code0 automatic sync is enabled for this run.";
+"Showing cached Code0 data. Choose Sync Code0 to validate this connection." = "Showing cached Code0 data. Choose Sync Code0 to validate this connection.";
+"Code0 can sync again in %@ seconds." = "Code0 can sync again in %@ seconds.";
+"Code0 is busy. Wait for the current operation to finish." = "Code0 is busy. Wait for the current operation to finish.";
+"The Code0 action could not start." = "The Code0 action could not start.";
+"Last successful sync: %@" = "Last successful sync: %@";
+"Sync attempts are at least five minutes apart. A failed attempt pauses automatic sync." = "Sync attempts are at least five minutes apart. A failed attempt pauses automatic sync.";
+"Code0 shows website balance and cumulative site credits. No API Key is needed." = "Code0 shows website balance and cumulative site credits. No API Key is needed.";
+"Website usage" = "Website usage";
+"Connect Code0 in Services to view website usage." = "Connect Code0 in Services to view website usage.";

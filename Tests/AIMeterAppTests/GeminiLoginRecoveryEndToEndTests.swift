@@ -22,6 +22,108 @@ struct GeminiLoginRecoveryEndToEndTests {
         try await runProductionLauncherHandshake(completionExitCode: 3, watchdogDelaySeconds: 3, cancelBeforeExec: true)
     }
 
+    @Test("G11 accepts a complete empty exit-one query and the same recorded PID's later ESRCH without preservation")
+    func failedQueryCompleteAbsenceDoesNotRequirePreservation() {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .gone)
+    }
+
+    @Test("G11 preserves an incomplete query lifecycle even when the recorded PID is later absent")
+    func failedQueryIncompleteLifecycleRequiresPreservation() {
+        // The real runner returns nil for every incomplete lifecycle, including
+        // timeout, missing reap/EOF, and failed setup or FIFO teardown.
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: nil, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves completed queries with other exit codes", arguments: [Int32(0), 2, 42, 255, -1])
+    func failedQueryOtherExitRequiresPreservation(exitStatus: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: exitStatus, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 requires byte-strict empty exit-one output, including whitespace and control bytes",
+          arguments: [" ", "\n", "\t", "Z\n", "S\n", "\0", "\u{FFFD}"])
+    func failedQueryNonemptyOutputRequiresPreservation(text: String) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: text)
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves a still-present PID despite a stale ESRCH errno", arguments: [Int32(0), ESRCH])
+    func failedQueryPresentPIDRequiresPreservation(staleErrno: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: 0, afterQueryErrno: staleErrno
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves permission errors and other non-ESRCH observations",
+          arguments: [EPERM, EACCES, EIO, Int32(0)])
+    func failedQueryOtherErrnoRequiresPreservation(probeErrno: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: -1, afterQueryErrno: probeErrno
+        ) == .preserve)
+    }
+
+    @Test("G11 cannot use absence for another PID to release preservation")
+    func failedQueryMismatchedPIDRequiresPreservation() {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12346,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves unexpected kernel probe return values", arguments: [Int32(1), -2])
+    func failedQueryUnexpectedProbeResultRequiresPreservation(probeResult: Int32) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: 12345,
+            afterQueryResult: probeResult, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves invalid recorded process IDs", arguments: [pid_t(0), -1])
+    func failedQueryInvalidRecordedPIDRequiresPreservation(recordedPID: pid_t) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: recordedPID, completedQuery: completed, afterQueryPID: recordedPID,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves an absent or invalid post-query PID association", arguments: [pid_t(0), -1])
+    func failedQueryInvalidPostQueryPIDRequiresPreservation(afterQueryPID: pid_t) {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: afterQueryPID,
+            afterQueryResult: -1, afterQueryErrno: ESRCH
+        ) == .preserve)
+    }
+
+    @Test("G11 preserves a failed query without an existing post-query observation")
+    func failedQueryMissingPostQueryObservationRequiresPreservation() {
+        let completed = FullFlowProcessQuery.Output(exitStatus: 1, text: "")
+        #expect(TemporaryFullFlowPTY.failedQueryDecision(
+            recordedPID: 12345, completedQuery: completed, afterQueryPID: nil,
+            afterQueryResult: nil, afterQueryErrno: nil
+        ) == .preserve)
+    }
+
     private func runProductionLauncherHandshake(
         completionExitCode: Int, watchdogDelaySeconds: Int = 0, cancelBeforeExec: Bool = false
     ) async throws {
@@ -604,6 +706,32 @@ private final class TemporaryFullFlowPTY {
     private var childStatus: Int32 = 0
     private var output = Data()
 
+    private enum DiagnosticStage: String {
+        case initialization, normalLoop, staleReadiness, cleanupGroup, cleanupCLI, cleanupWatchdog, cleanupAggregate, wrapperCleanup
+    }
+    private enum LoopExit: String {
+        case deadline, wrapperReaped, ownershipUnknown, preserved, inputWriteFailed, readinessDeadline, staleReadinessWriteFailed, unclassified
+    }
+    private enum PreserveCause: String {
+        case terminalHandshakeDeadline, staleReadinessWriteFailed, descendantCleanupUnconfirmed, emergencyWrapperTeardown
+        case wrapperOwnershipUnknown, terminalOutputLimit, terminalReadFailed, trackedQueryUnknown, unmappedFixedStage
+    }
+    private var diagnosticStage: DiagnosticStage = .initialization
+    private var normalLoopExitCondition: LoopExit?
+    private var firstPreserveCause: PreserveCause?
+    private var firstPreserveStage: DiagnosticStage?
+    private var wrapperWaitCalls = 0
+    private var lastWrapperWait = "notObserved"
+    private var lastWrapperWaitErrno: Int32 = 0
+    private var wrapperCleanupCalls = 0
+    private var emergencyCleanupEntered = false
+    private var trackedChecks = 0
+    private var processQueries = 0
+    private var trackedObservations: [[String: Any]] = []
+    private var firstQueryFailureRecorded = false
+    private var postQueryObservedPIDs = Set<pid_t>() // Internal association only, never exported.
+    private var postQueryProbeCount = 0
+
     init(scriptURL: URL, in root: URL) throws {
         self.root = root
         let arguments = ["/usr/bin/env", "-i", "HOME=\(root.path)", "ZDOTDIR=\(root.path)", "TMPDIR=\(root.path)",
@@ -635,20 +763,28 @@ private final class TemporaryFullFlowPTY {
     func finish(cliPIDFile: URL, watchdogPIDFile: URL, groupMarker: URL,
                 cliRequired: Bool, watchdogRequired: Bool, synthesizeStaleReadiness: Bool,
                 runningReady: (@MainActor () async -> Void)? = nil) async -> Result {
+        let normalLoopStarted = ContinuousClock.now
         let deadline = ContinuousClock.now.advanced(by: .seconds(15))
+        var explicitLoopExit: LoopExit?
+        var normalLoopIterations = 0
         var groupID: pid_t?
         var inputSent = false
         var staleReadinessSent = false
         var runningReadyReleased = false
         let readinessDeadline = ContinuousClock.now.advanced(by: .seconds(10))
-        while ContinuousClock.now < deadline, !childReaped, !ownershipUnknown, !mustPreserveRoot {
+        while recordLoopGate(ContinuousClock.now < deadline, failedBy: .deadline),
+              recordLoopGate(!childReaped, failedBy: .wrapperReaped),
+              recordLoopGate(!ownershipUnknown, failedBy: .ownershipUnknown),
+              recordLoopGate(!mustPreserveRoot, failedBy: .preserved) {
+            normalLoopIterations += 1
+            diagnosticStage = .normalLoop
             if groupID == nil,
                let text = try? String(contentsOf: groupMarker, encoding: .utf8),
                let observed = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)), observed > 1 { groupID = observed }
             drainOutput()
             if !inputSent, String(decoding: output, as: UTF8.self).contains("fake-cli-ready") {
                 inputSent = writeInput("approved\n")
-                if !inputSent { break }
+                if !inputSent { explicitLoopExit = .inputWriteFailed; break }
             }
             if let runningReady, !runningReadyReleased {
                 let execProof = (try? String(contentsOf: groupMarker.deletingPathExtension().appendingPathExtension("exec"), encoding: .utf8))?
@@ -659,45 +795,68 @@ private final class TemporaryFullFlowPTY {
                     runningReadyReleased = true
                 } else if ContinuousClock.now >= readinessDeadline {
                     preserve("Bounded exec and private terminal input handshake timed out")
+                    explicitLoopExit = .readinessDeadline
                     break
                 }
             }
+            diagnosticStage = .staleReadiness
             if synthesizeStaleReadiness, !staleReadinessSent,
-               FileManager.default.fileExists(atPath: watchdogPIDFile.path), await trackedExited(watchdogPIDFile, required: true) {
+               FileManager.default.fileExists(atPath: watchdogPIDFile.path), await trackedExited(watchdogPIDFile, required: true, stage: .staleReadiness) {
                 // A ready marker written after this tracked fake watchdog exits
                 // must never let the generated supervisor exec the fake CLI.
                 do {
                     try Data().write(to: groupMarker.deletingPathExtension().appendingPathExtension("ready"))
                     staleReadinessSent = true
-                } catch { preserve("Could not write synthetic stale readiness"); break }
+                } catch { preserve("Could not write synthetic stale readiness"); explicitLoopExit = .staleReadinessWriteFailed; break }
             }
+            diagnosticStage = .normalLoop
             observeWrapper()
             if !childReaped, !ownershipUnknown { try? await Task.sleep(for: .milliseconds(10)) }
         }
         let finished = childReaped
+        let loopExit = explicitLoopExit ?? normalLoopExitCondition ?? .unclassified
+        let loopElapsedMilliseconds = Self.elapsedMilliseconds(since: normalLoopStarted)
+        let loopFlags: [String: Any] = ["childReaped": childReaped, "ownershipUnknown": ownershipUnknown, "mustPreserveRoot": mustPreserveRoot]
         if !finished { cleanupOwnedWrapper() }
         let cleanupDeadline = ContinuousClock.now.advanced(by: .seconds(3))
         var cleanupSucceeded = false
+        var cleanupIterations = 0
+        var cleanupComponents: [String: Any] = ["observed": false]
         while ContinuousClock.now < cleanupDeadline {
+            cleanupIterations += 1
+            diagnosticStage = .cleanupGroup
             let groupGone = groupID.map { Darwin.kill(-$0, 0) != 0 && errno == ESRCH } ?? !cliRequired
-            let cliGone = await trackedExited(cliPIDFile, required: cliRequired)
-            let watchdogGone = await trackedExited(watchdogPIDFile, required: watchdogRequired)
+            let cliGone = await trackedExited(cliPIDFile, required: cliRequired, stage: .cleanupCLI)
+            let watchdogGone = await trackedExited(watchdogPIDFile, required: watchdogRequired, stage: .cleanupWatchdog)
+            cleanupComponents = ["observed": true, "groupRecorded": groupID != nil, "groupGone": groupGone,
+                "cliGone": cliGone, "watchdogGone": watchdogGone, "cliRequired": cliRequired, "watchdogRequired": watchdogRequired,
+                "childReaped": childReaped, "ownershipUnknown": ownershipUnknown, "mustPreserveRoot": mustPreserveRoot]
             cleanupSucceeded = childReaped && !ownershipUnknown && !mustPreserveRoot && groupGone && cliGone && watchdogGone
             if cleanupSucceeded { break }
             try? await Task.sleep(for: .milliseconds(20))
         }
-        if !cleanupSucceeded { preserve("Synthetic CLI, watchdog or group is live or ownership is unknown") }
+        if !cleanupSucceeded {
+            diagnosticStage = .cleanupAggregate
+            preserve("Synthetic CLI, watchdog or group is live or ownership is unknown")
+        }
+        emitObserverDiagnostic(loopExit: loopExit, loopElapsedMilliseconds: loopElapsedMilliseconds,
+            loopIterations: normalLoopIterations, loopFlags: loopFlags, staleReadinessRequested: synthesizeStaleReadiness,
+            staleReadinessSent: staleReadinessSent, inputSent: inputSent, runningReadyReleased: runningReadyReleased,
+            finished: finished, cleanupSucceeded: cleanupSucceeded, cleanupIterations: cleanupIterations, cleanupComponents: cleanupComponents)
         return Result(finished: finished, cleanupSucceeded: cleanupSucceeded,
                       terminationStatus: childReaped && childStatus & 0x7f == 0 ? (childStatus >> 8) & 0xff : nil,
                       output: String(decoding: output, as: UTF8.self))
     }
 
     func cleanupOwnedWrapper() {
+        wrapperCleanupCalls += 1
+        diagnosticStage = .wrapperCleanup
         guard masterDescriptor >= 0 else { return }
         defer { Darwin.close(masterDescriptor); masterDescriptor = -1 }
         observeWrapper()
         if !childReaped || ownershipUnknown {
             // Emergency wrapper cleanup alone cannot prove descendant cleanup.
+            emergencyCleanupEntered = true
             preserve("Emergency PTY teardown requires synthetic descendant inspection")
         }
         // Only this directly spawned, still-unreaped child can be signalled.
@@ -715,8 +874,12 @@ private final class TemporaryFullFlowPTY {
     private func observeWrapper() {
         guard !childReaped, !ownershipUnknown else { return }
         let result = waitpid(childPID, &childStatus, WNOHANG)
+        let observedErrno = result < 0 ? errno : 0
+        wrapperWaitCalls += 1
+        lastWrapperWaitErrno = observedErrno
+        lastWrapperWait = result == childPID ? "reaped" : result == 0 ? "pending" : observedErrno == EINTR ? "interrupted" : "ownershipUnknown"
         if result == childPID { childReaped = true }
-        else if result < 0, errno != EINTR { ownershipUnknown = true }
+        else if result < 0, observedErrno != EINTR { ownershipUnknown = true }
     }
 
     private func drainOutput() {
@@ -746,17 +909,90 @@ private final class TemporaryFullFlowPTY {
         return written == bytes.count
     }
 
-    private func trackedExited(_ pidFile: URL, required: Bool) async -> Bool {
-        guard FileManager.default.fileExists(atPath: pidFile.path) else { return !required }
+    private func trackedExited(_ pidFile: URL, required: Bool, stage: DiagnosticStage) async -> Bool {
+        diagnosticStage = stage
+        trackedChecks += 1
+        guard FileManager.default.fileExists(atPath: pidFile.path) else {
+            recordTracked(["stage": stage.rawValue, "pidRecord": "missing", "required": required, "query": "notAttempted", "returned": !required])
+            return !required
+        }
         guard let text = try? String(contentsOf: pidFile, encoding: .utf8),
-              let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 0 else { return false }
-        guard Darwin.kill(pid, 0) == 0 else { return errno == ESRCH }
+              let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 0 else {
+            recordTracked(["stage": stage.rawValue, "pidRecord": "invalid", "required": required, "query": "notAttempted", "returned": false])
+            return false
+        }
+        let beforeResult = Darwin.kill(pid, 0)
+        let beforeErrno = beforeResult == 0 ? 0 : errno
+        guard beforeResult == 0 else {
+            recordTracked(["stage": stage.rawValue, "pidRecord": "validated", "required": required, "query": "notAttempted",
+                "beforeResult": beforeResult, "beforeErrno": beforeErrno, "returned": beforeErrno == ESRCH])
+            return beforeErrno == ESRCH
+        }
+        processQueries += 1
+        let queryStarted = ContinuousClock.now
         let query = await Self.queryProcessState(
             executable: URL(fileURLWithPath: "/bin/ps"), arguments: ["-o", "stat=", "-p", String(pid)], in: root
         )
-        guard let query, query.exitStatus == 0 else { preserve("Tracked child observation unknown"); return false }
+        guard let query, query.exitStatus == 0 else {
+            var afterResult: Int32?
+            var afterErrno: Int32?
+            if !postQueryObservedPIDs.contains(pid) {
+                // Sample once per validated recorded PID in this fixture.
+                // Capture errno immediately for the strict decision and diagnosis.
+                let result = Darwin.kill(pid, 0)
+                let error = result == 0 ? 0 : errno
+                afterResult = result
+                afterErrno = error
+                postQueryObservedPIDs.insert(pid)
+                postQueryProbeCount += 1
+            }
+            let decision = Self.failedQueryDecision(
+                recordedPID: pid, completedQuery: query,
+                afterQueryPID: afterResult == nil ? nil : pid,
+                afterQueryResult: afterResult, afterQueryErrno: afterErrno
+            )
+            recordTracked(["stage": stage.rawValue, "pidRecord": "validated", "required": required,
+                "query": query == nil ? "nilNoCompleteResult" : "completeReapedDrainedTeardown",
+                "exit": query.map { Int($0.exitStatus) as Any } ?? NSNull(),
+                "strictlyEmpty": query.map { $0.text.isEmpty as Any } ?? NSNull(),
+                "outputUTF8Bytes": query.map { $0.text.utf8.count as Any } ?? NSNull(),
+                "elapsedMilliseconds": Self.elapsedMilliseconds(since: queryStarted),
+                "beforeResult": beforeResult, "beforeErrno": beforeErrno,
+                "postProbe": afterResult == nil ? "notRepeated" : "observedSameRecordedPID",
+                "afterResult": afterResult.map { $0 as Any } ?? NSNull(), "afterErrno": afterErrno.map { $0 as Any } ?? NSNull(),
+                "afterKernelAbsent": afterResult.map { ($0 == -1 && afterErrno == ESRCH) as Any } ?? NSNull(),
+                "returned": decision == .gone], isQueryFailure: true)
+            if decision == .gone { return true }
+            preserve("Tracked child observation unknown")
+            return false
+        }
         let state = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return state.isEmpty || state.contains("Z")
+        let gone = state.isEmpty || state.contains("Z")
+        recordTracked(["stage": stage.rawValue, "pidRecord": "validated", "required": required,
+            "query": "completeReapedDrainedTeardown", "exit": Int(query.exitStatus), "strictlyEmpty": query.text.isEmpty,
+            "outputUTF8Bytes": query.text.utf8.count, "elapsedMilliseconds": Self.elapsedMilliseconds(since: queryStarted),
+            "beforeResult": beforeResult, "beforeErrno": beforeErrno, "postProbe": "notAddedForExitZero", "returned": gone])
+        return gone
+    }
+
+    enum FailedQueryDecision: Equatable {
+        case gone
+        case preserve
+    }
+
+    // A nonnil Output already encodes normal reap, EOF and complete teardown;
+    // only strict empty exit-one output and the same PID's ESRCH prove absence.
+    static func failedQueryDecision(
+        recordedPID: pid_t,
+        completedQuery: FullFlowProcessQuery.Output?,
+        afterQueryPID: pid_t?,
+        afterQueryResult: Int32?,
+        afterQueryErrno: Int32?
+    ) -> FailedQueryDecision {
+        guard recordedPID > 0, afterQueryPID == recordedPID,
+              let completedQuery, completedQuery.exitStatus == 1, completedQuery.text.isEmpty,
+              afterQueryResult == -1, afterQueryErrno == ESRCH else { return .preserve }
+        return .gone
     }
 
     static func queryProcessState(executable: URL, arguments: [String], in root: URL) async -> FullFlowProcessQuery.Output? {
@@ -766,8 +1002,72 @@ private final class TemporaryFullFlowPTY {
     }
 
     private func preserve(_ reason: String) {
+        if firstPreserveCause == nil {
+            switch reason {
+            case "Bounded exec and private terminal input handshake timed out": firstPreserveCause = .terminalHandshakeDeadline
+            case "Could not write synthetic stale readiness": firstPreserveCause = .staleReadinessWriteFailed
+            case "Synthetic CLI, watchdog or group is live or ownership is unknown": firstPreserveCause = .descendantCleanupUnconfirmed
+            case "Emergency PTY teardown requires synthetic descendant inspection": firstPreserveCause = .emergencyWrapperTeardown
+            case "PTY wrapper cleanup ownership is unknown": firstPreserveCause = .wrapperOwnershipUnknown
+            case "Synthetic terminal output exceeded limit": firstPreserveCause = .terminalOutputLimit
+            case "Synthetic terminal observation failed": firstPreserveCause = .terminalReadFailed
+            case "Tracked child observation unknown": firstPreserveCause = .trackedQueryUnknown
+            default: firstPreserveCause = .unmappedFixedStage
+            }
+            firstPreserveStage = diagnosticStage
+        }
         mustPreserveRoot = true
         try? Data("\(reason)\n".utf8).write(to: root.appendingPathComponent(".preserve-for-inspection"), options: .atomic)
+    }
+
+    private func recordLoopGate(_ condition: Bool, failedBy reason: LoopExit) -> Bool {
+        if !condition { normalLoopExitCondition = reason }
+        return condition
+    }
+    private func recordTracked(_ observation: [String: Any], isQueryFailure: Bool = false) {
+        var indexedObservation = observation
+        indexedObservation["observationIndex"] = trackedChecks
+        if isQueryFailure && !firstQueryFailureRecorded {
+            // Normal observations cannot consume the first query failure's slot.
+            firstQueryFailureRecorded = true
+            trackedObservations.append(indexedObservation)
+        } else if trackedObservations.count < (firstQueryFailureRecorded ? 16 : 15) {
+            trackedObservations.append(indexedObservation)
+        }
+    }
+    private static func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Double {
+        let duration = start.duration(to: .now).components
+        return Double(duration.seconds) * 1_000 + Double(duration.attoseconds) / 1_000_000_000_000_000
+    }
+    private func emitObserverDiagnostic(loopExit: LoopExit, loopElapsedMilliseconds: Double, loopIterations: Int,
+        loopFlags: [String: Any], staleReadinessRequested: Bool, staleReadinessSent: Bool, inputSent: Bool,
+        runningReadyReleased: Bool, finished: Bool, cleanupSucceeded: Bool, cleanupIterations: Int,
+        cleanupComponents: [String: Any]) {
+        let exitClass = !childReaped ? "notReaped" : childStatus & 0x7f == 0 ? "normalExit" :
+            childStatus & 0x7f == 0x7f ? "stopped" : "signalTermination"
+        let record: [String: Any] = [
+            "schema": "g11-fixture-observer-v1", "acceptance": false, "rootRetentionPolicyUnchanged": true,
+            "loopExit": loopExit.rawValue, "loopElapsedMilliseconds": loopElapsedMilliseconds,
+            "loopIterations": loopIterations, "loopFlagsAtFinishedSample": loopFlags,
+            "staleReadinessRequested": staleReadinessRequested, "staleReadinessSent": staleReadinessSent,
+            "inputSent": inputSent, "runningReadyReleased": runningReadyReleased,
+            "firstPreserve": firstPreserveCause.map { $0.rawValue as Any } ?? NSNull(),
+            "firstPreserveStage": firstPreserveStage.map { $0.rawValue as Any } ?? NSNull(),
+            "wrapperWaitCalls": wrapperWaitCalls, "lastWrapperWait": lastWrapperWait,
+            "lastWrapperWaitErrno": lastWrapperWaitErrno, "wrapperExitClass": exitClass,
+            "wrapperExitCode": childReaped && childStatus & 0x7f == 0 ? Int((childStatus >> 8) & 0xff) as Any : NSNull(),
+            "wrapperSignal": childReaped && childStatus & 0x7f != 0 && childStatus & 0x7f != 0x7f ? Int(childStatus & 0x7f) as Any : NSNull(),
+            "wrapperCleanupCalls": wrapperCleanupCalls, "emergencyCleanupEntered": emergencyCleanupEntered,
+            "finished": finished, "cleanupSucceeded": cleanupSucceeded, "cleanupIterations": cleanupIterations,
+            "cleanupComponents": cleanupComponents, "trackedChecks": trackedChecks, "processQueries": processQueries,
+            "postQueryProbeCount": postQueryProbeCount, "firstQueryFailureRetained": firstQueryFailureRecorded,
+            "trackedObservations": trackedObservations,
+            "observationsTruncated": trackedChecks > trackedObservations.count,
+            "observationsOmitted": max(0, trackedChecks - trackedObservations.count)]
+        let prefix = "G11_FIXTURE_OBSERVER_DIAGNOSTIC "
+        if let data = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]),
+           data.count <= 16 * 1_024, let text = String(data: data, encoding: .utf8) { print(prefix + text) }
+        else { print(prefix + "{\"schema\":\"g11-fixture-observer-v1\",\"acceptance\":false,\"serializationOrBudgetError\":true}") }
     }
 }
 

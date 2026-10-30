@@ -73,6 +73,7 @@ pub async fn read_one(
         }
         ProviderId::DeepSeek => read_deepseek_status(checked_at).await,
         ProviderId::Gemini => ServiceAccountStatus::unavailable(ProviderId::Gemini, checked_at),
+        ProviderId::Code0 => ServiceAccountStatus::unavailable(ProviderId::Code0, checked_at),
     }
 }
 

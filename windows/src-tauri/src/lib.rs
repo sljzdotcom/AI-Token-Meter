@@ -266,7 +266,10 @@ fn evaluate_threshold(
     levels: &mut HashMap<String, u8>,
     snapshot: &UsageSnapshot,
 ) -> Option<(u8, String)> {
-    if !enabled || snapshot.status != crate::domain::UsageStatus::Fresh {
+    if !enabled
+        || snapshot.provider_id == ProviderId::Code0
+        || snapshot.status != crate::domain::UsageStatus::Fresh
+    {
         return None;
     }
     for metric in [
@@ -775,6 +778,7 @@ fn validated_provider_cli_settings(
             ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
             ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
             ProviderId::DeepSeek => return Err("DeepSeek does not use a CLI".to_owned()),
+            ProviderId::Code0 => return Err("Code0 uses the official website".to_owned()),
             ProviderId::Gemini => {
                 return Err("Antigravity CLI integration is currently unavailable".to_owned());
             }
@@ -1026,6 +1030,7 @@ fn begin_service_sign_in(
         ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
+        ProviderId::Code0 => return Err("Code0 uses the official website".to_owned()),
         ProviderId::Gemini => {
             return Err("Antigravity CLI integration is currently unavailable".to_owned());
         }
@@ -1052,6 +1057,7 @@ fn open_service_installation_guide(provider_id: ProviderId) -> Result<(), String
         ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("This service does not use a CLI".to_owned()),
+        ProviderId::Code0 => return Err("Code0 uses the official website".to_owned()),
         ProviderId::Gemini => {
             return Err("Antigravity CLI integration is currently unavailable".to_owned());
         }
@@ -1076,6 +1082,7 @@ async fn begin_service_installation(
         ProviderId::Claude => crate::accounts::cli_account::CliProvider::Claude,
         ProviderId::Codex => crate::accounts::cli_account::CliProvider::Codex,
         ProviderId::DeepSeek => return Err("DeepSeek uses an API Key".to_owned()),
+        ProviderId::Code0 => return Err("Code0 uses the official website".to_owned()),
         ProviderId::Gemini => {
             return Err("Antigravity CLI integration is currently unavailable".to_owned());
         }
@@ -1295,6 +1302,7 @@ async fn set_strip_preferences(
             ProviderId::Codex => "codex",
             ProviderId::DeepSeek => "deepseek",
             ProviderId::Gemini => "gemini",
+            ProviderId::Code0 => "code0",
         };
         if !updated
             .strip_preferences

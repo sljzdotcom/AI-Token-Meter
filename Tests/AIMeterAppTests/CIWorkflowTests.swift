@@ -26,7 +26,8 @@ struct CIWorkflowTests {
             .deletingLastPathComponent()
         let testScript = try String(contentsOf: projectRoot.appending(path: "scripts/test.sh"))
 
-        #expect(testScript.contains("--skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests|CLIAuthenticationScriptBuilderTests|GeminiCollectorTests'"))
+        #expect(testScript.contains("--skip 'PTYCommandRunnerTests|RefreshIntervalSchedulingTests|CLIAuthenticationScriptBuilderTests|GeminiCollectorTests|BoundedCommandRunnerTests'"))
+        #expect(testScript.contains("run_swift_tests --skip-build --filter 'BoundedCommandRunnerTests'"))
         #expect(testScript.contains("run_swift_tests --skip-build --filter 'RefreshIntervalSchedulingTests'"))
         #expect(testScript.contains("run_swift_tests --skip-build --filter 'PTYCommandRunnerTests'"))
         #expect(testScript.contains("run_swift_tests --skip-build --filter 'CLIAuthenticationScriptBuilderTests'"))

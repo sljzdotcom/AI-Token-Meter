@@ -10,6 +10,8 @@ import { deepSeekCredentialPresentation } from "./deepSeekCredentialPresentation
 import { GEMINI_INSTALL_COMMAND, GEMINI_INSTALLATION_GUIDE_LABEL, geminiInstallationInstructions } from "./geminiInstallationGuide"
 import { AuthorLinks, type BrandLinkTarget } from "./AuthorLinks"
 import appLogo from "../../src-tauri/icons/128x128.png"
+import { disabledCode0SessionBridge, emptyCode0Session, type Code0Action, type Code0ActionResult, type Code0SessionDTO } from "../state/code0Session"
+import { SettingsCode0 } from "./SettingsCode0"
 
 const tabs = ["Appearance", "Floating Strip", "Monitoring", "Services", "About"] as const
 const fonts = displayFonts
@@ -17,6 +19,8 @@ export type DisplayInfo = { id: string; name: string; isPrimary: boolean }
 export type DisplayPreferences = { version: number; mode: "primary" | "selected" | "all"; selectedId: string | null; placements: Record<string, {edge: "left" | "right"; verticalPerMille: number}> }
 
 type SettingsWindowProps = {
+  code0Session?: Code0SessionDTO
+  onCode0Action?: (action: Code0Action) => Promise<Code0ActionResult>
   onLocaleChange?: (locale: Locale) => void
   displays?: DisplayPreferences
   availableDisplays?: DisplayInfo[]
@@ -95,6 +99,8 @@ const defaultUpdateState: UpdateState = {
 }
 
 export function SettingsWindow({
+  code0Session = emptyCode0Session,
+  onCode0Action = disabledCode0SessionBridge.perform,
   onLocaleChange = setLocale,
   displays = {version: 1, mode: "primary", selectedId: null, placements: {}},
   availableDisplays = [],
@@ -200,7 +206,7 @@ export function SettingsWindow({
               <div>
                 {stripPreferences.orderedProviders.map((id, index) => {
                   const visible = !stripPreferences.hiddenProviders.includes(id)
-                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Google Antigravity" : "DeepSeek"
+                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : id === "gemini" ? "Google Antigravity" : id === "code0" ? "Code0" : "DeepSeek"
                   const move = (offset: number) => {
                     const order = [...stripPreferences.orderedProviders]
                     ;[order[index], order[index+offset]] = [order[index+offset], order[index]]
@@ -226,7 +232,7 @@ export function SettingsWindow({
                   </div>
                 })}
                 <button type="button" onClick={() => onStripPreferencesChange({...stripPreferences,
-                  orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: []})}>{t("Restore default order")}</button>
+                  orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: defaultStripPreferences.hiddenProviders})}>{t("Restore default order")}</button>
               </div>
             </SettingRow>
             <SettingRow label={t("Floating strip size")} hint={t("Choose Comfortable or Compact.")}>
@@ -402,6 +408,7 @@ export function SettingsWindow({
               <button type="button" aria-label={t("Check Antigravity status")} disabled={busyServices.includes("gemini")} onClick={() => onCheckServiceStatus("gemini")}>{t("Check Status")}</button>
               <button type="button" onClick={onOpenGeminiInstallationGuide}>{t(GEMINI_INSTALLATION_GUIDE_LABEL)}</button>
             </Service>
+            <SettingsCode0 session={code0Session} onAction={onCode0Action} />
             {serviceMessage ? <p aria-live="polite" className="service-message">{t(serviceMessage)}</p> : null}
           </div>
         ) : null}

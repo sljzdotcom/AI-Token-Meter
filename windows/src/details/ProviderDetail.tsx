@@ -175,7 +175,7 @@ function MetricCard({ metric, showRemaining = false }: { metric: UsageMetric; sh
   return (
     <article className="metric-card">
       <span><small>{t(metric.label)}</small><strong>{showRemaining ? t("{percent}% remaining", {percent: Math.round(100 - metric.current)}) : formatMetric(metric)}</strong></span>
-      {metric.limit ? <span aria-hidden="true" className="metric-bar"><i style={{ width: `${fraction * 100}%` }} /></span> : null}
+      {metric.limit && metric.unit !== "siteCredits" ? <span aria-hidden="true" className="metric-bar"><i style={{ width: `${fraction * 100}%` }} /></span> : null}
       <small>{metric.resetAt ? t("Resets {date}", {date: formatDate(metric.resetAt)}) : t(metric.resetDescription ?? "Official value")}</small>
     </article>
   )
@@ -194,6 +194,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function subtitle(provider: UsageSnapshot["providerId"]) {
+  if (provider === "code0") return "Official website · Site credits"
   if (provider === "gemini") return "Antigravity CLI quota"
   if (provider === "deepseek") return "Official balance · API usage"
   if (provider === "codex") return "Official quota · Local OpenAI Codex activity"
@@ -214,6 +215,7 @@ function statusLabel(status: UsageSnapshot["status"]) {
 }
 
 function formatMetric(metric: UsageMetric) {
+  if (metric.unit === "siteCredits") return t("{amount} site credits", { amount: new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 2 }).format(metric.current) })
   if (metric.unit === "percent") return `${Math.round(metric.current)}%`
   if (metric.unit === "cny") return `¥${metric.current.toFixed(2)}`
   return compact(metric.current)

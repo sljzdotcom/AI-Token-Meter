@@ -21,6 +21,7 @@ pub struct ProviderPresentation {
 pub enum ProgressSemantics {
     UsedQuota,
     ConsumedFromBalanceBaseline,
+    ValueOnly,
 }
 
 #[derive(Deserialize)]

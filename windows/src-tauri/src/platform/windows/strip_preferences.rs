@@ -36,6 +36,12 @@ impl<'de> Deserialize<'de> for StripPreferences {
             .flatten()
             .any(|id| id == "gemini");
         let mut value = Self::default();
+        let already_has_code0 = stored
+            .ordered_providers
+            .iter()
+            .chain(stored.hidden_providers.iter())
+            .flatten()
+            .any(|id| id == "code0");
         let version = stored.schema_version.unwrap_or(0);
         if let Some(density) = stored.density {
             value.density = density;
@@ -69,6 +75,9 @@ impl<'de> Deserialize<'de> for StripPreferences {
         if version < 2 && !already_has_gemini {
             value.hidden_providers.push("gemini".into());
         }
+        if !already_has_code0 {
+            value.hidden_providers.push("code0".into());
+        }
         value.normalize();
         Ok(value)
     }
@@ -77,7 +86,7 @@ impl<'de> Deserialize<'de> for StripPreferences {
 impl Default for StripPreferences {
     fn default() -> Self {
         Self {
-            schema_version: 4,
+            schema_version: 5,
             density: "compact".into(),
             automatically_collapses: true,
             reveal_delay_milliseconds: 150,
@@ -87,8 +96,9 @@ impl Default for StripPreferences {
                 "codex".into(),
                 "deepseek".into(),
                 "gemini".into(),
+                "code0".into(),
             ],
-            hidden_providers: vec![],
+            hidden_providers: vec!["code0".into()],
             hidden_until: None,
         }
     }
@@ -105,8 +115,11 @@ impl StripPreferences {
         if self.collapse_delay_milliseconds > 5_000 {
             self.collapse_delay_milliseconds = 800;
         }
-        let known = ["claude", "codex", "deepseek", "gemini"];
-        self.schema_version = 4;
+        let known = ["claude", "codex", "deepseek", "gemini", "code0"];
+        self.schema_version = 5;
+        if !self.ordered_providers.iter().any(|id| id == "code0") {
+            self.hidden_providers.push("code0".into());
+        }
         let mut order = Vec::new();
         for id in self
             .ordered_providers
@@ -139,7 +152,7 @@ impl StripPreferences {
         if folded {
             return (20.0, 96.0);
         }
-        let count = self.visible_providers().len().clamp(1, 4);
+        let count = self.visible_providers().len().clamp(1, 5);
         match self.density.as_str() {
             "comfortable" => (108.0, 212.0 + (count - 1) as f64 * 72.0),
             _ => (78.0, 170.0 + (count - 1) as f64 * 58.0),
@@ -210,7 +223,7 @@ mod tests {
     #[test]
     fn schema_four_has_independent_bounded_delays_and_new_dimensions() {
         let defaults = StripPreferences::default();
-        assert_eq!(defaults.schema_version, 4);
+        assert_eq!(defaults.schema_version, 5);
         assert!(defaults.automatically_collapses);
         assert_eq!(defaults.reveal_delay_milliseconds, 150);
         assert_eq!(defaults.collapse_delay_milliseconds, 800);

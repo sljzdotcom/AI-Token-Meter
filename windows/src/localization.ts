@@ -2,6 +2,9 @@ import { useSyncExternalStore } from "react"
 
 export type Locale = "en" | "zh-CN"
 const zh = {
+  "Cumulative usage": "累计已用",
+  "{amount} site credits": "{amount} 站内额度",
+  "Official website · Site credits": "官方网站 · 站内额度",
   "Antigravity status could not be checked. Try again.": "无法检查 Antigravity 状态，请重试。",
   "Antigravity CLI quota": "Antigravity CLI 额度",
   "Antigravity CLI quota is currently unavailable. Installation and sign-in status have not been checked.": "暂无法获取 Antigravity CLI 额度。尚未检查安装和登录状态。",

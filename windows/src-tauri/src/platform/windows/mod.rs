@@ -1,4 +1,25 @@
 pub mod claude_workspace;
+#[cfg(all(
+    windows,
+    any(test, all(debug_assertions, feature = "code0-native-fixture"))
+))]
+mod code0_clock;
+#[cfg(all(
+    windows,
+    any(test, all(debug_assertions, feature = "code0-native-fixture"))
+))]
+mod code0_composition;
+pub mod code0_dispatcher;
+pub mod code0_profile_lease;
+#[cfg(all(
+    windows,
+    any(test, all(debug_assertions, feature = "code0-native-fixture"))
+))]
+mod code0_runtime;
+#[cfg(all(test, windows))]
+mod code0_tick;
+pub mod code0_web_session;
+pub mod code0_webview;
 pub mod conpty;
 #[cfg(windows)]
 pub mod credential_manager;

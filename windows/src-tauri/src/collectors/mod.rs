@@ -4,6 +4,8 @@ pub mod application;
 pub mod backoff;
 pub mod claude;
 pub mod claude_activity;
+pub mod code0_bridge;
+pub mod code0_capture;
 pub mod codex;
 pub mod codex_activity;
 pub mod codex_app_server;

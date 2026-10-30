@@ -10,7 +10,7 @@ export type StripPreferences = {
   hiddenUntil: number | null
 }
 export const defaultStripPreferences: StripPreferences = {
-  schemaVersion: 4, density: "compact", automaticallyCollapses: true,
+  schemaVersion: 5, density: "compact", automaticallyCollapses: true,
   revealDelayMilliseconds: 150, collapseDelayMilliseconds: 800,
-  orderedProviders: ["claude", "codex", "deepseek", "gemini"], hiddenProviders: [], hiddenUntil: null,
+  orderedProviders: ["claude", "codex", "deepseek", "gemini", "code0"], hiddenProviders: ["code0"], hiddenUntil: null,
 }

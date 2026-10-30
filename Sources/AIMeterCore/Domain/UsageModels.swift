@@ -5,6 +5,11 @@ public enum UsageProvider: String, Codable, CaseIterable, Hashable, Sendable {
     case codex
     case deepSeek
     case gemini
+    case code0
+
+    /// Providers owned by the existing HTTP/CLI refresh loop. Website sync is separate.
+    public static let refreshProviders: [UsageProvider] = [.claude, .codex, .deepSeek, .gemini]
+    public static let defaultVisibleProviders = refreshProviders
 
     public var displayName: String {
         switch self {
@@ -12,6 +17,7 @@ public enum UsageProvider: String, Codable, CaseIterable, Hashable, Sendable {
         case .codex: "OpenAI Codex"
         case .deepSeek: "DeepSeek"
         case .gemini: "Google Antigravity"
+        case .code0: "Code0"
         }
     }
 }
@@ -22,12 +28,14 @@ public enum UsageUnit: String, Codable, Sendable {
     case usd
     case tokens
     case requests
+    case siteCredits
 }
 
 public enum UsageMetricKind: String, Codable, Sendable {
     case officialLimit
     case balance
     case localBudget
+    case cumulativeUsage
 }
 
 public enum Availability: String, Codable, Sendable {
@@ -78,7 +86,7 @@ public struct UsageMetric: Codable, Equatable, Identifiable, Sendable {
     }
 
     public var usedFraction: Double? {
-        guard let limit, limit > 0 else { return nil }
+        guard unit != .siteCredits, let limit, limit > 0 else { return nil }
         return min(max(current / limit, 0), 1)
     }
 }

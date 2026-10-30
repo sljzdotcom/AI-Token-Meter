@@ -48,7 +48,9 @@ public struct ProviderPresentation: Equatable, Sendable {
         let summaryMetric = snapshot.provider == .deepSeek
             ? snapshot.primaryMetric
             : (officialSummaryMetric ?? snapshot.primaryMetric)
-        if snapshot.provider == .deepSeek,
+        if snapshot.provider == .code0 {
+            fraction = nil
+        } else if snapshot.provider == .deepSeek,
            snapshot.secondaryMetric?.kind == .localBudget {
             fraction = snapshot.secondaryMetric?.usedFraction
         } else {
@@ -102,6 +104,7 @@ public struct ProviderPresentation: Equatable, Sendable {
         case .percent: return String(format: "%.0f%%", metric.current)
         case .tokens: return String(format: "%.0f tokens", metric.current)
         case .requests: return String(format: "%.0f requests", metric.current)
+        case .siteCredits: return String(format: "%.2f site credits", metric.current)
         }
     }
 

@@ -23,6 +23,7 @@ version = "0.10.11"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
+ "embed-resource",
  "futures-util",
  "getrandom 0.3.4",
  "minisign-verify",
@@ -39,6 +40,9 @@ dependencies = [
  "tempfile",
  "time",
  "tokio",
+ "webview2-com",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
  "windows-sys 0.61.2",
  "winreg",
  "zeroize",

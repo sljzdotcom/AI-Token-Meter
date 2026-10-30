@@ -17,10 +17,10 @@
       "const": 1
     },
     "providerId": {
-      "enum": ["claude", "codex", "deepseek", "gemini"]
+      "enum": ["claude", "codex", "deepseek", "gemini", "code0"]
     },
     "displayName": {
-      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity"]
+      "enum": ["Claude Code", "OpenAI Codex", "DeepSeek", "Google Antigravity", "Code0"]
     },
     "status": {
       "enum": [
@@ -201,8 +201,8 @@
         "label": { "type": "string", "maxLength": 120 },
         "current": { "type": "number" },
         "limit": { "type": ["number", "null"] },
-        "unit": { "enum": ["percent", "cny", "usd", "tokens", "requests"] },
-        "kind": { "enum": ["officialLimit", "balance", "localBudget"] },
+        "unit": { "enum": ["percent", "cny", "usd", "tokens", "requests", "siteCredits"] },
+        "kind": { "enum": ["officialLimit", "balance", "localBudget", "cumulativeUsage"] },
         "resetAt": { "type": ["string", "null"], "format": "date-time" },
         "resetDescription": { "type": ["string", "null"], "maxLength": 160 }
       },

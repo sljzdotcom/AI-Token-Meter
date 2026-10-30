@@ -29,6 +29,7 @@ let package = Package(
                 "Resources/AIMeterApp.entitlements",
             ],
             resources: [
+                .copy("Resources/Code0"),
                 .copy("Resources/Logos"),
                 .copy("Resources/Backgrounds"),
                 .process("Resources/en.lproj"),
