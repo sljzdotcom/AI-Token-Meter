@@ -367,3 +367,38 @@
 "Sign-in completed. Checking Antigravity quota once…" = "登入完成，正在單次檢查 Antigravity 額度…";
 "The one-time quota check failed. Refresh remains paused and the previous quota is kept." = "單次額度檢查失敗。重新整理仍保持暫停，並保留先前的額度資料。";
 "Antigravity quota updated. Automatic refresh remains paused." = "Antigravity 額度已更新，自動重新整理仍保持暫停。";
+
+"Balance" = "餘額";
+
+"Cumulative usage" = "累計已用";
+
+"%@ site credits" = "%@ 站內額度";
+
+/* Code0 website connection */
+"Connect Code0" = "連接 Code0";
+"I've finished signing in" = "我已完成登入";
+"Sync Code0" = "同步 Code0";
+"Disconnect Code0" = "中斷 Code0";
+"Code0 connection could not be prepared." = "無法準備 Code0 連線。";
+"Code0 cleanup is not confirmed. New connections are blocked." = "Code0 清理尚未確認，暫不能建立新連線。";
+"Code0 connection is unavailable or already in use. Close any other Code0 session, then try again." = "Code0 連線無法使用或已被佔用。請關閉其他 Code0 工作階段後重試。";
+"Code0 storage could not be confirmed. Automatic sync is paused." = "無法確認 Code0 儲存狀態，自動同步已暫停。";
+"Code0 authentication changed. Connect again to validate the current account." = "Code0 登入狀態已變更，請重新連線以驗證目前帳戶。";
+"Code0 sign-in timed out. Connect again." = "Code0 登入已逾時，請重新連線。";
+"Code0 sync timed out. Previous data and success time are unchanged." = "Code0 同步已逾時，原有資料和成功時間保持不變。";
+"The Code0 page requested an unsupported action. Sync is paused." = "Code0 網頁要求了不支援的操作，同步已暫停。";
+"Code0 sync did not complete. Automatic sync is paused." = "Code0 同步未完成，自動同步已暫停。";
+"Code0 is not connected." = "Code0 尚未連線。";
+"Finish signing in in the Code0 window, then confirm below." = "請在 Code0 視窗完成登入，然後在下方確認。";
+"Checking Code0 website usage…" = "正在檢查 Code0 網站用量…";
+"Closing the Code0 window…" = "正在關閉 Code0 視窗…";
+"Code0 automatic sync is enabled for this run." = "Code0 自動同步已在本次執行中啟用。";
+"Showing cached Code0 data. Choose Sync Code0 to validate this connection." = "目前顯示 Code0 快取資料。請選擇「同步 Code0」驗證連線。";
+"Code0 can sync again in %@ seconds." = "再過 %@ 秒即可同步 Code0。";
+"Code0 is busy. Wait for the current operation to finish." = "Code0 正忙，請等待目前操作完成。";
+"The Code0 action could not start." = "無法開始 Code0 操作。";
+"Last successful sync: %@" = "上次成功同步：%@";
+"Sync attempts are at least five minutes apart. A failed attempt pauses automatic sync." = "每次同步至少間隔五分鐘。某次嘗試失敗後將暫停自動同步。";
+"Code0 shows website balance and cumulative site credits. No API Key is needed." = "Code0 顯示網站餘額和累計站內用量，無需 API Key。";
+"Website usage" = "網站用量";
+"Connect Code0 in Services to view website usage." = "請先在服務設定中連線 Code0，再查看網站用量。";

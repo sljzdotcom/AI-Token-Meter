@@ -9,6 +9,93 @@ public enum CLIAuthenticationScriptError: Error, Equatable {
 public struct CLIAuthenticationScriptBuilder: Sendable {
     public init() {}
 
+    // Guardian calls commit in-process. Shell's child only stages; its parent
+    // commits with a builtin after the child has actually exited and been reaped.
+    static let atomicStatusPublicationSubroutine = #"""
+    use File::Temp (); use Fcntl qw(:DEFAULT);
+    sub atomic_publish_status {
+      my ($path, $value, $staging_only) = @_;
+      my ($handle, $temporary, @identity);
+      my $ok = eval {
+        if ($staging_only) {
+          $temporary = $path;
+          sysopen($handle, $temporary, O_WRONLY | O_CREAT | O_EXCL, 0600) or die "publication create";
+        } else {
+          ($handle, $temporary) = File::Temp::tempfile("${path}.publish.XXXXXXXX", UNLINK => 0);
+        }
+        @identity = stat($handle);
+        @identity && $identity[4] == $< && $identity[3] == 1 or die "publication identity";
+        chmod(0600, $handle) == 1 or die "publication mode";
+        my $bytes = "$value\n";
+        my $offset = 0;
+        while ($offset < length($bytes)) {
+          my $written = syswrite($handle, $bytes, length($bytes) - $offset, $offset);
+          if (!defined($written)) { next if $! == EINTR; die "publication write"; }
+          $written > 0 or die "publication short write";
+          $offset += $written;
+        }
+        close($handle) or die "publication close";
+        undef $handle;
+        my @staged = lstat($temporary);
+        @staged && $staged[0] == $identity[0] && $staged[1] == $identity[1]
+          && $staged[4] == $< && $staged[3] == 1 && ($staged[2] & 0777) == 0600 or die "publication changed";
+        if (!$staging_only) { rename($temporary, $path) or die "publication rename"; }
+        undef $temporary;
+        1;
+      };
+      if (!$ok) {
+        close($handle) if defined($handle);
+        if (defined($temporary) && @identity) {
+          my @current = lstat($temporary);
+          unlink($temporary) if @current && $current[0] == $identity[0] && $current[1] == $identity[1];
+        }
+        return 0;
+      }
+      return 1;
+    }
+    """#
+
+    static let statusStagingProgram = #"""
+    use strict; use warnings; use Errno qw(EINTR);
+    \#(atomicStatusPublicationSubroutine)
+    my ($path, $value) = @ARGV;
+    $SIG{ALRM} = sub { die "publication deadline\n"; };
+    alarm 1;
+    my $ok = atomic_publish_status($path, $value, 1);
+    alarm 0;
+    exit($ok ? 0 : 79);
+    """#
+
+    static let guardianStopPermissionProbeProgram = #"""
+    use strict; use warnings; use Errno qw(EINTR);
+    my ($pid, $identity_path, $permission_path) = @ARGV;
+    exit 1 unless $pid =~ /^[1-9][0-9]*$/;
+    $SIG{ALRM} = sub { exit 1 }; alarm 1;
+    my $read = sub {
+      my ($path) = @_;
+      my @before = lstat($path);
+      return undef unless @before && -f _ && $before[4] == $< && $before[3] == 1 && $before[7] <= 128 && ($before[2] & 0777) == 0600;
+      open my $handle, "<", $path or return undef;
+      my @opened = stat($handle);
+      if (!@opened || $opened[0] != $before[0] || $opened[1] != $before[1]
+          || $opened[4] != $< || $opened[3] != 1 || ($opened[2] & 0777) != 0600) { close $handle; return undef; }
+      my $text = ""; my $eof = 0;
+      while (length($text) <= 128) {
+        my $count = sysread($handle, my $chunk, 129 - length($text));
+        if (!defined($count)) { next if $! == EINTR; close $handle; return undef; }
+        if ($count == 0) { $eof = 1; last; }
+        $text .= $chunk;
+      }
+      close($handle) or return undef;
+      return $eof && length($text) <= 128 ? $text : undef;
+    };
+    my $identity = $read->($identity_path);
+    exit 1 unless defined($identity) && $identity =~ /^\Q$pid\E ([0-9a-f]{32})\n\z/;
+    my $nonce = $1;
+    my $permission = $read->($permission_path);
+    exit(defined($permission) && $permission eq "guardian_stop_accepted_v1:$pid:$nonce\n" ? 0 : 1);
+    """#
+
     static let boundedProcessStateProbeSubroutine = #"""
     sub bounded_process_state {
       return bounded_process_state_with_completion(undef, @_);
@@ -157,7 +244,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
                 throw CLIAuthenticationScriptError.invalidCompletionTokenPipe
             }
             let coordinationPaths = [completionTokenPipeURL.path, completionStatusPath, completionExecStatusPath,
-                                     cancellationRequestPath] + ["lock", "ready", "process-group", "guardian", "guardian-stop"]
+                                     cancellationRequestPath] + ["lock", "ready", "process-group", "guardian", "guardian-stop", "stopped", "stopped.tmp"]
                 .map { completionStatusPath + "." + $0 }
             let standardizedPaths = coordinationPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
             guard Set(standardizedPaths).count == standardizedPaths.count else {
@@ -169,7 +256,15 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             let supervisorProgram = #"""
             use strict; use warnings; use Fcntl qw(:DEFAULT O_NONBLOCK); use POSIX qw(setpgid getpgrp waitpid WNOHANG WUNTRACED WIFSTOPPED _exit); use Errno qw(EINTR EAGAIN EWOULDBLOCK EACCES); use Time::HiRes qw(time sleep clock_gettime CLOCK_MONOTONIC);
             \#(Self.boundedProcessStateProbeSubroutine)
+            \#(Self.atomicStatusPublicationSubroutine)
             my ($gate_path, $status_path, $cancel_request_path, $exec_status_path, $process_group_file, $guardian_state_file, $guardian_stop_file, $process_state_path, $parent_pid, @command) = @ARGV;
+            my ($publication_failed, $cleanup_uncertain) = (0, 0);
+            my $publish_status = sub {
+              return 0 if $publication_failed;
+              return 1 if atomic_publish_status($status_path, $_[0]);
+              $publication_failed = 1; $cleanup_uncertain = 1;
+              return 0;
+            };
             my $publish_launch_stage = sub {
               my ($stage) = @_;
               open my $handle, ">", $exec_status_path or _exit(127);
@@ -205,39 +300,63 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               return undef unless $self_seen;
               return $found;
             }
-            my $stop_requested = sub {
-              return 1 if getppid() != $parent_pid;
-              my $cancel = ""; if (open my $handle, "<", $cancel_request_path) { $cancel = <$handle> // ""; close $handle; chomp $cancel; }
-              return 1 if $cancel eq "cancelled";
-              my $request = ""; if (open my $handle, "<", $guardian_stop_file) { $request = <$handle> // ""; close $handle; }
-              my $identity = ""; if (open my $handle, "<", $guardian_state_file) { $identity = <$handle> // ""; close $handle; }
-              return $$ == getpgrp() && $request eq $identity && $identity =~ /^$$ [0-9a-f]{32}\n$/;
-            };
-            my $mark_cleanup_unconfirmed = sub {
-              if (open my $handle, ">", $status_path) {
-                chmod 0600, $status_path;
-                print {$handle} "helper_stop_unconfirmed\n";
-                close $handle;
+            my $read_stop_control = sub {
+              my ($path) = @_;
+              my @metadata = lstat($path);
+              return undef unless @metadata && -f _ && $metadata[4] == $< && $metadata[3] == 1 && $metadata[7] <= 128;
+              open my $handle, "<", $path or return undef;
+              my @opened = stat($handle);
+              if (!@opened || $opened[0] != $metadata[0] || $opened[1] != $metadata[1]) { close $handle; return undef; }
+              my $value = ""; my $eof = 0;
+              while (length($value) <= 128) {
+                my $count = sysread($handle, my $chunk, 129 - length($value));
+                if (!defined($count)) { next if $! == EINTR; close $handle; return undef; }
+                if ($count == 0) { $eof = 1; last; }
+                $value .= $chunk;
               }
+              close($handle) or return undef;
+              return $eof && length($value) <= 128 ? $value : undef;
             };
-            my ($resume_reader, $resume_writer, $pre_exec_child);
+            my $matched_stop_request = sub {
+              my $cancel = $read_stop_control->($cancel_request_path);
+              return 1 if defined($cancel) && $cancel eq "cancelled\n";
+              my $request = $read_stop_control->($guardian_stop_file);
+              my $identity = $read_stop_control->($guardian_state_file);
+              return defined($request) && defined($identity) && $$ == getpgrp()
+                && $request eq $identity && $identity =~ /^$$ [0-9a-f]{32}\n\z/;
+            };
+            my $stop_requested = sub { return getppid() != $parent_pid || $matched_stop_request->(); };
+            my $mark_cleanup_unconfirmed = sub {
+              $cleanup_uncertain = 1;
+              $publish_status->("helper_stop_unconfirmed");
+            };
+            my ($resume_reader, $resume_writer, $pre_exec_child); my $child_owned = 0;
             my $clean_group = sub {
               my ($signal) = @_; return if $stopping; $stopping = 1; $SIG{TERM} = "IGNORE"; $SIG{INT} = "IGNORE"; $SIG{HUP} = "IGNORE";
               if (defined($resume_writer)) { close $resume_writer; undef $resume_writer; }
+              if (defined($pre_exec_child) && !$child_owned) { $cleanup_uncertain = 1; undef $pre_exec_child; }
               if (defined($pre_exec_child)) {
-                # This exact child was observed stopped and has not been reaped.
-                # Reap it before the guardian's group-wide shutdown can orphan it.
+                # Only an unreaped directly owned child is an individual target.
+                # Lost ownership is monotonic and never rebuilt from its PID.
                 kill "KILL", $pre_exec_child;
                 my $reap_deadline = clock_gettime(CLOCK_MONOTONIC) + 0.25;
                 while (clock_gettime(CLOCK_MONOTONIC) < $reap_deadline) {
                   my $waited = waitpid($pre_exec_child, WNOHANG);
-                  if ($waited == $pre_exec_child) { undef $pre_exec_child; last; }
-                  last if $waited == -1 && $! != EINTR;
+                  if ($waited == $pre_exec_child) { undef $pre_exec_child; $child_owned = 0; last; }
+                  if ($waited == -1 && $! != EINTR) { $cleanup_uncertain = 1; $child_owned = 0; undef $pre_exec_child; last; }
                   sleep 0.01;
                 }
               }
-              my $identity = ""; if (open my $handle, "<", $guardian_state_file) { $identity = <$handle> // ""; close $handle; }
-              if ($$ == getpgrp() && $identity eq "$$ $nonce\n") {
+              $cleanup_uncertain = 1 if defined($pre_exec_child);
+              my $identity = $read_stop_control->($guardian_state_file);
+              if ($$ == getpgrp() && defined($identity) && $identity eq "$$ $nonce\n") {
+                # This is acceptance, not cleanup completion. No uncertainty may
+                # follow this permission: this one-way routine never returns.
+                if (!$cleanup_uncertain && !$publication_failed && $matched_stop_request->()) {
+                  if (!atomic_publish_status("${status_path}.ready", "guardian_stop_accepted_v1:$$:$nonce")) {
+                    $publication_failed = 1; $cleanup_uncertain = 1;
+                  }
+                }
                 # Do not fork /bin/ps from a Perl signal handler. TERM gets a
                 # fixed grace period, then the still-owned group is killed.
                 # Perl expresses process-group delivery with a negative signal
@@ -248,29 +367,32 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               _exit($signal eq "INT" ? 130 : $signal eq "HUP" ? 129 : 143);
             };
             $SIG{TERM} = sub { $clean_group->("TERM"); }; $SIG{INT} = sub { $clean_group->("INT"); }; $SIG{HUP} = sub { $clean_group->("HUP"); };
+            # Every cancellation exit below precedes the only CLI fork. Reuse
+            # one-way cleanup so only a real matched request may grant a stop
+            # permission, even when there is no child to reap yet.
             open my $gate, "+<", $gate_path or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             my $flags = fcntl($gate, F_GETFD, 0); defined($flags) && defined(fcntl($gate, F_SETFD, $flags | FD_CLOEXEC)) or do { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             my $record_lock = pack("qqiss", 0, 0, 0, F_WRLCK, SEEK_SET);
             my $launch_deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
             while (1) {
-              if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+              if ($stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
               if (clock_gettime(CLOCK_MONOTONIC) >= $launch_deadline) { close $gate; $publish_launch_stage->("launch_gate_timeout"); _exit(124); }
               last if defined(fcntl($gate, F_SETLK, $record_lock));
               if ($! != EINTR && $! != EACCES && $! != EAGAIN && $! != EWOULDBLOCK) { close $gate; $publish_launch_stage->("pre_exec_failed"); _exit(127); }
               sleep 0.05;
             }
             my $status = ""; if (open my $handle, "<", $status_path) { $status = <$handle> // ""; close $handle; chomp $status; }
-            if ($status ne "ready" || $stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            if ($status ne "ready" || $stop_requested->()) { close $gate; $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
             close $gate;
             open STDIN, "<", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             open STDOUT, ">", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             open STDERR, ">", "/dev/tty" or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
-            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
             pipe(my $exec_status_reader, my $exec_status_writer) or do { open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
             my $reader_flags = fcntl($exec_status_reader, F_GETFL, 0); defined($reader_flags) && defined(fcntl($exec_status_reader, F_SETFL, $reader_flags | O_NONBLOCK)) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
             my $exec_flags = fcntl($exec_status_writer, F_GETFD, 0); defined($exec_flags) && defined(fcntl($exec_status_writer, F_SETFD, $exec_flags | FD_CLOEXEC)) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
             my $guardian_pid = $$;
-            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); _exit(130); }
+            if ($stop_requested->()) { $publish_launch_stage->("pre_exec_cancelled"); $clean_group->("TERM"); _exit(130); }
             pipe($resume_reader, $resume_writer) or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
             for my $handle ($resume_reader, $resume_writer) {
               my $flags = fcntl($handle, F_GETFD, 0);
@@ -278,10 +400,20 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
             my $resume_flags = fcntl($resume_reader, F_GETFL, 0);
             defined($resume_flags) && defined(fcntl($resume_reader, F_SETFL, $resume_flags | O_NONBLOCK)) or do { $publish_launch_stage->("pre_exec_failed"); _exit(127); };
-            my $child = fork(); defined($child) or do { close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127); };
+            # Preserve the inherited mask across the real fork/registration and
+            # child-handler switch. Pending cleanup cannot skip a new owner.
+            my $fork_signals = POSIX::SigSet->new(POSIX::SIGTERM(), POSIX::SIGINT(), POSIX::SIGHUP());
+            my $original_signals = POSIX::SigSet->new();
+            defined(POSIX::sigprocmask(POSIX::SIG_BLOCK(), $fork_signals, $original_signals)) or do { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(127); };
+            my $child = fork(); defined($child) or do {
+              $cleanup_uncertain = 1;
+              defined(POSIX::sigprocmask(POSIX::SIG_SETMASK(), $original_signals)) or do { $clean_group->("TERM"); _exit(127); };
+              close $exec_status_reader; close $exec_status_writer; open my $exec_status, ">", $exec_status_path; print {$exec_status} "launch_indeterminate\n" if $exec_status; close $exec_status if $exec_status; _exit(127);
+            };
             if ($child == 0) {
               close $exec_status_reader; close $resume_writer; undef $resume_writer;
               $SIG{TERM} = "DEFAULT"; $SIG{INT} = "DEFAULT"; $SIG{HUP} = "DEFAULT";
+              defined(POSIX::sigprocmask(POSIX::SIG_SETMASK(), $original_signals)) or _exit(127);
               kill "STOP", $$ or _exit(127);
               # A resumed process still needs its guardian's private permission.
               # An incidental CONT during shutdown must never authorize exec.
@@ -311,16 +443,31 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               }
               _exit(127);
             }
+            $pre_exec_child = $child; $child_owned = 1;
+            defined(POSIX::sigprocmask(POSIX::SIG_SETMASK(), $original_signals)) or do { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(127); };
             close $exec_status_writer; close $resume_reader; undef $resume_reader;
             my $child_stopped = 0; my $stop_deadline = time + 2;
             while (time < $stop_deadline) {
               if ($stop_requested->()) { $clean_group->("TERM"); }
+              # Reaping/loss and ownership retirement are one short transition.
+              # No poll sleep or blocking wait occurs with cleanup masked.
+              my $stop_wait_original = POSIX::SigSet->new();
+              defined(POSIX::sigprocmask(POSIX::SIG_BLOCK(), $fork_signals, $stop_wait_original)) or do { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(127); };
               my $waited = waitpid($child, WNOHANG | WUNTRACED);
-              if ($waited == $child) { $child_stopped = WIFSTOPPED(${^CHILD_ERROR_NATIVE}) ? 1 : 0; last; }
-              if ($waited == -1 && $! != EINTR) { last; }
+              my $stop_wait_error = 0 + $!;
+              my $stop_wait_status = ${^CHILD_ERROR_NATIVE};
+              if ($waited == $child) {
+                $child_stopped = WIFSTOPPED($stop_wait_status) ? 1 : 0;
+                if (!$child_stopped) { $cleanup_uncertain = 1; undef $pre_exec_child; $child_owned = 0; }
+              } elsif ($waited == -1 && $stop_wait_error != EINTR) {
+                $cleanup_uncertain = 1; $child_owned = 0; undef $pre_exec_child;
+              }
+              defined(POSIX::sigprocmask(POSIX::SIG_SETMASK(), $stop_wait_original)) or do { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(127); };
+              last if $waited == $child || ($waited == -1 && $stop_wait_error != EINTR);
               sleep 0.02;
             }
             if (!$child_stopped) {
+              $cleanup_uncertain = 1;
               open my $failed_exec_status, ">", $exec_status_path;
               if ($failed_exec_status) { print {$failed_exec_status} "launch_indeterminate\n"; close $failed_exec_status; }
               $clean_group->("TERM");
@@ -372,7 +519,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             my $exec_state = "exec_confirmed";
             my $child_status = 0; my $child_done = 0;
             if (length($exec_error)) { $exec_state = $exec_error eq "cancelled\n" ? "pre_exec_cancelled" : $exec_error =~ /\n\z/ ? "exec_failed" : "launch_indeterminate"; }
-            else { my $probe = waitpid($child, WNOHANG); if ($probe == $child) { $child_status = $?; $child_done = 1; $exec_state = "launch_indeterminate" if ($child_status & 127); } elsif ($probe == -1 && $! != EINTR) { $exec_state = "launch_indeterminate"; } }
+            else { my $probe = waitpid($child, WNOHANG); if ($probe == $child) { $child_status = $?; $child_done = 1; $child_owned = 0; $exec_state = "launch_indeterminate" if ($child_status & 127); } elsif ($probe == -1 && $! != EINTR) { $child_owned = 0; $cleanup_uncertain = 1; $exec_state = "launch_indeterminate"; } }
             my $exec_status_ok = 0;
             if (open my $exec_status, ">", $exec_status_path) {
               $exec_status_ok = chmod(0600, $exec_status_path)
@@ -382,15 +529,15 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
             if (!$exec_status_ok) { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(127); }
             if ($exec_state ne "exec_confirmed") {
-              if ($exec_state eq "pre_exec_cancelled") { $clean_group->("TERM"); _exit(130); }
-              if ($exec_state eq "launch_indeterminate") { $clean_group->("TERM"); _exit(127); }
+              if ($exec_state eq "pre_exec_cancelled") { $pre_exec_child = $child if $child_owned && !$child_done; $clean_group->("TERM"); _exit(130); }
+              if ($exec_state eq "launch_indeterminate") { $cleanup_uncertain = 1; $pre_exec_child = $child if $child_owned && !$child_done; $clean_group->("TERM"); _exit(127); }
               waitpid($child, 0); my $failed_status = $?; my $failed_exit = ($failed_status & 127) ? 128 + ($failed_status & 127) : ($failed_status >> 8); _exit($failed_exit || 127);
             }
             while (!$child_done) {
               if ($stop_requested->()) { $clean_group->("TERM"); }
               my $waited = waitpid($child, WNOHANG);
-              if ($waited == $child) { $child_status = $?; $child_done = 1; next; }
-              if ($waited == -1 && $! != EINTR) { $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(125); }
+              if ($waited == $child) { $child_status = $?; $child_done = 1; $child_owned = 0; next; }
+              if ($waited == -1 && $! != EINTR) { $child_owned = 0; $mark_cleanup_unconfirmed->(); $clean_group->("TERM"); _exit(125); }
               sleep 0.05;
             }
             my $exit_code = ($child_status & 127) ? 128 + ($child_status & 127) : ($child_status >> 8);
@@ -398,7 +545,8 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               if ($stop_requested->()) { $clean_group->("TERM"); }
               my $has_peers = group_peers();
               if (!defined($has_peers)) {
-                if (open my $status_handle, ">", $status_path) { print {$status_handle} "process_state_unavailable\n"; close $status_handle; }
+                $cleanup_uncertain = 1;
+                $publish_status->("process_state_unavailable");
                 $clean_group->("TERM");
                 _exit(127);
               }
@@ -423,8 +571,82 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             rm -f -- "$watchdog_ready_file"
             cleanup_ack_file="${status_file}.stopped"
             completion_token=""
-            report_status() { print -r -- "$1" >| "$status_file"; }
+            status_publication_failed=0
+            status_publication_critical=0
+            status_publication_sequence=0
+            cleanup_state_uncertain=0
+            launch_critical=0
+            deferred_app_cancel=0
+            deferred_cancel_exit=0
+            cancellation_in_progress=0
+            guardian_state_preserved=0
+            report_status() {
+              if (( status_publication_failed || status_publication_critical )); then cleanup_state_uncertain=1; guardian_state_preserved=1; return 1; fi
+              case "$1" in
+                process_state_unavailable|helper_stop_unconfirmed|guardian_identity_mismatch|terminal_foreground_restore_failed) cleanup_state_uncertain=1; guardian_state_preserved=1 ;;
+              esac
+              status_publication_critical=1
+              if ! builtin zmodload -F zsh/files b:zf_mv b:zf_rm; then
+                status_publication_failed=1; cleanup_state_uncertain=1; guardian_state_preserved=1
+                status_publication_critical=0
+                return 1
+              fi
+              (( status_publication_sequence += 1 ))
+              local publisher_temporary="${status_file}.publish-shell.$$.${status_publication_sequence}"
+              \(shellQuote(URL(fileURLWithPath: "/usr/bin/perl").path)) -e \(shellQuote(Self.statusStagingProgram)) "$publisher_temporary" "$1" &
+              local publisher_spawn_status=$? publisher_pid publisher_exit publisher_commit=1
+              if (( publisher_spawn_status != 0 )); then
+                status_publication_failed=1; cleanup_state_uncertain=1; guardian_state_preserved=1
+                status_publication_critical=0
+                return 1
+              fi
+              publisher_pid=$!
+              while true; do
+                wait "$publisher_pid" 2>/dev/null
+                publisher_exit=$?
+                # Only the publisher's fixed normal exit codes prove a join.
+                if [[ "$publisher_exit" == 0 || "$publisher_exit" == 79 ]]; then break; fi
+                # Retry only builtin wait before creating any observer child.
+                # A later child could reuse this PID and replace zsh's cached
+                # wait status; after that point outcome must remain failed.
+                wait "$publisher_pid" 2>/dev/null
+                publisher_exit=$?
+                if [[ "$publisher_exit" == 0 || "$publisher_exit" == 79 ]]; then break; fi
+                status_publication_failed=1
+                cleanup_state_uncertain=1
+                guardian_state_preserved=1
+                if /usr/bin/perl -MErrno=ESRCH -e 'my $pid=shift; local $SIG{ALRM}=sub { exit 1 }; alarm 1; local $!=0; my $n=kill 0,$pid; exit(!$n && $! == ESRCH ? 0 : 1);' "$publisher_pid" 2>/dev/null; then
+                  wait "$publisher_pid" 2>/dev/null
+                  publisher_exit=$?
+                  break
+                fi
+                # Unknown/reused PID: keep this helper and defer all cleanup.
+                # Observations never retry publication or signal a numeric PID.
+                /bin/sleep 0.01 || true
+              done
+              if [[ "$publisher_exit" != 0 ]]; then status_publication_failed=1; cleanup_state_uncertain=1; guardian_state_preserved=1; fi
+              if (( !status_publication_failed )); then
+                if [[ -f "$publisher_temporary" && ! -L "$publisher_temporary" && -O "$publisher_temporary" ]] &&
+                   [[ ( ! -e "$status_file" && ! -L "$status_file" ) || ( -f "$status_file" && ! -L "$status_file" && -O "$status_file" ) ]]; then
+                  builtin zf_mv -f "$publisher_temporary" "$status_file"
+                  publisher_commit=$?
+                fi
+                if (( publisher_commit != 0 )); then
+                  status_publication_failed=1; cleanup_state_uncertain=1; guardian_state_preserved=1
+                  # Only a successful stage/join proves this path is ours.
+                  builtin zf_rm -f "$publisher_temporary" || true
+                fi
+              fi
+              status_publication_critical=0
+              if (( !cancellation_in_progress && !launch_critical && ${+functions[finish_launch_claim]} )); then
+                finish_launch_claim
+              elif (( !cancellation_in_progress && deferred_cancel_exit )); then
+                exit "$deferred_cancel_exit"
+              fi
+              (( !status_publication_failed ))
+            }
             publish_completed_failure() {
+              (( !status_publication_failed && !status_publication_critical )) || return 1
               local failure
               [[ -r "$status_file" ]] || return 1
               failure="$(<"$status_file")"
@@ -436,7 +658,10 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               # No later handler/owner may write after this atomic publication.
               local temporary_ack="${cleanup_ack_file}.tmp"
               (umask 077; setopt noclobber; print -r -- "helper_stopped_v1:${status_file:t}:${failure}" > "$temporary_ack") || return 1
-              /bin/mv -f -- "$temporary_ack" "$cleanup_ack_file"
+              builtin zmodload -F zsh/files b:zf_mv || return 1
+              [[ -f "$temporary_ack" && ! -L "$temporary_ack" && -O "$temporary_ack" ]] || return 1
+              [[ ( ! -e "$cleanup_ack_file" && ! -L "$cleanup_ack_file" ) || ( -f "$cleanup_ack_file" && ! -L "$cleanup_ack_file" && -O "$cleanup_ack_file" ) ]] || return 1
+              builtin zf_mv -f "$temporary_ack" "$cleanup_ack_file"
             }
             cleanup_before_launch() {
               # This EXIT handler is replaced before the first child is spawned.
@@ -446,6 +671,12 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               publish_completed_failure || true
             }
             trap 'cleanup_before_launch' EXIT
+            request_prelaunch_cancel() {
+              if (( status_publication_critical )); then deferred_cancel_exit="$1"; else exit "$1"; fi
+            }
+            trap 'request_prelaunch_cancel 129' HUP
+            trap 'request_prelaunch_cancel 130' INT
+            trap 'request_prelaunch_cancel 143' TERM
             stop_requested() { [[ -r "$cancel_request_file" ]] && [[ "$(<"$cancel_request_file")" == cancelled ]]; }
             acknowledge_pre_exec_stop() {
               if [[ -r "$status_file" && "$(<"$status_file")" == ready ]] && stop_requested; then
@@ -512,6 +743,8 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             open_command=\(shellQuote(completionOpenExecutableURL.path))
             agy_pid=""
             agy_child_reaped=0
+            agy_wait_status=0
+            agy_stop_requested=0
             watchdog_pid=""
             launch_critical=0
             deferred_app_cancel=0
@@ -538,6 +771,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             send_receipt() {
+              (( !status_publication_failed && !status_publication_critical )) || return 1
               local result="$1"
               local exit_code="$2"
               if ! "$open_command" -g "${callback_base}&result=${result}&exit_code=${exit_code}"; then
@@ -564,6 +798,15 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               # Unknown query lifecycle, timeout and every other failure stay unsafe.
               [[ "$query_status" == 1 ]] || return 1
               /usr/bin/perl -MErrno=ESRCH -e 'my ($pid) = @ARGV; exit 1 unless $pid =~ /^[1-9][0-9]*$/; local $SIG{ALRM} = sub { exit 1 }; alarm 1; local $! = 0; my $matched = kill 0, $pid; my $errno = 0 + $!; exit 1 if $matched; exit($errno == ESRCH ? 0 : 1);' "$agy_pid"
+            }
+
+            guardian_stop_permission_valid() {
+              /usr/bin/perl -e \(shellQuote(Self.guardianStopPermissionProbeProgram)) "$agy_pid" "$guardian_state_file" "$watchdog_ready_file"
+            }
+
+            owned_stop_confirmation_is_safe() {
+              (( !status_publication_critical && !status_publication_failed && !cleanup_state_uncertain )) || return 1
+              if (( agy_stop_requested || agy_wait_status >= 128 )); then guardian_stop_permission_valid; else return 0; fi
             }
 
             process_group_is_empty() {
@@ -604,6 +847,8 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
 
             stop_owned_processes() {
               cleanup_uncertain=0
+              if (( status_publication_critical )); then guardian_state_preserved=1; return 1; fi
+              if (( status_publication_failed )); then cleanup_state_uncertain=1; guardian_state_preserved=1; fi
               if [[ -n "$agy_pid" ]]; then
                 if (( ! agy_child_reaped )); then
                   local supervisor_stopped=0
@@ -621,6 +866,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
                       if [[ "$guardian_identity_pid" == "$agy_pid" ]]; then
                         print -r -- "$guardian_identity" >| "$guardian_stop_file"
                         identity_requested=1
+                        agy_stop_requested=1
                       else
                         report_status guardian_identity_mismatch
                         cleanup_uncertain=1
@@ -638,12 +884,14 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
                     print -u2 -r -- "AI Token Meter: Antigravity cleanup is unconfirmed; preserving guardian state."
                     return 1
                   fi
-                  wait "$agy_pid" 2>/dev/null || true
+                  wait "$agy_pid" 2>/dev/null
+                  agy_wait_status=$?
                   agy_child_reaped=1
                   if [[ -r "$status_file" && "$(<"$status_file")" == helper_stop_unconfirmed ]]; then
                     cleanup_uncertain=1
                   fi
                 fi
+                if ! owned_stop_confirmation_is_safe; then cleanup_uncertain=1; fi
                 if ! process_group_is_empty; then
                   cleanup_uncertain=1
                 fi
@@ -665,6 +913,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
                   return 1
                 fi
               fi
+              if (( cleanup_state_uncertain )); then guardian_state_preserved=1; return 1; fi
               agy_pid=""
               agy_child_reaped=0
               watchdog_pid=""
@@ -672,6 +921,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             cleanup_watchdog() {
+              if (( status_publication_critical )); then guardian_state_preserved=1; return 1; fi
               stop_watchdog
               if (( terminal_foreground_transferred )); then
                 if restore_terminal_foreground; then
@@ -705,7 +955,10 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             cancel_login() {
+              (( !cancellation_in_progress )) || return
+              cancellation_in_progress=1
               local exit_code="$1"
+              deferred_app_cancel=0; deferred_cancel_exit=0
               trap '' HUP INT TERM USR1 USR2
               if stop_owned_processes && cleanup_watchdog; then
                 trap - EXIT
@@ -719,6 +972,9 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             cancel_from_app() {
+              (( !cancellation_in_progress )) || return
+              cancellation_in_progress=1
+              deferred_app_cancel=0; deferred_cancel_exit=0
               trap '' HUP INT TERM USR1 USR2
               if stop_owned_processes && cleanup_watchdog; then
                 # All direct owners are reaped and EXIT cleanup is complete.
@@ -734,7 +990,8 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             request_terminal_cancel() {
-              if (( launch_critical )); then
+              (( !cancellation_in_progress )) || return
+              if (( launch_critical || status_publication_critical )); then
                 if (( deferred_cancel_exit == 0 )); then deferred_cancel_exit="$1"; fi
                 return
               fi
@@ -742,14 +999,23 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
             }
 
             request_app_cancel() {
-              if (( launch_critical )); then deferred_app_cancel=1; return; fi
+              (( !cancellation_in_progress )) || return
+              if (( launch_critical || status_publication_critical )); then deferred_app_cancel=1; return; fi
               cancel_from_app
             }
 
             finish_launch_claim() {
               launch_critical=0
-              if (( deferred_app_cancel )) || stop_requested; then cancel_from_app; fi
-              if (( deferred_cancel_exit )); then cancel_login "$deferred_cancel_exit"; fi
+              (( !cancellation_in_progress )) || return
+              if (( deferred_app_cancel )) || stop_requested; then
+                deferred_app_cancel=0
+                cancel_from_app
+              fi
+              if (( deferred_cancel_exit )); then
+                local exit_code="$deferred_cancel_exit"
+                deferred_cancel_exit=0
+                cancel_login "$exit_code"
+              fi
             }
 
             mark_timeout() { timed_out=1; }
@@ -843,9 +1109,15 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               if [[ -z "$agy_state" || "$agy_state" == *Z* ]]; then
                 wait "$agy_pid"
                 agy_exit_code=$?
+                agy_wait_status=$agy_exit_code
                 agy_child_reaped=1
                 if stop_requested || [[ -r "$exec_status_file" && "$(<"$exec_status_file")" == pre_exec_cancelled ]]; then cancel_from_app; fi
                 if [[ -r "$exec_status_file" && "$(<"$exec_status_file")" == launch_gate_timeout ]]; then timed_out=1; fi
+                if ! owned_stop_confirmation_is_safe; then
+                  guardian_state_preserved=1
+                  report_status helper_stop_unconfirmed
+                  exit 127
+                fi
                 if [[ -r "$status_file" && "$(<"$status_file")" == helper_stop_unconfirmed ]] || ! process_group_is_empty; then
                   guardian_state_preserved=1
                   report_status helper_stop_unconfirmed
@@ -900,7 +1172,7 @@ public struct CLIAuthenticationScriptBuilder: Sendable {
               exit "$agy_exit_code"
             fi
             """
-        case .deepSeek:
+        case .deepSeek, .code0:
             throw CLIAuthenticationScriptError.unsupportedProvider
         }
 

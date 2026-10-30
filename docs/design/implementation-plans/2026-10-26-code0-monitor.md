@@ -1,0 +1,521 @@
+# Code0 站内额度监控实施计划
+
+2026-10-29 最新检查点：8a3601a三组隔离CI及其独立实际审查均已通过有限验收。S4原生第二轮修订的规格和质量复审均C0/I0/M0，开发入口已全文接受；原三项时序与权限失效缺口及关闭超时失败类别问题均在源码层面闭合，纯协议和严格工作流也已源码审查通过。全部二十八项新增S4定义、编译及实际行为仍未执行，下一步在完整检查点后提交隔离实际失败基线验证。HTTP401和权限有限合同准备均经独立审查及开发入口接受，两者尚未获实施许可或实际行为验收。全部旧改动、失败及证据保留；整体仍在开发，未合并main或发布。用户最新Sol6.1/high和全部测试、独立审查通过后直接发布授权保持。
+
+> 面向执行 Agent：使用 subagent-driven-development 逐任务实现和独审；root 负责最终判断、隔离 CI、Git 与发布。沿用已经绑定并明确确认的执行模型，不重启已有执行者。普通技术决定及测试通过后的发布已有授权。
+
+目标：完成[Code0 设计](../specifications/2026-10-26-code0-monitor-design.md)的可选第五服务与有条件后台同步。架构：共享被动页面桥、两端纯策略/数值模型、独立原生网页会话、现有 UI 的最小集成。技术栈：Swift/WebKit、Rust/Tauri/WebView2、TypeScript；不新增远程服务。
+
+## 全局约束
+
+原四服务不改账户/采集语义；Code0 默认隐藏、展示不联网、widget仍默认三项。仅明确连接/恢复可以联网；成功后本次运行内至少300秒间隔、每次45秒、失败暂停，重启不自动恢复。Connect登录最长600秒，关闭确认最长10秒。只捕获官方页面的 GET status/self；无凭据、账户字段、主动API请求、付费调用。站内额度无汇率、比例和预算告警。原子保存先于发布；新 attempt 必须等旧 owned 窗口销毁确认；官网 auth refresh 以在途集合/revision隔离旧self，后续有效self才证明可采数值。
+
+实现先写可执行拒绝型契约和测试，由 root 在现有批准的临时 CI 看行为 RED；编译失败不算 RED。每个任务完成后独立审查规格与质量，最终全分支审查一次。执行者不自行提交/推送、运行宿主产品测试、操作 VM/真实账号；root 接管检查点和隔离验证。每项报告明确哪些验证未运行。
+
+### 并行门禁修复：REQ-20261028-003 状态发布与保留契约（2026-10-28）
+
+Mac40714996064 已独立接受受控空读RED与完成发布对照（10616/790f312f）；历史9ac内部先后仍不倒推。允许按下面的窄方案修复公共CLI状态发布和必要停止交接，不更改其他启动协议、实际watchdog分类/信号或原一秒测试期限。
+
+- 仅prod CLI builder、原CLI测试、Mac ci.yml三个文件。覆盖supervisor两处不确定状态和zsh report_status：同目录独占唯一临时文件、0600、完整写入/检查close/真实rename；失败仅清理本次所有的临时资源，保留旧正文并返回失败，不原地截断回退、不修改exec_status启动协议。
+- 发布失败与已知进程不确定性单调锁存；不确定性必须在尝试保留状态发布之前置位。新增短命shell发布者必须实际结束并回收后才处理延期取消/最终ACK，不能留下迟到写入者；若无法确认结束则保持未确认，不把wait被信号打断当作已退出。 极端未确认时允许helper保持保留态等待owned join，原登录期限不延长或重置；query未知/EPERM/可能复用PID均不能当ESRCH，不按未核对数值PID强杀。负例本身最终也必须有真实自有清理证据，不能靠外层watchdog超时冒充通过。
+- 2026-10-29窄化提交位点：既有launcher看到helper_cancelled就可立即清理，因此其可见点也必须晚于发布子进程真实回收。shell子进程只对父已知的独占同目录staging执行创建/0600/完整写入/检查close并退出；父确认join后以zsh/files的builtin zf_mv直接rename提交，不另生提交子进程、不调用外部mv或复制回退，模块缺失保守失败。父提交前只接受私有owned regular/absent目标，拒绝目录、符号链及其他类型；原最终.stopped ACK也以同一父builtin提交，精确正文及应用解析不变，不留下外部mv提交子进程。supervisor两处保持进程内Perl原子提交。v2的真实query42→guardian发布因果链仍在该进程内的真实rename前/完成后受控；另以shell定向IO/interruption回归证明parent join→builtin提交顺序，不伪换guardian路径。实际模块可用性、故障及信号交错仍须隔离CI验证。静态依据为[zsh官方源码](https://github.com/zsh-users/zsh/blob/master/Src/Modules/files.c)及[Apple发布源码](https://github.com/apple-oss-distributions/zsh/blob/main/zsh/Src/Modules/files.c)：BIN_MV置MV_ATOMIC并直接rename，目标unlink仅用于非原子分支；尚不以源码阅读冒充目标主机实测。
+- 允许最小新增停止许可，复用已有.status.stopped路径，严格格式guardian_stop_accepted_v1:PID:nonce。仅真实匹配app取消/guardian-stop请求被观察、此前无不确定或发布失败、所需直接子回收条件已检查后，才能在组清理前发布；后续新不确定性不能被旧许可覆盖。许可只证明接受请求，绝非清理完成。
+- 父shell主等待及stop_owned_processes两路对请求式停止均核对同实例PID/nonce许可，仍需原reap、真实组不存在、watchdog和前台恢复检查。ready下无有效许可的异常supervisor终结保守保留guardian、禁止receipt/完成ACK；不得由timeout路径绕过。正常CLI退出及既有普通非信号错误合同保留；无法区分的信号式退出可保守保留并增加定向回归。已在真实确认清理后移除的状态不因后续文件失败伪造重建。
+- guardian许可与原helper_stopped_v1精确格式互斥，应用侧原完成ACK解析不扩大接受；最终helper ACK仍只在全部所有者结束后产生。stopped及其现有临时路径加入碰撞校验。不能承诺不可通信/外部强杀等所有故障均能持久记录原因，但新增原子发布失败不得造成新的ready成功、假取消确认或未确认guardian移除。
+- 活动受控测试升级v2，旧v1提交/冻结/原始RED永存，原未插桩目标及五断言不变。prepublication臂停在真实staging完整写入/close后、真实rename前；实际watchdog读旧ready并完成原分支/期限证明后才放行rename，再确认真实preserve读及最终决策。published臂真实rename成功后放行read并确认原条件信号语句执行完毕；两臂shell均等待最终post-decision ACK再清理。
+- v2两臂都要求真实query exit42、发布成功、读/决策在原期限内、正常cleanup、guardian保留、准确process_state_unavailable、无callback/USR2 trap/取消确认。缺失/前置失败/超时一律拒绝；增加temp-create/write/close/rename失败、许可缺失/错误身份/发布者未回收的窄回归，核对不新增确认成功。严格validator只接受schema v2、actual exit0及两臂完整正向事实；保留原字节上限、身份/hash、exact keys/types/重复与非有限拒绝及原3job/全部门禁，不兼容放行v1。
+
+2026-10-29首份候选源码互补审查：SPEC 12153/4794575f为C0/I4/M0、QUALITY 12605/3df1fe7c为C0/I5/M0；Root均全文接受发现，候选SOURCE HOLD、新实际行为全部未运行。下一fix1仅集中修复以下五组，不推已知有缺陷的旧候选或覆盖其19成员冻结/报告：
+
+- 状态提交后的延期取消必须一次性、不可重入，不无条件借finish_launch_claim重新消费仍存在的.cancel/未消费标志。新增使用真实最终取消函数、保留取消请求及真实owned清理的回归，证明正常130退出、确认后不再生发布者；不能以替换真实handler的marker stub或应用及时删除文件为证明。
+- exec探测waitpid返回非EINTR/失去所有权后锁存不确定，不能根据child_done=false重新登记数值PID或向其发信号；拥有/完成/失去所有权分开，不把unknown假作已回收。增加无未核对PID信号的受控所有权丢失回归。
+- fork到父登记及子handler切换必须防止可发许可的清理在登记前介入；只移动赋值位置不足。保持原exec授权协议/期限，父子信号状态都正确恢复，受控关键窗口证明必要直接子确实回收后才有停止许可，不把最终group-ESRCH等同此先决条件。
+- 窄修既有group_peers真实夹具的提取边界，避免把新停止closure自由变量带进use strict程序；保留原实际query/live-peer断言，不删用例、伪造控制文件或把编译失败当行为RED。
+- 只在两份新IO/join子夹具内明确私有绝对root工作目录或使用全绝对路径，所有证据与清理留在该root。不要全局修改shared native spawner/test进程cwd；证明真实负例与正常join退出，不能靠ambient旧标记或外层超时。
+
+fix1另存完整三文件HEAD前/后及相对首候选的差异、保护清单与新冻结；原五断言/watchdog整行、一秒期限、strict v2及全部旧门禁保持。修后仍须互补源码复审和隔离实际完整验证，不能把静态关闭发现称实际修复通过。
+
+fix1互补定向复审（SPEC 11976/40bcff79、QUALITY 13016/98259e79）均C0/I2/M0，原五个具体路径已有源级修正，Root全文接受剩余两项后仅授权fix2：
+
+- 初始STOP循环的真实waitpid终结/失去所有权与随后清除pre_exec_child/child_owned/STOP状态，必须对可执行清理的TERM/INT/HUP处理成为同一不可中断转换；不能在kernel已回收后仍以旧owned标志发数值信号。只保护必要短非阻塞wait及状态更新，准确保存/恢复原mask，失败先保守锁存；不长期屏蔽信号、不延后取消或扩大期限。新增关键回收窗口的安全回归，在任何未核对PID信号的系统调用前拦拒，不制造真实PID复用受害者或运行旧危险路径。
+- 新fork窗口PTY回归必须正向证明在外层fallback信号前自然完成。允许共享观察器仅新增被动natural/forced事实，不改原超时、信号或失败清理行为；新case要求自然完成、未用外层救场并保留所有现有状态/清理断言。事实必须在真正进入fallback/发送HUP、TERM、KILL前锁存，不能由最终正常130或cleanupSucceeded反推；若外层介入应正常保留清理但该回归失败，不能只加宽松耗时断言。
+
+fix2保持原首候选19、fix1的28成员与所有作者/双审报告不可变，另存HEAD完整差异和fix1→fix2窄差异。完成后同两peer复审，所有实际编译/行为/GREEN仍待隔离验证。
+
+### Task 1: 两端数值契约与可选服务兼容
+
+文件：Swift `Domain/UsageModels.swift`、新增 `Code0/Code0WebsiteCapture.swift`、现有 presentation/preferences/widget/CLI exhaustive switch；Rust `domain/usage.rs`、`domain/presentation.rs`、新增 `collectors/code0_capture.rs`；TS `state/usage.ts`；共享 schema/providers/fixture/checker；两端现有偏好及布局测试。
+
+- [x] 先加两端可编译严格拒绝 capture 入口和测试：`quota=1250000, usedQuota=750000, divisor=500000` 应为余额2.5、累计1.5；0合法，缺除数/字符串/Bool/负数/超安全整数/非有限/未知字段不接受；现有实现返回拒绝使正例行为 RED。
+- [x] 用现有 raw ID/JSON 解码入口验证 `code0/siteCredits/cumulativeUsage`，不把缺枚举导致的编译错误算 RED。先保留原六共享fixture；新增第七额度fixture及断言。
+- [x] RED后实现最小类型、无比例转换和格式化；Swift raw deepSeek及旧JSON兼容保留。类型新增涉及 exhaustive switch 的修改只增加明确 Code0 分支，不接入 CLI 或网络。
+- [x] 默认 provider 集与服务目录分开；旧记录缺 Code0 时追加隐藏，schema Swift6/Windows5；新版本显式选择保留。覆盖旧四服务排列/子集、三可见迁移和五行高度，不把原测试简单常量4改5。
+- [x] `Code0WebsiteCapture` 只接收过滤后的三个数并生成两指标；不接收原始账户JSON。命名在Swift/Rust各自规范下对应同一fixture。任务报告列实际 API 与所有改动文件供后续集成。
+
+具体断言示例：
+
+```swift
+#expect(UsageProvider(rawValue: "code0")?.displayName == "Code0")
+#expect(capture.balance == 2.5)
+#expect(capture.cumulativeUsage == 1.5)
+#expect(snapshot.primaryMetric?.usedFraction == nil)
+```
+
+```rust
+assert_eq!(capture.balance, 2.5);
+assert_eq!(capture.cumulative_usage, 1.5);
+assert!(capture_with_invalid_divisor.is_err());
+```
+
+### Task 2: 共享被动桥及严格消息协议
+
+文件：新增 `web/code0-bridge.js`、`web/code0-bridge.test.mjs`，生成/一致性检查脚本和两端资源接入；各平台纯消息验证器。源脚本以显式 native 配置 nonce/document ID/transport 初始化，不暴露生产测试origin例外。
+
+- [x] 先写行为 fixture，装入拒绝型桥，确认有效配对没有输出导致 RED；随后实现 fetch/XHR包装与严格URL、GET、响应最终URL、content-type/success、64KiB处理。
+- [x] 测试页面自己的请求才触发捕获；安装桥后请求计数仍0。原fetch返回/异常和XHR事件一致；非目标请求不 clone/read。只发固定control和三个数，token/email/id/header/body不出桥。
+- [x] 覆盖status/self先后，self2先发/self1晚到，解析时revision变化，重叠refresh各request ID完成，refresh结束前已发self不得被接受；明确login/logout清旧值，网络失败/409暂停。200refresh不直接发布，必须后续新self。
+- [x] 生成资源同源检查纳入两端CI；native拒绝大于2KiB、额外字段、非法数、旧epoch/nonce/document/revision/sequence与第二次成功。捕获拒绝原因使用固定枚举，不记录原body。
+
+具体序列：`self1.start → refresh1.start → refresh2.start → refresh1.end → self2.start → refresh2.end → self2.end` 输出0；再 `self3.start → self3.end` 与同文档合法status输出恰1。数值相同的两次请求也按序号隔离。
+
+### Task 3: macOS 原生会话及 Services/detail
+
+文件：新增 `System/Code0WebSession.swift`、`Core/Persistence/Code0SnapshotStore.swift`、`Views/Code0DetailView.swift`；`AppModel.swift`、`ServicesSettingsView.swift`、`FloatingStripView.swift`、provider样式/三语言资源；新增纯生命周期/App合成/实际WKWebView夹具测试。
+
+- [x] 以注入时钟、窗口驱动、store先写测试：未连接零创建；busy不重复；299秒拒绝/300允许；保存失败不发布；关闭确认晚到不建新窗口；断开后旧callback不能写；重启缓存不恢复授权。
+- [x] 实现 dedicated WKWebsiteDataStore 与 OS profile lease，串行状态机/nonce/attempt，主框架来源检查，成功先save后发布再关闭。定义独立WebSession协议，App测试可注入，不把实际网页登录作为单元测试前置。
+- [x] 首次load前配置 WKUI/导航/下载/挑战的明确拒绝；隐藏模式不show/focus。用CI受控页面验证实际window.open/下载/协议/对话框/权限/认证取消和owned对象释放，不能以源码字符串测试替代行为。
+- [x] 登录完成按钮先关闭登录实例再创建新隐藏验证。普通成功300秒后调度；任何错误暂停，重新启动需明确恢复。Disconnect仅清Code0，失败保留cleanupPending。
+- [x] App四项refresh与Code0回调合成使用当前状态；Services账户读取不覆盖它。三语言Connect/登录完成/同步/恢复/断开、时间、旧缓存、忙/暂停清楚；无API Key/CLI入口；详情纯展示无onAppear加载。
+
+Task3底层受控夹具已在 `9bd45db` 通过；媒体设备前置分支有明确引擎证据，真实媒体权限委托/TCC与证书/TLS握手的未观察边界仍保留，不视为真实账户验收。App接线与界面已在`4838bbc`完成实际定向验收，12项窗口回归通过；原有终端测试观察器的失败由REQ-20261027-001修正，整体完整测试和发布仍待Task5，不以组件通过覆盖该门禁。
+
+### Task 4: Windows 原生会话及 Services/detail
+
+文件：新增 `platform/windows/code0_web_session.rs`、`code0_webview.rs`；`lib.rs`state/commands、独立数值store；TS Services/detail/useUsageSnapshots；providerlogo/tray/prefs/nativewindow五行。独立测试 `code0_web_session.rs`、`SettingsCode0.test.tsx`、`Code0Detail.test.tsx` 与实际WebView2夹具。
+
+- [ ] 先按同一状态/失败时序写RED，数值缓存先保存后发布；不要复用现有忽略保存错误的普通complete_success路径。
+- [ ] 原生exclusive profile lease、唯一owned bare Window与destroy回调；直接COM创建专用WebView2，不安装Tauri/Wry WebView及其内部IPC。使用已锁定版本的直接依赖与公开gated WindowBuilder，UI/STA异步确认environment/controller、拒绝handler及桥脚本注册完成后再导航；覆盖navigation/new-window/download/permission/dialog/auth，正常TLS不绕过。
+- [ ] 受控fixture验证真实native拒绝/隐藏/销毁，组件测试验证仅点击明确动作才invoke；独立scheduler遵循300秒、sleep合并、busy和paused门禁。
+- [ ] 普通collector继续四项，由独立会话合成Code0；旧普通刷新/Disconnect迟到结果不能复活。Windows既有英语/简体中文、无币种/比例、最后成功时间和可选第五项与macOS相应行为一致；macOS继续既有三语言，不新增Windows语言系统。
+
+#### S2 分片：原生拒绝处理器安装与实际事件分开验收（2026-10-28）
+
+Windows40709469737 已独立确认真实同实例十项缺失、拒绝加载且正常清理/exit1，作为安装分片的有效RED。先完成以下S2-1，不把安装GREEN视为事件拒绝或生产接入完成；后续S2-2再逐项补真实刺激与拒绝/清理证据。
+
+2026-10-29进展：S2-1源码独审15964/417b805a及实际独审14364/d967cdb3均C0/I0/M0，Root分别全文接受。fc2096f/真实7644c7f的Windows40726949365正常完整成功，十项实际token库存1023、只读同实例receipt1、未导航、exit0和正常释放/TempClose通过；原45/10/75及旧门禁保持。这只结项安装分片，下面S2-2及S3–S5仍未完成。
+
+- S2-1仅driver及选定S2 fixture接线：增加显式真实安装动作，随后沿用只读同实例receipt；不让读取库存的方法暗中执行安装。测试仍不导航、不加载页面，原schema6正向分支/actual exit0/真实normal cleanup必须成立，workflow判定与旧case不变。
+- 十项状态只能来自同一owned原生emitter的真实add成功与token库存：top/child导航、外部协议、new-window、download、script-dialog、permission、HTTP basic-auth、client-certificate、TLS-error；Some(0) token有效。接口不可用或部分失败保持真实部分库存并拒绝加载，不能标全Installed、伪造全缺失或吞掉错误。
+- 现有官方HTTPS同源策略用于top/child导航；其余同规格明确拒绝，不接受TLS例外。下载与客户端证书的两个必需setter均各尝试一次；一项失败不能阻止尝试另一项。不增加外部协议/系统对话刺激，不改信任、权限、CA、账号或真实网站环境。
+- 每个callback使用弱owner、匹配request/generation/emitter及UI/STA约束、现有Active/HandlerLifetime库存；Owner借用外不调用COM/原生API、不保存事件args、不增加强owner环。正常拒绝与setter/身份/移除不确定分开处理，后者维持sticky保护；stale/unknown不得默许原生默认行为或改写新attempt。
+- add/remove必须同一emitter和确切token，remove单次尝试、不能重试/零token当缺失/预先清状态；失败保留未确认状态。任何路径的局部native引用先纳入现有库存或Active，完成所有解绑/回调/原生对象释放后沿用真实BrowserProcessExited/Destroyed/Released/run_return/一次TempDir.close证据。保持45/10/75、所有旧断言、计数/上限及既有P0–P9行为。
+- 独立源码SPEC+QUALITY及实际S2安装正向验收后，才开始S2-2事件覆盖；未到目标事件的前置拒绝不能算该事件已测。文件选择/CDP、被动bridge、production registry/lease/clock/clear另属S3–S5，不混入此安装分片。
+
+#### S2-2 N1：真实顶层导航拒绝的首片（2026-10-29，候选口径待独立窄审）
+
+S2-1源码与实际独审均已接受。下一片只增加现有处理器的真实受控覆盖，不预判其已有实现错误、不制造RED；正式计划唯一在本文件，私有准备材料仅作只读依据。新源码GO须在本节独立窄审后发给唯一作者。
+
+- 同一位新派Sol6.1/high作者拥有driver、fixture及Windows workflow的独立追加调用/strict validator，Root保留正式计划、整体审核及Git所有权。Mac三候选、四parked、Cargo、UI与所有旧case不碰。固定选择器`refusal-top-owned-file`、独立schema7，保留原schema1–6及S2安装不导航合同。
+- 同一新鲜进程、STA、独占profile/Window及既有TempDir内以create_new建立固定叶名零字节文件，只从该自有路径生成file URI并绑定request/generation/case。源路径必须canonical后仍是自有canonical TempDir的准确固定叶名，Windows prefix只接受Disk/VerbatimDisk；生成URI必须无host/userinfo/query/fragment。UNC/VerbatimUNC/device/非本地authority、转换或长度异常均是setup failure且不得Navigate，不做字符串前缀比较或强行改写URI。十项真实安装与只读同实例1023库存确认后，保留现有Active/弱owner/原生identity/重入保护，借用外仅提交一次原生Navigate；不读取文件正文，不接收任意URL/path，不叠加P1、HTTP/服务传输、白名单或信任例外。这里只排除新增浏览器网络刺激，不承诺盘符底层存储绝无共享IO。
+- 证据只能来自实际top NavigationStarting：准确自有URI在原生端内部匹配、NavigationId getter成功且不把0当缺失、IsRedirected=false、同sender/request/generation/live匹配。真实SetCancel一次成功后读取原生Cancel=true；只发布固定enum/bool/有界计数与顺序事实，不输出URI/path/ID/token/nonce或对象Debug。重入事件可早于Navigate返回，不能要求错误的先后关系。
+- 原生事件及动作之后必须有匹配PolicyRejected一次；复用真实Context::invoke置failed/closing、poll在借用外经events(request,event)单次发出Failed(PolicyRejected)及fixture真实Session观察的通道，不从Cancel/receipt推算或人为填1，不叠加P1。照常立即关闭，不等观察消息、不重置期限。要求真实BrowserProcessExited/Destroyed/Released/ref0/run_return/一次TempDir.close、无新增owned窗口、actual exit0及原45/10/75。缺目标事件/读回/身份/安装或清理失败均为失败或未覆盖，不skip/PASS、不把前置失败称行为RED。
+- 新schema7与exact fresh run/case只接受selected=completed=1、事件与Cancel/读回/PolicyRejected准确单次及所有setup/lifecycle正向事实；拒绝多余/重复键、Bool充整数、非有限、错误身份、缺/多case、超限和陈旧拼接。Root追加新鲜产物及真实退出记录、严格正向校验和保留pass字段的关键事实数据突变负例，独审整个三文件组合后再隔离CI。若既有处理器直接GREEN如实记录；若实际出现缺陷，先保留证据再窄修。
+- N1源码和实际接受后再次冻结停止。child/redirect、popup/download/dialog/permission/external及真实401/TLS/client-cert均另行锁定：synthetic302不保证实际redirect，当前策略阻断loopback/P1不能直接叠加，TLS与client-cert回调先后未保证。不得通过允许系统动作、导入CA/忽略TLS/证书例外/凭证/真实账号来强造可达性。
+
+N1首份源码互补审查（SPEC 24188/69dd6397、QUALITY 20434/585c0803）均C0/I1/M0，Root全文接受同一错线程observer查找发现：invoke拒绝off-UI后receipt=None，但新wrapper仍无条件访问UI Weak/Rc/RefCell。仅允许driver窄fix1，使observer查找/发布只发生在真实Some(receipt)的已过UI路径；None/affinity拒绝不得触UI-local owner。保持原atomic unknown/affinity、args/sender及临时原生对象的Active/Drop、无target旧委托和所有语义/数据/时限；fixture及Windows workflow首候选字节保持。准备阶段的local-URI I1已关闭，与本次source I1分开保留。另存原20成员、双审报告及修正delta，修后两peer定向复审和实际隔离验证；不执行错线程旧路径制造RED、不把静态修正当原生通过。
+
+#### S3 下一条件分片：同文档预绑定单一文件输入（2026-10-29）
+
+准备与独立准备审查已接受，源码与实际均未运行。本节仅冻结下一片的技术边界；须在N5组合源码双审接受、精确提交、完整Git检查点读回及当前批次CI启动后，由开发入口明确交给唯一作者。运行中的N4/N5结果只绑定已提交版本，不能由后续源码或准备材料推定通过；当前批次不取消、不推下一头覆盖。
+
+- 固定`chooser-prebound-owned-empty-file`与schema11，保留N4/schema10、N5/schema12及原1–9。作者仅driver、fixture和可选私有`code0_webview/chooser_protocol.rs`严格解析模块；工作流、Git、记录与验收由开发入口负责。无生产导航/bridge/registry/清理接入扩张。
+- 同一自有新鲜零字节HTML文件、准确完整本地URI、真实Source/NavigationStarting+Completed/原生ID、十项拒绝hook和设置ACK。先注册十个真实CDP receiver及其Args2默认session身份，再启用Page/Runtime与真实文件选择拦截cancel ACK；只允许该一次自有文件导航，不允许替换/同URL重载、其他导航或外部网络。
+- 精确十一条串行CDP命令、两段固定隔离世界程序：先无手势创建唯一input，真实DOM根查询/描述预绑定backendNodeId，再对同一input执行一次受控click。真实chooser需匹配frame/selectSingle/backendNodeId；真实trusted cancel快照需files0、valueEmpty及同对象/同文档。程序文本、闭合typed profiles与三项已审浅Node可选字段固定；无重试、第二查询、fallback、任意脚本/URL/路径或OS文件选择操作。
+- 所有真实effect成功回调、限长捕获与身份/epoch复核均须在首次实际Stop/controller.Close入口及原45秒内。匹配target立即撤权关闭，不能等Promise或观察ACK、延后关闭或倒填回调时间；effect晚到/无target/不支持合法形状仍失败或未覆盖，不能冒充行为RED/PASS。观察范围是原生回调已见连续性，不声称引擎时间戳或全局OS UI不存在。
+- 十receiver固定bootstrap/armed/preStop/postStop表、bootstrap最多16，arm后任何已见文档/上下文/frame变化sticky失效。所有native调用、args/Result/handler/Active/原生引用Drop均在借用外，错线程先于Weak/Rc/RefCell及指针访问；真实调用末门才产生ticket。新增三跨回调槽、4096 UTF8总预算、每拷贝2048 UTF8/扫描2048 UTF16、最多11真实完成handler义务，保持原4 disposition/4096 UTF16 script ID/2048原生字符串/16请求上限含义。
+- 独立mailbox不得加入阻止Close的旧pending门禁；真实同请求Session失败、原45/10/75及正常BrowserExit/Destroyed/Released/ref0/run_return/一次TempDir.close与actual exit0均须成立。预期DATA不得生产观察事实；最终schema11严格字段、类型与生产者在作者STOP后冻结，再完整组合SPEC/QUALITY及隔离实际验证。所有旧18回归/旧原生区域的限定逆还原及原正常清理tail保留。
+
+### Task 5: 跨平台验收与已授权发布
+
+- [ ] 整分支独审读取前四任务报告、实际CI和当前差异，处理阻塞发现；不要重复运行已通过且未变化的测试。
+- [ ] 正常完整Swift测试/Windows Rust+前端+nativeGUI、两端实际网页夹具、合同、文档和公开扫描全部通过。真实网站账户未测单列，不以合成fixture冒充。
+- [ ] 版本按当前main递增；正常签名打包/PR合并/Release/三个更新源，匿名下载验证资产摘要及签名。保留现有macOS签名与Windows签名能力边界，不声称额外公证。
+- [ ] 更新唯一台账、开发记录与索引并向协调入口回传提交/测试/发布/现场边界。003现场与005监听不因004发布自动完成。
+
+
+### 2026-10-29 验证排程更新（不改变任务或验收口径）
+
+Mac fix2定向SPEC9918/b770d125与QUALITY9917/28c4f2ef源码C0/I0/M0，Root全文接受；N1 fix1双源码复审同样已接受、本地提交4b11fd8。两组均实际UNRUN；在任何新推送前改为同一个获审源码检查点进入隔离CI，执行新Mac v2与完整旧门禁、Windows N1 strictschema7/真实效果及全部旧门禁、独立dispatcher。四parked继续保留，当前源码接受不授予实际通过或Task4/5完成。后续实际证据须绑定新提交实际checkout，另经独立审查，不使用工作区未提交字节冒充已测源码。
+
+
+#### S2-2 N2 条件准备：固定空白页上的真实 child 导航拒绝
+
+本节是未来单片的准备/审查基线，尚非源码GO；N1实际独审接受后才可按本节发唯一作者。Root已全文读取只读准备18427/4a55e897，允许在隔离debug+fixture环境评估下述固定DOM刺激作为普通实现选择，不扩展生产脚本/API或原S2授权。不得把未达目标事件当覆盖。
+
+- 独立固定selector `refusal-child-initial-data`、schema8、新鲜进程/profile/TempDir/唯一bare隐藏Window；仅driver、fixture、Windows workflow三文件。schemas1–7/N1字节与旧case保持。十项真实hook安装及单独只读同实例1023 receipt先完成，不能借P1/inline_loaded/任意seed导航实现。
+- 唯一刺激入口只接受真实request，无script/URL/path参数。在借用外读同一core.Source，要求实际初始值严格about:blank并重验live/身份；缺失/不同/未就绪失败，不导航初始化。原生状态预留一次后只调用一次core.ExecuteScript，固定源码检查top===self、location.href严格about:blank、有现成document根且无iframe；只创建一个iframe、先设src为字面量data:text/html,再挂入现有DOM，最后返回固定字符串code0-child-submitted-v1。无子脚本/资源/正文、网络API、存储、手势、模态、focus、权限、下载或popup；无循环/计时器/重试/任意插值。目标即使未取消也仅为空惰性data文档。
+- ExecuteScript必须有真实非null完成handler。调用前预留N2专属有界完成义务及handler库存，保持weak/UI/Active与借用外COM/Drop；该义务不得进入旧create Pending的callbacks.pending早退计数，旧创建guard语义保持。真实child拒绝立即推进现有Failed/Stop/Close/Destroyed，不等脚本完成；最终正常Released/ref0必须同时具有真实完成disposition和handler真实释放/库存排空，不能提前减票、以销毁推断完成、丢票称取消或延长10秒。缺失/被保留完成在原期限内不能清理则失败/不确定。
+- 完成回调在UI门后、任何字符串分配/通用wrapper转换前，将借用PCWSTR按最多64 UTF16单元有界检查/复制，拒绝null/无效UTF16/超长；不CoTaskMemFree、不留指针。真实HRESULT须成功，结果严格等于JSON字符串 `"code0-child-submitted-v1"`，只记录固定事实。完成只是刺激证据，不创建child/Cancel/Session计数或新的授权。初始提交要求live；合法同一已预留request/generation/installation的完成允许在child导致closing后、Released及原期限前到达，仅作结果/清理disposition，不使用禁止closing的S2 authorized作为回收门、不恢复导航或采集权限。陈旧/错代/重复/已Released/逾期完成失败，不能刷新首次关闭时刻。child事件、提交返回和完成之间无固定先后；错误线程只能用原线程安全边界，不触UI Weak/Rc/RefCell。原caps4/4096/16、45/10/75及全部旧门禁保持。
+- 目标只来自已注册Hook::ChildNavigation的真实FrameNavigationStarting，URI准确data:text/html,、成功NavigationId getter（0有效不输出）、IsRedirected getter/false、实际core sender/request/generation/live及同安装opaque receipt；SetCancel一次成功和真实Cancel读回true，在元数据错误时仍尝试取消并保留不确定，getters后再验授权。拒绝型旧child/top委托保持；若先到about:blank或其他事件导致关闭、或者目标未到，就是前置阻断/未覆盖，不改白名单、重标目标或延迟失败。
+- unchanged Context/poll真实Failed(PolicyRejected)经借用外events进入选定child分支，准确单次计数并与opaque child票据关联；脚本完成/DOM/Cancel不推算该计数。单独child状态不借top_selected绕过schema6原安装即关闭合同，N1第一关闭时间Cell方式保持且child自己的首次真实closing只能采一次。真实BrowserExit/Destroyed/ref0/Released/run_return/一次TempDir.close、无多窗口、actualexit0均必须成立；不声明per-frame ID/DOM ancestry或额外top导航证据。
+- 严格新鲜schema8仅接受准确selected/completed=1、安装先于刺激、一次真实原生提交/完成及子事件/动作读回/Session失败和所有清理正向事实。额外/重复键、Bool充整数、旧identity、缺/多case、超限、保留pass下关键事实突变均须拒绝。先独立窄审该准备边界、再源码双审与隔离actual；缺目标/前置/超时不skip/PASS或称行为RED。不自动第二目标/传输回退，不扩大旧P1/网络/信任/CA/账号权限。
+
+准备fix1：独立16199/e643b964的C0/I1已由Root全文接受；上述N2专属完成义务与closing-phase disposition条款修正原准备Existing Pending歧义，原18427准备和4032 brief及首审保留不改。当前仍无源码GO，先定向复审与N1实际接受。
+
+N1当前进展：Windows40747139906/真实757c/1d38090的有限N1实际独审20165/0a0148da C0/I0/M0已Root全文接受；安装、真实top取消读回、真实Session拒绝及正常清理通过。此为N2准备依赖的窄接受，不结项Task4/5或覆盖Mac实际HOLD；N2仍须准备fix1复审后才能派源码。
+
+
+### Mac publication fix3：实际失败后的集中窄修复（2026-10-29）
+
+1d38090/Mac40747140380实际独审12694/adeb53be HOLD C0/I5（五失败定义/14issues）及作者只读分析18433/ffd21dc2四组均由Root全文核读。两v2目标事实正向、固定diagnostic acceptancefalse正确，完整suiteexit1不能通过；STOP具体失败谓词仍未知，不将继承mask假设冒称历史实测原因。以下是原技术实现选择的修正，不改变用户需求或旧验收合同。fix3唯一作者仅拥有builder和CLI tests两文件、必要新ignored报告/冻结；Mac workflow、App launcher/C2 test、四parked、native及旧报告/冻结全部保持。
+
+- 停止许可迁至既有.status.ready，仍严格同实际guardian PID/nonce/单LF、完整有界owned regular单link0600/inode/EOF检查和原子发布；父统一从watchdog_ready_file读许可。旧.status.stopped仅保留最终helper_stopped_v1 ACK语义，App parser与653原absence断言不改。ready阶段复用依赖真实startup已完成父确认后才启动guardian、watchdog只缺失时创建且不重写既存ready、两消费者均在late removal前；保留原watchdog整行及所有ready移除时序，源码审查逐路验证。发布/身份/所有权/后续父query/foreground未知仍单调保留、不能将许可当清理完成。
+- 实际matched请求的全部pre-fork退出补同一one-way停止许可/不确定保护。必须结构性证明尚无fork子、原所有权与身份准确、真实完整matching请求且无先前发布/cleanup失败；parent loss/status!=ready/泛stop_requested不授予许可。保留pre_exec_cancelled wire与真实130/原parent reap/group/watchdog/foreground gate，不旁路父strictgate、不信号未证PID或重试。许可发布失败不得假成功。两旧launch-gate最终helper_cancelled断言保持，实际输出补固定enum以区分未知状态，不输出任意文本。
+- 发布器中断成功臂只观察真实生产builtin wait成功分支0的有界builtin-only事实，在真实commit前要求该事实；移除fixture新增第三次消费wait的假设，不增child/query/缓存PID重试或替代真实join。保留held child、USR2/deferred/ready、真正final handler、stage79负臂、取消请求/出版序列/130/guardian及no-latepublisher等原断言；不把actual98叫产品join失败或编造其wait rc。
+- STOP三臂在独立测试actor内显式建立TERM可投递且其余继承mask位保留的已知前提，可用未发送的blocked sentinel证明exact saved-mask恢复。只改该fixture的mask准备与有界固定enum阶段/guard诊断，不改production正确的原mask保存/恢复、公共nativeobserver或任何全局线程mask。实际stopped/terminal/ECHILD wait、masked pending/selfTERM/真实handler、退休/uncertainty、准确仍owned child才KILL/reap、无未证numeric syscall、normal143/EOF/reap/teardown与3秒原限均须保留；失败原因仍须以新事实判定，不删handler或以外部救援当通过。
+- 同步所有受影响精确fixture/seam：strict permission输入、ownedchild许可writer/ready、fork-permit needle、原/观测F_SETLK gate块，原语义/逆还原保持。新增或修改回归保持真实产品路径，不用模板计数代替行为。原初19/fix1 28/fix2 28及全部actual失败永久保留，另冻HEAD→fix3全差异和fix2→fix3增量、源码保护清单/DATA自检。修后独立SPEC+QUALITY定向复审，再按原完整隔离门禁实际验证；不改schema/期限/上限/断言/省略门禁，不执行宿主产品测试或旧不安全源。
+
+Macfix3当前进展：作者13175/b0ae95f5、完整48250/058438d8及SPEC11602/5e4cb82a、QUALITY11417/4b804e68均Root全文核读，定向SOURCE C0/I0/M0接受；70 suite/C2/全部新实际UNRUN。先本地2源码/Root文档检查点及备份，再发已完成只读接入的N2新作者，源码获审后同轮实际验证。旧Mac实际HOLD不改写为通过。
+
+N2当前进展：作者13749/e3b10376、全99487/cc626818及SPEC22908/2785341a、QUALITY18340/66648b11均Root全文核读，SOURCE C0/I0/M0接受。旧N1提交只有新增child互斥guard需作明确字节保留限定。当前一切新编译/实际N2及Macfix3的70/C2均UNRUN；精确源码/文档检查点、完整备份后同一隔离CI实际验证，未到目标或缺完成/清理仍失败/未覆盖，不扩大刺激或重试。
+
+
+联合实际检查点：获审Macfix3与N2已随3118813推送，隔离Mac40761904949、Windows40761904948与dispatcher40761904917正在运行，真实merge5b660a6全树与head一致。以上历史UNRUN描述保留为发起前状态；当前仍无本轮实际验收结论，不据子任务成功扩张GO或直接发布。
+
+
+#### S2-2 N3准备：一次受控新文档的alert拒绝（尚无源码GO）
+
+Root全文读取原初始blank准备6459/6d1a、A/B比较11688/7535及候选合同12102/015aa2d2。选择A的单次硬编码无网络空HTML新文档，B的P1/S2组合留后续S4，禁止直接叠加或去掉旧互斥guard；选择严格S：真实alert事件后必须有实际成功HRESULT和准确固定token，失败HRESULT的event-only分支不采用。预审需先接受该有限合同，且N2实际独审接受后才派唯一新源码作者。
+
+新独立selector refusal-dialog-new-document-alert/schema9、真实十hook1023/默认dialog false先于唯一NavigateToString；一次性about:blank grant只属于该同实例/请求/安装与准确NavigationId，额外真实NavigationCompleted成功及Source/readback/实际提交返回共同证明新doc。额外observer是真实独立库存/同emitter单次移除，不冒称第十一refusal hook；缺失/额外/歧义/redirect或getter失败都不给脚本授权。production、official谓词、P1/inline互斥、N1/N2与schemas1–8保持。仅driver/fixture/Windows workflow，硬编码空文档与单次固定alert/返回token，无参数化URL/HTML/JS、网络/存储/手势或任意导航。
+
+实际目标须Kind=ALERT、准确固定message/Uri、同native sender/request/generation/install/live、真实未Accept/ResultText/deferral返回，不虚构Cancel读回。完成使用N2独立obligation/mailbox/handler库存和UI先行有界PCWSTR，不能进入阻止Stop/Close的旧creation Pending；实际refusal立即关闭，不等token/延迟revocation/加时，合法closing完成只作原操作disposition，不恢复权限。strict S缺成功token/目标/真实completion或清理即失败，不以event-only、expectedAbort、handlerDrop或丢票通过。最终仍需原45/10/75、实际NativeFailed通道、BrowserExit/Destroyed/ref0/Released/runreturn/TempClose/exit0及新鲜exact schema9，全旧门禁保持。alert不能证明confirm/prompt/beforeunload或所有OS UI不存在，未到目标不叫有效RED/GREEN；预审/双源码审查/实际验收分开。
+
+
+Macfix3实际进展：40761904949完整四job成功，11751/3462e9fc独审C0/I0/M0经Root全文接受；两完整70与原C2/四失败组、严格双臂v2通过。主736实际pass/27skip（12另hosted覆盖/15仍未覆盖）及全部serial/后门禁保留准确范围。只接受本修复与配置门禁，旧内部根因不倒推、不代替Windows/N3及Task4/5或发布验收。
+
+
+N2实际进展：40761904948/5b660a6完整Windows成功，23610/9b2605d7独审C0/I0/M0经Root全文接受，真实child/完成/库存/正常清理有限slice通过，非生产Code0WebSession。N3预审发现初始blank与新NavigateToString的NavID归属辨别不足，当前SOURCE HOLD，先最小补强准备再复审；保留现有候选准备，不自动选另一传输或放宽原生关联。
+
+
+N3准备I1修正方向（尚无源码GO）：Root全文读取18271/21f58064独立HOLD，固定DOM标记不能证明旧NavID属于新load。选择新的唯一受控运输：同一TempDir的独立固定leaf code0-s2-dialog-empty.html，经create_new与handle元数据证明确实0byte regularfile并关闭，按N1既有本地盘/canonical/精确父目录/nohost/query/fragment校验派生内部file URI，唯一core.Navigate；不读取个人文件、不使用NavigateToString、不自动回退。新selector refusal-dialog-owned-empty-html/schema9替代从未实现的旧N3候选。grant只接受准确该内部file URI的单次真实Starting及匹配ID Completed/IsSuccess/Source完整匹配，初始blank不能匹配；固定alert脚本不接收路径/URL或拼接代码，可查file协议/固定leaf后缀，原生Source/event负责全路径关联，严格成功token与立即关闭/独立完成义务保持。该方案须新fix1准备brief与定向独审C0后才可SOURCE GO；旧全部候选/审查不改，不将file下载/前置阻断当目标覆盖。
+
+
+N3fix1准备13591/c606ac63由Root全文读，唯一controlled-CI sole-writer freshTempDir前提明确，非抗恶意同权限替换证明。后续唯一新作者仅driver/fixture两源码及新报告冻结，Root负责Windows workflow固定追加run/strictchecker/artifact；新exact schema9 producer/keys/types须在完整三文件双SOURCE审查/CI GO前冻结，而非禁止作者设计实现。实施GO不等于源码接受或native执行许可，旧WF移除新块须逐字逆还原；全部旧SOURCE/actual/四parked保持。先定向准备复审及完整检查点，尚无源码GO。
+
+
+第21轮独立dispatcher40761904917现完整SUCCESS，追加14584/7cb9ad50（保留194192/c0ec前缀、全文208776/df56d200）独审C0/I0/M0经Root全文接受；本轮25基线/四严格编译后的准确语义kill及全部清理通过，实际job23m52/步骤22m25，原期限不变。当前3118813三CI及三实际独审均已结束接受各自有限范围，仍不代表Task4/5或发布完成，N3fix1准备独审待完成、尚无产品源码GO。
+
+
+N3fix1准备14036/d23bfcd9定向独审关闭原I1、C0/I0/M0经Root全文接受，固定owned0byte.html与准确内部file URI/strictS及sole-writer限定获准作为下一实施合同；新鲜作者已只读接入、零写入。先提交并完整备份当前三实际C0和准备检查点，再明确唯一作者实施GO；N3 SOURCE/actual仍未执行或接受，不能据准备C0称目标通过。
+
+
+完整59文件检查点73309d84读回后，Root已明确向新鲜Sol6.1/high作者授予N3唯一实施GO；仅driver/fixture两源码及新报告冻结，Root负责后续WF/checker。基线本地3859fc1/远端311，N3仍在开发、未冻结/独审/编译/actual，不据实施GO扩大为源码接受或发布。
+
+
+### S3后续准备：原生预绑定input的有限chooser取消oracle（尚无源码GO）
+
+Root全文读取15708/a672与两阶段16415/cf79119e准备，选择待独立预审的请求特定protocol-cancel equivalent：S3自身新fresh owned0byteHTML/十hook/完整NativeURI-NavID完成证明、真实CDP配置ACK、native FrameTree/loader与verified uniqueContextId、先固定非激活create input，再从native DOM根查询唯一节点并describe准确backendNodeId，最后同world固定userGesture click一次。真实Page.fileChooserOpened必须frame/mode/backendNode吻合；真实trusted cancel后files0/valueEmpty成功回调invocation必须早于真实Stop/Close，不能延迟立即revocation/关闭或用Close造成的cancel通过。初始/前置/oldloader/假节点/缺实际target/后关闭回执均失败；所有旧2048-byte响应/8KiB artifact及45/10/75保持。
+
+仅有限固定Page.enable/intercept、Runtime.enable、FrameTree两快照、createIsolatedWorld、DOM getDocument/querySelectorAll/describeNode与两个固定evaluate，参数准确allowUnsafeEvalBlockedByCSP:false、grantUniveralAccess:false；无任意API/代码/路径设置或global UI采样证明。此片不覆盖全局OSUI absence、nested/multiple/directory/capture/FileSystemAccess，生产其他chooser面仍未完成。准备C0及N3 SOURCE C0前不派S3实施；可安排后续同一CI独立运行N3/S3，但S3须自身实际前提全成立后才click，不拼接其他case证据。新source具体字段/表达式/Node可选字段/有限receiver与生命周期须在SOURCE双审/CI GO前冻结，未满足则HOLD，不扩大caps。当前N3唯一作者不因该准备扩范围。
+
+
+N3候选已冻结：作者26260/07a22825及两源码115656/78aab096均Root全文读、25冻结成员与保护核对；Root仅在作者STOP后追加177行schema9严格WF，完整三源码129064/8a913d05已Root全文核读，规格及质量独审正在进行，未SOURCE接受/提交/编译/actual。旧WF可逐字逆还原，11root/61dialog数据契约及270负变体/8坏JSON仅数据检查，不冒称原生测试。S3后续准备19101/16e43b3c独审HOLD I1（receiver白名单/数量/epoch阶段未封闭）已Root全文读，先修准备、不扩当前N3任务；FSA13716/db61b18e只读报告表明上游CDP有pre-picker路径但Runtime155未证，权限DENY不冒称通用picker前拦截，其他chooser面仍未完成。
+
+
+N3完整SOURCE双审已Root全文读：SPEC27042/5c1fe419 C0/I0/M0、QUALITY21257/7014bb1c C0/I1/M0，合并裁定HOLD；缺陷为原fixture started+45秒未绑定，较晚DialogState时钟及closing adoption可放行截止后的alert与完成。先保存两报告/原候选，再原作者定向fix1，仅N3绑定唯一原绝对deadline及getter/Drop后重验，原10/75及严格S/61字段保持，不提交或运行已知有缺口候选。
+
+
+2026-10-29 N3 SOURCE fix1执行检查点：初始SOURCE C0/I1/M0 HOLD保持，持久14文件增量`req004-3859fc1-n3-SOURCE-HOLD-before-fix1-20261029`清单SHA256 `9b44e8a95ef1077edb74254090b9c906e24c13fe13711c548c85c54961908d33`已逐文件回读，承接原候选60/d04dcc。原作者已获两原生源码的fix1窄修派工，原started+45秒绝对期限、重入调用后的复核及有意义共享路径回归是本轮范围；Root工作流及四份parked不变。S3 receiver/epoch新预备brief22185/f79ae33f经Root全文读取后交原独立审查者定向复审，尚未接受、没有S3源码GO。当前本地3859/远端311，新实际测试仍未运行，不提交推送已知缺口候选。继续用户最新Sol6.1/high、保留改动且全测试与独审后直接发布授权，不重复征求模型/发布确认。
+
+
+#### S3准备fix1：精确receiver/观察epoch与独立预算（2026-10-29，仅准备接受）
+
+22185/f79ae33f准备与独立17485/7528623c已由Root全文核读，原准备I1 ADDRESSED、C0/I0/M0。固定10个同core原生receiver：Page.fileChooserOpened、Runtime.executionContextCreated/Destroyed、Runtime.executionContextsCleared、DOM.documentUpdated、Page.frameAttached/Detached/Navigated、Page.documentOpened、Page.navigatedWithinDocument。每次真实投递均须Args2+空default SessionId；全注册先于enable/config/唯一fresh文件导航。Bootstrap仅有界已知初始化且无节点权限；真实fresh-doc/config完成后call4前唯一arm，随后所有文档/拓扑/context失效为sticky，无ignore-first、重绑或第二getDocument。唯一createWorld candidate与ACK必须原生ID一致后使用uniqueContextId。所有授权边界仍使用原attempt绝对45秒；真实target立即撤权关闭，真实成功effect回调/有界捕获/身份复核均须早于第一次实际Stop/Close entry。
+
+新S3独立预算为command response/named-context candidate/chooser总3槽、所有retained协议文字合计4096 UTF-8字节、单copy2048 UTF-8/scan2048 UTF-16、Bootstrap最多16通知、10receiver与最多11completion handler的独立真释放库存。旧P1的4是dispositions/script库存、4096是script-ID UTF-16单位、16是delivered resource数，不挪用或扩大。准确typed profile/固定脚本/producer/artifact仍须在组合SOURCE双审前冻结。
+
+接受范围仅本次请求的真实回调观察序、匹配target与preStop取消effect。postStop已知销毁形状仅有界清理，不证明事件由Stop导致，不补缺正向事实、不清先前invalid；公共payload未给引擎全局因果时间戳，不能宣称全程无未投递变化/全局OS窗口不存在。受控fresh空文档、唯一固定输入、无其他writer与真实native单次导航gate是前提；FSA/nested/multiple/directory/capture/production连续性仍未完成。此准备接受没有S3源码或CI GO，仍待N3原截止fix1 SOURCE C0、Root持久检查点与明确唯一作者派工。actual全部未运行。
+
+
+#### S2-2 N4条件准备：初始blank真实popup拒绝（2026-10-29，仅准备接受）
+
+Root全文核读准备21307/d26c17f7、范围澄清3857/9201e00d及独立15686/5e895017，SPEC/QUALITY均C0/I0/M0。候选只在新鲜隔离fixture真实top about:blank、同core十hook及只读1023先决下，一次硬编码无手势window.open about:blank；无新导航、参数/网络/真实账号/deferral/SetNewWindow/额外owned窗口、重试或故障注入。目标必须真实NewWindowRequested，native URI/IsUserInitiated=false、SetHandled成功与真实Handled=true读回、同请求安装/live/原45秒调用与Drop后复核、实际Session PolicyRejected单次；固定严格成功HRESULT/token和独立完成义务/真handler drain、原10秒关闭/75秒watchdog及全部正常清理/实际exit0仍必需。
+
+仅接受此实际请求在文档化成功API语义下的拒绝，不证明全局OS UI不存在或任意native失败下绝不默认popup。Handled失败/错线程/缺回调/读回false可能产生默认空白popup，必须失败/未覆盖并保留不确定；不为它造救援WebView、不从app-owned数量推断系统窗口。立即Close下严格token是否能真实到达未知，不能延迟关闭或改event-only/expectedAbort。源码需锁精确script/schema/producer/strict checker并双审；作者提议schema10未分配，Root将与S3无冲突后才派源码。当前N3fix1仍唯一源码作者，N4没有源码/CI GO、actual全部未运行。
+
+
+S3固定表达式/profile准备追加接受（2026-10-29）：Root全文核读26380/cab2b90d（两连续完整字节段）及独立20482/f9a4c5aa，SPEC/QUALITY C0/I0/M0，仅准备。两个惰性表达式743/94910f66与1364/8c3536bf固定单input、原对象及真实trusted cancel时的files0/valueEmpty快照；完整owned URI仍由native独立证明，cancel/change计数不声称一直到Close无后续事件。11调用/10receiver精确closed typed profile及3槽/4096 retained文字预算维持，新增三项显式浅Node可选profile：Document仅空xmlVersion、HTML frameId只与native root一致性、非authority UA shadow summary允许nodeId0；root/query/INPUT仍正ID，INPUT.frameId拒绝、不增加pierce/重查/方法。没有增加CDP timeout窗口，原45/10/75与调用/Drop后复核保持。Runtime155具体shape/激活/cancel/preStop完成及实际内存/释放全部未验，未知/不合即失败/未覆盖。没有S3源码/CI GO，仍待N3原截止fix1 SOURCE C0、检查点与明确唯一作者任务。
+
+2026-10-29 final-gate queue: readonly legacyclock auditor reports same originalattempt45 gap in immutable3859 N1/N2 (fixturestarted1960;adopt2067/2082 beforetimeout2785;native live2201/authorized2278 no clock;N2completion2035 close10only). Report stillfreezing/notRootFULLyet; queue exactwithinTask4 for fullread and narrowfix BEFORErelease, notsilentlydefer. Existing early actualC0 retained; no actuallate execution claimed. CurrentN3fix1 staysONLYN3, no scope expansion toP1/production/othercases.
+
+
+2026-10-29 N3fix1源码候选已完整冻结并进入双复审：报告21346/a30757d1、34成员manifest6183/c47b0ab0，driver356390/84afe839、fixture154069/a753bcc7。Root已全文核读报告及初始→fix1完整64753/77fd8510差异（连续4段），重新生成累计139693/f61a740b逐字一致，全部34+原25+Root11及WF/四parked核对通过；Root新增7成员组合包完整153101/6bb3657b（覆盖初始已读+完整修正，非新实际结果）。六共享路径回归仅定义、编译/实际未运行。持久65文件候选检查点manifest1c52fd6ffdff372d27681ef7433f1e9fdce1cef4cdbca3f8740b186f97381abe承接16/46c0及原历史。SPEC与QUALITY分别定向复审，SOURCE仍待接受，不提交推送已知缺口。
+
+Root随后全文核读legacy N1/N2审计15808/820547e3，接受静态I1：原45秒未进入native授权/目标证据，先adopt closing遮蔽timeout；N2现有完成只检close10。已排在Task4发布前窄修，当前N3fix1范围保持。明确新正向口径：N1/N2刺激及目标、N2成功完成的真实调用与消费均受原45秒限制；close10只作真实清理，不扩成功窗口，晚/错误匹配完成可在close10真实disposal但不能成功。保留此前及时实际C0，未执行迟到原生复现，不扩P1/production或所有旧case。新窄修仍须N3当前SOURCE接受后单独检查点/派工及源码双审。
+
+N5下载准备26063/efbbd0c6+Root3158/3bf83a82+独立20475/1a164f57已Root全文核读C0/I0/M0，仅有限正向准备：严格初始blank固定空data下载anchor，真实args.DownloadOperation.Uri、Cancel与Handled各自真实独立setter成功和读回、实际Session/严格token/正常清理。Handled不等于取消；默认progress、失败时保存/UI及目标可达/即刻Close竞态都未证，不声称全局文件系统/窗口缺席，无路径/手势/网络/策略/替代传输。没有源码/CI GO，schema提案未分配。S3固定脚本/profile准备C0记录已保存；全部新实际未运行，整体Task4/5未完成。
+
+
+2026-10-29 N3原截止fix1组合SOURCE已接受：独立SPEC21630/5f805a60与QUALITY19053/375a436d均原I1 ADDRESSED、C0/I0/M0，Root两份全文核读并接受准确driver356390/84afe839、fixture154069/a753bcc7及不变WF98473/bbed。完整64753差异已读并累计逐字重建、全部冻结及其他改动保护通过。六回归/编译/actual全部未运行；这仅允许保存源码检查点，不是原生通过、整体完成、合并或发布。先保存新审查与Root结论后作选择性本地提交；另排N1/N2原截止窄修审查完成后再批次隔离CI，当前没有新CI运行。未来legacy brief8535/30902ee0已形成，仅条件草案、无源码GO，须本地基线检查点完成后明确派工。
+
+2026-10-29 N3 SOURCE检查点已选择性本地提交`f2295b5765717b656bcc17eb2ed7fbc471d55494`（仅driver/fixture/Windows WF三文件，逐Git blob绑定获审hash），基线3859。Root3记录将另提交，四parked仍未staged；远端311未变/无新CI/6回归及编译原生实际未运行。SOURCE双审21630/5f805a60+19053/375a436d C0已Root全文接受，完整持久65候选及16源码接受增量`8e661a8bb772ec27b898eee2414df5f16ec076dd49920bc1e1f46f94aa8a4be6`已回读。之后仅在全Git/最新记录检查点完成后给N1/N2原45秒窄修明确GO；整体未完成未发布。
+
+2026-10-29 legacy N1/N2原截止fix1已在持久检查点后明确派给原Sol6.1/high作者：新本地HEAD`ef311976e09f5b7a946912bb2239f95573096463`（N3 source f2295b5 + Root docs），28文件全Git19证据refs/HEAD归档/9规范blob pins检查点manifest`a737a4b3aa8d5e6a65616cd9b6130571b3e9d1710447e44fa43cac3fafc0a515`已回读。严格限同两native源码+新报告冻结，8535/30902ee0 brief；N3六回归/原语义、WF/旧schema/其他case/四parked及Root新记录保留。N1正向见证若移至args/COM Drop后，真实首次native closing时间不能随observer变晚；允许窄内部时间观察维持原close10。当前只有该作者可写产品源码，后续仍双SOURCE复审及隔离actual；远端311未变、无新CI/未合并发布。
+
+2026-10-29 PermissionRequested可行性15270/0b692935及独立17785/f2c86a86已Root全文核读，事实/候选分析C0/I0/M0，实施仍缺内部前置：受审secure官方origin synthetic P1+S2 composite和一个有界denied异步效果通道/身份/预算。仅候选一次Notification.requestPermission、不创建/显示通知或读设备/数据；file/NavigateToString不能据此证明可达，初始blank也无保证。native Uri按请求origin而非完整doc路径，Kind/IsUserInitiated/DEFAULT→真实DENY→真实读回及调用/Drop后身份原45秒、preStop真实denied效果各自必要。原互斥guard、原10/75及正常清理保持，没有源码/CI GO、actual全部未运行；这是Task4内部依赖而非用户/环境阻塞，不改变进行中状态或增加产品通知功能。
+
+
+2026-10-29 legacy N1/N2 original45 fix1已冻结但SOURCE HOLD：报告20211/78d3d341、32成员manifest5875/28ffed3d，D384779/fbc04f5a、F157090/1bd0c1ca，Root全文读取完整95612/5c6aa1d2差异并逐字重建。独立QUALITY19613/968d5f8b C0/I0/M0与SPEC18883/d232b9e0 C0/I2/M0均Root全文读取，综合按C0/I2/M0 HOLD：新8参数helper违反原strict Clippy默认7参数门槛（未实际运行lint）；N2尚未提交ChildState时真实closing缺首时间、fixture fallback可后移close10（setup本已失败，不是已证迟到GREEN）。原45成功权限/真实nativeOk与私有timely区分已实质修正，原及时actual C0/N3 SOURCE C0保留。先保存原候选、两报告与HOLD，再交原作者只修两点；5771/ae9cac30条件fix2 brief已形成，尚未源码GO。新8+原6回归/编译/native均未运行，不提交推送已知问题候选、无新CI/合并发布。
+
+2026-10-29 legacy SOURCE修复round1/5（artifact fix2）已在52文件持久HOLD检查点`b7f6cfe40a31728879bb327ab35d368ddcf5f2dbf46aa8d61800da1c66c4a9bb`完成后明确派原Sol/high作者。限8参数私有输入分组+ChildNone首native closing生产者/实际adoption与共享回归；不提前建ticket、不改JSON/WF/45-10-75、不抹真实native返回，原32候选/双审/RootHOLD及4parked全部保留。5771/ae9cac30 brief已锁，HEAD ef31197/远端311不变；所有14+新增回归/编译/native未运行，无新CI/合并发布，不是等待用户决定。
+
+2026-10-29 Root追加同轮静态I3：不可变legacy v1的s2仍import Duration但该模块已无使用（旧close10实现移走后遗留），strict-Dwarnings需清理；未运行compiler/lint。新增1633/70beaf35窄addendum与Root记录，原5771brief/双审/52候选保持。作者已确认当前s2只此一处并在同fix2中仅删未用导入，test/全限定Duration不变，无镜像测试；范围仍两源码/同round1，原SOURCE综合HOLD为C0/I3/M0，三项全部交双peer定向复审。已新增2共享firstproducer回归且8+6保留，16项及编译/native均UNRUN。保护快照一项元数据新增断言遇Root新addendum停止后按授权更新重建，是DATA采证调整非产品/测试结果。
+
+2026-10-29 legacy fix2（同round1）候选已冻结并送双peer定向复审：report14235/7ce70070、37成员manifest6965/a1c3ca9b，D391027/ffc2dacd、F157090/1bd0c1ca整份v1不变；Root全文读17904/16e58e7a完成delta及report，37+report/WF4parked与旧25+34+11+32、HEAD-v1-after/perfile+concat重建均通过。累计102701/7a7508dd绑定HEADef31197。I1私有input5参、I2ChildNone独立首close生产者/同步已有mailbox、I3只删unusedDuration；新增2条shared producer/control，legacy10+N3six16项全UNRUN。当前只候选/未SOURCE接受、无新CI，不由作者自述关掉HOLD；原v1和双审52/b7f6链保持。
+
+2026-10-29 legacy original45 fix2双SOURCE复审均C0/I0/M0：SPEC15907/e601a297、QUALITY13588/e416cf49已Root完整核读，原I1/I2及Root I3均ADDRESSED；37冻结成员和当前两源码/工作流/四parked逐字核对通过。D391027/ffc2dacd、F157090/1bd0c1ca，私有完成输入分组、ChildNone首native closing生产者及未用导入修正获源码接受；legacy10+N3六条共16回归、编译/Clippy/native尚未运行，下一步精确本地提交、完整备份后单批隔离CI，不提前合并发布。
+
+ 获审两源码已精确本地提交98a1fb48b31a739fd15c2faa8c71c757763abdf9，373文档、公开扫描与差异检查通过；实际16回归/编译/native未运行。
+
+2026-10-29 本批N3+legacy已推候选HEAD8a19d853725cf395044b5dac2ff9c07bc05182da：Windows40792192995、Mac40792193050、独立dispatcher40792193064均已启动；20文件全Git检查点manifest823a1e143435769e2adf09dd00e2c36682b8cde3a0e15ff9907ae7b80eb1da5e完整读回，19本地证据refs未推。四parked保持、无合并发布。当前三CI结束前不推下一头/不取消。下一单片选择已预审N4固定空白popup，分配schema10、S3预留11、N5预留12，唯一作者仅两源码；Root负责WF及正式记录，新SOURCE双审前无N4执行许可。
+
+2026-10-29 8a19批次实际Mac40792193050与Windows40792192995均completedSUCCESS，实际merge99dbeacbd764b7fafb6335b03752b1f9f3c6b42a/全tree同head8a19并由raw checkout绑定。Windows raw640999/68b58b1c、9组22JSON下载0；Root严格类型/字段比对N1/N2/N3全正向，16新增回归逐条唯一实际ok，15真实normal close+15 TempClose成功，N3原关闭预算至run_return759ms。Mac raw1499547/dcadd5c8、受控CLI v2产物3份已保存，独立实际复核进行中；Windows独立验收待报告，dispatcher40792193064仍运行。这里仅新鲜CI和Root数据核对，不冒充双平台独立验收或Task4/5完成；当前N4唯一作者候选静态工作，未SOURCE接受/执行。
+
+2026-10-29 Mac40792193050独立实际审查16699/b3455b45已Root全文接受C0/I0/M0，仅本轮配置门禁：4job32step全成功、strict v2两臂与旧4失败组通过。main763含27skip、hosted补12仍15未观察；raw736start仅665逐条pass，按完整framework汇总/退出验收且保留71日志粒度缺口，不虚造逐条结果。Windows整轮成功正独立实际复核，dispatcher仍运行，整Task4/5未完。新challenge可行性22857/601999e9已Root全文读，仅研究：当前gate无三类路线，未来有限loopback401/TLS需新合同/审查，clientcert仍缺正常信任与回调可达前提；不改信任/CA、不冒充实际覆盖，也不因此停N4。
+
+2026-10-29 Windows40792192995独立实际报告25753/00ee27a9已Root按两连续字节段完整核读，有限C0/I0/M0接受：N3真实alert/严格成功token/实际driver Session失败/正常清理，61字段、16共享边界回归各actual ok、396唯一Rust/前端302/strict Clippy/47step、15真实运行45正常诊断及TempClose均通过。原生时序为及时正例，未伪称真实COM跨45秒复现；N3关闭至run_return759ms，旧历史首因未知保留。Mac本轮actual C0已接受；dispatcher40792193064尚运行，后续N4候选和S3-S5/Task5未完成，未合并发布。
+
+2026-10-29 Task5既存M1详情重开8秒期限回归另作隔离test-only RED采证：原Shell28819/13bd0429未改，已独审四parked中TS14757/5a1db4f7仅复制到专用支线，不挪动当前四parked/N4源码或推新PR67头。使用单独frontend-only CI先旧测试对照再真实新断言，未实际RED前不修Shell；主Windows/Mac实际C0保持、dispatcher当前轮继续。原生N4作者/当前优先级不改变。
+
+2026-10-29 第22轮dispatcher40792193064完整独立实际C0/I0/M0已Root全文读16683/94ad6519追加并核225459/463927df总报告与原208776/df56前缀：25基线/四严格编译后精确语义kill/全部清理/最终verifier、21保留hash及22成员通过，job1729s/mutation1654s，原期限不改，当前private过滤67/68真实推导。8a19三组CI及各自有限实际独审均接受，20本地证据refs保持不推；整Task4/5尚未完成。N4两源码候选已STOP/封52成员8a6e938d和报告26531/bfc2bc7e，D435629/a29aa7f8、F169501/dcf35a8c，新1严格parser测试+原16逐字保持，新编译/17测试/native全部未运行；下一Root接WF并三文件双审，非SOURCE已接受或发布。
+
+2026-10-29 Task5M1专用支线f98a7dc/CI40797644046已确认有效行为RED：实际Shell28819/13bd、原测试23全过；新增B/null两case均在逻辑t8的122行no-close断言观察到close_provider_detail提前一次，25项中旧23过/新增2失败，真实exit0/1、准备/编译/超时无失败。raw77407/6c6bfc5d与8文件完整artifact（实际Shell/old/new测试、日志/exit）已保存并Root核源/身份/摘要；仅失败后的Node缓存post-hook skipped，非测试跳过。其失败是独立回归的预期真实行为失败，不抵销已接受8a19三组CI；先持久保存RED，再唯一作者只修Shell展示计时，原8秒/测试/独立Code0数值/动作语义保持，后续GREEN与独审仍待验。
+
+2026-10-29 N4完整三源码双审已Root全文接受SOURCE C0/I0/M0：SPEC20293/c1eed1cf、QUALITY25894/c3639a87均独立完整读122191/50b956差异及真实producer/时钟/借用/lifetime/WF；Root全文读报告和新WF、机械重建native109282，不冒称Root本人逐行读全native补丁。当前D435629/a29aa7f8、F169501/dcf3、WF110150/78db，schema10精确11root/44popup/原WF可整份逆还原。新17测试/编译/strictClippy/nativepopup/token/清理仍未运行，只选择性本地检查点，不称功能GREEN/整项完成或发布。
+
+2026-10-29 N4获审三源码已本地精确提交df0622d2c50444e7608dfb44e0752307439fe96e（新编译/17测试/native仍UNRUN，远端main候选仍8a19）。Task5M1 Shell最小3增1删候选28971/72f0及Root定向WF5309/120f完整6222/0ba90双角色SOURCE独审16656/1c12e982已Root全文接受C0/I0/M0，原8秒/测试/独立会话数值与动作未改；有效RED40797644046保留，后续先支线target25+全前端/类型构建GREEN，未提前整合主分支或发布。
+
+2026-10-29 后续单片N5空data下载拒绝已锁条件实施简报，schema12/固定refusal-download-initial-data-empty；N4三源码SOURCE双审C0已本地df062+记录876d，actual17/native待后续同批验证。N5仅两native源码、固定connected空download锚点、真实Cancel与Handled及各读回/operation.Uri/严格成功token/正常清理，保留早期导航抢先拒绝为未覆盖，不放宽原策略/45-10-75，不查保存路径或声称全局FS/UI不存在。须新完整检查点完成后唯一Sol/high作者明确GO；Root将等待其STOP再整合Task5支线修正，原四parked保持。
+
+2026-10-29 Task5 M1实际独审14862/ab18e28c已Root全文接受有限C0/I0/M0：支线3923/CI40801595510旧23、新25与全304及类型/构建通过，B/null均完整验证重开8秒（t8与14.999不关闭、t15一次关闭）；不累加重复计数。锁定依赖报告4漏洞（2moderate/2high）及action弃用警告保留待宽范围评估，无本次依赖改动或已解决推断。修正尚未整合主候选，等待N5作者STOP；临时支线WF不进入main。
+
+2026-10-29 N5作者已STOP并封59成员（manifest2df22ed8/seal175401d3），报告26361/1d6cae5a Root全文读；Root追加3个WF步骤，D483930/74e75e77、F182238/247bc693、WF122010/934366bf，组合131272/b398308c已95文件持久备份manifest1a5b6ee4。当前SPEC/QUALITY独审进行中，新18测试/编译/native未运行；N4仍仅源码C0，M1实际有限C0已接受但未整合。S5被动composition准备27248/f12a及独审20618/eed53均Root全文接受准备C0，非生产动作或源码GO；S3锁定条件简报亦非GO。所有Task4后续/Task5发布门禁仍未完成。
+
+2026-10-29 N5完整组合源码双独审均C0/I0/M0，SPEC21272/812dd338及QUALITY25001/6ad11700已Root全文接受；原生118184补丁由两peer完整审读，Root机械重建并全文核读作者/WF/两报告，不冒称Root本人逐行读全native。获审三文件已精确本地提交e081bba1ac1dceb4ccfee0fa613ec927626e0189。M1获审Shell及四份既存coverage按原after字节整合并本地提交69b20b283b5d9ef6da1fab547fe5485e25adc471，没有带入临时支线WF、没有覆盖原改动；Swift任务join与Rust原A时间边界覆盖仍未实际运行。N4/N5新18回归、编译/Clippy/native仍UNRUN；下一步新完整Git检查点后单批隔离CI，不提前合并发布。
+
+2026-10-29 获审完整候选HEAD978ba17e05a1ccb193875759fdb196c01b035431已在48文件全Git检查点manifest6ad17be39414b090ecf393f09bc133e040cdab5d7c509847c8e1395d69a50fe3读回后推送；Windows40805640216、Mac40805640204、独立dispatcher40805640223已启动。新结果尚未验收，不取消当前批次或推下一头；后续源码只在工作区进行，不替换这轮测试基线。原四parked现按获审字节完整提交，无删除或重置、无支线临时WF。
+
+2026-10-29 本轮Windows40805640216整体失败：N4弹窗用例75秒watchdog退出124、completed0且无正常Released/run_return；摘要零值为看门狗重建的未观察值，不代表没有目标事件，也不是有效行为RED。原始日志与11组产物已保留，关闭后释放未完成的首因正独立只读复核，不放宽期限或清理门禁。N5本轮原始严格正向/exit0已观察、待实际独审。S3未完成工作已应请求完整冻结并STOP、保留新增parser和driver改动，修复前不重置。Mac40805640204实际独审26791/16a9992f已Root全文接受有限C0/I0/M0，Swift真实任务join通过；主日志736start/674逐条pass仍62粒度缺口、27skip由hosted补12仍15未观察。独立dispatcher继续，不取消、不推下一头或发布。
+
+2026-10-29 第23轮独立dispatcher40805640223实际独审追加20140/54e33f84已Root全文接受有限C0/I0/M0，原225459/463927df前缀逐字保留、总245599/310c0e68；25基线、四严格编译后精确语义kill、清理及最终验证器和21留存hash通过。实测job1614s/mutation1528s、原期限不变、当前private过滤69/70；不替代Windows N4 I1/HOLD。N4独立诊断工作区唯一作者正在补首次撤权/未知/阻断三类标量线索，未作行为修复或弱化门禁；原S3 WIP完整保留。
+
+
+2026-10-29 N4 诊断源码已停止编辑：独立工作区 D539083/78e32aff、F182544/de06936d，报告22553/2dca6307已Root全文读取。恢复时未发现作者manifest/seal，Root未补称作者已封存，而是独立重建并核对56成员、142057/d8a2023e完整差异、89条逆向编辑和2995项保护，生成10557/86b70396候选清单。父工作区S3改动逐字保留；下一步持久备份与SPEC/QUALITY双独审，编译/测试/新实际CI仍未运行，Windows N4 I1/HOLD不变。用户再次明确Sol6.1/high及全部测试和独审通过后直接发布，沿用授权不重复询问。
+
+
+2026-10-29 N4诊断两源码完整双独审均C0/I0/M0，SPEC15039/48f660de、QUALITY20747/b879ef17已Root全文接受；两peer完整审读142057/d8a2023e差异及52个变更函数，Root不冒称本人逐行读完整native差异。D539083/78e32aff、F182544/de06936d原字节保持，70文件候选备份manifest932afc2a已读回。下一步在独立诊断工作区选择性提交并更新原PR67候选，原父工作区S3 WIP及分支原样保留，不重置、不混入本次诊断。全部新编译/21纯辅助测试/native仍未运行，既有N4 I1/HOLD不变；审查通过不等于修复通过。
+
+
+2026-10-29 REQ-20261029-001登记并行修补：依赖适用性独立报告24623/e139cbb0已Root全文读，C0/I1/M0为开发工具范围，未证明打包运行时漏洞；当前Vite8.2.2正常开发服务含受影响端点，Vitest/mocker4.1.11及jsdom所用Undici8.11.2同列影响版本。选择同小版本补丁8.2.4/4.1.12/8.12.2、其他版本不扩张；专用支线CI生成锁、严格限定差异并验证，临时workflow不进入main。本项不改变N4优先级，现有588a965三CI继续，尚无依赖改动/实际安全修补结果。
+
+
+### S4 原生文档与关闭准备的技术裁定（2026-10-29）
+
+独立准备复审为 C0/I2/M0；完整生产接入仍未获实施许可。下一阶段先固定以下合同，再准备一个有限的原生能力用例；当前 N4 诊断及 S3 保留状态不变。
+
+- 首次隐藏 Sync 只接受固定官网起始地址的单次非重定向导航，任何初始重定向均撤权并暂停；Login 保留独立的允许来源流程。后续任何顶层导航都先永久撤权，不因同 URL、取消成功或同 ID 重新授权。
+- 正式数值消息使用原生持有、可撤销且带固定代次的交付许可，在调度器实际调用会话前再次核对；真实 Released/清理失败保持独立生命周期通道。终结捕获或认证失效时，会话须在外发快照前同步撤销原生许可，数值验证、保存及发布仍由原会话负责。
+- 正常成功关闭须先收到私有闭包在实际 dispose 返回后发出的匹配回执，再进入 Stop。提交成功、handler Drop 或删除脚本 ACK 不能代替 dispose。若回执缺失、异常、迟到或 renderer 丢失，立即保持撤权、标记失败并执行明确的紧急清理；不得激活、不得称正常 dispose 成功，也不延长原10秒关闭期限。
+- document.open/write 对同一 Document 的逻辑重置仍在撤权范围。仅有相同 URL、context、Document 对象或监听器均不足。先准备固定合成页面上的 CDP 根上下文/documentOpened/消息排序与 dispose 能力用例，保持生产导航拒绝。测试结果只能支持明确的受测引擎范围；尚未证明的跨接收器顺序不得冒称通用 API 保证。完整 S4 接入须待这一条件及其失败路径获验证和独审。
+
+上述是普通技术选择，不新增真实账户、网站透传、任意脚本、信任证书、延长期限或生产动作授权。下一份细化材料必须列明固定命令/事件集合、阶段、消息与字节上限、原生身份来源、精确正常/失败判据；尚不是源码 GO。
+
+
+**当前实际验证与接续（2026-10-29）：** 用户最新明确继续Sol6.1/high、保留改动、全部测试和独立审查通过后直接发布，沿用既有授权。当前候选588a965：macOS40814396837四job/32step成功，独立实际审查32187/8408ae24经开发入口全文接受有限C0/I0/M0，当前736条开始/736条通过，15项仍未观察；Windows40814396864独审37752/c673aa29全文接受C0/I1/M0 HOLD，N4真实原生IsUserInitiated读回true，与非用户触发合同不符，但严格完成及正常清理通过。旧超时本轮未复现、首因仍未知，不能宣称已修复。原生17次正常清理、16目标通过、402唯一Rust测试及前端304项通过不抵销N4失败。dispatcher40814396848仍运行，不取消或重复启动。下一步仅准备固定延后触发弹窗的窄合同并独审，保留原生非用户断言和原期限。并行REQ-20261029-001临时依赖CI源码独审C0/I1/M0发现最终依赖文件保护遗漏，已交唯一作者窄修；锁文件仍未生成、未整合、未发布。
+
+
+### N4 非用户触发测试合同窄修订（2026-10-29）
+
+本节替代旧直接调用和post-open完成令牌合同，仅修订固定合成触发方式。候选588a965的Windows40814396864原生IsUserInitiated成功读回true，严格完成与正常关闭成功而用例正确失败。初始about:blank中仅安排一次零延迟函数定时器，回调内再次核对top/self、精确URL、HTML根及无frame后，至多调用一次window.open('about:blank','_blank')。不引入导航、外部输入、Promise、重试、延迟关闭或新窗口所有权；原45秒尝试/首个关闭10秒/外层75秒期限保持。
+
+ExecuteScript现在必须返回严格JSON字符串“code0-popup-scheduled-v2”，只证明同步安排成功，不证明回调执行、弹窗、拒绝、非用户分类或关闭。失败前置条件是独立precondition-v2且不能成功。旧submitted-v1、前置条件、null、空值、转义等价、空白或其他结果全部拒绝。调度完成与真实原生目标允许任一先后，但必须分别验证；真实同一core/request/installation的NewWindowRequested、原生IsUserInitiated=false、Handled设置及读回、真实PolicyRejected、匹配完成与库存排空和正常Released/TempDir关闭仍全部必须。不得删除nonUser断言、将调度令牌视为目标证据或推迟即时拒绝。
+
+原选择器refusal-popup-initial-blank和schema10字段/严格类型保持，完成令牌语义必须绑定新源码提交，不复用旧产物作新合同成功。诊断类别相应更新到v2精确令牌，旧诊断保留历史含义。纯测试须明确调度单独不能通过、缺目标/非用户为false/缺完成/原期限边界仍拒绝、两种顺序保留独立证据。已观察的旧触发方式失败不冒充尚未执行的新parser RED。
+
+准备合同13895/324fa666已经开发入口全文读取，独立预审进行中，尚不是源码接受或实际通过。文档中的timer示例不是本runtime的保证，实际原生getter是最终判据。旧watchdog124首因仍未知、本轮未复现，不因本修订或单次正常关闭宣布修复。
+
+
+### 后续有限合同与依赖解析约束（2026-10-29）
+
+S4缺回执负例必须在实际超时处置后、协议移除及丢弃消息前，使用同一真实保留消息和同一已撤权许可/代际执行一次消费者交付，明确观察attempted1/applied0/rejectedRevokedPermit；零次尝试不能通过。精确私有字段包含整数version=1和封闭的尝试/结果字段，正常三例及RED分别保留真实交付判据。canonical ready显式经捕获的JSON序列化和binding适配器传送，不采用inline WebMessage路线。修订39923/57217e68及独审12505/f3e9d48f已全文/完整差异接受有限PREP C0/I0/M0，原I1/M1关闭；尚无S4源码授权，跨接收器通用顺序及真实生产激活仍不得宣称已证。
+
+并行依赖解析只临时约束Undici8.12.2、Chai6.2.2、tinyrainbow3.1.1，第二次解析前恢复原候选manifest并移除全部override。Chai/tinyrainbow及所有无关节点仍须完整记录不变。唯一额外元数据修订是node_modules/vitest的peerDependencies中@vitest/browser-webdriverio从4.1.11精确匹配^4.1.11，保留optional标记及其余字段；不安装浏览器节点，不人工编辑锁文件。首次实际失败40817246485与全部未运行项保留；新实际结果必须重新审查完整图后才能整合。
+
+
+2026-10-29: N4 timer source4b4b9cd and records5f5daa5, plus dependency recipe fix2 source4efeaba, are preserved in a verified43-file/full-Git22 checkpoint (manifest ce3be1a9b58ed0de43c13cc0634382e35086691cea8f554c80a2faf3caaaee1d). Dedicated dependency CI40818949002 completed FAILURE in lock-generation/validation; raw evidence collection and exact diagnosis are next, downstream gates are not assumed executed. No blind rerun or integration of a rejected lock. A fresh sole S3 author is continuing only active D/F/Q from the preserved delta; old parent WIP remains unchanged. Root owns package integration, workflow and formal records. All new N4/S3 native results remain unaccepted; no merge/release. Latest human authorization remains Sol6.1/high, preserve all work, direct release after every required test and independent review passes.
+
+
+2026-10-29: Exact N4 timer candidate5f5daa5 regression: macOS40819298545 completedSUCCESS (raw and controlled CLI evidence saved, independent actual review pending); Windows40819298568 failed the native initial-blank popup refusal and its strict evidence gate, fresh cause not yet read; dispatcher40819298633 continues. Preserve failure and read actual records before any next fix; do not broaden assertions or claim overall GREEN. Independent dependency fix3 fdd9e2b/40819983937 completedSUCCESS with full56 artifacts; Root verified55 payload hashes,171-node complete graph and52 intended scalar changes,304 frontend tests,25 lifecycle tests,actual Edge/layout,build,dev/readiness-cleanup,audit0 and finalbyte protection. Its independent actual acceptance remains pending, accepted manifest/lock not yet integrated. S3 sole author continues only its scoped changes; no merge/release.
+
+
+## 2026-10-29 — scoped dependency remediation integrated; N4 remains failed
+
+REQ-20261029-001 is complete within its registered scope. Isolated CI `40819983937` and independent actual review passed; commit `ef41fb4a58ac048b3569b3503568cd7ca62bfbad` integrates only the accepted `windows/package.json` and CI-generated `windows/package-lock.json`. Vite 8.2.4, Vitest family 4.1.12 and Undici 8.12.2 are the intended changes; the other 160 dependency records are byte-for-byte unchanged as records. The 304 frontend tests, 25 density tests, typecheck, build, real development-server start/stop and audit with zero reported vulnerabilities passed. The temporary dependency workflow is not included. This scoped completion is not whole-product or release acceptance.
+
+For REQ-20261026-004, the current 5f source macOS run `40819298545` and its independent actual review passed the configured gates, retaining the 15 unobserved native methods. Windows `40819298568` and independent review retain a blocking N4 result: the actual native getter reports user-initiated TRUE. Strict scheduling completion, Handled setter/readback, real policy rejection and normal cleanup succeeded. This neither proves the timer fixed the contract nor resolves the historical watchdog first cause. A fixed CDP request with explicit non-user gesture semantics is being reviewed as the next candidate; its real result is unrun, with native FALSE and the original time limits still mandatory. S3 changes remain preserved and awaiting a complete source freeze/review. The independent dispatcher `40819298633` is still running. No merge or release has occurred.
+
+
+### N4固定CDP触发合同采用（2026-10-29，实际未运行）
+
+ExecuteScript加timer0的实际40819298568仍读回用户触发TRUE。现采用经独立准备审查C0/I0/M0的固定CDP候选：同一原生core上仅一次`Runtime.evaluate`，完整五键为固定473字节expression、`userGesture=false`、`returnByValue=true`、`includeCommandLineAPI=false`、`allowUnsafeEvalBlockedByCSP=false`。保留同一零延迟定时器及两次blank/顶层/HTML/无frame前置条件；不增加上下文发现、额外求值、导航或回退。原生同core与Source身份和API默认受检主上下文作为当前初始blank范围的来源依据；不声称已观察运行时二进制realm身份。
+
+原先ExecuteScript的裸JSON字符串完成合同替换为封闭CDP方法返回对象：唯一result对象含唯一type=string及value=code0-popup-scheduled-v2，仅可选同值description；普通JSON空白和键顺序允许，重复/额外键、转义等价固定值、异常及其余类型全部拒绝。严格UI/STA前置，最多扫描2048个UTF16单元且含终止符，合法UTF8输出上限2048字节；完成仅证明安排成功。schema10保持，但boundedResultValid/fixedResultMatched及script提交完成字段语义绑定新源码。真实原生IsUserInitiated=false、Handled设置及读回、独立真实PolicyRejected、单ticket/handler实际排空、45/10/75秒原期限和正常清理仍必须，旧失败与未知超时原因保留。
+
+此为技术合同采用，不是源码或实际通过。先由S3作者封存并STOP，再串行窄实现、独立源码审查及隔离实际验证。主候选5f的dispatcher40819298633已结束SUCCESS，完整原始证据保存并进入独立实际审查；Windows整体仍因N4失败，尚未合并或发布。
+
+
+2026-10-29: dispatcher40819298633第25次独立实际审查已全文接受有限C0/I0/M0：新追加21478/1762d638、完整286327/aba568c0且原264849前缀不变；25基线、四个严格编译后的准确语义失败、全部清理与实际最终验证器通过，私有过滤76/77由实测5f源版本推得。完整原始记录及23产物已保存并核hash，三平台绑定6472/d1545ca9均实际checkout8d/同5f树，过时事件merge字段不作为执行身份。此轮三CI均已结束；Mac有限通过，WindowsN4仍I1/HOLD，不代表整体完成。S3源码预审已发现一个Context被move闭包捕获后再使用的编译问题，唯一作者正在窄修，保留初版供差异复审；所有新S3编译/测试/原生结果仍未运行。
+
+
+## 2026-10-29 — S3有限源码验收与实际测试交接
+
+S3最终revision3的D/F/Q与新增严格schema11工作流已经独立SPEC及QUALITY审查为C0/I0/M0，开发入口全文读取两份报告并接受有限SOURCE。提交`4d9289d7e26831896bd9ae6cab17064e7ea2ccee`只包括这四份获审源码。修正了Context移走后使用、无关原生拒绝后迟到目标可能复活，以及固定Rust1.88严格Clippy的大枚举表示问题；采用固定内联返回存储，未改协议、槽/字节预算或45/10/75秒期限。
+
+原25项完整测试体保持；现共40项定义，包括15项新增回归。旧有四个新Q测试仅六处必要的返回表示匹配语法变动，原输入、断言极性与语义经精确逆向核对。当前格式检查通过，373份文档/差异检查/公开内容安全检查通过；编译、Clippy、全部新增测试、真实文件选择及其取消/关闭行为均尚未运行。独立实际CI必须验证这些结果，不以预期数据、源码定义或格式检查冒充通过。
+
+新的CI将覆盖已整合依赖和S3候选；N4固定CDP修正可在该批测试期间由唯一作者接续，仍按独立源码审查和后续实际验证处理。原5f批WindowsN4用户触发TRUE失败及未知旧超时首因保留。S3范围是受控新文档/单一预绑定输入的取消时刻快照，不证明其他文件选择入口、连续全局状态或生产接入已完成。REQ-20261026-004及后续Task4/5继续进行，不合并或发布未通过的版本。
+
+
+## 2026-10-29 S3有限实际验收与N4单点修订
+
+候选`60363eba768d50a1f14af2becbc79a259e766f69`实际检出`05e2482c4f585f29063758734ed11f263ce11237`，两者完整树一致。macOS `40824777947`四作业通过，独立实际审查C0/I0/M0已全文接受：主组736次通过，独立CLI70方法通过，保留15项环境未覆盖及历史未知首因。Windows `40824777915`独立实际审查确认有限S3 C0/I0/M0：单一预绑定文件输入的真实取消快照与目标均在Stop前，十个接收器、十一次命令及正常清理完成。422条Rust通过记录对应421个不同测试，新增S3十五项各通过一次；前端304项通过，当前锁定依赖安装报告零漏洞。
+
+Windows整体仍为C0/I1/M0：旧N4真实原生IsUserInitiated返回true，与非用户触发合同不符，尽管严格完成和正常清理通过。新固定CDP修正已经封存；源码独审发现一处宏作用域编译阻塞，作者仅补充该宏的完整路径，等待独立复查及新隔离CI，不用旧轮结果冒充新修正通过。调度器本轮已结束成功，独立实际审查正在进行。
+
+S3的验收限定于该运行时、受控文档和输入以及取消时刻快照，不推导持续状态、全局系统UI、其他文件访问接口或生产组合。S4仅新增独立纯协议源码切片，十四项测试尚未执行、尚未接入原生驱动，独审正在进行；完整S4/S5与发布仍继续。现有改动、历史失败及原期限和断言保留；未合并main或发布。
+
+N4修订1现已完成独立SPEC/QUALITY复查，均C0/I0/M0，单点编译作用域发现关闭；仅接受源码，新的编译/Clippy/回归/原生事件仍未运行。S4纯协议切片独审无阻塞，留有累计队列容量与第二ready拒绝的测试覆盖Minor，将在原生接入前补齐；不以该切片代替S4原生验证。
+
+
+## 2026-10-29 — 固定CDP候选实际验证与有限S4接续
+
+`8a3601af6b9fb2618e1a17809727ec8b839f705b`已在独立源码双审通过及持久备份后正常推送。macOS40828029270、Windows40828029194和调度器40828029195均已完整结束，三组结果分别经过独立实际审查及开发入口接受有限C0/I0/M0；这些结果只绑定8a3601a，不覆盖后续S4源码。上一60363eb的第26轮调度器独立实际审查也已全文接受C0/I0/M0，有限S3及macOS已验收，旧N4失败与未知旧首因保留。
+
+有限S4按已接受的document-open/dispose合同接续：先补纯协议第二ready拒绝、出队后累计容量和失败入队保序回归；另由唯一作者负责原生驱动与fixture，工作流作者仅新增严格验证步骤。继续使用现有隔离工作区，源码职责不重叠。新外层schema13包含精确37字段的version1 capability对象，保留原生命周期与真实S2十钩子证据；method/receiver计数为标量7，不复用S3数组。缺少处置回执的选择器中，九个变更专用字段为null；子页面拒绝字段仅子原型选择器为true，其余为null。正常变更的receiptDeadlineObserved/failedCloseNoActivation为false，缺回执场景为true；运行时版本必须与外层真实记录一致。
+
+第一阶段须产生可编译、执行真实页面替换与处置的行为失败基线：documentOpened已观察，但权限撤销钩子尚缺失，同一真实保留项在首个可执行轮询实际应用一次；固定严格正向检查器应拒绝。后续修正只加入真实事件触发的撤销，不能更换刺激或放宽检查器。缺回执选择器单独验证实际超时、同一项被撤销权限拒绝及正常资源回收，不能替代变更失败基线。四个调用均保留原45/10/75秒期限、固定七接收器/七命令与所有原预算。
+
+这仍是有限能力验证，不启用生产导航、数值采集或存储，不声称跨接收器的普遍顺序保证。宿主不运行产品/编译/测试；源码审查后由隔离CI执行。用户最新Sol6.1/high与所有门禁通过后直接发布授权沿用，现有改动与证据全部保留。
+
+
+本轮`8a3601a`的Windows40828029194已经独立实际审查为C0/I0/M0，开发入口全文接受：真实原生IsUserInitiated返回FALSE，Handled拒绝与读回、严格固定CDP完成、真实Session失败一次及四种回执匹配，首次关闭至运行返回897毫秒并完成正常资源回收。56步骤全部成功，427个不同Rust测试、前端304项及18次原生场景通过，debug NSIS构建/GUI子系统2检查与上传完成。这是有限场景及配置门禁验收，debug安装包不是已发布安装包；旧nativeTRUE失败及旧超时未知首因保留。macOS同轮独立实际审查亦已全文接受C0/I0/M0；第27轮调度器报告14528字节/451a2f7e也已全文接受C0/I0/M0，25基线、四个严格编译后精确语义失败及全部清理通过。S4纯协议回归与严格工作流已独审通过源码层面；原生首候选规格审查C0/I1/M0和质量审查C0/I3/M0共确认三项重要缺口，原作者仅修新增驱动代码并补真实消费、重入及上下文失效边界回归。当前源码仍待复审与隔离实际执行，未启用生产或发布。
+
+
+## 2026-10-29 — S4真实失败基线接受后的最小修复
+
+候选43457a8的Windows实际运行在WebView2 155.0.4283.62中完整执行四个S4场景。三个变更场景各观察到documentOpened、同一保留项实际应用一次且权限未撤销，随后正常处置和释放；原严格正向检查器只拒绝这三个场景。缺回执阴性场景实际超时后尝试交付一次、被撤销权限拒绝且正常释放，符合有限合同。独立实际审查及开发入口接受这一有限行为失败基线C0，不接受整个Windows候选为通过。普通Rust/S4辅助测试因早期Clippy失败跳过；N3另有75秒watchdog，不能归入目标行为失败。
+
+两项Clippy等价修正已独立源码审查C0：合并相同失败分支但保留短路顺序，移除无析构纯值的显式drop。真正原生结果、UTF-16缓冲释放及调用后状态检查保持。下一步在持久备份后，由唯一作者将真实根documentOpened观察接到既有revoke，只保留原阶段、同一保留项和绑定，继续由原真实消费点证明一次尝试零应用。回归使用实际观察路径和解析后的保留项；原无钩子对照、子上下文和无效事件边界继续保留。不改变刺激、协议字段、检查器、生命周期或45/2/10/75秒期限。此步骤仍仅有限能力GREEN候选；生产接入须另行完成合同证据和组合验证。
+
+N3只读诊断确认cleanup_blocked阻止退出事件注销和environment释放，但未记录首次来源。后续先做明确启用、有界标量、无新增原生调用的首因诊断，保持原关闭顺序和判定。与S4作者顺序交接同一原生文件，禁止并发覆盖；不盲重跑或按猜测修行为。
+
+
+N3诊断接续范围已锁定：单独开关只对指定场景启用，记录六处现有清理阻断分支的首次UI置位、十三个现有未知状态写入来源及两字有界库存。业务原子写入与顺序保持；并发来源只称首次记录，不声称全局首次。NavigationCompleted使用独立诊断标签，不能误标为TLS。只在现有10秒及终结观察点输出固定标量，缺失或不一致快照明确不可用，不新增原生调用、锁、计时器、重试、等待或行为修复。S4作者已冻结并停止后由唯一诊断作者接手D/F，两个S4审查者只读冻结副本；源码完成后仍须独立审查和新的隔离验证。
+
+
+N3诊断候选已完成规格与质量独审，均C0/I0/M0。记录真实六处清理阻断边界和十三类原有未知状态写入，不改变业务原子写入、关闭顺序、期限或通过条件；NavigationCompleted独立标签避免误标，未发布/不一致的库存快照明确不可用。原49测试及完整S4/S3区域逐字保留，新增五项纯诊断回归。完整63270差异由两个审查者审读，开发入口读取完整作者/审查报告与关键生产片段、核对27冻结成员及84编辑逆向恢复。此为源码接受；旧触发点、新编译/检查/实际运行仍待隔离证据，不视作N3修复或发布通过。
+
+
+### 2026-10-29 — 修复候选与独立纯协议并行
+
+候选`3e0941a`包含已双审的S4 GREEN1与N3首因诊断；Mac `40848337789`、Windows `40848337573`、dispatcher `40848337899`正在隔离验证。诊断保持原期限、断言和清理义务，不构成关闭超时已修复。完整源码与证据已备份并逐项校验。
+
+开发入口仅向两个不同作者授予新文件`permission_protocol.rs`与`http401_protocol.rs`的有限实现权限：依照已接受合同完成有界纯协议与有意义的测试定义；暂不修改driver、fixture、Cargo或工作流，不将未接入、未运行的定义称为通过。HTTP401闭合证据格式仍待独审及开发入口裁定；原生接入、生产接入和发布门禁继续由开发入口顺序负责。本轮运行测试固定绑定已推送提交，不由后续未提交文件推断结果。
+
+HTTP401闭合证据合同修订经定向独审C0/I0/M0并由开发入口全文接受：保留原始attempt/first-close精确时钟，关闭总期限严格小于10秒且涵盖真实TempDir关闭及结果释放；Closed仅表示完整选定测试最终清理，较早native final receipt不等同Closed。setup9/acceptedSetup4来自实际调用尝试，失败保留部分事实，不能填常量。开发入口保留schema14给权限、分配schema15给HTTP401；旧schema与断言不变。此合同接受尚不授权原生实现或宣称实际通过，新纯协议模块另行审查。
+
+
+## 2026-10-29 — 当前三组实际门禁通过与纯模块接续
+
+候选`3e0941a`及实际合并预览`523dc55`同树，macOS40848337789、Windows40848337573、第29轮调度器40848337899全部成功；三份独立实际审查分别16754/c8df8914、19206/0cdffe18、14415/6a4a4634均由开发入口全文接受有限C0/I0/M0。Windows前端304项、463个唯一Rust测试、22原生摘要通过，S4三项真实变异均在同一保留候选交付时拒绝并应用0次；N3本轮604毫秒内返回并完成正常清理，首因标志为0不解释旧434超时。调度器25基线、四个严格编译后的准确语义失败及清理通过。17份下载回执、74产物、27源文件绑定均保留。
+
+HTTP401纯协议一处CRLF终止空行解析错误已最小修正，15项原测试定义不变，修正后独审C0/I0/M0；权限纯协议29定义及语义状态源码独审C0/I0/M0均已接受。共享租约/存储模块仅新增固定本地路径、同一实际租约槽和逐操作委托及11定义，独立源码审查中。三模块尚未注册或运行，新55项定义不记作测试通过。下一步仅把获审模块接入隔离测试构建，完整旧门禁保持；权限/HTTP原生生产者、真实拒绝效果、生产组合和Task5仍继续。既有改动、旧失败及未观察范围保留，用户Sol6.1/high及全门禁后直接发布授权有效，尚未合并或发布。
+
+三个新模块的独立源码审查均已全文接受有限C0/I0/M0，11项共享存储定义仍未运行。开发入口随后只加入测试构建声明：共享存储在Windows单元测试中可见；HTTP和权限协议在Windows调试fixture特性单元测试中可见。正常生产目标保持未接入。权限测试块原位于源码开头，开发入口依据Clippy的默认测试顺序规则将完整块移至末尾；全部29测试与生产逻辑逐字保持，未放宽任何检查。两个声明增量及完整搬移均可准确逆还原，55个唯一新增定义已盘点，正在定向集成独审，尚无新编译或行为结果。
+
+提交前定向检查又发现权限完成值的Frame载荷过大，以及两个纯模块的少量assert仍采用旧版排版。前者只把完成值改为调用期间借用Frame并立即比较，不保存引用、分配额外内存或修改状态和断言；后者手工调整七处权限及一处HTTP断言的空白。保留原候选与失败格式输出，显式Rust2024两个文件格式检查已通过，六处类型/借用增量及八处格式增量均能准确逆还原；仍不能代替编译、Clippy或实际55项测试。最终定向独审后再提交隔离验证。
+
+
+### HTTP401原生有限实现接续（2026-10-29）
+
+三纯模块获审候选`f53e3da`已备份并推送，macOS40855850514、Windows40855850417、dispatcher40855850389开始新一轮隔离验证，55新增定义尚无实际结论。现由唯一作者接续已接受HTTP401合同的driver/fixture及专用原生辅助模块；当前CI严格绑定已提交候选，不包含后续未提交源码。开发入口仅为既有windows-sys依赖增加fixture特性下的WinSock能力，Cargo.lock与版本保持；schema15工作流由开发入口在作者冻结后负责。
+
+依照既定九步监听/四步接受设置、单连接、一次实际服务调用每至少25毫秒、2048次服务上限、4096请求与139固定响应、真实Cancel及读回先于元数据、严格原45/首次关闭10/外75秒等合同实现。只产生真实计数和部分失败库存，原关闭门禁纳入socket/启动/动作义务；保留实际first-close至运行返回、唤醒线程加入、临时目录关闭及最终写入。错误或迟到不填正向回执、不重试放宽条件，原所有场景和正常生产拒绝保持。冻结后仍需完整独立规格/质量审查与隔离实际验证，不据源码实施授权称原生通过或发布完成。
+
+
+2026-10-29后续：f53的Mac40855850514与Windows40855850417完整SUCCESS，实际merge6ae2e30全树一致；Windows原始519条通过记录对应518不同方法，新增15/29/11纯模块测试各真实通过。两端实际独审尚未全结论，dispatcher40855850389继续。权限wire暂存源54154/58046eb1及独审10774/acfad726经开发入口全文接受有限SOURCE C0/I0/M0，21定义仍未运行且未接入；HTTP原生唯一作者继续，开发入口并行准备严格schema15工作流，后续源码不借用本轮实际结果。
+
+
+2026-10-29 S5时钟受控RED准备：七项新定义和可构建的固定零elapsed基线只暂存在独立材料中，预期五项真实数值/Session边界失败、两项独立wall/格式失败控制通过；尚无实际结果。测试覆盖299/300秒、共享clone、u64毫秒转换、墙钟跳变及注入休眠跨度，不改变产品期限，不声称真实休眠。拟从已测f53创建仅四路径差异的临时隔离CI树，保留活动分支、工作区及真实索引；先严格编译/Clippy，再核验精确五个断言失败与两个控制。完整源码及执行入口须独审并接受后才推临时分支；主PR、运行中CI及HTTP作者不切换或重启。实际RED独审后才实现GetTickCount64及独立原生wall源，临时测试工作流不进入发布树。
+
+### 时钟实际验收与组合接续（2026-10-29）
+
+S5时钟的独立RED已实际确认五条行为失败与两条控制通过；后续dcf0f5a/40863897919在严格编译及Clippy后八条均通过，包含不变原七条及原生GetTickCount64/独立UTC绑定。源码独审和实际独审均C0/I0/M0并经开发入口全文接受；只接受受控与原生API绑定范围，未声称物理休眠或生产调度完成。临时工作流不进入发布树，整合时保留HTTP WinSock能力并单独增加SystemInformation。
+
+按照已接受的S5组合准备及技术决定，下一并行作者只在私有新候选中实现可编译UI本地registry、Send mark-only调度和driver facade接口及行为RED定义；唯一有意缺口为settled-turn尚不转交排队工作。复用真实dispatcher/session，保留操作前release/cleanup预留、短借用及内联/嵌套推迟；冷启动和读取不得获取租约或原生建窗，生产动作仍不可用。先独立源码审查及隔离实际RED，再修复为GREEN；不以缺符号/编译失败当行为RED，不替代后续真实native共享租约、bootstrap、timer或terminal路线。
+
+HTTP401当前双审HOLD的两重要及两minor由原唯一作者修正；权限schema14合同独审C0/I0/M0已全文接受，保留严格B、无效果等待、原45/10/75及真实exit0。生命周期统计须按真实进入时刻作互斥分区；最终文件写入全过程必须仍受原75秒看门狗保护，停止后迟到判定使用非零退出而不再无保护写入。验收合同接受不代表原生源码或实际结果接受。
+
+2026-10-29：HTTP401定向fix2已通过独立规格6393/37209c23和质量7204/3220e3a6复审，开发入口全文接受SOURCE C0/I0/M0后整合；两个重要问题及两个证据准确性问题均在源码层面闭合，新增15项HTTP helper回归和实际native结果仍未运行。已接受的clock八项源码逐字整合，权限严格wire的21项定义仅作测试接入，三处新增注册正在窄复审。权限schema14检查器辅助提交64e0363的隔离CI40871404905七步骤成功，原始日志与产物确认18个唯一定义全部通过、exit0/reaped，独立实际复审进行中；这仅是合成数据校验，不代表原生权限已验证。S5 UI线程runtime RED候选已冻结，11定义预计3个行为失败加8个对照，独立源码审查及隔离入口准备并行；未接入产品动作。保留全部旧改动和失败，整体004仍进行中，未合并或发布。
+
+
+### 2026-10-30 权限初始化与终止线程回收的限定接续
+
+权限初始化选择第三个封闭分支 `ObservedInitialStopOnly`：必须已观察到同一初始上下文与实际 Stop、没有 Start；孤立 Stop 或 start-only 仍不满足导航前置。这个分支不补造 Start、selected 文档事实或上下文退休，仍要求独立 selected 四事实、真实 blank 销毁或清除、匹配导航及响应、树回复、两次完整 Source、真实拒绝和时限内效果。native 映射及外置严格 validator 只加入这一精确枚举，保持字段和全部既有拒绝条件；不得加 optional mask 作为证据捷径。原四行为 RED 与旧32条定义保持，唯一旧半pair测试按明确新分类迁移，新增16条完整路径及否定边界。辅助45cb/run40969470513已实际通过53协议和21合成DATA并经独审接受；这些结果不证明 native 映射或真实效果，后续只整合四个获审文件并运行正常 Windows/native 门禁。
+
+runtime 受控分片在真实完整 settled turn、已消费终止前置及显式 Quiescent 后，才取消和移交实际 TickProducer。阻塞线程执行真实 worker join，具体 blocking/continuation 句柄全程留存；capacity-one DATA 先交付，随后仅发布 binding mark，并另等实际 post 返回成功。UI 不阻塞等待 join，真实收据及新鲜队列/epoch/current 检查共同决定 non-Clone、按值一次消费的许可。失败、未知、worker panic、交付/留存失败都不授权；异常保留的资源不称正常清理。130198首轮6056/run40970354005因单一Clippy布尔表达式失败，253当时未运行；仅等价单行修正的130196/FIX2和CI身份刷新已独审接受。后续8b9/run40972069912官方成功，原始253唯一PASS、严格构建及六阶段返回回收均已读取，实际独审18967/85f2eb56已由开发入口全文接受有限C0/I0/M0。main 的 mod/Cargo 与辅助分支分别保留，禁止整树复制。
+
+上述 runtime 仍是 cfg(test) 受控 backend，不包含真实双 owner 原生静止证明、Profile2 清理的完成与释放两类收据、生产 AppHandle/RunEvent、退出与更新仲裁或安装器许可消费者。共享槽 Stage A 实际通过也不能替代这些后续分片。HTTP 双连接 FIX1 及完整有界 schema 仍在独立准备审查，无源码授权。Task4/Task5继续；用户已明确全部测试和独审通过后直接发布，无需再次询问。
+
+
+### 2026-10-30 HTTP401 双连接合同接受与有效失败基线
+
+完整FIX1合同及56闭合对象/119位置的完整schema经独立审查C0/I0/M0，开发入口全文接受。完整native记录最多6938字节、controlled记录最多7312字节，原单记录8192上限保持；两者分别证明原生效果与受控运输，不相互代替。原四项客户端完成、独立客户端责任、peer/local与seal计数问题在设计层闭合，尚未实现或实际验收。
+
+下一源码片仅在独立候选中抽取/共享当前真实单连接运输核心并保留其accept1立即关闭listener的行为，以及追加同核心的真实A空闲/B请求受控回归。可修改N和一个私有运输模块；现D、pure parser、F、Windows主工作流、权限/runtime组合及所有旧测试保持。受控客户端使用独立startup与两次准确close、一次connect、零timeout select与唯一SO_ERROR，原global25ms/2048和45/10/75不变。有效RED必须B实际完成Refused、此前A真实已连接/accept与listenerclose、所有独立责任正常清理后，仅固定Connected断言准确失败；编译、setup、Pending、超时或清理失败不算RED。先完成最小源码独审和隔离实际RED验收，再实现双槽/首非空winner/辅助零数据seal的GREEN；同一断言与客户端序列保持。所有完整原生拒绝、Session与正常清理仍须后续真实native门禁，不由运输成功代替。
+
+
+受控RED入口补充：当前N旧unit测试没有Winsock服务机会循环，不能声称复用不存在的harness。开发入口允许仅cfg(test)中的当前测试线程有限机会驱动，同一真实共同核心，每次至多一个primary操作，原25ms/计数及绝对45/首次close10/outer75照常；等待只在测试线程作有上限的被动sleep，醒后先检查原期限，禁止自旋/catch-up/内重试/新worker或生产UI pump。作者须把确切turn/sleep上限和无法回收分支列为新补充，与源码一起独审后才运行。该入口不生产虚构native Basic/Session/生命周期事实；原冻结合同与审查原样保留，不倒改历史。
+
+
+主树整合补充（2026-10-30）：组合审查定位到默认并行测试之间的全局回收库存锁交错。仅在runtime的29个相关unit test最外层增加共同生命周期guard；产品失败关闭、30个旧测试体/断言及全部期限保持，其他库测试及正常工作流继续默认并行。授权delta可精确逆还原为已实际验收的cfaf源；定向独审C0/I0/M0后整合132497/f01b及权限四源，仍须正常主树实际验证。
+
+
+### 2026-10-30 S5真实冷工厂可达性与显式退役
+
+只读核对确认：现有unit tests没有真实AppHandle/Wry harness，而真实STA/AppHandle仅在harness=false原生夹具；其library看不到cfg(test) runtime。不能以模拟后端、函数引用或冷Owner代替完整NativeBackend正常安装。新的可达性修订14974/50ffa2d7经独立准备审查14377/5bcbf094确认架构可行，指出完整改动范围漏掉两个dispatcher精确pin所有者。开发入口全文接受该发现，并在本计划明确修正为十路径；原准备/独审历史保留。
+
+只将私有runtime与clock扩展到既有Windows test或debug_assertions且code0-native-fixture范围；tick及runtime终止/tick子图仍cfg(test)，原29生命周期guard和已验收测试配置的行为保持。仅扩展Session stopped和Dispatcher stopped/idle的既有纯观察依赖，保留原函数体；begin_terminal_stop不扩展，不新增生产动作入口、不把NativeBackend称Quiescent、不授终止许可。共用同一个install/facade/registry/settled实现，从原D fixture的不透明non-Clone包装入口进入原真实STA/AppHandle，不新建第二套harness、时钟起点、租约或registry。
+
+同一个具体native clock的clone分别进入Session、Dispatcher与清理context；预算只能取新建同Session的Weak handle。真实D的once/cold bind在Session构造后、Dispatcher及registry公开前完成，借用结束后才发布；setup/bind失败不是目标RED。首片仅验证真实冷安装、普通Stop消费、明确退役，clear继续拒绝；不迁移Instance.request、不改N/P，不宣称C/R、Profile2或生产组合已完成。
+
+不透明包装必须在app.exit前消费全部拥有的Runtime/lookup/registry/backend/context句柄，并在UI/STA、全部借用及settled调用结束后完成真实drop。先有实际Stopped回复、原stopped/idle检查、当前matching registry和空队列；冷资格在任何lease acquire、create、构造或clear入口之前永久失效，即使失败或后来release也不恢复。slot空/instance无/record查询无不能单独冒充从未开始或销毁证明；失败保留所有权和原期限，不强拆live owner。真实run_return、wake取消与join、一次TempDir.close及Result drop、原45/首次stop10/outer75、fresh summary/exit继续要求。
+
+完整范围固定为七源码/测试路径：mod.rs、code0_runtime.rs、code0_dispatcher.rs、code0_web_session.rs、code0_webview.rs、新cleanup_native.rs、tests/code0_native_fixture.rs；加三个CI路径：.github/workflows/windows-ci.yml、scripts/test-code0-dispatcher-mutations.py、.github/workflows/code0-dispatcher-mutations.yml。后三项由开发入口在源码冻结后整合。Dispatcher精确SHA及四mutant完整源码SHA必随新字节重算，patch SHA/真实panic行号按最终文本重新导出（不假定必改变）；workflow内全部runner固定SHA同步。四变异配方/断言、23+2基线、strict编译后准确语义kill、完整源码归档及原时限日志界限均保留，禁止绕过门禁。正常release/no-feature、debugfeature非test库/F及原test配置须实际严格构建/测试，无lint豁免或函数引用假验收。
+
+先由唯一作者实现这七路径的私有候选并冻结完整receipt/schema/生产者/保护；独立源码及组合CI审查通过后，才在隔离Windows实际运行首片。新case仅实际冷安装/lifetime正向覆盖，不制造缺API或setup失败作为行为RED；后续真实清理B行为RED和C/R物理完成另行推进。用户已有全测试及独审通过后直接发布授权保持。
+
+
+### 2026-10-30 B 受控清理结果与实际 owner 释放的有限接续
+
+开发入口全文读取固定设计24237/1a30dce9，在已接受的单owner、完整CleanupKey、Session原始Disconnect10预算与C+R合同内选定六路径私有候选：D、cleanup_native、N/P的必要Window-view适配、runtime窄接线、F固定场景。Session/Dispatcher/clock/lease-store算法及CI不由该作者修改。冷工厂实际门禁仍须通过；允许并行准备新私有源码，不因此接受冷工厂或B实际结果。N最终只能机械适配到HTTP作者最新获审冻结字节，不能覆盖其运输改动；runtime/F须保留本轮实际编译问题的准确修正。
+
+固定fixture-only缓存包装先真实读取同一store并要求Ok(None)，仅一次返回固定2/1受控快照；以后load与全部remove/save委托真实store。实际同一install/Session/Dispatcher、同clock/Weak预算及真实shared-slot authority负责生成完整请求、预留与admission；不伪造登录、Window Released或请求。只提供固定无参Disconnect入口。单一原生Owner增加Window/Cleanup目的与完整binding/request/checked generation，所有物理回调绑定完整key，Window路径拒绝Cleanup。Cleanup复用实际COM窗口构造、PID/exit注册与正常Close/Destroyed/库存；本片不调用Profile2/SDK清理，也不宣称数据删除。
+
+C明确为固定内联rawS_OK受控完成；实际Rust完成对象保留独立Drop票据，Invoke/闭包消费不能冒充对象Drop或SDK COM证据。先验证内联不发布、C无R不发布、真正Close已完成但对象保留仍阻止R，再无参释放该对象，等待原生Owner全部真实库存与完整外层返回。唯一故意RED缺口是正常poll未调用同一个已受完整C/R/key/authority/Weak预算和原期限检查的一次publisher。目标观测永久锁存normal publication0、Session仍Closing、authority仍held后，独立计数的无参teardown continuation仅调用同一publisher并重新核全部实时条件；不接受外部Result/key/时间，不恢复失败预算、不掩盖原目标失败。GREEN只补正常调用，normal1/teardown0，断言和控制保持。
+
+只有实际消费匹配结果、Session真实Disconnected/release撤销authority，再真实Stop/Stopped/idle，且无队列/未消费结果/原生库存/保留对象，才允许独立的非冷按值退役并在所有borrow之外drop全部句柄。clear/acquire/create永久使旧cold退役不合格，slot空或registry无不单独证明R；失败保留拥有者。目标B1加七个同case健康控制和四项typed bookkeeping unit定义；不可正常Stopped的错误场景明确留给后续真实失败保留验收，不能自动修复伪造正常关闭。
+
+准确语义RED必须等待真实run_return0、wake取消/join、一次TempDir.close及Result drop、原45/首次Stop10/outer75内最终写入及看门狗join之后才返回Ok(false)/exit1。任何setup/构造/缺R/超时/预算/sink/收尾或I/O失败均Incomplete，不算目标RED；控制C不证明SDK清理、非冷fixture释放不证明生产Quiescent或quit/update许可。新源码须独审，完整闭合schema/实际CI另由开发入口整合；未通过完整cold实际与B实际独审前不进入B GREEN或声称生产完成。

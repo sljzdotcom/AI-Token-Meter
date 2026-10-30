@@ -25,7 +25,7 @@ struct FloatingStripPreferencesTests {
 
         let encoded = try JSONEncoder().encode(value)
         let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 5)
+        #expect(json["schemaVersion"] as? Int == 6)
         #expect(json["appearance"] as? String == "liquidGlass")
         #expect(try JSONDecoder().decode(FloatingStripPreferences.self, from: encoded).appearance == .liquidGlass)
     }
@@ -64,7 +64,7 @@ struct FloatingStripPreferencesTests {
     @Test func legacyMigrationAndRestartPreserveUserChoices() throws {
         let data = Data(#"{"density":"comfortable","foldDelay":15,"orderedProviders":["deepSeek","codex","claude"],"hiddenProviders":["codex"],"hiddenUntil":123}"#.utf8)
         let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
-        #expect(value.orderedProviders.map(\.rawValue) == ["deepSeek", "codex", "claude", "gemini"])
+        #expect(value.orderedProviders.map(\.rawValue) == ["deepSeek", "codex", "claude", "gemini", "code0"])
         #expect(value.visibleProviders.map(\.rawValue) == ["deepSeek", "claude"])
         #expect(value.density == .comfortable)
         #expect(value.revealDelayMilliseconds == 150)
@@ -74,7 +74,7 @@ struct FloatingStripPreferencesTests {
         let changed = value.settingVisible(gemini, visible: true)
         let encoded = try JSONEncoder().encode(changed)
         let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 5)
+        #expect(json["schemaVersion"] as? Int == 6)
         #expect(json["automaticallyCollapses"] as? Bool == true)
         #expect(try JSONDecoder().decode(FloatingStripPreferences.self, from: encoded) == changed)
     }
@@ -87,7 +87,7 @@ struct FloatingStripPreferencesTests {
     }
 
     @Test func everyOrderAndNonemptyVisibilitySetSurvivesPersistence() throws {
-        let providers = UsageProvider.allCases
+        let providers = UsageProvider.refreshProviders
         #expect(providers.count == 4)
         func permutations(_ remaining: [UsageProvider]) -> [[UsageProvider]] {
             if remaining.isEmpty { return [[]] }
@@ -102,7 +102,7 @@ struct FloatingStripPreferencesTests {
                 value.hiddenProviders = order.enumerated().filter { mask & (1 << $0.offset) == 0 }.map(\.element)
                 value.normalize()
                 let restored = try JSONDecoder().decode(FloatingStripPreferences.self, from: JSONEncoder().encode(value))
-                #expect(restored.orderedProviders == order)
+                #expect(restored.orderedProviders == order + [.code0])
                 #expect(restored.visibleProviders == order.enumerated().filter { mask & (1 << $0.offset) != 0 }.map(\.element))
                 if restored.visibleProviders.count == 1, let only = restored.visibleProviders.first {
                     #expect(restored.settingVisible(only, visible: false).visibleProviders == [only])
@@ -134,7 +134,7 @@ struct FloatingStripPreferencesTests {
         value.hiddenProviders = UsageProvider.allCases
         store.save(value)
         let restored = store.load()
-        #expect(restored.orderedProviders.map(\.rawValue) == ["codex", "claude", "deepSeek", "gemini"])
+        #expect(restored.orderedProviders.map(\.rawValue) == ["codex", "claude", "deepSeek", "gemini", "code0"])
         #expect(restored.visibleProviders == [.codex])
         #expect(!restored.settingVisible(.codex, visible: false).visibleProviders.isEmpty)
     }
@@ -176,7 +176,7 @@ struct FloatingStripPreferencesTests {
         value.automaticallyCollapses = false
         value.normalize()
         let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 5)
+        #expect(json["schemaVersion"] as? Int == 6)
         #expect(json["automaticallyCollapses"] as? Bool == false)
         #expect(json["revealDelayMilliseconds"] as? Int == 2_000)
         #expect(json["collapseDelayMilliseconds"] as? Int == 5_000)

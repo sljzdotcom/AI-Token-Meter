@@ -231,7 +231,7 @@ struct VisualSystemTests {
             UsageProvider.deepSeek.accentPalette
                 == .init(startHex: 0x54EDC6, endHex: 0x7769FF)
         )
-        #expect(Set(UsageProvider.allCases.map(\.accentPalette)).count == 4)
+        #expect(Set(UsageProvider.refreshProviders.map(\.accentPalette)).count == 4)
     }
 
     @Test("DeepSeek always keeps its balance palette while other providers use semantic overrides")
@@ -257,7 +257,7 @@ struct VisualSystemTests {
     @Test("DeepSeek progress stays branded while other warning bars stay semantic")
     @MainActor
     func providerProgressBarColors() throws {
-        let normalColors = try UsageProvider.allCases.map {
+        let normalColors = try UsageProvider.refreshProviders.map {
             try progressBarPixel(provider: $0, semantic: .normal)
         }
         #expect(Set(normalColors).count == 4)

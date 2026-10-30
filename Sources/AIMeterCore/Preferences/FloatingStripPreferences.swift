@@ -11,7 +11,7 @@ public enum FloatingStripDensity: String, Codable, CaseIterable, Sendable {
     public var baseHeight: Double { baseContentHeight }
     public func contentHeight(providerCount: Int) -> Double {
         let firstHeight = self == .comfortable ? 212.0 : 170.0
-        return firstHeight + Double(min(max(providerCount, 1), 4) - 1) * (ringSize + spacing)
+        return firstHeight + Double(min(max(providerCount, 1), 5) - 1) * (ringSize + spacing)
     }
     public func height(providerCount: Int) -> Double {
         contentHeight(providerCount: providerCount)
@@ -29,14 +29,14 @@ public enum FloatingStripFoldDelay: Int, Codable, CaseIterable, Sendable {
 }
 
 public struct FloatingStripPreferences: Codable, Equatable, Sendable {
-    public private(set) var schemaVersion = 5
+    public private(set) var schemaVersion = 6
     public var density: FloatingStripDensity = .compact
     public var appearance: FloatingStripAppearance = .deepSea
     public var automaticallyCollapses = true
     public var revealDelayMilliseconds = 150
     public var collapseDelayMilliseconds = 800
     public var orderedProviders: [UsageProvider] = UsageProvider.allCases
-    public var hiddenProviders: [UsageProvider] = []
+    public var hiddenProviders: [UsageProvider] = [.code0]
     public var hiddenUntil: TimeInterval?
 
     public init(
@@ -79,6 +79,7 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
         let recorded = ((try? values.decode([String].self, forKey: .orderedProviders)) ?? [])
             + ((try? values.decode([String].self, forKey: .hiddenProviders)) ?? [])
         if version < 2 && !recorded.contains("gemini") { hiddenProviders.append(.gemini) }
+        if !recorded.contains("code0") { hiddenProviders.append(.code0) }
         hiddenUntil = try? values.decode(TimeInterval.self, forKey: .hiddenUntil)
         normalize()
     }
@@ -88,10 +89,11 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
     }
 
     public mutating func normalize() {
-        schemaVersion = 5
+        schemaVersion = 6
         if !(0...2_000).contains(revealDelayMilliseconds) { revealDelayMilliseconds = 150 }
         if !(0...5_000).contains(collapseDelayMilliseconds) { collapseDelayMilliseconds = 800 }
         var seen = Set<UsageProvider>()
+        if !orderedProviders.contains(.code0) { hiddenProviders.append(.code0) }
         orderedProviders = (orderedProviders + UsageProvider.allCases).filter { seen.insert($0).inserted }
         hiddenProviders = orderedProviders.filter { hiddenProviders.contains($0) }
         if visibleProviders.isEmpty, let first = orderedProviders.first {

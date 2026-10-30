@@ -94,7 +94,7 @@ final class CLIAuthenticationLauncher {
             // Give each attempt its own immutable script path so an old request
             // can never observe a later attempt's coordinator paths.
             scriptName = "Open Antigravity Login \(UUID().uuidString).command"
-        case .deepSeek:
+        case .deepSeek, .code0:
             throw CLIAuthenticationLaunchError.unsupportedProvider
         }
 

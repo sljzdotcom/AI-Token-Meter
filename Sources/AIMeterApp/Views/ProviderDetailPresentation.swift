@@ -30,7 +30,7 @@ enum ProviderDetailText {
         "5h limit", "Weekly limit", "Usage limit", "Available balance", "Balance baseline", "Monthly budget",
         "Gemini · Five hour", "Gemini · Weekly", "Claude/GPT · Five hour", "Claude/GPT · Weekly",
         "Account connection required", "One-time Claude Code workspace approval", "CLI was not found",
-        "Checking current usage", "Usage format changed", "No current data", "Usage",
+        "Checking current usage", "Usage format changed", "No current data", "Usage", "Balance", "Cumulative usage",
     ]
 
     private static let diagnosticKeys: Set<String> = [
@@ -76,6 +76,9 @@ enum ProviderDetailText {
     }
 
     static func value(_ value: String, localizer: AppLocalizer) -> String {
+        if value.hasSuffix(" site credits"), let amount = Double(value.dropLast(" site credits".count)) {
+            return localizer.text("%@ site credits", localizer.decimal(amount, fractionDigits: 2))
+        }
         for suffix in [" tokens", " requests"] where value.hasSuffix(suffix) {
             let raw = String(value.dropLast(suffix.count))
             return localizer.text("%@" + suffix, Int64(raw).map { localizer.number($0) } ?? raw)

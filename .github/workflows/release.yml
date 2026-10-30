@@ -45,10 +45,18 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Sources/AIMeterApp/Resources/Info.plist)" = "$VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Sources/AIMeterApp/Resources/Info.plist)" = "$BUILD_NUMBER"
           test "$(git describe --tags --exact-match HEAD)" = "v$VERSION"
+      - name: Set up Node.js for shared bridge contracts
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Verify shared passive bridge contracts
+        run: node --test web/code0-bridge.test.mjs
       - name: Test and validate tagged source
         run: |
           bash scripts/test.sh
           ruby scripts/check-cross-platform-contracts.rb .
+      - name: Verify native Code0 fixture in a separate test-only build
+        run: bash scripts/test-code0-native-fixture.sh
       - name: Verify signed macOS assets in the draft or public recovery release
         shell: bash
         run: |
@@ -101,6 +109,8 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
             throw "TAURI_SIGNING_PRIVATE_KEY is not configured"
           }
+      - name: Verify native bridge resource matches shared source
+        run: python scripts/sync-code0-bridge.py --check
       - name: Install and test Windows source
         working-directory: windows
         run: npm ci
