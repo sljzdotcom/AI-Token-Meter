@@ -11,6 +11,18 @@ on:
         description: Monotonic macOS build number
         required: true
         type: string
+      platform:
+        description: >-
+          Release targets. "both" builds and publishes the macOS and Windows
+          assets as before; "macos" publishes the signed macOS assets only and
+          leaves the Windows batch to a later release. Every macOS gate runs in
+          both modes.
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - macos
 
 permissions:
   contents: write
@@ -78,8 +90,11 @@ jobs:
           grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" "$appcast"
           grep -Fq "sparkle:edSignature=" "$appcast"
 
+  # macOS-only releases skip this job explicitly instead of deleting it: the
+  # Windows batch resumes by dispatching with platform=both. See docs/releases.
   windows-release:
     name: Build signed Windows release
+    if: ${{ inputs.platform == 'both' }}
     runs-on: windows-latest
     timeout-minutes: 35
     env:
@@ -171,6 +186,8 @@ jobs:
   publish:
     name: Publish synchronized release
     needs: [macos-preflight, windows-release]
+    # windows-release is skipped for platform=macos, so require it only then.
+    if: ${{ !cancelled() && needs.macos-preflight.result == 'success' && (inputs.platform != 'both' || needs.windows-release.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -182,11 +199,13 @@ jobs:
         with:
           ref: v${{ inputs.version }}
       - name: Download Windows release assets
+        if: ${{ inputs.platform == 'both' }}
         uses: actions/download-artifact@v5
         with:
           name: ai-token-meter-windows-x64-release
           path: windows-build
       - name: Select verified build assets or exact public recovery assets
+        if: ${{ inputs.platform == 'both' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -205,6 +224,7 @@ jobs:
             exit 1
           fi
       - name: Verify Windows assets and create updater manifest
+        if: ${{ inputs.platform == 'both' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -245,6 +265,7 @@ jobs:
               "$backup_dir/prior-preview-feed.json"
           fi
       - name: Upload Windows assets and publish the verified draft
+        if: ${{ inputs.platform == 'both' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -258,6 +279,34 @@ jobs:
             assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
             installer="AI-Token-Meter-${VERSION}-windows-x64-setup.exe"
             for expected in "$installer" "$installer.sha256" "$installer.sig" latest.json; do
+              grep -Fxq "$expected" <<<"$assets"
+            done
+          else
+            echo "Unable to determine release visibility for v$VERSION" >&2
+            exit 1
+          fi
+      - name: Publish the verified macOS draft release
+        if: ${{ inputs.platform == 'macos' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          backup_dir="$RUNNER_TEMP/release-feed-backup"
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          appcast="appcast.xml"
+          feed_dir="$RUNNER_TEMP/macos-draft-verification"
+          mkdir -p "$feed_dir"
+          if [[ "$release_state" == "true" ]]; then
+            assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+            for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+              "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "$appcast"; do
+              grep -Fxq "$expected" <<<"$assets"
+            done
+            touch "$backup_dir/publication-attempted"
+            gh release edit "v${VERSION}" --draft=false
+          elif [[ "$release_state" == "false" ]]; then
+            assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+            for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+              "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "$appcast"; do
               grep -Fxq "$expected" <<<"$assets"
             done
           else
@@ -287,6 +336,7 @@ jobs:
           git commit -m "release: publish appcast v$VERSION"
           git push origin HEAD:main
       - name: Update the fixed Windows preview feed after assets are public
+        if: ${{ inputs.platform == 'both' }}
         shell: bash
         run: |
           set -euo pipefail
