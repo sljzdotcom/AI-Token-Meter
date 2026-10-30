@@ -13,16 +13,25 @@ on:
         type: string
       platform:
         description: >-
-          Release targets. "both" builds and publishes the macOS and Windows
-          assets as before; "macos" publishes the signed macOS assets only and
-          leaves the Windows batch to a later release. Every macOS gate runs in
-          both modes.
+          Release targets. "both" builds the macOS and Windows assets; "macos"
+          builds the signed macOS assets only and leaves the Windows batch to a
+          later release. Every macOS gate runs in both modes. Neither mode makes
+          anything public unless publish is true.
         required: true
         default: both
         type: choice
         options:
           - both
           - macos
+      publish:
+        description: >-
+          Irreversible. Set to true to publish the verified draft release and to
+          push the updated public appcast. Keep it false (the default) to build
+          and verify the macOS assets only: the release then stays a draft and
+          main is never written to.
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -243,6 +252,28 @@ jobs:
             '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
             > latest.json
           jq -e --arg version "$VERSION" '.version == $version and (.platforms["windows-x86_64"].signature | length > 0)' latest.json >/dev/null
+      - name: Refuse a publish request that is not a fresh draft
+        if: ${{ inputs.publish == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          json="$(gh release view "v$VERSION" --json isDraft,tagName)"
+          is_draft="$(jq -r '.isDraft' <<<"$json")"
+          tag="$(jq -r '.tagName' <<<"$json")"
+          if [[ "$tag" != "v$VERSION" ]]; then
+            echo "v$VERSION is served from tag $tag" >&2
+            exit 1
+          fi
+          if [[ "$is_draft" != "true" ]]; then
+            echo "Refusing to publish v$VERSION again: the release is already public" >&2
+            exit 1
+          fi
+          git fetch origin main
+          if git show origin/main:appcast.xml |
+            grep -Fq "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"; then
+            echo "Refusing to publish v$VERSION again: main already serves it in appcast.xml" >&2
+            exit 1
+          fi
       - name: Back up public update feeds before publication
         shell: bash
         run: |
@@ -265,7 +296,7 @@ jobs:
               "$backup_dir/prior-preview-feed.json"
           fi
       - name: Upload Windows assets and publish the verified draft
-        if: ${{ inputs.platform == 'both' }}
+        if: ${{ inputs.platform == 'both' && inputs.publish == true }}
         shell: bash
         run: |
           set -euo pipefail
@@ -285,36 +316,42 @@ jobs:
             echo "Unable to determine release visibility for v$VERSION" >&2
             exit 1
           fi
-      - name: Publish the verified macOS draft release
+      - name: Verify the macOS draft assets
         if: ${{ inputs.platform == 'macos' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
+          appcast="appcast.xml"
+          if [[ "$release_state" != "true" && "$release_state" != "false" ]]; then
+            echo "Unable to determine release visibility for v$VERSION" >&2
+            exit 1
+          fi
+          assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+          for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+            "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "$appcast"; do
+            grep -Fxq "$expected" <<<"$assets"
+          done
+      - name: Publish the verified macOS draft release
+        if: ${{ inputs.platform == 'macos' && inputs.publish == true }}
         shell: bash
         run: |
           set -euo pipefail
           backup_dir="$RUNNER_TEMP/release-feed-backup"
           release_state="$(gh release view "v$VERSION" --json isDraft --jq .isDraft)"
-          appcast="appcast.xml"
-          feed_dir="$RUNNER_TEMP/macos-draft-verification"
-          mkdir -p "$feed_dir"
-          if [[ "$release_state" == "true" ]]; then
-            assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
-            for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
-              "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "$appcast"; do
-              grep -Fxq "$expected" <<<"$assets"
-            done
-            touch "$backup_dir/publication-attempted"
-            gh release edit "v${VERSION}" --draft=false
-          elif [[ "$release_state" == "false" ]]; then
-            assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
-            for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
-              "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "$appcast"; do
-              grep -Fxq "$expected" <<<"$assets"
-            done
-          else
-            echo "Unable to determine release visibility for v$VERSION" >&2
+          if [[ "$release_state" != "true" ]]; then
+            echo "Refusing to publish v$VERSION: the release is not a draft" >&2
             exit 1
           fi
+          assets="$(gh release view "v$VERSION" --json assets --jq '.assets[].name')"
+          for expected in "AI-Token-Meter-${VERSION}-macOS-arm64.zip" \
+            "AI-Token-Meter-${VERSION}-macOS-arm64.zip.sha256" "appcast.xml"; do
+            grep -Fxq "$expected" <<<"$assets"
+          done
+          touch "$backup_dir/publication-attempted"
+          gh release edit "v${VERSION}" --draft=false
       - name: Publish the stable macOS appcast after assets are public
-        if: ${{ !contains(inputs.version, '-preview.') }}
+        if: ${{ inputs.publish == true && !contains(inputs.version, '-preview.') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -336,7 +373,7 @@ jobs:
           git commit -m "release: publish appcast v$VERSION"
           git push origin HEAD:main
       - name: Update the fixed Windows preview feed after assets are public
-        if: ${{ inputs.platform == 'both' }}
+        if: ${{ inputs.platform == 'both' && inputs.publish == true }}
         shell: bash
         run: |
           set -euo pipefail

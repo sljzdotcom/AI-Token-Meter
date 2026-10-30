@@ -19,16 +19,27 @@ fn product_metadata_matches_the_shared_contract() {
     );
 }
 
+/// Exhaustive match without a wildcard arm: adding a fifth provider variant to
+/// `ProviderId` breaks this function's compilation instead of leaving the
+/// Windows service set silently wider than the assertion below.
+fn windows_service_id(provider: ProviderId) -> &'static str {
+    match provider {
+        ProviderId::Claude => "claude",
+        ProviderId::Codex => "codex",
+        ProviderId::DeepSeek => "deepseek",
+        ProviderId::Gemini => "gemini",
+    }
+}
+
 #[test]
 fn windows_service_set_never_accepts_code0() {
     assert_eq!(
         [
-            ProviderId::Claude,
-            ProviderId::Codex,
-            ProviderId::DeepSeek,
-            ProviderId::Gemini,
-        ]
-        .map(ProviderId::as_str),
+            windows_service_id(ProviderId::Claude),
+            windows_service_id(ProviderId::Codex),
+            windows_service_id(ProviderId::DeepSeek),
+            windows_service_id(ProviderId::Gemini),
+        ],
         ["claude", "codex", "deepseek", "gemini"]
     );
 

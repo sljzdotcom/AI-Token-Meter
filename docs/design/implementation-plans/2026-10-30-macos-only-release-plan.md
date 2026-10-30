@@ -63,7 +63,7 @@
    - `publish` 的 `needs` 改为在 macos-only 下只依赖 `macos-preflight`；
    - Windows 资产下载/校验/上传、Windows preview feed 更新等步骤按同一输入跳过；
    - **不跳过任何 macOS 门禁**（版本/tag 校验、`scripts/test.sh`、契约检查、原生夹具、已签名资产校验全部保留）。
-5. **Windows 红门在合并后为何不阻塞**：因为 `windows/` 保持 `origin/main` 的版本，本分支**不引入**任何 Windows 源码改动，`windows-ci` 的既有结论不变（仍是通过的旧版本）；HTTP401/S5 继续留在 PR#67（Draft）作为后续批次载体，恢复 Windows 时再处理。**不允许**通过删断言、跳过测试、`continue-on-error`、放宽超时让它"变绿"。
+5. **Windows 红门在合并后为何不阻塞**：本条原假设是「`windows/` 保持 `origin/main` 版本 ⇒ `windows-ci` 结论不变」。**该假设已被证伪，结论以偏离 4、偏离 5 与一次本分支实跑为准**：共享契约里新增的 Code0 条目会让 Windows 运行时解码失败，因此发布分支把 `contracts/presentation/providers.json` 收回 `main` 的 4 项、把 Code0 条目移入 `contracts/presentation/providers.macos.json`，再用本分支上的 Windows CI run `41011704808`（job `Windows frontend and Rust runtime` success）取得结论——**不再引用 `main` 的旧结论**。HTTP401/S5 继续留在 PR#67（Draft）作为后续批次载体。**不允许**通过删断言、跳过测试、`continue-on-error`、放宽超时让它"变绿"。
 6. `pr#67` 保持 Draft，不合并、不改状态。
 
 **执行记录（2026-10-30，实际落地与本文的差异）**：
@@ -74,8 +74,14 @@
 - 偏离 3：版本数字实际落地范围以 `scripts/check-cross-platform-contracts.rb` 为准，除第 3 步所列外还需 `windows/package-lock.json`（两处）、`windows/src-tauri/Cargo.lock`，以及 `Sources/AIMeterWidgetExtension/Resources/Info.plist`（Widget 与宿主版本一致性断言）。
 - 偏离 4（含一次被证伪的假设，必须记录）：第 5 步「`windows/` 保持 `origin/main` ⇒ `windows-ci` 结论不变」一度被证伪。`5e03674b` 把 Code0 条目写进了共享 `contracts/presentation/providers.json`，并新增 `contracts/fixtures/code0-site-credits.json`；而 Windows 运行时用 4 变体 `ProviderId` 解码这份共享契约（两处 `include_str!`：`windows/src-tauri/src/lib.rs:32`、`windows/src-tauri/src/domain/presentation.rs:7`），于是 Windows CI 连红四次（`41006482385`、`41007442895`、`41009318287`、`41010012618`）。中途曾用「测试侧显式排除 code0 夹具 + 目录期望跟随」修补（`18faf8be`、`c8d4f31e`），被独立审查判定为**用测试掩盖产品缺陷**并否决；该修补已整体 revert，不保留其写法。
 - 偏离 5（契约按平台拆分，取代上述修补）：共享契约只描述两个平台都实现的服务——`contracts/presentation/providers.json` 回到 `main` 的 4 项（两侧运行时都解码这一份），Code0 展示条目移到 `contracts/presentation/providers.macos.json`（`schemaVersion 1` + `platform: "macos"`）；`contracts/fixtures/code0-site-credits.json` 移到 `contracts/fixtures/macos/` 子目录，共享夹具回到 6 个。`scripts/check-cross-platform-contracts.rb` 随之分两段校验：共享 6 fixture + 4 provider 与 `main` 一致；macOS-only 1 fixture + 1 provider 且**只允许 `code0`**；再用合并结果断言仍是 5 项、顺序/displayName/进度语义/logoKey 唯一性与 snapshot schema enum 不变。该门禁用两个负例验证过会红（macOS 文件混入第二个 provider、共享夹具多加一个）。`windows/src-tauri/tests/shared_contract.rs` 全量回退 `main`；`app_metadata.rs` 只保留 `0.11.0` 版本断言与此前新增的 `windows_service_set_never_accepts_code0` 守卫（断言 Windows 域只有四个服务、`code0` 快照解码必须报错）。影响面结论：`Sources/` 对 `providers.json` 零引用，macOS 生产代码不读它，故本次拆分对 macOS 运行时零影响，是纯契约/测试层动作。
+- 第 4 步补充（第二轮复审 C-1）：`release.yml` 光有 `platform` 开关不足——原流程里 `platform=macos` 仍会走 `gh release edit --draft=false` 与 appcast 提交推送，即 dispatch 一次就是不可逆正式发布。现增加 **`publish` 布尔输入，默认 `false`**：`--draft=false` 与 appcast 提交/推送、Windows preview feed 更新、Windows draft 公开步骤全部带 `inputs.publish == true` 条件；`publish=false` 时这些步骤在日志里显式 skipped，只保留资产校验。另加 `Refuse a publish request that is not a fresh draft` 卫兵：`publish=true` 而 release 已公开、tag 与版本不符、或 `main` 的 appcast 已服务该版本时 fail-fast，防重复发布。`scripts/package-cross-platform-release.sh` 的 dispatch 显式传 `-f platform=both -f publish=true`，保持原有发布口径不变。
 - 第 4 步（`release.yml` 的 `platform: macos|both`）已实现：`windows-release` job 整体 `if: inputs.platform == 'both'`（显式跳过，非删除）；`publish` 改为 `!cancelled() && needs.macos-preflight.result == 'success' && (inputs.platform != 'both' || needs.windows-release.result == 'success')`；`publish` 内四个 Windows 步骤逐个加 `if: inputs.platform == 'both'`；并新增 `Publish the verified macOS draft release`（仅 `platform == 'macos'`）——原流程只有 Windows 步骤才会把 draft 转为公开，macOS-only 必须补这一步，且它只在 macOS 资产（zip、`.sha256`、`appcast.xml`）齐备时公开。macOS 门禁一项未减少。
 - Draft PR #68 仅用于在 macOS runner 上取得权威门禁结论，保持 Draft、不合并、不转 Ready。
+
+**已知限制补充（第二轮复审 M-4 / M-5）**：
+
+- **M-4 测试数只互校、不对实测**：`scripts/check-docs.sh` 仅比对 `README.md` 徽章与 `docs/development/testing.md` 里的数字是否一致，**不校验该数字与真实测试输出相符**。因此"两个文件都写错但一致"不会被发现；本轮 886 的可信度来自 CI 日志七段 `Test run with … passed` 的独立加总（`41011704796` 的 `Swift tests and public-release checks` job），不是来自该门禁。后果：今后改测试而未同步两处数字时，门禁不会报错。
+- **M-5 契约与 macOS 展示源可漂移**：`contracts/presentation/providers.macos.json` 是发布元数据/门禁输入，**不是** macOS 运行时读取的源；真实来源分散在 `Sources/AIMeterCore/Domain/UsageModels.swift:8`（`case code0`）、`Sources/AIMeterApp/Views/ProviderAccentPalette.swift:42`（`0x2CB67D`）与显示名/图标资源，`progressSemantics` 在 Swift 侧没有对应字面量（由指标单位推导）。**选择登记为已知限制而不是加断言**，理由是：可断言的只有 accent 一处，把 1/4 字段绑上反而会让人误以为另外 3 项也被绑定；且该 JSON 只被测试与 `check-cross-platform-contracts.rb` 读取，漂移不会破坏运行时。**漂移后果**：改 Swift 里的颜色/显示名/语义而未同步 JSON 时，门禁与发布说明仍描述旧值，界面与文档不一致但不报错；发现方式是人工比对，不是自动门禁。
 
 **风险与反例**：若有人把 `windows/` 一并带入（例如为了"契约一致"而整目录 checkout），则红门随之进入 main，方案失效——所以第 2 步必须逐路径列出，并在提交上做一次 `git diff --stat origin/main` 复核"无 `windows/src` 变更"。
 
