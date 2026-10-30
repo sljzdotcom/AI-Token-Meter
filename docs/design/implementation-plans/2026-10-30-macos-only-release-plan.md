@@ -103,6 +103,19 @@
 
 ---
 
+---
+
+## ⑦ 补充实测：`main` 自身并非全绿（写计划时新发现）
+
+- `gh run list --branch main`：`a97c2a58`（v0.10.11 合并提交）上 `CI` run **`40297237500` = failure**，同提交的 `Windows CI` run **`40297237183` = success**。
+- 失败 job 为 `Swift tests and public-release checks`；日志结束行是 `✘ Suite "CLI authentication script builder" failed after 161.512 seconds with 3 issues`、`✘ Test run with 50 tests in 1 suite failed`、`##[error]Process completed with exit code 1`（该 job 的步骤名在日志里显示为 `Test and validate documentation`，但实际失败内容是 Swift 测试套件，不是 docs 检查）。已捕获的具体 issue 之一：`Test "Antigravity watchdog cleans descendants after the CLI leader exits" recorded an issue at CLIAuthenticationScriptBuilderTests.swift:1364:6: Caught error: NSCocoaErrorDomain Code=260 "callbacks.txt" ... No such file or directory`。
+- 同一 job 在 `5e03674b` 上（CI `40988017311`，4 个 job 全 success）**通过**；`a97c2a58..5e03674b` 对该测试文件有多个修复类提交（`b017f036`、`0ed30ec3`、`299f6487`、`55bea462` 等）。
+- 对本计划的影响与要求：
+  1. 发布分支不能以"main 是绿的"为前提。合并 macOS 子集后必须**实跑** `scripts/test.sh` 与 CI 的 `test` job 并取实际结论，不得引用 main 的旧状态当证据。
+  2. 该红是 main 既有缺陷、不是本次引入；合并 macOS 子集很可能顺带修复，但**必须实测确认**，不得假设已修复。
+  3. 若实测仍红，按【阻塞发布】处理，在打包与发布前解决；不得跳过该 job、不得删断言、不得以重跑碰绿结项。
+  4. 这也说明"Windows 红门只在 `codex/code0-monitor` 分支上"成立：main 的 `Windows CI` 是绿的，路径级子集合并不会把 `40988017283` 那类失败带进发布分支。
+
 ## ⑥ 执行顺序（等 PM 批准后开工）
 
 1. macOS 子集合并到 `release/macos-0.11.0`（逐路径，`windows/src` 零改动）。
