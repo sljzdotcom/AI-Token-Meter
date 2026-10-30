@@ -107,7 +107,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-当前稳定版下载页面：**[Download v0.10.11](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.11)**：
+当前稳定版下载页面：**[Download v0.11.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.11.0)**（Windows 仍为 [v0.10.11](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.11)）：
 
 - macOS：下载 `AI-Token-Meter-0.10.11-macOS-arm64.zip` 与同名 `.sha256`；
 - Windows：下载 `AI-Token-Meter-0.10.11-windows-x64-setup.exe` 与同名 `.sha256`。

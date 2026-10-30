@@ -2,13 +2,12 @@
 
 - **事实快照：** 2026-10-30
 - **产品：** AI Token Meter
-- **当前公开稳定版：** 双平台 [`0.10.11`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.11)（macOS build `39`）
-- **候选版本：** macOS `0.11.0` / build `40`（未发布，Draft 分支待审；Windows 不随本版发布）
+- **当前公开稳定版：** macOS [`0.11.0`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.11.0)（build `40`）；Windows 仍为 [`0.10.11`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.10.11)（build `39`），本版未发布 Windows 安装器
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**候选 0.11.0/build40 的分发事实（macOS）：** macOS 新增第五个可选服务 Code0，Windows 产品行为与 0.10.11 相同且本版不发布 Windows 安装器。分发形式沿用既有口径：Apple Silicon ZIP、**ad-hoc 签名**、**未经过 Apple Developer ID 公证**，`codesign --verify --deep --strict` 通过，但 `spctl` 判定 `rejected`、无公证票据，首次打开需在 Finder 中右键「打开」。**本版不含 Widget 扩展**：构建机没有 Apple Development 身份与 Team ID，`scripts/build-app.sh` 按既定规则跳过 `.appex`，不得把 ad-hoc 签名 Widget 当成成功产物。更新签名仍由 Sparkle EdDSA 保护，Sparkle 固定 `2.9.4`。已知限制与安装说明见[0.11.0 发布记录](releases/v0.11.0.md)。
+**0.11.0/build40 已公开（macOS）：** macOS 新增第五个可选服务 Code0（需用户显式连接官方网页登录，只读余额与累计消耗，间隔不少于 300 秒，重启后保持暂停）。Windows 产品行为与 0.10.11 相同且**本版未发布 Windows 安装器**。分发形式沿用既有口径：Apple Silicon ZIP、**ad-hoc 签名**、**未经过 Apple Developer ID 公证**，`codesign --verify --deep --strict` 通过，但 `spctl` 判定 `rejected`、无公证票据，首次打开需在 Finder 中右键「打开」；解压请用 `ditto -x -k`，用 `unzip` 解包会因元数据丢失误报 `a sealed resource is missing or invalid`。**本版不含 Widget 扩展**：构建机没有 Apple Development 身份与 Team ID，`scripts/build-app.sh` 按既定规则跳过 `.appex`，不得把 ad-hoc 签名 Widget 当成成功产物。更新签名仍由 Sparkle EdDSA 保护，Sparkle 固定 `2.9.4`。四项已知限制：① 未覆盖真实媒体权限委托与 TCC 分支；② 未覆盖真实 TLS 握手与客户端证书回调先后顺序；③ 未用真实账号与真实余额验收，读数来自受控夹具；④ 原生 401、重定向、弹窗、下载、页面对话框与权限提示的组合矩阵仅有限验收。发布与安装说明见[0.11.0 发布记录](releases/v0.11.0.md)。
 
 **v0.10.9/build37 已公开：** 修复 Antigravity 单次登录回执无法送达时界面长时间等待的问题，补齐启动/失败诊断，并在已有 Gemini 额度但缺少 Claude/GPT 共享窗口时显示明确提示。自动刷新暂停仍按安全设计保留；真实 `agy 1.3.1` 输出与现场额度未验证。PR #61、双平台签名安装包、匿名下载校验及三个更新源均已验收，见[发布记录](development/2026-10-10-v0.10.9-release.md)。
 
