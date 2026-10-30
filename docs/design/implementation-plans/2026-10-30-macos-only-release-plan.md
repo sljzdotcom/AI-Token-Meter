@@ -66,6 +66,15 @@
 5. **Windows 红门在合并后为何不阻塞**：因为 `windows/` 保持 `origin/main` 的版本，本分支**不引入**任何 Windows 源码改动，`windows-ci` 的既有结论不变（仍是通过的旧版本）；HTTP401/S5 继续留在 PR#67（Draft）作为后续批次载体，恢复 Windows 时再处理。**不允许**通过删断言、跳过测试、`continue-on-error`、放宽超时让它"变绿"。
 6. `pr#67` 保持 Draft，不合并、不改状态。
 
+**执行记录（2026-10-30，实际落地与本文的差异）**：
+
+- 实际取用路径 = `.github/workflows/ci.yml`、`.github/workflows/release.yml`、`AGENTS.md`、`Package.swift`、`Sources/`、`Tests/`、`contracts/`、`docs/`、`web/`、`scripts/check-cross-platform-contracts.rb`、`scripts/sync-code0-bridge.py`、`scripts/test-code0-native-fixture.sh`、`scripts/test.sh`（15 项，`windows/` 零源文件改动）；首取 84 文件 +15525/−220，版本物料与发布说明另计。
+- 偏离 1：`.ci/**`、`scripts/collect-code0-native-loader.ps1` 未取——二者仅被 `.github/workflows/windows-ci.yml` 使用，而该 workflow 保留 `main` 版本。
+- 偏离 2：`.github/workflows/code0-dispatcher-mutations.yml` 与 `scripts/test-code0-dispatcher-mutations.py` 曾按第 2 步取入，随后移除。原因：该 workflow 精确校验 `windows/src-tauri/src/platform/windows/code0_dispatcher.rs` 的已评审 SHA，而本发布分支不含该源码，Draft PR 首跑（run `41006300512`）以 `Checkout bytes are not the reviewed committed source; mutation opt-in refused` 退出 1；该脚本 docstring 本身限定 Windows CI 使用；两文件在 `main` 均不存在，故本发布不新增，Windows 批次再随源文件一并引入。
+- 偏离 3：版本数字实际落地范围以 `scripts/check-cross-platform-contracts.rb` 为准，除第 3 步所列外还需 `windows/package-lock.json`（两处）、`windows/src-tauri/Cargo.lock`，以及 `Sources/AIMeterWidgetExtension/Resources/Info.plist`（Widget 与宿主版本一致性断言）。
+- 第 4 步（`release.yml` 的 `platform: macos|both`）已实现：`windows-release` job 整体 `if: inputs.platform == 'both'`（显式跳过，非删除）；`publish` 改为 `!cancelled() && needs.macos-preflight.result == 'success' && (inputs.platform != 'both' || needs.windows-release.result == 'success')`；`publish` 内四个 Windows 步骤逐个加 `if: inputs.platform == 'both'`；并新增 `Publish the verified macOS draft release`（仅 `platform == 'macos'`）——原流程只有 Windows 步骤才会把 draft 转为公开，macOS-only 必须补这一步，且它只在 macOS 资产（zip、`.sha256`、`appcast.xml`）齐备时公开。macOS 门禁一项未减少。
+- Draft PR #68 仅用于在 macOS runner 上取得权威门禁结论，保持 Draft、不合并、不转 Ready。
+
 **风险与反例**：若有人把 `windows/` 一并带入（例如为了"契约一致"而整目录 checkout），则红门随之进入 main，方案失效——所以第 2 步必须逐路径列出，并在提交上做一次 `git diff --stat origin/main` 复核"无 `windows/src` 变更"。
 
 ---
